@@ -96,7 +96,6 @@ export function NewFolderButton({ onClick }: { onClick?: () => void }) {
                                     }
                                 }}
                                 disabled={isCreating}
-                                autoFocus
                             />
                         </div>
 

@@ -51,18 +51,81 @@ export const manualStreamTransform = (
     userId: string,
     actionCtx: GenericActionCtx<DataModel>
 ) => {
+    const MAX_STORED_TEXT_CHARS = 32_000
     let reasoningStartedAt = -1
+    let storedTextChars = 0
+    let hasTruncatedStoredText = false
+    let hasSuppressedInlinePayloadNotice = false
+
+    const isLikelyInlineImagePayload = (text: string) => {
+        if (text.includes("data:image/")) return true
+        if (text.length < 2048) return false
+        const compact = text.replace(/\s+/g, "")
+        return /^[A-Za-z0-9+/=]+$/.test(compact)
+    }
+
+    const canStoreTextChunk = (text: string, type: "text" | "reasoning") => {
+        if (type === "text" && isLikelyInlineImagePayload(text)) {
+            return false
+        }
+
+        if (storedTextChars >= MAX_STORED_TEXT_CHARS) {
+            if (!hasTruncatedStoredText) {
+                parts.push({
+                    type: "text",
+                    text: "\n\n[Output truncated in persisted message due to payload size.]"
+                })
+                hasTruncatedStoredText = true
+            }
+            return false
+        }
+
+        return true
+    }
+
+    const shouldForwardTextChunk = (text: string) => {
+        if (!isLikelyInlineImagePayload(text)) {
+            return true
+        }
+
+        if (!hasSuppressedInlinePayloadNotice) {
+            controllerSafeNotice()
+            hasSuppressedInlinePayloadNotice = true
+        }
+
+        return false
+    }
+
+    let currentTextChunkId: string | null = null
+    let textNoticeController: TransformStreamDefaultController<UIMessageChunk> | null = null
+
+    const controllerSafeNotice = () => {
+        if (!textNoticeController || !currentTextChunkId) return
+        textNoticeController.enqueue({
+            type: "text-delta",
+            id: currentTextChunkId,
+            delta: "\n\n[Image payload omitted from live text stream.]"
+        })
+    }
 
     const appendTextPart = (text: string, type: "text" | "reasoning") => {
+        if (!canStoreTextChunk(text, type)) {
+            return
+        }
+
+        const allowedText = text.slice(0, Math.max(0, MAX_STORED_TEXT_CHARS - storedTextChars))
+        if (!allowedText) return
+
+        storedTextChars += allowedText.length
         const lastPart = parts[parts.length - 1]
 
         if (type === "text" && lastPart?.type === "text") {
-            lastPart.text += text
+            lastPart.text += allowedText
             return
         }
 
         if (type === "reasoning" && lastPart?.type === "reasoning") {
-            lastPart.reasoning += text
+            lastPart.reasoning += allowedText
             lastPart.duration = Date.now() - reasoningStartedAt
             return
         }
@@ -70,7 +133,7 @@ export const manualStreamTransform = (
         if (type === "text") {
             parts.push({
                 type: "text",
-                text
+                text: allowedText
             })
             return
         }
@@ -81,22 +144,47 @@ export const manualStreamTransform = (
 
         parts.push({
             type: "reasoning",
-            reasoning: text,
+            reasoning: allowedText,
             details: []
         })
     }
 
+    let totalBytesTracked = 0
+    let chunkCount = 0
+
     return new TransformStream<TextStreamPart<any>, UIMessageChunk>({
         transform: async (chunk, controller) => {
+            chunkCount++
+            // TEMP DIAGNOSTIC: log chunk type and approximate size
+            let approxSize = 0
+            if (chunk.type === "text-delta") approxSize = chunk.text?.length ?? 0
+            else if (chunk.type === "reasoning-delta") approxSize = chunk.text?.length ?? 0
+            else if (chunk.type === "file") {
+                approxSize =
+                    (chunk.file?.uint8Array?.byteLength ?? 0) + (chunk.file?.base64?.length ?? 0)
+            }
+            totalBytesTracked += approxSize
+            if (chunkCount % 50 === 1 || approxSize > 10_000) {
+                console.log(
+                    `[DIAG] chunk#${chunkCount} type=${chunk.type} size=${approxSize} totalTracked=${totalBytesTracked}`
+                )
+            }
+
             switch (chunk.type) {
                 case "text-start":
+                    currentTextChunkId = chunk.id
                     controller.enqueue({ type: "text-start", id: chunk.id })
                     break
                 case "text-delta":
-                    controller.enqueue({ type: "text-delta", id: chunk.id, delta: chunk.text })
+                    textNoticeController = controller
+                    if (shouldForwardTextChunk(chunk.text)) {
+                        controller.enqueue({ type: "text-delta", id: chunk.id, delta: chunk.text })
+                    }
                     appendTextPart(chunk.text, "text")
                     break
                 case "text-end":
+                    currentTextChunkId = null
+                    textNoticeController = null
                     controller.enqueue({ type: "text-end", id: chunk.id })
                     break
                 case "reasoning-start":

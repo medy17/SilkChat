@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/responsive-popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/convex/_generated/api"
-import { MODELS_SHARED, type SharedModel } from "@/convex/lib/models"
+import type { SharedModel } from "@/convex/lib/models"
 import { DefaultSettings } from "@/convex/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -32,6 +32,7 @@ import {
     getProviderDisplayName,
     useAvailableModels
 } from "@/lib/models-providers-shared"
+import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { Check, ChevronDown, Globe, Image, Search } from "lucide-react"
@@ -92,6 +93,8 @@ type ProviderSection = {
 }
 
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
+const getModelReleaseOrder = (model: DisplayModel) =>
+    "isCustom" in model && model.isCustom ? 0 : ((model as SharedModel).releaseOrder ?? 0)
 
 const normalizeProviderId = (providerId: string) =>
     providerId.startsWith("i3-") ? providerId.slice(3) : providerId
@@ -308,6 +311,7 @@ export function ModelSelector({
     const { availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
+    const { models: sharedModels } = useSharedModels()
 
     const providerSections = React.useMemo<ProviderSection[]>(() => {
         const grouped = availableModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
@@ -336,7 +340,14 @@ export function ModelSelector({
                     id: providerId,
                     label,
                     compactLabel: providerId === "google" ? "Gemini" : label,
-                    models: [...models].sort((left, right) => left.name.localeCompare(right.name)),
+                    models: [...models].sort((left, right) => {
+                        const releaseDelta =
+                            getModelReleaseOrder(right) - getModelReleaseOrder(left)
+                        if (releaseDelta !== 0) {
+                            return releaseDelta
+                        }
+                        return left.name.localeCompare(right.name)
+                    }),
                     icon: getProviderSectionIcon(providerId)
                 }
             })
@@ -455,9 +466,9 @@ export function ModelSelector({
     const selectedModelIcon = React.useMemo(() => {
         if (!selectedModelData) return null
 
-        const isCustom = !MODELS_SHARED.some((model) => model.id === selectedModelData.id)
+        const isCustom = !sharedModels.some((model) => model.id === selectedModelData.id)
         return getProviderIcon(selectedModelData, isCustom)
-    }, [selectedModelData])
+    }, [selectedModelData, sharedModels])
 
     return (
         <ResponsivePopover open={open} onOpenChange={setOpen}>

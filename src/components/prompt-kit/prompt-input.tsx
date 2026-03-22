@@ -7,6 +7,7 @@ import {
     forwardRef,
     useCallback,
     useContext,
+    useEffect,
     useImperativeHandle,
     useRef
 } from "react"
@@ -53,6 +54,26 @@ type PromptInputProps = {
 const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
     ({ className, isLoading = false, maxHeight = 240, onSubmit, children }, ref) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null)
+        const resizeTextarea = useCallback(
+            (value?: string) => {
+                const textarea = textareaRef.current
+                if (!textarea) return
+
+                textarea.style.height = "auto"
+
+                const nextValue = value ?? textarea.value
+                if (!nextValue.trim()) {
+                    textarea.style.height = ""
+                    return
+                }
+
+                textarea.style.height =
+                    typeof maxHeight === "number"
+                        ? `${Math.min(textarea.scrollHeight, maxHeight)}px`
+                        : `min(${textarea.scrollHeight}px, ${maxHeight})`
+            },
+            [maxHeight]
+        )
 
         useImperativeHandle(
             ref,
@@ -61,11 +82,13 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                 setValue: (value: string) => {
                     if (textareaRef.current) {
                         textareaRef.current.value = value
+                        resizeTextarea(value)
                     }
                 },
                 clear: () => {
                     if (textareaRef.current) {
                         textareaRef.current.value = ""
+                        resizeTextarea("")
                         localStorage.removeItem("user-input")
                     }
                 },
@@ -73,8 +96,12 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                     textareaRef.current?.focus()
                 }
             }),
-            []
+            [resizeTextarea]
         )
+
+        useEffect(() => {
+            resizeTextarea()
+        }, [resizeTextarea])
 
         return (
             <TooltipProvider>
@@ -115,6 +142,23 @@ function PromptInputTextarea({
 }: PromptInputTextareaProps) {
     const { maxHeight, onSubmit, disabled, textareaRef } = usePromptInput()
 
+    const resizeTextarea = useCallback(
+        (target: HTMLTextAreaElement) => {
+            target.style.height = "auto"
+
+            if (!target.value.trim()) {
+                target.style.height = ""
+                return
+            }
+
+            target.style.height =
+                typeof maxHeight === "number"
+                    ? `${Math.min(target.scrollHeight, maxHeight)}px`
+                    : `min(${target.scrollHeight}px, ${maxHeight})`
+        },
+        [maxHeight]
+    )
+
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -131,16 +175,17 @@ function PromptInputTextarea({
             if (disableAutosize) return
 
             const target = e.target as HTMLTextAreaElement
-            target.style.height = "auto"
-            target.style.height =
-                typeof maxHeight === "number"
-                    ? `${Math.min(target.scrollHeight, maxHeight)}px`
-                    : `min(${target.scrollHeight}px, ${maxHeight})`
+            resizeTextarea(target)
 
             localStorage.setItem("user-input", target.value)
         },
-        [disableAutosize, maxHeight]
+        [disableAutosize, resizeTextarea]
     )
+
+    useEffect(() => {
+        if (disableAutosize || !textareaRef.current) return
+        resizeTextarea(textareaRef.current)
+    }, [disableAutosize, resizeTextarea, textareaRef])
 
     return (
         <Textarea

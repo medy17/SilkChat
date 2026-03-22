@@ -1,12 +1,13 @@
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
-import { MODELS_SHARED } from "@/convex/lib/models"
 import { browserEnv } from "@/lib/browser-env"
+import { useSharedModels } from "@/lib/shared-models"
 import type { UIToolInvocation } from "ai"
 import { AlertCircle } from "lucide-react"
 import { memo, useMemo, useState } from "react"
 
 export const ImageGenerationToolRenderer = memo(
     ({ toolInvocation }: { toolInvocation: UIToolInvocation<any> }) => {
+        const { models: sharedModels } = useSharedModels()
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
         const hasResult = toolInvocation.state === "output-available" && toolInvocation.output
@@ -115,7 +116,7 @@ export const ImageGenerationToolRenderer = memo(
                 ((toolInvocation.input as { prompt?: string } | undefined)?.prompt ?? "")
 
             const modelName = output.modelId
-                ? MODELS_SHARED.find((m) => m.id === output.modelId)?.name
+                ? sharedModels.find((m) => m.id === output.modelId)?.name
                 : output.modelId
 
             return assets.map((asset, index) => (

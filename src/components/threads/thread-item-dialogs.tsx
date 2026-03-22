@@ -220,7 +220,6 @@ export const ThreadItemDialogs = memo(
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 placeholder="Enter thread name"
-                                autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && !isRenaming) {
                                         handleRename()

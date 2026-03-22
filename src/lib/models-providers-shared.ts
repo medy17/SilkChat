@@ -10,9 +10,10 @@ import {
     TavilyIcon,
     XAIIcon
 } from "@/components/brand-icons"
-import { type CoreProvider, MODELS_SHARED, type SharedModel } from "@/convex/lib/models"
+import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
 import { optionalBrowserEnv } from "@/lib/browser-env"
+import { useSharedModels } from "@/lib/shared-models"
 import type { Infer } from "convex/values"
 import { Brain, Code, Eye, File, Key } from "lucide-react"
 
@@ -128,13 +129,23 @@ export const isInternalProviderEnabled = (providerId: string) => {
     return !HIDDEN_PROVIDER_IDS.has(providerId) && enabledInternalProviders.has(coreProvider)
 }
 
-export const getDefaultModelId = () =>
-    MODELS_SHARED.find((model) =>
-        model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
-    )?.id ||
-    MODELS_SHARED.find((model) =>
+export const getDefaultModelId = (sharedModels: SharedModel[]) =>
+    (sharedModels.find(
+        (model) =>
+            model.id === "gemini-3-flash-preview" &&
+            model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
+    )?.id ??
+        sharedModels.find((model) =>
+            model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
+        )?.id) ||
+    sharedModels.find((model) =>
         model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
     )?.id
+
+export const useDefaultModelId = () => {
+    const { models } = useSharedModels()
+    return getDefaultModelId(models)
+}
 
 export type SearchProviderInfo = {
     id: "firecrawl" | "brave" | "tavily" | "serper"
@@ -176,6 +187,7 @@ export const SEARCH_PROVIDERS: SearchProviderInfo[] = [
 ]
 
 export function useAvailableModels(userSettings: Infer<typeof UserSettings> | undefined) {
+    const { models: sharedModels } = useSharedModels()
     const currentProviders = {
         core: userSettings?.coreAIProviders || {},
         custom: userSettings?.customAIProviders || {}
@@ -185,23 +197,25 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
     const unavailableModels: DisplayModel[] = []
 
     // Add shared models
-    MODELS_SHARED.filter((model) =>
-        model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
-    ).forEach((model) => {
-        const hasProvider = model.adapters.some((adapter) => {
-            const providerId = adapter.split(":")[0]
-            if (HIDDEN_PROVIDER_IDS.has(providerId)) return false
-            if (providerId.startsWith("i3-")) return isInternalProviderEnabled(providerId)
-            if (providerId === "openrouter") return currentProviders.core.openrouter?.enabled
-            return currentProviders.core[providerId as CoreProvider]?.enabled
-        })
+    sharedModels
+        .filter((model) =>
+            model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
+        )
+        .forEach((model) => {
+            const hasProvider = model.adapters.some((adapter) => {
+                const providerId = adapter.split(":")[0]
+                if (HIDDEN_PROVIDER_IDS.has(providerId)) return false
+                if (providerId.startsWith("i3-")) return isInternalProviderEnabled(providerId)
+                if (providerId === "openrouter") return currentProviders.core.openrouter?.enabled
+                return currentProviders.core[providerId as CoreProvider]?.enabled
+            })
 
-        if (hasProvider) {
-            availableModels.push(model)
-        } else {
-            unavailableModels.push(model)
-        }
-    })
+            if (hasProvider) {
+                availableModels.push(model)
+            } else {
+                unavailableModels.push(model)
+            }
+        })
 
     // Add custom models
     Object.entries(userSettings?.customModels || {}).forEach(([id, customModel]) => {

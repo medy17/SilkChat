@@ -101,13 +101,9 @@ const buildGoogleProviderOptions = (
         safetySettings: [...GOOGLE_MINIMUM_SAFETY_SETTINGS]
     }
 
-    if (
-        [
-            "gemini-2.0-flash-image-generation",
-            "gemini-3.1-flash-image-preview",
-            "gemini-3-pro-image-preview"
-        ].includes(modelId)
-    ) {
+    if (["gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview"].includes(modelId)) {
+        options.responseModalities = ["IMAGE"]
+    } else if (["gemini-2.0-flash-image-generation"].includes(modelId)) {
         options.responseModalities = ["TEXT", "IMAGE"]
     }
 
@@ -518,12 +514,15 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         return overrideValue !== false
                     })
                 }
+                const shouldDisableSmoothTransform = isGoogleImagePreviewModel(modelData.modelId)
                 const result = streamText({
                     model: model,
                     maxOutputTokens: maxTokens,
                     stopWhen: stepCountIs(100),
                     abortSignal: remoteCancel.signal,
-                    experimental_transform: smoothStream(),
+                    experimental_transform: shouldDisableSmoothTransform
+                        ? undefined
+                        : smoothStream(),
                     tools: modelData.abilities.includes("function_calling")
                         ? await getToolkit(ctx, body.enabledTools, filteredSettings)
                         : undefined,
@@ -567,7 +566,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     )
                 )
 
-                await result.consumeStream()
                 await Promise.allSettled(uploadPromises)
 
                 writer.write({

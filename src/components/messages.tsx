@@ -228,7 +228,6 @@ const EditableMessage = memo(
                     onChange={(e) => setEditedContent(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className=" my-12 w-full resize-none border-none bg-transparent p-4 pb-2 text-primary-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    autoFocus
                 />
                 <div className="flex justify-end gap-2 px-4 pb-3">
                     <Button

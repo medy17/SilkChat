@@ -47,6 +47,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     id: string
     name: string
     shortName?: string
+    releaseOrder?: number
     adapters: RegistryKey[]
     abilities: Abilities
     mode?: "text" | "image" | "speech-to-text"
@@ -64,6 +65,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-4o",
         name: "GPT 4o",
         shortName: "4o",
+        releaseOrder: 20240513,
         adapters: ["openai:gpt-4o", "openrouter:openai/gpt-4o"],
         abilities: ["vision", "function_calling", "pdf"]
     },
@@ -71,36 +73,42 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-4o-mini",
         name: "GPT 4o mini",
         shortName: "4o mini",
+        releaseOrder: 20240718,
         adapters: ["i3-openai:gpt-4o-mini", "openai:gpt-4o-mini", "openrouter:openai/gpt-4o-mini"],
         abilities: ["vision", "function_calling", "pdf"]
     },
     {
         id: "o3-mini",
         name: "o3 mini",
+        releaseOrder: 20250131,
         adapters: ["openai:o3-mini", "openrouter:openai/o3-mini"],
         abilities: ["reasoning", "function_calling", "effort_control"]
     },
     {
         id: "o4-mini",
         name: "o4 mini",
+        releaseOrder: 20250415,
         adapters: ["openai:o4-mini", "openrouter:openai/o4-mini"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
     },
     {
         id: "o3",
         name: "o3",
+        releaseOrder: 20250416,
         adapters: ["openai:o3", "openrouter:openai/o3"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
     },
     {
         id: "o3-pro",
         name: "o3 pro",
+        releaseOrder: 20250610,
         adapters: ["openai:o3-pro", "openrouter:openai/o3-pro"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
     },
     {
         id: "gpt-4.1",
         name: "GPT 4.1",
+        releaseOrder: 20250414,
         adapters: ["openai:gpt-4.1", "openrouter:openai/gpt-4.1"],
         abilities: ["vision", "function_calling", "pdf"]
     },
@@ -108,6 +116,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-4.1-mini",
         name: "GPT 4.1 mini",
         shortName: "4.1 mini",
+        releaseOrder: 20250413,
         adapters: [
             "i3-openai:gpt-4.1-mini",
             "openai:gpt-4.1-mini",
@@ -119,6 +128,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-4.1-nano",
         name: "GPT 4.1 nano",
         shortName: "4.1 nano",
+        releaseOrder: 20250412,
         adapters: [
             "i3-openai:gpt-4.1-nano",
             "openai:gpt-4.1-nano",
@@ -130,6 +140,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-5.4",
         name: "GPT 5.4",
         shortName: "5.4",
+        releaseOrder: 20250801,
         adapters: ["i3-openai:gpt-5.4", "openai:gpt-5.4"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -138,6 +149,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-5.4-mini",
         name: "GPT 5.4 mini",
         shortName: "5.4 mini",
+        releaseOrder: 20250800,
         adapters: ["i3-openai:gpt-5.4-mini", "openai:gpt-5.4-mini"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -146,6 +158,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-5.4-nano",
         name: "GPT 5.4 nano",
         shortName: "5.4 nano",
+        releaseOrder: 20250799,
         adapters: ["i3-openai:gpt-5.4-nano", "openai:gpt-5.4-nano"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -154,6 +167,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "claude-opus-4",
         name: "Claude Opus 4",
         shortName: "Opus 4",
+        releaseOrder: 20250522,
         adapters: ["anthropic:claude-opus-4-0", "openrouter:anthropic/claude-opus-4"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -162,6 +176,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "claude-sonnet-4",
         name: "Claude Sonnet 4",
         shortName: "Sonnet 4",
+        releaseOrder: 20250522,
         adapters: ["anthropic:claude-sonnet-4-0", "openrouter:anthropic/claude-sonnet-4"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -170,6 +185,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "claude-3-7-sonnet",
         name: "Claude Sonnet 3.7",
         shortName: "Sonnet 3.7",
+        releaseOrder: 20250224,
         adapters: ["anthropic:claude-3-7-sonnet", "openrouter:anthropic/claude-3.7-sonnet"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -178,6 +194,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "claude-3-5-sonnet",
         name: "Claude Sonnet 3.5",
         shortName: "Sonnet 3.5",
+        releaseOrder: 20240620,
         adapters: ["anthropic:claude-3-5-sonnet", "openrouter:anthropic/claude-3.5-sonnet"],
         abilities: ["vision", "function_calling", "pdf"]
     },
@@ -185,6 +202,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.0-flash-lite",
         name: "Gemini 2.0 Flash Lite",
         shortName: "2.0 Flash Lite",
+        releaseOrder: 20241209,
         adapters: [
             "i3-google:gemini-2.0-flash-lite",
             "google:gemini-2.0-flash-lite",
@@ -196,6 +214,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.0-flash-image-generation",
         name: "Gemini 2.0 Flash Imagen",
         shortName: "2.0 Flash Imagen",
+        releaseOrder: 20241211,
         adapters: ["i3-google:gemini-2.0-flash-exp", "google:gemini-2.0-flash-exp"],
         abilities: ["vision"]
     },
@@ -203,6 +222,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.5-flash",
         name: "Gemini 2.5 Flash",
         shortName: "2.5 Flash",
+        releaseOrder: 20250417,
         adapters: [
             "i3-google:gemini-2.5-flash",
             "google:gemini-2.5-flash",
@@ -215,6 +235,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.5-flash-lite",
         name: "Gemini 2.5 Flash Lite",
         shortName: "2.5 Flash Lite",
+        releaseOrder: 20250617,
         adapters: [
             "i3-google:gemini-2.5-flash-lite-preview-06-17",
             "google:gemini-2.5-flash-lite-preview-06-17",
@@ -227,6 +248,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.0-flash",
         name: "Gemini 2.0 Flash",
         shortName: "2.0 Flash",
+        releaseOrder: 20241210,
         adapters: [
             "i3-google:gemini-2.0-flash",
             "google:gemini-2.0-flash",
@@ -238,6 +260,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-2.5-pro",
         name: "Gemini 2.5 Pro",
         shortName: "2.5 Pro",
+        releaseOrder: 20250506,
         adapters: ["google:gemini-2.5-pro", "openrouter:google/gemini-2.5-pro"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -246,6 +269,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-3-flash-preview",
         name: "Gemini 3 Flash Preview",
         shortName: "3 Flash",
+        releaseOrder: 20260301,
         adapters: ["i3-google:gemini-3-flash-preview", "google:gemini-3-flash-preview"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
@@ -254,6 +278,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-3.1-pro-preview",
         name: "Gemini 3.1 Pro Preview",
         shortName: "3.1 Pro",
+        releaseOrder: 20260317,
         adapters: ["i3-google:gemini-3.1-pro-preview", "google:gemini-3.1-pro-preview"],
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
     },
@@ -261,6 +286,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-3.1-flash-lite-preview",
         name: "Gemini 3.1 Flash Lite Preview",
         shortName: "3.1 Flash Lite",
+        releaseOrder: 20260318,
         adapters: [
             "i3-google:gemini-3.1-flash-lite-preview",
             "google:gemini-3.1-flash-lite-preview"
@@ -272,6 +298,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-3.1-flash-image-preview",
         name: "Gemini 3.1 Flash Image Preview",
         shortName: "3.1 Flash Image",
+        releaseOrder: 20260319,
         adapters: [
             "i3-google:gemini-3.1-flash-image-preview",
             "google:gemini-3.1-flash-image-preview"
@@ -285,6 +312,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gemini-3-pro-image-preview",
         name: "Gemini 3 Pro Image Preview",
         shortName: "3 Pro Image",
+        releaseOrder: 20260320,
         adapters: ["i3-google:gemini-3-pro-image-preview", "google:gemini-3-pro-image-preview"],
         abilities: ["reasoning", "vision", "effort_control"],
         supportedImageSizes: [
@@ -306,6 +334,7 @@ export const MODELS_SHARED: SharedModel[] = [
     {
         id: "gpt-image-1",
         name: "GPT Image 1",
+        releaseOrder: 20250423,
         adapters: ["openai:gpt-image-1"],
         abilities: [],
         mode: "image",
@@ -315,6 +344,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "gpt-image-1.5-2025-12-16",
         name: "GPT Image 1.5",
         shortName: "Image 1.5",
+        releaseOrder: 20251216,
         adapters: ["i3-openai:gpt-image-1.5-2025-12-16", "openai:gpt-image-1.5-2025-12-16"],
         abilities: [],
         mode: "image",
@@ -325,6 +355,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "sdxl-lightning",
         name: "SDXL Lightning",
         shortName: "SDXL",
+        releaseOrder: 20240222,
         adapters: ["i3-fal:fal-ai/fast-lightning-sdxl", "fal:fal-ai/fast-lightning-sdxl"],
         abilities: [],
         mode: "image",
@@ -335,6 +366,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "flux-schnell",
         name: "FLUX.1 [schnell]",
         shortName: "flux.schnell",
+        releaseOrder: 20240800,
         adapters: ["i3-fal:fal-ai/flux/schnell", "fal:fal-ai/flux/schnell"],
         abilities: [],
         mode: "image",
@@ -345,6 +377,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "flux-dev",
         name: "FLUX.1 [dev]",
         shortName: "flux.dev",
+        releaseOrder: 20240801,
         adapters: ["fal:fal-ai/flux/dev"],
         abilities: [],
         mode: "image",
@@ -355,6 +388,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "google-imagen-3-fast",
         name: "Google Imagen 3 (Fast)",
         shortName: "Imagen 3 (Fast)",
+        releaseOrder: 20250131,
         adapters: ["fal:fal-ai/imagen3/fast"],
         abilities: [],
         mode: "image",
@@ -365,6 +399,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "google-imagen-3",
         name: "Google Imagen 3",
         shortName: "Imagen 3",
+        releaseOrder: 20250201,
         adapters: ["fal:fal-ai/imagen3"],
         abilities: [],
         mode: "image",
@@ -375,6 +410,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "google-imagen-4",
         name: "Google Imagen 4",
         shortName: "Imagen 4",
+        releaseOrder: 20250520,
         adapters: ["fal:fal-ai/imagen4/preview"],
         abilities: [],
         mode: "image",
@@ -385,6 +421,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "imagen-4.0-generate-001",
         name: "Imagen 4 Standard",
         shortName: "Imagen 4",
+        releaseOrder: 20260218,
         adapters: ["i3-google:imagen-4.0-generate-001", "google:imagen-4.0-generate-001"],
         abilities: [],
         mode: "image",
@@ -395,6 +432,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "imagen-4.0-ultra-generate-001",
         name: "Imagen 4 Ultra",
         shortName: "Imagen 4 Ultra",
+        releaseOrder: 20260219,
         adapters: [
             "i3-google:imagen-4.0-ultra-generate-001",
             "google:imagen-4.0-ultra-generate-001"
@@ -408,6 +446,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "imagen-4.0-fast-generate-001",
         name: "Imagen 4 Fast",
         shortName: "Imagen 4 Fast",
+        releaseOrder: 20260220,
         adapters: ["i3-google:imagen-4.0-fast-generate-001", "google:imagen-4.0-fast-generate-001"],
         abilities: [],
         mode: "image",
@@ -418,6 +457,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "llama-4-scout-17b-16e-instruct",
         name: "Llama 4 Scout 17B 16E",
         shortName: "Llama 4 Scout 17B",
+        releaseOrder: 20250404,
         adapters: [
             "i3-groq:meta-llama/llama-4-scout-17b-16e-instruct",
             "groq:meta-llama/llama-4-scout-17b-16e-instruct"
@@ -429,6 +469,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "grok-4-1-fast-reasoning",
         name: "Grok 4.1 Fast Reasoning",
         shortName: "Grok 4.1 R",
+        releaseOrder: 20260321,
         adapters: ["i3-xai:grok-4-1-fast-reasoning", "xai:grok-4-1-fast-reasoning"],
         abilities: ["reasoning", "function_calling"],
         customIcon: "xai"
@@ -437,6 +478,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "grok-4-1-fast-non-reasoning",
         name: "Grok 4.1 Fast",
         shortName: "Grok 4.1",
+        releaseOrder: 20260320,
         adapters: ["i3-xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-non-reasoning"],
         abilities: ["function_calling"],
         customIcon: "xai"
@@ -445,6 +487,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "grok-4.20-0309-reasoning",
         name: "Grok 4.20 0309 Reasoning",
         shortName: "Grok 4.20 R",
+        releaseOrder: 20250309,
         adapters: ["i3-xai:grok-4.20-0309-reasoning", "xai:grok-4.20-0309-reasoning"],
         abilities: ["reasoning", "function_calling"],
         customIcon: "xai"
@@ -453,6 +496,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "grok-4.20-0309-non-reasoning",
         name: "Grok 4.20 0309",
         shortName: "Grok 4.20",
+        releaseOrder: 20250308,
         adapters: ["i3-xai:grok-4.20-0309-non-reasoning", "xai:grok-4.20-0309-non-reasoning"],
         abilities: ["function_calling"],
         customIcon: "xai"
@@ -461,6 +505,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "llama-4-maverick-17b-128e-instruct",
         name: "Llama 4 Maverick 17B 128E Instruct",
         shortName: "Llama 4 Maverick 17B",
+        releaseOrder: 20250405,
         adapters: ["groq:meta-llama/llama-4-maverick-17b-128e-instruct"],
         abilities: ["vision"],
         customIcon: "meta"
@@ -469,6 +514,7 @@ export const MODELS_SHARED: SharedModel[] = [
         id: "llama-3-1-8b-instant",
         name: "Llama 3.1 8B Instant",
         shortName: "Llama 3.1 8B",
+        releaseOrder: 20240723,
         adapters: ["i3-groq:llama-3.1-8b-instant", "groq:llama-3.1-8b-instant"],
         abilities: [],
         customIcon: "meta"
@@ -476,8 +522,25 @@ export const MODELS_SHARED: SharedModel[] = [
     {
         id: "whisper-large-v3-turbo",
         name: "Whisper Large v3 Turbo",
+        releaseOrder: 20240301,
         adapters: ["groq:whisper-large-v3-turbo"],
         abilities: [],
         mode: "speech-to-text"
     }
 ] as const
+
+export const SHARED_MODELS_VERSION = JSON.stringify(
+    MODELS_SHARED.map((model) => [
+        model.id,
+        model.name,
+        model.shortName,
+        model.releaseOrder,
+        model.adapters,
+        model.abilities,
+        model.mode,
+        model.supportedImageSizes,
+        model.supportedImageResolutions,
+        model.customIcon,
+        model.supportsDisablingReasoning
+    ])
+)

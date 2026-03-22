@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
-import { type ImageResolution, type ImageSize, MODELS_SHARED } from "@/convex/lib/models"
+import type { ImageResolution, ImageSize } from "@/convex/lib/models"
 import { DefaultSettings } from "@/convex/settings"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
@@ -40,6 +40,7 @@ import {
     isTextMimeType
 } from "@/lib/file_constants"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
+import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import type { useChat } from "@ai-sdk/react"
 import { useLocation } from "@tanstack/react-router"
@@ -75,12 +76,13 @@ const IMAGE_COMPRESSION_STEPS = [
 
 const AspectRatioSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { selectedImageSize, setSelectedImageSize } = useModelStore()
+    const { models: sharedModels } = useSharedModels()
 
     const supportedImageSizes = useMemo(() => {
         if (!selectedModel) return []
-        const model = MODELS_SHARED.find((m) => m.id === selectedModel)
+        const model = sharedModels.find((m) => m.id === selectedModel)
         return model?.supportedImageSizes || []
-    }, [selectedModel])
+    }, [selectedModel, sharedModels])
 
     // Auto-select a valid image size when the model changes
     useEffect(() => {
@@ -135,12 +137,13 @@ const AspectRatioSelector = ({ selectedModel }: { selectedModel: string | null }
 
 const ImageResolutionSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { selectedImageResolution, setSelectedImageResolution } = useModelStore()
+    const { models: sharedModels } = useSharedModels()
 
     const supportedImageResolutions = useMemo(() => {
         if (!selectedModel) return []
-        const model = MODELS_SHARED.find((m) => m.id === selectedModel)
+        const model = sharedModels.find((m) => m.id === selectedModel)
         return model?.supportedImageResolutions || []
-    }, [selectedModel])
+    }, [selectedModel, sharedModels])
 
     useEffect(() => {
         if (supportedImageResolutions.length === 0) return
@@ -179,15 +182,16 @@ const ImageResolutionSelector = ({ selectedModel }: { selectedModel: string | nu
 
 const ReasoningEffortSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
+    const { models: sharedModels } = useSharedModels()
 
     const [modelSupportsEffortControl, modelSupportsDisablingReasoning] = useMemo(() => {
         if (!selectedModel) return [false, false]
-        const model = MODELS_SHARED.find((m) => m.id === selectedModel)
+        const model = sharedModels.find((m) => m.id === selectedModel)
         return [
             model?.abilities.includes("effort_control") ?? false,
             model?.supportsDisablingReasoning ?? false
         ]
-    }, [selectedModel])
+    }, [selectedModel, sharedModels])
 
     const allowedEfforts: ReasoningEffort[] = modelSupportsDisablingReasoning
         ? ["off", "low", "medium", "high"]
@@ -239,6 +243,7 @@ export function MultimodalInput({
     const location = useLocation()
     const session = useSession()
     const auth = useConvexAuth()
+    const { models: sharedModels } = useSharedModels()
     // Extract threadId from URL
     const threadId = location.pathname.includes("/thread/")
         ? location.pathname.split("/thread/")[1]?.split("/")[0]
@@ -303,7 +308,7 @@ export function MultimodalInput({
         modelSupportsImageResolution
     ] = useMemo(() => {
         if (!selectedModel) return [false, false, false, false, false, false]
-        const model = MODELS_SHARED.find((m) => m.id === selectedModel)
+        const model = sharedModels.find((m) => m.id === selectedModel)
         return [
             model?.abilities.includes("vision") ?? false,
             model?.abilities.includes("function_calling") ?? false,
@@ -312,7 +317,7 @@ export function MultimodalInput({
             (model?.supportedImageSizes?.length ?? 0) > 0,
             (model?.supportedImageResolutions?.length ?? 0) > 0
         ]
-    }, [selectedModel])
+    }, [selectedModel, sharedModels])
 
     useEffect(() => {
         setExtendedFiles(uploadedFiles.map((file) => ({ ...file })))
@@ -800,15 +805,6 @@ export function MultimodalInput({
         return () => document.removeEventListener("paste", handleGlobalPaste)
     }, [handlePaste])
 
-    useEffect(() => {
-        if (location.pathname.includes("/thread/")) {
-            const timer = setTimeout(() => {
-                promptInputRef.current?.focus()
-            }, 100)
-            return () => clearTimeout(timer)
-        }
-    }, [location.pathname])
-
     if (!isClient) return null
 
     return (
@@ -850,7 +846,6 @@ export function MultimodalInput({
                         </div>
                     )}
                     <PromptInputTextarea
-                        autoFocus
                         placeholder={
                             isImageModel
                                 ? "Describe the image you want to generate..."

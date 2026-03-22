@@ -5,7 +5,13 @@ import { type QueryCtx, internalQuery, mutation, query } from "./_generated/serv
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
 import { isInternalProviderConfigured } from "./lib/internal_provider_config"
-import { type CoreProvider, MODELS_SHARED, type RegistryKey, type SharedModel } from "./lib/models"
+import {
+    type CoreProvider,
+    MODELS_SHARED,
+    type RegistryKey,
+    SHARED_MODELS_VERSION,
+    type SharedModel
+} from "./lib/models"
 import type { UserSettings } from "./schema"
 import { NonSensitiveUserSettings } from "./schema/settings"
 
@@ -66,6 +72,16 @@ export const getUserSettings = query({
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return DefaultSettings("unauthorized")
         return await getSettings(ctx, user.id)
+    }
+})
+
+export const getSharedModels = query({
+    args: {},
+    handler: async () => {
+        return {
+            version: SHARED_MODELS_VERSION,
+            models: MODELS_SHARED
+        }
     }
 })
 

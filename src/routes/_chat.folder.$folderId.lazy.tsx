@@ -15,7 +15,7 @@ import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useModelStore } from "@/lib/model-store"
-import { getDefaultModelId } from "@/lib/models-providers-shared"
+import { useDefaultModelId } from "@/lib/models-providers-shared"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import { Link } from "@tanstack/react-router"
@@ -42,15 +42,15 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
     const location = useLocation()
+    const defaultModelId = useDefaultModelId()
 
     useDynamicTitle({ threadId })
 
     useEffect(() => {
-        const defaultModelId = getDefaultModelId()
         if (!selectedModel && defaultModelId) {
             setSelectedModel(defaultModelId)
         }
-    }, [selectedModel, setSelectedModel])
+    }, [defaultModelId, selectedModel, setSelectedModel])
 
     const projects = useDiskCachedQuery(
         api.folders.getUserProjects,

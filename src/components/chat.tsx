@@ -10,7 +10,7 @@ import { useThreadSync } from "@/hooks/use-thread-sync"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useModelStore } from "@/lib/model-store"
-import { getDefaultModelId } from "@/lib/models-providers-shared"
+import { useDefaultModelId } from "@/lib/models-providers-shared"
 import { useThemeStore } from "@/lib/theme-store"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect } from "react"
@@ -35,15 +35,15 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
+    const defaultModelId = useDefaultModelId()
 
     useDynamicTitle({ threadId })
 
     useEffect(() => {
-        const defaultModelId = getDefaultModelId()
         if (!selectedModel && defaultModelId) {
             setSelectedModel(defaultModelId)
         }
-    }, [selectedModel, setSelectedModel])
+    }, [defaultModelId, selectedModel, setSelectedModel])
 
     const projects = useDiskCachedQuery(
         api.folders.getUserProjects,

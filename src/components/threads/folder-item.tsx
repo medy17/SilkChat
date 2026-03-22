@@ -229,7 +229,6 @@ export function FolderItem({
                                 className="max-w-[50%]"
                                 placeholder="Enter folder name"
                                 disabled={isEditing}
-                                autoFocus
                             />
                         </div>
 
