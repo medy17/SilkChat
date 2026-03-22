@@ -13,7 +13,7 @@ import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 type BackendMessagePart =
     | { type: "text"; text: string }
@@ -69,6 +69,7 @@ export function useChatIntegration<IsShared extends boolean>({
     const tokenData = useToken()
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
     const seededNextId = useRef<string | null>(null)
+    const hydratedThreadIdRef = useRef<string | undefined>(undefined)
     const latestRequestContextRef = useRef({
         folderId,
         threadId,
@@ -213,6 +214,22 @@ export function useChatIntegration<IsShared extends boolean>({
             return nanoid()
         }
     })
+
+    useEffect(() => {
+        if (isShared) return
+
+        if (!threadId) {
+            hydratedThreadIdRef.current = undefined
+            return
+        }
+
+        if (!threadMessages || "error" in threadMessages) return
+
+        if (hydratedThreadIdRef.current !== threadId) {
+            chatHelpers.setMessages(initialMessages)
+            hydratedThreadIdRef.current = threadId
+        }
+    }, [isShared, threadId, threadMessages, initialMessages, chatHelpers.setMessages])
 
     const customResume = useCallback(() => {
         console.log("[UCI:custom_resume]", {
