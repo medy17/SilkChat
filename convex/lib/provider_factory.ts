@@ -73,10 +73,7 @@ const createProviderInternal = async (
         case "google":
             if (getGoogleAuthMode(apiKey, options?.googleAuthMode) === "vertex") {
                 const vertexConfig = getGoogleVertexConfig(apiKey)
-                const dynamicImport = new Function("specifier", "return import(specifier)") as (
-                    specifier: string
-                ) => Promise<typeof import("@ai-sdk/google-vertex")>
-                const { createVertex } = await dynamicImport("@ai-sdk/google-vertex")
+                const { createVertex } = await import("@ai-sdk/google-vertex")
                 return createVertex({
                     project: vertexConfig.project,
                     location: vertexConfig.location,
