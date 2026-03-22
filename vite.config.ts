@@ -2,18 +2,23 @@ import path from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 // vite.config.ts
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
+import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import analyzer from "vite-bundle-analyzer"
 import svgr from "vite-plugin-svgr"
-import tsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
     resolve: {
         alias: {
             "@/convex": path.resolve(__dirname, "./convex"),
             "@": path.resolve(__dirname, "./src"),
+            "@tanstack/react-start/server": path.resolve(
+                __dirname,
+                "./src/lib/tanstack-react-start-server-shim.ts"
+            ),
             "micromark-extension-math": "micromark-extension-llm-math"
-        }
+        },
+        tsconfigPaths: true
     },
     server: {
         proxy: {}
@@ -21,36 +26,11 @@ export default defineConfig({
     plugins: [
         (process.env.ANALYZE && analyzer()) || null,
         tanstackStart({
-            target: "vercel",
             spa: {
                 enabled: true
-            },
-            react: {
-                babel: {
-                    plugins: [
-                        [
-                            "babel-plugin-react-compiler",
-                            {
-                                sources: (filename: string) => {
-                                    if (
-                                        // https://github.com/lucide-icons/lucide/issues/2386
-                                        filename.includes("email")
-                                    ) {
-                                        return false
-                                    }
-
-                                    return true
-                                }
-                            }
-                        ]
-                    ]
-                }
             }
         }),
-
-        tsConfigPaths({
-            projects: ["./tsconfig.json"]
-        }),
+        react(),
         tailwindcss(),
         svgr({ include: "**/*.svg" })
     ]

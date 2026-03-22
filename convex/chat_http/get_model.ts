@@ -9,6 +9,81 @@ import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, CoreProviders, MODELS_SHARED } from "../lib/models"
 import { createGoogleOpenAICompatibleProvider, createProvider } from "../lib/provider_factory"
 
+const createPatchedOpenAIImageModel = (
+    providerSpecificModelId: string,
+    apiKey: string
+): ImageModelV1 => ({
+    specificationVersion: "v1",
+    provider: "openai",
+    modelId: providerSpecificModelId,
+    maxImagesPerCall: 1,
+    doGenerate: async ({ prompt, n, size, headers, abortSignal }) => {
+        const response = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+                ...headers
+            },
+            body: JSON.stringify({
+                model: providerSpecificModelId,
+                prompt,
+                n,
+                size
+            }),
+            signal: abortSignal
+        })
+
+        const responseHeaders = Object.fromEntries(response.headers.entries())
+        const responseBody = (await response.json().catch(() => undefined)) as
+            | {
+                  data?: Array<{
+                      b64_json?: string
+                  }>
+                  error?: {
+                      message?: string
+                  }
+              }
+            | undefined
+
+        if (!response.ok) {
+            throw new Error(
+                responseBody?.error?.message ||
+                    `OpenAI image generation failed with status ${response.status}`
+            )
+        }
+
+        const images = responseBody?.data?.flatMap((item) => (item.b64_json ? [item.b64_json] : []))
+
+        if (!images?.length) {
+            throw new Error("OpenAI image generation returned no image data")
+        }
+
+        return {
+            images,
+            warnings: [],
+            response: {
+                timestamp: new Date(),
+                modelId: providerSpecificModelId,
+                headers: responseHeaders
+            }
+        }
+    }
+})
+
+const getOpenAIImageModel = (providerSpecificModelId: string, apiKey: string): ImageModelV1 => {
+    if (providerSpecificModelId === "gpt-image-1.5-2025-12-16") {
+        return createPatchedOpenAIImageModel(providerSpecificModelId, apiKey)
+    }
+
+    const provider = createOpenAI({
+        apiKey,
+        compatibility: "strict"
+    })
+
+    return provider.imageModel(providerSpecificModelId)
+}
+
 const getGoogleImageModel = async (
     providerSpecificModelId: string,
     apiKey: string | "internal",
@@ -78,6 +153,17 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
             }
 
             if (model.mode === "image") {
+                if (providerId === "openai") {
+                    const openAiApiKey = process.env.OPENAI_API_KEY
+                    if (!openAiApiKey) {
+                        console.error("Internal OpenAI API key not found for image model")
+                        continue
+                    }
+
+                    finalModel = getOpenAIImageModel(providerSpecificModelId, openAiApiKey)
+                    break
+                }
+
                 if (providerId === "google") {
                     finalModel = await getGoogleImageModel(providerSpecificModelId, "internal")
                     break
@@ -106,6 +192,11 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
 
         if (["openrouter", ...CoreProviders].includes(providerIdRaw)) {
             if (model.mode === "image") {
+                if (providerIdRaw === "openai") {
+                    finalModel = getOpenAIImageModel(providerSpecificModelId, provider.key)
+                    break
+                }
+
                 if (providerIdRaw === "google") {
                     try {
                         finalModel = await getGoogleImageModel(

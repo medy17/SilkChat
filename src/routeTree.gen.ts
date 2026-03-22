@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { createFileRoute } from '@tanstack/react-router'
-import { createServerRootRoute } from '@tanstack/react-start/server'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
@@ -23,9 +22,9 @@ import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attac
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
+import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
-import { ServerRoute as ApiPhrSplatServerRouteImport } from './routes/api/phr/$'
-import { ServerRoute as ApiAuthSplatServerRouteImport } from './routes/api/auth/$'
 
 const PrivacyPolicyLazyRouteImport = createFileRoute('/privacy-policy')()
 const AboutLazyRouteImport = createFileRoute('/about')()
@@ -37,7 +36,6 @@ const ChatSSharedThreadIdLazyRouteImport = createFileRoute(
 const ChatFolderFolderIdLazyRouteImport = createFileRoute(
   '/_chat/folder/$folderId',
 )()
-const rootServerRouteImport = createServerRootRoute()
 
 const PrivacyPolicyLazyRoute = PrivacyPolicyLazyRouteImport.update({
   id: '/privacy-policy',
@@ -133,23 +131,24 @@ const ChatFolderFolderIdLazyRoute = ChatFolderFolderIdLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_chat.folder.$folderId.lazy').then((d) => d.Route),
 )
+const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
+  id: '/api/phr/$',
+  path: '/api/phr/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatThreadThreadIdRoute = ChatThreadThreadIdRouteImport.update({
   id: '/thread/$threadId',
   path: '/thread/$threadId',
   getParentRoute: () => ChatRoute,
 } as any)
-const ApiPhrSplatServerRoute = ApiPhrSplatServerRouteImport.update({
-  id: '/api/phr/$',
-  path: '/api/phr/$',
-  getParentRoute: () => rootServerRouteImport,
-} as any)
-const ApiAuthSplatServerRoute = ApiAuthSplatServerRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootServerRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof ChatIndexRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
@@ -163,8 +162,9 @@ export interface FileRoutesByFullPath {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/auth/$pathname': typeof AuthPathnameLazyRoute
-  '/': typeof ChatIndexRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRoute
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
 }
@@ -184,6 +184,8 @@ export interface FileRoutesByTo {
   '/auth/$pathname': typeof AuthPathnameLazyRoute
   '/': typeof ChatIndexRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRoute
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
 }
@@ -205,12 +207,15 @@ export interface FileRoutesById {
   '/auth/$pathname': typeof AuthPathnameLazyRoute
   '/_chat/': typeof ChatIndexRoute
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/phr/$': typeof ApiPhrSplatRoute
   '/_chat/folder/$folderId': typeof ChatFolderFolderIdLazyRoute
   '/_chat/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/settings'
     | '/about'
     | '/privacy-policy'
@@ -224,8 +229,9 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/usage'
     | '/auth/$pathname'
-    | '/'
     | '/thread/$threadId'
+    | '/api/auth/$'
+    | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
   fileRoutesByTo: FileRoutesByTo
@@ -245,6 +251,8 @@ export interface FileRouteTypes {
     | '/auth/$pathname'
     | '/'
     | '/thread/$threadId'
+    | '/api/auth/$'
+    | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
   id:
@@ -265,6 +273,8 @@ export interface FileRouteTypes {
     | '/auth/$pathname'
     | '/_chat/'
     | '/_chat/thread/$threadId'
+    | '/api/auth/$'
+    | '/api/phr/$'
     | '/_chat/folder/$folderId'
     | '/_chat/s/$sharedThreadId'
   fileRoutesById: FileRoutesById
@@ -275,31 +285,8 @@ export interface RootRouteChildren {
   AboutLazyRoute: typeof AboutLazyRoute
   PrivacyPolicyLazyRoute: typeof PrivacyPolicyLazyRoute
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
-}
-export interface FileServerRoutesByFullPath {
-  '/api/auth/$': typeof ApiAuthSplatServerRoute
-  '/api/phr/$': typeof ApiPhrSplatServerRoute
-}
-export interface FileServerRoutesByTo {
-  '/api/auth/$': typeof ApiAuthSplatServerRoute
-  '/api/phr/$': typeof ApiPhrSplatServerRoute
-}
-export interface FileServerRoutesById {
-  __root__: typeof rootServerRouteImport
-  '/api/auth/$': typeof ApiAuthSplatServerRoute
-  '/api/phr/$': typeof ApiPhrSplatServerRoute
-}
-export interface FileServerRouteTypes {
-  fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/api/auth/$' | '/api/phr/$'
-  fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/api/auth/$' | '/api/phr/$'
-  id: '__root__' | '/api/auth/$' | '/api/phr/$'
-  fileServerRoutesById: FileServerRoutesById
-}
-export interface RootServerRouteChildren {
-  ApiAuthSplatServerRoute: typeof ApiAuthSplatServerRoute
-  ApiPhrSplatServerRoute: typeof ApiPhrSplatServerRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiPhrSplatRoute: typeof ApiPhrSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -328,7 +315,7 @@ declare module '@tanstack/react-router' {
     '/_chat': {
       id: '/_chat'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -423,30 +410,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatFolderFolderIdLazyRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/api/phr/$': {
+      id: '/api/phr/$'
+      path: '/api/phr/$'
+      fullPath: '/api/phr/$'
+      preLoaderRoute: typeof ApiPhrSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_chat/thread/$threadId': {
       id: '/_chat/thread/$threadId'
       path: '/thread/$threadId'
       fullPath: '/thread/$threadId'
       preLoaderRoute: typeof ChatThreadThreadIdRouteImport
       parentRoute: typeof ChatRoute
-    }
-  }
-}
-declare module '@tanstack/react-start/server' {
-  interface ServerFileRoutesByPath {
-    '/api/phr/$': {
-      id: '/api/phr/$'
-      path: '/api/phr/$'
-      fullPath: '/api/phr/$'
-      preLoaderRoute: typeof ApiPhrSplatServerRouteImport
-      parentRoute: typeof rootServerRouteImport
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatServerRouteImport
-      parentRoute: typeof rootServerRouteImport
     }
   }
 }
@@ -500,14 +483,18 @@ const rootRouteChildren: RootRouteChildren = {
   AboutLazyRoute: AboutLazyRoute,
   PrivacyPolicyLazyRoute: PrivacyPolicyLazyRoute,
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiPhrSplatRoute: ApiPhrSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-const rootServerRouteChildren: RootServerRouteChildren = {
-  ApiAuthSplatServerRoute: ApiAuthSplatServerRoute,
-  ApiPhrSplatServerRoute: ApiPhrSplatServerRoute,
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
 }
-export const serverRouteTree = rootServerRouteImport
-  ._addFileChildren(rootServerRouteChildren)
-  ._addFileTypes<FileServerRouteTypes>()

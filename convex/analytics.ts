@@ -85,6 +85,23 @@ export const getMyUsageChartData = query({
             >
         }[]
     > => {
+        type UsageChartPoint = {
+            daysSinceEpoch?: number
+            hoursSinceEpoch?: number
+            date: string
+            totalRequests: number
+            totalTokens: number
+            models: Record<
+                string,
+                {
+                    requests: number
+                    tokens: number
+                    promptTokens: number
+                    completionTokens: number
+                    reasoningTokens: number
+                }
+            >
+        }
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return []
 
@@ -101,7 +118,7 @@ export const getMyUsageChartData = query({
                 .collect()
 
             // Group by hour
-            const chartData = []
+            const chartData: UsageChartPoint[] = []
             for (let i = hours - 1; i >= 0; i--) {
                 const hourStart = Date.now() - i * 60 * 60 * 1000
                 const hourEnd = Date.now() - (i - 1) * 60 * 60 * 1000
@@ -157,7 +174,7 @@ export const getMyUsageChartData = query({
             .collect()
 
         // Group by day
-        const chartData = []
+        const chartData: UsageChartPoint[] = []
         for (let i = days - 1; i >= 0; i--) {
             const daysSince = getDaysSinceEpoch(i)
             const dayEvents = events.filter((e) => e.daysSinceEpoch === daysSince)

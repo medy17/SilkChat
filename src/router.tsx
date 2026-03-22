@@ -6,8 +6,8 @@ import { useMemo } from "react"
 import { convexQueryClient, queryClient } from "./providers"
 import { routeTree } from "./routeTree.gen"
 
-export function createRouter() {
-    const router = routerWithQueryClient(
+const createAppRouter = () =>
+    routerWithQueryClient(
         createTanStackRouter({
             routeTree,
             defaultPreload: "intent",
@@ -41,7 +41,15 @@ export function createRouter() {
         queryClient
     )
 
-    return router
+let routerInstance: ReturnType<typeof createAppRouter> | undefined
+
+export function getRouter() {
+    routerInstance ??= createAppRouter()
+    return routerInstance
+}
+
+export function createRouter() {
+    return getRouter()
 }
 
 const useBetterAuth = () => {

@@ -1,10 +1,13 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { reactStartCookies } from "better-auth/react-start"
+import { tanstackStartCookies } from "better-auth/tanstack-start"
 
 import { db } from "@/database/db"
 import * as schema from "@/database/schema"
+import { loadServerEnv } from "@/lib/load-server-env"
 import { jwt } from "better-auth/plugins/jwt"
+
+loadServerEnv()
 
 const normalizeOrigin = (value?: string) => {
     if (!value) return undefined
@@ -51,7 +54,7 @@ export const auth = betterAuth({
               }
             : {},
     plugins: [
-        reactStartCookies(),
+        tanstackStartCookies(),
         jwt({
             jwt: {
                 audience: "intern3",
@@ -62,7 +65,6 @@ export const auth = betterAuth({
                 keyPairConfig: {
                     alg: "RS256",
                     modulusLength: 2048,
-                    // @ts-expect-error required for convex
                     extractable: true
                 }
             }

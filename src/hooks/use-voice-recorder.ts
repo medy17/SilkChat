@@ -99,7 +99,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioContextRef = useRef<AudioContext | null>(null)
     const analyserRef = useRef<AnalyserNode | null>(null)
-    const dataArrayRef = useRef<Uint8Array | null>(null)
+    const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
     const recordingStartTimeRef = useRef<number>(0)
     const durationIntervalRef = useRef<number | null>(null)
     const audioLevelIntervalRef = useRef<number | null>(null)
@@ -123,7 +123,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
             const normalizedLevel = average / 255
 
             // Get time domain data for waveform
-            const waveformArray = new Uint8Array(analyserRef.current.fftSize)
+            const waveformArray = new Uint8Array(new ArrayBuffer(analyserRef.current.fftSize))
             analyserRef.current.getByteTimeDomainData(waveformArray)
 
             // Convert to normalized values and downsample
@@ -238,7 +238,9 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
             analyserRef.current = audioContextRef.current.createAnalyser()
             analyserRef.current.fftSize = 256
             analyserRef.current.smoothingTimeConstant = 0.8
-            dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount)
+            dataArrayRef.current = new Uint8Array(
+                new ArrayBuffer(analyserRef.current.frequencyBinCount)
+            )
 
             // Connect audio stream to analyser for visualization
             const source = audioContextRef.current.createMediaStreamSource(mediaStream)

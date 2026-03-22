@@ -62,9 +62,9 @@ export const getUserSettingsInternal = internalQuery({
 
 export const getUserSettings = query({
     args: {},
-    handler: async (ctx): Promise<Infer<typeof UserSettings> | { error: string }> => {
+    handler: async (ctx): Promise<Infer<typeof UserSettings>> => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) return { error: "unauthorized:api" }
+        if ("error" in user) return DefaultSettings("unauthorized")
         return await getSettings(ctx, user.id)
     }
 })

@@ -1,7 +1,7 @@
 import { db } from "@/database/db"
 import { jwkss } from "@/database/schema"
 import { auth } from "@/lib/auth"
-import { createServerFileRoute } from "@tanstack/react-start/server"
+import { createFileRoute } from "@tanstack/react-router"
 
 const isRecoverableJwkError = (error: unknown) =>
     error instanceof Error && error.message.includes("Failed to decrypt private private key")
@@ -34,7 +34,13 @@ const handleAuthRequest = async (request: Request) => {
     return response
 }
 
-export const ServerRoute = createServerFileRoute("/api/auth/$").methods({
-    GET: ({ request }) => handleAuthRequest(request),
-    POST: ({ request }) => handleAuthRequest(request)
+export const Route = createFileRoute("/api/auth/$")({
+    server: {
+        handlers: {
+            GET: ({ request }) => handleAuthRequest(request),
+            POST: ({ request }) => handleAuthRequest(request)
+        }
+    }
 })
+
+export const ServerRoute = Route
