@@ -75,7 +75,7 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
         chat
     })
 
-    useChatDataProcessor({ messages })
+    useChatDataProcessor({ messages, status })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)

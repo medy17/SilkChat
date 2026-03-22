@@ -8,9 +8,10 @@ interface UseChatDataProcessorProps {
         threadId?: string
         streamId?: string
     }>[]
+    status: "submitted" | "streaming" | "ready" | "error" | string
 }
 
-export function useChatDataProcessor({ messages }: UseChatDataProcessorProps) {
+export function useChatDataProcessor({ messages, status }: UseChatDataProcessorProps) {
     const { setThreadId, setShouldUpdateQuery, setAttachedStreamId, threadId, setPendingStream } =
         useChatStore()
     const navigate = useNavigate()
@@ -24,6 +25,8 @@ export function useChatDataProcessor({ messages }: UseChatDataProcessorProps) {
         if (latestAssistant.metadata.threadId) {
             setThreadId(latestAssistant.metadata.threadId)
             if (
+                status !== "submitted" &&
+                status !== "streaming" &&
                 typeof window !== "undefined" &&
                 window.location.pathname !== `/thread/${latestAssistant.metadata.threadId}`
             ) {
@@ -50,6 +53,7 @@ export function useChatDataProcessor({ messages }: UseChatDataProcessorProps) {
         setAttachedStreamId,
         threadId,
         setPendingStream,
+        status,
         navigate
     ])
 }
