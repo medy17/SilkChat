@@ -47,6 +47,10 @@ const createAppRouter = () =>
 let routerInstance: ReturnType<typeof createAppRouter> | undefined
 
 export function getRouter() {
+    if (typeof window === "undefined") {
+        return createAppRouter()
+    }
+
     routerInstance ??= createAppRouter()
     return routerInstance
 }
