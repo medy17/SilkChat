@@ -7,7 +7,7 @@ import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, CoreProviders, MODELS_SHARED } from "../lib/models"
-import { createProvider } from "../lib/provider_factory"
+import { createGoogleOpenAICompatibleProvider, createProvider } from "../lib/provider_factory"
 
 export const getModel = async (ctx: ActionCtx, modelId: string) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })
@@ -59,6 +59,12 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
             }
 
             if (model.mode === "image") {
+                if (providerId === "google") {
+                    const googleImageProvider = createGoogleOpenAICompatibleProvider("internal")
+                    finalModel = googleImageProvider.imageModel(providerSpecificModelId)
+                    break
+                }
+
                 if (!sdk_provider.imageModel) {
                     console.error(`Provider ${providerId} does not support image models`)
                     continue
@@ -81,16 +87,46 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
         }
 
         if (["openrouter", ...CoreProviders].includes(providerIdRaw)) {
-            const sdk_provider = await createProvider(providerIdRaw as CoreProvider, provider.key, {
-                googleAuthMode: provider.authMode
-            })
             if (model.mode === "image") {
+                if (providerIdRaw === "google") {
+                    try {
+                        const googleImageProvider = createGoogleOpenAICompatibleProvider(
+                            provider.key,
+                            {
+                                googleAuthMode: provider.authMode
+                            }
+                        )
+                        finalModel = googleImageProvider.imageModel(providerSpecificModelId)
+                        break
+                    } catch (error) {
+                        console.error(
+                            `Provider ${providerIdRaw} does not support image models:`,
+                            error
+                        )
+                        continue
+                    }
+                }
+
+                const sdk_provider = await createProvider(
+                    providerIdRaw as CoreProvider,
+                    provider.key,
+                    {
+                        googleAuthMode: provider.authMode
+                    }
+                )
                 if (!sdk_provider.imageModel) {
                     console.error(`Provider ${providerIdRaw} does not support image models`)
                     continue
                 }
                 finalModel = sdk_provider.imageModel(providerSpecificModelId)
             } else {
+                const sdk_provider = await createProvider(
+                    providerIdRaw as CoreProvider,
+                    provider.key,
+                    {
+                        googleAuthMode: provider.authMode
+                    }
+                )
                 if (providerIdRaw === "openai") {
                     finalModel = (sdk_provider as OpenAIProvider).responses(providerSpecificModelId)
                 } else {

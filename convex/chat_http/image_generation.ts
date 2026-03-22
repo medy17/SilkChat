@@ -74,10 +74,31 @@ export async function generateAndStoreImage({
             { imageSize, aspectRatio, size }
         )
 
+        const isGoogleOpenAIImageModel = imageModel.provider.startsWith("google.")
+
         const { images } = await experimental_generateImage({
             model: imageModel,
             prompt,
-            ...(size ? { size } : { aspectRatio })
+            ...(isGoogleOpenAIImageModel
+                ? {
+                      ...(size ? { size } : {}),
+                      ...(aspectRatio
+                          ? {
+                                providerOptions: {
+                                    openai: {
+                                        extra_body: {
+                                            google: {
+                                                aspect_ratio: aspectRatio
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                          : {})
+                  }
+                : size
+                  ? { size }
+                  : { aspectRatio })
         })
 
         const assets: ImageGenerationResult["assets"] = []

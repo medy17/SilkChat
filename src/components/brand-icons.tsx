@@ -191,6 +191,24 @@ export function GeminiIcon(props: SVGProps<SVGSVGElement>) {
     )
 }
 
+export function XAIIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            width="1em"
+            height="1em"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            {...props}
+        >
+            <title>xAI</title>
+            <path
+                fill="currentColor"
+                d="M4 3h4.195L12 8.667L15.805 3H20l-5.821 8.62L20.286 21H16.09L12 14.915L7.91 21H3.714l6.107-9.38zM8.393 5.2H7.1l8.507 13.6H16.9z"
+            />
+        </svg>
+    )
+}
+
 export function MCPIcon(props: SVGProps<SVGSVGElement>) {
     return (
         <svg

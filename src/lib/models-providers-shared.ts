@@ -7,7 +7,8 @@ import {
     OpenAIIcon,
     OpenRouterIcon,
     SerperDevIcon,
-    TavilyIcon
+    TavilyIcon,
+    XAIIcon
 } from "@/components/brand-icons"
 import { type CoreProvider, MODELS_SHARED, type SharedModel } from "@/convex/lib/models"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
@@ -85,6 +86,13 @@ export const CORE_PROVIDERS: CoreProviderInfo[] = [
         ]
     },
     {
+        id: "xai",
+        name: "xAI",
+        description: "Access Grok models through xAI",
+        placeholder: "xai-...",
+        icon: XAIIcon
+    },
+    {
         id: "groq",
         name: "Groq",
         description: "Access Llama, Speech-to-text, and other models with ultra-fast inference",
@@ -106,7 +114,7 @@ const HIDDEN_PROVIDER_IDS = new Set(["groq", "fal", "i3-groq", "i3-fal"])
 const enabledInternalProviders = new Set<CoreProvider>(
     (
         optionalBrowserEnv("VITE_ENABLED_INTERNAL_PROVIDERS") ||
-        ["openai", "anthropic", "google", "groq", "fal"].join(",")
+        ["openai", "anthropic", "google", "xai", "groq", "fal"].join(",")
     )
         .split(",")
         .map((provider) => provider.trim())

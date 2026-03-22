@@ -16,6 +16,29 @@ import {
 } from "./google_provider"
 import type { CoreProvider } from "./models"
 
+export const createGoogleOpenAICompatibleProvider = (
+    apiKey: string | "internal",
+    options?: {
+        googleAuthMode?: GoogleAuthMode
+    }
+) => {
+    if (getGoogleAuthMode(apiKey, options?.googleAuthMode) === "vertex") {
+        throw new Error("Google OpenAI-compatible image models require AI Studio authentication")
+    }
+
+    const resolvedApiKey = getGoogleAiStudioApiKey(apiKey)
+    if (!resolvedApiKey) {
+        throw new Error("Google AI Studio API key is required")
+    }
+
+    return createOpenAI({
+        apiKey: resolvedApiKey,
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+        compatibility: "compatible",
+        name: "google"
+    })
+}
+
 export const createProvider = (
     providerId: CoreProvider | "openrouter" | "fal",
     apiKey: string | "internal",
@@ -66,6 +89,19 @@ const createProviderInternal = async (
             return createGoogleGenerativeAI({
                 apiKey: getGoogleAiStudioApiKey(apiKey)
             })
+        case "xai": {
+            const resolvedApiKey = apiKey === "internal" ? process.env.XAI_API_KEY : apiKey
+            if (!resolvedApiKey) {
+                throw new Error("xAI API key is required")
+            }
+
+            return createOpenAI({
+                apiKey: resolvedApiKey,
+                baseURL: "https://api.x.ai/v1",
+                compatibility: "compatible",
+                name: "xai"
+            })
+        }
         case "groq":
             return createGroq({
                 apiKey: apiKey === "internal" ? process.env.GROQ_API_KEY : apiKey

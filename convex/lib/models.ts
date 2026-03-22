@@ -1,6 +1,6 @@
 import type { ModelAbility } from "../schema/settings"
 
-export const CoreProviders = ["openai", "anthropic", "google", "groq", "fal"] as const
+export const CoreProviders = ["openai", "anthropic", "google", "xai", "groq", "fal"] as const
 export type CoreProvider = (typeof CoreProviders)[number]
 export type ModelDefinitionProviders =
     | CoreProvider // user BYOK key
@@ -25,7 +25,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     contextLength?: number
     maxTokens?: number
     supportedImageSizes?: ImageSize[]
-    customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta"
+    customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean
 }
 
@@ -95,6 +95,30 @@ export const MODELS_SHARED: SharedModel[] = [
             "openrouter:openai/gpt-4.1-nano"
         ],
         abilities: ["vision", "function_calling", "pdf"]
+    },
+    {
+        id: "gpt-5.4",
+        name: "GPT 5.4",
+        shortName: "5.4",
+        adapters: ["i3-openai:gpt-5.4", "openai:gpt-5.4"],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true
+    },
+    {
+        id: "gpt-5.4-mini",
+        name: "GPT 5.4 mini",
+        shortName: "5.4 mini",
+        adapters: ["i3-openai:gpt-5.4-mini", "openai:gpt-5.4-mini"],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true
+    },
+    {
+        id: "gpt-5.4-nano",
+        name: "GPT 5.4 nano",
+        shortName: "5.4 nano",
+        adapters: ["i3-openai:gpt-5.4-nano", "openai:gpt-5.4-nano"],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true
     },
     {
         id: "claude-opus-4",
@@ -188,6 +212,47 @@ export const MODELS_SHARED: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true
     },
+    {
+        id: "gemini-3-flash-preview",
+        name: "Gemini 3 Flash Preview",
+        shortName: "3 Flash",
+        adapters: ["i3-google:gemini-3-flash-preview", "google:gemini-3-flash-preview"],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
+    },
+    {
+        id: "gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro Preview",
+        shortName: "3.1 Pro",
+        adapters: ["i3-google:gemini-3.1-pro-preview", "google:gemini-3.1-pro-preview"],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
+    },
+    {
+        id: "gemini-3.1-flash-lite-preview",
+        name: "Gemini 3.1 Flash Lite Preview",
+        shortName: "3.1 Flash Lite",
+        adapters: [
+            "i3-google:gemini-3.1-flash-lite-preview",
+            "google:gemini-3.1-flash-lite-preview"
+        ],
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"]
+    },
+    {
+        id: "gemini-3.1-flash-image-preview",
+        name: "Gemini 3.1 Flash Image Preview",
+        shortName: "3.1 Flash Image",
+        adapters: [
+            "i3-google:gemini-3.1-flash-image-preview",
+            "google:gemini-3.1-flash-image-preview"
+        ],
+        abilities: ["vision"]
+    },
+    {
+        id: "gemini-3-pro-image-preview",
+        name: "Gemini 3 Pro Image Preview",
+        shortName: "3 Pro Image",
+        adapters: ["i3-google:gemini-3-pro-image-preview", "google:gemini-3-pro-image-preview"],
+        abilities: ["reasoning", "vision", "effort_control"]
+    },
     // Image Generation Models
     {
         id: "gpt-image-1",
@@ -195,6 +260,16 @@ export const MODELS_SHARED: SharedModel[] = [
         adapters: ["openai:gpt-image-1"],
         abilities: [],
         mode: "image",
+        supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"]
+    },
+    {
+        id: "gpt-image-1.5-2025-12-16",
+        name: "GPT Image 1.5",
+        shortName: "Image 1.5",
+        adapters: ["i3-openai:gpt-image-1.5-2025-12-16", "openai:gpt-image-1.5-2025-12-16"],
+        abilities: [],
+        mode: "image",
+        customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"]
     },
     {
@@ -258,6 +333,39 @@ export const MODELS_SHARED: SharedModel[] = [
         supportedImageSizes: ["1:1-hd", "16:9-hd", "9:16-hd", "3:4-hd", "4:3-hd"]
     },
     {
+        id: "imagen-4.0-generate-001",
+        name: "Imagen 4 Standard",
+        shortName: "Imagen 4",
+        adapters: ["i3-google:imagen-4.0-generate-001", "google:imagen-4.0-generate-001"],
+        abilities: [],
+        mode: "image",
+        customIcon: "google",
+        supportedImageSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"]
+    },
+    {
+        id: "imagen-4.0-ultra-generate-001",
+        name: "Imagen 4 Ultra",
+        shortName: "Imagen 4 Ultra",
+        adapters: [
+            "i3-google:imagen-4.0-ultra-generate-001",
+            "google:imagen-4.0-ultra-generate-001"
+        ],
+        abilities: [],
+        mode: "image",
+        customIcon: "google",
+        supportedImageSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"]
+    },
+    {
+        id: "imagen-4.0-fast-generate-001",
+        name: "Imagen 4 Fast",
+        shortName: "Imagen 4 Fast",
+        adapters: ["i3-google:imagen-4.0-fast-generate-001", "google:imagen-4.0-fast-generate-001"],
+        abilities: [],
+        mode: "image",
+        customIcon: "google",
+        supportedImageSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"]
+    },
+    {
         id: "llama-4-scout-17b-16e-instruct",
         name: "Llama 4 Scout 17B 16E",
         shortName: "Llama 4 Scout 17B",
@@ -267,6 +375,38 @@ export const MODELS_SHARED: SharedModel[] = [
         ],
         abilities: ["vision"],
         customIcon: "meta"
+    },
+    {
+        id: "grok-4-1-fast-reasoning",
+        name: "Grok 4.1 Fast Reasoning",
+        shortName: "Grok 4.1 R",
+        adapters: ["i3-xai:grok-4-1-fast-reasoning", "xai:grok-4-1-fast-reasoning"],
+        abilities: ["reasoning", "function_calling"],
+        customIcon: "xai"
+    },
+    {
+        id: "grok-4-1-fast-non-reasoning",
+        name: "Grok 4.1 Fast",
+        shortName: "Grok 4.1",
+        adapters: ["i3-xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-non-reasoning"],
+        abilities: ["function_calling"],
+        customIcon: "xai"
+    },
+    {
+        id: "grok-4.20-0309-reasoning",
+        name: "Grok 4.20 0309 Reasoning",
+        shortName: "Grok 4.20 R",
+        adapters: ["i3-xai:grok-4.20-0309-reasoning", "xai:grok-4.20-0309-reasoning"],
+        abilities: ["reasoning", "function_calling"],
+        customIcon: "xai"
+    },
+    {
+        id: "grok-4.20-0309-non-reasoning",
+        name: "Grok 4.20 0309",
+        shortName: "Grok 4.20",
+        adapters: ["i3-xai:grok-4.20-0309-non-reasoning", "xai:grok-4.20-0309-non-reasoning"],
+        abilities: ["function_calling"],
+        customIcon: "xai"
     },
     {
         id: "llama-4-maverick-17b-128e-instruct",

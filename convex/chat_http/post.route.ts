@@ -35,15 +35,22 @@ import { RESPONSE_OPTS } from "./shared"
 
 const buildGoogleProviderOptions = (
     modelId: string,
-    reasoningEffort?: ReasoningEffort
+    reasoningEffort?: ReasoningEffort,
+    supportsEffortControl = false
 ): GoogleGenerativeAIProviderOptions => {
     const options: GoogleGenerativeAIProviderOptions = {}
 
-    if (modelId === "gemini-2.0-flash-image-generation") {
+    if (
+        [
+            "gemini-2.0-flash-image-generation",
+            "gemini-3.1-flash-image-preview",
+            "gemini-3-pro-image-preview"
+        ].includes(modelId)
+    ) {
         options.responseModalities = ["TEXT", "IMAGE"]
     }
 
-    if (reasoningEffort !== "off" && ["2.5-flash", "2.5-pro"].some((m) => modelId.includes(m))) {
+    if (supportsEffortControl && reasoningEffort !== "off") {
         options.thinkingConfig = {
             includeThoughts: true,
             thinkingBudget:
@@ -56,11 +63,19 @@ const buildGoogleProviderOptions = (
 
 const buildOpenAIProviderOptions = (
     modelId: string,
-    reasoningEffort?: ReasoningEffort
+    reasoningEffort?: ReasoningEffort,
+    supportsEffortControl = false
 ): OpenAIResponsesProviderOptions => {
     const options: OpenAIResponsesProviderOptions = {}
 
-    if (["o1", "o3", "o4"].some((m) => modelId.includes(m)) && reasoningEffort !== "off") {
+    if (
+        supportsEffortControl &&
+        reasoningEffort !== "off" &&
+        (modelId.startsWith("o1") ||
+            modelId.startsWith("o3") ||
+            modelId.startsWith("o4") ||
+            modelId.startsWith("gpt-5.4"))
+    ) {
         options.reasoningEffort = reasoningEffort
         options.reasoningSummary = "detailed"
     }
@@ -375,8 +390,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         ...mapped_messages
                     ],
                     providerOptions: {
-                        google: buildGoogleProviderOptions(modelData.modelId, body.reasoningEffort),
-                        openai: buildOpenAIProviderOptions(modelData.modelId, body.reasoningEffort),
+                        google: buildGoogleProviderOptions(
+                            modelData.modelId,
+                            body.reasoningEffort,
+                            modelData.abilities.includes("effort_control")
+                        ),
+                        openai: buildOpenAIProviderOptions(
+                            modelData.modelId,
+                            body.reasoningEffort,
+                            modelData.abilities.includes("effort_control")
+                        ),
                         anthropic: buildAnthropicProviderOptions(
                             modelData.modelId,
                             body.reasoningEffort

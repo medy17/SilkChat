@@ -1,4 +1,4 @@
-import { ClaudeIcon, GeminiIcon, MetaIcon, OpenAIIcon } from "@/components/brand-icons"
+import { ClaudeIcon, GeminiIcon, MetaIcon, OpenAIIcon, XAIIcon } from "@/components/brand-icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,6 +51,9 @@ export const getProviderIcon = (model: DisplayModel, isCustom: boolean) => {
             case "i3-google":
             case "google":
                 return <GeminiIcon className="size-4" />
+            case "i3-xai":
+            case "xai":
+                return <XAIIcon className="size-4" />
             case "bflabs":
                 return <BlackForestLabsIcon className="size-4" />
             case "stability-ai":

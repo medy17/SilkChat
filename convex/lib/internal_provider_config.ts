@@ -22,6 +22,8 @@ export const isInternalProviderConfigured = (providerId: CoreProvider) => {
             }
 
             return Boolean(getGoogleAiStudioApiKey("internal"))
+        case "xai":
+            return Boolean(process.env.XAI_API_KEY)
         case "groq":
             return Boolean(process.env.GROQ_API_KEY)
         case "fal":
