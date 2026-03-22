@@ -61,7 +61,7 @@ const MemoizedMarkdownBlock = memo(
     ({ content }: { content: string }) => {
         return (
             <ReactMarkdown
-                remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+                remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[
                     [rehypeSanitize, sanitizeSchema],
                     [rehypeKatex, { output: "html" }]
