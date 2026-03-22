@@ -70,7 +70,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
         // new Uint8Array(bufferCopy).set(new Uint8Array(fileBuffer))
 
         // For text files, validate token count
-        if (fileTypeInfo.isText && !fileTypeInfo.isImage) {
+        if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {
             try {
                 const text = new TextDecoder().decode(fileBuffer)
                 const tokenCount = estimateTokenCount(text)

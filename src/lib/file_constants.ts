@@ -1,13 +1,21 @@
-// Supported image file extensions
-export const SUPPORTED_IMAGE_EXTENSIONS = [
+// Supported raster image file extensions
+export const SUPPORTED_RASTER_IMAGE_EXTENSIONS = [
     ".png",
     ".jpg",
     ".jpeg",
     ".gif",
-    ".svg",
     ".webp",
     ".bmp",
     ".ico"
+] as const
+
+// Supported vector image file extensions
+export const SUPPORTED_VECTOR_IMAGE_EXTENSIONS = [".svg"] as const
+
+// Supported image file extensions
+export const SUPPORTED_IMAGE_EXTENSIONS = [
+    ...SUPPORTED_RASTER_IMAGE_EXTENSIONS,
+    ...SUPPORTED_VECTOR_IMAGE_EXTENSIONS
 ] as const
 
 // Supported code file extensions
@@ -47,15 +55,23 @@ export const SUPPORTED_TEXT_EXTENSIONS = [
     ...SUPPORTED_CODE_EXTENSIONS
 ] as const
 
-// Supported MIME types for images
-export const SUPPORTED_IMAGE_MIME_TYPES = [
+// Supported raster MIME types for images
+export const SUPPORTED_RASTER_IMAGE_MIME_TYPES = [
     "image/png",
     "image/jpeg",
     "image/gif",
-    "image/svg+xml",
     "image/webp",
     "image/bmp",
     "image/x-icon"
+] as const
+
+// Supported vector MIME types for images
+export const SUPPORTED_VECTOR_IMAGE_MIME_TYPES = ["image/svg+xml"] as const
+
+// Supported MIME types for images
+export const SUPPORTED_IMAGE_MIME_TYPES = [
+    ...SUPPORTED_RASTER_IMAGE_MIME_TYPES,
+    ...SUPPORTED_VECTOR_IMAGE_MIME_TYPES
 ] as const
 
 // Supported MIME types for text files
@@ -93,6 +109,11 @@ export const isImageExtension = (filename: string) => {
     return ext ? (SUPPORTED_IMAGE_EXTENSIONS as readonly string[]).includes(ext) : false
 }
 
+export const isSvgExtension = (filename: string) => {
+    const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0]
+    return ext ? (SUPPORTED_VECTOR_IMAGE_EXTENSIONS as readonly string[]).includes(ext) : false
+}
+
 export const isTextExtension = (filename: string) => {
     const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0]
     return ext ? (SUPPORTED_TEXT_EXTENSIONS as readonly string[]).includes(ext) : false
@@ -104,6 +125,12 @@ export const isImageMimeType = (mimeType: string) => {
         (SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
     )
 }
+
+export const isSvgMimeType = (mimeType: string) =>
+    (SUPPORTED_VECTOR_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
+
+export const isVisionCompatibleImageMimeType = (mimeType: string) =>
+    (SUPPORTED_RASTER_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
 
 export const isTextMimeType = (mimeType: string) => {
     return (
@@ -130,7 +157,7 @@ export const getFileAcceptAttribute = (includeImages = true) => {
     if (includeImages) {
         return `image/*,${textExtensions}`
     }
-    return textExtensions
+    return `${textExtensions},.svg`
 }
 
 // Simple token estimation (rough approximation: 1 token ≈ 4 characters)
@@ -141,6 +168,8 @@ export const estimateTokenCount = (text: string) => {
 // File type detection result
 export interface FileTypeInfo {
     isImage: boolean
+    isVisionImage: boolean
+    isSvg: boolean
     isCode: boolean
     isText: boolean
     extension?: string
@@ -153,6 +182,7 @@ export const getFileTypeInfo = (filename: string, mimeType?: string) => {
 
     // Check by extension first (more reliable than MIME type)
     const isImage = isImageExtension(fileName)
+    const isSvg = isSvgExtension(fileName) || (mimeType ? isSvgMimeType(mimeType) : false)
     const isCode = extension
         ? (SUPPORTED_CODE_EXTENSIONS as readonly string[]).includes(extension)
         : false
@@ -162,14 +192,29 @@ export const getFileTypeInfo = (filename: string, mimeType?: string) => {
 
     // For text files, extension is more reliable than MIME type
     // (browsers often return application/octet-stream for code files)
-    const isText = isCode || isPlainText || isTextExtension(fileName)
+    const isText = isCode || isPlainText || isTextExtension(fileName) || isSvg
 
     // If not detected by extension, fall back to MIME type for images
     const finalIsImage = isImage || (mimeType ? isImageMimeType(mimeType) : false)
+    const isVisionImage =
+        !isSvg &&
+        (isImage ||
+            (mimeType ? isVisionCompatibleImageMimeType(mimeType) : false) ||
+            (extension
+                ? (SUPPORTED_RASTER_IMAGE_EXTENSIONS as readonly string[]).includes(extension)
+                : false))
     const isPdf =
         extension === ".pdf" || mimeType === "application/pdf" || mimeType === "application/x-pdf"
 
-    return { isImage: finalIsImage, isCode, isText, extension, isPdf } satisfies FileTypeInfo
+    return {
+        isImage: finalIsImage,
+        isVisionImage,
+        isSvg,
+        isCode,
+        isText,
+        extension,
+        isPdf
+    } satisfies FileTypeInfo
 }
 
 // Get correct MIME type for a file based on its extension

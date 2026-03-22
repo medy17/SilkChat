@@ -51,7 +51,11 @@ export const dbMessagesToCore = async (
                     const filename = p.filename || extractedFileName
                     const fileTypeInfo = getFileTypeInfo(filename, p.mimeType)
 
-                    if (fileTypeInfo.isImage && isImageMimeType(p.mimeType || "")) {
+                    if (
+                        fileTypeInfo.isVisionImage &&
+                        isImageMimeType(p.mimeType || "") &&
+                        !fileTypeInfo.isSvg
+                    ) {
                         // Handle image files
                         try {
                             const fileUrl = await r2.getUrl(p.data)

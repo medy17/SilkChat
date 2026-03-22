@@ -34,6 +34,8 @@ import {
     getFileTypeInfo,
     isImageMimeType,
     isSupportedFile,
+    isSvgExtension,
+    isSvgMimeType,
     isTextMimeType
 } from "@/lib/file_constants"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
@@ -322,7 +324,9 @@ export function MultimodalInput({
             }
             reader.onerror = () => resolve("Error reading file")
 
-            if (isImageMimeType(file.type)) {
+            if (isSvgMimeType(file.type) || isSvgExtension(file.name)) {
+                reader.readAsText(file)
+            } else if (isImageMimeType(file.type)) {
                 reader.readAsDataURL(file)
             } else if (isTextMimeType(file.type) || getFileTypeInfo(file.name, file.type).isText) {
                 reader.readAsText(file)
@@ -383,14 +387,14 @@ export function MultimodalInput({
 
                 const fileTypeInfo = getFileTypeInfo(file.name, file.type)
 
-                // If file is an image but model doesn't support vision, reject it
-                if (fileTypeInfo.isImage && !modelSupportsVision) {
+                // Raster images require a vision-capable model. SVGs are handled as text.
+                if (fileTypeInfo.isVisionImage && !modelSupportsVision) {
                     errors.push(`${file.name}: Current model doesn't support image files`)
                     continue
                 }
 
                 // For text files, check token count
-                if (fileTypeInfo.isText && !fileTypeInfo.isImage) {
+                if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {
                     try {
                         const content = await readFileContent(file)
                         const tokenCount = estimateTokenCount(content)
