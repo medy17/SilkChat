@@ -1,93 +1,108 @@
 # BYOK (Bring Your Own Key) Setup
 
-This project supports BYOK functionality, allowing users to securely store and use their own API keys for different AI providers.
+This app supports both:
 
-## Environment Setup
+- internal provider keys managed by the deployment
+- user BYOK keys stored per account
 
-You need to set up the following environment variables:
+User BYOK keys are encrypted before storage and decrypted only at runtime.
 
-### Required for Encryption
+## Required Encryption Variable
+
+Set this in Convex:
+
 ```bash
-# Generate a 32-character hex string for encryption
-ENCRYPTION_KEY=your_32_character_hex_string_here
+ENCRYPTION_KEY=your_random_secret
 ```
 
-To generate an encryption key, run:
+Use a long random value. Do not reuse an example value.
+
+## Supported BYOK Providers
+
+- `openai`
+- `anthropic`
+- `google`
+- `xai`
+- `openrouter`
+- `groq`
+- `fal`
+
+## Google BYOK Modes
+
+Google supports two auth modes:
+
+- `ai-studio`: standard API key
+- `vertex`: service account JSON
+
+Important limitation:
+
+- Google image-only models that use the OpenAI-compatible image endpoint require AI Studio auth. They do not run through Vertex in the current implementation.
+
+## Internal Provider Environment Variables
+
+These belong in Convex, not Vercel:
+
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+OPENAI_API_KEY=
+XAI_API_KEY=
+ANTHROPIC_API_KEY=
+
+GOOGLE_INTERNAL_PROVIDER=ai-studio
+GOOGLE_AI_STUDIO_API_KEY=
+GOOGLE_GENERATIVE_AI_API_KEY=
+
+GOOGLE_VERTEX_CREDENTIALS_JSON=
+GOOGLE_VERTEX_PROJECT=
+GOOGLE_VERTEX_LOCATION=us-central1
+
+GROQ_API_KEY=
+FAL_API_KEY=
 ```
 
-### Default API Keys (Fallback)
-These are used when users don't provide their own keys:
-```bash
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
-OPENAI_API_KEY=your_openai_api_key  
-ANTHROPIC_API_KEY=your_anthropic_api_key
-```
+## How Provider Resolution Works
 
-### Search Provider API Keys
-Choose one or more search providers to enable web search functionality:
-```bash
-# Firecrawl - Advanced web scraping with content extraction
-FIRECRAWL_API_KEY=fc-your_firecrawl_api_key
+When a model is selected, the runtime resolves providers in this order:
 
-# Brave Search - Privacy-focused search results
-BRAVE_API_KEY=your_brave_api_key
+1. matching user BYOK key
+2. matching internal provider key
+3. failure if neither is available
 
-# Tavily - AI-powered search with advanced content chunking
-TAVILY_API_KEY=tvly-your_tavily_api_key
+For built-in models, the available adapter list lives in `convex/lib/models.ts`.
 
-# Serper - Google-powered search with smart content scraping
-SERPER_API_KEY=your_serper_api_key
-```
+## Where Provider Visibility Comes From
 
-## Supported Providers
+Two checks control whether an internal provider is usable:
 
-### AI Providers
-The system supports the following AI providers:
-- OpenAI (GPT models)
-- Anthropic (Claude models)
-- Google (Gemini models)
+1. `convex/lib/internal_provider_config.ts` checks whether the secret exists in Convex.
+2. `VITE_ENABLED_INTERNAL_PROVIDERS` decides whether the browser should show that internal provider.
 
-### Search Providers
-The system supports the following web search providers:
-- **Firecrawl**: Advanced web scraping with content extraction and markdown support
-- **Brave Search**: Fast, privacy-focused search results from Brave's independent index
-- **Tavily**: AI-powered search with advanced content chunking and source analysis (supports both basic and advanced search modes)
-- **Serper**: Google-powered search with smart content scraping and context management (24k character window)
+That means a provider can be configured in Convex and still hidden in the UI.
 
-## How It Works
+## xAI Notes
 
-1. **Storage**: User API keys are encrypted using AES-256-CBC encryption before being stored in the database
-2. **Usage**: When a user makes a chat request, the system:
-   - Checks for user's stored API keys in order of preference (OpenAI → Anthropic → Google)
-   - Uses the first available user API key
-   - Falls back to default environment variables if no user keys are found
-3. **Security**: API keys are never stored in plain text and are decrypted only at runtime
+xAI is implemented through xAI's OpenAI-compatible API:
 
-## Type Safety
+- base URL: `https://api.x.ai/v1`
+- provider name: `xai`
 
-All provider types flow from a single schema definition in `convex/schema/apikey.ts`:
-- `Provider` type defines all supported providers
-- `providerSchema` is the Convex schema validation
-- All other files import and reuse these types to avoid duplication
+The project does not use a dedicated xAI SDK package here because the installed AI SDK versions are aligned around the OpenAI-compatible path.
 
-## API Usage
+## Google Notes
 
-### Store API Key
-```typescript
-await storeApiKey({
-  provider: "openai", // or "anthropic" | "google"
-  apiKey: "your-api-key",
-  name: "My OpenAI Key" // optional
-});
-```
+Google text models use the Google SDK path:
 
-### Delete API Key
-```typescript
-await deleteApiKey({
-  keyId: "key-id"
-});
-```
+- AI Studio API keys
+- or Vertex service account credentials
 
-The system automatically deactivates old keys when storing new ones for the same provider. 
+Google image models that were added later use Google's OpenAI-compatible endpoint because the installed Google SDK package in this repo does not expose an image model API.
+
+## Security Notes
+
+- Never commit provider keys.
+- Never store user BYOK secrets in plain text.
+- Rotate `ENCRYPTION_KEY` carefully. If you change it, previously encrypted stored keys will become unreadable.
+
+## Related Docs
+
+- [Model & Provider Guide](./MODEL_PROVIDER_GUIDE.md)
+- [Setup Guide](./SETUP_GUIDE.md)

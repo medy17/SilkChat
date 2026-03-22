@@ -1,90 +1,73 @@
-# Welcome to your Convex functions directory!
+# Convex Runtime Notes
 
-Write your Convex functions here.
-See https://docs.convex.dev/functions for more.
+This folder is the application backend, not a stock Convex starter anymore.
 
-A query function that takes two arguments looks like:
+## What Lives Here
 
-```ts
-// functions.js
-import { query } from "./_generated/server";
-import { v } from "convex/values";
+- auth integration for Convex JWT validation
+- chat HTTP streaming routes
+- built-in model registry
+- provider creation for OpenAI, Anthropic, Google, xAI, Groq, fal, and OpenRouter
+- BYOK settings and internal-provider fallback logic
+- search, attachments, image generation, and speech-to-text actions
 
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
+## Key Files
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
+- `auth.config.ts`: Convex trusts Better Auth JWTs from `VITE_BETTER_AUTH_URL`
+- `lib/models.ts`: built-in model list and provider adapter mapping
+- `lib/provider_factory.ts`: provider instances, including OpenAI-compatible Google image support and xAI
+- `lib/internal_provider_config.ts`: determines whether an internal provider is actually configured
+- `chat_http/get_model.ts`: resolves model IDs into SDK model instances
+- `chat_http/post.route.ts`: applies provider-specific reasoning config
+- `chat_http/image_generation.ts`: image generation execution and aspect-ratio handling
 
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
+## Commands
 
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
+Run Convex locally:
+
+```bash
+bunx convex dev
 ```
 
-Using this query function in a React component looks like:
+Deploy Convex functions:
 
-```ts
-const data = useQuery(api.functions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
+```bash
+npx convex deploy
 ```
 
-A mutation function looks like:
+Set a Convex environment variable:
 
-```ts
-// functions.js
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
-
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
-
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get(id);
-  },
-});
+```bash
+npx convex env set OPENAI_API_KEY your-key
 ```
 
-Using this mutation function in a React component looks like:
+List Convex environment variables:
 
-```ts
-const mutation = useMutation(api.functions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) =>
-    console.log(result),
-  );
-}
+```bash
+npx convex env list
 ```
 
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.
+## Auth Dependency
+
+Convex auth depends on Better Auth:
+
+- issuer: `process.env.VITE_BETTER_AUTH_URL`
+- JWKS: `${process.env.VITE_BETTER_AUTH_URL}/api/auth/jwks`
+- application ID: `intern3`
+
+If Better Auth is broken, Convex auth is broken too.
+
+## Internal Provider Notes
+
+Internal providers are controlled in two places:
+
+1. Convex must have the actual secret configured.
+2. The browser must allow the provider in `VITE_ENABLED_INTERNAL_PROVIDERS`.
+
+That means a provider can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
+
+## Where To Read More
+
+- [Setup Guide](../SETUP_GUIDE.md)
+- [Model & Provider Guide](../MODEL_PROVIDER_GUIDE.md)
+- [BYOK Setup](../BYOK_SETUP.md)
