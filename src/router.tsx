@@ -3,7 +3,7 @@ import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routerWithQueryClient } from "@tanstack/react-router-with-query"
 import { ConvexProviderWithAuth } from "convex/react"
 import { useMemo } from "react"
-import { convexQueryClient, queryClient } from "./providers"
+import { getConvexQueryClient, queryClient } from "./providers"
 import { routeTree } from "./routeTree.gen"
 
 const createAppRouter = () =>
@@ -29,14 +29,17 @@ const createAppRouter = () =>
                     </a>
                 </div>
             ),
-            Wrap: ({ children }) => (
-                <ConvexProviderWithAuth
-                    client={convexQueryClient.convexClient}
-                    useAuth={useBetterAuth}
-                >
-                    {children}
-                </ConvexProviderWithAuth>
-            )
+            Wrap: ({ children }) =>
+                typeof window === "undefined" ? (
+                    children
+                ) : (
+                    <ConvexProviderWithAuth
+                        client={getConvexQueryClient()!.convexClient}
+                        useAuth={useBetterAuth}
+                    >
+                        {children}
+                    </ConvexProviderWithAuth>
+                )
         }),
         queryClient
     )

@@ -11,19 +11,35 @@ import type { ReactNode } from "react"
 import { Toaster } from "sonner"
 import { browserEnv, optionalBrowserEnv } from "./lib/browser-env"
 
-export const convexQueryClient = new ConvexQueryClient(browserEnv("VITE_CONVEX_URL"))
+let convexQueryClientSingleton: ConvexQueryClient | null = null
+
+export function getConvexQueryClient() {
+    if (typeof window === "undefined") {
+        return null
+    }
+
+    if (!convexQueryClientSingleton) {
+        convexQueryClientSingleton = new ConvexQueryClient(browserEnv("VITE_CONVEX_URL"))
+        convexQueryClientSingleton.connect(queryClient)
+    }
+
+    return convexQueryClientSingleton
+}
 
 export const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
         queries: {
             staleTime: 1000 * 60 * 5,
             gcTime: 1000 * 60 * 5,
-            queryKeyHashFn: convexQueryClient.hashFn(),
-            queryFn: convexQueryClient.queryFn()
+            ...(typeof window !== "undefined"
+                ? {
+                      queryKeyHashFn: getConvexQueryClient()?.hashFn(),
+                      queryFn: getConvexQueryClient()?.queryFn()
+                  }
+                : {})
         }
     }
 })
-convexQueryClient.connect(queryClient)
 
 export function Providers({ children }: { children: ReactNode }) {
     const router = useRouter()
