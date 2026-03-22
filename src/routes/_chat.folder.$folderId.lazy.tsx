@@ -63,14 +63,16 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
     const project =
         "error" in projects ? null : projects?.find((project) => project._id === folderId)
 
-    const { status, messages } = useChatIntegration({
+    const chat = useChatIntegration({
         threadId,
         folderId
     })
+    const { status, messages } = chat
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
-        folderId
+        folderId,
+        chat
     })
 
     useChatDataProcessor({ messages })

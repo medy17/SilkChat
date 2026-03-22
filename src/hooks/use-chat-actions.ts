@@ -3,21 +3,29 @@ import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import type { FileUIPart, UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback } from "react"
-import { useChatIntegration } from "./use-chat-integration"
+
+interface ChatActionHelpers {
+    status: string
+    sendMessage: (message: any) => Promise<unknown>
+    stop: () => void
+    messages: UIMessage[]
+    setMessages: (messages: any) => unknown
+    regenerate: (options?: {
+        messageId?: string
+        body?: Record<string, unknown>
+    }) => Promise<unknown>
+}
 
 export function useChatActions({
-    threadId,
-    folderId
+    chat
 }: {
     threadId: string | undefined
     folderId?: Id<"projects">
+    chat: ChatActionHelpers
 }) {
     const { uploadedFiles, setUploadedFiles, setTargetFromMessageId, setTargetMode } =
         useChatStore()
-    const { status, sendMessage, stop, messages, setMessages, regenerate } = useChatIntegration({
-        threadId,
-        folderId
-    })
+    const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
 
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
@@ -30,14 +38,10 @@ export function useChatActions({
                 return
             }
 
-            if (!inputValue || !inputValue.trim()) {
-                return
-            }
-
-            const finalInput = inputValue
+            const trimmedInput = inputValue?.trim() ?? ""
             const finalFiles = fileValues ?? uploadedFiles
 
-            if (!finalInput?.trim() && finalFiles && finalFiles.length === 0) {
+            if (!trimmedInput && finalFiles.length === 0) {
                 return
             }
 
@@ -53,7 +57,7 @@ export function useChatActions({
                             filename: file.fileName
                         } satisfies FileUIPart
                     }),
-                    { type: "text", text: inputValue }
+                    ...(trimmedInput ? [{ type: "text" as const, text: trimmedInput }] : [])
                 ]
             })
 

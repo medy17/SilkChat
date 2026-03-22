@@ -56,14 +56,16 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
     const project =
         "error" in projects ? null : projects?.find((project) => project._id === folderId)
 
-    const { status, messages, ...chatHelpers } = useChatIntegration({
+    const chat = useChatIntegration({
         threadId,
         folderId
     })
+    const { status, messages, ...chatHelpers } = chat
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
-        folderId
+        folderId,
+        chat
     })
 
     useChatDataProcessor({ messages })
