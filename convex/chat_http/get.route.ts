@@ -53,13 +53,13 @@ export const chatGET = httpAction(async (ctx, req) => {
             execute: () => {}
         }).pipeThrough(new JsonToSseTransformStream())
 
-    const stream = await streamContext.resumableStream(recentStreamId._id, createEmptyStream)
+    const stream = await streamContext.resumeExistingStream(recentStreamId._id)
 
     /*
      * For when the generation is streaming during SSR
      * but the resumable stream has concluded at this point.
      */
-    if (!stream) {
+    if (stream == null) {
         const messages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
             threadId: threadId as Id<"threads">
         })
