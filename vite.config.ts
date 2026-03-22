@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite"
 // vite.config.ts
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import react from "@vitejs/plugin-react"
+import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 import analyzer from "vite-bundle-analyzer"
 import svgr from "vite-plugin-svgr"
@@ -25,13 +26,19 @@ export default defineConfig({
     },
     plugins: [
         (process.env.ANALYZE && analyzer()) || null,
-        tanstackStart({
-            spa: {
-                enabled: true
-            }
-        }),
+        tanstackStart(),
         react(),
         tailwindcss(),
-        svgr({ include: "**/*.svg" })
-    ]
+        svgr({ include: "**/*.svg" }),
+        nitro()
+    ],
+    environments: {
+        ssr: {
+            build: {
+                rollupOptions: {
+                    input: "./src/server.ts"
+                }
+            }
+        }
+    }
 })
