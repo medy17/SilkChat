@@ -147,7 +147,7 @@ const buildAnthropicProviderOptions = (
 }
 
 export const chatPOST = httpAction(async (ctx, req) => {
-    const body: {
+    type ChatRequestBody = {
         id?: string
         message: Infer<typeof HTTPAIMessage>
         model: string
@@ -159,7 +159,27 @@ export const chatPOST = httpAction(async (ctx, req) => {
         mcpOverrides?: Record<string, boolean>
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
-    } = await req.json()
+    }
+
+    let body: ChatRequestBody
+    try {
+        const rawBody = await req.text()
+        if (!rawBody.trim()) {
+            console.error("[cvx][chat] Empty request body", {
+                contentLength: req.headers.get("content-length")
+            })
+            return new ChatError("bad_request:chat").toResponse()
+        }
+
+        body = JSON.parse(rawBody) as ChatRequestBody
+    } catch (error) {
+        console.error("[cvx][chat] Invalid request body", error)
+        return new ChatError("bad_request:chat").toResponse()
+    }
+
+    if (!body.message || !body.model || !body.proposedNewAssistantId) {
+        return new ChatError("bad_request:chat").toResponse()
+    }
 
     if (body.targetFromMessageId && !body.id) {
         return new ChatError("bad_request:chat").toResponse()
@@ -191,6 +211,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const modelData = await getModel(ctx, body.model)
     if (modelData instanceof ChatError) return modelData.toResponse()
     const { model, modelName } = modelData
+    const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
+    const maxTokens =
+        typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
+            ? configuredMaxTokens
+            : 16096
     const effectiveReasoningEffort: ReasoningEffort = body.reasoningEffort ?? "medium"
     const reasoningProfiles = resolveReasoningProfiles(body.model)
 
@@ -416,6 +441,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
                 const result = streamText({
                     model: model,
+                    maxTokens,
                     maxSteps: 100,
                     abortSignal: remoteCancel.signal,
                     experimental_transform: smoothStream(),

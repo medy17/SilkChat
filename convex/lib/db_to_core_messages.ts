@@ -55,20 +55,10 @@ export const dbMessagesToCore = async (
                         // Handle image files
                         try {
                             const fileUrl = await r2.getUrl(p.data)
-                            const data = await fetch(fileUrl)
-
-                            if (data.ok) {
-                                const blob = await data.blob()
-                                mapped_content.push({
-                                    type: "image",
-                                    image: await blob.arrayBuffer()
-                                })
-                            } else {
-                                console.warn(
-                                    `[cvx][chat] Failed to fetch image file ${p.data}: ${data.status} ${data.statusText}`
-                                )
-                                failedFileFetch("image", filename)
-                            }
+                            mapped_content.push({
+                                type: "image",
+                                image: fileUrl
+                            })
                         } catch (error) {
                             console.warn(
                                 `[cvx][chat] Error processing image file ${p.data}:`,

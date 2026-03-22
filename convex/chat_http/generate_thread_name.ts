@@ -9,7 +9,10 @@ import type { DataModel, Id } from "../_generated/dataModel"
 import type { UserSettings } from "../schema"
 import { getModel } from "./get_model"
 
+const TITLE_MODEL_PREFERRED = "gemini-3.1-flash-lite-preview"
+
 const TITLE_MODEL_FALLBACKS = [
+    "gemini-3.1-flash-lite-preview",
     "gpt-4.1-mini",
     "gpt-4o-mini",
     "gemini-2.0-flash-lite",
@@ -77,7 +80,7 @@ const getAvailableTitleModelId = async (
         userId
     })
 
-    const candidates = [preferredModelId, ...TITLE_MODEL_FALLBACKS]
+    const candidates = [TITLE_MODEL_PREFERRED, preferredModelId, ...TITLE_MODEL_FALLBACKS]
 
     return candidates.find((candidate, index) => {
         if (candidates.indexOf(candidate) !== index) return false

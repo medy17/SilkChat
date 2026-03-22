@@ -276,6 +276,11 @@ export const manualStreamTransform = (
                             isContinued: chunk.isContinued
                         })
                     )
+                    console.log("[cvx][chat][stream] step-finish", {
+                        finishReason: chunk.finishReason,
+                        usage: chunk.usage,
+                        isContinued: chunk.isContinued
+                    })
                     totalTokenUsage.promptTokens += chunk.usage.promptTokens || 0
                     totalTokenUsage.completionTokens += chunk.usage.completionTokens || 0
 
