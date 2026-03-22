@@ -1,27 +1,39 @@
 import type { Id } from "@/convex/_generated/dataModel"
+import { browserEnv } from "@/lib/browser-env"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import type { FileUIPart, UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback } from "react"
 
-interface ChatActionHelpers {
+type UserTextPart = {
+    type: "text"
+    text: string
+}
+
+type SendableUserMessage = {
+    id: string
+    role: "user"
+    parts: Array<FileUIPart | UserTextPart>
+}
+
+interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
     status: string
-    sendMessage: (message: any) => Promise<unknown>
+    sendMessage: (message: SendableUserMessage) => Promise<unknown>
     stop: () => void
-    messages: UIMessage[]
-    setMessages: (messages: any) => unknown
+    messages: TMessage[]
+    setMessages: (messages: TMessage[] | ((messages: TMessage[]) => TMessage[])) => unknown
     regenerate: (options?: {
         messageId?: string
         body?: Record<string, unknown>
     }) => Promise<unknown>
 }
 
-export function useChatActions({
+export function useChatActions<TMessage extends UIMessage>({
     chat
 }: {
     threadId: string | undefined
     folderId?: Id<"projects">
-    chat: ChatActionHelpers
+    chat: ChatActionHelpers<TMessage>
 }) {
     const { uploadedFiles, setUploadedFiles, setTargetFromMessageId, setTargetMode } =
         useChatStore()
@@ -52,7 +64,7 @@ export function useChatActions({
                     ...finalFiles.map((file) => {
                         return {
                             type: "file",
-                            url: `${window.location.origin}/r2?key=${file.key}`,
+                            url: `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${file.key}`,
                             mediaType: file.fileType,
                             filename: file.fileName
                         } satisfies FileUIPart
@@ -89,7 +101,7 @@ export function useChatActions({
                 }
             })
         },
-        [messages, setMessages, regenerate]
+        [messages, setMessages, setTargetFromMessageId, setTargetMode, regenerate]
     )
 
     const handleEditAndRetry = useCallback(
@@ -121,7 +133,7 @@ export function useChatActions({
                 }
             })
         },
-        [messages, setMessages, setTargetFromMessageId, regenerate]
+        [messages, setMessages, setTargetFromMessageId, setTargetMode, regenerate]
     )
 
     return {

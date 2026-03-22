@@ -14,6 +14,46 @@ import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
 import { useCallback, useMemo, useRef } from "react"
 
+type BackendMessagePart =
+    | { type: "text"; text: string }
+    | { type: "file"; data: string; filename?: string; mimeType?: string }
+
+const extractAttachmentData = (url: string) => {
+    if (url.startsWith("data:")) return url
+
+    try {
+        const parsed = new URL(url, browserEnv("VITE_CONVEX_API_URL"))
+        const key = parsed.searchParams.get("key")
+        return key || url
+    } catch {
+        return url
+    }
+}
+
+const normalizeUserMessageParts = (
+    parts: UIMessage["parts"] | undefined
+): BackendMessagePart[] | undefined => {
+    if (!parts) return undefined
+
+    return parts.reduce<BackendMessagePart[]>((normalizedParts, part) => {
+        if (part.type === "text") {
+            normalizedParts.push({ type: "text", text: part.text })
+            return normalizedParts
+        }
+
+        if (part.type === "file") {
+            normalizedParts.push({
+                type: "file",
+                data: extractAttachmentData(part.url),
+                filename: part.filename,
+                mimeType: part.mediaType
+            })
+        }
+
+        return normalizedParts
+    }, [])
+}
+
 export function useChatIntegration<IsShared extends boolean>({
     threadId,
     sharedThreadId,
@@ -115,7 +155,7 @@ export function useChatIntegration<IsShared extends boolean>({
                               proposedNewAssistantId,
                               model: selectedModel,
                               message: {
-                                  parts: message?.parts,
+                                  parts: normalizeUserMessageParts(message?.parts),
                                   role: message?.role,
                                   messageId: message?.id
                               },

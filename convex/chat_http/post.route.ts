@@ -248,15 +248,22 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
 
-    const mutationResult = await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
-        threadId: body.id as Id<"threads">,
-        authorId: user.id,
-        userMessage: "message" in body ? body.message : undefined,
-        proposedNewAssistantId: body.proposedNewAssistantId,
-        targetFromMessageId: body.targetFromMessageId,
-        targetMode: body.targetMode,
-        folderId: body.folderId
-    })
+    const mutationResult = await (async () => {
+        try {
+            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
+                threadId: body.id as Id<"threads">,
+                authorId: user.id,
+                userMessage: "message" in body ? body.message : undefined,
+                proposedNewAssistantId: body.proposedNewAssistantId,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode,
+                folderId: body.folderId
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to create or append messages", error)
+            return new ChatError("bad_request:chat")
+        }
+    })()
 
     if (mutationResult instanceof ChatError) return mutationResult.toResponse()
     if (!mutationResult) return new ChatError("bad_request:chat").toResponse()
