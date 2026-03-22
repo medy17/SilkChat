@@ -22,6 +22,7 @@ import { type ImageResolution, type ImageSize, MODELS_SHARED } from "@/convex/li
 import { DefaultSettings } from "@/convex/settings"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
+import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
@@ -386,6 +387,11 @@ export function MultimodalInput({
 
     const uploadFile = useCallback(
         async (file: File): Promise<ExtendedUploadedFile> => {
+            const jwt = await resolveJwtToken(token)
+            if (!jwt) {
+                throw new Error("Authentication token unavailable")
+            }
+
             const formData = new FormData()
             formData.append("file", file)
             formData.append("fileName", file.name)
@@ -394,7 +400,7 @@ export function MultimodalInput({
                 method: "POST",
                 body: formData,
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${jwt}`
                 }
             })
 

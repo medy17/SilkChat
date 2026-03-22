@@ -1,4 +1,5 @@
 import { useSession, useToken } from "@/hooks/auth-hooks"
+import { resolveJwtToken } from "@/lib/auth-token"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routerWithQueryClient } from "@tanstack/react-router-with-query"
 import { ConvexProviderWithAuth } from "convex/react"
@@ -65,7 +66,7 @@ const useBetterAuth = () => {
     //   });
     const data = useToken({
         initialData: () => {
-            const token = queryClient.getQueryData(["auth_token"])
+            const token = queryClient.getQueryData(["token"])
             return token ?? undefined
         }
     })
@@ -74,7 +75,7 @@ const useBetterAuth = () => {
         () => ({
             isLoading: data.isPending || data.isLoading,
             isAuthenticated: !!session.user?.id,
-            fetchAccessToken: async () => data.token ?? null
+            fetchAccessToken: async () => (await resolveJwtToken(data.token)) ?? null
         }),
         [data.isPending, data.isLoading, session.user?.id, data.token]
     )

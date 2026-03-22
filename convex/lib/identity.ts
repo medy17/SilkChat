@@ -8,7 +8,14 @@ export const getUserIdentity = async <T extends boolean>(
     auth: Auth,
     { allowAnons }: { allowAnons: T }
 ): Promise<{ error: string } | Identity<T>> => {
-    const identity = await auth.getUserIdentity()
+    let identity: UserIdentity | null
+
+    try {
+        identity = await auth.getUserIdentity()
+    } catch (error) {
+        console.error("[auth] Failed to resolve user identity", error)
+        return { error: "Unauthorized" }
+    }
 
     if (!identity) {
         return { error: "Unauthorized" }

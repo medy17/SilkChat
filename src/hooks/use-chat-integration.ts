@@ -4,6 +4,7 @@ import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages"
 import type { SharedThread, Thread } from "@/convex/schema"
 import { useToken } from "@/hooks/auth-hooks"
 import { useAutoResume } from "@/hooks/use-auto-resume"
+import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { useModelStore } from "@/lib/model-store"
@@ -130,10 +131,12 @@ export function useChatIntegration<IsShared extends boolean>({
             ? undefined
             : new DefaultChatTransport<ChatMessage>({
                   api: `${browserEnv("VITE_CONVEX_API_URL")}/chat`,
-                  headers: {
-                      authorization: `Bearer ${tokenData.token}`
-                  },
-                  prepareSendMessagesRequest(body) {
+                  async prepareSendMessagesRequest(body) {
+                      const jwt = await resolveJwtToken(tokenData.token)
+                      if (!jwt) {
+                          throw new Error("Authentication token unavailable")
+                      }
+
                       if (threadId) {
                           useChatStore.getState().setPendingStream(threadId, true)
                       }
@@ -145,6 +148,9 @@ export function useChatIntegration<IsShared extends boolean>({
                       const mcpOverrides = getEffectiveMcpOverrides(threadId)
 
                       return {
+                          headers: {
+                              authorization: `Bearer ${jwt}`
+                          },
                           body: {
                               id: threadId,
                               proposedNewAssistantId,
@@ -163,13 +169,18 @@ export function useChatIntegration<IsShared extends boolean>({
                           }
                       }
                   },
-                  prepareReconnectToStreamRequest({ api, id }) {
+                  async prepareReconnectToStreamRequest({ api, id }) {
+                      const jwt = await resolveJwtToken(tokenData.token)
+                      if (!jwt) {
+                          throw new Error("Authentication token unavailable")
+                      }
+
                       const reconnectThreadId = threadId ?? id
 
                       return {
                           api: `${api}?chatId=${encodeURIComponent(reconnectThreadId)}`,
                           headers: {
-                              authorization: `Bearer ${tokenData.token}`
+                              authorization: `Bearer ${jwt}`
                           }
                       }
                   }

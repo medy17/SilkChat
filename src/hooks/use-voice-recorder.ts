@@ -1,4 +1,5 @@
 import { useToken } from "@/hooks/auth-hooks"
+import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -388,10 +389,15 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 const formData = new FormData()
                 formData.append("audio", audioBlob)
 
+                const jwt = await resolveJwtToken(tokenRef.current)
+                if (!jwt) {
+                    throw new Error("Authentication token unavailable")
+                }
+
                 const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/transcribe`, {
                     method: "POST",
                     headers: {
-                        Authorization: `Bearer ${tokenRef.current}`
+                        Authorization: `Bearer ${jwt}`
                     },
                     body: formData
                 })
