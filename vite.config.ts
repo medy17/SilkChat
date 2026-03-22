@@ -8,6 +8,8 @@ import { defineConfig } from "vite"
 import analyzer from "vite-bundle-analyzer"
 import svgr from "vite-plugin-svgr"
 
+const sandpackSsrStub = path.resolve(__dirname, "./src/lib/sandpack-react-ssr-stub.tsx")
+
 export default defineConfig({
     resolve: {
         alias: {
@@ -26,6 +28,15 @@ export default defineConfig({
     },
     plugins: [
         (process.env.ANALYZE && analyzer()) || null,
+        {
+            name: "ssr-sandpack-stub",
+            enforce: "pre",
+            resolveId(id, _importer, options) {
+                if (options?.ssr && id === "@codesandbox/sandpack-react") {
+                    return sandpackSsrStub
+                }
+            }
+        },
         tanstackStart(),
         react(),
         tailwindcss(),

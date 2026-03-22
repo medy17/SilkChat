@@ -5,8 +5,13 @@ import { useCodeHighlighter } from "@/hooks/use-code-highlighter"
 import { cn } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/utils"
 import { AlignLeft, CheckIcon, ChevronDown, ChevronUp, CopyIcon, WrapText } from "lucide-react"
-import { memo, useMemo, useState } from "react"
-import { type ArtifactLanguage, ArtifactPreview, isArtifactSupported } from "./artifact-preview"
+import { Suspense, lazy, memo, useMemo, useState } from "react"
+import { type ArtifactLanguage, isArtifactSupported } from "./artifact-preview-shared"
+
+const ArtifactPreview = lazy(async () => {
+    const mod = await import("./artifact-preview")
+    return { default: mod.ArtifactPreview }
+})
 
 export const Codeblock = memo(
     ({
@@ -54,7 +59,6 @@ export const Codeblock = memo(
                 .filter((x: any) => typeof x === "string")
                 .join("")
         }, [children])
-        console.log(codeString)
 
         const supportsArtifact = useMemo(() => {
             return isArtifactSupported(language)
@@ -198,10 +202,24 @@ export const Codeblock = memo(
                         </TabsContent>
 
                         <TabsContent value="preview" className="mt-0">
-                            <ArtifactPreview
-                                code={codeString}
-                                language={language as ArtifactLanguage}
-                            />
+                            {typeof window === "undefined" ? (
+                                <div className="p-4 text-center text-muted-foreground text-sm">
+                                    Preview loads on the client.
+                                </div>
+                            ) : (
+                                <Suspense
+                                    fallback={
+                                        <div className="p-4 text-center text-muted-foreground text-sm">
+                                            Loading preview...
+                                        </div>
+                                    }
+                                >
+                                    <ArtifactPreview
+                                        code={codeString}
+                                        language={language as ArtifactLanguage}
+                                    />
+                                </Suspense>
+                            )}
                         </TabsContent>
                     </Tabs>
                 ) : (

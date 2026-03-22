@@ -1,3 +1,5 @@
+"use client"
+
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import {
@@ -10,24 +12,8 @@ import { memo, useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
 import remarkGfm from "remark-gfm"
+import type { ArtifactLanguage } from "./artifact-preview-shared"
 import { Codeblock } from "./codeblock"
-
-// Supported languages for artifacts
-export const ARTIFACT_SUPPORTED_LANGUAGES = [
-    "mermaid",
-    "html",
-    "react",
-    "jsx",
-    "tsx",
-    "markdown",
-    "md"
-] as const
-
-export type ArtifactLanguage = (typeof ARTIFACT_SUPPORTED_LANGUAGES)[number]
-
-export function isArtifactSupported(language: string): language is ArtifactLanguage {
-    return ARTIFACT_SUPPORTED_LANGUAGES.includes(language as ArtifactLanguage)
-}
 
 interface ArtifactPreviewProps {
     code: string
@@ -99,13 +85,10 @@ const MermaidRenderer = memo(({ code }: { code: string }) => {
                         classText: colors.foreground
                     }
                 })
-                console.log(code)
-
                 const { svg } = await mermaid.default.render(
                     `mermaid-${Date.now()}-${isDark ? "dark" : "light"}`,
                     code
                 )
-                console.log(svg)
                 setMermaidHTML(svg)
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to render diagram")
