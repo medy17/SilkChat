@@ -1,7 +1,7 @@
 {
-    "name": "intern3.chat",
-    "short_name": "intern3.chat",
-    "description": "intern3.chat",
+    "name": "SilkChat",
+    "short_name": "SilkChat",
+    "description": "SilkChat",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",

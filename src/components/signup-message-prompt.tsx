@@ -35,7 +35,7 @@ export const SignupMessagePrompt = () => {
                         SilkChat
                     </h1>
                     <p className="mt-1 font-medium text-muted-foreground text-sm italic">
-                        built for interns, by interns
+                        The sleek, fast, and powerful AI chatbot experience.
                     </p>
                 </motion.div>
             </div>

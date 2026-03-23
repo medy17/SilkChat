@@ -59,7 +59,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                 <div className="text-center">
                     <h3 className="font-bold text-2xl text-foreground">Welcome to SilkChat</h3>
                     <span className="text-muted-foreground text-sm">
-                        The best open-source chatbot. Made by interns, for interns.
+                        The sleek, fast, and powerful AI chatbot experience.
                     </span>
                 </div>
             </div>

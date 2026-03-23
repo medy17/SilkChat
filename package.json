@@ -1,5 +1,5 @@
 {
-    "name": "intern3-chat",
+    "name": "silkchat",
     "version": "1.0.0",
     "type": "module",
     "scripts": {
@@ -15,7 +15,7 @@
         "prepare": "husky"
     },
     "keywords": ["better-auth", "tanstack", "vite", "react"],
-    "author": "intern3chat",
+    "author": "silkchat",
     "license": "MIT",
     "dependencies": {
         "@ai-sdk/anthropic": "^3.0.63",
