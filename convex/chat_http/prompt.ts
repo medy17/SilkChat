@@ -24,6 +24,12 @@ export const buildPrompt = (
 - No need to tell the user that you are using markdown or LaTeX.
 - Do not include comments in any mermaid diagrams you output.
 
+- It is critical you understand when to use tools
+  lest you disrupt the flow of the conversation or make strange,
+  out-of-place decisions, comments, and/or suggestions.
+  In other words, use tools idiomatically. Colloquial conversations for instance
+  might not need mermaid diagrams but technical ones might.
+
 ## Canvas tool
 You have access to the "Canvas" tool for visualizing content. Two formats are supported:
 1. \`mermaid\`
