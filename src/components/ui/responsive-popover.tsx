@@ -102,7 +102,7 @@ export function ResponsivePopoverContent({
     if (isMobile) {
         return (
             <SheetContent 
-                side={side} 
+                side="bottom" 
                 className={cn(
                     className,
                     "max-h-[85dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-popover"

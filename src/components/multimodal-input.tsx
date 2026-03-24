@@ -74,7 +74,7 @@ const IMAGE_COMPRESSION_STEPS = [
     { quality: 0.56, maxDimension: 2048 }
 ] as const
 
-const AspectRatioSelector = ({ selectedModel }: { selectedModel: string | null }) => {
+export const AspectRatioSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { selectedImageSize, setSelectedImageSize } = useModelStore()
     const { models: sharedModels } = useSharedModels()
 
@@ -135,7 +135,7 @@ const AspectRatioSelector = ({ selectedModel }: { selectedModel: string | null }
     )
 }
 
-const ImageResolutionSelector = ({ selectedModel }: { selectedModel: string | null }) => {
+export const ImageResolutionSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { selectedImageResolution, setSelectedImageResolution } = useModelStore()
     const { models: sharedModels } = useSharedModels()
 
@@ -180,7 +180,7 @@ const ImageResolutionSelector = ({ selectedModel }: { selectedModel: string | nu
     )
 }
 
-const ReasoningEffortSelector = ({ selectedModel }: { selectedModel: string | null }) => {
+export const ReasoningEffortSelector = ({ selectedModel }: { selectedModel: string | null }) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
     const { models: sharedModels } = useSharedModels()
 

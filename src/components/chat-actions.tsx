@@ -1,8 +1,9 @@
 import { browserEnv } from "@/lib/browser-env"
 import { cn, copyToClipboard } from "@/lib/utils"
 import type { UIMessage } from "ai"
-import { Check, Copy, Download, Edit3, RotateCcw } from "lucide-react"
+import { Check, Copy, Download, Edit3 } from "lucide-react"
 import { memo, useMemo, useState } from "react"
+import { RetryMenu } from "./retry-menu"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
@@ -16,7 +17,7 @@ export const ChatActions = memo(
     }: {
         role: UIMessage["role"]
         message: UIMessage
-        onRetry?: (message: UIMessage) => void
+        onRetry?: (message: UIMessage, modelIdOverride?: string) => void
         onEdit?: (message: UIMessage) => void
     }) => {
         const [copied, setCopied] = useState(false)
@@ -85,21 +86,7 @@ export const ChatActions = memo(
                 )}
             >
                 {onRetry && (
-                    <Tooltip delayDuration={150}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
-                                onClick={() => onRetry(message)}
-                            >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                            <p>Retry</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <RetryMenu onRetry={(modelIdOverride) => onRetry(message, modelIdOverride)} />
                 )}
 
                 {onEdit && (

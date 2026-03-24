@@ -141,10 +141,6 @@ export const ThreadItem = memo(
                                                     event.preventDefault()
                                                     event.stopPropagation()
                                                 }}
-                                                onPointerDown={(event) => {
-                                                    event.preventDefault()
-                                                    event.stopPropagation()
-                                                }}
                                                 className={cn(
                                                     "rounded p-1 transition-opacity",
                                                     isMenuOpen ||

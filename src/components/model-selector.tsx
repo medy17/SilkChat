@@ -326,11 +326,15 @@ const ModelCard = React.memo(function ModelCard({
 export function ModelSelector({
     selectedModel,
     onModelChange,
-    className
+    className,
+    side = "bottom",
+    align = "start"
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
     className?: string
+    side?: "top" | "right" | "bottom" | "left"
+    align?: "start" | "center" | "end"
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -560,21 +564,23 @@ export function ModelSelector({
             </ResponsivePopoverTrigger>
 
             <ResponsivePopoverContent
-                className="w-[min(92vw,680px)] p-0 md:w-[680px]"
-                align="start"
+                className="flex w-[min(92vw,680px)] flex-col overflow-hidden p-0 md:w-[680px]"
+                align={align}
+                side={side}
                 alignOffset={desktopAlignOffset}
-                style={
-                    !isMobile && desktopPopoverWidth
+                style={{
+                    ...(!isMobile && desktopPopoverWidth
                         ? {
                               width: `${desktopPopoverWidth}px`,
                               maxWidth: "92vw"
                           }
-                        : undefined
-                }
+                        : {}),
+                    maxHeight: "var(--radix-popover-content-available-height)"
+                }}
                 title="Select Model"
                 description="Choose a model for your conversation"
             >
-                <div className="border-b p-3">
+                <div className="shrink-0 border-b p-3">
                     <div className="relative">
                         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
                         <Input
@@ -608,9 +614,9 @@ export function ModelSelector({
                     </div>
                 </div>
 
-                <div className="grid min-h-[420px] grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-1">
-                    <div className="border-b p-2 md:border-r md:border-b-0 md:p-1.5">
-                        <ScrollArea className="max-h-28 md:max-h-[420px]">
+                <div className="grid max-h-[50vh] min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:max-h-[400px] md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-1">
+                    <div className="flex min-h-0 flex-col border-b p-2 md:border-r md:border-b-0 md:p-1.5">
+                        <ScrollArea className="max-h-28 flex-1 md:max-h-full">
                             <div className="flex gap-2 md:flex-col">
                                 {filteredSections.map((section) => {
                                     const isActive = section.id === visibleSection?.id
@@ -656,10 +662,10 @@ export function ModelSelector({
                         </ScrollArea>
                     </div>
 
-                    <div className="min-h-0 p-3">
+                    <div className="flex min-h-0 flex-col p-3">
                         {visibleSection ? (
                             <>
-                                <div className="mb-3 flex items-center justify-between gap-3">
+                                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                                     <div>
                                         <h3 className="font-medium text-sm sm:text-base">
                                             {visibleSection.label}
@@ -670,7 +676,7 @@ export function ModelSelector({
                                     </div>
                                 </div>
 
-                                <ScrollArea className="h-[320px] pr-1 md:h-[380px]">
+                                <ScrollArea className="max-h-[40vh] flex-1 pr-1 md:max-h-full">
                                     <div className="space-y-2">
                                         {visibleSection.models.map((model) => (
                                             <ModelCard
@@ -685,7 +691,7 @@ export function ModelSelector({
                                 </ScrollArea>
                             </>
                         ) : (
-                            <div className="flex h-[320px] items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm md:h-[380px]">
+                            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm">
                                 No models match your search.
                             </div>
                         )}

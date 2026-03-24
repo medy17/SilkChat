@@ -109,6 +109,7 @@ export function useChatIntegration<IsShared extends boolean>({
         serverDurationMs?: number
         threadId?: string
         streamId?: string
+        modelIdOverride?: string
     }>
 
     const initialMessages = useMemo<ChatMessage[]>(() => {
@@ -159,15 +160,19 @@ export function useChatIntegration<IsShared extends boolean>({
                       const message = messages[messages.length - 1]
                       const mcpOverrides = getEffectiveMcpOverrides(currentContext.threadId)
 
+                      const requestBody = body as Record<string, unknown> & {
+                          modelIdOverride?: string
+                      }
+
                       return {
                           headers: {
                               authorization: `Bearer ${jwt}`
                           },
                           body: {
-                              ...body,
+                              ...requestBody,
                               id: currentContext.threadId,
                               proposedNewAssistantId,
-                              model: selectedModel,
+                              model: requestBody.modelIdOverride ?? selectedModel,
                               message: {
                                   parts: normalizeUserMessageParts(message?.parts),
                                   role: message?.role,

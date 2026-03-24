@@ -17,16 +17,24 @@ import type * as chat_http_image_generation from "../chat_http/image_generation.
 import type * as chat_http_manual_stream_transform from "../chat_http/manual_stream_transform.js";
 import type * as chat_http_prompt from "../chat_http/prompt.js";
 import type * as chat_http_shared from "../chat_http/shared.js";
+import type * as chat_http_vertex_stream from "../chat_http/vertex_stream.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
 import type * as lib_backend_to_ui_messages from "../lib/backend_to_ui_messages.js";
 import type * as lib_db_to_core_messages from "../lib/db_to_core_messages.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_file_constants from "../lib/file_constants.js";
+import type * as lib_google_auth from "../lib/google_auth.js";
 import type * as lib_google_provider from "../lib/google_provider.js";
 import type * as lib_identity from "../lib/identity.js";
 import type * as lib_internal_provider_config from "../lib/internal_provider_config.js";
 import type * as lib_models from "../lib/models.js";
+import type * as lib_models_anthropic from "../lib/models/anthropic.js";
+import type * as lib_models_google from "../lib/models/google.js";
+import type * as lib_models_meta from "../lib/models/meta.js";
+import type * as lib_models_openai from "../lib/models/openai.js";
+import type * as lib_models_types from "../lib/models/types.js";
+import type * as lib_models_xai from "../lib/models/xai.js";
 import type * as lib_provider_factory from "../lib/provider_factory.js";
 import type * as lib_resumable_stream_context from "../lib/resumable_stream_context.js";
 import type * as lib_toolkit from "../lib/toolkit.js";
@@ -60,14 +68,6 @@ import type {
   FunctionReference,
 } from "convex/server";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
 declare const fullApi: ApiFromModules<{
   aggregates: typeof aggregates;
   analytics: typeof analytics;
@@ -78,16 +78,24 @@ declare const fullApi: ApiFromModules<{
   "chat_http/manual_stream_transform": typeof chat_http_manual_stream_transform;
   "chat_http/prompt": typeof chat_http_prompt;
   "chat_http/shared": typeof chat_http_shared;
+  "chat_http/vertex_stream": typeof chat_http_vertex_stream;
   folders: typeof folders;
   http: typeof http;
   "lib/backend_to_ui_messages": typeof lib_backend_to_ui_messages;
   "lib/db_to_core_messages": typeof lib_db_to_core_messages;
   "lib/encryption": typeof lib_encryption;
   "lib/file_constants": typeof lib_file_constants;
+  "lib/google_auth": typeof lib_google_auth;
   "lib/google_provider": typeof lib_google_provider;
   "lib/identity": typeof lib_identity;
   "lib/internal_provider_config": typeof lib_internal_provider_config;
   "lib/models": typeof lib_models;
+  "lib/models/anthropic": typeof lib_models_anthropic;
+  "lib/models/google": typeof lib_models_google;
+  "lib/models/meta": typeof lib_models_meta;
+  "lib/models/openai": typeof lib_models_openai;
+  "lib/models/types": typeof lib_models_types;
+  "lib/models/xai": typeof lib_models_xai;
   "lib/provider_factory": typeof lib_provider_factory;
   "lib/resumable_stream_context": typeof lib_resumable_stream_context;
   "lib/toolkit": typeof lib_toolkit;
@@ -115,14 +123,30 @@ declare const fullApi: ApiFromModules<{
   streams: typeof streams;
   threads: typeof threads;
 }>;
-declare const fullApiWithMounts: typeof fullApi;
 
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 
@@ -390,17 +414,17 @@ export declare const components: {
         { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
         null
       >;
-      deleteIfExists: FunctionReference<
-        "mutation",
-        "internal",
-        { key: any; namespace?: any },
-        any
-      >;
       delete_: FunctionReference<
         "mutation",
         "internal",
         { key: any; namespace?: any },
         null
+      >;
+      deleteIfExists: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        any
       >;
       init: FunctionReference<
         "mutation",

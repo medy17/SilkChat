@@ -1,7 +1,9 @@
+import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { browserEnv } from "@/lib/browser-env"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import type { FileUIPart, UIMessage } from "ai"
+import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
 import { useCallback } from "react"
 
@@ -38,6 +40,7 @@ export function useChatActions<TMessage extends UIMessage>({
     const { uploadedFiles, setUploadedFiles, setTargetFromMessageId, setTargetMode } =
         useChatStore()
     const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
+    const deleteFileMutation = useMutation(api.attachments.deleteFile)
 
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
@@ -79,7 +82,7 @@ export function useChatActions<TMessage extends UIMessage>({
     )
 
     const handleRetry = useCallback(
-        (message: UIMessage) => {
+        (message: UIMessage, modelIdOverride?: string) => {
             const messageIndex = messages.findIndex((m) => m.id === message.id)
             if (messageIndex === -1) return
 
@@ -88,7 +91,8 @@ export function useChatActions<TMessage extends UIMessage>({
                 messages,
                 messagesUpToRetry: messagesUpToRetry.length,
                 messageIndex,
-                messageId: message.id
+                messageId: message.id,
+                modelIdOverride
             })
             setMessages(messagesUpToRetry)
             setTargetFromMessageId(undefined)
@@ -97,7 +101,8 @@ export function useChatActions<TMessage extends UIMessage>({
                 messageId: message.id,
                 body: {
                     targetMode: "retry",
-                    targetFromMessageId: message.id
+                    targetFromMessageId: message.id,
+                    ...(modelIdOverride ? { modelIdOverride } : {})
                 }
             })
         },
@@ -105,16 +110,35 @@ export function useChatActions<TMessage extends UIMessage>({
     )
 
     const handleEditAndRetry = useCallback(
-        (messageId: string, newContent: string) => {
+        (
+            messageId: string,
+            newContent: string,
+            remainingFileParts?: FileUIPart[],
+            deletedUrls?: string[]
+        ) => {
             const messageIndex = messages.findIndex((m) => m.id === messageId)
             if (messageIndex === -1) return
+
+            if (deletedUrls && deletedUrls.length > 0) {
+                deletedUrls.forEach((url) => {
+                    try {
+                        const parsed = new URL(url, browserEnv("VITE_CONVEX_API_URL"))
+                        const key = parsed.searchParams.get("key")
+                        if (key) {
+                            deleteFileMutation({ key }).catch(console.error)
+                        }
+                    } catch {
+                        // ignore
+                    }
+                })
+            }
 
             // Truncate messages and update the edited message
             const messagesUpToEdit = messages.slice(0, messageIndex)
             const updatedEditedMessage = {
                 ...messages[messageIndex],
                 content: newContent,
-                parts: [{ type: "text" as const, text: newContent }]
+                parts: [...(remainingFileParts || []), { type: "text" as const, text: newContent }]
             }
 
             console.log("alarm:handleEditAndRetry", {
@@ -133,7 +157,14 @@ export function useChatActions<TMessage extends UIMessage>({
                 }
             })
         },
-        [messages, setMessages, setTargetFromMessageId, setTargetMode, regenerate]
+        [
+            messages,
+            setMessages,
+            setTargetFromMessageId,
+            setTargetMode,
+            regenerate,
+            deleteFileMutation
+        ]
     )
 
     return {

@@ -3,19 +3,37 @@ import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
+import { useModelStore } from "@/lib/model-store"
+import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
-import type { UIMessage, UIToolInvocation } from "ai"
-import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw } from "lucide-react"
+import { useLocation } from "@tanstack/react-router"
+import type { FileUIPart, UIMessage, UIToolInvocation } from "ai"
+import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw, Trash2, X } from "lucide-react"
+import { ArrowUp, MoreHorizontal } from "lucide-react"
 import { memo, useState } from "react"
+import { useMemo } from "react"
 import type { useStickToBottom } from "use-stick-to-bottom"
 import { ChatActions } from "./chat-actions"
 import { MemoizedMarkdown } from "./memoized-markdown"
+import { ModelSelector } from "./model-selector"
+import {
+    AspectRatioSelector,
+    ImageResolutionSelector,
+    ReasoningEffortSelector
+} from "./multimodal-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
+import { ToolSelectorPopover } from "./tool-selector-popover"
 import { Button } from "./ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "./ui/dropdown-menu"
 import { Loader } from "./ui/loader"
 import { Textarea } from "./ui/textarea"
 
@@ -197,18 +215,54 @@ const EditableMessage = memo(
         onCancel
     }: {
         message: UIMessage
-        onSave: (newContent: string) => void
+        onSave: (
+            newContent: string,
+            remainingFileParts?: FileUIPart[],
+            deletedUrls?: string[]
+        ) => void
         onCancel: () => void
     }) => {
+        const location = useLocation()
+        const threadId = location.pathname.includes("/thread/")
+            ? location.pathname.split("/thread/")[1]?.split("/")[0]
+            : undefined
+
+        const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
+        const { models: sharedModels } = useSharedModels()
+
+        const [
+            modelSupportsFunctionCalling,
+            isImageModel,
+            modelSupportsImageSizing,
+            modelSupportsImageResolution
+        ] = useMemo(() => {
+            if (!selectedModel) return [false, false, false, false]
+            const model = sharedModels.find((m) => m.id === selectedModel)
+            return [
+                model?.abilities.includes("function_calling") ?? false,
+                model?.mode === "image",
+                (model?.supportedImageSizes?.length ?? 0) > 0,
+                (model?.supportedImageResolutions?.length ?? 0) > 0
+            ]
+        }, [selectedModel, sharedModels])
+
         const textContent = message.parts
             .filter((part) => part.type === "text")
             .map((part) => part.text)
             .join("\n")
 
+        const fileParts = message.parts.filter((p): p is FileUIPart => p.type === "file")
+
         const [editedContent, setEditedContent] = useState(textContent)
+        const [deletedUrls, setDeletedUrls] = useState<string[]>([])
 
         const handleSave = () => {
-            onSave(editedContent)
+            const remainingFileParts = fileParts.filter((p) => !deletedUrls.includes(p.url))
+            onSave(
+                editedContent,
+                remainingFileParts.length > 0 ? remainingFileParts : undefined,
+                deletedUrls.length > 0 ? deletedUrls : undefined
+            )
         }
 
         const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -229,23 +283,167 @@ const EditableMessage = memo(
                     onKeyDown={handleKeyDown}
                     className=" my-12 w-full resize-none border-none bg-transparent p-4 pb-2 text-primary-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
-                <div className="flex justify-end gap-2 px-4 pb-3">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onCancel}
-                        className="rounded-md text-primary-foreground hover:border-none hover:bg-transparent hover:text-primary-foreground/80"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleSave}
-                        className="rounded-md"
-                    >
-                        Send
-                    </Button>
+
+                {fileParts.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-4 pb-2">
+                        {fileParts.map((part, index) => {
+                            const { isImage } = getFileTypeInfo(
+                                extractFileName(part.url),
+                                part.mediaType
+                            )
+                            const isRemoved = deletedUrls.includes(part.url)
+                            const isMultiFile = fileParts.length > 1
+
+                            const handleToggleRemove = () => {
+                                setDeletedUrls((prev) =>
+                                    prev.includes(part.url)
+                                        ? prev.filter((url) => url !== part.url)
+                                        : [...prev, part.url]
+                                )
+                            }
+
+                            return (
+                                <div
+                                    key={index}
+                                    className={cn(
+                                        "group relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary-foreground/20 bg-primary-foreground/10",
+                                        isMultiFile || !isImage
+                                            ? "h-14 w-auto min-w-14 pr-3"
+                                            : "h-auto max-h-64 w-auto max-w-full",
+                                        !isImage && !isMultiFile && "w-auto px-3",
+                                        isImage && isMultiFile && "w-16 pr-0",
+                                        isRemoved && "opacity-50 grayscale-[50%]"
+                                    )}
+                                >
+                                    {isImage ? (
+                                        <img
+                                            src={
+                                                part.url.startsWith("http") ||
+                                                part.url.startsWith("data:")
+                                                    ? part.url
+                                                    : `${browserEnv("VITE_CONVEX_API_URL")}${part.url}`
+                                            }
+                                            alt="Attachment"
+                                            className={cn(
+                                                "object-cover",
+                                                isMultiFile
+                                                    ? "h-full w-full"
+                                                    : "h-auto max-h-64 w-auto"
+                                            )}
+                                        />
+                                    ) : (
+                                        <div className="flex items-center gap-2 pl-2 text-primary-foreground">
+                                            {getFileIcon(part)}
+                                            <div className="flex min-w-0 flex-col">
+                                                <span className="max-w-[100px] truncate font-medium text-xs">
+                                                    {extractFileName(part.url)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {isRemoved && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
+                                            <Trash2 className="size-6 text-destructive drop-shadow-md" />
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="icon"
+                                        onClick={handleToggleRemove}
+                                        title={
+                                            isRemoved
+                                                ? "Restore attachment"
+                                                : "Remove attachment from message"
+                                        }
+                                        className={cn(
+                                            "absolute h-6 w-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100",
+                                            isRemoved
+                                                ? "top-1 right-1 bg-background/80 text-foreground"
+                                                : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
+                                            !isRemoved &&
+                                                (!isMultiFile && !isImage
+                                                    ? "-translate-y-1/2 top-1/2 right-2"
+                                                    : "top-1 right-1")
+                                        )}
+                                    >
+                                        {isRemoved ? (
+                                            <RotateCcw className="size-3.5" />
+                                        ) : (
+                                            <X className="size-3.5" />
+                                        )}
+                                    </Button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between px-4 pb-3">
+                    <div className="flex flex-wrap items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
+                        {selectedModel && (
+                            <ModelSelector
+                                selectedModel={selectedModel}
+                                onModelChange={setSelectedModel}
+                                side="top"
+                                className="border-none bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                            />
+                        )}
+
+                        {modelSupportsImageSizing && (
+                            <AspectRatioSelector selectedModel={selectedModel} />
+                        )}
+
+                        {modelSupportsImageResolution && (
+                            <ImageResolutionSelector selectedModel={selectedModel} />
+                        )}
+
+                        {!isImageModel && (
+                            <>
+                                <ToolSelectorPopover
+                                    threadId={threadId}
+                                    enabledTools={enabledTools}
+                                    onEnabledToolsChange={setEnabledTools}
+                                    modelSupportsFunctionCalling={modelSupportsFunctionCalling}
+                                />
+                                <ReasoningEffortSelector selectedModel={selectedModel} />
+                            </>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                                    title="More options"
+                                >
+                                    <MoreHorizontal className="size-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onClick={onCancel}
+                                    className="cursor-pointer text-destructive"
+                                >
+                                    <X className="mr-2 size-4" /> Cancel Edit
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button
+                            size="icon"
+                            className="size-8 shrink-0 rounded-md bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                            onClick={handleSave}
+                            title="Send"
+                        >
+                            <ArrowUp className="size-5" />
+                        </Button>
+                    </div>
                 </div>
             </div>
         )
@@ -262,8 +460,13 @@ export function Messages({
     scrollRef
 }: {
     messages: UIMessage[]
-    onRetry?: (message: UIMessage) => void
-    onEditAndRetry?: (messageId: string, newContent: string) => void
+    onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+    onEditAndRetry?: (
+        messageId: string,
+        newContent: string,
+        remainingFileParts?: FileUIPart[],
+        deletedUrls?: string[]
+    ) => void
     status: ReturnType<typeof useChatIntegration>["status"]
     contentRef: ReturnType<typeof useStickToBottom>["contentRef"]
     scrollRef: ReturnType<typeof useStickToBottom>["scrollRef"]
@@ -284,9 +487,13 @@ export function Messages({
         setTargetMode("edit")
     }
 
-    const handleSaveEdit = (newContent: string) => {
+    const handleSaveEdit = (
+        newContent: string,
+        remainingFileParts?: FileUIPart[],
+        deletedUrls?: string[]
+    ) => {
         if (targetFromMessageId && onEditAndRetry) {
-            onEditAndRetry(targetFromMessageId, newContent)
+            onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
         }
         setTargetFromMessageId(undefined)
         setTargetMode("normal")
@@ -435,11 +642,7 @@ export function Messages({
                                             role={message.role}
                                             message={message}
                                             onRetry={onRetry}
-                                            onEdit={
-                                                message.parts.some((part) => part.type === "file")
-                                                    ? undefined
-                                                    : handleEdit
-                                            }
+                                            onEdit={handleEdit}
                                         />
                                     ) : !targetFromMessageId && message.role === "assistant" ? (
                                         <ChatActions

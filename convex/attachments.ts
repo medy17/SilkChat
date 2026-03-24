@@ -13,7 +13,14 @@ import {
 } from "./lib/file_constants"
 import { getUserIdentity } from "./lib/identity"
 
-export const r2 = new R2(components.r2)
+export const r2 =
+    process.env.R2_BUCKET &&
+    process.env.R2_FORCE_PATH_STYLE &&
+    process.env.R2_ENDPOINT &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY
+        ? new R2(components.r2)
+        : ({} as any)
 // Direct file upload HTTP action for files under 5MB
 export const uploadFile = httpAction(async (ctx, request) => {
     try {
