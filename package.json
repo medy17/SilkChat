@@ -11,6 +11,7 @@
         "local:convex:configure": "bunx convex dev --configure existing --dev-deployment local --once --codegen disable --typecheck disable",
         "local:convex": "bunx convex dev --local --tail-logs pause-on-deploy --codegen disable --typecheck disable",
         "local:app": "vite dev --port 3000",
+        "cloud:dev:push": "node scripts/push-cloud-dev.mjs",
         "build": "vite build",
         "start": "node .output/server/index.mjs",
         "lint": "biome check --write",

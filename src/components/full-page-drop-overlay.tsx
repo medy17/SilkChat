@@ -1,3 +1,4 @@
+import { THREAD_IMPORT_DIALOG_STATE_EVENT } from "@/lib/thread-import-events"
 import { cn } from "@/lib/utils"
 import { Upload } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -9,30 +10,41 @@ interface FullPageDropOverlayProps {
 
 export function FullPageDropOverlay({ onDrop, className }: FullPageDropOverlayProps) {
     const [isDragOver, setIsDragOver] = useState(false)
+    const [isSuspended, setIsSuspended] = useState(false)
     const dragCounterRef = useRef(0)
 
-    const handleDragEnter = useCallback((e: DragEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
+    const handleDragEnter = useCallback(
+        (e: DragEvent) => {
+            e.preventDefault()
+            e.stopPropagation()
 
-        // Only show overlay if dragging files (not text selections, etc.)
-        if (!e.dataTransfer?.types.includes("Files")) return
+            if (isSuspended) return
 
-        dragCounterRef.current++
-        if (dragCounterRef.current === 1) {
-            setIsDragOver(true)
-        }
-    }, [])
+            // Only show overlay if dragging files (not text selections, etc.)
+            if (!e.dataTransfer?.types.includes("Files")) return
 
-    const handleDragLeave = useCallback((e: DragEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
+            dragCounterRef.current++
+            if (dragCounterRef.current === 1) {
+                setIsDragOver(true)
+            }
+        },
+        [isSuspended]
+    )
 
-        dragCounterRef.current--
-        if (dragCounterRef.current === 0) {
-            setIsDragOver(false)
-        }
-    }, [])
+    const handleDragLeave = useCallback(
+        (e: DragEvent) => {
+            e.preventDefault()
+            e.stopPropagation()
+
+            if (isSuspended) return
+
+            dragCounterRef.current--
+            if (dragCounterRef.current === 0) {
+                setIsDragOver(false)
+            }
+        },
+        [isSuspended]
+    )
 
     const handleDragOver = useCallback((e: DragEvent) => {
         e.preventDefault()
@@ -46,13 +58,34 @@ export function FullPageDropOverlay({ onDrop, className }: FullPageDropOverlayPr
             dragCounterRef.current = 0
             setIsDragOver(false)
 
+            if (isSuspended) return
+
             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files)
                 onDrop(files)
             }
         },
-        [onDrop]
+        [isSuspended, onDrop]
     )
+
+    useEffect(() => {
+        const onDialogStateChange = (event: Event) => {
+            const customEvent = event as CustomEvent<boolean>
+            const isOpen = Boolean(customEvent.detail)
+            setIsSuspended(isOpen)
+
+            if (isOpen) {
+                dragCounterRef.current = 0
+                setIsDragOver(false)
+            }
+        }
+
+        document.addEventListener(THREAD_IMPORT_DIALOG_STATE_EVENT, onDialogStateChange)
+
+        return () => {
+            document.removeEventListener(THREAD_IMPORT_DIALOG_STATE_EVENT, onDialogStateChange)
+        }
+    }, [])
 
     useEffect(() => {
         window.addEventListener("dragenter", handleDragEnter)
@@ -72,7 +105,7 @@ export function FullPageDropOverlay({ onDrop, className }: FullPageDropOverlayPr
         <div
             className={cn(
                 "pointer-events-none fixed inset-0 z-[100] flex items-center justify-center transition-all duration-200",
-                isDragOver
+                isDragOver && !isSuspended
                     ? "pointer-events-auto bg-background/80 opacity-100 backdrop-blur-sm"
                     : "opacity-0",
                 className
@@ -81,7 +114,7 @@ export function FullPageDropOverlay({ onDrop, className }: FullPageDropOverlayPr
             <div
                 className={cn(
                     "flex flex-col items-center gap-4 transition-transform duration-200",
-                    isDragOver ? "scale-100" : "scale-90"
+                    isDragOver && !isSuspended ? "scale-100" : "scale-90"
                 )}
             >
                 <div className="flex size-20 items-center justify-center rounded-2xl border-2 border-primary/60 border-dashed bg-primary/10">

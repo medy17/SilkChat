@@ -14,6 +14,7 @@ import { aggregrateThreadsByFolder } from "./aggregates"
 import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
 import { HTTPAIMessage, type Message } from "./schema/message"
+import { MessagePart } from "./schema/parts"
 
 const normalizeThreadTitle = (title: string) =>
     title
@@ -33,6 +34,21 @@ const getInitialThreadTitle = (userMessage: Infer<typeof HTTPAIMessage>) => {
 
     return normalizeThreadTitle(normalized.split(" ").slice(0, 6).join(" "))
 }
+
+const MessageMetadata = v.object({
+    modelId: v.optional(v.string()),
+    modelName: v.optional(v.string()),
+    promptTokens: v.optional(v.number()),
+    completionTokens: v.optional(v.number()),
+    reasoningTokens: v.optional(v.number()),
+    serverDurationMs: v.optional(v.number())
+})
+
+const ImportedMessage = v.object({
+    role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+    parts: v.array(MessagePart),
+    metadata: v.optional(MessageMetadata)
+})
 
 export const getThreadById = internalQuery({
     args: { threadId: v.id("threads") },
@@ -617,6 +633,60 @@ export const renameThread = mutation({
         })
 
         return { success: true }
+    }
+})
+
+export const importThread = mutation({
+    args: {
+        title: v.string(),
+        messages: v.array(ImportedMessage),
+        projectId: v.optional(v.id("projects"))
+    },
+    handler: async (ctx, { title, messages, projectId }) => {
+        const user = await getUserIdentity(ctx.auth, {
+            allowAnons: false
+        })
+
+        if ("error" in user) return { error: user.error }
+
+        const sanitizedMessages = messages.filter((message) => message.parts.length > 0)
+        if (sanitizedMessages.length === 0) {
+            return { error: "No importable messages found" }
+        }
+
+        const now = Date.now()
+        const normalizedTitle = normalizeThreadTitle(title)
+        const threadId = await ctx.db.insert("threads", {
+            authorId: user.id,
+            title: normalizedTitle || "Imported Chat",
+            createdAt: now,
+            updatedAt: now,
+            projectId
+        })
+
+        const threadDoc = await ctx.db.get(threadId)
+        if (threadDoc) {
+            await aggregrateThreadsByFolder.insert(ctx, threadDoc)
+        }
+
+        let timestamp = now
+        for (const message of sanitizedMessages) {
+            timestamp += 1
+            await ctx.db.insert("messages", {
+                threadId,
+                messageId: nanoid(),
+                role: message.role,
+                parts: message.parts,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+                metadata: message.metadata ?? {}
+            })
+        }
+
+        return {
+            threadId,
+            importedMessages: sanitizedMessages.length
+        }
     }
 })
 

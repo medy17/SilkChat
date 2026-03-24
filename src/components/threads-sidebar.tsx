@@ -26,6 +26,7 @@ import { Image, Loader2, Pin, Search } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { LogoMark } from "./logo"
 import { FolderItem } from "./threads/folder-item"
+import { ImportThreadButton, ImportThreadDialog } from "./threads/import-thread-button"
 import { NewFolderButton } from "./threads/new-folder-button"
 import { ThreadItem } from "./threads/thread-item"
 import { ThreadItemDialogs } from "./threads/thread-item-dialogs"
@@ -126,6 +127,7 @@ function EmptyState({ message }: { message: string }) {
 export function ThreadsSidebar() {
     const [showGradient, setShowGradient] = useState(false)
     const [commandKOpen, setCommandKOpen] = useState(false)
+    const [importOpen, setImportOpen] = useState(false)
 
     // Dialog state
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -418,6 +420,8 @@ export function ThreadsSidebar() {
                     >
                         New Chat
                     </Link>
+
+                    <ImportThreadButton onClick={() => setImportOpen(true)} />
                     {/* </TooltipTrigger>
                     <TooltipContent side="right">
                         <div className="flex items-center gap-1">
@@ -468,6 +472,18 @@ export function ThreadsSidebar() {
 
                 <SidebarRail />
             </Sidebar>
+            <ImportThreadDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                projects={"error" in projects ? [] : projects}
+                onImported={(threadId) => {
+                    setOpenMobile(false)
+                    navigate({
+                        to: "/thread/$threadId",
+                        params: { threadId }
+                    })
+                }}
+            />
             <CommandK open={commandKOpen} onOpenChange={setCommandKOpen} />
         </>
     )

@@ -67,7 +67,13 @@ bun run local:app
 
 ### Push local code to cloud dev (`knowing-falcon-519`)
 
-Keep `.env.local` on local deployment and use a temporary override only for the push:
+Preferred (cross-platform):
+
+```bash
+bun run cloud:dev:push
+```
+
+Manual shell-specific variants:
 
 ```powershell
 $env:CONVEX_DEPLOYMENT="dev:knowing-falcon-519"
@@ -75,7 +81,11 @@ bunx convex dev --once --codegen disable --typecheck disable
 Remove-Item Env:CONVEX_DEPLOYMENT
 ```
 
-This pushes Convex functions to cloud dev but leaves your local default unchanged.
+```bash
+CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disable --typecheck disable
+```
+
+These push Convex functions to cloud dev but keep your local default unchanged.
 
 ### Fastest debug loop
 

@@ -51,13 +51,23 @@ The app runs at `http://localhost:3000`.
 When local iteration is done and you want to push Convex functions to cloud dev
 (`knowing-falcon-519`) without changing your local setup:
 
+```bash
+bun run cloud:dev:push
+```
+
+This script is cross-platform (Windows/macOS/Linux).
+
+Manual overrides:
+
 ```powershell
 $env:CONVEX_DEPLOYMENT="dev:knowing-falcon-519"
 bunx convex dev --once --codegen disable --typecheck disable
 Remove-Item Env:CONVEX_DEPLOYMENT
 ```
 
-This only changes deployment target for that shell session.
+```bash
+CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disable --typecheck disable
+```
 
 ## Environment Split
 
