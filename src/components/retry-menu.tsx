@@ -2,12 +2,13 @@ import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { DefaultSettings } from "@/convex/settings"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { getProviderDisplayName, useAvailableModels } from "@/lib/models-providers-shared"
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { Brain, RotateCcw } from "lucide-react"
+import { Brain, ChevronDown, ChevronRight, RotateCcw } from "lucide-react"
 import * as React from "react"
 import { getProviderIcon } from "./model-selector"
 import { Button } from "./ui/button"
@@ -65,6 +66,7 @@ export function RetryMenu({
 }) {
     const auth = useConvexAuth()
     const session = useSession()
+    const isMobile = useIsMobile()
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
         {
@@ -76,6 +78,8 @@ export function RetryMenu({
     )
 
     const [expandedProviders, setExpandedProviders] = React.useState<Record<string, boolean>>({})
+    const [expandedMobileProvider, setExpandedMobileProvider] = React.useState<string | null>(null)
+    const [expandedMobileEffort, setExpandedMobileEffort] = React.useState<string | null>(null)
 
     const { setSelectedModel, setReasoningEffort } = useModelStore()
 
@@ -128,14 +132,259 @@ export function RetryMenu({
             })
     }, [availableModels, currentProviders])
 
+    const handleOpenChange = (open: boolean) => {
+        if (!open) {
+            setTimeout(() => {
+                setExpandedProviders({})
+                setExpandedMobileProvider(null)
+                setExpandedMobileEffort(null)
+            }, 300)
+        }
+    }
+
+    const renderModelItem = (
+        model: DisplayModel,
+        handleSelect: (effort?: ReasoningEffort) => void
+    ) => {
+        const isCustom = "isCustom" in model && model.isCustom
+        const supportsEffort = model.abilities.includes("effort_control")
+        const supportsDisabling =
+            "supportsDisablingReasoning" in model && model.supportsDisablingReasoning
+        const allowedEfforts: ReasoningEffort[] = supportsDisabling
+            ? ["off", "low", "medium", "high"]
+            : ["low", "medium", "high"]
+        const formatEffort = (effort: string) => effort.charAt(0).toUpperCase() + effort.slice(1)
+
+        if (supportsEffort && isMobile) {
+            const isEffortExpanded = expandedMobileEffort === model.id
+            return (
+                <div key={model.id}>
+                    <DropdownMenuItem
+                        onClick={(e) => {
+                            e.preventDefault()
+                            setExpandedMobileEffort(isEffortExpanded ? null : model.id)
+                        }}
+                        className="cursor-pointer gap-2"
+                    >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
+                            {getProviderIcon(model, isCustom)}
+                        </div>
+                        <span className="flex-1 truncate font-medium text-sm">{model.name}</span>
+                        {isEffortExpanded ? (
+                            <ChevronDown className="ml-auto size-3.5 text-muted-foreground" />
+                        ) : (
+                            <ChevronRight className="ml-auto size-3.5 text-muted-foreground" />
+                        )}
+                    </DropdownMenuItem>
+                    {isEffortExpanded && (
+                        <div className="ml-4 border-border border-l pl-2">
+                            <DropdownMenuItem
+                                onClick={() => handleSelect()}
+                                className="cursor-pointer font-medium text-xs"
+                            >
+                                Retry with{" "}
+                                {"shortName" in model && model.shortName
+                                    ? model.shortName
+                                    : model.name}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <Brain className="size-3 text-muted-foreground" />
+                                <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                                    Reasoning Effort
+                                </span>
+                            </div>
+                            {allowedEfforts.map((effort) => (
+                                <DropdownMenuItem
+                                    key={effort}
+                                    onClick={() => handleSelect(effort)}
+                                    className="cursor-pointer pl-6 text-xs"
+                                >
+                                    {formatEffort(effort)}
+                                </DropdownMenuItem>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        if (supportsEffort) {
+            return (
+                <div key={model.id} className="flex items-center gap-0.5">
+                    <DropdownMenuItem
+                        onClick={() => handleSelect(allowedEfforts[0])}
+                        className="flex-1 cursor-pointer gap-2 pr-2"
+                    >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
+                            {getProviderIcon(model, isCustom)}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate font-medium text-sm">{model.name}</span>
+                        </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="h-9 cursor-pointer px-2">
+                            <span className="sr-only">Reasoning Options</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                            <DropdownMenuSubContent sideOffset={8} collisionPadding={16}>
+                                <DropdownMenuItem
+                                    onClick={() => handleSelect()}
+                                    className="mb-1 cursor-pointer font-medium"
+                                >
+                                    Retry with{" "}
+                                    {"shortName" in model && model.shortName
+                                        ? model.shortName
+                                        : model.name}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <div className="flex items-center gap-2 px-2 py-1.5">
+                                    <Brain className="size-3 text-muted-foreground" />
+                                    <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                                        Reasoning Effort
+                                    </span>
+                                </div>
+                                {allowedEfforts.map((effort) => (
+                                    <DropdownMenuItem
+                                        key={effort}
+                                        onClick={() => handleSelect(effort)}
+                                        className="cursor-pointer pl-6"
+                                    >
+                                        {formatEffort(effort)}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                </div>
+            )
+        }
+
+        return (
+            <DropdownMenuItem
+                key={model.id}
+                onClick={() => handleSelect()}
+                className="cursor-pointer gap-2"
+            >
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
+                    {getProviderIcon(model, isCustom)}
+                </div>
+                <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-sm">{model.name}</span>
+                </div>
+            </DropdownMenuItem>
+        )
+    }
+
+    const renderProviderSection = (section: (typeof providerSections)[number]) => {
+        const isExpanded = expandedProviders[section.id]
+
+        let currentModels = section.models.filter((m) => !("legacy" in m && m.legacy))
+        if (currentModels.length === 0) {
+            currentModels = section.models.slice(0, 5)
+        }
+
+        const visibleModels = isExpanded ? section.models : currentModels
+        const hasMore = section.models.length > currentModels.length
+
+        const handleSelect = (model: DisplayModel) => (effort?: ReasoningEffort) => {
+            setSelectedModel(model.id)
+            if (effort) {
+                setReasoningEffort(effort)
+            }
+            onRetry(model.id)
+        }
+
+        // Mobile: inline collapsible sections
+        if (isMobile) {
+            const isMobileExpanded = expandedMobileProvider === section.id
+            return (
+                <div key={section.id}>
+                    <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                            e.preventDefault()
+                            setExpandedMobileProvider(isMobileExpanded ? null : section.id)
+                            setExpandedMobileEffort(null)
+                        }}
+                    >
+                        <span className="flex-1 truncate">{section.label}</span>
+                        {isMobileExpanded ? (
+                            <ChevronDown className="ml-auto size-4" />
+                        ) : (
+                            <ChevronRight className="ml-auto size-4" />
+                        )}
+                    </DropdownMenuItem>
+                    {isMobileExpanded && (
+                        <div className="ml-2 max-h-[40dvh] overflow-y-auto border-border border-l pl-1">
+                            {visibleModels.map((model) =>
+                                renderModelItem(model, handleSelect(model))
+                            )}
+                            {hasMore && !isExpanded && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        className="cursor-pointer justify-center text-muted-foreground hover:text-foreground"
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            setExpandedProviders((prev) => ({
+                                                ...prev,
+                                                [section.id]: true
+                                            }))
+                                        }}
+                                    >
+                                        <span className="font-medium text-xs">
+                                            Show legacy models
+                                        </span>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        // Desktop: fly-out sub-menus
+        return (
+            <DropdownMenuSub key={section.id}>
+                <DropdownMenuSubTrigger className="cursor-pointer">
+                    <span className="flex-1 truncate">{section.label}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                    <DropdownMenuSubContent
+                        className="max-h-[60dvh] w-[240px] overflow-y-auto"
+                        sideOffset={8}
+                        collisionPadding={16}
+                    >
+                        {visibleModels.map((model) => renderModelItem(model, handleSelect(model)))}
+
+                        {hasMore && !isExpanded && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="cursor-pointer justify-center text-muted-foreground hover:text-foreground"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        setExpandedProviders((prev) => ({
+                                            ...prev,
+                                            [section.id]: true
+                                        }))
+                                    }}
+                                >
+                                    <span className="font-medium text-xs">Show legacy models</span>
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+            </DropdownMenuSub>
+        )
+    }
+
     return (
-        <DropdownMenu
-            onOpenChange={(open) => {
-                if (!open) {
-                    setTimeout(() => setExpandedProviders({}), 300)
-                }
-            }}
-        >
+        <DropdownMenu onOpenChange={handleOpenChange}>
             <Tooltip delayDuration={150}>
                 <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
@@ -153,7 +402,7 @@ export function RetryMenu({
                 </TooltipContent>
             </Tooltip>
 
-            <DropdownMenuContent align="end" className="w-[200px]">
+            <DropdownMenuContent align="end" className="w-[200px]" collisionPadding={16}>
                 <DropdownMenuItem onClick={() => onRetry()} className="cursor-pointer gap-2">
                     <RotateCcw className="h-4 w-4" />
                     <span>Retry same</span>
@@ -168,160 +417,7 @@ export function RetryMenu({
                     <div className="h-[1px] flex-1 bg-border" />
                 </div>
 
-                {providerSections.map((section) => {
-                    const isExpanded = expandedProviders[section.id]
-
-                    let currentModels = section.models.filter((m) => !("legacy" in m && m.legacy))
-                    if (currentModels.length === 0) {
-                        currentModels = section.models.slice(0, 5)
-                    }
-
-                    const visibleModels = isExpanded ? section.models : currentModels
-                    const hasMore = section.models.length > currentModels.length
-
-                    return (
-                        <DropdownMenuSub key={section.id}>
-                            <DropdownMenuSubTrigger className="cursor-pointer">
-                                <span className="flex-1 truncate">{section.label}</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent
-                                    className="max-h-[60dvh] w-[240px] overflow-y-auto"
-                                    sideOffset={8}
-                                    collisionPadding={16}
-                                >
-                                    {visibleModels.map((model) => {
-                                        const isCustom = "isCustom" in model && model.isCustom
-
-                                        const handleSelect = (effort?: ReasoningEffort) => {
-                                            setSelectedModel(model.id)
-                                            if (effort) {
-                                                setReasoningEffort(effort)
-                                            }
-                                            onRetry(model.id)
-                                        }
-
-                                        const supportsEffort =
-                                            model.abilities.includes("effort_control")
-                                        const supportsDisabling =
-                                            "supportsDisablingReasoning" in model &&
-                                            model.supportsDisablingReasoning
-                                        const allowedEfforts: ReasoningEffort[] = supportsDisabling
-                                            ? ["off", "low", "medium", "high"]
-                                            : ["low", "medium", "high"]
-
-                                        const formatEffort = (effort: string) =>
-                                            effort.charAt(0).toUpperCase() + effort.slice(1)
-
-                                        if (supportsEffort) {
-                                            return (
-                                                <div
-                                                    key={model.id}
-                                                    className="flex items-center gap-0.5"
-                                                >
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            handleSelect(allowedEfforts[0])
-                                                        }
-                                                        className="flex-1 cursor-pointer gap-2 pr-2"
-                                                    >
-                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
-                                                            {getProviderIcon(model, isCustom)}
-                                                        </div>
-                                                        <div className="flex min-w-0 flex-1 flex-col">
-                                                            <span className="truncate font-medium text-sm">
-                                                                {model.name}
-                                                            </span>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger className="h-9 cursor-pointer px-2">
-                                                            <span className="sr-only">
-                                                                Reasoning Options
-                                                            </span>
-                                                        </DropdownMenuSubTrigger>
-                                                        <DropdownMenuPortal>
-                                                            <DropdownMenuSubContent
-                                                                sideOffset={8}
-                                                                collisionPadding={16}
-                                                            >
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleSelect()}
-                                                                    className="mb-1 cursor-pointer font-medium"
-                                                                >
-                                                                    Retry with{" "}
-                                                                    {"shortName" in model &&
-                                                                    model.shortName
-                                                                        ? model.shortName
-                                                                        : model.name}
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <div className="flex items-center gap-2 px-2 py-1.5">
-                                                                    <Brain className="size-3 text-muted-foreground" />
-                                                                    <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                                                                        Reasoning Effort
-                                                                    </span>
-                                                                </div>
-                                                                {allowedEfforts.map((effort) => (
-                                                                    <DropdownMenuItem
-                                                                        key={effort}
-                                                                        onClick={() =>
-                                                                            handleSelect(effort)
-                                                                        }
-                                                                        className="cursor-pointer pl-6"
-                                                                    >
-                                                                        {formatEffort(effort)}
-                                                                    </DropdownMenuItem>
-                                                                ))}
-                                                            </DropdownMenuSubContent>
-                                                        </DropdownMenuPortal>
-                                                    </DropdownMenuSub>
-                                                </div>
-                                            )
-                                        }
-
-                                        return (
-                                            <DropdownMenuItem
-                                                key={model.id}
-                                                onClick={() => handleSelect()}
-                                                className="cursor-pointer gap-2"
-                                            >
-                                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
-                                                    {getProviderIcon(model, isCustom)}
-                                                </div>
-                                                <div className="flex min-w-0 flex-col">
-                                                    <span className="truncate font-medium text-sm">
-                                                        {model.name}
-                                                    </span>
-                                                </div>
-                                            </DropdownMenuItem>
-                                        )
-                                    })}
-
-                                    {hasMore && !isExpanded && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                className="cursor-pointer justify-center text-muted-foreground hover:text-foreground"
-                                                onClick={(e) => {
-                                                    e.preventDefault()
-                                                    setExpandedProviders((prev) => ({
-                                                        ...prev,
-                                                        [section.id]: true
-                                                    }))
-                                                }}
-                                            >
-                                                <span className="font-medium text-xs">
-                                                    Show legacy models
-                                                </span>
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                    )
-                })}
+                {providerSections.map((section) => renderProviderSection(section))}
             </DropdownMenuContent>
         </DropdownMenu>
     )
