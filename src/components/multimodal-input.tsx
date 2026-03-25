@@ -189,7 +189,13 @@ export const ImageResolutionSelector = ({ selectedModel }: { selectedModel: stri
     )
 }
 
-export const ReasoningEffortSelector = ({ selectedModel }: { selectedModel: string | null }) => {
+export const ReasoningEffortSelector = ({
+    selectedModel,
+    tone = "default"
+}: {
+    selectedModel: string | null
+    tone?: "default" | "on-primary"
+}) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
     const { models: sharedModels } = useSharedModels()
 
@@ -216,13 +222,23 @@ export const ReasoningEffortSelector = ({ selectedModel }: { selectedModel: stri
     const formatEffortForDisplay = (effort: ReasoningEffort) => {
         return effort.charAt(0).toUpperCase() + effort.slice(1)
     }
+    const isReasoningOff = reasoningEffort === "off"
 
     if (!modelSupportsEffortControl) return null
 
     return (
         <PromptInputAction tooltip="Select reasoning effort">
             <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
-                <SelectTrigger className="!h-8 w-auto gap-0.5 border-0 bg-secondary/70 px-1.5 font-normal text-xs backdrop-blur-lg transition-colors hover:bg-accent sm:text-sm">
+                <SelectTrigger
+                    className={cn(
+                        "!h-8 w-auto gap-0.5 px-1.5 font-normal text-xs transition-colors sm:text-sm",
+                        tone === "on-primary"
+                            ? isReasoningOff
+                                ? "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                                : "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
+                            : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-accent"
+                    )}
+                >
                     <div className="hidden items-center gap-1.5 sm:flex">
                         <Brain className="size-4" />
                         <SelectValue />

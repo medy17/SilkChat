@@ -676,8 +676,8 @@ export function ModelSelector({
                                     </div>
                                 </div>
 
-                                <ScrollArea className="max-h-[40vh] flex-1 pr-1 md:max-h-full">
-                                    <div className="space-y-2">
+                                <ScrollArea className="max-h-[40vh] min-h-0 flex-1 pr-1 md:max-h-full">
+                                    <div className="space-y-2 pb-3">
                                         {visibleSection.models.map((model) => (
                                             <ModelCard
                                                 key={model.id}

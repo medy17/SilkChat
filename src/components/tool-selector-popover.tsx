@@ -24,7 +24,7 @@ import type { AbilityId } from "@/lib/tool-abilities"
 import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
 import { Globe, Settings2 } from "lucide-react"
-import { memo, useMemo, useState } from "react"
+import { memo, useState } from "react"
 
 type ToolSelectorPopoverProps = {
     threadId?: string
@@ -32,6 +32,7 @@ type ToolSelectorPopoverProps = {
     onEnabledToolsChange: (tools: AbilityId[]) => void
     modelSupportsFunctionCalling: boolean
     className?: string
+    tone?: "default" | "on-primary"
 }
 
 export const ToolSelectorPopover = memo(
@@ -40,7 +41,8 @@ export const ToolSelectorPopover = memo(
         enabledTools,
         onEnabledToolsChange,
         modelSupportsFunctionCalling,
-        className
+        className,
+        tone = "default"
     }: ToolSelectorPopoverProps) => {
         const session = useSession()
         const isMobile = useIsMobile()
@@ -53,33 +55,47 @@ export const ToolSelectorPopover = memo(
             session.user?.id ? {} : "skip"
         )
 
-        const webSearchButton = useMemo(() => {
-            return (
-                <Button
-                    type="button"
-                    variant={enabledTools.includes("web_search") ? "default" : "ghost"}
-                    disabled={!modelSupportsFunctionCalling}
-                    onClick={() => {
-                        if (modelSupportsFunctionCalling) {
-                            onEnabledToolsChange(
-                                enabledTools.includes("web_search")
-                                    ? enabledTools.filter((tool) => tool !== "web_search")
-                                    : [...enabledTools, "web_search"]
-                            )
-                        }
-                    }}
-                    className={cn(
-                        "size-8 shrink-0",
-                        !enabledTools.includes("web_search") &&
-                            "bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80",
-                        !modelSupportsFunctionCalling && "cursor-not-allowed opacity-50",
-                        className
-                    )}
-                >
-                    <Globe className="size-4" />
-                </Button>
-            )
-        }, [enabledTools, modelSupportsFunctionCalling, onEnabledToolsChange, className])
+        const activeVariant = tone === "on-primary" ? "ghost" : "default"
+
+        const getButtonStateClassName = (isActive: boolean) => {
+            if (tone === "on-primary") {
+                return isActive
+                    ? "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
+                    : "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+            }
+
+            if (!isActive) {
+                return "bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
+            }
+
+            return ""
+        }
+
+        const webSearchEnabled = enabledTools.includes("web_search")
+        const webSearchButton = (
+            <Button
+                type="button"
+                variant={webSearchEnabled ? activeVariant : "ghost"}
+                disabled={!modelSupportsFunctionCalling}
+                onClick={() => {
+                    if (modelSupportsFunctionCalling) {
+                        onEnabledToolsChange(
+                            webSearchEnabled
+                                ? enabledTools.filter((tool) => tool !== "web_search")
+                                : [...enabledTools, "web_search"]
+                        )
+                    }
+                }}
+                className={cn(
+                    "size-8 shrink-0",
+                    getButtonStateClassName(webSearchEnabled),
+                    !modelSupportsFunctionCalling && "cursor-not-allowed opacity-50",
+                    className
+                )}
+            >
+                <Globe className="size-4" />
+            </Button>
+        )
 
         // If userSettings is not loaded, show the web search button as fallback to avoid flickering
         if (!userSettings) return webSearchButton
@@ -149,12 +165,11 @@ export const ToolSelectorPopover = memo(
                 <ResponsivePopoverTrigger asChild>
                     <Button
                         type="button"
-                        variant={activeCount > 0 ? "default" : "ghost"}
+                        variant={activeCount > 0 ? activeVariant : "ghost"}
                         disabled={!modelSupportsFunctionCalling}
                         className={cn(
                             "relative size-8 shrink-0",
-                            activeCount === 0 &&
-                                "bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80",
+                            getButtonStateClassName(activeCount > 0),
                             !modelSupportsFunctionCalling && "cursor-not-allowed opacity-50",
                             className
                         )}

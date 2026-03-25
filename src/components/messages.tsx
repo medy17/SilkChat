@@ -407,8 +407,12 @@ const EditableMessage = memo(
                                     enabledTools={enabledTools}
                                     onEnabledToolsChange={setEnabledTools}
                                     modelSupportsFunctionCalling={modelSupportsFunctionCalling}
+                                    tone="on-primary"
                                 />
-                                <ReasoningEffortSelector selectedModel={selectedModel} />
+                                <ReasoningEffortSelector
+                                    selectedModel={selectedModel}
+                                    tone="on-primary"
+                                />
                             </>
                         )}
                     </div>
