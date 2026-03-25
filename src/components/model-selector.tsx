@@ -306,7 +306,7 @@ const ModelCard = React.memo(function ModelCard({
                             </p>
                         </div>
                         {modelAbilities.length > 0 && (
-                            <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                            <div className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">
                                 {modelAbilities.slice(0, 4).map((ability) => (
                                     <CapabilityPill
                                         key={`${model.id}-${ability}`}
@@ -317,6 +317,17 @@ const ModelCard = React.memo(function ModelCard({
                             </div>
                         )}
                     </div>
+                    {modelAbilities.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1 sm:hidden">
+                            {modelAbilities.slice(0, 4).map((ability) => (
+                                <CapabilityPill
+                                    key={`${model.id}-mobile-${ability}`}
+                                    ability={ability}
+                                    emphasized={isSelected}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </button>
@@ -600,7 +611,7 @@ export function ModelSelector({
                                     type="button"
                                     onClick={() => setActiveCategory(category.id)}
                                     className={cn(
-                                        "inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-1.5 font-medium text-xs transition-colors sm:text-sm",
+                                        "inline-flex min-w-fit items-center gap-2 rounded-lg border px-3 py-1.5 font-medium text-xs transition-colors sm:text-sm",
                                         "hover:border-accent hover:bg-accent/10",
                                         isActive && "border-accent bg-accent/10 text-foreground"
                                     )}
@@ -615,43 +626,61 @@ export function ModelSelector({
                 </div>
 
                 <div className="grid max-h-[50vh] min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:max-h-[400px] md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-1">
-                    <div className="flex min-h-0 flex-col border-b p-2 md:border-r md:border-b-0 md:p-1.5">
-                        <ScrollArea className="max-h-28 flex-1 md:max-h-full">
-                            <div className="flex gap-2 md:flex-col">
+                    <div className="flex min-h-0 min-w-0 flex-col border-b p-2 md:border-r md:border-b-0 md:p-1.5">
+                        <div className="scrollbar-none flex w-full gap-2 overflow-x-auto md:hidden">
+                            {filteredSections.map((section) => {
+                                const isActive = section.id === visibleSection?.id
+                                return (
+                                    <button
+                                        key={section.id}
+                                        type="button"
+                                        onClick={() => setActiveProvider(section.id)}
+                                        className={cn(
+                                            "flex min-w-fit items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
+                                            "hover:border-accent hover:bg-accent/10",
+                                            isActive && "border-accent bg-accent/10 text-foreground"
+                                        )}
+                                        aria-label={section.label}
+                                    >
+                                        <div className="flex size-7 items-center justify-center rounded-md bg-secondary/70">
+                                            {section.icon}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium text-sm">
+                                                {section.compactLabel}
+                                            </div>
+                                            <div className="truncate text-muted-foreground text-xs">
+                                                {section.models.length} model
+                                                {section.models.length === 1 ? "" : "s"}
+                                            </div>
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <ScrollArea className="hidden flex-1 md:block">
+                            <div className="flex flex-col gap-2">
                                 {filteredSections.map((section) => {
                                     const isActive = section.id === visibleSection?.id
-
-                                    const trigger = (
-                                        <button
-                                            key={section.id}
-                                            type="button"
-                                            onClick={() => setActiveProvider(section.id)}
-                                            className={cn(
-                                                "flex min-w-fit items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors md:min-w-0 md:flex-col md:justify-center md:gap-1 md:px-2 md:py-3",
-                                                "hover:border-accent hover:bg-accent/10",
-                                                isActive &&
-                                                    "border-accent bg-accent/10 text-foreground"
-                                            )}
-                                            aria-label={section.label}
-                                        >
-                                            <div className="flex size-7 items-center justify-center rounded-md bg-secondary/70">
-                                                {section.icon}
-                                            </div>
-                                            <div className="min-w-0 md:hidden">
-                                                <div className="truncate font-medium text-sm">
-                                                    {section.compactLabel}
-                                                </div>
-                                                <div className="truncate text-muted-foreground text-xs">
-                                                    {section.models.length} model
-                                                    {section.models.length === 1 ? "" : "s"}
-                                                </div>
-                                            </div>
-                                        </button>
-                                    )
-
                                     return (
                                         <Tooltip key={section.id}>
-                                            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveProvider(section.id)}
+                                                    className={cn(
+                                                        "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-3 text-left transition-colors",
+                                                        "hover:border-accent hover:bg-accent/10",
+                                                        isActive &&
+                                                            "border-accent bg-accent/10 text-foreground"
+                                                    )}
+                                                    aria-label={section.label}
+                                                >
+                                                    <div className="flex size-7 items-center justify-center rounded-md bg-secondary/70">
+                                                        {section.icon}
+                                                    </div>
+                                                </button>
+                                            </TooltipTrigger>
                                             <TooltipContent side="right">
                                                 {section.label}
                                             </TooltipContent>

@@ -1,7 +1,7 @@
 import { useChatStore } from "@/lib/chat-store"
 import { useNavigate } from "@tanstack/react-router"
 import type { UIMessage } from "ai"
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 
 interface UseChatDataProcessorProps {
     messages: UIMessage<{
@@ -15,29 +15,20 @@ export function useChatDataProcessor({ messages, status }: UseChatDataProcessorP
     const { setThreadId, setShouldUpdateQuery, setAttachedStreamId, threadId, setPendingStream } =
         useChatStore()
     const navigate = useNavigate()
-    const previousStatusRef = useRef<string | undefined>(undefined)
 
     useEffect(() => {
-        const previousStatus = previousStatusRef.current
-        previousStatusRef.current = status
-
         const latestAssistant = [...messages]
             .reverse()
             .find((message) => message.role === "assistant")
         if (!latestAssistant?.metadata) return
 
-        const isGenerating = status === "submitted" || status === "streaming"
-        const generationJustFinished =
-            (previousStatus === "submitted" || previousStatus === "streaming") && !isGenerating
-        const shouldApplyAssistantMetadata = isGenerating || generationJustFinished
-
-        if (!shouldApplyAssistantMetadata) return
-
         if (latestAssistant.metadata.threadId) {
             setThreadId(latestAssistant.metadata.threadId)
             if (
-                generationJustFinished &&
+                status !== "submitted" &&
+                status !== "streaming" &&
                 typeof window !== "undefined" &&
+                window.location.pathname !== "/" &&
                 window.location.pathname !== `/thread/${latestAssistant.metadata.threadId}`
             ) {
                 void navigate({
