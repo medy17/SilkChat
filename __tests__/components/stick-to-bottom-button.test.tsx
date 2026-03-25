@@ -1,6 +1,6 @@
+import { StickToBottomButton } from "@/components/stick-to-bottom-button"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { StickToBottomButton } from "./stick-to-bottom-button"
 
 describe("StickToBottomButton", () => {
     it("should render when not at bottom", () => {

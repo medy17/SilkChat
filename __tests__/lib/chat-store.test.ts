@@ -1,5 +1,5 @@
+import { useChatStore } from "@/lib/chat-store"
 import { beforeEach, describe, expect, it } from "vitest"
-import { useChatStore } from "./chat-store"
 
 describe("chat-store", () => {
     beforeEach(() => {

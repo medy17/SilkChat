@@ -1,5 +1,5 @@
+import { useThemeStore } from "@/lib/theme-store"
 import { describe, expect, it } from "vitest"
-import { useThemeStore } from "./theme-store"
 
 describe("theme-store", () => {
     it("should have a default light theme", () => {

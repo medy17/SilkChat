@@ -1,6 +1,6 @@
+import { useIsMobile } from "@/hooks/use-mobile"
 import { renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { useIsMobile } from "./use-mobile"
 
 describe("useIsMobile", () => {
     let addEventListenerMock: any
