@@ -35,7 +35,8 @@ import { browserEnv } from "@/lib/browser-env"
 import type { ParsedThreadImportDocument } from "@/lib/thread-import"
 import {
     fetchRemoteAttachmentAsFile,
-    parseThreadImportMarkdown,
+    mergeChatGPTExporterCompanionMarkdown,
+    parseThreadImportContents,
     prepareImportedAttachmentFile
 } from "@/lib/thread-import"
 import { dispatchThreadImportDialogState } from "@/lib/thread-import-events"
@@ -103,7 +104,7 @@ const statusClasses: Record<ImportQueueStatus, string> = {
 }
 
 const importConcurrencyOptions = [1, 2, 3] as const
-const markdownExtensionRegex = /\.(md|markdown|txt)$/i
+const supportedImportExtensionRegex = /\.(md|markdown|txt|json)$/i
 const attachmentThrottleThresholds = {
     high: 120,
     medium: 40
@@ -271,6 +272,80 @@ export function ImportThreadDialog({
         setQueue((previous) => previous.map((item) => (item.id === id ? updater(item) : item)))
     }
 
+    const mergePairedChatGPTExporterQueueItems = (items: ImportQueueItem[]) => {
+        const jsonByConversationId = new Map<string, ImportQueueItem[]>()
+        const markdownByConversationId = new Map<string, ImportQueueItem[]>()
+
+        for (const item of items) {
+            if (item.status !== "ready" || !item.parsed) continue
+            if (item.parsed.source.service !== "chatgptexporter") continue
+
+            const conversationId = item.parsed.source.conversationId
+            if (!conversationId) continue
+
+            if (item.parsed.source.format === "json") {
+                const existing = jsonByConversationId.get(conversationId) ?? []
+                existing.push(item)
+                jsonByConversationId.set(conversationId, existing)
+            }
+
+            if (item.parsed.source.format === "markdown") {
+                const existing = markdownByConversationId.get(conversationId) ?? []
+                existing.push(item)
+                markdownByConversationId.set(conversationId, existing)
+            }
+        }
+
+        const updateById = new Map<string, ImportQueueItem>()
+        const removeIds = new Set<string>()
+        let mergedCount = 0
+
+        for (const [conversationId, jsonItems] of jsonByConversationId.entries()) {
+            const markdownItems = markdownByConversationId.get(conversationId)
+            if (!markdownItems?.length) continue
+
+            const mergePairs = Math.min(jsonItems.length, markdownItems.length)
+            for (let index = 0; index < mergePairs; index += 1) {
+                const jsonItem = jsonItems[index]
+                const markdownItem = markdownItems[index]
+                if (!jsonItem.parsed || !markdownItem.parsed) continue
+
+                const mergeResult = mergeChatGPTExporterCompanionMarkdown({
+                    jsonDocument: jsonItem.parsed,
+                    markdownDocument: markdownItem.parsed
+                })
+
+                if (!mergeResult.merged) {
+                    continue
+                }
+
+                mergedCount += 1
+                removeIds.add(markdownItem.id)
+
+                const enrichmentWarning = mergeResult.mergedDocument.parseWarnings.find((warning) =>
+                    warning.startsWith("Enriched from markdown companion")
+                )
+
+                updateById.set(jsonItem.id, {
+                    ...jsonItem,
+                    parsed: mergeResult.mergedDocument,
+                    messageCount: mergeResult.mergedDocument.messages.length,
+                    attachmentCount: mergeResult.mergedDocument.messages.reduce(
+                        (sum, message) => sum + message.attachments.length,
+                        0
+                    ),
+                    parseWarning: enrichmentWarning || mergeResult.mergedDocument.parseWarnings[0]
+                })
+            }
+        }
+
+        const queue = items
+            .filter((item) => !removeIds.has(item.id))
+            .map((item) => updateById.get(item.id) ?? item)
+
+        return { queue, mergedCount }
+    }
+
     const sanitizeIncomingFiles = (files: File[]) => {
         const accepted: File[] = []
         let rejected = 0
@@ -279,9 +354,10 @@ export function ImportThreadDialog({
             const matchesByType =
                 file.type === "text/markdown" ||
                 file.type === "text/plain" ||
-                file.type === "application/markdown"
+                file.type === "application/markdown" ||
+                file.type === "application/json"
 
-            const matchesByName = markdownExtensionRegex.test(file.name)
+            const matchesByName = supportedImportExtensionRegex.test(file.name)
 
             if (matchesByType || matchesByName) {
                 accepted.push(file)
@@ -305,7 +381,7 @@ export function ImportThreadDialog({
 
         if (rejected > 0) {
             toast.error(
-                `Skipped ${rejected} file${rejected > 1 ? "s" : ""}. Use markdown files only.`
+                `Skipped ${rejected} file${rejected > 1 ? "s" : ""}. Use supported exports (.md, .txt, .json).`
             )
         }
 
@@ -330,45 +406,90 @@ export function ImportThreadDialog({
                 const file = accepted[index]
 
                 try {
-                    const markdown = await file.text()
-                    const parsed = parseThreadImportMarkdown(markdown)
+                    const content = await file.text()
+                    const parsedDocuments = parseThreadImportContents({
+                        content,
+                        fileName: file.name,
+                        mimeType: file.type || undefined
+                    })
 
-                    if (parsed.messages.length === 0) {
+                    const importableDocuments = parsedDocuments.filter(
+                        (document) => document.messages.length > 0
+                    )
+
+                    if (importableDocuments.length === 0) {
                         updateQueueItem(queuedItem.id, (item) => ({
                             ...item,
                             selected: false,
                             status: "invalid",
-                            parsed,
-                            error: parsed.parseWarnings[0] || "No importable messages found"
+                            error: "No importable messages found"
                         }))
                         return
                     }
 
-                    const attachmentCount = parsed.messages.reduce(
+                    const [firstDocument, ...remainingDocuments] = importableDocuments
+                    const attachmentCount = firstDocument.messages.reduce(
                         (sum, message) => sum + message.attachments.length,
                         0
                     )
 
                     updateQueueItem(queuedItem.id, (item) => ({
                         ...item,
+                        fileName:
+                            importableDocuments.length > 1
+                                ? `${file.name} • ${firstDocument.title}`
+                                : file.name,
                         status: "ready",
-                        parsed,
-                        messageCount: parsed.messages.length,
+                        parsed: firstDocument,
+                        messageCount: firstDocument.messages.length,
                         attachmentCount,
-                        parseWarning: parsed.parseWarnings[0],
+                        parseWarning: firstDocument.parseWarnings[0],
                         error: undefined
                     }))
+
+                    if (remainingDocuments.length > 0) {
+                        const extraItems: ImportQueueItem[] = remainingDocuments.map(
+                            (document) => ({
+                                id: nanoid(),
+                                fileName: `${file.name} • ${document.title}`,
+                                selected: true,
+                                status: "ready",
+                                parsed: document,
+                                messageCount: document.messages.length,
+                                attachmentCount: document.messages.reduce(
+                                    (sum, message) => sum + message.attachments.length,
+                                    0
+                                ),
+                                parseWarning: document.parseWarnings[0]
+                            })
+                        )
+
+                        setQueue((previous) => [...previous, ...extraItems])
+                    }
                 } catch (error) {
                     updateQueueItem(queuedItem.id, (item) => ({
                         ...item,
                         selected: false,
                         status: "invalid",
                         error:
-                            error instanceof Error ? error.message : "Unable to parse markdown file"
+                            error instanceof Error ? error.message : "Unable to parse import file"
                     }))
                 }
             })
         )
+
+        let mergedCount = 0
+        setQueue((previous) => {
+            const merged = mergePairedChatGPTExporterQueueItems(previous)
+            mergedCount = merged.mergedCount
+            return merged.queue
+        })
+
+        if (mergedCount > 0) {
+            toast.success(
+                `Auto-paired ${mergedCount} ChatGPT Exporter markdown companion${mergedCount > 1 ? "s" : ""} with JSON source file${mergedCount > 1 ? "s" : ""}.`
+            )
+        }
 
         setIsParsingFiles(false)
     }
@@ -609,7 +730,7 @@ export function ImportThreadDialog({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".md,.markdown,text/markdown,text/plain"
+                accept=".md,.markdown,.txt,.json,text/markdown,text/plain,application/json"
                 className="hidden"
                 onChange={handleFileInputChange}
             />
@@ -818,7 +939,7 @@ export function ImportThreadDialog({
 
                             {isDropZoneActive && (
                                 <div className="hidden border-b bg-primary/10 px-3 py-4 text-center font-medium text-primary text-sm sm:block">
-                                    Drop markdown files here to add them to the queue
+                                    Drop export files here to add them to the queue
                                 </div>
                             )}
 
@@ -828,10 +949,10 @@ export function ImportThreadDialog({
                                         <FileText className="mx-auto mb-3 h-10 w-10 opacity-20" />
                                         <p className="font-medium text-sm">No files selected yet</p>
                                         <p className="mt-1 hidden text-xs opacity-70 sm:block">
-                                            Drag and drop markdown files here
+                                            Drag and drop export files here
                                         </p>
                                         <p className="mt-1 text-xs opacity-70 sm:hidden">
-                                            Tap "Select Files" above to add markdown exports
+                                            Tap "Select Files" above to add export files
                                         </p>
                                     </div>
                                 ) : (
@@ -992,7 +1113,7 @@ export function ImportThreadDialog({
                                 <DrawerHeader>
                                     <DrawerTitle>Import Thread</DrawerTitle>
                                     <DrawerDescription>
-                                        Select markdown exports, review, then import.
+                                        Select export files, review, then import.
                                     </DrawerDescription>
                                 </DrawerHeader>
                                 {importBody}
@@ -1013,7 +1134,7 @@ export function ImportThreadDialog({
                             <DialogHeader>
                                 <DialogTitle>Import Thread</DialogTitle>
                                 <DialogDescription>
-                                    Select one or more markdown exports, review validation status,
+                                    Select one or more supported exports, review validation status,
                                     then import selected conversations.
                                 </DialogDescription>
                             </DialogHeader>
