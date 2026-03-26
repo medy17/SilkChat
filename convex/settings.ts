@@ -117,7 +117,9 @@ export const getUserRegistryInternal = internalQuery({
                 adapters: available_adapters,
                 abilities: model.abilities,
                 mode: model.mode,
-                supportedImageSizes: model.supportedImageSizes
+                supportedImageSizes: model.supportedImageSizes,
+                prototypeCreditTier: model.prototypeCreditTier,
+                prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
             }
         }
 

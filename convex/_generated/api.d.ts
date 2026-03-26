@@ -18,6 +18,7 @@ import type * as chat_http_manual_stream_transform from "../chat_http/manual_str
 import type * as chat_http_prompt from "../chat_http/prompt.js";
 import type * as chat_http_shared from "../chat_http/shared.js";
 import type * as chat_http_vertex_stream from "../chat_http/vertex_stream.js";
+import type * as credits from "../credits.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
 import type * as import_jobs from "../import_jobs.js";
@@ -25,6 +26,7 @@ import type * as import_jobs_http from "../import_jobs_http.js";
 import type * as import_jobs_mirror_node from "../import_jobs_mirror_node.js";
 import type * as import_jobs_node from "../import_jobs_node.js";
 import type * as lib_backend_to_ui_messages from "../lib/backend_to_ui_messages.js";
+import type * as lib_credits from "../lib/credits.js";
 import type * as lib_db_to_core_messages from "../lib/db_to_core_messages.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_file_constants from "../lib/file_constants.js";
@@ -55,6 +57,7 @@ import type * as lib_tools_supermemory from "../lib/tools/supermemory.js";
 import type * as lib_tools_web_search from "../lib/tools/web_search.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
+import type * as schema_credits from "../schema/credits.js";
 import type * as schema_folders from "../schema/folders.js";
 import type * as schema_import_job from "../schema/import_job.js";
 import type * as schema_message from "../schema/message.js";
@@ -93,6 +96,7 @@ declare const fullApi: ApiFromModules<{
   "chat_http/prompt": typeof chat_http_prompt;
   "chat_http/shared": typeof chat_http_shared;
   "chat_http/vertex_stream": typeof chat_http_vertex_stream;
+  credits: typeof credits;
   folders: typeof folders;
   http: typeof http;
   import_jobs: typeof import_jobs;
@@ -100,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   import_jobs_mirror_node: typeof import_jobs_mirror_node;
   import_jobs_node: typeof import_jobs_node;
   "lib/backend_to_ui_messages": typeof lib_backend_to_ui_messages;
+  "lib/credits": typeof lib_credits;
   "lib/db_to_core_messages": typeof lib_db_to_core_messages;
   "lib/encryption": typeof lib_encryption;
   "lib/file_constants": typeof lib_file_constants;
@@ -130,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tools/web_search": typeof lib_tools_web_search;
   messages: typeof messages;
   migrations: typeof migrations;
+  "schema/credits": typeof schema_credits;
   "schema/folders": typeof schema_folders;
   "schema/import_job": typeof schema_import_job;
   "schema/message": typeof schema_message;

@@ -145,7 +145,9 @@ export function useChatIntegration<IsShared extends boolean>({
                           reasoningEffort,
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          forceRefresh: true
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -189,7 +191,9 @@ export function useChatIntegration<IsShared extends boolean>({
                   },
                   async prepareReconnectToStreamRequest({ api, id }) {
                       const currentContext = latestRequestContextRef.current
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          forceRefresh: true
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }

@@ -27,6 +27,7 @@ export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
 
 export type ReasoningEffortTier = "off" | "low" | "medium" | "high"
+export type PrototypeCreditTier = "basic" | "pro"
 type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
 
 export type ModelReasoningProfiles = {
@@ -58,5 +59,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean
     reasoningProfiles?: ModelReasoningProfiles
+    prototypeCreditTier?: PrototypeCreditTier
+    prototypeCreditTierWithReasoning?: PrototypeCreditTier
     legacy?: boolean
 }

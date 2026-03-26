@@ -88,6 +88,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
 
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
     let finalModel: LanguageModelV3 | ImageModelV3 | undefined = undefined
+    let providerSource: "internal" | "byok" | "openrouter" | "custom" | "unknown" = "unknown"
 
     for (const adapter of sortedAdapters) {
         const providerIdRaw = model.customProviderId ?? adapter.split(":")[0]
@@ -117,11 +118,13 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
                     }
 
                     finalModel = getOpenAIImageModel(providerSpecificModelId, openAiApiKey)
+                    providerSource = "internal"
                     break
                 }
 
                 if (providerId === "google") {
                     finalModel = await getGoogleImageModel(providerSpecificModelId, "internal")
+                    providerSource = "internal"
                     break
                 }
 
@@ -139,6 +142,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
                     finalModel = sdk_provider.languageModel(providerSpecificModelId)
                 }
             }
+            providerSource = "internal"
             break
         }
 
@@ -152,6 +156,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
             if (model.mode === "image") {
                 if (providerIdRaw === "openai") {
                     finalModel = getOpenAIImageModel(providerSpecificModelId, provider.key)
+                    providerSource = "byok"
                     break
                 }
 
@@ -162,6 +167,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
                             provider.key,
                             provider.authMode
                         )
+                        providerSource = "byok"
                         break
                     } catch (error) {
                         console.error(
@@ -202,6 +208,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
                     finalModel = sdk_provider.languageModel(providerSpecificModelId)
                 }
             }
+            providerSource = providerIdRaw === "openrouter" ? "openrouter" : "byok"
             break
         }
 
@@ -224,6 +231,7 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
         } else {
             finalModel = sdk_provider.languageModel(providerSpecificModelId)
         }
+        providerSource = "custom"
         break
     }
 
@@ -240,6 +248,9 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
         abilities: model.abilities,
         registry,
         modelId: model.id,
-        modelName: model.name ?? model.id
+        modelName: model.name ?? model.id,
+        providerSource,
+        prototypeCreditTier: model.prototypeCreditTier,
+        prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
     }
 }

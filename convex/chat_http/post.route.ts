@@ -19,6 +19,7 @@ import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { httpAction } from "../_generated/server"
+import { resolvePrototypeCreditCharge } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getGoogleAuthMode } from "../lib/google_provider"
 import { getUserIdentity } from "../lib/identity"
@@ -51,7 +52,7 @@ const DEFAULT_REASONING_PROFILES: ModelReasoningProfiles = {
         high: { reasoningEffort: "high", reasoningSummary: "detailed" }
     },
     anthropic: {
-        low: { budgetTokens: 1000 },
+        low: { budgetTokens: 1024 },
         medium: { budgetTokens: 6000 },
         high: { budgetTokens: 12000 }
     }
@@ -202,6 +203,25 @@ const buildAnthropicProviderOptions = (
 
     return options
 }
+
+const resolveRequiredPlanForModel = ({
+    modelMode,
+    reasoningEffort,
+    prototypeCreditTier,
+    prototypeCreditTierWithReasoning
+}: {
+    modelMode: "text" | "image"
+    reasoningEffort: ReasoningEffort
+    prototypeCreditTier?: "basic" | "pro"
+    prototypeCreditTierWithReasoning?: "basic" | "pro"
+}) => {
+    if (reasoningEffort !== "off" && prototypeCreditTierWithReasoning) {
+        return prototypeCreditTierWithReasoning
+    }
+
+    return prototypeCreditTier ?? (modelMode === "image" ? "pro" : "basic")
+}
+
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
         id?: string
@@ -244,6 +264,41 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
+    const userCreditPlan =
+        (user as typeof user & { creditPlan?: string }).creditPlan === "pro" ? "pro" : "free"
+
+    const modelData = await getModel(ctx, body.model)
+    if (modelData instanceof ChatError) return modelData.toResponse()
+    const { model, modelName } = modelData
+    const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
+    const maxTokens =
+        typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
+            ? configuredMaxTokens
+            : 16096
+    const effectiveReasoningEffort: ReasoningEffort = body.reasoningEffort ?? "medium"
+    const reasoningProfiles = resolveReasoningProfiles(body.model)
+    const requiredPlanForModel = resolveRequiredPlanForModel({
+        modelMode: model.modelType,
+        reasoningEffort: effectiveReasoningEffort,
+        prototypeCreditTier: modelData.prototypeCreditTier,
+        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+    })
+
+    if (requiredPlanForModel === "pro" && userCreditPlan !== "pro") {
+        return new ChatError(
+            "forbidden:chat",
+            "Pro plan required for the selected model."
+        ).toResponse()
+    }
+
+    const creditCharge = resolvePrototypeCreditCharge({
+        providerSource: modelData.providerSource,
+        modelMode: model.modelType,
+        enabledTools: body.enabledTools,
+        reasoningEffort: effectiveReasoningEffort,
+        prototypeCreditTier: modelData.prototypeCreditTier,
+        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+    })
 
     const mutationResult = await (async () => {
         try {
@@ -264,24 +319,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     if (mutationResult instanceof ChatError) return mutationResult.toResponse()
     if (!mutationResult) return new ChatError("bad_request:chat").toResponse()
-
     const dbMessages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
         threadId: mutationResult.threadId
     })
     const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
         threadId: mutationResult.threadId
     })
-
-    const modelData = await getModel(ctx, body.model)
-    if (modelData instanceof ChatError) return modelData.toResponse()
-    const { model, modelName } = modelData
-    const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
-    const maxTokens =
-        typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
-            ? configuredMaxTokens
-            : 16096
-    const effectiveReasoningEffort: ReasoningEffort = body.reasoningEffort ?? "medium"
-    const reasoningProfiles = resolveReasoningProfiles(body.model)
 
     const mapped_messages = await dbMessagesToCore(dbMessages, modelData.abilities)
 
@@ -671,8 +714,25 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     promptTokens: totalTokenUsage.promptTokens,
                     completionTokens: totalTokenUsage.completionTokens,
                     reasoningTokens: totalTokenUsage.reasoningTokens,
+                    creditProviderSource: modelData.providerSource,
+                    creditBucket: creditCharge.bucket,
+                    creditFeature: creditCharge.feature,
+                    creditUnits: creditCharge.units,
+                    creditCounted: creditCharge.counted,
                     serverDurationMs: Date.now() - streamStartTime
                 }
+            })
+            await ctx.runMutation(internal.credits.recordCreditEventForMessage, {
+                userId: user.id,
+                threadId: mutationResult.threadId,
+                messageId: mutationResult.assistantMessageId,
+                messageKey: String(mutationResult.assistantMessageConvexId),
+                modelId: body.model,
+                providerSource: modelData.providerSource,
+                feature: creditCharge.feature,
+                bucket: creditCharge.bucket,
+                units: creditCharge.units,
+                counted: creditCharge.counted
             })
 
             if (model.modelType === "image") {

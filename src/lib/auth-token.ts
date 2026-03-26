@@ -31,18 +31,25 @@ export const isJwtToken = (token: string | null | undefined): token is string =>
     }
 }
 
-export const resolveJwtToken = async (token: string | null | undefined) => {
+export const resolveJwtToken = async (
+    token: string | null | undefined,
+    options?: { forceRefresh?: boolean }
+) => {
     const normalizedToken = token?.trim()
 
-    if (isJwtToken(normalizedToken)) {
+    if (!options?.forceRefresh && isJwtToken(normalizedToken)) {
         return normalizedToken
     }
 
     try {
         const response = await authClient.$fetch<{ token?: string }>("/token")
         const fetchedToken = response.data?.token?.trim()
-        return isJwtToken(fetchedToken) ? fetchedToken : undefined
+        if (isJwtToken(fetchedToken)) {
+            return fetchedToken
+        }
+
+        return isJwtToken(normalizedToken) ? normalizedToken : undefined
     } catch {
-        return undefined
+        return isJwtToken(normalizedToken) ? normalizedToken : undefined
     }
 }

@@ -4,6 +4,7 @@ export const users = pgTable("users", {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     email: text("email").notNull().unique(),
+    creditPlan: text("credit_plan").$type<"free" | "pro">().notNull().default("free"),
     emailVerified: boolean("email_verified")
         .$defaultFn(() => false)
         .notNull(),

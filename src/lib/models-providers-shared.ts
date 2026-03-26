@@ -13,6 +13,7 @@ import {
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
 import { optionalBrowserEnv } from "@/lib/browser-env"
+import type { ReasoningEffort } from "@/lib/model-store"
 import { useSharedModels } from "@/lib/shared-models"
 import type { Infer } from "convex/values"
 import { Brain, Code, Eye, File, Key } from "lucide-react"
@@ -151,6 +152,25 @@ export const isImageGenerationCapableModel = (model: DisplayModel) => {
     if (model.mode === "image") return true
     if (!("supportedImageResolutions" in model)) return false
     return (model.supportedImageResolutions?.length ?? 0) > 0
+}
+
+export const getPrototypeCreditTierForModel = (
+    model: DisplayModel,
+    reasoningEffort: ReasoningEffort = "off"
+): "basic" | "pro" => {
+    if ("isCustom" in model && model.isCustom) {
+        return "basic"
+    }
+
+    const sharedModel = model as SharedModel
+
+    if (reasoningEffort !== "off" && sharedModel.prototypeCreditTierWithReasoning) {
+        return sharedModel.prototypeCreditTierWithReasoning
+    }
+
+    return (
+        sharedModel.prototypeCreditTier ?? (isImageGenerationCapableModel(model) ? "pro" : "basic")
+    )
 }
 
 export type SearchProviderInfo = {

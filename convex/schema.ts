@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server"
+import { PrototypeCreditAccount, PrototypeCreditEvent } from "./schema/credits"
 import { Project } from "./schema/folders"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
@@ -12,6 +13,8 @@ export {
     Message,
     SharedThread,
     UsageEvent,
+    PrototypeCreditAccount,
+    PrototypeCreditEvent,
     UserSettings,
     Project,
     ImportJob,
@@ -43,6 +46,10 @@ export default defineSchema({
     settings: defineTable(UserSettings).index("byUser", ["userId"]),
 
     usageEvents: defineTable(UsageEvent).index("byUserDay", ["userId", "daysSinceEpoch"]),
+    prototypeCreditAccounts: defineTable(PrototypeCreditAccount).index("byUser", ["userId"]),
+    prototypeCreditEvents: defineTable(PrototypeCreditEvent)
+        .index("byUserPeriod", ["userId", "periodKey"])
+        .index("byUserMessageKey", ["userId", "messageKey"]),
 
     projects: defineTable(Project)
         .index("byAuthor", ["authorId"])

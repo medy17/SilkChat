@@ -5,6 +5,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { db } from "@/database/db"
 import * as schema from "@/database/schema"
 import { loadServerEnv } from "@/lib/load-server-env"
+import { getUserCreditPlan } from "@/lib/user-subscription"
 import { jwt } from "better-auth/plugins/jwt"
 
 loadServerEnv()
@@ -58,7 +59,11 @@ export const auth = betterAuth({
         jwt({
             jwt: {
                 audience: "intern3",
-                expirationTime: "6h"
+                expirationTime: "6h",
+                definePayload: async (session) => ({
+                    ...session.user,
+                    creditPlan: await getUserCreditPlan(session.user.id)
+                })
             },
             jwks: {
                 disablePrivateKeyEncryption: true,

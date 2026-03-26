@@ -30,7 +30,22 @@ export const AIMessage = v.object({
         promptTokens: v.optional(v.number()),
         completionTokens: v.optional(v.number()),
         reasoningTokens: v.optional(v.number()),
-        serverDurationMs: v.optional(v.number())
+        serverDurationMs: v.optional(v.number()),
+        creditProviderSource: v.optional(
+            v.union(
+                v.literal("internal"),
+                v.literal("byok"),
+                v.literal("openrouter"),
+                v.literal("custom"),
+                v.literal("unknown")
+            )
+        ),
+        creditBucket: v.optional(v.union(v.literal("basic"), v.literal("pro"), v.literal("none"))),
+        creditFeature: v.optional(
+            v.union(v.literal("chat"), v.literal("image"), v.literal("tool"))
+        ),
+        creditUnits: v.optional(v.number()),
+        creditCounted: v.optional(v.boolean())
     })
 })
 
@@ -47,6 +62,21 @@ export const Message = v.object({
         promptTokens: v.optional(v.number()),
         completionTokens: v.optional(v.number()),
         reasoningTokens: v.optional(v.number()),
-        serverDurationMs: v.optional(v.number())
+        serverDurationMs: v.optional(v.number()),
+        creditProviderSource: v.optional(
+            v.union(
+                v.literal("internal"),
+                v.literal("byok"),
+                v.literal("openrouter"),
+                v.literal("custom"),
+                v.literal("unknown")
+            )
+        ),
+        creditBucket: v.optional(v.union(v.literal("basic"), v.literal("pro"), v.literal("none"))),
+        creditFeature: v.optional(
+            v.union(v.literal("chat"), v.literal("image"), v.literal("tool"))
+        ),
+        creditUnits: v.optional(v.number()),
+        creditCounted: v.optional(v.boolean())
     })
 })

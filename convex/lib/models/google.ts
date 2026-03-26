@@ -19,7 +19,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260922,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "basic"
     },
     {
         id: "gemini-3.1-flash-lite-preview",
@@ -28,7 +29,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260921,
         adapters: googleTextAdapters("gemini-3.1-flash-lite-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "basic"
     },
     {
         id: "gemini-3.1-pro-preview",
@@ -37,7 +39,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260920,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
     },
     {
         id: "gemini-2.5-flash",
@@ -47,6 +50,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-2.5-flash"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
+        prototypeCreditTier: "basic",
         legacy: true
     },
     {
@@ -57,6 +61,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-2.5-flash-lite"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
+        prototypeCreditTier: "basic",
         legacy: true
     },
     {
@@ -67,6 +72,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-2.5-pro"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro",
         legacy: true
     },
     {
@@ -76,6 +82,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260916,
         adapters: googleTextAdapters("gemini-2.0-flash"),
         abilities: ["vision", "function_calling", "pdf"],
+        prototypeCreditTier: "basic",
         legacy: true
     },
     {
@@ -85,6 +92,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260915,
         adapters: googleTextAdapters("gemini-2.0-flash-lite"),
         abilities: ["vision", "function_calling", "pdf"],
+        prototypeCreditTier: "basic",
         legacy: true
     },
     {
@@ -94,7 +102,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260914,
         adapters: googleTextAdapters("gemini-3-pro-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
     },
     {
         id: "gemini-2.5-flash-image",
@@ -107,6 +116,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         customIcon: "google",
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
+        prototypeCreditTier: "pro",
         legacy: true
     },
     {
@@ -121,7 +131,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "effort_control"],
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
     },
     {
         id: "gemini-3-pro-image-preview",
@@ -143,6 +154,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
             "21:9"
         ],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
     }
 ]

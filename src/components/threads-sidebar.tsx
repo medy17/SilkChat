@@ -50,10 +50,12 @@ import {
     Clock3,
     FolderOpen,
     Image,
+    KeyRound,
     Loader2,
     Pin,
     Search,
     Trash2,
+    Wallet,
     X
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -279,6 +281,117 @@ function ImportJobsGroup({
     )
 }
 
+type PrototypeCreditSummary = {
+    enabled: boolean
+    plan: "free" | "pro"
+    periodKey: string
+    periodStartsAt: number
+    periodEndsAt: number
+    basic: {
+        limit: number
+        used: number
+        remaining: number
+    }
+    pro: {
+        limit: number
+        used: number
+        remaining: number
+    }
+    requestCounts: {
+        internal: number
+        byok: number
+        total: number
+    }
+}
+
+type PrototypeCreditPlanSummary = {
+    enabled: boolean
+    plan: "free" | "pro"
+    basic: {
+        limit: number
+    }
+    pro: {
+        limit: number
+    }
+}
+
+function PrototypeCreditsGroup({ summary }: { summary: PrototypeCreditSummary }) {
+    if (!summary.enabled) return null
+
+    const basicProgress =
+        summary.basic.limit > 0 ? (summary.basic.used / summary.basic.limit) * 100 : 0
+    const proProgress = summary.pro.limit > 0 ? (summary.pro.used / summary.pro.limit) * 100 : 0
+
+    return (
+        <SidebarGroup>
+            <SidebarGroupLabel>Credits</SidebarGroupLabel>
+            <SidebarGroupContent>
+                <div className="rounded-md border bg-sidebar-accent/20 px-3 py-3">
+                    <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 shrink-0" />
+                        <div className="font-medium text-sm">
+                            {summary.plan === "pro" ? "Pro prototype" : "Free prototype"}
+                        </div>
+                        <span className="ml-auto rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                            Shadow
+                        </span>
+                    </div>
+
+                    <div className="mt-3 space-y-3">
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Basic</span>
+                                <span>
+                                    {summary.basic.used}/{summary.basic.limit} used
+                                </span>
+                            </div>
+                            <Progress value={basicProgress} className="h-1.5" />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Pro</span>
+                                <span>
+                                    {summary.pro.used}/{summary.pro.limit} used
+                                </span>
+                            </div>
+                            <Progress value={proProgress} className="h-1.5" />
+                        </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-muted-foreground text-xs">
+                        <span>{summary.requestCounts.internal} internal</span>
+                        <span className="inline-flex items-center gap-1">
+                            <KeyRound className="h-3 w-3" />
+                            {summary.requestCounts.byok} BYOK
+                        </span>
+                    </div>
+                </div>
+            </SidebarGroupContent>
+        </SidebarGroup>
+    )
+}
+
+function PrototypeCreditsLoadingGroup() {
+    return (
+        <SidebarGroup>
+            <SidebarGroupLabel>Credits</SidebarGroupLabel>
+            <SidebarGroupContent>
+                <div className="rounded-md border bg-sidebar-accent/20 px-3 py-3">
+                    <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 shrink-0" />
+                        <div className="font-medium text-sm">Credits</div>
+                        <span className="ml-auto rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                            Shadow
+                        </span>
+                    </div>
+                    <div className="mt-3 text-muted-foreground text-xs">Loading usage...</div>
+                </div>
+            </SidebarGroupContent>
+        </SidebarGroup>
+    )
+}
+
 export function ThreadsSidebar() {
     const [showGradient, setShowGradient] = useState(false)
     const [commandKOpen, setCommandKOpen] = useState(false)
@@ -296,6 +409,8 @@ export function ThreadsSidebar() {
     const [showRenameDialog, setShowRenameDialog] = useState(false)
     const [showMoveDialog, setShowMoveDialog] = useState(false)
     const [currentThread, setCurrentThread] = useState<Thread | null>(null)
+    const [isUpdatingCreditPlan, setIsUpdatingCreditPlan] = useState(false)
+    const [creditPlanRefreshNonce, setCreditPlanRefreshNonce] = useState(0)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
@@ -312,6 +427,12 @@ export function ThreadsSidebar() {
         api.import_jobs.listImportJobs,
         session?.user?.id && !auth.isLoading ? { limit: 6 } : "skip"
     )
+    const usageSummary = useQuery(
+        api.credits.getMyCreditUsageSummary,
+        session?.user?.id && !auth.isLoading ? {} : "skip"
+    )
+    const [prototypeCreditPlanSummary, setPrototypeCreditPlanSummary] =
+        useState<PrototypeCreditPlanSummary | null>(null)
 
     // Get all threads (not filtered by project anymore)
     const {
@@ -356,6 +477,8 @@ export function ThreadsSidebar() {
     })
 
     const isAuthenticated = Boolean(session?.user?.id)
+    const shouldShowPrototypeCredits = isAuthenticated && !auth.isLoading
+    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
     const hasError = false
 
     const selectedThreads = useMemo(() => {
@@ -420,6 +543,95 @@ export function ThreadsSidebar() {
 
         importJobStatusRef.current = nextStatuses
     }, [importJobs])
+
+    useEffect(() => {
+        if (!session?.user?.id || auth.isLoading) {
+            setPrototypeCreditPlanSummary(null)
+            return
+        }
+
+        let cancelled = false
+        const refreshPlanSummary = async () => {
+            try {
+                const response = await fetch("/api/credit-summary")
+                if (!response.ok) {
+                    throw new Error(`Failed to load credit summary (${response.status})`)
+                }
+                const summary = (await response.json()) as PrototypeCreditPlanSummary
+                if (!cancelled) {
+                    setPrototypeCreditPlanSummary(summary)
+                }
+            } catch (error) {
+                console.error("Failed to load prototype credit summary:", error)
+            }
+        }
+
+        void refreshPlanSummary()
+        const interval = window.setInterval(() => {
+            void refreshPlanSummary()
+        }, 15000)
+
+        return () => {
+            cancelled = true
+            window.clearInterval(interval)
+        }
+    }, [auth.isLoading, creditPlanRefreshNonce, session?.user?.id])
+
+    const prototypeCreditSummary = useMemo<PrototypeCreditSummary | null>(() => {
+        if (!prototypeCreditPlanSummary || !usageSummary) {
+            return null
+        }
+
+        return {
+            enabled: prototypeCreditPlanSummary.enabled,
+            plan: prototypeCreditPlanSummary.plan,
+            periodKey: usageSummary.periodKey,
+            periodStartsAt: usageSummary.periodStartsAt,
+            periodEndsAt: usageSummary.periodEndsAt,
+            basic: {
+                limit: prototypeCreditPlanSummary.basic.limit,
+                used: usageSummary.basic.used,
+                remaining: Math.max(
+                    0,
+                    prototypeCreditPlanSummary.basic.limit - usageSummary.basic.used
+                )
+            },
+            pro: {
+                limit: prototypeCreditPlanSummary.pro.limit,
+                used: usageSummary.pro.used,
+                remaining: Math.max(0, prototypeCreditPlanSummary.pro.limit - usageSummary.pro.used)
+            },
+            requestCounts: usageSummary.requestCounts
+        }
+    }, [prototypeCreditPlanSummary, usageSummary])
+
+    const handleSetCreditPlan = async (plan: "free" | "pro") => {
+        if (!session?.user?.id || isUpdatingCreditPlan) return
+
+        try {
+            setIsUpdatingCreditPlan(true)
+            const response = await fetch("/api/dev/credit-plan", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    plan
+                })
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to update plan (${response.status})`)
+            }
+
+            setCreditPlanRefreshNonce((previous) => previous + 1)
+        } catch (error) {
+            console.error("Failed to update prototype credit plan:", error)
+            toast.error("Failed to update credit plan")
+        } finally {
+            setIsUpdatingCreditPlan(false)
+        }
+    }
 
     // Dialog handlers
     const handleOpenRenameDialog = useFunction((thread: Thread) => {
@@ -648,7 +860,63 @@ export function ThreadsSidebar() {
         const hasNonProjectThreads = allThreads.length > 0
 
         if (!hasProjects && !hasNonProjectThreads) {
-            return <EmptyState message="No threads found" />
+            return (
+                <>
+                    <div className="px-2">
+                        <Link
+                            to="/library"
+                            className={cn(
+                                buttonVariants({ variant: "ghost" }),
+                                "h-8 w-full justify-start"
+                            )}
+                        >
+                            <Image className="h-4 w-4" />
+                            Library
+                        </Link>
+                    </div>
+                    {shouldShowPrototypeCredits &&
+                        (prototypeCreditSummary ? (
+                            <div className="space-y-2">
+                                <PrototypeCreditsGroup summary={prototypeCreditSummary} />
+                                {shouldShowDevCreditPlanToggle && (
+                                    <div className="px-2">
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant={
+                                                    prototypeCreditSummary.plan === "free"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="h-7 flex-1"
+                                                disabled={isUpdatingCreditPlan}
+                                                onClick={() => void handleSetCreditPlan("free")}
+                                            >
+                                                Free
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant={
+                                                    prototypeCreditSummary.plan === "pro"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="h-7 flex-1"
+                                                disabled={isUpdatingCreditPlan}
+                                                onClick={() => void handleSetCreditPlan("pro")}
+                                            >
+                                                Pro
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <PrototypeCreditsLoadingGroup />
+                        ))}
+                    <EmptyState message="No threads found" />
+                </>
+            )
         }
 
         return (
@@ -668,6 +936,46 @@ export function ThreadsSidebar() {
                 {importJobs && importJobs.length > 0 && (
                     <ImportJobsGroup jobs={importJobs} onOpenJob={handleOpenImportJob} />
                 )}
+                {shouldShowPrototypeCredits &&
+                    (prototypeCreditSummary ? (
+                        <div className="space-y-2">
+                            <PrototypeCreditsGroup summary={prototypeCreditSummary} />
+                            {shouldShowDevCreditPlanToggle && (
+                                <div className="px-2">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant={
+                                                prototypeCreditSummary.plan === "free"
+                                                    ? "default"
+                                                    : "outline"
+                                            }
+                                            className="h-7 flex-1"
+                                            disabled={isUpdatingCreditPlan}
+                                            onClick={() => void handleSetCreditPlan("free")}
+                                        >
+                                            Free
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={
+                                                prototypeCreditSummary.plan === "pro"
+                                                    ? "default"
+                                                    : "outline"
+                                            }
+                                            className="h-7 flex-1"
+                                            disabled={isUpdatingCreditPlan}
+                                            onClick={() => void handleSetCreditPlan("pro")}
+                                        >
+                                            Pro
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <PrototypeCreditsLoadingGroup />
+                    ))}
                 {/* Folders Section */}
                 <SidebarGroup>
                     <SidebarGroupLabel className="pr-0">

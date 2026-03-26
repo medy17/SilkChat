@@ -1,3 +1,5 @@
+"use node"
+
 import { loadServerEnv } from "@/lib/load-server-env"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"

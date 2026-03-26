@@ -25,10 +25,12 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { useModelStore } from "@/lib/model-store"
 import {
     type DisplayModel,
     getAbilityIcon,
     getAbilityLabel,
+    getPrototypeCreditTierForModel,
     getProviderDisplayName,
     isImageGenerationCapableModel,
     useAvailableModels
@@ -262,12 +264,16 @@ const ModelCard = React.memo(function ModelCard({
     model,
     selectedModel,
     onModelChange,
-    onClose
+    onClose,
+    disabled,
+    badgeLabel
 }: {
     model: DisplayModel
     selectedModel: string
     onModelChange: (modelId: string) => void
     onClose: () => void
+    disabled?: boolean
+    badgeLabel?: string
 }) {
     const isSelected = model.id === selectedModel
     const isCustom = "isCustom" in model && model.isCustom
@@ -278,14 +284,18 @@ const ModelCard = React.memo(function ModelCard({
     return (
         <button
             type="button"
+            disabled={disabled}
             onClick={() => {
+                if (disabled) return
                 onModelChange(model.id)
                 onClose()
             }}
             className={cn(
                 "w-full rounded-xl border bg-background/60 p-3 text-left transition-colors",
                 "hover:border-accent hover:bg-accent/10",
-                isSelected && "border-accent bg-accent/10 shadow-sm"
+                isSelected && "border-accent bg-accent/10 shadow-sm",
+                disabled &&
+                    "cursor-not-allowed border-border/60 bg-muted/30 text-muted-foreground hover:border-border/60 hover:bg-muted/30"
             )}
         >
             <div className="flex items-start gap-3">
@@ -299,6 +309,14 @@ const ModelCard = React.memo(function ModelCard({
                                 <span className="truncate font-medium text-sm sm:text-base">
                                     {model.name}
                                 </span>
+                                {badgeLabel && (
+                                    <Badge
+                                        variant="secondary"
+                                        className="border border-border/70 text-[10px] uppercase tracking-wide"
+                                    >
+                                        {badgeLabel}
+                                    </Badge>
+                                )}
                                 {isSelected && <Check className="size-4 shrink-0 text-primary" />}
                             </div>
                             <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
@@ -365,11 +383,49 @@ export function ModelSelector({
     const [desktopAlignOffset, setDesktopAlignOffset] = React.useState(0)
     const [desktopPopoverWidth, setDesktopPopoverWidth] = React.useState<number | null>(null)
     const isMobile = useIsMobile()
+    const reasoningEffort = useModelStore((state) => state.reasoningEffort)
+    const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
 
     const { availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
     const { models: sharedModels } = useSharedModels()
+
+    React.useEffect(() => {
+        if (!session.user?.id || auth.isLoading) {
+            setCreditPlan(null)
+            return
+        }
+
+        let cancelled = false
+
+        const loadCreditPlan = async () => {
+            try {
+                const response = await fetch("/api/credit-summary", {
+                    credentials: "include"
+                })
+
+                if (!response.ok) {
+                    throw new Error("Failed to load credit summary")
+                }
+
+                const data = (await response.json()) as { plan?: "free" | "pro" }
+                if (!cancelled) {
+                    setCreditPlan(data.plan === "pro" ? "pro" : "free")
+                }
+            } catch {
+                if (!cancelled) {
+                    setCreditPlan("free")
+                }
+            }
+        }
+
+        void loadCreditPlan()
+
+        return () => {
+            cancelled = true
+        }
+    }, [auth.isLoading, session.user?.id])
 
     const providerSections = React.useMemo<ProviderSection[]>(() => {
         const grouped = availableModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
@@ -415,6 +471,26 @@ export function ModelSelector({
         () => availableModels.find((model) => model.id === selectedModel),
         [availableModels, selectedModel]
     )
+
+    const isModelLocked = React.useCallback(
+        (model: DisplayModel) =>
+            creditPlan === "free" &&
+            getPrototypeCreditTierForModel(model, reasoningEffort) === "pro",
+        [creditPlan, reasoningEffort]
+    )
+
+    const fallbackModelId = React.useMemo(
+        () => availableModels.find((model) => !isModelLocked(model))?.id,
+        [availableModels, isModelLocked]
+    )
+
+    React.useEffect(() => {
+        if (!selectedModelData || !fallbackModelId) return
+        if (!isModelLocked(selectedModelData)) return
+        if (fallbackModelId === selectedModel) return
+
+        onModelChange(fallbackModelId)
+    }, [fallbackModelId, isModelLocked, onModelChange, selectedModel, selectedModelData])
 
     const selectedCategoryId = React.useMemo(
         () => getSelectorCategory(selectedModelData),
@@ -714,6 +790,15 @@ export function ModelSelector({
                                                 selectedModel={selectedModel}
                                                 onModelChange={onModelChange}
                                                 onClose={() => setOpen(false)}
+                                                disabled={isModelLocked(model)}
+                                                badgeLabel={
+                                                    getPrototypeCreditTierForModel(
+                                                        model,
+                                                        reasoningEffort
+                                                    ) === "pro"
+                                                        ? "Pro"
+                                                        : undefined
+                                                }
                                             />
                                         ))}
                                     </div>

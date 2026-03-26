@@ -53,6 +53,13 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
         api.analytics.getMyUsageChartData,
         session.user?.id ? { timeframe } : "skip"
     )
+    type UsageChartModelStats = {
+        requests: number
+        tokens: number
+        promptTokens: number
+        completionTokens: number
+        reasoningTokens: number
+    }
 
     // Process data for stacked model usage chart
     const modelUsageData = useMemo(() => {
@@ -65,9 +72,11 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
             }
 
             // Add each model's token count
-            Object.entries(day.models).forEach(([modelId, data]) => {
-                dayData[modelId] = data.tokens
-            })
+            Object.entries(day.models as Record<string, UsageChartModelStats>).forEach(
+                ([modelId, data]) => {
+                    dayData[modelId] = data.tokens
+                }
+            )
 
             return dayData
         })
@@ -79,12 +88,15 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
 
         return chartData.map((day) => ({
             date: day.date,
-            prompt: Object.values(day.models).reduce((sum, model) => sum + model.promptTokens, 0),
-            completion: Object.values(day.models).reduce(
+            prompt: Object.values(day.models as Record<string, UsageChartModelStats>).reduce(
+                (sum, model) => sum + model.promptTokens,
+                0
+            ),
+            completion: Object.values(day.models as Record<string, UsageChartModelStats>).reduce(
                 (sum, model) => sum + model.completionTokens,
                 0
             ),
-            reasoning: Object.values(day.models).reduce(
+            reasoning: Object.values(day.models as Record<string, UsageChartModelStats>).reduce(
                 (sum, model) => sum + model.reasoningTokens,
                 0
             )

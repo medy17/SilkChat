@@ -21,8 +21,10 @@ import { Route as SettingsCustomizationRouteImport } from './routes/settings/cus
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
+import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
+import { Route as ApiDevCreditPlanRouteImport } from './routes/api/dev/credit-plan'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
@@ -113,6 +115,11 @@ const SettingsAiOptionsRoute = SettingsAiOptionsRouteImport.update({
   path: '/ai-options',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const ApiCreditSummaryRoute = ApiCreditSummaryRouteImport.update({
+  id: '/api/credit-summary',
+  path: '/api/credit-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatLibraryRoute = ChatLibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -135,6 +142,11 @@ const ChatFolderFolderIdLazyRoute = ChatFolderFolderIdLazyRouteImport.update({
 const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
   id: '/api/phr/$',
   path: '/api/phr/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevCreditPlanRoute = ApiDevCreditPlanRouteImport.update({
+  id: '/api/dev/credit-plan',
+  path: '/api/dev/credit-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -160,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/library': typeof ChatLibraryRoute
+  '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -171,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/auth/$pathname': typeof AuthPathnameLazyRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -181,6 +195,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/library': typeof ChatLibraryRoute
+  '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -193,6 +208,7 @@ export interface FileRoutesByTo {
   '/': typeof ChatIndexRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -205,6 +221,7 @@ export interface FileRoutesById {
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/_chat/library': typeof ChatLibraryRoute
+  '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -217,6 +234,7 @@ export interface FileRoutesById {
   '/_chat/': typeof ChatIndexRoute
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/_chat/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/_chat/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -230,6 +248,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/privacy-policy'
     | '/library'
+    | '/api/credit-summary'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -241,6 +260,7 @@ export interface FileRouteTypes {
     | '/auth/$pathname'
     | '/thread/$threadId'
     | '/api/auth/$'
+    | '/api/dev/credit-plan'
     | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
@@ -251,6 +271,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/privacy-policy'
     | '/library'
+    | '/api/credit-summary'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -263,6 +284,7 @@ export interface FileRouteTypes {
     | '/'
     | '/thread/$threadId'
     | '/api/auth/$'
+    | '/api/dev/credit-plan'
     | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
@@ -274,6 +296,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/privacy-policy'
     | '/_chat/library'
+    | '/api/credit-summary'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -286,6 +309,7 @@ export interface FileRouteTypes {
     | '/_chat/'
     | '/_chat/thread/$threadId'
     | '/api/auth/$'
+    | '/api/dev/credit-plan'
     | '/api/phr/$'
     | '/_chat/folder/$folderId'
     | '/_chat/s/$sharedThreadId'
@@ -297,8 +321,10 @@ export interface RootRouteChildren {
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
   AboutLazyRoute: typeof AboutLazyRoute
   PrivacyPolicyLazyRoute: typeof PrivacyPolicyLazyRoute
+  ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDevCreditPlanRoute: typeof ApiDevCreditPlanRoute
   ApiPhrSplatRoute: typeof ApiPhrSplatRoute
 }
 
@@ -402,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAiOptionsRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/api/credit-summary': {
+      id: '/api/credit-summary'
+      path: '/api/credit-summary'
+      fullPath: '/api/credit-summary'
+      preLoaderRoute: typeof ApiCreditSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_chat/library': {
       id: '/_chat/library'
       path: '/library'
@@ -428,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/api/phr/$'
       fullPath: '/api/phr/$'
       preLoaderRoute: typeof ApiPhrSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/credit-plan': {
+      id: '/api/dev/credit-plan'
+      path: '/api/dev/credit-plan'
+      fullPath: '/api/dev/credit-plan'
+      preLoaderRoute: typeof ApiDevCreditPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -517,8 +557,10 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
   AboutLazyRoute: AboutLazyRoute,
   PrivacyPolicyLazyRoute: PrivacyPolicyLazyRoute,
+  ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDevCreditPlanRoute: ApiDevCreditPlanRoute,
   ApiPhrSplatRoute: ApiPhrSplatRoute,
 }
 export const routeTree = rootRouteImport
