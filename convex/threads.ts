@@ -19,6 +19,8 @@ import {
     query
 } from "./_generated/server"
 import { aggregrateThreadsByFolder } from "./aggregates"
+import { generateThreadName } from "./chat_http/generate_thread_name"
+import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
 import { HTTPAIMessage, type Message } from "./schema/message"
@@ -593,9 +595,9 @@ export const updateThreadName = internalMutation({
         name: v.string()
     },
     handler: async ({ db }, { threadId, name }) => {
+        // Generated title updates are metadata-only and should not affect recency ordering.
         await db.patch(threadId, {
-            title: name,
-            updatedAt: Date.now()
+            title: name
         })
     }
 })
@@ -688,6 +690,43 @@ export const shareThread = action({
         })
 
         return result
+    }
+})
+
+export const regenerateThreadTitle = action({
+    args: { threadId: v.id("threads") },
+    handler: async (ctx, { threadId }) => {
+        const user = await getUserIdentity(ctx.auth, {
+            allowAnons: false
+        })
+
+        if ("error" in user) return { error: user.error }
+
+        const thread: Infer<typeof Thread> | null = await ctx.runQuery(
+            internal.threads.getThreadById,
+            { threadId }
+        )
+        if (!thread || thread.authorId !== user.id) {
+            return { error: "Unauthorized" }
+        }
+
+        const dbMessages: Infer<typeof Message>[] = await ctx.runQuery(
+            internal.messages.getMessagesByThreadId,
+            { threadId }
+        )
+
+        if (dbMessages.length === 0) {
+            return { error: "Thread has no messages" }
+        }
+
+        const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
+            userId: user.id
+        })
+        const titleMessages = await dbMessagesToCore(dbMessages, [])
+
+        const title = await generateThreadName(ctx, threadId, titleMessages, user.id, settings)
+
+        return { success: true, title }
     }
 })
 

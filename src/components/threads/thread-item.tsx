@@ -9,8 +9,17 @@ import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
 import { Link, useParams } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { Check, CheckSquare2, Edit3, FolderOpen, Pin, Trash2 } from "lucide-react"
+import { useAction, useMutation } from "convex/react"
+import {
+    Check,
+    CheckSquare2,
+    Edit3,
+    FolderOpen,
+    Loader2,
+    Pin,
+    Sparkles,
+    Trash2
+} from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { Thread } from "./types"
@@ -44,10 +53,12 @@ export const ThreadItem = memo(
         onStartSelection
     }: ThreadItemProps) => {
         const [isContextMenuOpen, setIsContextMenuOpen] = useState(false)
+        const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
         const longPressTimeoutRef = useRef<number | null>(null)
         const longPressTriggeredRef = useRef(false)
 
         const togglePinMutation = useMutation(api.threads.togglePinThread)
+        const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
         const params = useParams({ strict: false }) as { threadId?: string }
         const isActive = params.threadId === thread._id
 
@@ -81,6 +92,31 @@ export const ThreadItem = memo(
         const handleDelete = () => onOpenDeleteDialog?.(thread)
         const handleStartSelection = () => onStartSelection?.(thread)
         const handleToggleSelection = () => onToggleSelection?.(thread)
+
+        const handleRegenerateTitle = async () => {
+            setIsRegeneratingTitle(true)
+            try {
+                const result = await regenerateThreadTitle({
+                    threadId: thread._id
+                })
+
+                if ("error" in result) {
+                    toast.error(
+                        typeof result.error === "string"
+                            ? result.error
+                            : "Failed to regenerate title"
+                    )
+                    return
+                }
+
+                toast.success("Thread title regenerated")
+            } catch (error) {
+                console.error("Failed to regenerate thread title:", error)
+                toast.error("Failed to regenerate title")
+            } finally {
+                setIsRegeneratingTitle(false)
+            }
+        }
 
         const handlePointerDown = (event: React.PointerEvent<HTMLAnchorElement>) => {
             if (!enableLongPressSelection || isSelectionMode || event.pointerType !== "touch") {
@@ -131,6 +167,19 @@ export const ThreadItem = memo(
                     <Edit3 className="h-4 w-4" />
                     Rename
                 </ContextMenuItem>
+                <ContextMenuItem
+                    onClick={() => {
+                        void handleRegenerateTitle()
+                    }}
+                    disabled={isRegeneratingTitle}
+                >
+                    {isRegeneratingTitle ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <Sparkles className="h-4 w-4" />
+                    )}
+                    Regenerate Title
+                </ContextMenuItem>
                 <ContextMenuItem onClick={handleTogglePin}>
                     <Pin className="h-4 w-4" />
                     {thread.pinned ? "Unpin" : "Pin"}
@@ -151,8 +200,7 @@ export const ThreadItem = memo(
                 <div
                     className={cn(
                         "group/item relative flex h-9 w-full items-center overflow-hidden rounded-lg outline-hidden",
-                        "transition-colors duration-150 ease-in-out",
-                        // Use solid background colors instead of translucent (/50)
+                        "transition-colors duration-200 ease-in-out",
                         "hover:bg-sidebar-accent",
                         isContextMenuOpen && "bg-sidebar-accent",
                         (isActive || isSelected) && "bg-sidebar-accent"
@@ -182,7 +230,15 @@ export const ThreadItem = memo(
                                     >
                                         {isSelected && <Check className="h-3 w-3" />}
                                     </span>
-                                    <span className="block min-w-0 flex-1 truncate text-sm">
+                                    <span
+                                        className={cn(
+                                            "block min-w-0 flex-1 truncate text-sm",
+                                            "transition-all duration-500 ease-in-out",
+                                            isRegeneratingTitle
+                                                ? "opacity-40 blur-[2px]"
+                                                : "opacity-100 blur-0"
+                                        )}
+                                    >
                                         {thread.title}
                                     </span>
                                 </div>
@@ -200,7 +256,15 @@ export const ThreadItem = memo(
                                 onPointerMove={clearLongPressTimer}
                             >
                                 <div className="flex min-w-0 flex-1 items-center">
-                                    <span className="block min-w-0 flex-1 truncate text-sm">
+                                    <span
+                                        className={cn(
+                                            "block min-w-0 flex-1 truncate text-sm",
+                                            "transition-all duration-500 ease-in-out",
+                                            isRegeneratingTitle
+                                                ? "opacity-40 blur-[2px]"
+                                                : "opacity-100 blur-0"
+                                        )}
+                                    >
                                         {thread.title}
                                     </span>
                                 </div>
@@ -210,14 +274,11 @@ export const ThreadItem = memo(
 
                     {!isSelectionMode && (
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end">
-                            {/* 
-                                1. Increased width to w-28 for a smoother fade
-                                2. Changed to a solid gradient (via-40% creates a solid block behind the buttons) 
-                            */}
                             <div
                                 className={cn(
-                                    "absolute inset-y-0 right-0 w-28 rounded-r-lg opacity-0 transition-opacity duration-150",
+                                    "absolute inset-y-0 right-0 w-28 rounded-r-lg opacity-0",
                                     "bg-gradient-to-r from-transparent via-40% via-sidebar-accent to-sidebar-accent",
+                                    "transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                     "group-hover/item:opacity-100",
                                     isContextMenuOpen && "opacity-100"
                                 )}
@@ -225,8 +286,9 @@ export const ThreadItem = memo(
 
                             <div
                                 className={cn(
-                                    "pointer-events-none relative z-10 flex translate-x-2 items-center gap-1 pr-1.5 opacity-0",
-                                    "transition-all duration-150 ease-out",
+                                    "pointer-events-none relative z-10 flex items-center gap-1 pr-1.5",
+                                    "translate-x-12 opacity-0",
+                                    "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                     "group-hover/item:pointer-events-auto group-hover/item:translate-x-0 group-hover/item:opacity-100",
                                     isContextMenuOpen &&
                                         "pointer-events-auto translate-x-0 opacity-100"
