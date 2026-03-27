@@ -1,4 +1,5 @@
 import { applyThemeToElement } from "@/lib/apply-theme"
+import { loadThemeFonts } from "@/lib/theme-font-loader"
 import { useThemeStore } from "@/lib/theme-store"
 import { useEffect, useState } from "react"
 
@@ -22,6 +23,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         if (!root) return
 
         applyThemeToElement(themeState, root)
+        loadThemeFonts(themeState)
     }, [themeState, isClient])
 
     return <>{children}</>
