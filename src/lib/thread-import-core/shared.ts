@@ -1,7 +1,7 @@
 import type { ImportedMessageRole, ParsedAttachmentReference } from "./types"
 
-const IMAGE_ATTACHMENT_REGEX = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
-const FILE_ATTACHMENT_REGEX = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+const IMAGE_ATTACHMENT_REGEX = /!\[([^\]]*)\]\(\s*(https?:\/\/[\s\S]*?)\s*\)/g
+const FILE_ATTACHMENT_REGEX = /\[([^\]]+)\]\(\s*(https?:\/\/[\s\S]*?)\s*\)/g
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
     "image/png": ".png",
@@ -154,10 +154,11 @@ export const stripAttachmentMarkup = (content: string) => {
     const attachments: ParsedAttachmentReference[] = []
 
     const withoutImages = content.replace(IMAGE_ATTACHMENT_REGEX, (_, alt: string, url: string) => {
-        const filename = sanitizeFilename(alt || inferFilenameFromUrl(url), "image")
+        const normalizedUrl = url.replace(/\s+/g, "")
+        const filename = sanitizeFilename(alt || inferFilenameFromUrl(normalizedUrl), "image")
         attachments.push({
             type: "image",
-            url,
+            url: normalizedUrl,
             filename
         })
         return ""
@@ -166,10 +167,14 @@ export const stripAttachmentMarkup = (content: string) => {
     const withoutFiles = withoutImages.replace(
         FILE_ATTACHMENT_REGEX,
         (_, label: string, url: string) => {
-            const filename = sanitizeFilename(label || inferFilenameFromUrl(url), "attachment")
+            const normalizedUrl = url.replace(/\s+/g, "")
+            const filename = sanitizeFilename(
+                label || inferFilenameFromUrl(normalizedUrl),
+                "attachment"
+            )
             attachments.push({
                 type: "file",
-                url,
+                url: normalizedUrl,
                 filename
             })
             return ""
