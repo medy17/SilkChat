@@ -17,3 +17,7 @@ export interface Project {
     color?: string
     icon?: string
 }
+
+export interface SidebarProject extends Project {
+    threadCount: number
+}

@@ -55,6 +55,7 @@ export const ThreadItem = memo(
         const [isContextMenuOpen, setIsContextMenuOpen] = useState(false)
         const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
         const longPressTimeoutRef = useRef<number | null>(null)
+        const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
         const longPressTriggeredRef = useRef(false)
 
         const togglePinMutation = useMutation(api.threads.togglePinThread)
@@ -123,6 +124,10 @@ export const ThreadItem = memo(
                 return
             }
             longPressTriggeredRef.current = false
+            longPressStartPointRef.current = {
+                x: event.clientX,
+                y: event.clientY
+            }
             clearLongPressTimer()
             longPressTimeoutRef.current = window.setTimeout(() => {
                 longPressTriggeredRef.current = true
@@ -132,10 +137,30 @@ export const ThreadItem = memo(
 
         const handlePointerUp = () => {
             clearLongPressTimer()
+            longPressStartPointRef.current = null
             if (longPressTriggeredRef.current) {
                 window.setTimeout(() => {
                     longPressTriggeredRef.current = false
                 }, 0)
+            }
+        }
+
+        const handlePointerMove = (event: React.PointerEvent<HTMLAnchorElement>) => {
+            if (
+                event.pointerType !== "touch" ||
+                longPressTimeoutRef.current === null ||
+                !longPressStartPointRef.current
+            ) {
+                return
+            }
+
+            const deltaX = event.clientX - longPressStartPointRef.current.x
+            const deltaY = event.clientY - longPressStartPointRef.current.y
+            const movedDistance = Math.hypot(deltaX, deltaY)
+
+            if (movedDistance > 10) {
+                clearLongPressTimer()
+                longPressStartPointRef.current = null
             }
         }
 
@@ -150,6 +175,15 @@ export const ThreadItem = memo(
                 event.preventDefault()
                 event.stopPropagation()
             }
+        }
+
+        const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {
+            if (!enableLongPressSelection) {
+                return
+            }
+
+            event.preventDefault()
+            event.stopPropagation()
         }
 
         const contextMenuItems = (
@@ -249,11 +283,22 @@ export const ThreadItem = memo(
                                 params={{ threadId: thread._id }}
                                 className="flex h-full w-full min-w-0 items-center"
                                 onClick={handleLinkClick}
+                                onContextMenu={handleContextMenu}
                                 onPointerDown={handlePointerDown}
                                 onPointerUp={handlePointerUp}
-                                onPointerLeave={clearLongPressTimer}
-                                onPointerCancel={clearLongPressTimer}
-                                onPointerMove={clearLongPressTimer}
+                                onPointerLeave={handlePointerUp}
+                                onPointerCancel={handlePointerUp}
+                                onPointerMove={handlePointerMove}
+                                style={
+                                    enableLongPressSelection
+                                        ? {
+                                              WebkitTouchCallout: "none",
+                                              WebkitUserSelect: "none",
+                                              userSelect: "none",
+                                              touchAction: "manipulation"
+                                          }
+                                        : undefined
+                                }
                             >
                                 <div className="flex min-w-0 flex-1 items-center">
                                     <span

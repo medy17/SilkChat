@@ -1,33 +1,9 @@
 import { CommandK } from "@/components/commandk"
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle
-} from "@/components/ui/alert-dialog"
-import { Button, buttonVariants } from "@/components/ui/button"
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import {
     Sidebar,
     SidebarContent,
     SidebarGroup,
     SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarMenu,
     SidebarRail,
     useSidebar
 } from "@/components/ui/sidebar"
@@ -44,145 +20,26 @@ import {
     isShortcutModifierPressed,
     matchesNewChatShortcut
 } from "@/lib/keyboard-shortcuts"
-import { getProjectColorClasses } from "@/lib/project-constants"
-import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { useConvexAuth, useMutation, useQuery } from "convex/react"
-import { isAfter, isToday, isYesterday, subDays } from "date-fns"
-import {
-    CheckCheck,
-    CircleAlert,
-    Clock3,
-    Crown,
-    FolderOpen,
-    Image,
-    KeyRound,
-    Loader2,
-    Pin,
-    Search,
-    Trash2,
-    Wallet,
-    X
-} from "lucide-react"
+import type { MouseEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { LogoMark } from "./logo"
-import { FolderItem } from "./threads/folder-item"
-import { ImportThreadButton, ImportThreadDialog } from "./threads/import-thread-button"
-import { NewFolderButton } from "./threads/new-folder-button"
-import { ThreadItem } from "./threads/thread-item"
+import { ImportThreadDialog } from "./threads/import-thread-button"
+import { BulkDeleteThreadsDialog, BulkMoveThreadsDialog } from "./threads/sidebar-bulk-dialogs"
+import { type PrototypeCreditSummary, PrototypeCreditsSection } from "./threads/sidebar-credits"
+import { ThreadsSidebarHeader } from "./threads/sidebar-header"
+import { ImportJobsGroup } from "./threads/sidebar-import-jobs"
+import {
+    FoldersSection,
+    LibraryLink,
+    LoadMoreThreadsGroup,
+    ThreadSections,
+    groupThreadsByTime
+} from "./threads/sidebar-sections"
+import { SelectionToolbar } from "./threads/sidebar-selection-toolbar"
 import { ThreadItemDialogs } from "./threads/thread-item-dialogs"
-import type { Thread } from "./threads/types"
-
-const getThreadActivityTime = (thread: Thread) => thread.updatedAt ?? thread.createdAt
-
-const attachmentModeLabel = (mode: "mirror" | "external" | "skip") => {
-    switch (mode) {
-        case "mirror":
-            return "Mirror attachments"
-        case "external":
-            return "Keep external links"
-        case "skip":
-            return "Skip attachments"
-    }
-}
-
-function groupThreadsByTime(threads: Thread[]) {
-    const now = new Date()
-    const lastWeek = subDays(now, 7)
-    const lastMonth = subDays(now, 30)
-
-    const pinned: Thread[] = []
-    const today: Thread[] = []
-    const yesterdayThreads: Thread[] = []
-    const lastSevenDays: Thread[] = []
-    const lastThirtyDays: Thread[] = []
-
-    threads.forEach((thread) => {
-        const threadDate = new Date(getThreadActivityTime(thread))
-        if (thread.pinned) {
-            pinned.push(thread)
-            return
-        }
-
-        if (isToday(threadDate)) {
-            today.push(thread)
-        } else if (isYesterday(threadDate)) {
-            yesterdayThreads.push(thread)
-        } else if (isAfter(threadDate, lastWeek)) {
-            lastSevenDays.push(thread)
-        } else if (isAfter(threadDate, lastMonth)) {
-            lastThirtyDays.push(thread)
-        }
-    })
-
-    return {
-        pinned,
-        today,
-        yesterday: yesterdayThreads,
-        lastSevenDays,
-        lastThirtyDays
-    }
-}
-
-function ThreadsGroup({
-    title,
-    threads,
-    icon,
-    isSelectionMode,
-    selectedThreadIds,
-    enableContextMenu,
-    enableLongPressSelection,
-    onOpenRenameDialog,
-    onOpenMoveDialog,
-    onOpenDeleteDialog,
-    onToggleSelection,
-    onStartSelection
-}: {
-    title: string
-    threads: Thread[]
-    icon?: React.ReactNode
-    isSelectionMode?: boolean
-    selectedThreadIds: string[]
-    enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
-    onOpenRenameDialog?: (thread: Thread) => void
-    onOpenMoveDialog?: (thread: Thread) => void
-    onOpenDeleteDialog?: (thread: Thread) => void
-    onToggleSelection?: (thread: Thread) => void
-    onStartSelection?: (thread: Thread) => void
-}) {
-    if (threads.length === 0) return null
-
-    return (
-        <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-2">
-                {icon}
-                {title}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-                <SidebarMenu>
-                    {threads.map((thread) => (
-                        <ThreadItem
-                            key={thread._id}
-                            thread={thread}
-                            isSelectionMode={isSelectionMode}
-                            isSelected={selectedThreadIds.includes(thread._id)}
-                            enableContextMenu={enableContextMenu}
-                            enableLongPressSelection={enableLongPressSelection}
-                            onOpenRenameDialog={onOpenRenameDialog}
-                            onOpenMoveDialog={onOpenMoveDialog}
-                            onOpenDeleteDialog={onOpenDeleteDialog}
-                            onToggleSelection={onToggleSelection}
-                            onStartSelection={onStartSelection}
-                        />
-                    ))}
-                </SidebarMenu>
-            </SidebarGroupContent>
-        </SidebarGroup>
-    )
-}
+import type { SidebarProject, Thread } from "./threads/types"
 
 function LoadingSkeleton() {
     return <></>
@@ -198,119 +55,6 @@ function EmptyState({ message }: { message: string }) {
     )
 }
 
-type ImportJobListItem = ReturnType<typeof useQuery<typeof api.import_jobs.listImportJobs>> extends
-    | infer TResult
-    | undefined
-    ? TResult extends Array<infer Item>
-        ? Item
-        : never
-    : never
-
-const importJobSidebarLabel: Record<
-    ImportJobListItem["status"],
-    { label: string; icon: typeof Clock3 }
-> = {
-    queued: { label: "Queued", icon: Clock3 },
-    preparing: { label: "Preparing", icon: Loader2 },
-    importing: { label: "Importing", icon: Loader2 },
-    completed: { label: "Completed", icon: CheckCheck },
-    completed_with_errors: { label: "Completed with issues", icon: CircleAlert },
-    failed: { label: "Failed", icon: CircleAlert }
-}
-
-function ImportJobsGroup({
-    jobs,
-    onOpenJob
-}: {
-    jobs: ImportJobListItem[]
-    onOpenJob: (jobId: Id<"importJobs">) => void
-}) {
-    if (jobs.length === 0) return null
-
-    return (
-        <SidebarGroup>
-            <SidebarGroupLabel>Imports</SidebarGroupLabel>
-            <SidebarGroupContent>
-                <SidebarMenu>
-                    {jobs.map((job) => {
-                        const statusMeta = importJobSidebarLabel[job.status]
-                        const StatusIcon = statusMeta.icon
-                        const progressValue =
-                            job.totalThreads > 0
-                                ? Math.round((job.processedThreads / job.totalThreads) * 100)
-                                : job.totalSourceFiles > 0
-                                  ? Math.round(
-                                        (job.preparedSourceFiles / job.totalSourceFiles) * 100
-                                    )
-                                  : job.status === "completed" ||
-                                      job.status === "completed_with_errors"
-                                    ? 100
-                                    : 0
-
-                        return (
-                            <li key={job._id}>
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenJob(job._id)}
-                                    className="flex w-full flex-col gap-2 rounded-md border bg-sidebar-accent/20 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <StatusIcon
-                                            className={cn(
-                                                "h-4 w-4 shrink-0",
-                                                (job.status === "preparing" ||
-                                                    job.status === "importing") &&
-                                                    "animate-spin"
-                                            )}
-                                        />
-                                        <span className="font-medium text-sm">
-                                            {statusMeta.label}
-                                        </span>
-                                        <span className="ml-auto text-muted-foreground text-xs">
-                                            {job.importedThreads}/{job.totalThreads || "?"}
-                                        </span>
-                                    </div>
-                                    <Progress value={progressValue} className="h-1.5" />
-                                    <div className="flex items-center justify-between text-muted-foreground text-xs">
-                                        <span>{attachmentModeLabel(job.attachmentMode)}</span>
-                                        <span>
-                                            {job.errorCount + job.warningCount} issue
-                                            {job.errorCount + job.warningCount === 1 ? "" : "s"}
-                                        </span>
-                                    </div>
-                                </button>
-                            </li>
-                        )
-                    })}
-                </SidebarMenu>
-            </SidebarGroupContent>
-        </SidebarGroup>
-    )
-}
-
-type PrototypeCreditSummary = {
-    enabled: boolean
-    plan: "free" | "pro"
-    periodKey: string
-    periodStartsAt: number
-    periodEndsAt: number
-    basic: {
-        limit: number
-        used: number
-        remaining: number
-    }
-    pro: {
-        limit: number
-        used: number
-        remaining: number
-    }
-    requestCounts: {
-        internal: number
-        byok: number
-        total: number
-    }
-}
-
 type PrototypeCreditPlanSummary = {
     enabled: boolean
     plan: "free" | "pro"
@@ -320,78 +64,6 @@ type PrototypeCreditPlanSummary = {
     pro: {
         limit: number
     }
-}
-
-function PrototypeCreditsGroup({ summary }: { summary: PrototypeCreditSummary }) {
-    if (!summary.enabled) return null
-
-    const basicProgress =
-        summary.basic.limit > 0 ? (summary.basic.used / summary.basic.limit) * 100 : 0
-    const proProgress = summary.pro.limit > 0 ? (summary.pro.used / summary.pro.limit) * 100 : 0
-    const PlanIcon = summary.plan === "pro" ? Crown : Wallet
-
-    return (
-        <SidebarGroup>
-            <SidebarGroupLabel>Credits</SidebarGroupLabel>
-            <SidebarGroupContent>
-                <div className="rounded-md border bg-sidebar-accent/20 px-3 py-3">
-                    <div className="flex items-center gap-2">
-                        <PlanIcon className="h-4 w-4 shrink-0" />
-                        <div className="font-medium text-sm">
-                            {summary.plan === "pro" ? "Pro Plan" : "Free Plan"}
-                        </div>
-                    </div>
-
-                    <div className="mt-3 space-y-3">
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Basic</span>
-                                <span>
-                                    {summary.basic.used}/{summary.basic.limit}
-                                </span>
-                            </div>
-                            <Progress value={basicProgress} className="h-1.5" />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Pro</span>
-                                <span>
-                                    {summary.pro.used}/{summary.pro.limit}
-                                </span>
-                            </div>
-                            <Progress value={proProgress} className="h-1.5" />
-                        </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between text-muted-foreground text-xs">
-                        <span>{summary.requestCounts.internal} internal</span>
-                        <span className="inline-flex items-center gap-1">
-                            <KeyRound className="h-3 w-3" />
-                            {summary.requestCounts.byok} BYOK
-                        </span>
-                    </div>
-                </div>
-            </SidebarGroupContent>
-        </SidebarGroup>
-    )
-}
-
-function PrototypeCreditsLoadingGroup() {
-    return (
-        <SidebarGroup>
-            <SidebarGroupLabel>Credits</SidebarGroupLabel>
-            <SidebarGroupContent>
-                <div className="rounded-md border bg-sidebar-accent/20 px-3 py-3">
-                    <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4 shrink-0" />
-                        <div className="font-medium text-sm">Credits</div>
-                    </div>
-                    <div className="mt-3 text-muted-foreground text-xs">Loading usage...</div>
-                </div>
-            </SidebarGroupContent>
-        </SidebarGroup>
-    )
 }
 
 export function ThreadsSidebar() {
@@ -405,14 +77,15 @@ export function ThreadsSidebar() {
     const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false)
     const [bulkMoveProjectId, setBulkMoveProjectId] = useState<string>("no-folder")
     const [isApplyingSelectionAction, setIsApplyingSelectionAction] = useState(false)
-
-    // Dialog state
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [showRenameDialog, setShowRenameDialog] = useState(false)
     const [showMoveDialog, setShowMoveDialog] = useState(false)
     const [currentThread, setCurrentThread] = useState<Thread | null>(null)
     const [isUpdatingCreditPlan, setIsUpdatingCreditPlan] = useState(false)
     const [creditPlanRefreshNonce, setCreditPlanRefreshNonce] = useState(0)
+    const [primaryShortcutLabel, setPrimaryShortcutLabel] = useState("Ctrl")
+    const [prototypeCreditPlanSummary, setPrototypeCreditPlanSummary] =
+        useState<PrototypeCreditPlanSummary | null>(null)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
@@ -420,11 +93,12 @@ export function ThreadsSidebar() {
     const navigate = useNavigate()
     const params = useParams({ strict: false }) as { threadId?: string }
     const isMobile = useIsMobile()
-    const { setOpen, setOpenMobile } = useSidebar()
+    const { setOpenMobile } = useSidebar()
     const auth = useConvexAuth()
     const togglePinMutation = useMutation(api.threads.togglePinThread)
     const deleteThreadMutation = useMutation(api.threads.deleteThread)
     const moveThreadMutation = useMutation(api.folders.moveThreadToProject)
+
     const importJobs = useQuery(
         api.import_jobs.listImportJobs,
         session?.user?.id && !auth.isLoading ? { limit: 6 } : "skip"
@@ -439,10 +113,7 @@ export function ThreadsSidebar() {
         api.credits.getMyCreditUsageSummary,
         session?.user?.id && !auth.isLoading ? {} : "skip"
     )
-    const [prototypeCreditPlanSummary, setPrototypeCreditPlanSummary] =
-        useState<PrototypeCreditPlanSummary | null>(null)
 
-    // Get all threads (not filtered by project anymore)
     const {
         results: allThreads,
         status,
@@ -463,7 +134,6 @@ export function ThreadsSidebar() {
         }
     )
 
-    // Get projects
     const projects = useDiskCachedQuery(
         api.folders.getUserProjects,
         {
@@ -475,7 +145,6 @@ export function ThreadsSidebar() {
     )
 
     const isLoading = false
-
     const sentinelRef = useInfiniteScroll({
         hasMore: status === "CanLoadMore",
         isLoading: false,
@@ -488,7 +157,9 @@ export function ThreadsSidebar() {
     const shouldShowPrototypeCredits = isAuthenticated && !auth.isLoading
     const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
     const hasError = false
-    const [primaryShortcutLabel, setPrimaryShortcutLabel] = useState("Ctrl")
+    const hasProjectsError = "error" in projects
+    const resolvedProjects: SidebarProject[] = hasProjectsError ? [] : projects
+
     const currentThreadForShortcut = useMemo(
         () =>
             (activeThread && !("error" in activeThread)
@@ -497,13 +168,51 @@ export function ThreadsSidebar() {
         [activeThread, allThreads, params.threadId]
     )
 
-    const selectedThreads = useMemo(() => {
-        return allThreads.filter((thread) => selectedThreadIds.includes(thread._id))
-    }, [allThreads, selectedThreadIds])
+    const selectedThreads = useMemo(
+        () => allThreads.filter((thread) => selectedThreadIds.includes(thread._id)),
+        [allThreads, selectedThreadIds]
+    )
 
-    const groupedNonProjectThreads = useMemo(() => {
-        return groupThreadsByTime(allThreads)
-    }, [allThreads])
+    const groupedNonProjectThreads = useMemo(() => groupThreadsByTime(allThreads), [allThreads])
+
+    const activeImportJob = useMemo(
+        () =>
+            importJobs?.find(
+                (job) =>
+                    job.status === "queued" ||
+                    job.status === "preparing" ||
+                    job.status === "importing"
+            ) ?? null,
+        [importJobs]
+    )
+
+    const prototypeCreditSummary = useMemo<PrototypeCreditSummary | null>(() => {
+        if (!prototypeCreditPlanSummary || !usageSummary) {
+            return null
+        }
+
+        return {
+            enabled: prototypeCreditPlanSummary.enabled,
+            plan: prototypeCreditPlanSummary.plan,
+            periodKey: usageSummary.periodKey,
+            periodStartsAt: usageSummary.periodStartsAt,
+            periodEndsAt: usageSummary.periodEndsAt,
+            basic: {
+                limit: prototypeCreditPlanSummary.basic.limit,
+                used: usageSummary.basic.used,
+                remaining: Math.max(
+                    0,
+                    prototypeCreditPlanSummary.basic.limit - usageSummary.basic.used
+                )
+            },
+            pro: {
+                limit: prototypeCreditPlanSummary.pro.limit,
+                used: usageSummary.pro.used,
+                remaining: Math.max(0, prototypeCreditPlanSummary.pro.limit - usageSummary.pro.used)
+            },
+            requestCounts: usageSummary.requestCounts
+        }
+    }, [prototypeCreditPlanSummary, usageSummary])
 
     useEffect(() => {
         setSelectedThreadIds((previous) =>
@@ -520,17 +229,6 @@ export function ThreadsSidebar() {
             setIsSelectionMode(false)
         }
     }, [isSelectionMode, selectedThreadIds.length])
-
-    const activeImportJob = useMemo(
-        () =>
-            importJobs?.find(
-                (job) =>
-                    job.status === "queued" ||
-                    job.status === "preparing" ||
-                    job.status === "importing"
-            ) ?? null,
-        [importJobs]
-    )
 
     useEffect(() => {
         if (activeImportJob && !importDialogJobId) {
@@ -573,7 +271,9 @@ export function ThreadsSidebar() {
         let cancelled = false
         const refreshPlanSummary = async () => {
             try {
-                const response = await fetch("/api/credit-summary")
+                const response = await fetch(
+                    `/api/credit-summary?refresh=${creditPlanRefreshNonce}`
+                )
                 if (!response.ok) {
                     throw new Error(`Failed to load credit summary (${response.status})`)
                 }
@@ -597,33 +297,51 @@ export function ThreadsSidebar() {
         }
     }, [auth.isLoading, creditPlanRefreshNonce, session?.user?.id])
 
-    const prototypeCreditSummary = useMemo<PrototypeCreditSummary | null>(() => {
-        if (!prototypeCreditPlanSummary || !usageSummary) {
-            return null
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (isEditableShortcutTarget(event.target)) {
+                return
+            }
+
+            if (!matchesNewChatShortcut(event)) return
+
+            event.preventDefault()
+            navigate({ to: "/" })
         }
 
-        return {
-            enabled: prototypeCreditPlanSummary.enabled,
-            plan: prototypeCreditPlanSummary.plan,
-            periodKey: usageSummary.periodKey,
-            periodStartsAt: usageSummary.periodStartsAt,
-            periodEndsAt: usageSummary.periodEndsAt,
-            basic: {
-                limit: prototypeCreditPlanSummary.basic.limit,
-                used: usageSummary.basic.used,
-                remaining: Math.max(
-                    0,
-                    prototypeCreditPlanSummary.basic.limit - usageSummary.basic.used
-                )
-            },
-            pro: {
-                limit: prototypeCreditPlanSummary.pro.limit,
-                used: usageSummary.pro.used,
-                remaining: Math.max(0, prototypeCreditPlanSummary.pro.limit - usageSummary.pro.used)
-            },
-            requestCounts: usageSummary.requestCounts
+        document.addEventListener("keydown", handleKeyDown)
+        return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [navigate])
+
+    useEffect(() => {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = container
+            const hasScrollableContent = scrollHeight > clientHeight
+            const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 5
+            setShowGradient(hasScrollableContent && !isScrolledToBottom)
         }
-    }, [prototypeCreditPlanSummary, usageSummary])
+
+        handleScroll()
+        container.addEventListener("scroll", handleScroll)
+
+        const resizeObserver = new ResizeObserver(handleScroll)
+        resizeObserver.observe(container)
+
+        const mutationObserver = new MutationObserver(handleScroll)
+        mutationObserver.observe(container, {
+            childList: true,
+            subtree: true
+        })
+
+        return () => {
+            container.removeEventListener("scroll", handleScroll)
+            resizeObserver.disconnect()
+            mutationObserver.disconnect()
+        }
+    }, [])
 
     const handleSetCreditPlan = async (plan: "free" | "pro") => {
         if (!session?.user?.id || isUpdatingCreditPlan) return
@@ -653,7 +371,6 @@ export function ThreadsSidebar() {
         }
     }
 
-    // Dialog handlers
     const handleOpenRenameDialog = useFunction((thread: Thread) => {
         setCurrentThread(thread)
         setShowRenameDialog(true)
@@ -668,6 +385,28 @@ export function ThreadsSidebar() {
         setCurrentThread(thread)
         setShowDeleteDialog(true)
     })
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (isEditableShortcutTarget(event.target)) {
+                return
+            }
+
+            if (!currentThreadForShortcut || !isShortcutModifierPressed(event) || !event.shiftKey) {
+                return
+            }
+
+            if (event.key !== "Backspace" && event.key !== "Delete") {
+                return
+            }
+
+            event.preventDefault()
+            handleOpenDeleteDialog(currentThreadForShortcut)
+        }
+
+        document.addEventListener("keydown", handleKeyDown)
+        return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [currentThreadForShortcut, handleOpenDeleteDialog])
 
     const handleStartSelection = useFunction((thread: Thread) => {
         setIsSelectionMode(true)
@@ -777,9 +516,7 @@ export function ThreadsSidebar() {
             )
 
             const targetName = targetProjectId
-                ? ("error" in projects
-                      ? undefined
-                      : projects.find((project) => project._id === targetProjectId)?.name) ||
+                ? resolvedProjects.find((project) => project._id === targetProjectId)?.name ||
                   "folder"
                 : "General"
 
@@ -798,7 +535,6 @@ export function ThreadsSidebar() {
 
     const handleCloseRenameDialog = useFunction(() => {
         setShowRenameDialog(false)
-        // Keep currentThread until animation completes
         setTimeout(() => {
             if (!showRenameDialog && !showMoveDialog && !showDeleteDialog) {
                 setCurrentThread(null)
@@ -824,144 +560,59 @@ export function ThreadsSidebar() {
         }, 150)
     })
 
-    // Keyboard shortcut for new chat:
-    // macOS: Cmd+Shift+O
-    // Windows/Linux: Ctrl+Alt+O
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (isEditableShortcutTarget(event.target)) {
-                return
-            }
+    const handleNewChatClick = useFunction((event: MouseEvent<HTMLAnchorElement>) => {
+        event.preventDefault()
+        document.dispatchEvent(new CustomEvent("new_chat"))
+        setOpenMobile(false)
 
-            if (!matchesNewChatShortcut(event)) return
-
-            event.preventDefault()
-            navigate({ to: "/" })
+        let didNavigate = false
+        const doNavigate = () => {
+            if (didNavigate) return
+            didNavigate = true
+            void navigate({ to: "/" })
         }
 
-        document.addEventListener("keydown", handleKeyDown)
-        return () => document.removeEventListener("keydown", handleKeyDown)
-    }, [navigate])
-
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (isEditableShortcutTarget(event.target)) {
-                return
-            }
-
-            if (!currentThreadForShortcut || !isShortcutModifierPressed(event) || !event.shiftKey) {
-                return
-            }
-
-            if (event.key !== "Backspace" && event.key !== "Delete") {
-                return
-            }
-
-            event.preventDefault()
-            handleOpenDeleteDialog(currentThreadForShortcut)
+        if (isMobile) {
+            window.addEventListener("popstate", doNavigate, { once: true })
+            setTimeout(doNavigate, 150)
+        } else {
+            doNavigate()
         }
+    })
 
-        document.addEventListener("keydown", handleKeyDown)
-        return () => document.removeEventListener("keydown", handleKeyDown)
-    }, [currentThreadForShortcut, handleOpenDeleteDialog])
+    const handleImportClick = useFunction(() => {
+        setImportDialogJobId(activeImportJob?._id ?? null)
+        setImportOpen(true)
+    })
 
-    useEffect(() => {
-        const container = scrollContainerRef.current
-        if (!container) return
-
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight, clientHeight } = container
-            const hasScrollableContent = scrollHeight > clientHeight
-            const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 5
-            setShowGradient(hasScrollableContent && !isScrolledToBottom)
-        }
-
-        handleScroll()
-        container.addEventListener("scroll", handleScroll)
-
-        const resizeObserver = new ResizeObserver(handleScroll)
-        resizeObserver.observe(container)
-
-        const mutationObserver = new MutationObserver(handleScroll)
-        mutationObserver.observe(container, {
-            childList: true,
-            subtree: true
-        })
-
-        return () => {
-            container.removeEventListener("scroll", handleScroll)
-            resizeObserver.disconnect()
-            mutationObserver.disconnect()
-        }
-    }, [])
+    const handleSearchClick = useFunction(() => {
+        setOpenMobile(false)
+        setCommandKOpen(true)
+    })
 
     const renderContent = () => {
         if (isLoading) {
             return <LoadingSkeleton />
         }
 
-        if (hasError || "error" in projects) {
+        if (hasError || hasProjectsError) {
             return <></>
         }
 
-        const hasProjects = projects.length > 0
+        const hasProjects = resolvedProjects.length > 0
         const hasNonProjectThreads = allThreads.length > 0
 
         if (!hasProjects && !hasNonProjectThreads) {
             return (
                 <>
-                    <div className="px-2">
-                        <Link
-                            to="/library"
-                            className={cn(
-                                buttonVariants({ variant: "ghost" }),
-                                "h-8 w-full justify-start"
-                            )}
-                        >
-                            <Image className="h-4 w-4" />
-                            Library
-                        </Link>
-                    </div>
-                    {shouldShowPrototypeCredits &&
-                        (prototypeCreditSummary ? (
-                            <div className="space-y-2">
-                                <PrototypeCreditsGroup summary={prototypeCreditSummary} />
-                                {shouldShowDevCreditPlanToggle && (
-                                    <div className="px-2">
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant={
-                                                    prototypeCreditSummary.plan === "free"
-                                                        ? "default"
-                                                        : "outline"
-                                                }
-                                                className="h-7 flex-1"
-                                                disabled={isUpdatingCreditPlan}
-                                                onClick={() => void handleSetCreditPlan("free")}
-                                            >
-                                                Free
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant={
-                                                    prototypeCreditSummary.plan === "pro"
-                                                        ? "default"
-                                                        : "outline"
-                                                }
-                                                className="h-7 flex-1"
-                                                disabled={isUpdatingCreditPlan}
-                                                onClick={() => void handleSetCreditPlan("pro")}
-                                            >
-                                                Pro
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <PrototypeCreditsLoadingGroup />
-                        ))}
+                    <LibraryLink />
+                    <PrototypeCreditsSection
+                        shouldShow={shouldShowPrototypeCredits}
+                        summary={prototypeCreditSummary}
+                        shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                        isUpdatingCreditPlan={isUpdatingCreditPlan}
+                        onSetCreditPlan={handleSetCreditPlan}
+                    />
                     <EmptyState message="No threads found" />
                 </>
             )
@@ -969,173 +620,37 @@ export function ThreadsSidebar() {
 
         return (
             <>
-                <div className="px-2">
-                    <Link
-                        to="/library"
-                        className={cn(
-                            buttonVariants({ variant: "ghost" }),
-                            "h-8 w-full justify-start"
-                        )}
-                    >
-                        <Image className="h-4 w-4" />
-                        Library
-                    </Link>
-                </div>
+                <LibraryLink />
                 {importJobs && importJobs.length > 0 && (
                     <ImportJobsGroup jobs={importJobs} onOpenJob={handleOpenImportJob} />
                 )}
-                {shouldShowPrototypeCredits &&
-                    (prototypeCreditSummary ? (
-                        <div className="space-y-2">
-                            <PrototypeCreditsGroup summary={prototypeCreditSummary} />
-                            {shouldShowDevCreditPlanToggle && (
-                                <div className="px-2">
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant={
-                                                prototypeCreditSummary.plan === "free"
-                                                    ? "default"
-                                                    : "outline"
-                                            }
-                                            className="h-7 flex-1"
-                                            disabled={isUpdatingCreditPlan}
-                                            onClick={() => void handleSetCreditPlan("free")}
-                                        >
-                                            Free
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={
-                                                prototypeCreditSummary.plan === "pro"
-                                                    ? "default"
-                                                    : "outline"
-                                            }
-                                            className="h-7 flex-1"
-                                            disabled={isUpdatingCreditPlan}
-                                            onClick={() => void handleSetCreditPlan("pro")}
-                                        >
-                                            Pro
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <PrototypeCreditsLoadingGroup />
-                    ))}
-                {/* Folders Section */}
-                <SidebarGroup>
-                    <SidebarGroupLabel className="pr-0">
-                        Folders
-                        <div className="flex-grow" />
-                        <NewFolderButton />
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {projects.map((project) => {
-                                return (
-                                    <FolderItem
-                                        key={project._id}
-                                        project={project}
-                                        numThreads={project.threadCount}
-                                    />
-                                )
-                            })}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-
-                {/* Non-Project Threads */}
-                {hasNonProjectThreads && (
-                    <>
-                        <ThreadsGroup
-                            title="Pinned"
-                            threads={groupedNonProjectThreads.pinned}
-                            icon={<Pin className="h-4 w-4" />}
-                            isSelectionMode={isSelectionMode}
-                            selectedThreadIds={selectedThreadIds}
-                            enableContextMenu={!isMobile}
-                            enableLongPressSelection={isMobile}
-                            onOpenRenameDialog={handleOpenRenameDialog}
-                            onOpenMoveDialog={handleOpenMoveDialog}
-                            onOpenDeleteDialog={handleOpenDeleteDialog}
-                            onToggleSelection={handleToggleSelection}
-                            onStartSelection={handleStartSelection}
-                        />
-                        <ThreadsGroup
-                            title="Today"
-                            threads={groupedNonProjectThreads.today}
-                            isSelectionMode={isSelectionMode}
-                            selectedThreadIds={selectedThreadIds}
-                            enableContextMenu={!isMobile}
-                            enableLongPressSelection={isMobile}
-                            onOpenRenameDialog={handleOpenRenameDialog}
-                            onOpenMoveDialog={handleOpenMoveDialog}
-                            onOpenDeleteDialog={handleOpenDeleteDialog}
-                            onToggleSelection={handleToggleSelection}
-                            onStartSelection={handleStartSelection}
-                        />
-                        <ThreadsGroup
-                            title="Yesterday"
-                            threads={groupedNonProjectThreads.yesterday}
-                            isSelectionMode={isSelectionMode}
-                            selectedThreadIds={selectedThreadIds}
-                            enableContextMenu={!isMobile}
-                            enableLongPressSelection={isMobile}
-                            onOpenRenameDialog={handleOpenRenameDialog}
-                            onOpenMoveDialog={handleOpenMoveDialog}
-                            onOpenDeleteDialog={handleOpenDeleteDialog}
-                            onToggleSelection={handleToggleSelection}
-                            onStartSelection={handleStartSelection}
-                        />
-                        <ThreadsGroup
-                            title="Last 7 Days"
-                            threads={groupedNonProjectThreads.lastSevenDays}
-                            isSelectionMode={isSelectionMode}
-                            selectedThreadIds={selectedThreadIds}
-                            enableContextMenu={!isMobile}
-                            enableLongPressSelection={isMobile}
-                            onOpenRenameDialog={handleOpenRenameDialog}
-                            onOpenMoveDialog={handleOpenMoveDialog}
-                            onOpenDeleteDialog={handleOpenDeleteDialog}
-                            onToggleSelection={handleToggleSelection}
-                            onStartSelection={handleStartSelection}
-                        />
-                        <ThreadsGroup
-                            title="Last 30 Days"
-                            threads={groupedNonProjectThreads.lastThirtyDays}
-                            isSelectionMode={isSelectionMode}
-                            selectedThreadIds={selectedThreadIds}
-                            enableContextMenu={!isMobile}
-                            enableLongPressSelection={isMobile}
-                            onOpenRenameDialog={handleOpenRenameDialog}
-                            onOpenMoveDialog={handleOpenMoveDialog}
-                            onOpenDeleteDialog={handleOpenDeleteDialog}
-                            onToggleSelection={handleToggleSelection}
-                            onStartSelection={handleStartSelection}
-                        />
-                    </>
+                <PrototypeCreditsSection
+                    shouldShow={shouldShowPrototypeCredits}
+                    summary={prototypeCreditSummary}
+                    shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                    isUpdatingCreditPlan={isUpdatingCreditPlan}
+                    onSetCreditPlan={handleSetCreditPlan}
+                />
+                <FoldersSection projects={resolvedProjects} />
+                {allThreads.length > 0 && (
+                    <ThreadSections
+                        groupedThreads={groupedNonProjectThreads}
+                        isSelectionMode={isSelectionMode}
+                        selectedThreadIds={selectedThreadIds}
+                        enableContextMenu={!isMobile}
+                        enableLongPressSelection={isMobile}
+                        onOpenRenameDialog={handleOpenRenameDialog}
+                        onOpenMoveDialog={handleOpenMoveDialog}
+                        onOpenDeleteDialog={handleOpenDeleteDialog}
+                        onToggleSelection={handleToggleSelection}
+                        onStartSelection={handleStartSelection}
+                    />
                 )}
-
-                {/* Infinite Scroll Sentinel */}
-                {status === "CanLoadMore" && (
-                    <SidebarGroup>
-                        <SidebarGroupContent>
-                            <div
-                                ref={sentinelRef}
-                                className="flex w-full items-center justify-center gap-2 p-3 text-muted-foreground text-sm"
-                            >
-                                {isLoading && (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Loading more threads...
-                                    </>
-                                )}
-                            </div>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                )}
+                <LoadMoreThreadsGroup
+                    show={status === "CanLoadMore"}
+                    isLoading={isLoading}
+                    sentinelRef={sentinelRef}
+                />
             </>
         )
     }
@@ -1143,150 +658,29 @@ export function ThreadsSidebar() {
     return (
         <>
             <Sidebar variant="inset">
-                <SidebarHeader>
-                    <div className="flex w-full items-center justify-center gap-2">
-                        <Link to="/">
-                            <LogoMark className="h-auto w-full max-w-52 px-4 pt-1.5" />
-                        </Link>
-                    </div>
-                    <div className="my-2 h-px w-full bg-border" />
-
-                    {/* <Tooltip> */}
-                    {/* <TooltipTrigger> */}
-                    <Link
-                        to="/"
-                        onClick={(event) => {
-                            event.preventDefault()
-                            document.dispatchEvent(new CustomEvent("new_chat"))
-                            setOpenMobile(false)
-
-                            // On mobile, closing the Sheet triggers useOverlayBackDismiss's
-                            // history.back() which races with navigate. Wait for that popstate
-                            // to settle before navigating, with a fallback timeout.
-                            let didNavigate = false
-                            const doNavigate = () => {
-                                if (didNavigate) return
-                                didNavigate = true
-                                void navigate({ to: "/" })
-                            }
-                            if (isMobile) {
-                                window.addEventListener("popstate", doNavigate, { once: true })
-                                setTimeout(doNavigate, 150)
-                            } else {
-                                doNavigate()
-                            }
-                        }}
-                        className={cn(
-                            buttonVariants({ variant: "default" }),
-                            "w-full justify-center"
-                        )}
-                    >
-                        New Chat
-                    </Link>
-
-                    <ImportThreadButton
-                        onClick={() => {
-                            setImportDialogJobId(activeImportJob?._id ?? null)
-                            setImportOpen(true)
-                        }}
-                    />
-                    {/* </TooltipTrigger>
-                    <TooltipContent side="right">
-                        <div className="flex items-center gap-1">
-                            <span className="w-3.5 text-sm">
-                                <ArrowBigUp className="size-4" />
-                            </span>
-                            <span className="text-sm">⌘</span>
-                            <span className="text-sm">O</span>
-                        </div>
-                    </TooltipContent>
-                </Tooltip> */}
-
-                    <Button
-                        onClick={() => {
-                            setOpenMobile(false)
-                            setCommandKOpen(true)
-                        }}
-                        variant="outline"
-                    >
-                        <Search className="h-4 w-4" />
-                        Search chats
-                        <div className="ml-auto flex items-center gap-1 text-xs">
-                            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-muted-foreground">
-                                <span className="text-sm">{primaryShortcutLabel}</span>
-                                <span className="text-xs">K</span>
-                            </kbd>
-                        </div>
-                    </Button>
-                </SidebarHeader>
+                <ThreadsSidebarHeader
+                    primaryShortcutLabel={primaryShortcutLabel}
+                    onNewChat={handleNewChatClick}
+                    onImportClick={handleImportClick}
+                    onSearchClick={handleSearchClick}
+                />
                 <SidebarContent ref={scrollContainerRef} className="scrollbar-hide">
                     {renderContent()}
                 </SidebarContent>
                 {showGradient && (
                     <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent" />
                 )}
-                {isSelectionMode && selectedThreads.length > 0 && (
-                    <div className="absolute right-2 bottom-2 left-2 z-20 rounded-lg border bg-sidebar/95 p-2 shadow-lg backdrop-blur">
-                        <div className="flex items-center gap-2">
-                            <div className="font-medium text-sm">
-                                {selectedThreads.length} selected
-                            </div>
-                            <div className="ml-auto flex items-center gap-1">
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleSelectAllThreads}
-                                    disabled={isApplyingSelectionAction}
-                                    title="Select all loaded threads"
-                                >
-                                    <CheckCheck className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleBulkTogglePin}
-                                    disabled={isApplyingSelectionAction}
-                                    title={
-                                        selectedThreads.every((thread) => thread.pinned)
-                                            ? "Unpin selected"
-                                            : "Pin selected"
-                                    }
-                                >
-                                    <Pin className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleOpenBulkMoveDialog}
-                                    disabled={isApplyingSelectionAction}
-                                    title="Move selected"
-                                >
-                                    <FolderOpen className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => setShowBulkDeleteDialog(true)}
-                                    disabled={isApplyingSelectionAction}
-                                    title="Delete selected"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleExitSelectionMode}
-                                    disabled={isApplyingSelectionAction}
-                                    title="Exit selection"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+                {isSelectionMode && (
+                    <SelectionToolbar
+                        selectedThreads={selectedThreads}
+                        isApplyingSelectionAction={isApplyingSelectionAction}
+                        onSelectAllThreads={handleSelectAllThreads}
+                        onBulkTogglePin={handleBulkTogglePin}
+                        onOpenBulkMoveDialog={handleOpenBulkMoveDialog}
+                        onOpenBulkDeleteDialog={() => setShowBulkDeleteDialog(true)}
+                        onExitSelectionMode={handleExitSelectionMode}
+                    />
                 )}
-
-                {/* Centralized Thread Dialogs */}
                 <ThreadItemDialogs
                     showDeleteDialog={showDeleteDialog}
                     showRenameDialog={showRenameDialog}
@@ -1295,112 +689,31 @@ export function ThreadsSidebar() {
                     onCloseRenameDialog={handleCloseRenameDialog}
                     onCloseMoveDialog={handleCloseMoveDialog}
                     currentThread={currentThread}
-                    projects={"error" in projects ? [] : projects}
+                    projects={resolvedProjects}
                 />
-
                 <SidebarRail />
             </Sidebar>
-            <Dialog
+            <BulkMoveThreadsDialog
                 open={showBulkMoveDialog}
-                onOpenChange={(open) => {
-                    if (!isApplyingSelectionAction && !open) {
-                        setShowBulkMoveDialog(false)
-                    }
-                }}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            Move {selectedThreads.length} selected thread
-                            {selectedThreads.length === 1 ? "" : "s"}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <RadioGroup
-                        value={bulkMoveProjectId}
-                        onValueChange={setBulkMoveProjectId}
-                        disabled={isApplyingSelectionAction}
-                    >
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="no-folder" id="bulk-no-folder" />
-                            <Label htmlFor="bulk-no-folder" className="cursor-pointer">
-                                No Folder
-                            </Label>
-                        </div>
-                        {"error" in projects
-                            ? null
-                            : projects.map((project) => {
-                                  const colorClasses = getProjectColorClasses(
-                                      project.color as never
-                                  )
-                                  return (
-                                      <div
-                                          key={project._id}
-                                          className="flex items-center space-x-2"
-                                      >
-                                          <RadioGroupItem
-                                              value={project._id}
-                                              id={`bulk-${project._id}`}
-                                          />
-                                          <Label
-                                              htmlFor={`bulk-${project._id}`}
-                                              className="flex cursor-pointer items-center gap-2"
-                                          >
-                                              <div
-                                                  className={cn(
-                                                      "flex size-3 rounded-full",
-                                                      colorClasses.split(" ").slice(1).join(" ")
-                                                  )}
-                                              />
-                                              <span>{project.name}</span>
-                                          </Label>
-                                      </div>
-                                  )
-                              })}
-                    </RadioGroup>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowBulkMoveDialog(false)}
-                            disabled={isApplyingSelectionAction}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleConfirmBulkMove}
-                            disabled={isApplyingSelectionAction || selectedThreads.length === 0}
-                        >
-                            {isApplyingSelectionAction ? "Moving..." : "Move Selected"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Selected Threads</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Delete {selectedThreads.length} selected thread
-                            {selectedThreads.length === 1 ? "" : "s"}? This cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isApplyingSelectionAction}>
-                            Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleConfirmBulkDelete}
-                            disabled={isApplyingSelectionAction}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isApplyingSelectionAction ? "Deleting..." : "Delete Selected"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                onOpenChange={setShowBulkMoveDialog}
+                selectedThreadsCount={selectedThreads.length}
+                bulkMoveProjectId={bulkMoveProjectId}
+                onBulkMoveProjectIdChange={setBulkMoveProjectId}
+                isApplyingSelectionAction={isApplyingSelectionAction}
+                projects={resolvedProjects}
+                onConfirm={handleConfirmBulkMove}
+            />
+            <BulkDeleteThreadsDialog
+                open={showBulkDeleteDialog}
+                onOpenChange={setShowBulkDeleteDialog}
+                selectedThreadsCount={selectedThreads.length}
+                isApplyingSelectionAction={isApplyingSelectionAction}
+                onConfirm={handleConfirmBulkDelete}
+            />
             <ImportThreadDialog
                 open={importOpen}
                 onOpenChange={setImportOpen}
-                projects={"error" in projects ? [] : projects}
+                projects={resolvedProjects}
                 jobId={importDialogJobId}
                 onJobIdChange={setImportDialogJobId}
                 onImported={(threadId) => {
