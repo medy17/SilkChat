@@ -1,50 +1,132 @@
 diff --git a/node_modules/@convex-dev/r2/src/client/index.ts b/node_modules/@convex-dev/r2/src/client/index.ts
-index 0f8d4d2..7e9f1d1 100644
+index 83aeaea..680092a 100644
 --- a/node_modules/@convex-dev/r2/src/client/index.ts
 +++ b/node_modules/@convex-dev/r2/src/client/index.ts
-@@ -270,13 +270,15 @@ export class R2 {
-     ctx: RunQueryCtx,
-     authorId?: string,
-     limit?: number,
--    cursor?: string | null
+@@ -40,6 +40,7 @@ const parseConfig = (config: Infer<typeof r2ConfigValidator>) => {
+     endpoint: "R2_ENDPOINT",
+     accessKeyId: "R2_ACCESS_KEY_ID",
+     secretAccessKey: "R2_SECRET_ACCESS_KEY",
++    forcePathStyle: "R2_FORCE_PATH_STYLE",
+   };
+   const missingEnvVars = Object.keys(configVars).filter(
+     (key) => !config[key as keyof typeof config]
+@@ -128,6 +129,7 @@ export class R2 {
+       R2_ENDPOINT?: string;
+       R2_ACCESS_KEY_ID?: string;
+       R2_SECRET_ACCESS_KEY?: string;
++      R2_FORCE_PATH_STYLE?: boolean;
+       defaultBatchSize?: number;
+     } = {}
+   ) {
+@@ -137,6 +139,11 @@ export class R2 {
+       accessKeyId: options?.R2_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID!,
+       secretAccessKey:
+         options?.R2_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY!,
++      forcePathStyle:
++        (options?.R2_FORCE_PATH_STYLE === undefined
++          ? undefined
++          : options?.R2_FORCE_PATH_STYLE) ??
++            process.env.R2_FORCE_PATH_STYLE! === "true",
+     };
+     this.r2 = createR2Client(parseConfig(this.config));
+   }
+@@ -187,7 +194,7 @@ export class R2 {
+   async store(
+     ctx: RunActionCtx,
+     file: Uint8Array | Buffer | Blob,
+-    opts: string | { key?: string; type?: string } = {}
++    opts: string | { key?: string; type?: string; authorId?: string } = {}
+   ) {
+     if (typeof opts === "string") {
+       opts = { key: opts };
+@@ -220,6 +227,7 @@ export class R2 {
+     await this.r2.send(command);
+     await ctx.runAction(this.component.lib.syncMetadata, {
+       key: key,
++      authorId: opts.authorId,
+       ...this.config,
+     });
+     return key;
+@@ -258,11 +266,19 @@ export class R2 {
+    * @param limit (optional) - The maximum number of documents to return.
+    * @returns A promise that resolves to an array of metadata documents.
+    */
+-  async listMetadata(ctx: RunQueryCtx, limit?: number, cursor?: string | null) {
++  async listMetadata(
++    ctx: RunQueryCtx,
++    authorId?: string,
++    limit?: number,
 +    cursor?: string | null,
 +    keyPrefix?: string
-   ) {
++  ) {
      return ctx.runQuery(this.component.lib.listMetadata, {
        ...this.config,
-       authorId: authorId,
++      authorId: authorId,
        limit: limit,
        cursor: cursor ?? undefined,
 +      keyPrefix: keyPrefix,
      });
    }
    /**
+@@ -440,6 +456,7 @@ export class R2 {
+           }
+           return this.listMetadata(
+             ctx,
++            undefined,
+             args.paginationOpts.numItems,
+             args.paginationOpts.cursor
+           );
 diff --git a/node_modules/@convex-dev/r2/src/component/lib.ts b/node_modules/@convex-dev/r2/src/component/lib.ts
-index d5ab4c4..3a0fea1 100644
+index 61f9bdf..c1fad58 100644
 --- a/node_modules/@convex-dev/r2/src/component/lib.ts
 +++ b/node_modules/@convex-dev/r2/src/component/lib.ts
-@@ -91,6 +91,7 @@ export const listMetadata = query({
+@@ -1,5 +1,5 @@
+ import { action, mutation, query } from "./_generated/server";
+-import { v } from "convex/values";
++import { Infer, v } from "convex/values";
+ import schema from "./schema";
+ import {
+   DeleteObjectCommand,
+@@ -20,6 +20,8 @@ import { asyncMap } from "convex-helpers";
+ import { paginator } from "convex-helpers/server/pagination";
+ import { ActionRetrier } from "@convex-dev/action-retrier";
+ import { R2Callbacks } from "../client";
++import { PaginationResult } from "convex/server";
++import { Id } from "./_generated/dataModel";
+ 
+ const DEFAULT_LIST_LIMIT = 100;
+ const retrier = new ActionRetrier(components.actionRetrier);
+@@ -89,6 +91,8 @@ export const listMetadata = query({
+   args: {
      limit: v.optional(v.number()),
      cursor: v.optional(v.string()),
-     authorId: v.optional(v.string()),
++    authorId: v.optional(v.string()),
 +    keyPrefix: v.optional(v.string()),
      ...r2ConfigValidator.fields,
    },
    returns: paginationReturnValidator(
-@@ -102,7 +103,7 @@ export const listMetadata = query({
+@@ -99,15 +103,59 @@ export const listMetadata = query({
      })
    ),
    handler: async (ctx, args) => {
--    const { limit, cursor, authorId, ...r2Config } = args;
+-    const { limit, cursor, ...r2Config } = args;
 +    const { limit, cursor, authorId, keyPrefix, ...r2Config } = args;
      const r2 = createR2Client(r2Config);
-     let results: PaginationResult<
-       Infer<typeof schema.tables.metadata.validator> & {
-@@ -112,7 +113,22 @@ export const listMetadata = query({
-     >;
- 
-     const base = paginator(ctx.db, schema).query("metadata");
--    if (authorId) {
+-    const results = await paginator(ctx.db, schema)
+-      .query("metadata")
+-      .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
+-      .paginate({
+-        numItems: limit ?? DEFAULT_LIST_LIMIT,
+-        cursor: cursor ?? null,
+-      });
++    let results: PaginationResult<
++      Infer<typeof schema.tables.metadata.validator> & {
++        _id: Id<"metadata">;
++        _creationTime: number;
++      }
++    >;
++
++    const base = paginator(ctx.db, schema).query("metadata");
 +    const keyPrefixUpperBound = keyPrefix ? `${keyPrefix}\uffff` : undefined;
 +    if (authorId && keyPrefix) {
 +      results = await base
@@ -60,13 +142,14 @@ index d5ab4c4..3a0fea1 100644
 +          cursor: cursor ?? null,
 +        });
 +    } else if (authorId) {
-       results = await base
-         .withIndex("bucket_author_key", (q) =>
-           q.eq("bucket", r2Config.bucket).eq("authorId", authorId)
-@@ -121,6 +137,16 @@ export const listMetadata = query({
-           numItems: limit ?? DEFAULT_LIST_LIMIT,
-           cursor: cursor ?? null,
-         });
++      results = await base
++        .withIndex("bucket_author_key", (q) =>
++          q.eq("bucket", r2Config.bucket).eq("authorId", authorId)
++        )
++        .paginate({
++          numItems: limit ?? DEFAULT_LIST_LIMIT,
++          cursor: cursor ?? null,
++        });
 +    } else if (keyPrefix) {
 +      results = await base
 +        .withIndex("bucket_key", (q) =>
@@ -79,6 +162,38 @@ index d5ab4c4..3a0fea1 100644
 +          numItems: limit ?? DEFAULT_LIST_LIMIT,
 +          cursor: cursor ?? null,
 +        });
-     } else {
-       results = await base
-         .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
++    } else {
++      results = await base
++        .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
++        .paginate({
++          numItems: limit ?? DEFAULT_LIST_LIMIT,
++          cursor: cursor ?? null,
++        });
++    }
+     return {
+       ...results,
+       page: await asyncMap(results.page, async (doc) => ({
+@@ -149,6 +197,7 @@ export const upsertMetadata = mutation({
+       bucket: args.bucket,
+       lastModified: args.lastModified,
+       link: args.link,
++      authorId: args.authorId,
+     });
+     return { isNew: true };
+   },
+@@ -158,6 +207,7 @@ export const syncMetadata = action({
+   args: {
+     key: v.string(),
+     onComplete: v.optional(v.string()),
++    authorId: v.optional(v.string()),
+     ...r2ConfigValidator.fields,
+   },
+   returns: v.null(),
+@@ -180,6 +230,7 @@ export const syncMetadata = action({
+       sha256: response.ChecksumSHA256,
+       bucket: r2Config.bucket,
+       link,
++      authorId: args.authorId,
+     });
+     const onComplete = args.onComplete as R2Callbacks["onSyncMetadata"];
+     if (onComplete) {
