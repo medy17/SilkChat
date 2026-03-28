@@ -188,6 +188,13 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                                     {selectedAuthConfig.description}
                                                 </p>
                                             )}
+                                            {provider.id === "google" && (
+                                                <p className="text-muted-foreground text-xs">
+                                                    Voice transcription uses Chirp 3 and requires
+                                                    Vertex AI mode. AI Studio keys do not power
+                                                    voice input.
+                                                </p>
+                                            )}
                                         </div>
                                     )}
 

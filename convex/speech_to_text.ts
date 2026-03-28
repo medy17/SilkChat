@@ -11,7 +11,11 @@ import { getUserIdentity } from "./lib/identity"
 
 const DEFAULT_SPEECH_LOCATION = "us"
 const DEFAULT_LANGUAGE_CODES = ["auto"]
+const DEFAULT_STT_PROVIDER = "google"
 const CHIRP_MODEL = "chirp_3"
+const GROQ_MODEL = "whisper-large-v3-turbo"
+
+type SttProvider = "google" | "groq"
 
 type GoogleSpeechConfig = {
     project: string
@@ -20,6 +24,11 @@ type GoogleSpeechConfig = {
         client_email: string
         private_key: string
     }
+}
+
+const getSttProvider = (): SttProvider => {
+    const provider = (process.env.STT_PROVIDER || DEFAULT_STT_PROVIDER).trim().toLowerCase()
+    return provider === "groq" ? "groq" : "google"
 }
 
 const normalizeSpeechLocation = (location?: string) => {
@@ -47,11 +56,34 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
     return btoa(binary)
 }
 
+const getFilenameFromMimeType = (mimeType: string): string => {
+    if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+        return "audio.mp4"
+    }
+    if (mimeType.includes("webm")) {
+        return "audio.webm"
+    }
+    if (mimeType.includes("ogg")) {
+        return "audio.ogg"
+    }
+    if (mimeType.includes("wav")) {
+        return "audio.wav"
+    }
+    if (mimeType.includes("aac")) {
+        return "audio.aac"
+    }
+    return "audio.webm"
+}
+
+async function getUserSettings(ctx: Pick<ActionCtx, "runQuery">, userId: string) {
+    return await ctx.runQuery(internal.settings.getUserSettingsInternal, { userId })
+}
+
 async function getGoogleSpeechConfig(
     ctx: Pick<ActionCtx, "runQuery">,
     userId: string
 ): Promise<GoogleSpeechConfig> {
-    const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, { userId })
+    const settings = await getUserSettings(ctx, userId)
     const googleProvider = settings.coreAIProviders?.google
 
     if (googleProvider?.enabled && googleProvider.encryptedKey) {
@@ -96,9 +128,113 @@ async function getGoogleSpeechConfig(
     }
 }
 
+async function getGroqApiKey(ctx: Pick<ActionCtx, "runQuery">, userId: string): Promise<string> {
+    const settings = await getUserSettings(ctx, userId)
+    const groqProvider = settings.coreAIProviders?.groq
+
+    if (groqProvider?.enabled && groqProvider.encryptedKey) {
+        try {
+            const decryptedKey = await decryptKey(groqProvider.encryptedKey)
+            if (decryptedKey) {
+                console.log("Using user's Groq credentials for speech-to-text")
+                return decryptedKey
+            }
+        } catch (error) {
+            console.warn(
+                "Failed to get user's Groq credentials, falling back to internal configuration:",
+                error
+            )
+        }
+    }
+
+    const internalKey = process.env.GROQ_API_KEY
+    if (internalKey && internalKey !== "your-groq-api-key-here") {
+        console.log("Using internal Groq credentials for speech-to-text")
+        return internalKey
+    }
+
+    throw new Error(
+        "Voice input service not configured. Set GROQ_API_KEY in Convex or configure Groq in AI Options."
+    )
+}
+
+async function validateSpeechConfiguration(
+    ctx: Pick<ActionCtx, "runQuery">,
+    userId: string,
+    provider: SttProvider
+) {
+    if (provider === "groq") {
+        await getGroqApiKey(ctx, userId)
+        return
+    }
+
+    await getGoogleSpeechConfig(ctx, userId)
+}
+
+async function transcribeWithGoogle(
+    ctx: Pick<ActionCtx, "runQuery">,
+    userId: string,
+    audioFile: Blob
+) {
+    const speechConfig = await getGoogleSpeechConfig(ctx, userId)
+    const accessToken = await getGoogleAccessToken(
+        speechConfig.credentials.client_email,
+        speechConfig.credentials.private_key
+    )
+    const audioBase64 = arrayBufferToBase64(await audioFile.arrayBuffer())
+    const recognizer = `projects/${speechConfig.project}/locations/${speechConfig.location}/recognizers/_`
+    const baseUrl = getSpeechApiBaseUrl(speechConfig.location)
+
+    return await fetch(`${baseUrl}/v2/${recognizer}:recognize`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            config: {
+                autoDecodingConfig: {},
+                languageCodes: DEFAULT_LANGUAGE_CODES,
+                model: CHIRP_MODEL
+            },
+            content: audioBase64
+        })
+    })
+}
+
+async function transcribeWithGroq(
+    ctx: Pick<ActionCtx, "runQuery">,
+    userId: string,
+    audioFile: Blob
+) {
+    const apiKey = await getGroqApiKey(ctx, userId)
+    const formData = new FormData()
+    formData.append("file", audioFile, getFilenameFromMimeType(audioFile.type))
+    formData.append("model", GROQ_MODEL)
+    formData.append("response_format", "json")
+    formData.append("temperature", "0")
+
+    return await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`
+        },
+        body: formData
+    })
+}
+
+const getInvalidCredentialError = (provider: SttProvider) =>
+    provider === "groq"
+        ? "Invalid Groq credentials. Please check your Groq configuration."
+        : "Invalid Google credentials. Please check your Vertex configuration."
+
+const getForbiddenError = (provider: SttProvider) =>
+    provider === "groq"
+        ? "Groq speech-to-text access was denied. Check your Groq account and key permissions."
+        : "Google Speech-to-Text access was denied. Ensure the service account can use Speech-to-Text V2."
+
 export const transcribeAudio = httpAction(async (ctx, request) => {
     try {
-        // Verify user authentication
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             console.error("Unauthorized")
@@ -108,9 +244,11 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
             })
         }
 
+        const provider = getSttProvider()
+        console.log(`Using speech-to-text provider: ${provider}`)
+
         try {
-            // Validate speech credentials before reading the full audio payload.
-            await getGoogleSpeechConfig(ctx, user.id)
+            await validateSpeechConfiguration(ctx, user.id, provider)
         } catch (error) {
             return new Response(
                 JSON.stringify({
@@ -126,7 +264,6 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
             )
         }
 
-        // Parse the form data
         const formData = await request.formData()
         const audioFile = formData.get("audio") as Blob
 
@@ -138,8 +275,7 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
             })
         }
 
-        // Keep uploads bounded so transcription requests stay responsive.
-        const maxSize = 25 * 1024 * 1024 // 25MB
+        const maxSize = 25 * 1024 * 1024
         if (audioFile.size > maxSize) {
             console.error("Audio file too large (max 25MB)")
             return new Response(JSON.stringify({ error: "Audio file too large (max 25MB)" }), {
@@ -148,88 +284,42 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
             })
         }
 
-        // Determine appropriate filename extension based on MIME type
-        const getFilenameFromMimeType = (mimeType: string): string => {
-            if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-                return "audio.mp4"
-            }
-            if (mimeType.includes("webm")) {
-                return "audio.webm"
-            }
-            if (mimeType.includes("ogg")) {
-                return "audio.ogg"
-            }
-            if (mimeType.includes("wav")) {
-                return "audio.wav"
-            }
-            if (mimeType.includes("aac")) {
-                return "audio.aac"
-            }
-            // Default fallback for browsers that omit a precise audio subtype.
-            return "audio.webm"
-        }
-
         const filename = getFilenameFromMimeType(audioFile.type)
         console.log(
             `Transcribing audio: ${audioFile.size} bytes, type: ${audioFile.type}, filename: ${filename}`
         )
 
-        const speechConfig = await getGoogleSpeechConfig(ctx, user.id)
-        const accessToken = await getGoogleAccessToken(
-            speechConfig.credentials.client_email,
-            speechConfig.credentials.private_key
-        )
-        const audioBase64 = arrayBufferToBase64(await audioFile.arrayBuffer())
-        const recognizer = `projects/${speechConfig.project}/locations/${speechConfig.location}/recognizers/_`
-        const baseUrl = getSpeechApiBaseUrl(speechConfig.location)
-
-        const response = await fetch(`${baseUrl}/v2/${recognizer}:recognize`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                config: {
-                    autoDecodingConfig: {},
-                    languageCodes: DEFAULT_LANGUAGE_CODES,
-                    model: CHIRP_MODEL
-                },
-                content: audioBase64
-            })
-        })
+        const response =
+            provider === "groq"
+                ? await transcribeWithGroq(ctx, user.id, audioFile)
+                : await transcribeWithGoogle(ctx, user.id, audioFile)
 
         if (!response.ok) {
             const errorText = await response.text()
-            console.error("Google Speech API error:", response.status, errorText)
+            console.error(
+                `${provider === "groq" ? "Groq" : "Google Speech"} API error:`,
+                response.status,
+                errorText
+            )
 
-            // Handle specific error cases
             if (response.status === 401) {
-                console.error("Invalid Google credentials. Please check configuration.")
                 return new Response(
-                    JSON.stringify({
-                        error: "Invalid Google credentials. Please check your Vertex configuration."
-                    }),
+                    JSON.stringify({ error: getInvalidCredentialError(provider) }),
                     {
                         status: 500,
                         headers: { "Content-Type": "application/json" }
                     }
                 )
             }
+
             if (response.status === 403) {
-                console.error("Google Speech access forbidden.")
-                return new Response(
-                    JSON.stringify({
-                        error: "Google Speech-to-Text access was denied. Ensure the service account can use Speech-to-Text V2."
-                    }),
-                    {
-                        status: 500,
-                        headers: { "Content-Type": "application/json" }
-                    }
-                )
+                return new Response(JSON.stringify({ error: getForbiddenError(provider) }), {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" }
+                })
             }
+
             if (response.status === 429) {
-                console.error("Rate limit exceeded. Please try again later.")
                 return new Response(
                     JSON.stringify({
                         error: "Rate limit exceeded. Please try again later."
@@ -240,6 +330,7 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
                     }
                 )
             }
+
             console.error("Transcription service temporarily unavailable")
             return new Response(
                 JSON.stringify({
@@ -253,6 +344,7 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
         }
 
         const transcriptionResult = (await response.json()) as {
+            text?: string
             results?: Array<{
                 alternatives?: Array<{
                     transcript?: string
@@ -260,10 +352,14 @@ export const transcribeAudio = httpAction(async (ctx, request) => {
                 languageCode?: string
             }>
         }
-        const text = transcriptionResult.results
-            ?.map((result) => result.alternatives?.[0]?.transcript?.trim())
-            .filter(Boolean)
-            .join(" ")
+
+        const text =
+            provider === "groq"
+                ? transcriptionResult.text?.trim()
+                : transcriptionResult.results
+                      ?.map((result) => result.alternatives?.[0]?.transcript?.trim())
+                      .filter(Boolean)
+                      .join(" ")
 
         return new Response(
             JSON.stringify({

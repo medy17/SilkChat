@@ -101,6 +101,7 @@ These variables are read by Convex actions and HTTP routes:
 - `OPENAI_API_KEY`
 - `XAI_API_KEY`
 - `ANTHROPIC_API_KEY`
+- `STT_PROVIDER` to choose `google` or `groq` for `/transcribe`
 - `GOOGLE_AI_STUDIO_API_KEY` or Vertex credentials
 - `GOOGLE_SPEECH_LOCATION` for voice transcription region overrides
 - `GROQ_API_KEY`

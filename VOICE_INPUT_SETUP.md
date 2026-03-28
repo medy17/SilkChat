@@ -13,11 +13,22 @@ The voice input functionality has been fully implemented with the following feat
 
 ## Required Configuration
 
-### 1. Set up Google Speech-to-Text credentials
+### 1. Choose the speech-to-text provider
 
-The voice input uses Google Cloud Speech-to-Text V2 with `chirp_3`. It uses auto language detection by default, so you do not need to force Kiswahili or another locale.
+Voice input is controlled by the Convex env var `STT_PROVIDER`.
 
-You have two supported configuration paths:
+Supported values:
+
+1. `google`
+2. `groq`
+
+If unset, the app defaults to `google`.
+
+### 2. Google setup
+
+When `STT_PROVIDER=google`, voice input uses Google Cloud Speech-to-Text V2 with `chirp_3`. It uses auto language detection by default, so you do not need to force Kiswahili or another locale.
+
+You have two supported Google configuration paths:
 
 1. **Preferred: configure Google BYOK in the app**
    - Open `Settings -> Providers`
@@ -29,6 +40,7 @@ You have two supported configuration paths:
 
    **For Development / Production:**
    ```bash
+   npx convex env set STT_PROVIDER google
    npx convex env set GOOGLE_VERTEX_CREDENTIALS_JSON '{"type":"service_account",...}'
    npx convex env set GOOGLE_SPEECH_LOCATION us
    ```
@@ -40,6 +52,24 @@ You have two supported configuration paths:
    - Optionally add `GOOGLE_SPEECH_LOCATION` (`us` by default)
 
 `GOOGLE_SPEECH_LOCATION` is intentionally separate from `GOOGLE_VERTEX_LOCATION`. Speech-to-Text V2 uses speech regions such as `us` or `eu`, while Vertex model inference often uses locations like `us-central1`.
+
+### 3. Groq setup
+
+When `STT_PROVIDER=groq`, voice input uses Groq `whisper-large-v3-turbo`.
+
+You can configure Groq either way:
+
+1. **Preferred: configure Groq BYOK in the app**
+   - Open `Settings -> Providers`
+   - Enable `Groq`
+   - Paste your Groq API key
+
+2. **Or configure internal Convex environment variables**
+
+   ```bash
+   npx convex env set STT_PROVIDER groq
+   npx convex env set GROQ_API_KEY your-groq-api-key
+   ```
 
 ## Testing the Feature
 
@@ -99,9 +129,11 @@ The implementation automatically detects and uses the best supported format:
    - Try speaking louder and more clearly
 
 3. **"Transcription service error"**
-   - Verify Google provider is configured in `Vertex AI` mode, not `AI Studio`
-   - Check `GOOGLE_VERTEX_CREDENTIALS_JSON` is valid if using internal credentials
-   - Ensure the Google Cloud project has Speech-to-Text V2 enabled
+   - Check `STT_PROVIDER` and confirm the intended provider is configured
+   - For Google: verify Google provider is configured in `Vertex AI` mode, not `AI Studio`
+   - For Google: check `GOOGLE_VERTEX_CREDENTIALS_JSON` is valid if using internal credentials
+   - For Google: ensure the Google Cloud project has Speech-to-Text V2 enabled
+   - For Groq: verify `GROQ_API_KEY` is configured or Groq BYOK is enabled
    - Check network connectivity
 
 4. **"Unauthorized" error**
@@ -127,15 +159,18 @@ The implementation automatically detects and uses the best supported format:
 3. **Test microphone** in other applications
 
 4. **Verify Google Cloud setup**
-   - Confirm Speech-to-Text V2 is enabled for the project
-   - Confirm the service account can access Speech-to-Text
-   - Confirm `GOOGLE_SPEECH_LOCATION` is set to a valid speech region if you changed it from the default
+   - If using Google: confirm Speech-to-Text V2 is enabled for the project
+   - If using Google: confirm the service account can access Speech-to-Text
+   - If using Google: confirm `GOOGLE_SPEECH_LOCATION` is set to a valid speech region if you changed it from the default
+   - If using Groq: confirm the Groq key has credits and speech-to-text access
 
 ## API Usage & Costs
 
-- **Model**: Google Cloud Speech-to-Text V2 `chirp_3`
-- **Behavior**: language auto-detection is enabled by default
-- **Cost**: Check [Google Cloud Speech-to-Text pricing](https://cloud.google.com/speech-to-text/pricing) for current rates
+- **Google mode**: Speech-to-Text V2 `chirp_3` with auto language detection
+- **Groq mode**: `whisper-large-v3-turbo`
+- **Costs**:
+  - Google: [Speech-to-Text pricing](https://cloud.google.com/speech-to-text/pricing)
+  - Groq: [Groq pricing](https://console.groq.com/docs/models)
 
 ## Implementation Details
 
