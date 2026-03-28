@@ -1,3 +1,4 @@
+import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -10,9 +11,10 @@ import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { getExpandedImageUrl, getGeneratedImageProxyUrl } from "@/lib/generated-image-urls"
 import { useSharedModels } from "@/lib/shared-models"
+import { cn } from "@/lib/utils"
 import { useMutation, useQuery } from "convex/react"
 import { Download, ExternalLink, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 interface ImageDetailsModalProps {
     image: Doc<"generatedImages"> | null
@@ -28,6 +30,8 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
         image ? { key: image.storageKey } : "skip"
     )
     const [isDeleting, setIsDeleting] = useState(false)
+    const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
+    const revealTimeoutRef = useRef<number | null>(null)
 
     if (!image) return null
 
@@ -37,6 +41,45 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
     })
     const fullResolutionUrl = metadata?.url || getGeneratedImageProxyUrl(image.storageKey)
     const model = models.find((m) => m.id === image.modelId)
+    const aspectRatio = image.aspectRatio || "1:1"
+    const cssAspectRatio = useMemo(() => {
+        if (aspectRatio.includes("x")) {
+            const [width, height] = aspectRatio.split("x").map(Number)
+            return `${width}/${height}`
+        }
+        if (aspectRatio.includes(":")) {
+            const baseRatio = aspectRatio.replace("-hd", "")
+            return baseRatio.replace(":", "/")
+        }
+        return "1/1"
+    }, [aspectRatio])
+
+    useEffect(() => {
+        setLoadState("loading")
+
+        return () => {
+            if (revealTimeoutRef.current !== null) {
+                window.clearTimeout(revealTimeoutRef.current)
+            }
+        }
+    }, [image._id])
+
+    const handleImageLoad = () => {
+        setLoadState("revealing")
+
+        if (revealTimeoutRef.current !== null) {
+            window.clearTimeout(revealTimeoutRef.current)
+        }
+
+        revealTimeoutRef.current = window.setTimeout(() => {
+            setLoadState("ready")
+            revealTimeoutRef.current = null
+        }, 240)
+    }
+
+    const handleImageError = () => {
+        setLoadState("ready")
+    }
 
     const handleDownload = () => {
         window.open(fullResolutionUrl, "_blank")
@@ -68,11 +111,31 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
                 </DialogHeader>
 
                 {/* Left side: Image Viewer */}
-                <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-muted/30 p-4">
+                <div className="relative flex min-h-[50vh] flex-1 items-center justify-center bg-muted/30 p-4">
+                    {loadState !== "ready" && (
+                        <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/70 via-muted/45 to-accent/25" />
+                    )}
+                    {loadState !== "ready" && (
+                        <div className="absolute inset-x-0 bottom-4 z-10 mx-4 space-y-2 rounded-xl border border-border/40 bg-background/30 p-3 backdrop-blur-sm">
+                            <div className="h-3 w-32 rounded bg-background/60" />
+                            <div className="h-3 w-24 rounded bg-background/45" />
+                        </div>
+                    )}
+                    {loadState !== "ready" && (
+                        <ImageLoadIndicator complete={loadState === "revealing"} />
+                    )}
                     <img
                         src={imageUrl}
                         alt={image.prompt || "Generated Image"}
-                        className="max-h-[80vh] w-auto rounded-md object-contain"
+                        className={cn(
+                            "relative z-[5] max-h-[80vh] w-auto rounded-md object-contain transition-all duration-500",
+                            loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
+                            loadState === "revealing" && "scale-[1.01] opacity-100 blur-md",
+                            loadState === "ready" && "scale-100 opacity-100 blur-0"
+                        )}
+                        style={{ aspectRatio: cssAspectRatio }}
+                        onLoad={handleImageLoad}
+                        onError={handleImageError}
                     />
                 </div>
 
