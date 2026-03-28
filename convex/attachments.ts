@@ -298,6 +298,69 @@ export const listFiles = query({
     }
 })
 
+export const listGeneratedFiles = query({
+    args: {
+        limit: v.optional(v.number()),
+        sortBy: v.optional(v.union(v.literal("newest"), v.literal("oldest"), v.literal("size")))
+    },
+    handler: async (ctx, args) => {
+        try {
+            const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+            if ("error" in user) {
+                return []
+            }
+
+            const pageSize = 200
+            const files: Awaited<ReturnType<typeof r2.listMetadata>>["page"] = []
+            let cursor: string | null = null
+            const seenCursors = new Set<string>()
+            const keyPrefix = `generations/${user.id}/`
+
+            while (true) {
+                const result = await r2.listMetadata(ctx, user.id, pageSize, cursor, keyPrefix)
+                files.push(...result.page)
+
+                if (result.isDone) {
+                    break
+                }
+
+                if (seenCursors.has(result.continueCursor)) {
+                    console.warn(
+                        "[attachments.listGeneratedFiles] Repeated pagination cursor detected"
+                    )
+                    break
+                }
+
+                seenCursors.add(result.continueCursor)
+                cursor = result.continueCursor
+            }
+
+            switch (args.sortBy || "newest") {
+                case "oldest":
+                    files.sort(
+                        (a, b) =>
+                            new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime()
+                    )
+                    break
+                case "size":
+                    files.sort((a, b) => (b.size || 0) - (a.size || 0))
+                    break
+                default:
+                    files.sort(
+                        (a, b) =>
+                            new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+                    )
+                    break
+            }
+
+            return files.slice(0, args.limit || 200)
+        } catch (error) {
+            console.error("Error listing generated files:", error)
+            return []
+        }
+    }
+})
+
 export const getFile = httpAction(async (ctx, req) => {
     const { searchParams } = new URL(req.url)
     const key = searchParams.get("key")

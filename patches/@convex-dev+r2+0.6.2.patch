@@ -1,0 +1,84 @@
+diff --git a/node_modules/@convex-dev/r2/src/client/index.ts b/node_modules/@convex-dev/r2/src/client/index.ts
+index 0f8d4d2..7e9f1d1 100644
+--- a/node_modules/@convex-dev/r2/src/client/index.ts
++++ b/node_modules/@convex-dev/r2/src/client/index.ts
+@@ -270,13 +270,15 @@ export class R2 {
+     ctx: RunQueryCtx,
+     authorId?: string,
+     limit?: number,
+-    cursor?: string | null
++    cursor?: string | null,
++    keyPrefix?: string
+   ) {
+     return ctx.runQuery(this.component.lib.listMetadata, {
+       ...this.config,
+       authorId: authorId,
+       limit: limit,
+       cursor: cursor ?? undefined,
++      keyPrefix: keyPrefix,
+     });
+   }
+   /**
+diff --git a/node_modules/@convex-dev/r2/src/component/lib.ts b/node_modules/@convex-dev/r2/src/component/lib.ts
+index d5ab4c4..3a0fea1 100644
+--- a/node_modules/@convex-dev/r2/src/component/lib.ts
++++ b/node_modules/@convex-dev/r2/src/component/lib.ts
+@@ -91,6 +91,7 @@ export const listMetadata = query({
+     limit: v.optional(v.number()),
+     cursor: v.optional(v.string()),
+     authorId: v.optional(v.string()),
++    keyPrefix: v.optional(v.string()),
+     ...r2ConfigValidator.fields,
+   },
+   returns: paginationReturnValidator(
+@@ -102,7 +103,7 @@ export const listMetadata = query({
+     })
+   ),
+   handler: async (ctx, args) => {
+-    const { limit, cursor, authorId, ...r2Config } = args;
++    const { limit, cursor, authorId, keyPrefix, ...r2Config } = args;
+     const r2 = createR2Client(r2Config);
+     let results: PaginationResult<
+       Infer<typeof schema.tables.metadata.validator> & {
+@@ -112,7 +113,22 @@ export const listMetadata = query({
+     >;
+ 
+     const base = paginator(ctx.db, schema).query("metadata");
+-    if (authorId) {
++    const keyPrefixUpperBound = keyPrefix ? `${keyPrefix}\uffff` : undefined;
++    if (authorId && keyPrefix) {
++      results = await base
++        .withIndex("bucket_author_key", (q) =>
++          q
++            .eq("bucket", r2Config.bucket)
++            .eq("authorId", authorId)
++            .gte("key", keyPrefix)
++            .lt("key", keyPrefixUpperBound!)
++        )
++        .paginate({
++          numItems: limit ?? DEFAULT_LIST_LIMIT,
++          cursor: cursor ?? null,
++        });
++    } else if (authorId) {
+       results = await base
+         .withIndex("bucket_author_key", (q) =>
+           q.eq("bucket", r2Config.bucket).eq("authorId", authorId)
+@@ -121,6 +137,16 @@ export const listMetadata = query({
+           numItems: limit ?? DEFAULT_LIST_LIMIT,
+           cursor: cursor ?? null,
+         });
++    } else if (keyPrefix) {
++      results = await base
++        .withIndex("bucket_key", (q) =>
++          q
++            .eq("bucket", r2Config.bucket)
++            .gte("key", keyPrefix)
++            .lt("key", keyPrefixUpperBound!)
++        )
++        .paginate({
++          numItems: limit ?? DEFAULT_LIST_LIMIT,
++          cursor: cursor ?? null,
++        });
+     } else {
+       results = await base
+         .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))

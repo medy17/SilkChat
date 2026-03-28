@@ -57,7 +57,13 @@ const getGoogleImageModel = async (
     return googleImageProvider.imageModel(providerSpecificModelId)
 }
 
-export const getModel = async (ctx: ActionCtx, modelId: string) => {
+export const getModel = async (
+    ctx: ActionCtx,
+    modelId: string,
+    options?: {
+        internalOnly?: boolean
+    }
+) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })
     if ("error" in user) throw new ChatError("unauthorized:chat")
 
@@ -71,8 +77,16 @@ export const getModel = async (ctx: ActionCtx, modelId: string) => {
     if (!model) return new ChatError("bad_model:api")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
 
+    const adaptersToConsider = options?.internalOnly
+        ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
+        : model.adapters
+
+    if (!adaptersToConsider.length) {
+        return new ChatError("bad_model:api", "No internal adapters found for model")
+    }
+
     // Priority sorting: BYOK Core Providers > Server (i3-) > OpenRouter
-    const sortedAdapters = model.adapters.sort((a, b) => {
+    const sortedAdapters = adaptersToConsider.sort((a, b) => {
         const providerA = a.split(":")[0]
         const providerB = b.split(":")[0]
 

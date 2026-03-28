@@ -14,7 +14,7 @@ import { browserEnv } from "@/lib/browser-env"
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
 import { Download, Image as ImageIcon, ImageOff } from "lucide-react"
-import { memo, useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useRef, useState } from "react"
 
 export const Route = createFileRoute("/_chat/library")({
     component: LibraryPage
@@ -140,54 +140,46 @@ MasonryGrid.displayName = "MasonryGrid"
 
 function LibraryPage() {
     const session = useSession()
-    const filesResult = useQuery(api.attachments.listFiles, session.user?.id ? {} : "skip")
     const [sortBy, setSortBy] = useState<"newest" | "oldest" | "size">("newest")
+    const filesResult = useQuery(
+        api.attachments.listGeneratedFiles,
+        session.user?.id ? { sortBy } : "skip"
+    )
 
-    // Filter for generated images only
     const generatedAssets = useMemo(() => {
         if (!filesResult) return null
 
         // Handle the file list data structure
-        let files: any[] = []
+        let files: GeneratedAsset[] = []
         if (Array.isArray(filesResult)) {
-            files = filesResult
+            files = filesResult as GeneratedAsset[]
         } else if (
             filesResult &&
             typeof filesResult === "object" &&
             "page" in filesResult &&
             Array.isArray(filesResult.page)
         ) {
-            files = filesResult.page
+            files = filesResult.page as GeneratedAsset[]
         }
 
-        // Filter for generated images (keys starting with "generations")
-        const filteredFiles = files.filter((file) => file.key.startsWith("generations/"))
+        return [...files]
+    }, [filesResult])
 
-        // Apply sorting
-        filteredFiles.sort((a, b) => {
-            switch (sortBy) {
-                case "newest":
-                    return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
-                case "oldest":
-                    return new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime()
-                case "size":
-                    return (b.size || 0) - (a.size || 0)
-                default:
-                    return 0
-            }
-        })
+    const lastResolvedAssetsRef = useRef<GeneratedAsset[] | null>(null)
+    if (generatedAssets !== null) {
+        lastResolvedAssetsRef.current = generatedAssets
+    }
 
-        return filteredFiles
-    }, [filesResult, sortBy])
+    const visibleAssets = generatedAssets ?? lastResolvedAssetsRef.current
 
     const stats = useMemo(() => {
-        if (!generatedAssets || generatedAssets.length === 0) {
+        if (!visibleAssets || visibleAssets.length === 0) {
             return { totalSize: 0, count: 0 }
         }
 
-        const totalSize = generatedAssets.reduce((sum, asset) => sum + (asset.size || 0), 0)
-        return { totalSize, count: generatedAssets.length }
-    }, [generatedAssets])
+        const totalSize = visibleAssets.reduce((sum, asset) => sum + (asset.size || 0), 0)
+        return { totalSize, count: visibleAssets.length }
+    }, [visibleAssets])
 
     if (!session.user?.id) {
         return (
@@ -211,7 +203,7 @@ function LibraryPage() {
                 <div className="mb-8">
                     <h1 className="mb-2 font-bold text-3xl">AI Library</h1>
                     <p className="text-muted-foreground">Your collection of AI-generated images</p>
-                    {generatedAssets && (
+                    {visibleAssets && (
                         <div className="mt-4 flex gap-6 text-muted-foreground text-sm">
                             <span>{stats.count} images</span>
                             <span>{formatFileSize(stats.totalSize)} total</span>
@@ -219,7 +211,7 @@ function LibraryPage() {
                     )}
 
                     {/* Sort Controls */}
-                    {generatedAssets && generatedAssets.length > 0 && (
+                    {visibleAssets && visibleAssets.length > 0 && (
                         <div className="mt-6 flex justify-start">
                             <Select
                                 value={sortBy}
@@ -240,7 +232,7 @@ function LibraryPage() {
                     )}
                 </div>
 
-                {!generatedAssets ? (
+                {!visibleAssets ? (
                     <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
                         {Array.from({ length: 12 }).map((_, i) => (
                             <div
@@ -253,7 +245,7 @@ function LibraryPage() {
                         ))}
                     </div>
                 ) : (
-                    <MasonryGrid assets={generatedAssets} />
+                    <MasonryGrid assets={visibleAssets} />
                 )}
             </div>
         </div>

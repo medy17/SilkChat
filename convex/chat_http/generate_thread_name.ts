@@ -84,7 +84,7 @@ const getAvailableTitleModelId = async (
 
     return candidates.find((candidate, index) => {
         if (candidates.indexOf(candidate) !== index) return false
-        return (registry.models[candidate]?.adapters.length ?? 0) > 0
+        return registry.models[candidate]?.adapters.some((adapter) => adapter.startsWith("i3-"))
     })
 }
 
@@ -109,7 +109,7 @@ export const generateThreadName = async (
     }
 
     try {
-        const modelData = await getModel(ctx, titleModelId)
+        const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
         if (modelData instanceof ChatError) {
             throw new Error(modelData.message)
         }

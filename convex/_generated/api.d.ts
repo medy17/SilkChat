@@ -229,6 +229,7 @@ export declare const components: {
           cursor?: string;
           endpoint: string;
           forcePathStyle?: boolean;
+          keyPrefix?: string;
           limit?: number;
           secretAccessKey: string;
         },
