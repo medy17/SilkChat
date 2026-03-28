@@ -22,6 +22,7 @@ import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { browserEnv } from "@/lib/browser-env"
+import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
 import { Image as ImageIcon, ImageOff } from "lucide-react"
@@ -46,6 +47,52 @@ const GalleryImageSkeleton = memo(() => (
     </div>
 ))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
+
+const TileLoadIndicator = memo(({ complete }: { complete: boolean }) => {
+    const radius = 15
+    const circumference = 2 * Math.PI * radius
+
+    return (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+            <div className="relative flex size-12 items-center justify-center rounded-full border border-background/70 bg-background/70 shadow-sm backdrop-blur-sm">
+                <svg
+                    viewBox="0 0 40 40"
+                    className={cn("-rotate-90 size-10", !complete && "animate-spin")}
+                    aria-hidden="true"
+                >
+                    <circle
+                        cx="20"
+                        cy="20"
+                        r={radius}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        className="text-foreground/10"
+                    />
+                    <circle
+                        cx="20"
+                        cy="20"
+                        r={radius}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={complete ? 0 : circumference * 0.42}
+                        className="text-foreground/70 transition-[stroke-dashoffset] duration-300 ease-out"
+                    />
+                </svg>
+                <div
+                    className={cn(
+                        "absolute size-1.5 rounded-full bg-foreground/55 transition-colors duration-300",
+                        complete && "bg-foreground/80"
+                    )}
+                />
+            </div>
+        </div>
+    )
+})
+TileLoadIndicator.displayName = "TileLoadIndicator"
 
 const PendingImageItem = memo(({ aspectRatio }: { aspectRatio: string }) => {
     // Convert aspect ratio to CSS aspect-ratio value
@@ -106,19 +153,37 @@ const GeneratedImageItem = memo(
         onImageSettled?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
-        const [isLoaded, setIsLoaded] = useState(false)
+        const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
+        const revealTimeoutRef = useRef<number | null>(null)
 
         const imageUrl = `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${image.storageKey}`
 
         const handleImageLoad = useCallback(() => {
-            setIsLoaded(true)
-            onImageSettled?.()
+            setLoadState("revealing")
+
+            if (revealTimeoutRef.current !== null) {
+                window.clearTimeout(revealTimeoutRef.current)
+            }
+
+            revealTimeoutRef.current = window.setTimeout(() => {
+                setLoadState("ready")
+                onImageSettled?.()
+                revealTimeoutRef.current = null
+            }, 240)
         }, [onImageSettled])
         const handleImageError = useCallback(() => {
             setIsError(true)
-            setIsLoaded(true)
+            setLoadState("ready")
             onImageSettled?.()
         }, [onImageSettled])
+
+        useEffect(() => {
+            return () => {
+                if (revealTimeoutRef.current !== null) {
+                    window.clearTimeout(revealTimeoutRef.current)
+                }
+            }
+        }, [])
 
         const aspectRatio = image.aspectRatio || "1:1"
         const cssAspectRatio = useMemo(() => {
@@ -184,10 +249,19 @@ const GeneratedImageItem = memo(
                         )}
                     </div>
                 )}
+                {loadState !== "ready" && (
+                    <TileLoadIndicator complete={loadState === "revealing"} />
+                )}
                 <img
                     src={imageUrl}
                     alt={image.prompt || "AI generation"}
-                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+                    className={cn(
+                        "absolute inset-0 h-full w-full object-cover transition-all duration-500",
+                        loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
+                        loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
+                        loadState === "ready" &&
+                            "scale-100 opacity-100 blur-0 group-hover:scale-105"
+                    )}
                     onLoad={handleImageLoad}
                     onError={handleImageError}
                     loading="lazy"
