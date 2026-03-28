@@ -7,7 +7,7 @@ import {
     DialogTitle
 } from "@/components/ui/dialog"
 import { api } from "@/convex/_generated/api"
-import type { Id } from "@/convex/_generated/dataModel"
+import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { browserEnv } from "@/lib/browser-env"
 import { useSharedModels } from "@/lib/shared-models"
 import { useMutation } from "convex/react"
@@ -15,7 +15,7 @@ import { Download, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 interface ImageDetailsModalProps {
-    image: any // Replace with proper type later if needed
+    image: Doc<"generatedImages"> | null
     isOpen: boolean
     onClose: () => void
 }

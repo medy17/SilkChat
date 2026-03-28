@@ -282,9 +282,9 @@ export const updateUserSettings = mutation({
                             encryptedKey: providerData.newKey
                                 ? await encryptKey(providerData.newKey)
                                 : existingProvider?.encryptedKey || "",
-                            country: (providerData as any).country,
-                            searchLang: (providerData as any).searchLang,
-                            safesearch: (providerData as any).safesearch
+                            country: (providerData as Record<string, any>).country,
+                            searchLang: (providerData as Record<string, any>).searchLang,
+                            safesearch: (providerData as Record<string, any>).safesearch
                         }
                     } else if (providerId === "serper") {
                         newSettings.generalProviders.serper = {
@@ -292,11 +292,11 @@ export const updateUserSettings = mutation({
                             encryptedKey: providerData.newKey
                                 ? await encryptKey(providerData.newKey)
                                 : existingProvider?.encryptedKey || "",
-                            language: (providerData as any).language,
-                            country: (providerData as any).country
+                            language: (providerData as Record<string, any>).language,
+                            country: (providerData as Record<string, any>).country
                         }
                     } else {
-                        ;(newSettings.generalProviders as any)[providerId] = {
+                        ;(newSettings.generalProviders as Record<string, any>)[providerId] = {
                             enabled: providerData.enabled,
                             encryptedKey: providerData.newKey
                                 ? await encryptKey(providerData.newKey)
@@ -625,9 +625,9 @@ export const updateUserSettingsPartial = mutation({
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
                             : existingProvider?.encryptedKey || "",
-                        country: (update as any).country,
-                        searchLang: (update as any).searchLang,
-                        safesearch: (update as any).safesearch
+                        country: (update as Record<string, any>).country,
+                        searchLang: (update as Record<string, any>).searchLang,
+                        safesearch: (update as Record<string, any>).safesearch
                     }
                 } else if (providerId === "serper") {
                     newSettings.generalProviders.serper = {
@@ -635,12 +635,12 @@ export const updateUserSettingsPartial = mutation({
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
                             : existingProvider?.encryptedKey || "",
-                        language: (update as any).language,
-                        country: (update as any).country
+                        language: (update as Record<string, any>).language,
+                        country: (update as Record<string, any>).country
                     }
                 } else {
                     // supermemory, firecrawl, tavily
-                    ;(newSettings.generalProviders as any)[providerId] = {
+                    ;(newSettings.generalProviders as Record<string, any>)[providerId] = {
                         enabled: update.enabled,
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)

@@ -55,7 +55,7 @@ export function ImageGenerationSidebar({
             resizeObserver.disconnect()
             mutationObserver.disconnect()
         }
-    }, [aspectRatio, resolution, selectedModelIds, imageModels, referenceFiles])
+    }, [])
 
     const generateImage = useAction(api.images_node.generateStandaloneImage)
     const [isGenerating, setIsGenerating] = useState(false)
@@ -145,7 +145,7 @@ export function ImageGenerationSidebar({
         for (const model of selectedModels) {
             if (model.supportedImageResolutions) {
                 intersection = intersection.filter((res) =>
-                    model.supportedImageResolutions!.includes(res as any)
+                    model.supportedImageResolutions!.includes(res as "1K" | "2K" | "4K")
                 )
             }
         }
@@ -232,6 +232,7 @@ export function ImageGenerationSidebar({
                         REFERENCES
                     </div>
                     <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="text-muted-foreground transition-colors hover:text-foreground"
                     >
@@ -252,6 +253,7 @@ export function ImageGenerationSidebar({
                                     alt="ref"
                                 />
                                 <button
+                                    type="button"
                                     className="absolute top-1 right-1 rounded-full bg-background/50 p-0.5 text-foreground transition-colors hover:bg-background/80"
                                     onClick={() => removeReferenceImage(index)}
                                 >
@@ -299,6 +301,7 @@ export function ImageGenerationSidebar({
                                 const isSelected = selectedModelIds.includes(model.id)
                                 return (
                                     <button
+                                        type="button"
                                         key={model.id}
                                         onClick={() => toggleModel(model.id)}
                                         className={cn(
@@ -373,6 +376,7 @@ export function ImageGenerationSidebar({
 
                                 return (
                                     <button
+                                        type="button"
                                         key={size}
                                         onClick={() => isAvailable && setAspectRatio(size)}
                                         disabled={!isAvailable}
@@ -442,6 +446,7 @@ export function ImageGenerationSidebar({
 
                                 return (
                                     <button
+                                        type="button"
                                         key={res}
                                         onClick={() => isAvailable && setResolution(res)}
                                         disabled={!isAvailable}

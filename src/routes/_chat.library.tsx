@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
+import type { Doc } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { browserEnv } from "@/lib/browser-env"
 import { createFileRoute } from "@tanstack/react-router"
@@ -61,93 +62,97 @@ const PendingImageItem = memo(({ aspectRatio }: { aspectRatio: string }) => {
 })
 PendingImageItem.displayName = "PendingImageItem"
 
-const GeneratedImageItem = memo(({ image, onClick }: { image: any; onClick: () => void }) => {
-    const [isError, setIsError] = useState(false)
-    const [isLoaded, setIsLoaded] = useState(false)
+const GeneratedImageItem = memo(
+    ({ image, onClick }: { image: Doc<"generatedImages">; onClick: () => void }) => {
+        const [isError, setIsError] = useState(false)
+        const [isLoaded, setIsLoaded] = useState(false)
 
-    const imageUrl = `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${image.storageKey}`
+        const imageUrl = `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${image.storageKey}`
 
-    const handleImageLoad = useCallback(() => setIsLoaded(true), [])
-    const handleImageError = useCallback(() => {
-        setIsError(true)
-        setIsLoaded(true)
-    }, [])
+        const handleImageLoad = useCallback(() => setIsLoaded(true), [])
+        const handleImageError = useCallback(() => {
+            setIsError(true)
+            setIsLoaded(true)
+        }, [])
 
-    const aspectRatio = image.aspectRatio || "1:1"
-    const cssAspectRatio = useMemo(() => {
-        if (aspectRatio.includes("x")) {
-            const [width, height] = aspectRatio.split("x").map(Number)
-            return `${width}/${height}`
-        }
-        if (aspectRatio.includes(":")) {
-            const baseRatio = aspectRatio.replace("-hd", "")
-            return baseRatio.replace(":", "/")
-        }
-        return "1/1"
-    }, [aspectRatio])
+        const aspectRatio = image.aspectRatio || "1:1"
+        const cssAspectRatio = useMemo(() => {
+            if (aspectRatio.includes("x")) {
+                const [width, height] = aspectRatio.split("x").map(Number)
+                return `${width}/${height}`
+            }
+            if (aspectRatio.includes(":")) {
+                const baseRatio = aspectRatio.replace("-hd", "")
+                return baseRatio.replace(":", "/")
+            }
+            return "1/1"
+        }, [aspectRatio])
 
-    const { rows, cols } = useMemo(() => {
-        const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
-        const baseSize = 20
-        if (widthRatio >= heightRatio) {
-            const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
-            return { rows: baseSize, cols: calculatedCols }
-        }
-        const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
-        return { rows: calculatedRows, cols: baseSize }
-    }, [cssAspectRatio])
+        const { rows, cols } = useMemo(() => {
+            const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
+            const baseSize = 20
+            if (widthRatio >= heightRatio) {
+                const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
+                return { rows: baseSize, cols: calculatedCols }
+            }
+            const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
+            return { rows: calculatedRows, cols: baseSize }
+        }, [cssAspectRatio])
 
-    if (isError) {
-        return (
-            <div
-                className="group relative overflow-hidden rounded-xl border bg-muted/50"
-                style={{ aspectRatio: cssAspectRatio }}
-            >
-                <div className="flex h-full items-center justify-center">
-                    <div className="text-center">
-                        <ImageOff className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                        <p className="text-muted-foreground text-sm">Failed to load</p>
+        if (isError) {
+            return (
+                <div
+                    className="group relative overflow-hidden rounded-xl border bg-muted/50"
+                    style={{ aspectRatio: cssAspectRatio }}
+                >
+                    <div className="flex h-full items-center justify-center">
+                        <div className="text-center">
+                            <ImageOff className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                            <p className="text-muted-foreground text-sm">Failed to load</p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )
+        }
+
+        return (
+            <button
+                type="button"
+                className="group relative w-full appearance-none overflow-hidden rounded-xl border bg-background text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ aspectRatio: cssAspectRatio }}
+                onClick={onClick}
+            >
+                {!isLoaded && (
+                    <div className="absolute inset-0 z-10 bg-background">
+                        {" "}
+                        <ImageSkeleton
+                            rows={rows}
+                            cols={cols}
+                            dotSize={3}
+                            gap={4}
+                            loadingDuration={99999}
+                            autoLoop={false}
+                            className="h-full w-full border-0 bg-transparent"
+                        />
+                    </div>
+                )}
+                <img
+                    src={imageUrl}
+                    alt={image.prompt || "AI generation"}
+                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                    loading="lazy"
+                />
+                <div className="absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                    <div className="line-clamp-2 text-white text-xs">
+                        <p>{image.prompt || "No prompt"}</p>
+                    </div>
+                </div>
+            </button>
         )
     }
-
-    return (
-        <div
-            className="group relative cursor-pointer overflow-hidden rounded-xl border bg-background"
-            style={{ aspectRatio: cssAspectRatio }}
-            onClick={onClick}
-        >
-            {!isLoaded && (
-                <div className="absolute inset-0 z-10 bg-background">
-                    <ImageSkeleton
-                        rows={rows}
-                        cols={cols}
-                        dotSize={3}
-                        gap={4}
-                        loadingDuration={99999}
-                        autoLoop={false}
-                        className="h-full w-full border-0 bg-transparent"
-                    />
-                </div>
-            )}
-            <img
-                src={imageUrl}
-                alt={image.prompt || "AI generation"}
-                className={`absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                loading="lazy"
-            />
-            <div className="absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-                <div className="line-clamp-2 text-white text-xs">
-                    <p>{image.prompt || "No prompt"}</p>
-                </div>
-            </div>
-        </div>
-    )
-})
+)
 GeneratedImageItem.displayName = "GeneratedImageItem"
 
 function LibraryPage() {
@@ -166,7 +171,7 @@ function LibraryPage() {
         }
     }, [session.user?.id, migrateImages])
 
-    const [selectedImage, setSelectedImage] = useState<any | null>(null)
+    const [selectedImage, setSelectedImage] = useState<Doc<"generatedImages"> | null>(null)
 
     if (!session.user?.id) {
         return (
