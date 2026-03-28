@@ -24,6 +24,7 @@ export const SUPPORTED_CODE_EXTENSIONS = [
     ".jsx",
     ".ts",
     ".tsx",
+    ".sql",
     ".py",
     ".java",
     ".c",

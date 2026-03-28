@@ -126,7 +126,7 @@ export function FullPageDropOverlay({ onDrop, className }: FullPageDropOverlayPr
                         Drop a file here to attach it to your message
                     </p>
                     <p className="mt-2 text-muted-foreground/70 text-xs">
-                        Accepted file types: Text, PDF, PNG, JPEG, GIF, WebP, SVG, Code
+                        Accepted file types: Text, SQL, PDF, PNG, JPEG, GIF, WebP, SVG, Code
                     </p>
                 </div>
             </div>
