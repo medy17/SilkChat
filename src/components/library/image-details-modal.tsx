@@ -17,8 +17,16 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog"
+import {
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerTitle
+} from "@/components/ui/drawer"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { getExpandedImageUrl, getGeneratedImageProxyUrl } from "@/lib/generated-image-urls"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -57,6 +65,7 @@ function getAspectRatioValue(aspectRatio: string) {
 }
 
 export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalProps) {
+    const isMobile = useIsMobile()
     const { models } = useSharedModels()
     const deleteImage = useAction(api.images_node.deleteGeneratedImage)
     const metadata = useQuery(
@@ -211,6 +220,151 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
         }
     }
 
+    const sharedAlertDialog = (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Image</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Delete this generated image from your library? This will remove the stored
+                        file and cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                        {isDeleting ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
+
+    if (isMobile) {
+        return (
+            <>
+                <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                    <DrawerContent className="flex h-[92vh] max-h-[92vh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
+                        <DrawerHeader className="sr-only">
+                            <DrawerTitle>Image Details</DrawerTitle>
+                            <DrawerDescription>
+                                Viewing details of a generated image.
+                            </DrawerDescription>
+                        </DrawerHeader>
+
+                        {/* Top: Image Area */}
+                        <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/20 p-4 pt-8">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-3 right-3 z-50 h-8 w-8 rounded-full bg-background/50 backdrop-blur-md"
+                                onClick={onClose}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                            {loadState !== "ready" && (
+                                <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                            )}
+                            {loadState !== "ready" && (
+                                <ImageLoadIndicator complete={loadState === "revealing"} />
+                            )}
+                            <img
+                                src={imageUrl}
+                                alt={image.prompt || "Generated Image"}
+                                className={cn(
+                                    "max-h-full max-w-full rounded-lg object-contain shadow-sm transition-all duration-500",
+                                    loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
+                                    loadState === "revealing" && "scale-[1.01] opacity-100 blur-md",
+                                    loadState === "ready" && "scale-100 opacity-100 blur-0"
+                                )}
+                                style={{ aspectRatio: cssAspectRatio }}
+                                onLoad={handleImageLoad}
+                                onError={handleImageError}
+                            />
+                        </div>
+
+                        {/* Bottom: Details Area */}
+                        <div className="flex max-h-[50vh] shrink-0 flex-col border-border/60 border-t bg-background/95 backdrop-blur-md">
+                            <div className="flex-1 space-y-6 overflow-y-auto p-5">
+                                <div>
+                                    <h3 className="mb-2 font-semibold text-xl">Prompt</h3>
+                                    <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
+                                        {image.prompt || "No prompt available."}
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-border/60 border-t pt-2">
+                                    <div>
+                                        <h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+                                            Model
+                                        </h4>
+                                        <p className="font-medium text-xs">
+                                            {model?.name || image.modelId || "Unknown"}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+                                            Aspect Ratio
+                                        </h4>
+                                        <p className="font-medium text-xs">
+                                            {image.aspectRatio || "Unknown"}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+                                            Resolution
+                                        </h4>
+                                        <p className="font-medium text-xs">{resolutionLabel}</p>
+                                    </div>
+                                    <div>
+                                        <h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+                                            Date
+                                        </h4>
+                                        <p className="font-medium text-xs">{formattedDate}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="border-border/60 border-t bg-background p-4">
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        variant="outline"
+                                        className="h-10 flex-1 text-xs"
+                                        onClick={handleViewFullResolution}
+                                    >
+                                        <ExternalLink className="mr-1.5 h-4 w-4" />
+                                        Full Res
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        className="h-10 flex-1 text-xs"
+                                        onClick={handleDownload}
+                                    >
+                                        <Download className="mr-1.5 h-4 w-4" />
+                                        Download
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-10 w-10 shrink-0"
+                                        onClick={() => setShowDeleteDialog(true)}
+                                        disabled={isDeleting}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </DrawerContent>
+                </Drawer>
+                {sharedAlertDialog}
+            </>
+        )
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
@@ -352,27 +506,7 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
                     </div>
                 </div>
             </DialogContent>
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Image</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Delete this generated image from your library? This will remove the
-                            stored file and cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isDeleting ? "Deleting..." : "Delete"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {sharedAlertDialog}
         </Dialog>
     )
 }
