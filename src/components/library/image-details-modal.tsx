@@ -32,16 +32,7 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
     const [isDeleting, setIsDeleting] = useState(false)
     const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
     const revealTimeoutRef = useRef<number | null>(null)
-
-    if (!image) return null
-
-    const imageUrl = getExpandedImageUrl({
-        storageKey: image.storageKey,
-        aspectRatio: image.aspectRatio
-    })
-    const fullResolutionUrl = metadata?.url || getGeneratedImageProxyUrl(image.storageKey)
-    const model = models.find((m) => m.id === image.modelId)
-    const aspectRatio = image.aspectRatio || "1:1"
+    const aspectRatio = image?.aspectRatio || "1:1"
     const cssAspectRatio = useMemo(() => {
         if (aspectRatio.includes("x")) {
             const [width, height] = aspectRatio.split("x").map(Number)
@@ -55,6 +46,8 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
     }, [aspectRatio])
 
     useEffect(() => {
+        if (!image) return
+
         setLoadState("loading")
 
         return () => {
@@ -62,7 +55,16 @@ export function ImageDetailsModal({ image, isOpen, onClose }: ImageDetailsModalP
                 window.clearTimeout(revealTimeoutRef.current)
             }
         }
-    }, [image._id])
+    }, [image?._id])
+
+    if (!image) return null
+
+    const imageUrl = getExpandedImageUrl({
+        storageKey: image.storageKey,
+        aspectRatio: image.aspectRatio
+    })
+    const fullResolutionUrl = metadata?.url || getGeneratedImageProxyUrl(image.storageKey)
+    const model = models.find((m) => m.id === image.modelId)
 
     const handleImageLoad = () => {
         setLoadState("revealing")
