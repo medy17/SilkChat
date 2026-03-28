@@ -312,7 +312,6 @@ export const MultimodalInput = forwardRef<
     } = useVoiceRecorder({
         onTranscript: (text: string) => {
             // Insert transcribed text into the input
-            console.log("🎤", promptInputRef.current)
             if (promptInputRef.current) {
                 const currentValue = promptInputRef.current.getValue()
                 const newValue = currentValue ? `${currentValue} ${text}` : text

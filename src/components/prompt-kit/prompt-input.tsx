@@ -41,6 +41,7 @@ export type PromptInputRef = {
     setValue: (value: string) => void
     clear: () => void
     focus: () => void
+    resize: () => void
 }
 
 type PromptInputProps = {
@@ -54,6 +55,7 @@ type PromptInputProps = {
 const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
     ({ className, isLoading = false, maxHeight = 240, onSubmit, children }, ref) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null)
+        const resizeFrameRef = useRef<number | null>(null)
         const resizeTextarea = useCallback(
             (value?: string) => {
                 const textarea = textareaRef.current
@@ -74,6 +76,23 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
             },
             [maxHeight]
         )
+        const scheduleResize = useCallback(
+            (value?: string) => {
+                if (typeof window === "undefined") return
+
+                if (resizeFrameRef.current !== null) {
+                    window.cancelAnimationFrame(resizeFrameRef.current)
+                }
+
+                resizeFrameRef.current = window.requestAnimationFrame(() => {
+                    resizeFrameRef.current = window.requestAnimationFrame(() => {
+                        resizeFrameRef.current = null
+                        resizeTextarea(value)
+                    })
+                })
+            },
+            [resizeTextarea]
+        )
 
         useImperativeHandle(
             ref,
@@ -83,25 +102,39 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                     if (textareaRef.current) {
                         textareaRef.current.value = value
                         resizeTextarea(value)
+                        scheduleResize(value)
                     }
                 },
                 clear: () => {
                     if (textareaRef.current) {
                         textareaRef.current.value = ""
                         resizeTextarea("")
+                        scheduleResize("")
                         localStorage.removeItem("user-input")
                     }
                 },
                 focus: () => {
                     textareaRef.current?.focus()
+                },
+                resize: () => {
+                    resizeTextarea()
+                    scheduleResize()
                 }
             }),
-            [resizeTextarea]
+            [resizeTextarea, scheduleResize]
         )
 
         useEffect(() => {
             resizeTextarea()
         }, [resizeTextarea])
+
+        useEffect(() => {
+            return () => {
+                if (resizeFrameRef.current !== null) {
+                    window.cancelAnimationFrame(resizeFrameRef.current)
+                }
+            }
+        }, [])
 
         return (
             <TooltipProvider>
