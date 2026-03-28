@@ -6,7 +6,30 @@ import type { DataModel, Id } from "../_generated/dataModel"
 import { r2 } from "../attachments"
 import { getGoogleAccessToken } from "../lib/google_auth"
 import { getGoogleAuthMode, getGoogleVertexConfig } from "../lib/google_provider"
-import { type ImageSize, MODELS_SHARED } from "../lib/models"
+import { type ImageResolution, type ImageSize, MODELS_SHARED } from "../lib/models"
+
+const GOOGLE_MINIMUM_SAFETY_SETTINGS = [
+    {
+        category: "HARM_CATEGORY_HATE_SPEECH",
+        threshold: "OFF"
+    },
+    {
+        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+        threshold: "OFF"
+    },
+    {
+        category: "HARM_CATEGORY_HARASSMENT",
+        threshold: "OFF"
+    },
+    {
+        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold: "OFF"
+    },
+    {
+        category: "HARM_CATEGORY_CIVIC_INTEGRITY",
+        threshold: "OFF"
+    }
+] as const
 
 const b64Lookup = new Uint8Array(256).fill(255)
 const b64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -34,6 +57,15 @@ function base64ToUint8Array(base64: string): Uint8Array {
     return bytes
 }
 
+function uint8ArrayToBase64(bytes: Uint8Array | ArrayBuffer): string {
+    const uint8 = new Uint8Array(bytes)
+    let binary = ""
+    for (let i = 0; i < uint8.byteLength; i++) {
+        binary += String.fromCharCode(uint8[i])
+    }
+    return btoa(binary)
+}
+
 export interface ImageGenerationResult {
     assets: {
         imageUrl: string
@@ -47,19 +79,23 @@ export interface ImageGenerationResult {
 export async function generateAndStoreImage({
     prompt,
     imageSize: requestedImageSize,
+    imageResolution,
     imageModel,
     modelId,
     userId,
     threadId,
-    actionCtx
+    actionCtx,
+    referenceImageKeys
 }: {
     prompt: string
     imageSize: ImageSize
+    imageResolution?: ImageResolution
     imageModel: ImageModelV3
     modelId: string
     userId: string
     threadId?: Id<"threads">
     actionCtx: GenericActionCtx<DataModel>
+    referenceImageKeys?: string[]
 }): Promise<ImageGenerationResult> {
     console.log("[cvx][image_generation] Starting image generation")
 
@@ -79,7 +115,18 @@ export async function generateAndStoreImage({
         requestedImageSize = fallbackSize
     }
 
+    let requestedImageResolution = imageResolution
+    if (
+        requestedImageResolution &&
+        sharedModel.supportedImageResolutions?.length &&
+        !sharedModel.supportedImageResolutions.includes(requestedImageResolution)
+    ) {
+        console.warn("[cvx][image_generation] Unsupported image resolution, using default")
+        requestedImageResolution = sharedModel.supportedImageResolutions[0]
+    }
+
     const imageSize = requestedImageSize
+    const hasReferenceImages = (referenceImageKeys?.length ?? 0) > 0
 
     // Determine if this model needs resolution format (like GPT Image 1)
     const needsResolution = imageSize.includes("x")
@@ -108,6 +155,12 @@ export async function generateAndStoreImage({
         const authMode = getGoogleAuthMode("internal")
         const isVertex = authMode === "vertex" && imageModel.provider?.includes("google")
 
+        if (hasReferenceImages && !isVertex) {
+            throw new Error(
+                "Reference images are currently supported only for Google Vertex image models"
+            )
+        }
+
         if (isVertex) {
             console.log("[cvx][image_generation] Using direct Vertex API fetch to avoid ai-sdk OOM")
             // Fetch directly using REST API
@@ -126,11 +179,50 @@ export async function generateAndStoreImage({
             // Gemini models use 'generateContent'
             const url = `${baseUrl}/v1/projects/${vertexConfig.project}/locations/${location}/publishers/google/models/${modelId}:generateContent`
 
+            const referenceParts =
+                referenceImageKeys && referenceImageKeys.length > 0
+                    ? await Promise.all(
+                          referenceImageKeys.map(async (key) => {
+                              const metadata = await r2.getMetadata(actionCtx, key)
+                              if (!metadata) {
+                                  throw new Error(`Reference image not found: ${key}`)
+                              }
+                              if (metadata.authorId && metadata.authorId !== userId) {
+                                  throw new Error(
+                                      "Reference image does not belong to the current user"
+                                  )
+                              }
+
+                              const fileUrl = await r2.getUrl(key)
+                              const response = await fetch(fileUrl)
+                              if (!response.ok) {
+                                  throw new Error(
+                                      `Failed to fetch reference image (${response.status})`
+                                  )
+                              }
+
+                              const mimeType = response.headers.get("content-type") || "image/png"
+                              if (!mimeType.startsWith("image/")) {
+                                  throw new Error("Reference attachment must be an image")
+                              }
+
+                              const arrayBuffer = await response.arrayBuffer()
+                              return {
+                                  inlineData: {
+                                      mimeType,
+                                      data: uint8ArrayToBase64(arrayBuffer)
+                                  }
+                              }
+                          })
+                      )
+                    : []
+
             const body = {
                 contents: [
                     {
                         role: "user",
                         parts: [
+                            ...referenceParts,
                             {
                                 text: prompt
                             }
@@ -138,10 +230,14 @@ export async function generateAndStoreImage({
                     }
                 ],
                 generationConfig: {
-                    responseModalities: ["IMAGE"]
-                    // We would ideally map aspectRatio here if Vertex supports it in generationConfig
-                    // e.g., imageConfig: { aspectRatio } but for now let's just request the image.
-                }
+                    responseModalities: ["TEXT", "IMAGE"],
+                    imageConfig: {
+                        aspectRatio: aspectRatio || "auto",
+                        imageSize: requestedImageResolution || "1K",
+                        outputMimeType: "image/png"
+                    }
+                },
+                safetySettings: GOOGLE_MINIMUM_SAFETY_SETTINGS
             }
 
             const res = await fetch(url, {

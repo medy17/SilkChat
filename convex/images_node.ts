@@ -8,7 +8,7 @@ import { action } from "./_generated/server"
 import { getModel } from "./chat_http/get_model"
 import { generateAndStoreImage } from "./chat_http/image_generation"
 import { getUserIdentity } from "./lib/identity"
-import type { ImageSize } from "./lib/models"
+import type { ImageResolution, ImageSize } from "./lib/models"
 
 export const generateStandaloneImage = action({
     args: {
@@ -27,17 +27,15 @@ export const generateStandaloneImage = action({
 
         const { model } = modelData
 
-        // Determine imageSize.
-        // If resolution is provided, use it. Otherwise use aspectRatio, or fallback.
-        const imageSize = args.resolution || args.aspectRatio || "1:1"
-
         const result = await generateAndStoreImage({
             prompt: args.prompt,
-            imageSize: imageSize as ImageSize,
+            imageSize: (args.aspectRatio || "1:1") as ImageSize,
+            imageResolution: args.resolution as ImageResolution | undefined,
             imageModel: model as ImageModelV3,
             modelId: args.modelId,
             userId: user.id,
-            actionCtx: ctx
+            actionCtx: ctx,
+            referenceImageKeys: args.referenceImageIds
         })
 
         const insertedIds: string[] = []

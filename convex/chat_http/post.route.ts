@@ -486,6 +486,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         const result = await generateAndStoreImage({
                             prompt,
                             imageSize,
+                            imageResolution: body.imageResolution,
                             imageModel: model,
                             modelId: body.model,
                             userId: user.id,

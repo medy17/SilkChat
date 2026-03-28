@@ -1,11 +1,15 @@
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
+import { useToken } from "@/hooks/auth-hooks"
+import { resolveJwtToken } from "@/lib/auth-token"
+import { browserEnv } from "@/lib/browser-env"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
 import { Loader2, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
 export function ImageGenerationSidebar({
     onGenerateStart,
@@ -15,6 +19,7 @@ export function ImageGenerationSidebar({
     onGenerateComplete?: (id: string) => void
 } = {}) {
     const { models } = useSharedModels()
+    const { token } = useToken()
     const imageModels = models.filter((m) => m.mode === "image")
 
     const [prompt, setPrompt] = useState("")
@@ -26,6 +31,11 @@ export function ImageGenerationSidebar({
     const [referenceFiles, setReferenceFiles] = useState<{ file: File; preview: string }[]>([])
     const [showGradient, setShowGradient] = useState(false)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const referenceFilesRef = useRef(referenceFiles)
+
+    useEffect(() => {
+        referenceFilesRef.current = referenceFiles
+    }, [referenceFiles])
 
     useEffect(() => {
         const container = scrollContainerRef.current
@@ -60,6 +70,14 @@ export function ImageGenerationSidebar({
     const generateImage = useAction(api.images_node.generateStandaloneImage)
     const [isGenerating, setIsGenerating] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        return () => {
+            for (const ref of referenceFilesRef.current) {
+                URL.revokeObjectURL(ref.preview)
+            }
+        }
+    }, [])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || [])
@@ -164,7 +182,48 @@ export function ImageGenerationSidebar({
 
         setIsGenerating(true)
         try {
-            await Promise.allSettled(
+            const uploadedReferenceKeys =
+                referenceFiles.length > 0
+                    ? await Promise.all(
+                          referenceFiles.map(async ({ file }) => {
+                              const jwt = await resolveJwtToken(token)
+                              if (!jwt) {
+                                  throw new Error("Authentication token unavailable")
+                              }
+
+                              const formData = new FormData()
+                              formData.append("file", file)
+                              formData.append("fileName", file.name)
+
+                              const response = await fetch(
+                                  `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+                                  {
+                                      method: "POST",
+                                      body: formData,
+                                      headers: {
+                                          Authorization: `Bearer ${jwt}`
+                                      }
+                                  }
+                              )
+
+                              const payload = (await response.json()) as {
+                                  error?: string
+                                  key?: string
+                              }
+
+                              if (!response.ok || !payload.key) {
+                                  throw new Error(
+                                      payload.error ||
+                                          `Failed to upload reference image "${file.name}"`
+                                  )
+                              }
+
+                              return payload.key
+                          })
+                      )
+                    : []
+
+            const results = await Promise.allSettled(
                 selectedModelIds.map(async (modelId) => {
                     const model = imageModels.find((m) => m.id === modelId)
                     const supportsResolution =
@@ -181,6 +240,7 @@ export function ImageGenerationSidebar({
                             prompt,
                             modelId,
                             aspectRatio,
+                            referenceImageIds: uploadedReferenceKeys,
                             ...(supportsResolution ? { resolution } : {})
                         })
                     } finally {
@@ -190,8 +250,18 @@ export function ImageGenerationSidebar({
                     }
                 })
             )
+
+            const failedResult = results.find(
+                (result): result is PromiseRejectedResult => result.status === "rejected"
+            )
+            if (failedResult) {
+                throw failedResult.reason
+            }
         } catch (error) {
             console.error("Failed to generate image:", error)
+            toast.error(
+                error instanceof Error ? error.message : "Failed to generate image with references"
+            )
         } finally {
             setIsGenerating(false)
         }
