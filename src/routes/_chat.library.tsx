@@ -35,28 +35,11 @@ const IMAGES_PER_PAGE = 50
 type ImageSortOption = "newest" | "oldest"
 type ImageLoadPlaceholder = "tiles" | "skeleton"
 
-const GalleryImageSkeleton = memo(({ aspectRatio }: { aspectRatio: string }) => {
-    const cssAspectRatio = useMemo(() => {
-        if (aspectRatio.includes("x")) {
-            const [width, height] = aspectRatio.split("x").map(Number)
-            return `${width}/${height}`
-        }
-        if (aspectRatio.includes(":")) {
-            const baseRatio = aspectRatio.replace("-hd", "")
-            return baseRatio.replace(":", "/")
-        }
-        return "1/1"
-    }, [aspectRatio])
-
-    return (
-        <div
-            className="overflow-hidden rounded-xl border border-border/60 bg-background"
-            style={{ aspectRatio: cssAspectRatio }}
-        >
-            <Skeleton className="h-full w-full rounded-none bg-accent/70" />
-        </div>
-    )
-})
+const GalleryImageSkeleton = memo(() => (
+    <div className="h-full w-full overflow-hidden rounded-xl border border-border/60 bg-background">
+        <Skeleton className="h-full w-full rounded-none bg-accent/70" />
+    </div>
+))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
 
 const PendingImageItem = memo(({ aspectRatio }: { aspectRatio: string }) => {
@@ -192,7 +175,7 @@ const GeneratedImageItem = memo(
                                 className="h-full w-full border-0 bg-transparent"
                             />
                         ) : (
-                            <GalleryImageSkeleton aspectRatio={aspectRatio} />
+                            <GalleryImageSkeleton />
                         )}
                     </div>
                 )}
