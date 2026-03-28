@@ -36,8 +36,13 @@ type ImageSortOption = "newest" | "oldest"
 type ImageLoadPlaceholder = "tiles" | "skeleton"
 
 const GalleryImageSkeleton = memo(() => (
-    <div className="h-full w-full overflow-hidden rounded-xl border border-border/60 bg-background">
-        <Skeleton className="h-full w-full rounded-none bg-accent/70" />
+    <div className="relative h-full w-full overflow-hidden rounded-xl border border-border/60 bg-muted/40">
+        <div className="absolute inset-0 bg-gradient-to-br from-muted/90 via-muted/70 to-accent/50" />
+        <div className="absolute inset-0 backdrop-blur-[1px]" />
+        <div className="absolute inset-x-0 bottom-0 space-y-2 p-3">
+            <Skeleton className="h-3 w-4/5 bg-background/70" />
+            <Skeleton className="h-3 w-3/5 bg-background/55" />
+        </div>
     </div>
 ))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
