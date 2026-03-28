@@ -8,7 +8,7 @@ type Env = {
 }
 
 export const browserEnv = (key: keyof Env) => {
-    const value = (import.meta as unknown as { env: Env }).env[key]
+    const value = (import.meta as unknown as { env: Env }).env[key]?.trim()
     if (!value) {
         throw new Error(`Missing environment variable(browser): ${key}`)
     }
@@ -16,4 +16,4 @@ export const browserEnv = (key: keyof Env) => {
 }
 
 export const optionalBrowserEnv = (key: keyof Env) =>
-    (import.meta as unknown as { env: Env }).env[key]
+    (import.meta as unknown as { env: Env }).env[key]?.trim()
