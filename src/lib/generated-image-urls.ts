@@ -92,7 +92,7 @@ export const getLibraryImageSources = ({
                 storageKey,
                 aspectRatio,
                 longEdge: 576,
-                quality: 70
+                quality: 80
             })} ${smallWidth}w`,
             `${getOptimizedGeneratedImageUrl({
                 storageKey,
