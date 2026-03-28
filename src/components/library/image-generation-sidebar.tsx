@@ -10,17 +10,13 @@ import { useAction } from "convex/react"
 import { Loader2, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { useGenerationStore } from "./generation-store"
 
-export function ImageGenerationSidebar({
-    onGenerateStart,
-    onGenerateComplete
-}: {
-    onGenerateStart?: (info: { id: string; aspectRatio: string }) => void
-    onGenerateComplete?: (id: string) => void
-} = {}) {
+export function ImageGenerationSidebar() {
     const { models } = useSharedModels()
     const { token } = useToken()
     const imageModels = models.filter((m) => m.mode === "image")
+    const { addPendingGeneration, removePendingGeneration } = useGenerationStore()
 
     const [prompt, setPrompt] = useState("")
     const [selectedModelIds, setSelectedModelIds] = useState<string[]>(
@@ -231,9 +227,7 @@ export function ImageGenerationSidebar({
                         model.supportedImageResolutions.length > 0
 
                     const id = Math.random().toString(36).substring(2, 11)
-                    if (onGenerateStart) {
-                        onGenerateStart({ id, aspectRatio })
-                    }
+                    addPendingGeneration({ id, aspectRatio })
 
                     try {
                         await generateImage({
@@ -244,9 +238,7 @@ export function ImageGenerationSidebar({
                             ...(supportsResolution ? { resolution } : {})
                         })
                     } finally {
-                        if (onGenerateComplete) {
-                            onGenerateComplete(id)
-                        }
+                        removePendingGeneration(id)
                     }
                 })
             )
@@ -270,7 +262,7 @@ export function ImageGenerationSidebar({
     const aspectRatios = ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"]
 
     return (
-        <div className="custom-scrollbar flex h-full w-72 shrink-0 flex-col border-r bg-background text-foreground text-sm">
+        <div className="custom-scrollbar flex h-full w-full flex-col text-foreground text-sm">
             {/* Prompt Section */}
             <div className="space-y-3 border-b p-4">
                 <div className="flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
@@ -542,13 +534,16 @@ export function ImageGenerationSidebar({
                         </div>
                     </div>
                 </div>
-                {showGradient && (
-                    <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-background via-background/60 to-transparent" />
-                )}
+                <div
+                    className={cn(
+                        "pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent transition-opacity duration-300",
+                        showGradient ? "opacity-100" : "opacity-0"
+                    )}
+                />
             </div>
 
             {/* Bottom Generate Button */}
-            <div className="sticky bottom-0 z-10 border-t bg-background p-4">
+            <div className="sticky bottom-0 z-10 border-t bg-sidebar p-4">
                 <Button
                     onClick={handleGenerate}
                     disabled={

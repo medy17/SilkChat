@@ -1,5 +1,5 @@
+import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
-import { ImageGenerationSidebar } from "@/components/library/image-generation-sidebar"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
@@ -260,10 +260,7 @@ function LibraryPage() {
     )
     const totalImages = useQuery(api.images.getGeneratedImagesCount, session.user?.id ? {} : "skip")
 
-    const [pendingGenerations, setPendingGenerations] = useState<
-        { id: string; aspectRatio: string }[]
-    >([])
-    const [completedGenerationCount, setCompletedGenerationCount] = useState(0)
+    const { pendingGenerations, completedGenerationCount } = useGenerationStore()
     const [animatedImageIds, setAnimatedImageIds] = useState<string[]>([])
     const previousPageImageIdsRef = useRef<string[]>([])
     const previousGenerationCountRef = useRef(0)
@@ -379,14 +376,6 @@ function LibraryPage() {
 
     return (
         <div className="flex h-dvh w-full overflow-hidden">
-            <ImageGenerationSidebar
-                onGenerateStart={(info) => setPendingGenerations((prev) => [info, ...prev])}
-                onGenerateComplete={(id) => {
-                    setPendingGenerations((prev) => prev.filter((p) => p.id !== id))
-                    setCompletedGenerationCount((prev) => prev + 1)
-                }}
-            />
-
             <div ref={galleryRef} className="flex-1 overflow-y-auto p-6">
                 <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>

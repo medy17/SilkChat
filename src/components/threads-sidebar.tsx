@@ -22,11 +22,13 @@ import {
     matchesNewChatShortcut
 } from "@/lib/keyboard-shortcuts"
 import { exportMultipleThreads, exportSingleThread } from "@/lib/thread-export-client"
-import { useNavigate, useParams } from "@tanstack/react-router"
+import { cn } from "@/lib/utils"
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router"
 import { useConvex, useConvexAuth, useMutation, useQuery } from "convex/react"
 import type { MouseEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { ImageGenerationSidebar } from "./library/image-generation-sidebar"
 import { ImportThreadDialog } from "./threads/import-thread-button"
 import { BulkDeleteThreadsDialog, BulkMoveThreadsDialog } from "./threads/sidebar-bulk-dialogs"
 import {
@@ -132,6 +134,8 @@ export function ThreadsSidebar() {
     const importJobStatusRef = useRef<Record<string, string>>({})
     const { data: session, isPending: isSessionPending } = authClient.useSession()
     const navigate = useNavigate()
+    const location = useLocation()
+    const isLibraryMode = location.pathname.startsWith("/library")
     const params = useParams({ strict: false }) as { threadId?: string }
     const isMobile = useIsMobile()
     const { setOpenMobile } = useSidebar()
@@ -847,20 +851,45 @@ export function ThreadsSidebar() {
                     onNewChat={handleNewChatClick}
                     onImportClick={handleImportClick}
                     onSearchClick={handleSearchClick}
+                    isLibraryMode={isLibraryMode}
                 />
-                <SidebarContent ref={scrollContainerRef} className="scrollbar-hide">
-                    <PrototypeCreditsSection
-                        shouldShow={shouldShowPrototypeCredits}
-                        summary={prototypeCreditSummary}
-                        shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                        isUpdatingCreditPlan={isUpdatingCreditPlan}
-                        onSetCreditPlan={handleSetCreditPlan}
-                    />
-                    {renderContent()}
-                </SidebarContent>
-                {showGradient && (
-                    <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent" />
-                )}
+                <div className="relative flex min-h-0 flex-1 overflow-hidden">
+                    <SidebarContent
+                        ref={scrollContainerRef}
+                        className={cn(
+                            "scrollbar-hide absolute inset-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            isLibraryMode
+                                ? "-translate-x-4 pointer-events-none opacity-0"
+                                : "translate-x-0 opacity-100"
+                        )}
+                    >
+                        <PrototypeCreditsSection
+                            shouldShow={shouldShowPrototypeCredits}
+                            summary={prototypeCreditSummary}
+                            shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                            isUpdatingCreditPlan={isUpdatingCreditPlan}
+                            onSetCreditPlan={handleSetCreditPlan}
+                        />
+                        {renderContent()}
+                    </SidebarContent>
+
+                    <div
+                        className={cn(
+                            "absolute inset-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            isLibraryMode
+                                ? "pointer-events-auto translate-x-0 opacity-100"
+                                : "pointer-events-none translate-x-4 opacity-0"
+                        )}
+                    >
+                        <ImageGenerationSidebar />
+                    </div>
+                </div>
+                <div
+                    className={cn(
+                        "pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent transition-opacity duration-300",
+                        showGradient && !isLibraryMode ? "opacity-100" : "opacity-0"
+                    )}
+                />
                 {isSelectionMode && (
                     <SelectionToolbar
                         selectedThreads={selectedThreads}
