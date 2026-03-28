@@ -16,6 +16,106 @@ export interface VoiceRecorderState {
     waveformData: number[]
 }
 
+const TARGET_TRANSCRIPTION_SAMPLE_RATE = 16000
+
+const shouldNormalizeForTranscription = (mimeType: string) =>
+    mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")
+
+const mixToMono = (audioBuffer: AudioBuffer) => {
+    if (audioBuffer.numberOfChannels === 1) {
+        return audioBuffer.getChannelData(0)
+    }
+
+    const mono = new Float32Array(audioBuffer.length)
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const channelData = audioBuffer.getChannelData(channel)
+        for (let i = 0; i < channelData.length; i++) {
+            mono[i] += channelData[i] / audioBuffer.numberOfChannels
+        }
+    }
+
+    return mono
+}
+
+const encodeWavMono16Bit = (samples: Float32Array, sampleRate: number) => {
+    const bytesPerSample = 2
+    const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample)
+    const view = new DataView(buffer)
+
+    const writeString = (offset: number, value: string) => {
+        for (let i = 0; i < value.length; i++) {
+            view.setUint8(offset + i, value.charCodeAt(i))
+        }
+    }
+
+    writeString(0, "RIFF")
+    view.setUint32(4, 36 + samples.length * bytesPerSample, true)
+    writeString(8, "WAVE")
+    writeString(12, "fmt ")
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, sampleRate, true)
+    view.setUint32(28, sampleRate * bytesPerSample, true)
+    view.setUint16(32, bytesPerSample, true)
+    view.setUint16(34, 16, true)
+    writeString(36, "data")
+    view.setUint32(40, samples.length * bytesPerSample, true)
+
+    let offset = 44
+    for (let i = 0; i < samples.length; i++) {
+        const sample = Math.max(-1, Math.min(1, samples[i]))
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true)
+        offset += bytesPerSample
+    }
+
+    return new Blob([buffer], { type: "audio/wav" })
+}
+
+const normalizeAudioForTranscription = async (audioBlob: Blob) => {
+    if (!shouldNormalizeForTranscription(audioBlob.type)) {
+        return audioBlob
+    }
+
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext
+    const OfflineAudioContextCtor =
+        window.OfflineAudioContext || (window as any).webkitOfflineAudioContext
+
+    if (!AudioContextCtor || !OfflineAudioContextCtor) {
+        return audioBlob
+    }
+
+    const decodeContext = new AudioContextCtor()
+    try {
+        const sourceBytes = await audioBlob.arrayBuffer()
+        const decoded = await decodeContext.decodeAudioData(sourceBytes.slice(0))
+        const monoData = mixToMono(decoded)
+
+        const offlineContext = new OfflineAudioContextCtor(
+            1,
+            Math.ceil(decoded.duration * TARGET_TRANSCRIPTION_SAMPLE_RATE),
+            TARGET_TRANSCRIPTION_SAMPLE_RATE
+        )
+        const monoBuffer = offlineContext.createBuffer(1, monoData.length, decoded.sampleRate)
+        monoBuffer.copyToChannel(monoData, 0)
+
+        const source = offlineContext.createBufferSource()
+        source.buffer = monoBuffer
+        source.connect(offlineContext.destination)
+        source.start(0)
+
+        const rendered = await offlineContext.startRendering()
+        return encodeWavMono16Bit(rendered.getChannelData(0), rendered.sampleRate)
+    } catch (error) {
+        console.warn("Audio normalization failed, uploading original blob:", error)
+        return audioBlob
+    } finally {
+        if (decodeContext.state !== "closed") {
+            await decodeContext.close()
+        }
+    }
+}
+
 // Detect if we're on iOS Safari
 const isIOSSafari = () => {
     const userAgent = navigator.userAgent
@@ -386,8 +486,23 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                     audioBlob.type
                 )
 
+                const normalizedAudioBlob = await normalizeAudioForTranscription(audioBlob)
+                if (normalizedAudioBlob !== audioBlob) {
+                    console.log(
+                        "Normalized audio blob:",
+                        normalizedAudioBlob.size,
+                        "bytes",
+                        "type:",
+                        normalizedAudioBlob.type
+                    )
+                }
+
                 const formData = new FormData()
-                formData.append("audio", audioBlob)
+                formData.append(
+                    "audio",
+                    normalizedAudioBlob,
+                    normalizedAudioBlob.type === "audio/wav" ? "audio.wav" : "audio.bin"
+                )
 
                 const jwt = await resolveJwtToken(tokenRef.current)
                 if (!jwt) {

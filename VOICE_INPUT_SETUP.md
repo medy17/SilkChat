@@ -13,31 +13,33 @@ The voice input functionality has been fully implemented with the following feat
 
 ## Required Configuration
 
-### 1. Set up Groq API Key
+### 1. Set up Google Speech-to-Text credentials
 
-The voice input uses Groq's Whisper API for speech-to-text transcription. You need to:
+The voice input uses Google Cloud Speech-to-Text V2 with `chirp_3`. It uses auto language detection by default, so you do not need to force Kiswahili or another locale.
 
-1. **Get a Groq API Key:**
-   - Visit [Groq Console](https://console.groq.com/)
-   - Create an account or sign in
-   - Generate an API key
+You have two supported configuration paths:
 
-2. **Configure the API Key in Convex:**
+1. **Preferred: configure Google BYOK in the app**
+   - Open `Settings -> Providers`
+   - Enable `Google`
+   - Choose `Vertex AI`
+   - Paste a Google Cloud service account JSON key with access to Speech-to-Text V2
 
-   **For Development:**
+2. **Or configure internal Convex environment variables**
+
+   **For Development / Production:**
    ```bash
-   npx convex env set GROQ_API_KEY your-actual-groq-api-key-here
-   ```
-
-   **For Production:**
-   ```bash
-   npx convex env set GROQ_API_KEY your-actual-groq-api-key-here --prod
+   npx convex env set GOOGLE_VERTEX_CREDENTIALS_JSON '{"type":"service_account",...}'
+   npx convex env set GOOGLE_SPEECH_LOCATION us
    ```
 
    **Or via Convex Dashboard:**
    - Go to your [Convex Dashboard](https://dashboard.convex.dev/)
    - Navigate to your project's Deployment Settings
-   - Add environment variable: `GROQ_API_KEY` with your API key value
+   - Add `GOOGLE_VERTEX_CREDENTIALS_JSON`
+   - Optionally add `GOOGLE_SPEECH_LOCATION` (`us` by default)
+
+`GOOGLE_SPEECH_LOCATION` is intentionally separate from `GOOGLE_VERTEX_LOCATION`. Speech-to-Text V2 uses speech regions such as `us` or `eu`, while Vertex model inference often uses locations like `us-central1`.
 
 ## Testing the Feature
 
@@ -79,7 +81,7 @@ The implementation automatically detects and uses the best supported format:
 
 ## File Size Limits
 
-- Maximum audio file size: **25MB** (Groq free tier limit)
+- Maximum audio file size: **25MB**
 - Recordings are automatically chunked and optimized
 
 ## Troubleshooting
@@ -97,8 +99,9 @@ The implementation automatically detects and uses the best supported format:
    - Try speaking louder and more clearly
 
 3. **"Transcription service error"**
-   - Verify GROQ_API_KEY is set correctly
-   - Check Groq API key is valid and has credits
+   - Verify Google provider is configured in `Vertex AI` mode, not `AI Studio`
+   - Check `GOOGLE_VERTEX_CREDENTIALS_JSON` is valid if using internal credentials
+   - Ensure the Google Cloud project has Speech-to-Text V2 enabled
    - Check network connectivity
 
 4. **"Unauthorized" error**
@@ -123,13 +126,16 @@ The implementation automatically detects and uses the best supported format:
 
 3. **Test microphone** in other applications
 
-4. **Verify API key** in Groq Console
+4. **Verify Google Cloud setup**
+   - Confirm Speech-to-Text V2 is enabled for the project
+   - Confirm the service account can access Speech-to-Text
+   - Confirm `GOOGLE_SPEECH_LOCATION` is set to a valid speech region if you changed it from the default
 
 ## API Usage & Costs
 
-- **Model**: Groq Whisper Large V3 Turbo
-- **Cost**: Check [Groq Pricing](https://groq.com/pricing/) for current rates
-- **Free tier**: Includes generous free usage
+- **Model**: Google Cloud Speech-to-Text V2 `chirp_3`
+- **Behavior**: language auto-detection is enabled by default
+- **Cost**: Check [Google Cloud Speech-to-Text pricing](https://cloud.google.com/speech-to-text/pricing) for current rates
 
 ## Implementation Details
 

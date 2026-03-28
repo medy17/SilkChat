@@ -102,6 +102,7 @@ These variables are read by Convex actions and HTTP routes:
 - `XAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_AI_STUDIO_API_KEY` or Vertex credentials
+- `GOOGLE_SPEECH_LOCATION` for voice transcription region overrides
 - `GROQ_API_KEY`
 - `FAL_API_KEY`
 - search provider keys
