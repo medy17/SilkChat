@@ -74,17 +74,17 @@ export function ImageDetailsModal({
     const isMobile = useIsMobile()
     const { models } = useSharedModels()
     const deleteImage = useAction(api.images_node.deleteGeneratedImage)
-    const metadata = useQuery(
-        api.attachments.getFileMetadata,
-        image ? { key: image.storageKey } : "skip"
-    )
-
     const [localImage, setLocalImage] = useState(image)
     useEffect(() => {
         if (image) {
             setLocalImage(image)
         }
     }, [image])
+
+    const metadata = useQuery(
+        api.attachments.getFileMetadata,
+        localImage ? { key: localImage.storageKey } : "skip"
+    )
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
@@ -288,7 +288,7 @@ export function ImageDetailsModal({
                             )}
                             <img
                                 src={imageUrl}
-                                alt={image.prompt || "Generated Image"}
+                                alt={localImage.prompt || "Generated Image"}
                                 className={cn(
                                     "max-h-full max-w-full rounded-lg object-contain shadow-sm transition-all duration-500",
                                     loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
@@ -307,7 +307,7 @@ export function ImageDetailsModal({
                                 <div>
                                     <h3 className="mb-2 font-semibold text-xl">Prompt</h3>
                                     <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
-                                        {image.prompt || "No prompt available."}
+                                        {localImage.prompt || "No prompt available."}
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-border/60 border-t pt-2">
@@ -316,7 +316,7 @@ export function ImageDetailsModal({
                                             Model
                                         </h4>
                                         <p className="font-medium text-xs">
-                                            {model?.name || image.modelId || "Unknown"}
+                                            {model?.name || localImage.modelId || "Unknown"}
                                         </p>
                                     </div>
                                     <div>
@@ -324,7 +324,7 @@ export function ImageDetailsModal({
                                             Aspect Ratio
                                         </h4>
                                         <p className="font-medium text-xs">
-                                            {image.aspectRatio || "Unknown"}
+                                            {localImage.aspectRatio || "Unknown"}
                                         </p>
                                     </div>
                                     <div>
@@ -427,7 +427,7 @@ export function ImageDetailsModal({
                         <div className="flex h-full w-full items-center justify-center">
                             <img
                                 src={imageUrl}
-                                alt={image.prompt || "Generated Image"}
+                                alt={localImage.prompt || "Generated Image"}
                                 className={cn(
                                     "h-full w-full object-contain transition-all duration-500",
                                     loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
@@ -453,7 +453,7 @@ export function ImageDetailsModal({
                             <div className="mb-6">
                                 <h3 className="mb-3 font-semibold text-2xl">Prompt</h3>
                                 <p className="whitespace-pre-wrap text-base text-muted-foreground leading-7">
-                                    {image.prompt || "No prompt available."}
+                                    {localImage.prompt || "No prompt available."}
                                 </p>
                             </div>
 
@@ -463,14 +463,14 @@ export function ImageDetailsModal({
                                         Model
                                     </h4>
                                     <p className="text-sm">
-                                        {model?.name || image.modelId || "Unknown"}
+                                        {model?.name || localImage.modelId || "Unknown"}
                                     </p>
                                 </div>
                                 <div>
                                     <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
                                         Aspect Ratio
                                     </h4>
-                                    <p className="text-sm">{image.aspectRatio || "Unknown"}</p>
+                                    <p className="text-sm">{localImage.aspectRatio || "Unknown"}</p>
                                 </div>
                                 <div>
                                     <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
