@@ -2,6 +2,13 @@ import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger
+} from "@/components/ui/context-menu"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import {
     Pagination,
@@ -20,15 +27,25 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
-import type { Doc } from "@/convex/_generated/dataModel"
+import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
-import { getLibraryImageSources } from "@/lib/generated-image-urls"
+import { getGeneratedImageProxyUrl, getLibraryImageSources } from "@/lib/generated-image-urls"
 import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
-import { Image as ImageIcon, ImageOff } from "lucide-react"
+import {
+    Check,
+    CheckSquare2,
+    Copy,
+    Download,
+    ExternalLink,
+    Image as ImageIcon,
+    ImageOff,
+    Trash2
+} from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
 export const Route = createFileRoute("/_chat/library")({
     component: LibraryPage
@@ -101,16 +118,31 @@ const GeneratedImageItem = memo(
         image,
         onClick,
         placeholder = "skeleton",
-        onImageSettled
+        onImageSettled,
+        onDelete,
+        isSelected = false,
+        isSelectionMode = false,
+        onToggleSelection,
+        onStartSelection,
+        selectedCount = 0,
+        onBulkDelete
     }: {
         image: Doc<"generatedImages">
         onClick: () => void
         placeholder?: ImageLoadPlaceholder
         onImageSettled?: () => void
+        onDelete?: () => void
+        isSelected?: boolean
+        isSelectionMode?: boolean
+        onToggleSelection?: () => void
+        onStartSelection?: () => void
+        selectedCount?: number
+        onBulkDelete?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
         const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
         const revealTimeoutRef = useRef<number | null>(null)
+        const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
 
         const imageSources = getLibraryImageSources({
             storageKey: image.storageKey,
@@ -130,6 +162,7 @@ const GeneratedImageItem = memo(
                 revealTimeoutRef.current = null
             }, 240)
         }, [onImageSettled])
+
         const handleImageError = useCallback(() => {
             setIsError(true)
             setLoadState("ready")
@@ -168,6 +201,48 @@ const GeneratedImageItem = memo(
             return { rows: calculatedRows, cols: baseSize }
         }, [cssAspectRatio])
 
+        const fullResolutionUrl = metadata?.url || getGeneratedImageProxyUrl(image.storageKey)
+
+        const handleDownload = () => {
+            window.open(fullResolutionUrl, "_blank")
+        }
+
+        const handleCopyImage = async () => {
+            try {
+                const response = await fetch(fullResolutionUrl)
+                const blob = await response.blob()
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [blob.type]: blob
+                    })
+                ])
+                toast.success("Image copied to clipboard")
+            } catch (err) {
+                toast.error("Failed to copy image")
+            }
+        }
+
+        const handleCopyPrompt = () => {
+            if (image.prompt) {
+                navigator.clipboard.writeText(image.prompt)
+                toast.success("Prompt copied to clipboard")
+            }
+        }
+
+        const handleViewFullResolution = () => {
+            window.open(fullResolutionUrl, "_blank")
+        }
+
+        const handleClick = (e: React.MouseEvent) => {
+            if (isSelectionMode) {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleSelection?.()
+            } else {
+                onClick()
+            }
+        }
+
         if (isError) {
             return (
                 <div
@@ -185,54 +260,152 @@ const GeneratedImageItem = memo(
         }
 
         return (
-            <button
-                type="button"
-                className="group relative w-full appearance-none overflow-hidden rounded-xl border bg-background text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                style={{ aspectRatio: cssAspectRatio }}
-                onClick={onClick}
-            >
-                {loadState !== "ready" && (
-                    <div className="absolute inset-0 z-10 bg-background">
-                        {placeholder === "tiles" ? (
-                            <ImageSkeleton
-                                rows={rows}
-                                cols={cols}
-                                dotSize={3}
-                                gap={4}
-                                loadingDuration={99999}
-                                autoLoop={false}
-                                className="h-full w-full border-0 bg-transparent"
-                            />
-                        ) : (
-                            <GalleryImageSkeleton />
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    <button
+                        type="button"
+                        className={cn(
+                            "group relative w-full appearance-none overflow-hidden rounded-xl border bg-background text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                            isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
-                    </div>
-                )}
-                {loadState !== "ready" && (
-                    <ImageLoadIndicator complete={loadState === "revealing"} />
-                )}
-                <img
-                    src={imageSources.src}
-                    srcSet={imageSources.srcSet}
-                    sizes={imageSources.sizes}
-                    alt={image.prompt || "AI generation"}
-                    className={cn(
-                        "absolute inset-0 h-full w-full object-cover transition-all duration-500",
-                        loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
-                        loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
-                        loadState === "ready" &&
-                            "scale-100 opacity-100 blur-0 group-hover:scale-105"
+                        style={{ aspectRatio: cssAspectRatio }}
+                        onClick={handleClick}
+                    >
+                        {loadState !== "ready" && (
+                            <div className="absolute inset-0 z-10 bg-background">
+                                {placeholder === "tiles" ? (
+                                    <ImageSkeleton
+                                        rows={rows}
+                                        cols={cols}
+                                        dotSize={3}
+                                        gap={4}
+                                        loadingDuration={99999}
+                                        autoLoop={false}
+                                        className="h-full w-full border-0 bg-transparent"
+                                    />
+                                ) : (
+                                    <GalleryImageSkeleton />
+                                )}
+                            </div>
+                        )}
+                        {loadState !== "ready" && (
+                            <ImageLoadIndicator complete={loadState === "revealing"} />
+                        )}
+                        <img
+                            src={imageSources.src}
+                            srcSet={imageSources.srcSet}
+                            sizes={imageSources.sizes}
+                            alt={image.prompt || "AI generation"}
+                            className={cn(
+                                "absolute inset-0 h-full w-full object-cover transition-all duration-500",
+                                loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
+                                loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
+                                loadState === "ready" &&
+                                    "scale-100 opacity-100 blur-0 group-hover:scale-105"
+                            )}
+                            onLoad={handleImageLoad}
+                            onError={handleImageError}
+                            loading="lazy"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                            <div className="line-clamp-2 text-white text-xs">
+                                <p>{image.prompt || "No prompt"}</p>
+                            </div>
+                        </div>
+                        {isSelectionMode && (
+                            <div className="pointer-events-none absolute inset-0 z-30 transition-colors duration-200">
+                                <div
+                                    className={cn(
+                                        "absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all duration-200",
+                                        isSelected
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-white/70 bg-black/20 text-transparent"
+                                    )}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "h-3 w-3",
+                                            isSelected ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                </div>
+                                <div
+                                    className={cn(
+                                        "absolute inset-0 transition-colors duration-200",
+                                        isSelected ? "bg-primary/10" : "group-hover:bg-black/10"
+                                    )}
+                                />
+                            </div>
+                        )}
+                    </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                    {onStartSelection && !isSelectionMode && (
+                        <>
+                            <ContextMenuItem onClick={onStartSelection}>
+                                <CheckSquare2 className="mr-2 h-4 w-4" />
+                                Select Images
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                        </>
                     )}
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
-                    loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-                    <div className="line-clamp-2 text-white text-xs">
-                        <p>{image.prompt || "No prompt"}</p>
-                    </div>
-                </div>
-            </button>
+
+                    {isSelectionMode && selectedCount > 0 ? (
+                        <>
+                            {onBulkDownload && (
+                                <ContextMenuItem onClick={onBulkDownload}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Save Selected
+                                </ContextMenuItem>
+                            )}
+                            <ContextMenuSeparator />
+                            {onBulkDelete && (
+                                <ContextMenuItem
+                                    onClick={onBulkDelete}
+                                    className="text-destructive focus:text-destructive"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Selected
+                                </ContextMenuItem>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <ContextMenuItem onClick={handleDownload}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Save Image
+                            </ContextMenuItem>
+                            <ContextMenuItem onClick={handleCopyImage}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copy Image
+                            </ContextMenuItem>
+                            {image.prompt && (
+                                <ContextMenuItem onClick={handleCopyPrompt}>
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy Prompt
+                                </ContextMenuItem>
+                            )}
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={handleViewFullResolution}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Open Full Resolution
+                            </ContextMenuItem>
+                            {onDelete && (
+                                <>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem
+                                        onClick={onDelete}
+                                        className="text-destructive focus:text-destructive"
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete Image
+                                    </ContextMenuItem>
+                                </>
+                            )}
+                        </>
+                    )}
+                </ContextMenuContent>
+            </ContextMenu>
         )
     }
 )
@@ -275,6 +448,10 @@ function LibraryPage() {
 
     const [selectedImage, setSelectedImage] = useState<Doc<"generatedImages"> | null>(null)
     const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(new Set())
+    const [isSelectionMode, setIsSelectionMode] = useState(false)
+    const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
+    const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
+
     const images = (imagePage?.page ?? []).filter((img) => !deletedImageIds.has(img._id))
     const pageNumber = previousCursors.length + 1
     const totalPages =
@@ -359,6 +536,52 @@ function LibraryPage() {
     const handleImageSettled = useCallback((imageId: Doc<"generatedImages">["_id"]) => {
         setAnimatedImageIds((prev) => prev.filter((id) => id !== imageId))
     }, [])
+
+    const handleStartSelection = useCallback((imageId: Id<"generatedImages">) => {
+        setIsSelectionMode(true)
+        setSelectedImageIds(new Set([imageId]))
+    }, [])
+
+    const handleToggleSelection = useCallback((imageId: Id<"generatedImages">) => {
+        setSelectedImageIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(imageId)) {
+                next.delete(imageId)
+                if (next.size === 0) setIsSelectionMode(false)
+            } else {
+                next.add(imageId)
+            }
+            return next
+        })
+    }, [])
+
+    const handleDeleteImage = useCallback(
+        (imageId: Id<"generatedImages">) => {
+            setDeletedImageIds((prev) => new Set(prev).add(imageId))
+            deleteImageAction({ id: imageId }).catch(console.error)
+        },
+        [deleteImageAction]
+    )
+
+    const handleBulkDelete = useCallback(() => {
+        if (selectedImageIds.size === 0) return
+
+        const idsToDelete = Array.from(selectedImageIds)
+        setDeletedImageIds((prev) => {
+            const next = new Set(prev)
+            idsToDelete.forEach((id) => next.add(id))
+            return next
+        })
+
+        // Clear selection
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+
+        // Fire and forget deletions
+        idsToDelete.forEach((id) => {
+            deleteImageAction({ id }).catch(console.error)
+        })
+    }, [selectedImageIds, deleteImageAction])
 
     if (!session.user?.id) {
         return (
@@ -472,6 +695,15 @@ function LibraryPage() {
                                             }
                                             onClick={() => setSelectedImage(image)}
                                             onImageSettled={() => handleImageSettled(image._id)}
+                                            isSelected={selectedImageIds.has(image._id)}
+                                            isSelectionMode={isSelectionMode}
+                                            onToggleSelection={() =>
+                                                handleToggleSelection(image._id)
+                                            }
+                                            onStartSelection={() => handleStartSelection(image._id)}
+                                            onDelete={() => handleDeleteImage(image._id)}
+                                            selectedCount={selectedImageIds.size}
+                                            onBulkDelete={handleBulkDelete}
                                         />
                                     </motion.div>
                                 ))}
