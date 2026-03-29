@@ -612,7 +612,11 @@ function LibraryPage() {
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 className="flex w-full flex-1 overflow-hidden"
             >
-                <div ref={galleryRef} className="flex-1 overflow-y-auto p-6 pt-16">
+                <motion.div
+                    ref={galleryRef}
+                    layoutScroll
+                    className="flex-1 overflow-y-auto p-6 pt-16"
+                >
                     <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div className="shrink-0">
                             <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">
@@ -793,7 +797,7 @@ function LibraryPage() {
                             )}
                         </>
                     )}
-                </div>
+                </motion.div>
 
                 <ImageDetailsModal
                     image={selectedImage}
