@@ -10,6 +10,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
         <Sonner
             theme={themeState.currentMode as ToasterProps["theme"]}
             className="toaster group"
+            style={
+                {
+                    "--border-radius": "var(--radius)"
+                } as React.CSSProperties
+            }
             toastOptions={{
                 classNames: {
                     toast: "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border shadow-lg rounded-lg",
