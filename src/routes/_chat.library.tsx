@@ -36,6 +36,7 @@ import { useAction, useQuery } from "convex/react"
 import {
     Check,
     CheckSquare2,
+    Clipboard,
     Copy,
     Download,
     ExternalLink,
@@ -383,7 +384,7 @@ const GeneratedImageItem = memo(
                             </ContextMenuItem>
                             {image.prompt && (
                                 <ContextMenuItem onClick={handleCopyPrompt}>
-                                    <Copy className="mr-2 h-4 w-4" />
+                                    <Clipboard className="mr-2 h-4 w-4" />
                                     Copy Prompt
                                 </ContextMenuItem>
                             )}
