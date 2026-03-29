@@ -1,5 +1,5 @@
 import { Button, buttonVariants } from "@/components/ui/button"
-import { SidebarHeader } from "@/components/ui/sidebar"
+import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
@@ -43,19 +43,8 @@ export function ThreadsSidebarHeader({
     return (
         <SidebarHeader>
             <div className="flex w-full items-center justify-between px-2 pt-2">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate({ to: "/" })}
-                    className={cn(
-                        "h-8 w-8 transition-colors",
-                        !isLibraryMode
-                            ? "text-primary"
-                            : "text-muted-foreground hover:text-foreground"
-                    )}
-                >
-                    <MessageSquare className="h-4 w-4" />
-                </Button>
+                <SidebarTrigger className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground md:hidden" />
+                <div className="hidden h-8 w-8 shrink-0 md:block" />
 
                 <Link to="/">
                     <LogoMark className="h-5 w-auto" />
@@ -64,16 +53,15 @@ export function ThreadsSidebarHeader({
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate({ to: "/library" })}
+                    onClick={() => navigate({ to: isLibraryMode ? "/" : "/library" })}
                     onMouseEnter={handleLibraryHover}
-                    className={cn(
-                        "h-8 w-8 transition-colors",
-                        isLibraryMode
-                            ? "text-primary"
-                            : "text-muted-foreground hover:text-foreground"
-                    )}
+                    className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground"
                 >
-                    <ImageIcon className="h-4 w-4" />
+                    {isLibraryMode ? (
+                        <MessageSquare className="h-4 w-4" />
+                    ) : (
+                        <ImageIcon className="h-4 w-4" />
+                    )}
                 </Button>
             </div>
 

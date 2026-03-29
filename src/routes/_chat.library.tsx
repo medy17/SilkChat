@@ -588,9 +588,9 @@ function LibraryPage() {
 
     if (!session.user?.id) {
         return (
-            <div className="container mx-auto max-w-6xl px-4 pt-12 pb-8">
-                <div className="mb-8">
-                    <h1 className="mb-2 font-bold text-3xl">AI Library</h1>
+            <div className="container mx-auto max-w-6xl px-4 pt-16 pb-8">
+                <div className="mb-8 shrink-0">
+                    <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">AI Library</h1>
                     <p className="text-muted-foreground">Your collection of AI-generated images</p>
                 </div>
                 <Alert>
@@ -603,77 +603,106 @@ function LibraryPage() {
     }
 
     return (
-        <motion.div
-            initial={{ opacity: 0, filter: "blur(4px)", y: 10 }}
-            animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex h-dvh w-full overflow-hidden"
-        >
-            <div ref={galleryRef} className="flex-1 overflow-y-auto p-6">
-                <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <h1 className="mb-2 font-bold text-3xl">AI Library</h1>
-                        <p className="text-muted-foreground">
-                            Your collection of AI-generated images
-                        </p>
-                        <div className="mt-2 text-muted-foreground text-sm">
-                            {totalImages === undefined
-                                ? "Loading image count..."
-                                : `${totalImages} images${totalPages && totalPages > 1 ? ` · Page ${pageNumber} of ${totalPages}` : ""}`}
-                            {pendingGenerations.length > 0
-                                ? ` · ${pendingGenerations.length} pending`
-                                : ""}
+        <AnimatePresence mode="wait">
+            <motion.div
+                key="ai-library"
+                initial={false}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="flex w-full flex-1 overflow-hidden"
+            >
+                <div ref={galleryRef} className="flex-1 overflow-y-auto p-6 pt-16">
+                    <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="shrink-0">
+                            <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">
+                                AI Library
+                            </h1>
+                            <p className="text-muted-foreground">
+                                Your collection of AI-generated images
+                            </p>
+                            <div className="mt-2 text-muted-foreground text-sm">
+                                {totalImages === undefined
+                                    ? "Loading image count..."
+                                    : `${totalImages} images${totalPages && totalPages > 1 ? ` · Page ${pageNumber} of ${totalPages}` : ""}`}
+                                {pendingGenerations.length > 0
+                                    ? ` · ${pendingGenerations.length} pending`
+                                    : ""}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                Sort
+                            </span>
+                            <Select
+                                value={sortBy}
+                                onValueChange={(value) =>
+                                    handleSortChange(value as ImageSortOption)
+                                }
+                            >
+                                <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="newest">Newest first</SelectItem>
+                                    <SelectItem value="oldest">Oldest first</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                            Sort
-                        </span>
-                        <Select
-                            value={sortBy}
-                            onValueChange={(value) => handleSortChange(value as ImageSortOption)}
-                        >
-                            <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="newest">Newest first</SelectItem>
-                                <SelectItem value="oldest">Oldest first</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                {!imagePage ? (
-                    <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="mb-4 break-inside-avoid"
-                                style={{ height: `${Math.random() * 150 + 250}px` }}
-                            >
-                                <Skeleton className="h-full w-full rounded-lg" />
-                            </div>
-                        ))}
-                    </div>
-                ) : images.length === 0 &&
-                  (!showPendingGenerations || pendingGenerations.length === 0) ? (
-                    <div className="py-24 text-center">
-                        <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-                        <h3 className="mb-2 font-medium text-xl">No generated images yet</h3>
-                        <p className="mx-auto max-w-sm text-muted-foreground">
-                            Generate images using the sidebar to see them appear here.
-                        </p>
-                    </div>
-                ) : (
-                    <>
+                    {!imagePage ? (
                         <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
-                            <AnimatePresence>
-                                {showPendingGenerations &&
-                                    pendingGenerations.map((pending) => (
+                            {Array.from({ length: 12 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="mb-4 break-inside-avoid"
+                                    style={{ height: `${Math.random() * 150 + 250}px` }}
+                                >
+                                    <Skeleton className="h-full w-full rounded-lg" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : images.length === 0 &&
+                      (!showPendingGenerations || pendingGenerations.length === 0) ? (
+                        <div className="py-24 text-center">
+                            <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+                            <h3 className="mb-2 font-medium text-xl">No generated images yet</h3>
+                            <p className="mx-auto max-w-sm text-muted-foreground">
+                                Generate images using the sidebar to see them appear here.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
+                                <AnimatePresence>
+                                    {showPendingGenerations &&
+                                        pendingGenerations.map((pending) => (
+                                            <motion.div
+                                                key={pending.id}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{
+                                                    opacity: 0,
+                                                    scale: 0.9,
+                                                    filter: "blur(8px)"
+                                                }}
+                                                transition={{
+                                                    duration: 0.3,
+                                                    ease: [0.16, 1, 0.3, 1]
+                                                }}
+                                                className="mb-4 break-inside-avoid"
+                                            >
+                                                <PendingImageItem
+                                                    aspectRatio={pending.aspectRatio}
+                                                />
+                                            </motion.div>
+                                        ))}
+                                    {images.map((image) => (
                                         <motion.div
-                                            key={pending.id}
+                                            key={image._id}
                                             layout
                                             initial={{ opacity: 0, scale: 0.95 }}
                                             animate={{ opacity: 1, scale: 1 }}
@@ -681,110 +710,100 @@ function LibraryPage() {
                                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                                             className="mb-4 break-inside-avoid"
                                         >
-                                            <PendingImageItem aspectRatio={pending.aspectRatio} />
+                                            <GeneratedImageItem
+                                                image={image}
+                                                placeholder={
+                                                    animatedImageIds.includes(image._id)
+                                                        ? "tiles"
+                                                        : "skeleton"
+                                                }
+                                                onClick={() => setSelectedImage(image)}
+                                                onImageSettled={() => handleImageSettled(image._id)}
+                                                isSelected={selectedImageIds.has(image._id)}
+                                                isSelectionMode={isSelectionMode}
+                                                onToggleSelection={() =>
+                                                    handleToggleSelection(image._id)
+                                                }
+                                                onStartSelection={() =>
+                                                    handleStartSelection(image._id)
+                                                }
+                                                onDelete={() => handleDeleteImage(image._id)}
+                                                selectedCount={selectedImageIds.size}
+                                                onBulkDelete={handleBulkDelete}
+                                            />
                                         </motion.div>
                                     ))}
-                                {images.map((image) => (
-                                    <motion.div
-                                        key={image._id}
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9, filter: "blur(8px)" }}
-                                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                                        className="mb-4 break-inside-avoid"
-                                    >
-                                        <GeneratedImageItem
-                                            image={image}
-                                            placeholder={
-                                                animatedImageIds.includes(image._id)
-                                                    ? "tiles"
-                                                    : "skeleton"
-                                            }
-                                            onClick={() => setSelectedImage(image)}
-                                            onImageSettled={() => handleImageSettled(image._id)}
-                                            isSelected={selectedImageIds.has(image._id)}
-                                            isSelectionMode={isSelectionMode}
-                                            onToggleSelection={() =>
-                                                handleToggleSelection(image._id)
-                                            }
-                                            onStartSelection={() => handleStartSelection(image._id)}
-                                            onDelete={() => handleDeleteImage(image._id)}
-                                            selectedCount={selectedImageIds.size}
-                                            onBulkDelete={handleBulkDelete}
-                                        />
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
-                        </div>
-
-                        {(canGoPrevious ||
-                            canGoNext ||
-                            (totalPages !== undefined && totalPages > 1)) && (
-                            <div className="mt-8 border-t pt-4">
-                                <Pagination>
-                                    <PaginationContent>
-                                        <PaginationItem>
-                                            <PaginationPrevious
-                                                href="#library-pagination"
-                                                className={
-                                                    !canGoPrevious
-                                                        ? "pointer-events-none opacity-50"
-                                                        : undefined
-                                                }
-                                                onClick={(event) => {
-                                                    event.preventDefault()
-                                                    handlePreviousPage()
-                                                }}
-                                            />
-                                        </PaginationItem>
-                                        <PaginationItem>
-                                            <PaginationLink
-                                                href="#library-pagination"
-                                                isActive
-                                                size="default"
-                                                className="min-w-10"
-                                                onClick={(event) => event.preventDefault()}
-                                            >
-                                                {pageNumber}
-                                            </PaginationLink>
-                                        </PaginationItem>
-                                        <PaginationItem>
-                                            <PaginationNext
-                                                href="#library-pagination"
-                                                className={
-                                                    !canGoNext
-                                                        ? "pointer-events-none opacity-50"
-                                                        : undefined
-                                                }
-                                                onClick={(event) => {
-                                                    event.preventDefault()
-                                                    handleNextPage()
-                                                }}
-                                            />
-                                        </PaginationItem>
-                                    </PaginationContent>
-                                </Pagination>
-                                <p
-                                    id="library-pagination"
-                                    className="mt-2 text-center text-muted-foreground text-xs"
-                                >
-                                    Showing up to {IMAGES_PER_PAGE} completed images per page
-                                </p>
+                                </AnimatePresence>
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
 
-            <ImageDetailsModal
-                image={selectedImage}
-                isOpen={!!selectedImage}
-                onClose={() => setSelectedImage(null)}
-                onDeleteStart={(id) => {
-                    setDeletedImageIds((prev) => new Set(prev).add(id))
-                }}
-            />
-        </motion.div>
+                            {(canGoPrevious ||
+                                canGoNext ||
+                                (totalPages !== undefined && totalPages > 1)) && (
+                                <div className="mt-8 border-t pt-4">
+                                    <Pagination>
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#library-pagination"
+                                                    className={
+                                                        !canGoPrevious
+                                                            ? "pointer-events-none opacity-50"
+                                                            : undefined
+                                                    }
+                                                    onClick={(event) => {
+                                                        event.preventDefault()
+                                                        handlePreviousPage()
+                                                    }}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationLink
+                                                    href="#library-pagination"
+                                                    isActive
+                                                    size="default"
+                                                    className="min-w-10"
+                                                    onClick={(event) => event.preventDefault()}
+                                                >
+                                                    {pageNumber}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#library-pagination"
+                                                    className={
+                                                        !canGoNext
+                                                            ? "pointer-events-none opacity-50"
+                                                            : undefined
+                                                    }
+                                                    onClick={(event) => {
+                                                        event.preventDefault()
+                                                        handleNextPage()
+                                                    }}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                    <p
+                                        id="library-pagination"
+                                        className="mt-2 text-center text-muted-foreground text-xs"
+                                    >
+                                        Showing up to {IMAGES_PER_PAGE} completed images per page
+                                    </p>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                <ImageDetailsModal
+                    image={selectedImage}
+                    isOpen={!!selectedImage}
+                    onClose={() => setSelectedImage(null)}
+                    onDeleteStart={(id) => {
+                        setDeletedImageIds((prev) => new Set(prev).add(id))
+                    }}
+                />
+            </motion.div>
+        </AnimatePresence>
     )
 }
