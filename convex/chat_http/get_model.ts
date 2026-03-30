@@ -3,34 +3,19 @@
 import { ChatError } from "@/lib/errors"
 import { type OpenAIProvider, createOpenAI } from "@ai-sdk/openai"
 import type { ImageModelV3, LanguageModelV3 } from "@ai-sdk/provider"
+import type { OpenRouterProvider } from "@openrouter/ai-sdk-provider"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, CoreProviders, MODELS_SHARED } from "../lib/models"
 import { createGoogleOpenAICompatibleProvider, createProvider } from "../lib/provider_factory"
 
-const GOOGLE_MINIMUM_SAFETY_SETTINGS = [
-    {
-        category: "HARM_CATEGORY_HATE_SPEECH",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_HARASSMENT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_CIVIC_INTEGRITY",
-        threshold: "OFF"
-    }
-] as const
+const getInternalOpenRouterApiKey = () => process.env.OPENROUTER_API_KEY?.trim()
+
+const getOpenRouterModelId = (modelId: string) =>
+    MODELS_SHARED.find((entry) => entry.id === modelId)
+        ?.adapters.find((adapter) => adapter.startsWith("openrouter:"))
+        ?.split(":")[1]
 
 const getOpenAIImageModel = (providerSpecificModelId: string, apiKey: string): ImageModelV3 =>
     createOpenAI({
@@ -103,16 +88,13 @@ export const getModel = async (
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
     let finalModel: LanguageModelV3 | ImageModelV3 | undefined = undefined
     let providerSource: "internal" | "byok" | "openrouter" | "custom" | "unknown" = "unknown"
+    let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
 
     for (const adapter of sortedAdapters) {
         const providerIdRaw = model.customProviderId ?? adapter.split(":")[0]
         const providerSpecificModelId = model.customProviderId ? model.id : adapter.split(":")[1]
         if (providerIdRaw.startsWith("i3-")) {
             const providerId = providerIdRaw.slice(3) as CoreProvider
-            const sdk_provider = await createProvider(providerId, "internal", {
-                modelId: providerSpecificModelId
-            })
-
             //last check that this model actually is in MODELS_SHARED
             if (
                 !MODELS_SHARED.some((m) =>
@@ -122,6 +104,28 @@ export const getModel = async (
                 console.error(`Model ${providerSpecificModelId} not found in internal modelset`)
                 continue
             }
+
+            if (model.mode !== "image") {
+                const internalOpenRouterApiKey = getInternalOpenRouterApiKey()
+                const openRouterModelId = internalOpenRouterApiKey
+                    ? getOpenRouterModelId(model.id)
+                    : undefined
+
+                if (openRouterModelId) {
+                    const openRouterProvider = (await createProvider(
+                        "openrouter",
+                        "internal"
+                    )) as unknown as OpenRouterProvider
+                    finalModel = openRouterProvider.chat(openRouterModelId)
+                    providerSource = "internal"
+                    runtimeProvider = "openrouter"
+                    break
+                }
+            }
+
+            const sdk_provider = await createProvider(providerId, "internal", {
+                modelId: providerSpecificModelId
+            })
 
             if (model.mode === "image") {
                 if (providerId === "openai") {
@@ -157,6 +161,7 @@ export const getModel = async (
                 }
             }
             providerSource = "internal"
+            runtimeProvider = providerId
             break
         }
 
@@ -218,11 +223,17 @@ export const getModel = async (
                     finalModel = (sdk_provider as OpenAIProvider).responses(providerSpecificModelId)
                 } else if (providerIdRaw === "google") {
                     finalModel = sdk_provider.languageModel(providerSpecificModelId)
+                } else if (providerIdRaw === "openrouter") {
+                    finalModel = (sdk_provider as unknown as OpenRouterProvider).chat(
+                        providerSpecificModelId
+                    )
                 } else {
                     finalModel = sdk_provider.languageModel(providerSpecificModelId)
                 }
             }
             providerSource = providerIdRaw === "openrouter" ? "openrouter" : "byok"
+            runtimeProvider =
+                providerIdRaw === "openrouter" ? "openrouter" : (providerIdRaw as CoreProvider)
             break
         }
 
@@ -246,6 +257,7 @@ export const getModel = async (
             finalModel = sdk_provider.languageModel(providerSpecificModelId)
         }
         providerSource = "custom"
+        runtimeProvider = "custom"
         break
     }
 
@@ -264,6 +276,7 @@ export const getModel = async (
         modelId: model.id,
         modelName: model.name ?? model.id,
         providerSource,
+        runtimeProvider,
         prototypeCreditTier: model.prototypeCreditTier,
         prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
     }

@@ -22,6 +22,27 @@ const CoreProviderUpdate = v.object({
     authMode: v.optional(v.union(v.literal("ai-studio"), v.literal("vertex")))
 })
 
+const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey) => {
+    if (model.mode === "image" || model.mode === "speech-to-text") {
+        return false
+    }
+
+    const internalOpenRouterApiKey = process.env.OPENROUTER_API_KEY?.trim()
+    if (!internalOpenRouterApiKey) {
+        return false
+    }
+
+    const [providerId] = adapter.split(":")
+    if (!providerId.startsWith("i3-")) {
+        return false
+    }
+
+    return (
+        model.adapters.includes(adapter) &&
+        model.adapters.some((candidate) => candidate.startsWith("openrouter:"))
+    )
+}
+
 const getSettings = async (
     ctx: QueryCtx,
     userId: string
@@ -106,7 +127,8 @@ export const getUserRegistryInternal = internalQuery({
                 if (
                     provider in providers ||
                     (provider.startsWith("i3-") &&
-                        isInternalProviderConfigured(provider.slice(3) as CoreProvider))
+                        (isInternalProviderConfigured(provider.slice(3) as CoreProvider) ||
+                            hasInternalOpenRouterForModel(model, adapter)))
                 ) {
                     available_adapters.push(adapter)
                 }

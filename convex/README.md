@@ -66,6 +66,8 @@ Internal providers are controlled in two places:
 
 That means a provider can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
 
+If `OPENROUTER_API_KEY` is configured, internal text models that also define `openrouter:*` adapters can execute through OpenRouter while still appearing to the rest of the app as normal internal models. Image and speech paths still use their direct provider integrations.
+
 ## Where To Read More
 
 - [Setup Guide](../SETUP_GUIDE.md)

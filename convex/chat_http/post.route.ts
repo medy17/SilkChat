@@ -15,6 +15,7 @@ import type { ReasoningEffort } from "@/lib/model-store"
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic"
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google"
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
+import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
@@ -38,6 +39,10 @@ import { getModel } from "./get_model"
 import { generateAndStoreImage } from "./image_generation"
 import { manualStreamTransform } from "./manual_stream_transform"
 import { buildPrompt } from "./prompt"
+
+type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
+    extraBody?: Record<string, unknown>
+}
 
 const DEFAULT_REASONING_PROFILES: ModelReasoningProfiles = {
     google: {
@@ -198,6 +203,52 @@ const buildAnthropicProviderOptions = (
         options.thinking = {
             type: "enabled",
             budgetTokens: anthropicProfile.budgetTokens
+        }
+    }
+
+    return options
+}
+
+const buildOpenRouterProviderOptions = (
+    modelId: string,
+    reasoningEffort: ReasoningEffort,
+    supportsEffortControl = false
+): OpenRouterProviderOptions => {
+    const options: OpenRouterRequestProviderOptions = {}
+    const shouldForceReasoningForVariant = modelId.endsWith("-reasoning")
+
+    if (reasoningEffort === "off") {
+        options.reasoning = {
+            enabled: false,
+            exclude: true,
+            effort: "none"
+        }
+        options.extraBody = {
+            include_reasoning: false,
+            usage: {
+                include: true
+            }
+        }
+        return options
+    }
+
+    if (!supportsEffortControl && !shouldForceReasoningForVariant) {
+        options.extraBody = {
+            usage: {
+                include: true
+            }
+        }
+        return options
+    }
+
+    options.reasoning = {
+        enabled: true,
+        effort: reasoningEffort
+    }
+    options.extraBody = {
+        include_reasoning: true,
+        usage: {
+            include: true
         }
     }
 
@@ -616,6 +667,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     const shouldDisableSmoothTransform = isGoogleImagePreviewModel(
                         modelData.modelId
                     )
+                    const usesOpenRouter = modelData.runtimeProvider === "openrouter"
                     const result = streamText({
                         model: model,
                         maxOutputTokens: maxTokens,
@@ -638,27 +690,35 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 : []),
                             ...mapped_messages
                         ],
-                        providerOptions: {
-                            google: buildGoogleProviderOptions(
-                                modelData.modelId,
-                                effectiveReasoningEffort,
-                                modelData.abilities.includes("effort_control"),
-                                reasoningProfiles,
-                                body.imageSize,
-                                body.imageResolution
-                            ),
-                            openai: buildOpenAIProviderOptions(
-                                modelData.modelId,
-                                effectiveReasoningEffort,
-                                modelData.abilities.includes("effort_control"),
-                                reasoningProfiles
-                            ),
-                            anthropic: buildAnthropicProviderOptions(
-                                modelData.modelId,
-                                effectiveReasoningEffort,
-                                reasoningProfiles
-                            )
-                        }
+                        providerOptions: usesOpenRouter
+                            ? {
+                                  openrouter: buildOpenRouterProviderOptions(
+                                      modelData.modelId,
+                                      effectiveReasoningEffort,
+                                      modelData.abilities.includes("effort_control")
+                                  )
+                              }
+                            : {
+                                  google: buildGoogleProviderOptions(
+                                      modelData.modelId,
+                                      effectiveReasoningEffort,
+                                      modelData.abilities.includes("effort_control"),
+                                      reasoningProfiles,
+                                      body.imageSize,
+                                      body.imageResolution
+                                  ),
+                                  openai: buildOpenAIProviderOptions(
+                                      modelData.modelId,
+                                      effectiveReasoningEffort,
+                                      modelData.abilities.includes("effort_control"),
+                                      reasoningProfiles
+                                  ),
+                                  anthropic: buildAnthropicProviderOptions(
+                                      modelData.modelId,
+                                      effectiveReasoningEffort,
+                                      reasoningProfiles
+                                  )
+                              }
                     })
 
                     writer.merge(

@@ -28,6 +28,13 @@ Each entry defines:
 - `i3-openai:*`, `i3-google:*`, `i3-xai:*`, etc.: internal provider keys
 - `openrouter:*`: OpenRouter routing
 
+Internal text requests can also route through OpenRouter when:
+
+- the model has an `openrouter:*` adapter
+- `OPENROUTER_API_KEY` is configured in Convex
+
+That keeps the app-level model identity as `i3-*` while flattening transport quirks behind OpenRouter for the actual text request.
+
 ### Abilities
 
 Common abilities:
@@ -158,8 +165,11 @@ Current mapping:
 - OpenAI: `reasoningEffort` + `reasoningSummary`
 - Anthropic: `thinking.budgetTokens`
 - Google: `thinkingConfig.thinkingBudget` + `includeThoughts`
+- OpenRouter: `reasoning.effort`
 
 For Google in this repo, use the existing budget mapping. Do not assume newer `thinkingLevel` fields are available unless the installed SDK version actually supports them.
+
+When an internal text request is routed through OpenRouter, the app-level `off|low|medium|high` setting maps to OpenRouter's reasoning effort instead of provider-native OpenAI, Google, or Anthropic fields.
 
 ## Image Model Rules
 

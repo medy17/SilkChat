@@ -53,6 +53,8 @@ export const createProvider = (
 const shouldUseGlobalVertexLocation = (modelId?: string) =>
     Boolean(modelId && /^gemini-3(\.|-)/.test(modelId))
 
+const getInternalOpenRouterApiKey = () => process.env.OPENROUTER_API_KEY?.trim()
+
 const createProviderInternal = async (
     providerId: CoreProvider | "openrouter" | "fal",
     apiKey: string | "internal",
@@ -115,10 +117,17 @@ const createProviderInternal = async (
             return createGroq({
                 apiKey: apiKey === "internal" ? process.env.GROQ_API_KEY : apiKey
             })
-        case "openrouter":
+        case "openrouter": {
+            const resolvedApiKey = apiKey === "internal" ? getInternalOpenRouterApiKey() : apiKey
+            if (!resolvedApiKey) {
+                throw new Error("OpenRouter API key is required")
+            }
+
             return createOpenRouter({
-                apiKey
+                apiKey: resolvedApiKey,
+                compatibility: "strict"
             }) as unknown as ProviderV3
+        }
         case "fal":
             return createFal({
                 apiKey: apiKey === "internal" ? process.env.FAL_API_KEY : apiKey

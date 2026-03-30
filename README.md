@@ -99,6 +99,7 @@ These variables are read by the web app and Better Auth:
 These variables are read by Convex actions and HTTP routes:
 
 - `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY` for routing internal text models through OpenRouter
 - `XAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `STT_PROVIDER` to choose `google` or `groq` for `/transcribe`
@@ -143,6 +144,8 @@ VITE_ENABLED_INTERNAL_PROVIDERS="openai,google,xai"
 ```
 
 Hidden providers like `groq` and `fal` are still supported, but they are not shown as normal internal-provider options in the UI.
+
+If `OPENROUTER_API_KEY` is set in Convex, internal text models with an `openrouter:*` adapter will route through OpenRouter first while keeping the same app-level internal model identity. Image and speech flows still use their direct provider integrations.
 
 ## Current Model Notes
 
