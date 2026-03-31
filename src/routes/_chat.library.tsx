@@ -31,8 +31,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import {
+    type GeneratedImageFilters,
+    type GeneratedImageOrientation,
+    hasActiveGeneratedImageFilters
+} from "@/lib/generated-image-filters"
 import { getGeneratedImageProxyUrl, getLibraryImageSources } from "@/lib/generated-image-urls"
 import { getIsImageHidden } from "@/lib/private-viewing"
+import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
@@ -60,6 +66,33 @@ export const Route = createFileRoute("/_chat/library")({
 const IMAGES_PER_PAGE = 50
 type ImageSortOption = "newest" | "oldest"
 type ImageLoadPlaceholder = "tiles" | "skeleton"
+type LibraryFilterValue = "all" | string
+type LibraryFiltersState = {
+    modelId: LibraryFilterValue
+    resolution: LibraryFilterValue
+    aspectRatio: LibraryFilterValue
+    orientation: "all" | GeneratedImageOrientation
+}
+
+const DEFAULT_LIBRARY_FILTERS: LibraryFiltersState = {
+    modelId: "all",
+    resolution: "all",
+    aspectRatio: "all",
+    orientation: "all"
+}
+
+const ORIENTATION_LABELS: Record<GeneratedImageOrientation, string> = {
+    landscape: "Landscape",
+    portrait: "Portrait",
+    square: "Square"
+}
+
+const toGeneratedImageFilters = (filters: LibraryFiltersState): GeneratedImageFilters => ({
+    modelId: filters.modelId === "all" ? undefined : filters.modelId,
+    resolution: filters.resolution === "all" ? undefined : filters.resolution,
+    aspectRatio: filters.aspectRatio === "all" ? undefined : filters.aspectRatio,
+    orientation: filters.orientation === "all" ? undefined : filters.orientation
+})
 
 const GalleryImageSkeleton = memo(() => (
     <div className="relative h-full w-full overflow-hidden rounded-lg border border-border/60 bg-muted/40">
@@ -571,9 +604,11 @@ GeneratedImageItem.displayName = "GeneratedImageItem"
 
 function LibraryPage() {
     const session = useSession()
+    const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
     const [sortBy, setSortBy] = useState<ImageSortOption>("newest")
+    const [filters, setFilters] = useState<LibraryFiltersState>(DEFAULT_LIBRARY_FILTERS)
     const [{ currentCursor, previousCursors }, setPaginationState] = useState<{
         currentCursor: string | null
         previousCursors: (string | null)[]
@@ -581,16 +616,29 @@ function LibraryPage() {
         currentCursor: null,
         previousCursors: []
     })
+    const activeFilters = useMemo(() => toGeneratedImageFilters(filters), [filters])
+    const hasActiveFilters = useMemo(
+        () => hasActiveGeneratedImageFilters(activeFilters),
+        [activeFilters]
+    )
     const imagePage = useQuery(
         api.images.paginateGeneratedImages,
         session.user?.id
             ? {
                   paginationOpts: { numItems: IMAGES_PER_PAGE, cursor: currentCursor },
-                  sortBy
+                  sortBy,
+                  filters: activeFilters
               }
             : "skip"
     )
-    const totalImages = useQuery(api.images.getGeneratedImagesCount, session.user?.id ? {} : "skip")
+    const totalImages = useQuery(
+        api.images.getGeneratedImagesCount,
+        session.user?.id ? { filters: activeFilters } : "skip"
+    )
+    const filterOptions = useQuery(
+        api.images.getGeneratedImageFacetOptions,
+        session.user?.id ? {} : "skip"
+    )
 
     const { pendingGenerations, completedGenerationCount } = useGenerationStore()
     const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
@@ -617,6 +665,10 @@ function LibraryPage() {
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
 
     const images = (imagePage?.page ?? []).filter((img) => !deletedImageIds.has(img._id))
+    const modelNameById = useMemo(
+        () => new Map(sharedModels.map((model) => [model.id, model.name])),
+        [sharedModels]
+    )
     const pageNumber = previousCursors.length + 1
     const totalPages =
         totalImages === undefined
@@ -624,7 +676,7 @@ function LibraryPage() {
             : Math.max(1, Math.ceil(totalImages / IMAGES_PER_PAGE))
     const canGoPrevious = previousCursors.length > 0
     const canGoNext = imagePage ? !imagePage.isDone : false
-    const showPendingGenerations = pageNumber === 1
+    const showPendingGenerations = pageNumber === 1 && !hasActiveFilters
 
     const resetPagination = useCallback(() => {
         setPaginationState({
@@ -640,6 +692,22 @@ function LibraryPage() {
         },
         [resetPagination]
     )
+
+    const handleFilterChange = useCallback(
+        <K extends keyof LibraryFiltersState>(key: K, value: LibraryFiltersState[K]) => {
+            setFilters((prev) => ({
+                ...prev,
+                [key]: value
+            }))
+            resetPagination()
+        },
+        [resetPagination]
+    )
+
+    const handleClearFilters = useCallback(() => {
+        setFilters(DEFAULT_LIBRARY_FILTERS)
+        resetPagination()
+    }, [resetPagination])
 
     const handleNextPage = useCallback(() => {
         if (!imagePage || imagePage.isDone) return
@@ -678,7 +746,7 @@ function LibraryPage() {
 
     useEffect(() => {
         galleryRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-    }, [currentCursor, sortBy])
+    }, [currentCursor, sortBy, activeFilters])
 
     useEffect(() => {
         const currentImageIds = images.map((image) => image._id)
@@ -791,7 +859,9 @@ function LibraryPage() {
                                     ? "Loading image count..."
                                     : `${totalImages} images${totalPages && totalPages > 1 ? ` · Page ${pageNumber} of ${totalPages}` : ""}`}
                                 {pendingGenerations.length > 0
-                                    ? ` · ${pendingGenerations.length} pending`
+                                    ? !hasActiveFilters
+                                        ? ` · ${pendingGenerations.length} pending`
+                                        : ""
                                     : ""}
                             </div>
                         </div>
@@ -834,6 +904,111 @@ function LibraryPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {hasActiveFilters && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="sm:self-end"
+                                    onClick={handleClearFilters}
+                                >
+                                    Clear filters
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="flex flex-col gap-2">
+                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                Model
+                            </span>
+                            <Select
+                                value={filters.modelId}
+                                onValueChange={(value) => handleFilterChange("modelId", value)}
+                            >
+                                <SelectTrigger className="w-full bg-background">
+                                    <SelectValue placeholder="All models" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All models</SelectItem>
+                                    {(filterOptions?.modelIds ?? []).map((modelId) => (
+                                        <SelectItem key={modelId} value={modelId}>
+                                            {modelNameById.get(modelId) ?? modelId}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                Resolution
+                            </span>
+                            <Select
+                                value={filters.resolution}
+                                onValueChange={(value) => handleFilterChange("resolution", value)}
+                            >
+                                <SelectTrigger className="w-full bg-background">
+                                    <SelectValue placeholder="All resolutions" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All resolutions</SelectItem>
+                                    {(filterOptions?.resolutions ?? []).map((resolution) => (
+                                        <SelectItem key={resolution} value={resolution}>
+                                            {resolution}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                Aspect Ratio
+                            </span>
+                            <Select
+                                value={filters.aspectRatio}
+                                onValueChange={(value) => handleFilterChange("aspectRatio", value)}
+                            >
+                                <SelectTrigger className="w-full bg-background">
+                                    <SelectValue placeholder="All aspect ratios" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All aspect ratios</SelectItem>
+                                    {(filterOptions?.aspectRatios ?? []).map((aspectRatio) => (
+                                        <SelectItem key={aspectRatio} value={aspectRatio}>
+                                            {aspectRatio}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                Orientation
+                            </span>
+                            <Select
+                                value={filters.orientation}
+                                onValueChange={(value) =>
+                                    handleFilterChange(
+                                        "orientation",
+                                        value as LibraryFiltersState["orientation"]
+                                    )
+                                }
+                            >
+                                <SelectTrigger className="w-full bg-background">
+                                    <SelectValue placeholder="All orientations" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All orientations</SelectItem>
+                                    {(filterOptions?.orientations ?? []).map((orientation) => (
+                                        <SelectItem key={orientation} value={orientation}>
+                                            {ORIENTATION_LABELS[orientation]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
@@ -853,9 +1028,15 @@ function LibraryPage() {
                       (!showPendingGenerations || pendingGenerations.length === 0) ? (
                         <div className="py-24 text-center">
                             <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-                            <h3 className="mb-2 font-medium text-xl">No generated images yet</h3>
+                            <h3 className="mb-2 font-medium text-xl">
+                                {hasActiveFilters
+                                    ? "No images match these filters"
+                                    : "No generated images yet"}
+                            </h3>
                             <p className="mx-auto max-w-sm text-muted-foreground">
-                                Generate images using the sidebar to see them appear here.
+                                {hasActiveFilters
+                                    ? "Try a different model, resolution, aspect ratio, or orientation."
+                                    : "Generate images using the sidebar to see them appear here."}
                             </p>
                         </div>
                     ) : (

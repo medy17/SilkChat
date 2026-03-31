@@ -1,9 +1,27 @@
+import {
+    type GeneratedImageFilters,
+    filterAndSortGeneratedImages,
+    getGeneratedImageFilterOptions
+} from "@/lib/generated-image-filters"
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { internalMutation, internalQuery, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
 
 const generatedImageSortValidator = v.union(v.literal("newest"), v.literal("oldest"))
+const generatedImageOrientationValidator = v.union(
+    v.literal("portrait"),
+    v.literal("landscape"),
+    v.literal("square")
+)
+const generatedImageFiltersValidator = v.optional(
+    v.object({
+        modelId: v.optional(v.string()),
+        resolution: v.optional(v.string()),
+        aspectRatio: v.optional(v.string()),
+        orientation: v.optional(generatedImageOrientationValidator)
+    })
+)
 
 export const insertGeneratedImage = internalMutation({
     args: {
@@ -53,9 +71,10 @@ export const listGeneratedImages = query({
 export const paginateGeneratedImages = query({
     args: {
         paginationOpts: paginationOptsValidator,
-        sortBy: v.optional(generatedImageSortValidator)
+        sortBy: v.optional(generatedImageSortValidator),
+        filters: generatedImageFiltersValidator
     },
-    handler: async (ctx, { paginationOpts, sortBy }) => {
+    handler: async (ctx, { paginationOpts, sortBy, filters }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             return {
@@ -65,17 +84,36 @@ export const paginateGeneratedImages = query({
             }
         }
 
-        return await ctx.db
+        const images = await ctx.db
             .query("generatedImages")
             .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
-            .order(sortBy === "oldest" ? "asc" : "desc")
-            .paginate(paginationOpts)
+            .collect()
+
+        const filteredImages = filterAndSortGeneratedImages(images, {
+            filters: filters as GeneratedImageFilters | undefined,
+            sortBy
+        })
+
+        const cursorOffset = Number(paginationOpts.cursor || "0")
+        const startIndex =
+            Number.isFinite(cursorOffset) && cursorOffset >= 0 ? Math.floor(cursorOffset) : 0
+        const page = filteredImages.slice(startIndex, startIndex + paginationOpts.numItems)
+        const nextOffset = startIndex + page.length
+        const isDone = nextOffset >= filteredImages.length
+
+        return {
+            page,
+            isDone,
+            continueCursor: isDone ? "" : String(nextOffset)
+        }
     }
 })
 
 export const getGeneratedImagesCount = query({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        filters: generatedImageFiltersValidator
+    },
+    handler: async (ctx, { filters }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return 0
 
@@ -84,7 +122,31 @@ export const getGeneratedImagesCount = query({
             .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
             .collect()
 
-        return images.length
+        return filterAndSortGeneratedImages(images, {
+            filters: filters as GeneratedImageFilters | undefined
+        }).length
+    }
+})
+
+export const getGeneratedImageFacetOptions = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) {
+            return {
+                modelIds: [],
+                resolutions: [],
+                aspectRatios: [],
+                orientations: []
+            }
+        }
+
+        const images = await ctx.db
+            .query("generatedImages")
+            .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
+            .collect()
+
+        return getGeneratedImageFilterOptions(images)
     }
 })
 
