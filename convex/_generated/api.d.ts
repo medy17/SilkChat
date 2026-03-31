@@ -60,6 +60,8 @@ import type * as lib_tools_supermemory from "../lib/tools/supermemory.js";
 import type * as lib_tools_web_search from "../lib/tools/web_search.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
+import type * as private_blur from "../private_blur.js";
+import type * as private_blur_node from "../private_blur_node.js";
 import type * as schema_credits from "../schema/credits.js";
 import type * as schema_folders from "../schema/folders.js";
 import type * as schema_generated_image from "../schema/generated_image.js";
@@ -142,6 +144,8 @@ declare const fullApi: ApiFromModules<{
   "lib/tools/web_search": typeof lib_tools_web_search;
   messages: typeof messages;
   migrations: typeof migrations;
+  private_blur: typeof private_blur;
+  private_blur_node: typeof private_blur_node;
   "schema/credits": typeof schema_credits;
   "schema/folders": typeof schema_folders;
   "schema/generated_image": typeof schema_generated_image;
