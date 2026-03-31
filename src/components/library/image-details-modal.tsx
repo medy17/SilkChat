@@ -293,7 +293,7 @@ export function ImageDetailsModal({
                         </DrawerHeader>
 
                         {/* Top: Image Area */}
-                        <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/20 p-4 pt-8">
+                        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/20 p-4 pt-8">
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -311,10 +311,12 @@ export function ImageDetailsModal({
                             )}
                             <button
                                 type="button"
-                                className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="relative flex max-h-full max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 style={{
                                     width: layout.imageWidth,
-                                    height: layout.imageHeight
+                                    height: layout.imageHeight,
+                                    maxWidth: "100%",
+                                    maxHeight: "100%"
                                 }}
                                 onClick={handleToggleImageVisibility}
                             >
@@ -330,8 +332,7 @@ export function ImageDetailsModal({
                                         loadState === "revealing" &&
                                             "scale-[1.01] opacity-100 blur-md",
                                         loadState === "ready" && "scale-100 opacity-100 blur-0",
-                                        isImageHidden &&
-                                            "scale-[1.05] blur-2xl brightness-75 saturate-50"
+                                        isImageHidden && "brightness-75 saturate-50"
                                     )}
                                     style={{ aspectRatio: cssAspectRatio }}
                                     onLoad={handleImageLoad}
@@ -339,7 +340,7 @@ export function ImageDetailsModal({
                                 />
                                 {isImageHidden && (
                                     <>
-                                        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-black/20 backdrop-blur-[2px]" />
+                                        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-black/20 backdrop-blur-xl" />
                                         <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
                                             Private viewing enabled
                                         </div>
@@ -487,8 +488,7 @@ export function ImageDetailsModal({
                                     loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
                                     loadState === "revealing" && "scale-[1.01] opacity-100 blur-md",
                                     loadState === "ready" && "scale-100 opacity-100 blur-0",
-                                    isImageHidden &&
-                                        "scale-[1.05] blur-2xl brightness-75 saturate-50"
+                                    isImageHidden && "brightness-75 saturate-50"
                                 )}
                                 style={{ aspectRatio: cssAspectRatio }}
                                 onLoad={handleImageLoad}
@@ -497,7 +497,7 @@ export function ImageDetailsModal({
                         </button>
                         {isImageHidden && (
                             <>
-                                <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
+                                <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-xl" />
                                 <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
                                     Private viewing enabled
                                 </div>
