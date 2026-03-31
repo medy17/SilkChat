@@ -294,7 +294,7 @@ const GeneratedImageItem = memo(
                     >
                         <button
                             type="button"
-                            className="absolute inset-0 z-10 appearance-none rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className="absolute inset-0 z-30 appearance-none rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             onClick={handleClick}
                         >
                             <span className="sr-only">
@@ -302,7 +302,7 @@ const GeneratedImageItem = memo(
                             </span>
                         </button>
                         {loadState !== "ready" && (
-                            <div className="absolute inset-0 z-10 bg-background">
+                            <div className="pointer-events-none absolute inset-0 z-10 bg-background">
                                 {placeholder === "tiles" ? (
                                     <ImageSkeleton
                                         rows={rows}
@@ -342,11 +342,11 @@ const GeneratedImageItem = memo(
                             />
                         )}
                         {isImageHidden && (
-                            <div className="absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
+                            <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
                         )}
                         <div
                             className={cn(
-                                "absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 transition-all",
+                                "pointer-events-none absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 transition-all",
                                 isImageHidden
                                     ? "translate-y-0 opacity-100"
                                     : "opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
@@ -366,7 +366,7 @@ const GeneratedImageItem = memo(
                                 variant="secondary"
                                 size="icon"
                                 className={cn(
-                                    "absolute top-2 right-2 z-40 h-8 w-8 rounded-full border border-white/15 bg-background/80 text-foreground shadow-lg backdrop-blur-md transition-all hover:bg-background",
+                                    "absolute top-2 right-2 z-40 h-8 w-8 border border-white/15 bg-background/80 text-foreground shadow-lg backdrop-blur-md transition-all hover:bg-background",
                                     isImageHidden
                                         ? "opacity-100"
                                         : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"

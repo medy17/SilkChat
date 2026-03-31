@@ -33,7 +33,7 @@ import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction, useQuery } from "convex/react"
-import { Download, ExternalLink, Eye, EyeOff, Trash2, X } from "lucide-react"
+import { Download, ExternalLink, Trash2, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 interface ImageDetailsModalProps {
@@ -230,6 +230,10 @@ export function ImageDetailsModal({
         window.open(fullResolutionUrl, "_blank")
     }
 
+    const handleToggleImageVisibility = () => {
+        toggleImageVisibility(localImage._id)
+    }
+
     const handleDelete = () => {
         const imageId = localImage._id as Id<"generatedImages">
         setShowDeleteDialog(false)
@@ -284,22 +288,6 @@ export function ImageDetailsModal({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="absolute top-3 left-3 z-50 h-8 w-8 rounded-full bg-background/60 backdrop-blur-md"
-                                onClick={() => toggleImageVisibility(localImage._id)}
-                            >
-                                <span className="sr-only">
-                                    {isImageHidden ? "Unhide image" : "Hide image"}
-                                </span>
-                                {isImageHidden ? (
-                                    <Eye className="h-4 w-4" />
-                                ) : (
-                                    <EyeOff className="h-4 w-4" />
-                                )}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
                                 className="absolute top-3 right-3 z-50 h-8 w-8 rounded-full bg-background/50 backdrop-blur-md"
                                 onClick={onClose}
                             >
@@ -311,29 +299,39 @@ export function ImageDetailsModal({
                             {loadState !== "ready" && (
                                 <ImageLoadIndicator complete={loadState === "revealing"} />
                             )}
-                            <img
-                                src={imageUrl}
-                                alt={localImage.prompt || "Generated Image"}
-                                className={cn(
-                                    "max-h-full max-w-full rounded-lg object-contain shadow-sm transition-all duration-500",
-                                    loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
-                                    loadState === "revealing" && "scale-[1.01] opacity-100 blur-md",
-                                    loadState === "ready" && "scale-100 opacity-100 blur-0",
-                                    isImageHidden &&
-                                        "scale-[1.05] blur-2xl brightness-75 saturate-50"
+                            <button
+                                type="button"
+                                className="relative flex max-h-full max-w-full items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                onClick={handleToggleImageVisibility}
+                            >
+                                <span className="sr-only">
+                                    {isImageHidden ? "Unhide image" : "Hide image"}
+                                </span>
+                                <img
+                                    src={imageUrl}
+                                    alt={localImage.prompt || "Generated Image"}
+                                    className={cn(
+                                        "max-h-full max-w-full rounded-lg object-contain shadow-sm transition-all duration-500",
+                                        loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
+                                        loadState === "revealing" &&
+                                            "scale-[1.01] opacity-100 blur-md",
+                                        loadState === "ready" && "scale-100 opacity-100 blur-0",
+                                        isImageHidden &&
+                                            "scale-[1.05] blur-2xl brightness-75 saturate-50"
+                                    )}
+                                    style={{ aspectRatio: cssAspectRatio }}
+                                    onLoad={handleImageLoad}
+                                    onError={handleImageError}
+                                />
+                                {isImageHidden && (
+                                    <>
+                                        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-black/20 backdrop-blur-[2px]" />
+                                        <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
+                                            Private viewing enabled
+                                        </div>
+                                    </>
                                 )}
-                                style={{ aspectRatio: cssAspectRatio }}
-                                onLoad={handleImageLoad}
-                                onError={handleImageError}
-                            />
-                            {isImageHidden && (
-                                <>
-                                    <div className="absolute inset-0 z-20 rounded-lg bg-black/20 backdrop-blur-[2px]" />
-                                    <div className="absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
-                                        Private viewing enabled
-                                    </div>
-                                </>
-                            )}
+                            </button>
                         </div>
 
                         {/* Bottom: Details Area */}
@@ -447,22 +445,6 @@ export function ImageDetailsModal({
                             height: layout.imageHeight
                         }}
                     >
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute top-4 left-4 z-30 h-10 w-10 rounded-full border border-white/15 bg-background/80 shadow-lg backdrop-blur-md"
-                            onClick={() => toggleImageVisibility(localImage._id)}
-                        >
-                            <span className="sr-only">
-                                {isImageHidden ? "Unhide image" : "Hide image"}
-                            </span>
-                            {isImageHidden ? (
-                                <Eye className="h-4 w-4" />
-                            ) : (
-                                <EyeOff className="h-4 w-4" />
-                            )}
-                        </Button>
                         {loadState !== "ready" && (
                             <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
                         )}
@@ -475,7 +457,14 @@ export function ImageDetailsModal({
                         {loadState !== "ready" && (
                             <ImageLoadIndicator complete={loadState === "revealing"} />
                         )}
-                        <div className="flex h-full w-full items-center justify-center">
+                        <button
+                            type="button"
+                            className="flex h-full w-full items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={handleToggleImageVisibility}
+                        >
+                            <span className="sr-only">
+                                {isImageHidden ? "Unhide image" : "Hide image"}
+                            </span>
                             <img
                                 src={imageUrl}
                                 alt={localImage.prompt || "Generated Image"}
@@ -491,11 +480,11 @@ export function ImageDetailsModal({
                                 onLoad={handleImageLoad}
                                 onError={handleImageError}
                             />
-                        </div>
+                        </button>
                         {isImageHidden && (
                             <>
-                                <div className="absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
-                                <div className="absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
+                                <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
+                                <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
                                     Private viewing enabled
                                 </div>
                             </>
