@@ -6,21 +6,9 @@ import {
     getPrivateBlurStorageKey
 } from "@/lib/private-blur-variants"
 import { v } from "convex/values"
+import sharp from "sharp"
 import { internalAction } from "./_generated/server"
 import { r2 } from "./attachments"
-
-let sharpPromise: Promise<typeof import("sharp")> | null = null
-
-const getSharp = () => {
-    if (!sharpPromise) {
-        const resolved = import.meta.resolve?.("sharp")
-        sharpPromise = resolved
-            ? (import(resolved) as Promise<typeof import("sharp")>)
-            : (Function("return import('sharp')")() as Promise<typeof import("sharp")>)
-    }
-
-    return sharpPromise
-}
 
 const getContentType = (format: PrivateBlurFormat) =>
     format === "avif" ? "image/avif" : "image/webp"
@@ -65,7 +53,6 @@ export const ensurePrivateBlur = internalAction({
         }
 
         const sourceBytes = new Uint8Array(await sourceResponse.arrayBuffer())
-        const sharp = await getSharp()
 
         const transformer = sharp(sourceBytes, { failOn: "none" })
             .rotate()

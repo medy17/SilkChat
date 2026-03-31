@@ -152,6 +152,9 @@ const GeneratedImageItem = memo(
         onToggleImageHidden?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
+        const [isBlurVariantReady, setIsBlurVariantReady] = useState(false)
+        const [hasBlurVariantError, setHasBlurVariantError] = useState(false)
+        const [hasMountedBlurVariant, setHasMountedBlurVariant] = useState(false)
         const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
         const revealTimeoutRef = useRef<number | null>(null)
         const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
@@ -159,13 +162,21 @@ const GeneratedImageItem = memo(
             metadata !== undefined &&
             (!metadata || (typeof metadata.size === "number" && metadata.size <= 0))
 
-        const imageSources = getLibraryImageSources({
+        const visibleImageSources = getLibraryImageSources({
             storageKey: image.storageKey,
             aspectRatio: image.aspectRatio,
-            hidden: isImageHidden
+            hidden: false
         })
 
-        const useCssBlurFallback = isImageHidden && imageSources.useCssBlurFallback
+        const hiddenImageSources = getLibraryImageSources({
+            storageKey: image.storageKey,
+            aspectRatio: image.aspectRatio,
+            hidden: true
+        })
+
+        const canUseBlurVariant = !hiddenImageSources.useCssBlurFallback && !hasBlurVariantError
+        const shouldMountBlurVariant = canUseBlurVariant && (isImageHidden || hasMountedBlurVariant)
+        const useCssBlurFallback = isImageHidden && (!canUseBlurVariant || !isBlurVariantReady)
 
         const handleImageLoad = useCallback(() => {
             setLoadState("revealing")
@@ -194,6 +205,18 @@ const GeneratedImageItem = memo(
                 }
             }
         }, [])
+
+        useEffect(() => {
+            setIsBlurVariantReady(false)
+            setHasBlurVariantError(false)
+            setHasMountedBlurVariant(false)
+        }, [image.storageKey])
+
+        useEffect(() => {
+            if (canUseBlurVariant && isImageHidden) {
+                setHasMountedBlurVariant(true)
+            }
+        }, [canUseBlurVariant, isImageHidden])
 
         const aspectRatio = image.aspectRatio || "1:1"
         const cssAspectRatio = useMemo(() => {
@@ -326,17 +349,16 @@ const GeneratedImageItem = memo(
                         )}
                         {metadata && (
                             <img
-                                src={imageSources.src}
-                                srcSet={imageSources.srcSet}
-                                sizes={imageSources.sizes}
+                                src={visibleImageSources.src}
+                                srcSet={visibleImageSources.srcSet}
+                                sizes={visibleImageSources.sizes}
                                 alt={image.prompt || "AI generation"}
                                 className={cn(
-                                    "absolute inset-0 h-full w-full object-cover transition-all duration-500",
+                                    "absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-300",
                                     loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
                                     loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
                                     loadState === "ready" &&
                                         "scale-100 opacity-100 blur-0 group-hover:scale-105",
-                                    isImageHidden && "brightness-75 saturate-50",
                                     useCssBlurFallback && "scale-[1.08] blur-2xl"
                                 )}
                                 onLoad={handleImageLoad}
@@ -344,10 +366,32 @@ const GeneratedImageItem = memo(
                                 loading="lazy"
                             />
                         )}
+                        {metadata && shouldMountBlurVariant && (
+                            <img
+                                src={hiddenImageSources.src}
+                                srcSet={hiddenImageSources.srcSet}
+                                sizes={hiddenImageSources.sizes}
+                                alt=""
+                                aria-hidden="true"
+                                className={cn(
+                                    "pointer-events-none absolute inset-0 z-10 h-full w-full object-cover brightness-75 saturate-50 transition-[opacity,transform] duration-300",
+                                    loadState === "ready" && "group-hover:scale-105",
+                                    isImageHidden && isBlurVariantReady
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                )}
+                                onLoad={() => setIsBlurVariantReady(true)}
+                                onError={() => {
+                                    setHasBlurVariantError(true)
+                                    setIsBlurVariantReady(false)
+                                }}
+                                loading="lazy"
+                            />
+                        )}
                         {isImageHidden && (
                             <div
                                 className={cn(
-                                    "pointer-events-none absolute inset-0 z-20 bg-black/20",
+                                    "pointer-events-none absolute inset-0 z-20 bg-black/20 transition-opacity duration-300",
                                     useCssBlurFallback && "backdrop-blur-[2px]"
                                 )}
                             />
