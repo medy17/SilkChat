@@ -224,6 +224,9 @@ const buildOpenRouterProviderOptions = (
             effort: "none"
         }
         options.extraBody = {
+            provider: {
+                require_parameters: true
+            },
             include_reasoning: false,
             usage: {
                 include: true
@@ -234,6 +237,9 @@ const buildOpenRouterProviderOptions = (
 
     if (!supportsEffortControl && !shouldForceReasoningForVariant) {
         options.extraBody = {
+            provider: {
+                require_parameters: true
+            },
             usage: {
                 include: true
             }
@@ -246,6 +252,9 @@ const buildOpenRouterProviderOptions = (
         effort: reasoningEffort
     }
     options.extraBody = {
+        provider: {
+            require_parameters: true
+        },
         include_reasoning: true,
         usage: {
             include: true

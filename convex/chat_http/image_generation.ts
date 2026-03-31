@@ -83,6 +83,48 @@ type ImageExecutionPath =
     | "ai-sdk-generate-image-google-openai-compatible"
     | "ai-sdk-generate-image-generic"
 
+type OpenRouterImageRequestOptions = {
+    modalities?: Array<"image" | "text">
+    provider?: {
+        only?: string[]
+        allow_fallbacks?: boolean
+        require_parameters?: boolean
+    }
+}
+
+function buildOpenRouterImageRequestOptions(
+    appModelId: string,
+    modalities?: Array<"image" | "text">
+): OpenRouterImageRequestOptions {
+    const options: OpenRouterImageRequestOptions = {
+        provider: {
+            require_parameters: true
+        }
+    }
+
+    if (modalities?.length) {
+        options.modalities = [...modalities]
+    }
+
+    // Prefer the model vendor's own OpenRouter endpoint when available.
+    // This avoids load-balancing onto stricter third-party providers.
+    if (appModelId === "seedream-4-5") {
+        options.provider = {
+            only: ["seed"],
+            allow_fallbacks: false,
+            require_parameters: true
+        }
+    } else if (appModelId === "flux-2-flex") {
+        options.provider = {
+            only: ["black-forest-labs"],
+            allow_fallbacks: false,
+            require_parameters: true
+        }
+    }
+
+    return options
+}
+
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
     const buffer = new ArrayBuffer(bytes.byteLength)
     new Uint8Array(buffer).set(bytes)
@@ -435,13 +477,13 @@ export async function generateAndStoreImage({
                       }
                     : {
                           ...(size ? { size } : { aspectRatio }),
-                          ...(isOpenRouterImageModel &&
-                          sharedModel.openrouterImageModalities?.length
+                          ...(isOpenRouterImageModel
                               ? {
                                     providerOptions: {
-                                        openrouter: {
-                                            modalities: sharedModel.openrouterImageModalities
-                                        }
+                                        openrouter: buildOpenRouterImageRequestOptions(
+                                            modelId,
+                                            sharedModel.openrouterImageModalities
+                                        )
                                     }
                                 }
                               : {})

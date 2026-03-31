@@ -13,6 +13,11 @@
                 "pathname": "/**"
             },
             {
+                "protocol": "https",
+                "hostname": "**.storage.supabase.co",
+                "pathname": "/storage/v1/s3/**"
+            },
+            {
                 "protocol": "http",
                 "hostname": "127.0.0.1",
                 "pathname": "/http/**"
