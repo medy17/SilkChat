@@ -112,6 +112,24 @@ export const CORE_PROVIDERS: CoreProviderInfo[] = [
     }
 ]
 
+const LEGACY_DIRECT_INFERENCE_PROVIDER_IDS = new Set<CoreProvider>([
+    "openai",
+    "anthropic",
+    "google",
+    "xai",
+    "groq",
+    "fal"
+])
+
+export const legacyDirectInferenceProvidersEnabled =
+    optionalBrowserEnv("VITE_ENABLE_LEGACY_DIRECT_INFERENCE_PROVIDERS") === "true"
+
+export const isLegacyDirectInferenceProvider = (providerId: string) =>
+    LEGACY_DIRECT_INFERENCE_PROVIDER_IDS.has(providerId as CoreProvider)
+
+export const shouldShowCoreInferenceProvider = (provider: CoreProviderInfo) =>
+    provider.id === "openrouter" || (legacyDirectInferenceProvidersEnabled && !provider.hidden)
+
 const HIDDEN_PROVIDER_IDS = new Set(["groq", "fal", "i3-groq", "i3-fal"])
 const enabledInternalProviders = new Set<CoreProvider>(
     (
@@ -228,13 +246,27 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
             model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
         )
         .forEach((model) => {
-            const hasProvider = model.adapters.some((adapter) => {
+            const hasInternalProvider = model.adapters.some((adapter) => {
                 const providerId = adapter.split(":")[0]
-                if (HIDDEN_PROVIDER_IDS.has(providerId)) return false
-                if (providerId.startsWith("i3-")) return isInternalProviderEnabled(providerId)
-                if (providerId === "openrouter") return currentProviders.core.openrouter?.enabled
-                return currentProviders.core[providerId as CoreProvider]?.enabled
+                return providerId.startsWith("i3-") && isInternalProviderEnabled(providerId)
             })
+
+            const hasOpenRouterProvider = model.adapters.some((adapter) => {
+                const providerId = adapter.split(":")[0]
+                return providerId === "openrouter" && currentProviders.core.openrouter?.enabled
+            })
+
+            const hasLegacyDirectProvider =
+                legacyDirectInferenceProvidersEnabled &&
+                model.adapters.some((adapter) => {
+                    const providerId = adapter.split(":")[0]
+                    if (HIDDEN_PROVIDER_IDS.has(providerId)) return false
+                    if (providerId.startsWith("i3-") || providerId === "openrouter") return false
+                    return currentProviders.core[providerId as CoreProvider]?.enabled
+                })
+
+            const hasProvider =
+                hasInternalProvider || hasOpenRouterProvider || hasLegacyDirectProvider
 
             if (hasProvider) {
                 availableModels.push(model)

@@ -5,6 +5,7 @@ type Env = {
     VITE_POSTHOG_HOST?: string
     VITE_ENABLE_VOICE_INPUT?: string
     VITE_ENABLED_INTERNAL_PROVIDERS?: string
+    VITE_ENABLE_LEGACY_DIRECT_INFERENCE_PROVIDERS?: string
 }
 
 export const browserEnv = (key: keyof Env) => {

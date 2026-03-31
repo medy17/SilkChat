@@ -70,12 +70,23 @@ export const getModel = async (
         return new ChatError("bad_model:api", "No internal adapters found for model")
     }
 
-    // Priority sorting: BYOK Core Providers > Server (i3-) > OpenRouter
+    const isCustomModel = Boolean(model.customProviderId)
+
+    // Priority sorting:
+    // - built-in shared models: OpenRouter BYOK > built-in internal > legacy direct BYOK
+    // - custom models: keep provider-native ordering
     const sortedAdapters = adaptersToConsider.sort((a, b) => {
         const providerA = a.split(":")[0]
         const providerB = b.split(":")[0]
 
         const getPriority = (provider: string) => {
+            if (!isCustomModel) {
+                if (provider === "openrouter") return 1
+                if (provider.startsWith("i3-")) return 2
+                if (CoreProviders.includes(provider as CoreProvider)) return 3
+                return 4
+            }
+
             if (CoreProviders.includes(provider as CoreProvider)) return 1
             if (provider.startsWith("i3-")) return 2
             if (provider === "openrouter") return 3
@@ -105,22 +116,23 @@ export const getModel = async (
                 continue
             }
 
-            if (model.mode !== "image") {
-                const internalOpenRouterApiKey = getInternalOpenRouterApiKey()
-                const openRouterModelId = internalOpenRouterApiKey
-                    ? getOpenRouterModelId(model.id)
-                    : undefined
+            const internalOpenRouterApiKey = getInternalOpenRouterApiKey()
+            const openRouterModelId = internalOpenRouterApiKey
+                ? getOpenRouterModelId(model.id)
+                : undefined
 
-                if (openRouterModelId) {
-                    const openRouterProvider = (await createProvider(
-                        "openrouter",
-                        "internal"
-                    )) as unknown as OpenRouterProvider
-                    finalModel = openRouterProvider.chat(openRouterModelId)
-                    providerSource = "internal"
-                    runtimeProvider = "openrouter"
-                    break
-                }
+            if (openRouterModelId) {
+                const openRouterProvider = (await createProvider(
+                    "openrouter",
+                    "internal"
+                )) as unknown as OpenRouterProvider
+                finalModel =
+                    model.mode === "image"
+                        ? openRouterProvider.imageModel(openRouterModelId)
+                        : openRouterProvider.chat(openRouterModelId)
+                providerSource = "internal"
+                runtimeProvider = "openrouter"
+                break
             }
 
             const sdk_provider = await createProvider(providerId, "internal", {

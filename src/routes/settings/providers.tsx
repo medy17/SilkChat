@@ -31,6 +31,7 @@ import {
     CORE_PROVIDERS,
     type CoreProviderInfo,
     SEARCH_PROVIDERS,
+    shouldShowCoreInferenceProvider,
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import Logo from "@/logo.svg"
@@ -588,7 +589,14 @@ function ProvidersSettings() {
 
     const handleSaveSearchProvider = async (
         providerId: string,
-        config: { enabled: boolean; newKey?: string } & Record<string, any>
+        config: {
+            enabled: boolean
+            newKey?: string
+            country?: string
+            searchLang?: string
+            safesearch?: "off" | "moderate" | "strict"
+            language?: string
+        }
     ) => {
         if (!session.user?.id) return
         if (providerId === "fal") {
@@ -799,11 +807,12 @@ function ProvidersSettings() {
                     <div className="space-y-0.25">
                         <h3 className="font-semibold text-base">BYOK AI Providers</h3>
                         <p className="text-muted-foreground text-xs">
-                            Bring your own API keys for enhanced AI capabilities
+                            Built-in text and image models use your OpenRouter key when BYOK is
+                            enabled
                         </p>
                     </div>
 
-                    {CORE_PROVIDERS.filter((provider) => !provider.hidden).map((provider) => (
+                    {CORE_PROVIDERS.filter(shouldShowCoreInferenceProvider).map((provider) => (
                         <ProviderCard
                             key={provider.id}
                             provider={provider}

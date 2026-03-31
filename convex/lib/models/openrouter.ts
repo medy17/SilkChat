@@ -24,6 +24,8 @@ export const OPENROUTER_MODELS: SharedModel[] = [
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image"],
         customIcon: "bflabs",
         supportedImageSizes: [...OPENROUTER_IMAGE_SIZES],
         prototypeCreditTier: "pro"
@@ -37,6 +39,8 @@ export const OPENROUTER_MODELS: SharedModel[] = [
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image"],
         supportedImageSizes: [...OPENROUTER_IMAGE_SIZES],
         prototypeCreditTier: "pro"
     }

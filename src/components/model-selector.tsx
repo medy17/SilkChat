@@ -45,6 +45,7 @@ import {
     ChevronDown,
     Globe,
     Image,
+    KeyRound,
     MessageSquareText,
     Search
 } from "lucide-react"
@@ -157,6 +158,68 @@ const getModelProviderId = (model: DisplayModel) => {
         adapters.find((adapter) => !adapter.startsWith("openrouter:")) ?? adapters[0]
 
     return normalizeProviderId(preferredAdapter?.split(":")[0] ?? "unknown")
+}
+
+const getActiveRuntimeProvider = (
+    model: DisplayModel,
+    currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"],
+    sharedModels: SharedModel[]
+): { isByok: boolean; label: string } | null => {
+    if ("isCustom" in model && model.isCustom) {
+        const providerId = model.providerId
+
+        if (currentProviders.core[providerId]?.enabled) {
+            return {
+                isByok: true,
+                label: getProviderDisplayName(providerId, currentProviders)
+            }
+        }
+
+        if (currentProviders.custom[providerId]?.enabled) {
+            return {
+                isByok: true,
+                label: currentProviders.custom[providerId].name
+            }
+        }
+
+        return null
+    }
+
+    const sharedModel =
+        sharedModels.find((shared) => shared.id === model.id) ?? (model as SharedModel)
+
+    for (const adapter of sharedModel.adapters) {
+        const providerId = adapter.split(":")[0]
+        if (providerId === "openrouter" && currentProviders.core.openrouter?.enabled) {
+            return {
+                isByok: true,
+                label: getProviderDisplayName(providerId, currentProviders)
+            }
+        }
+    }
+
+    for (const adapter of sharedModel.adapters) {
+        const providerId = adapter.split(":")[0]
+        if (providerId.startsWith("i3-")) {
+            return { isByok: false, label: "Built-in" }
+        }
+    }
+
+    for (const adapter of sharedModel.adapters) {
+        const providerId = adapter.split(":")[0]
+        if (providerId === "openrouter" || providerId.startsWith("i3-")) {
+            continue
+        }
+
+        if (currentProviders.core[providerId as keyof typeof currentProviders.core]?.enabled) {
+            return {
+                isByok: true,
+                label: getProviderDisplayName(providerId, currentProviders)
+            }
+        }
+    }
+
+    return null
 }
 
 const getProviderSectionLabel = (
@@ -359,7 +422,8 @@ export function ModelSelector({
     className,
     side = "bottom",
     align = "start",
-    shortcutTarget = "none"
+    shortcutTarget = "none",
+    tone = "default"
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -367,6 +431,7 @@ export function ModelSelector({
     side?: "top" | "right" | "bottom" | "left"
     align?: "start" | "center" | "end"
     shortcutTarget?: "composer" | "none"
+    tone?: "default" | "on-primary"
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -639,6 +704,14 @@ export function ModelSelector({
         return getProviderIcon(selectedModelData, isCustom)
     }, [selectedModelData, sharedModels])
 
+    const activeRuntimeProvider = React.useMemo(
+        () =>
+            selectedModelData
+                ? getActiveRuntimeProvider(selectedModelData, currentProviders, sharedModels)
+                : null,
+        [currentProviders, selectedModelData, sharedModels]
+    )
+
     return (
         <ResponsivePopover open={open} onOpenChange={setOpen}>
             <ResponsivePopoverTrigger asChild>
@@ -660,6 +733,24 @@ export function ModelSelector({
                                         selectedModelData.name}
                                 </span>
                                 <span className="hidden md:block">{selectedModelData.name}</span>
+                                {activeRuntimeProvider?.isByok && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span
+                                                className={cn(
+                                                    "inline-flex text-muted-foreground",
+                                                    tone === "on-primary" &&
+                                                        "text-primary-foreground"
+                                                )}
+                                            >
+                                                <KeyRound className="size-3.5" />
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            Using your {activeRuntimeProvider.label} key
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
                             </div>
                         )}
                         <ChevronDown className="ml-auto h-4 w-4" />

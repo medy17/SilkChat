@@ -143,6 +143,8 @@ export const getUserRegistryInternal = internalQuery({
                 abilities: model.abilities,
                 mode: model.mode,
                 maxPerMessage: model.maxPerMessage,
+                supportsReferenceImages: model.supportsReferenceImages,
+                openrouterImageModalities: model.openrouterImageModalities,
                 supportedImageSizes: model.supportedImageSizes,
                 supportedImageResolutions: model.supportedImageResolutions,
                 prototypeCreditTier: model.prototypeCreditTier,

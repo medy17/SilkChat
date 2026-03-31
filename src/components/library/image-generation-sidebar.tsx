@@ -118,6 +118,14 @@ export function ImageGenerationSidebar() {
     }, [])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!supportsReferenceImagesForSelection) {
+            toast.error("Reference images are not supported for the selected model set")
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ""
+            }
+            return
+        }
+
         const files = Array.from(e.target.files || [])
         if (files.length > 0) {
             const newRefs = files.map((file) => ({
@@ -136,6 +144,12 @@ export function ImageGenerationSidebar() {
         const imageItems = items.filter((item) => item.type.startsWith("image/"))
 
         if (imageItems.length > 0) {
+            if (!supportsReferenceImagesForSelection) {
+                e.preventDefault()
+                toast.error("Reference images are not supported for the selected model set")
+                return
+            }
+
             e.preventDefault()
             const files = imageItems
                 .map((item) => item.getAsFile())
@@ -274,8 +288,24 @@ export function ImageGenerationSidebar() {
         }
     }, [commonImageResolutions, resolution])
 
+    const selectedModels = useMemo(
+        () => imageModels.filter((model) => selectedModelIds.includes(model.id)),
+        [imageModels, selectedModelIds]
+    )
+
+    const supportsReferenceImagesForSelection = useMemo(
+        () =>
+            selectedModels.length > 0 &&
+            selectedModels.every((model) => model.supportsReferenceImages === true),
+        [selectedModels]
+    )
+
     const handleGenerate = async () => {
         if (!prompt || selectedModelIds.length === 0) return
+        if (referenceFiles.length > 0 && !supportsReferenceImagesForSelection) {
+            toast.error("Reference images are not supported for the selected model set")
+            return
+        }
 
         setIsGenerating(true)
         try {
@@ -403,11 +433,18 @@ export function ImageGenerationSidebar() {
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="text-muted-foreground transition-colors hover:text-foreground"
+                        disabled={!supportsReferenceImagesForSelection}
+                        className="text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <Plus className="h-4 w-4" />
                     </button>
                 </div>
+
+                {!supportsReferenceImagesForSelection && (
+                    <p className="text-[11px] text-muted-foreground">
+                        Reference images are unavailable for the current model selection.
+                    </p>
+                )}
 
                 {referenceFiles.length > 0 && (
                     <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-1">

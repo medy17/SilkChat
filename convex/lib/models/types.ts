@@ -55,6 +55,8 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     contextLength?: number
     maxTokens?: number
     maxPerMessage?: number
+    supportsReferenceImages?: boolean
+    openrouterImageModalities?: Array<"image" | "text">
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"

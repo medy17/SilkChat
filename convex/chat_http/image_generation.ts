@@ -76,6 +76,13 @@ export interface ImageGenerationResult {
     modelId: string
 }
 
+type ImageExecutionPath =
+    | "vertex-direct"
+    | "openai-responses"
+    | "ai-sdk-generate-image-openrouter"
+    | "ai-sdk-generate-image-google-openai-compatible"
+    | "ai-sdk-generate-image-generic"
+
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
     const buffer = new ArrayBuffer(bytes.byteLength)
     new Uint8Array(buffer).set(bytes)
@@ -102,6 +109,42 @@ async function dedupeImagePayloads(
     }
 
     return deduped
+}
+
+async function loadReferenceImages(
+    referenceImageKeys: string[],
+    actionCtx: GenericActionCtx<DataModel>,
+    userId: string
+) {
+    return await Promise.all(
+        referenceImageKeys.map(async (key) => {
+            const metadata = await r2.getMetadata(actionCtx, key)
+            if (!metadata) {
+                throw new Error(`Reference image not found: ${key}`)
+            }
+            if (metadata.authorId && metadata.authorId !== userId) {
+                throw new Error("Reference image does not belong to the current user")
+            }
+
+            const fileUrl = await r2.getUrl(key)
+            const response = await fetch(fileUrl)
+            if (!response.ok) {
+                throw new Error(`Failed to fetch reference image (${response.status})`)
+            }
+
+            const mimeType = response.headers.get("content-type") || "image/png"
+            if (!mimeType.startsWith("image/")) {
+                throw new Error("Reference attachment must be an image")
+            }
+
+            const uint8Array = new Uint8Array(await response.arrayBuffer())
+            return {
+                mimeType,
+                uint8Array,
+                dataUrl: `data:${mimeType};base64,${uint8ArrayToBase64(uint8Array)}`
+            }
+        })
+    )
 }
 
 export async function generateAndStoreImage({
@@ -184,12 +227,35 @@ export async function generateAndStoreImage({
 
         const authMode = getGoogleAuthMode("internal")
         const isVertex = authMode === "vertex" && imageModel.provider?.includes("google")
+        const isOpenRouterImageModel = imageModel.provider === "openrouter"
+        const isGoogleOpenAIImageModel = imageModel.provider === "google.image"
+        const executionPath: ImageExecutionPath = isVertex
+            ? "vertex-direct"
+            : imageModel.provider?.includes("openai") && modelId.startsWith("gpt-5-image")
+              ? "openai-responses"
+              : isOpenRouterImageModel
+                ? "ai-sdk-generate-image-openrouter"
+                : isGoogleOpenAIImageModel
+                  ? "ai-sdk-generate-image-google-openai-compatible"
+                  : "ai-sdk-generate-image-generic"
 
-        if (hasReferenceImages && !isVertex) {
-            throw new Error(
-                "Reference images are currently supported only for Google Vertex image models"
-            )
+        if (hasReferenceImages && !sharedModel.supportsReferenceImages) {
+            throw new Error(`Reference images are not supported for ${sharedModel.name}`)
         }
+
+        const referenceImages = hasReferenceImages
+            ? await loadReferenceImages(referenceImageKeys ?? [], actionCtx, userId)
+            : []
+
+        console.log("[cvx][image_generation] Execution path selected", {
+            path: executionPath,
+            provider: imageModel.provider,
+            modelId: imageModel.modelId,
+            attempt: 1,
+            isRetry: false,
+            referenceImages: referenceImages.length,
+            maxAssets: maxAssets ?? null
+        })
 
         if (isVertex) {
             console.log("[cvx][image_generation] Using direct Vertex API fetch to avoid ai-sdk OOM")
@@ -209,43 +275,12 @@ export async function generateAndStoreImage({
             // Gemini models use 'generateContent'
             const url = `${baseUrl}/v1/projects/${vertexConfig.project}/locations/${location}/publishers/google/models/${modelId}:generateContent`
 
-            const referenceParts =
-                referenceImageKeys && referenceImageKeys.length > 0
-                    ? await Promise.all(
-                          referenceImageKeys.map(async (key) => {
-                              const metadata = await r2.getMetadata(actionCtx, key)
-                              if (!metadata) {
-                                  throw new Error(`Reference image not found: ${key}`)
-                              }
-                              if (metadata.authorId && metadata.authorId !== userId) {
-                                  throw new Error(
-                                      "Reference image does not belong to the current user"
-                                  )
-                              }
-
-                              const fileUrl = await r2.getUrl(key)
-                              const response = await fetch(fileUrl)
-                              if (!response.ok) {
-                                  throw new Error(
-                                      `Failed to fetch reference image (${response.status})`
-                                  )
-                              }
-
-                              const mimeType = response.headers.get("content-type") || "image/png"
-                              if (!mimeType.startsWith("image/")) {
-                                  throw new Error("Reference attachment must be an image")
-                              }
-
-                              const arrayBuffer = await response.arrayBuffer()
-                              return {
-                                  inlineData: {
-                                      mimeType,
-                                      data: uint8ArrayToBase64(arrayBuffer)
-                                  }
-                              }
-                          })
-                      )
-                    : []
+            const referenceParts = referenceImages.map((image) => ({
+                inlineData: {
+                    mimeType: image.mimeType,
+                    data: uint8ArrayToBase64(image.uint8Array)
+                }
+            }))
 
             const body = {
                 contents: [
@@ -366,13 +401,21 @@ export async function generateAndStoreImage({
                 throw new Error("No images returned from GPT-5 image generation")
             }
         } else {
-            console.log("[cvx][image_generation] Using ai-sdk generateImage fallback")
-            const isGoogleOpenAIImageModel = imageModel.provider === "google.image"
-            const isOpenRouterImageModel = imageModel.provider === "openrouter"
+            console.log("[cvx][image_generation] Using AI SDK generateImage path", {
+                path: executionPath,
+                provider: imageModel.provider,
+                modelId: imageModel.modelId
+            })
 
             const { images } = await generateImage({
                 model: imageModel,
-                prompt,
+                prompt:
+                    isOpenRouterImageModel && referenceImages.length > 0
+                        ? {
+                              text: prompt,
+                              images: referenceImages.map((image) => image.dataUrl)
+                          }
+                        : prompt,
                 ...(isGoogleOpenAIImageModel
                     ? {
                           ...(size ? { size } : {}),
@@ -392,11 +435,12 @@ export async function generateAndStoreImage({
                       }
                     : {
                           ...(size ? { size } : { aspectRatio }),
-                          ...(isOpenRouterImageModel
+                          ...(isOpenRouterImageModel &&
+                          sharedModel.openrouterImageModalities?.length
                               ? {
                                     providerOptions: {
                                         openrouter: {
-                                            modalities: ["image"]
+                                            modalities: sharedModel.openrouterImageModalities
                                         }
                                     }
                                 }
@@ -447,7 +491,11 @@ export async function generateAndStoreImage({
             modelId
         }
     } catch (error) {
-        console.error("[cvx][image_generation] Error generating image:", error)
+        console.error("[cvx][image_generation] Error generating image:", {
+            provider: imageModel.provider,
+            modelId: imageModel.modelId,
+            error
+        })
         throw new Error(
             `Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`
         )

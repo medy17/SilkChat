@@ -6,9 +6,10 @@ const openAiTextAdapters = (modelId: string): RegistryKey[] => [
     `openrouter:openai/${modelId}`
 ]
 
-const openAiImageAdapters = (modelId: string): RegistryKey[] => [
+const openAiImageAdapters = (modelId: string, openRouterModelId?: string): RegistryKey[] => [
     `i3-openai:${modelId}`,
-    `openai:${modelId}`
+    `openai:${modelId}`,
+    ...(openRouterModelId ? ([`openrouter:${openRouterModelId}`] as RegistryKey[]) : [])
 ]
 
 export const OPENAI_MODELS: SharedModel[] = [
@@ -84,10 +85,11 @@ export const OPENAI_MODELS: SharedModel[] = [
         name: "GPT 5 Image Mini",
         shortName: "5 Image Mini",
         releaseOrder: 20261016,
-        adapters: openAiImageAdapters("gpt-5-image-mini"),
+        adapters: openAiImageAdapters("gpt-5-image-mini", "openai/gpt-5-image-mini"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
+        openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"],
         prototypeCreditTier: "pro"
@@ -97,10 +99,11 @@ export const OPENAI_MODELS: SharedModel[] = [
         name: "GPT 5 Image",
         shortName: "5 Image",
         releaseOrder: 20261015,
-        adapters: openAiImageAdapters("gpt-5-image"),
+        adapters: openAiImageAdapters("gpt-5-image", "openai/gpt-5-image"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
+        openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"],
         prototypeCreditTier: "pro"

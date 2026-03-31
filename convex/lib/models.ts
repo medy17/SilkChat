@@ -27,6 +27,8 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.abilities,
         model.mode,
         model.maxPerMessage,
+        model.supportsReferenceImages,
+        model.openrouterImageModalities,
         model.supportedImageSizes,
         model.supportedImageResolutions,
         model.customIcon,

@@ -387,6 +387,7 @@ const EditableMessage = memo(
                                 selectedModel={selectedModel}
                                 onModelChange={setSelectedModel}
                                 side="top"
+                                tone="on-primary"
                                 className="border-none bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
                             />
                         )}

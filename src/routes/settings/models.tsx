@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
+import type { SharedModel } from "@/convex/lib/models"
 import type { ModelAbility } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import {
@@ -34,6 +35,7 @@ import {
     getProviderDisplayName,
     isImageGenerationCapableModel,
     isInternalProviderEnabled,
+    legacyDirectInferenceProvidersEnabled,
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
@@ -62,7 +64,9 @@ type ModelCardProps = {
 }
 
 const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCardProps) => {
-    // Determine the active provider following priority: BYOK Core > Custom > i3-internal > OpenRouter
+    // Determine the active provider following priority:
+    // shared built-ins prefer OpenRouter BYOK > Built-in > legacy direct BYOK
+    // custom models still use their explicit provider selection
     const getActiveProvider = () => {
         // Handle custom models differently - they have a direct providerId reference
         if ("isCustom" in model && model.isCustom) {
@@ -85,20 +89,20 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
         }
 
         // Handle shared models with adapters
-        const sharedModel = model as any
+        const sharedModel = model as SharedModel
 
-        // Check BYOK core providers first
+        // Shared built-ins prefer OpenRouter BYOK first.
         for (const adapter of sharedModel.adapters) {
             const providerId = adapter.split(":")[0]
-            if (currentProviders.core[providerId]?.enabled) {
+            if (providerId === "openrouter" && currentProviders.core.openrouter?.enabled) {
                 return {
-                    name: `${getProviderDisplayName(providerId, currentProviders)} BYOK`,
+                    name: "OpenRouter BYOK",
                     available: true
                 }
             }
         }
 
-        // Check i3-internal before OpenRouter so built-in native providers win.
+        // Then built-in internal providers.
         for (const adapter of sharedModel.adapters) {
             const providerId = adapter.split(":")[0]
             if (providerId.startsWith("i3-") && isInternalProviderEnabled(providerId)) {
@@ -106,11 +110,21 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
             }
         }
 
-        // Check OpenRouter
+        // Legacy direct BYOK providers can still back built-ins when explicitly enabled.
+        if (!legacyDirectInferenceProvidersEnabled) {
+            return { name: "No provider configured", available: false }
+        }
+
         for (const adapter of sharedModel.adapters) {
             const providerId = adapter.split(":")[0]
-            if (providerId === "openrouter" && currentProviders.core.openrouter?.enabled) {
-                return { name: "OpenRouter", available: true }
+            if (providerId === "openrouter" || providerId.startsWith("i3-")) {
+                continue
+            }
+            if (currentProviders.core[providerId]?.enabled) {
+                return {
+                    name: `${getProviderDisplayName(providerId, currentProviders)} BYOK`,
+                    available: true
+                }
             }
         }
 

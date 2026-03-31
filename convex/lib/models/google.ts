@@ -8,7 +8,8 @@ const googleTextAdapters = (modelId: string): RegistryKey[] => [
 
 const googleImageAdapters = (modelId: string): RegistryKey[] => [
     `i3-google:${modelId}`,
-    `google:${modelId}`
+    `google:${modelId}`,
+    `openrouter:google/${modelId}`
 ]
 
 export const GOOGLE_MODELS: SharedModel[] = [
@@ -114,6 +115,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
@@ -125,13 +128,12 @@ export const GOOGLE_MODELS: SharedModel[] = [
         name: "Gemini 3.1 Flash Image Preview",
         shortName: "3.1 Flash Image",
         releaseOrder: 20260912,
-        adapters: [
-            "i3-google:gemini-3.1-flash-image-preview",
-            "google:gemini-3.1-flash-image-preview"
-        ],
+        adapters: googleImageAdapters("gemini-3.1-flash-image-preview"),
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
@@ -142,10 +144,12 @@ export const GOOGLE_MODELS: SharedModel[] = [
         name: "Gemini 3 Pro Image Preview",
         shortName: "3 Pro Image",
         releaseOrder: 20260911,
-        adapters: ["i3-google:gemini-3-pro-image-preview", "google:gemini-3-pro-image-preview"],
+        adapters: googleImageAdapters("gemini-3-pro-image-preview"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [
             "1:1",
