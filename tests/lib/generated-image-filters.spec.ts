@@ -19,16 +19,16 @@ describe("generated-image-filters", () => {
     it("normalizes all-style filter values away", () => {
         expect(
             normalizeGeneratedImageFilters({
-                modelId: "all",
-                resolution: "",
-                aspectRatio: "1:1",
-                orientation: "portrait"
+                modelIds: ["", "flux-1", "flux-1"],
+                resolutions: [],
+                aspectRatios: ["1:1"],
+                orientations: ["portrait"]
             })
         ).toEqual({
-            modelId: undefined,
-            resolution: undefined,
-            aspectRatio: "1:1",
-            orientation: "portrait"
+            modelIds: ["flux-1"],
+            resolutions: undefined,
+            aspectRatios: ["1:1"],
+            orientations: ["portrait"]
         })
     })
 
@@ -41,9 +41,9 @@ describe("generated-image-filters", () => {
                     aspectRatio: "9:16"
                 },
                 {
-                    modelId: "flux-1",
-                    resolution: "1K",
-                    orientation: "portrait"
+                    modelIds: ["flux-1", "seedream"],
+                    resolutions: ["1K"],
+                    orientations: ["portrait"]
                 }
             )
         ).toBe(true)
@@ -56,7 +56,7 @@ describe("generated-image-filters", () => {
                     aspectRatio: "9:16"
                 },
                 {
-                    orientation: "landscape"
+                    orientations: ["landscape"]
                 }
             )
         ).toBe(false)
@@ -71,7 +71,7 @@ describe("generated-image-filters", () => {
 
         expect(
             filterAndSortGeneratedImages(images, {
-                filters: { modelId: "a" },
+                filters: { modelIds: ["a"] },
                 sortBy: "newest"
             }).map((image) => image.createdAt)
         ).toEqual([20, 10])
@@ -106,6 +106,6 @@ describe("generated-image-filters", () => {
 
     it("detects active filters", () => {
         expect(hasActiveGeneratedImageFilters({})).toBe(false)
-        expect(hasActiveGeneratedImageFilters({ orientation: "square" })).toBe(true)
+        expect(hasActiveGeneratedImageFilters({ orientations: ["square"] })).toBe(true)
     })
 })

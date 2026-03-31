@@ -13,6 +13,7 @@ const normalizeOrigin = (value?: string) => {
 }
 
 const http = httpRouter()
+const isPrivateBlurEnabled = process.env.LOCAL_DISABLE_PRIVATE_BLUR !== "1"
 const cors = corsRouter(http, {
     allowedOrigins: [
         normalizeOrigin(process.env.VITE_BETTER_AUTH_URL),
@@ -62,10 +63,12 @@ http.route({
     handler: getFile
 })
 
-http.route({
-    path: "/private-blur",
-    method: "GET",
-    handler: getPrivateBlur
-})
+if (isPrivateBlurEnabled) {
+    http.route({
+        path: "/private-blur",
+        method: "GET",
+        handler: getPrivateBlur
+    })
+}
 
 export default http

@@ -1,10 +1,10 @@
 export type GeneratedImageOrientation = "portrait" | "landscape" | "square"
 
 export type GeneratedImageFilters = {
-    modelId?: string
-    resolution?: string
-    aspectRatio?: string
-    orientation?: GeneratedImageOrientation
+    modelIds?: string[]
+    resolutions?: string[]
+    aspectRatios?: string[]
+    orientations?: GeneratedImageOrientation[]
 }
 
 type FilterableGeneratedImage = {
@@ -14,9 +14,22 @@ type FilterableGeneratedImage = {
     createdAt: number
 }
 
-const normalizeValue = (value?: string | null) => {
-    const normalized = value?.trim()
-    return normalized && normalized !== "all" ? normalized : undefined
+const normalizeValues = (values?: string[] | null) => {
+    if (!values?.length) return undefined
+
+    const normalized = [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+    return normalized.length > 0 ? normalized : undefined
+}
+
+const normalizeOrientations = (values?: GeneratedImageOrientation[] | null) => {
+    if (!values?.length) return undefined
+
+    const normalized = [...new Set(values)].filter(
+        (value): value is GeneratedImageOrientation =>
+            value === "portrait" || value === "landscape" || value === "square"
+    )
+
+    return normalized.length > 0 ? normalized : undefined
 }
 
 const getAspectRatioValue = (aspectRatio?: string) => {
@@ -51,24 +64,19 @@ export const getGeneratedImageOrientation = (
 export const normalizeGeneratedImageFilters = (
     filters?: GeneratedImageFilters | null
 ): GeneratedImageFilters => ({
-    modelId: normalizeValue(filters?.modelId),
-    resolution: normalizeValue(filters?.resolution),
-    aspectRatio: normalizeValue(filters?.aspectRatio),
-    orientation:
-        filters?.orientation === "portrait" ||
-        filters?.orientation === "landscape" ||
-        filters?.orientation === "square"
-            ? filters.orientation
-            : undefined
+    modelIds: normalizeValues(filters?.modelIds),
+    resolutions: normalizeValues(filters?.resolutions),
+    aspectRatios: normalizeValues(filters?.aspectRatios),
+    orientations: normalizeOrientations(filters?.orientations)
 })
 
 export const hasActiveGeneratedImageFilters = (filters?: GeneratedImageFilters | null) => {
     const normalized = normalizeGeneratedImageFilters(filters)
     return Boolean(
-        normalized.modelId ||
-            normalized.resolution ||
-            normalized.aspectRatio ||
-            normalized.orientation
+        normalized.modelIds?.length ||
+            normalized.resolutions?.length ||
+            normalized.aspectRatios?.length ||
+            normalized.orientations?.length
     )
 }
 
@@ -78,21 +86,29 @@ export const matchesGeneratedImageFilters = (
 ) => {
     const normalized = normalizeGeneratedImageFilters(filters)
 
-    if (normalized.modelId && image.modelId !== normalized.modelId) {
-        return false
-    }
-
-    if (normalized.resolution && image.resolution !== normalized.resolution) {
-        return false
-    }
-
-    if (normalized.aspectRatio && image.aspectRatio !== normalized.aspectRatio) {
+    if (normalized.modelIds?.length && !normalized.modelIds.includes(image.modelId ?? "")) {
         return false
     }
 
     if (
-        normalized.orientation &&
-        getGeneratedImageOrientation(image.aspectRatio) !== normalized.orientation
+        normalized.resolutions?.length &&
+        !normalized.resolutions.includes(image.resolution ?? "")
+    ) {
+        return false
+    }
+
+    if (
+        normalized.aspectRatios?.length &&
+        !normalized.aspectRatios.includes(image.aspectRatio ?? "")
+    ) {
+        return false
+    }
+
+    if (
+        normalized.orientations?.length &&
+        !normalized.orientations.includes(
+            getGeneratedImageOrientation(image.aspectRatio) ?? "square"
+        )
     ) {
         return false
     }

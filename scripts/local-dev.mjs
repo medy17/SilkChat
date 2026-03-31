@@ -25,7 +25,11 @@ const ensureLocalDeploymentSelected = () => {
 const start = (label, command, args) => {
     const child = spawn(command, args, {
         stdio: "inherit",
-        shell: process.platform === "win32"
+        shell: process.platform === "win32",
+        env: {
+            ...process.env,
+            LOCAL_DISABLE_PRIVATE_BLUR: "1"
+        }
     })
 
     child.on("exit", (code) => {
@@ -64,7 +68,11 @@ const runConvexBootstrap = () =>
             ],
             {
                 stdio: ["pipe", "inherit", "inherit"],
-                shell: process.platform === "win32"
+                shell: process.platform === "win32",
+                env: {
+                    ...process.env,
+                    LOCAL_DISABLE_PRIVATE_BLUR: "1"
+                }
             }
         )
 

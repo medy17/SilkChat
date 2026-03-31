@@ -43,6 +43,11 @@ export const getPreferredPrivateBlurFormat = (): PrivateBlurFormat | null => {
         return preferredPrivateBlurFormat
     }
 
+    if (import.meta.env.DEV) {
+        preferredPrivateBlurFormat = null
+        return preferredPrivateBlurFormat
+    }
+
     if (typeof window === "undefined") {
         preferredPrivateBlurFormat = null
         return preferredPrivateBlurFormat

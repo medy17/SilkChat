@@ -11,6 +11,15 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import {
     Pagination,
@@ -45,6 +54,7 @@ import { useAction, useQuery } from "convex/react"
 import {
     Check,
     CheckSquare2,
+    ChevronDown,
     Clipboard,
     Copy,
     Download,
@@ -66,19 +76,18 @@ export const Route = createFileRoute("/_chat/library")({
 const IMAGES_PER_PAGE = 50
 type ImageSortOption = "newest" | "oldest"
 type ImageLoadPlaceholder = "tiles" | "skeleton"
-type LibraryFilterValue = "all" | string
 type LibraryFiltersState = {
-    modelId: LibraryFilterValue
-    resolution: LibraryFilterValue
-    aspectRatio: LibraryFilterValue
-    orientation: "all" | GeneratedImageOrientation
+    modelIds: string[]
+    resolutions: string[]
+    aspectRatios: string[]
+    orientations: GeneratedImageOrientation[]
 }
 
 const DEFAULT_LIBRARY_FILTERS: LibraryFiltersState = {
-    modelId: "all",
-    resolution: "all",
-    aspectRatio: "all",
-    orientation: "all"
+    modelIds: [],
+    resolutions: [],
+    aspectRatios: [],
+    orientations: []
 }
 
 const ORIENTATION_LABELS: Record<GeneratedImageOrientation, string> = {
@@ -88,11 +97,110 @@ const ORIENTATION_LABELS: Record<GeneratedImageOrientation, string> = {
 }
 
 const toGeneratedImageFilters = (filters: LibraryFiltersState): GeneratedImageFilters => ({
-    modelId: filters.modelId === "all" ? undefined : filters.modelId,
-    resolution: filters.resolution === "all" ? undefined : filters.resolution,
-    aspectRatio: filters.aspectRatio === "all" ? undefined : filters.aspectRatio,
-    orientation: filters.orientation === "all" ? undefined : filters.orientation
+    modelIds: filters.modelIds,
+    resolutions: filters.resolutions,
+    aspectRatios: filters.aspectRatios,
+    orientations: filters.orientations
 })
+
+const getFilterButtonLabel = ({
+    emptyLabel,
+    selectedValues,
+    optionLabels
+}: {
+    emptyLabel: string
+    selectedValues: string[]
+    optionLabels: Map<string, string>
+}) => {
+    if (selectedValues.length === 0) return emptyLabel
+    if (selectedValues.length === 1) {
+        return optionLabels.get(selectedValues[0]) ?? selectedValues[0]
+    }
+
+    return `${selectedValues.length} selected`
+}
+
+const toggleFilterValue = <T extends string>(values: T[], value: T) =>
+    values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value]
+
+const MultiSelectFilter = ({
+    label,
+    emptyLabel,
+    selectedValues,
+    options,
+    onToggleValue,
+    onClear
+}: {
+    label: string
+    emptyLabel: string
+    selectedValues: string[]
+    options: Array<{ value: string; label: string }>
+    onToggleValue: (value: string) => void
+    onClear: () => void
+}) => {
+    const optionLabelMap = useMemo(
+        () => new Map(options.map((option) => [option.value, option.label])),
+        [options]
+    )
+
+    return (
+        <div className="flex flex-col gap-2">
+            <span className="text-muted-foreground text-xs uppercase tracking-wider">{label}</span>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        type="button"
+                        variant={selectedValues.length > 0 ? "secondary" : "outline"}
+                        className="w-full justify-between bg-background font-normal"
+                    >
+                        <span className="truncate">
+                            {getFilterButtonLabel({
+                                emptyLabel,
+                                selectedValues,
+                                optionLabels: optionLabelMap
+                            })}
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-60" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuLabel>{label}</DropdownMenuLabel>
+                    <DropdownMenuCheckboxItem
+                        checked={selectedValues.length === 0}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={() => onClear()}
+                    >
+                        {emptyLabel}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuSeparator />
+                    {options.map((option) => (
+                        <DropdownMenuCheckboxItem
+                            key={option.value}
+                            checked={selectedValues.includes(option.value)}
+                            onSelect={(event) => event.preventDefault()}
+                            onCheckedChange={() => onToggleValue(option.value)}
+                        >
+                            {option.label}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    {selectedValues.length > 0 && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onSelect={(event) => {
+                                    event.preventDefault()
+                                    onClear()
+                                }}
+                            >
+                                Clear {label.toLowerCase()}
+                            </DropdownMenuItem>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    )
+}
 
 const GalleryImageSkeleton = memo(() => (
     <div className="relative h-full w-full overflow-hidden rounded-lg border border-border/60 bg-muted/40">
@@ -669,6 +777,38 @@ function LibraryPage() {
         () => new Map(sharedModels.map((model) => [model.id, model.name])),
         [sharedModels]
     )
+    const modelFilterOptions = useMemo(
+        () =>
+            (filterOptions?.modelIds ?? []).map((modelId) => ({
+                value: modelId,
+                label: modelNameById.get(modelId) ?? modelId
+            })),
+        [filterOptions?.modelIds, modelNameById]
+    )
+    const resolutionFilterOptions = useMemo(
+        () =>
+            (filterOptions?.resolutions ?? []).map((resolution) => ({
+                value: resolution,
+                label: resolution
+            })),
+        [filterOptions?.resolutions]
+    )
+    const aspectRatioFilterOptions = useMemo(
+        () =>
+            (filterOptions?.aspectRatios ?? []).map((aspectRatio) => ({
+                value: aspectRatio,
+                label: aspectRatio
+            })),
+        [filterOptions?.aspectRatios]
+    )
+    const orientationFilterOptions = useMemo(
+        () =>
+            (filterOptions?.orientations ?? []).map((orientation) => ({
+                value: orientation,
+                label: ORIENTATION_LABELS[orientation]
+            })),
+        [filterOptions?.orientations]
+    )
     const pageNumber = previousCursors.length + 1
     const totalPages =
         totalImages === undefined
@@ -694,10 +834,10 @@ function LibraryPage() {
     )
 
     const handleFilterChange = useCallback(
-        <K extends keyof LibraryFiltersState>(key: K, value: LibraryFiltersState[K]) => {
+        <K extends keyof LibraryFiltersState>(key: K, value: string) => {
             setFilters((prev) => ({
                 ...prev,
-                [key]: value
+                [key]: toggleFilterValue(prev[key], value)
             }))
             resetPagination()
         },
@@ -708,6 +848,17 @@ function LibraryPage() {
         setFilters(DEFAULT_LIBRARY_FILTERS)
         resetPagination()
     }, [resetPagination])
+
+    const handleClearFilterGroup = useCallback(
+        <K extends keyof LibraryFiltersState>(key: K) => {
+            setFilters((prev) => ({
+                ...prev,
+                [key]: []
+            }))
+            resetPagination()
+        },
+        [resetPagination]
+    )
 
     const handleNextPage = useCallback(() => {
         if (!imagePage || imagePage.isDone) return
@@ -918,98 +1069,38 @@ function LibraryPage() {
                     </div>
 
                     <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="flex flex-col gap-2">
-                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                Model
-                            </span>
-                            <Select
-                                value={filters.modelId}
-                                onValueChange={(value) => handleFilterChange("modelId", value)}
-                            >
-                                <SelectTrigger className="w-full bg-background">
-                                    <SelectValue placeholder="All models" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All models</SelectItem>
-                                    {(filterOptions?.modelIds ?? []).map((modelId) => (
-                                        <SelectItem key={modelId} value={modelId}>
-                                            {modelNameById.get(modelId) ?? modelId}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                Resolution
-                            </span>
-                            <Select
-                                value={filters.resolution}
-                                onValueChange={(value) => handleFilterChange("resolution", value)}
-                            >
-                                <SelectTrigger className="w-full bg-background">
-                                    <SelectValue placeholder="All resolutions" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All resolutions</SelectItem>
-                                    {(filterOptions?.resolutions ?? []).map((resolution) => (
-                                        <SelectItem key={resolution} value={resolution}>
-                                            {resolution}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                Aspect Ratio
-                            </span>
-                            <Select
-                                value={filters.aspectRatio}
-                                onValueChange={(value) => handleFilterChange("aspectRatio", value)}
-                            >
-                                <SelectTrigger className="w-full bg-background">
-                                    <SelectValue placeholder="All aspect ratios" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All aspect ratios</SelectItem>
-                                    {(filterOptions?.aspectRatios ?? []).map((aspectRatio) => (
-                                        <SelectItem key={aspectRatio} value={aspectRatio}>
-                                            {aspectRatio}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                Orientation
-                            </span>
-                            <Select
-                                value={filters.orientation}
-                                onValueChange={(value) =>
-                                    handleFilterChange(
-                                        "orientation",
-                                        value as LibraryFiltersState["orientation"]
-                                    )
-                                }
-                            >
-                                <SelectTrigger className="w-full bg-background">
-                                    <SelectValue placeholder="All orientations" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All orientations</SelectItem>
-                                    {(filterOptions?.orientations ?? []).map((orientation) => (
-                                        <SelectItem key={orientation} value={orientation}>
-                                            {ORIENTATION_LABELS[orientation]}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <MultiSelectFilter
+                            label="Model"
+                            emptyLabel="All models"
+                            selectedValues={filters.modelIds}
+                            options={modelFilterOptions}
+                            onToggleValue={(value) => handleFilterChange("modelIds", value)}
+                            onClear={() => handleClearFilterGroup("modelIds")}
+                        />
+                        <MultiSelectFilter
+                            label="Resolution"
+                            emptyLabel="All resolutions"
+                            selectedValues={filters.resolutions}
+                            options={resolutionFilterOptions}
+                            onToggleValue={(value) => handleFilterChange("resolutions", value)}
+                            onClear={() => handleClearFilterGroup("resolutions")}
+                        />
+                        <MultiSelectFilter
+                            label="Aspect Ratio"
+                            emptyLabel="All aspect ratios"
+                            selectedValues={filters.aspectRatios}
+                            options={aspectRatioFilterOptions}
+                            onToggleValue={(value) => handleFilterChange("aspectRatios", value)}
+                            onClear={() => handleClearFilterGroup("aspectRatios")}
+                        />
+                        <MultiSelectFilter
+                            label="Orientation"
+                            emptyLabel="All orientations"
+                            selectedValues={filters.orientations}
+                            options={orientationFilterOptions}
+                            onToggleValue={(value) => handleFilterChange("orientations", value)}
+                            onClear={() => handleClearFilterGroup("orientations")}
+                        />
                     </div>
 
                     {!imagePage ? (

@@ -16,10 +16,10 @@ const generatedImageOrientationValidator = v.union(
 )
 const generatedImageFiltersValidator = v.optional(
     v.object({
-        modelId: v.optional(v.string()),
-        resolution: v.optional(v.string()),
-        aspectRatio: v.optional(v.string()),
-        orientation: v.optional(generatedImageOrientationValidator)
+        modelIds: v.optional(v.array(v.string())),
+        resolutions: v.optional(v.array(v.string())),
+        aspectRatios: v.optional(v.array(v.string())),
+        orientations: v.optional(v.array(generatedImageOrientationValidator))
     })
 )
 
