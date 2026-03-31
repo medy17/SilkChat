@@ -352,12 +352,24 @@ const GeneratedImageItem = memo(
                                     : "opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
                             )}
                         >
-                            <div className="line-clamp-2 text-white text-xs">
-                                <p>
-                                    {isImageHidden
-                                        ? "Private viewing enabled"
-                                        : (image.prompt ?? "No prompt")}
-                                </p>
+                            <div className="relative min-h-[2rem] overflow-hidden text-white text-xs">
+                                <AnimatePresence initial={false} mode="wait">
+                                    <motion.p
+                                        key={isImageHidden ? "private-viewing" : "prompt"}
+                                        initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+                                        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                                        exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
+                                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                        className={cn(
+                                            "line-clamp-2",
+                                            isImageHidden && "font-medium"
+                                        )}
+                                    >
+                                        {isImageHidden
+                                            ? "Private viewing enabled"
+                                            : (image.prompt ?? "No prompt")}
+                                    </motion.p>
+                                </AnimatePresence>
                             </div>
                         </div>
                         {onToggleImageHidden && (
