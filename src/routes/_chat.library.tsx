@@ -348,45 +348,52 @@ const GeneratedImageItem = memo(
                             <ImageLoadIndicator complete={loadState === "revealing"} />
                         )}
                         {metadata && (
-                            <img
-                                src={visibleImageSources.src}
-                                srcSet={visibleImageSources.srcSet}
-                                sizes={visibleImageSources.sizes}
-                                alt={image.prompt || "AI generation"}
+                            <div
                                 className={cn(
-                                    "absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                                    loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
-                                    loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
-                                    loadState === "ready" &&
-                                        "scale-100 opacity-100 blur-0 group-hover:scale-[1.03]",
-                                    useCssBlurFallback && "scale-[1.08] blur-2xl"
+                                    "absolute inset-0 overflow-hidden transition-transform duration-[1600ms] ease-out will-change-transform",
+                                    loadState === "ready" && "group-hover:scale-[1.02]",
+                                    loadState !== "ready" && "scale-100"
                                 )}
-                                onLoad={handleImageLoad}
-                                onError={handleImageError}
-                                loading="lazy"
-                            />
-                        )}
-                        {metadata && shouldMountBlurVariant && (
-                            <img
-                                src={hiddenImageSources.src}
-                                srcSet={hiddenImageSources.srcSet}
-                                sizes={hiddenImageSources.sizes}
-                                alt=""
-                                aria-hidden="true"
-                                className={cn(
-                                    "pointer-events-none absolute inset-0 z-10 h-full w-full object-cover brightness-70 saturate-[0.35] transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                                    loadState === "ready" && "group-hover:scale-[1.03]",
-                                    isImageHidden && isBlurVariantReady
-                                        ? "opacity-100"
-                                        : "opacity-0"
+                            >
+                                <img
+                                    src={visibleImageSources.src}
+                                    srcSet={visibleImageSources.srcSet}
+                                    sizes={visibleImageSources.sizes}
+                                    alt={image.prompt || "AI generation"}
+                                    className={cn(
+                                        "absolute inset-0 h-full w-full object-cover transition-[opacity,filter] duration-300 ease-out",
+                                        loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
+                                        loadState === "revealing" &&
+                                            "scale-[1.02] opacity-100 blur-md",
+                                        loadState === "ready" && "scale-100 opacity-100 blur-0",
+                                        useCssBlurFallback && "scale-[1.08] blur-2xl"
+                                    )}
+                                    onLoad={handleImageLoad}
+                                    onError={handleImageError}
+                                    loading="lazy"
+                                />
+                                {shouldMountBlurVariant && (
+                                    <img
+                                        src={hiddenImageSources.src}
+                                        srcSet={hiddenImageSources.srcSet}
+                                        sizes={hiddenImageSources.sizes}
+                                        alt=""
+                                        aria-hidden="true"
+                                        className={cn(
+                                            "pointer-events-none absolute inset-0 h-full w-full object-cover brightness-70 saturate-[0.35] transition-opacity duration-300 ease-out",
+                                            isImageHidden && isBlurVariantReady
+                                                ? "opacity-100"
+                                                : "opacity-0"
+                                        )}
+                                        onLoad={() => setIsBlurVariantReady(true)}
+                                        onError={() => {
+                                            setHasBlurVariantError(true)
+                                            setIsBlurVariantReady(false)
+                                        }}
+                                        loading="lazy"
+                                    />
                                 )}
-                                onLoad={() => setIsBlurVariantReady(true)}
-                                onError={() => {
-                                    setHasBlurVariantError(true)
-                                    setIsBlurVariantReady(false)
-                                }}
-                                loading="lazy"
-                            />
+                            </div>
                         )}
                         {isImageHidden && (
                             <div
