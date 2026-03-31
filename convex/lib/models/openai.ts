@@ -87,6 +87,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiImageAdapters("gpt-5-image-mini"),
         abilities: [],
         mode: "image",
+        maxPerMessage: 2,
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"],
         prototypeCreditTier: "pro"
@@ -99,6 +100,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiImageAdapters("gpt-5-image"),
         abilities: [],
         mode: "image",
+        maxPerMessage: 2,
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"],
         prototypeCreditTier: "pro"
@@ -257,6 +259,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiImageAdapters("gpt-image-1.5"),
         abilities: [],
         mode: "image",
+        maxPerMessage: 2,
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536"],
         prototypeCreditTier: "pro"

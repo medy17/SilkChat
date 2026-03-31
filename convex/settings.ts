@@ -22,25 +22,27 @@ const CoreProviderUpdate = v.object({
     authMode: v.optional(v.union(v.literal("ai-studio"), v.literal("vertex")))
 })
 
-const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey) => {
-    if (model.mode === "image" || model.mode === "speech-to-text") {
-        return false
-    }
+const hasInternalOpenRouterConfig = () => Boolean(process.env.OPENROUTER_API_KEY?.trim())
 
-    const internalOpenRouterApiKey = process.env.OPENROUTER_API_KEY?.trim()
-    if (!internalOpenRouterApiKey) {
+const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey) => {
+    if (!hasInternalOpenRouterConfig()) {
         return false
     }
 
     const [providerId] = adapter.split(":")
+    if (providerId === "openrouter") {
+        return model.adapters.includes(adapter)
+    }
+
     if (!providerId.startsWith("i3-")) {
         return false
     }
 
-    return (
-        model.adapters.includes(adapter) &&
-        model.adapters.some((candidate) => candidate.startsWith("openrouter:"))
-    )
+    if (model.mode === "speech-to-text") {
+        return false
+    }
+
+    return model.adapters.some((candidate) => candidate.startsWith("openrouter:"))
 }
 
 const getSettings = async (
@@ -126,6 +128,7 @@ export const getUserRegistryInternal = internalQuery({
                 const provider = adapter.split(":")[0]
                 if (
                     provider in providers ||
+                    (provider === "openrouter" && hasInternalOpenRouterForModel(model, adapter)) ||
                     (provider.startsWith("i3-") &&
                         (isInternalProviderConfigured(provider.slice(3) as CoreProvider) ||
                             hasInternalOpenRouterForModel(model, adapter)))
@@ -139,6 +142,7 @@ export const getUserRegistryInternal = internalQuery({
                 adapters: available_adapters,
                 abilities: model.abilities,
                 mode: model.mode,
+                maxPerMessage: model.maxPerMessage,
                 supportedImageSizes: model.supportedImageSizes,
                 supportedImageResolutions: model.supportedImageResolutions,
                 prototypeCreditTier: model.prototypeCreditTier,

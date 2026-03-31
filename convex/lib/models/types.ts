@@ -54,6 +54,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     mode?: "text" | "image" | "speech-to-text"
     contextLength?: number
     maxTokens?: number
+    maxPerMessage?: number
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"

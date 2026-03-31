@@ -113,6 +113,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleImageAdapters("gemini-2.5-flash-image"),
         abilities: [],
         mode: "image",
+        maxPerMessage: 4,
         customIcon: "google",
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
@@ -130,6 +131,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         ],
         abilities: [],
         mode: "image",
+        maxPerMessage: 4,
         customIcon: "google",
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
@@ -143,6 +145,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: ["i3-google:gemini-3-pro-image-preview", "google:gemini-3-pro-image-preview"],
         abilities: [],
         mode: "image",
+        maxPerMessage: 2,
         customIcon: "google",
         supportedImageSizes: [
             "1:1",

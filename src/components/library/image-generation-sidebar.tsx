@@ -1,26 +1,36 @@
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
+import type { SharedModel } from "@/convex/lib/models"
 import { useToken } from "@/hooks/auth-hooks"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
-import { Loader2, Plus, Sparkles, X } from "lucide-react"
+import { Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useGenerationStore } from "./generation-store"
 
+const DEFAULT_VARIANTS_PER_MODEL = 1
+const MAX_TOTAL_GENERATIONS_PER_RUN = 10
+
+const getModelMaxPerMessage = (model: SharedModel) =>
+    model.maxPerMessage ?? DEFAULT_VARIANTS_PER_MODEL
+
 export function ImageGenerationSidebar() {
-    const { models } = useSharedModels()
     const { token } = useToken()
+    const { models } = useSharedModels()
     const imageModels = models.filter((m) => m.mode === "image")
     const { addPendingGeneration, removePendingGeneration } = useGenerationStore()
 
     const [prompt, setPrompt] = useState("")
     const [selectedModelIds, setSelectedModelIds] = useState<string[]>(
         imageModels.length > 0 ? [imageModels[0].id] : []
+    )
+    const [selectedModelCounts, setSelectedModelCounts] = useState<Record<string, number>>(
+        imageModels.length > 0 ? { [imageModels[0].id]: DEFAULT_VARIANTS_PER_MODEL } : {}
     )
     const [aspectRatio, setAspectRatio] = useState("1:1")
     const [resolution, setResolution] = useState("1K")
@@ -32,6 +42,38 @@ export function ImageGenerationSidebar() {
     useEffect(() => {
         referenceFilesRef.current = referenceFiles
     }, [referenceFiles])
+
+    useEffect(() => {
+        setSelectedModelIds((prev) => {
+            const validSelections = prev.filter((id) =>
+                imageModels.some((model) => model.id === id)
+            )
+            if (validSelections.length > 0) {
+                return validSelections
+            }
+
+            return imageModels.length > 0 ? [imageModels[0].id] : []
+        })
+    }, [imageModels])
+
+    useEffect(() => {
+        setSelectedModelCounts((prev) => {
+            const validCounts = Object.fromEntries(
+                Object.entries(prev)
+                    .filter(([id]) => imageModels.some((model) => model.id === id))
+                    .map(([id, count]) => {
+                        const model = imageModels.find((candidate) => candidate.id === id)
+                        return [id, Math.max(1, Math.min(count, getModelMaxPerMessage(model!)))]
+                    })
+            )
+
+            if (Object.keys(validCounts).length > 0) {
+                return validCounts
+            }
+
+            return imageModels.length > 0 ? { [imageModels[0].id]: DEFAULT_VARIANTS_PER_MODEL } : {}
+        })
+    }, [imageModels])
 
     useEffect(() => {
         const container = scrollContainerRef.current
@@ -116,14 +158,56 @@ export function ImageGenerationSidebar() {
     }
 
     const toggleModel = (modelId: string) => {
-        setSelectedModelIds((prev) => {
-            if (prev.includes(modelId)) {
-                // Don't allow deselecting the last active model
-                if (prev.length === 1) return prev
-                return prev.filter((id) => id !== modelId)
+        const isSelected = selectedModelIds.includes(modelId)
+        if (isSelected && selectedModelIds.length === 1) {
+            return
+        }
+
+        setSelectedModelIds((prev) =>
+            isSelected ? prev.filter((id) => id !== modelId) : [...prev, modelId]
+        )
+        setSelectedModelCounts((prev) => {
+            if (isSelected) {
+                const next = { ...prev }
+                delete next[modelId]
+                return next
             }
-            return [...prev, modelId]
+
+            return {
+                ...prev,
+                [modelId]: DEFAULT_VARIANTS_PER_MODEL
+            }
         })
+    }
+
+    const totalRequestedGenerations = useMemo(
+        () =>
+            selectedModelIds.reduce(
+                (total, modelId) =>
+                    total + (selectedModelCounts[modelId] ?? DEFAULT_VARIANTS_PER_MODEL),
+                0
+            ),
+        [selectedModelCounts, selectedModelIds]
+    )
+
+    const updateModelCount = (modelId: string, nextCount: number) => {
+        const model = imageModels.find((candidate) => candidate.id === modelId)
+        if (!model) return
+
+        const modelMax = getModelMaxPerMessage(model)
+        const clampedCount = Math.max(1, Math.min(nextCount, modelMax))
+        const currentCount = selectedModelCounts[modelId] ?? DEFAULT_VARIANTS_PER_MODEL
+        const nextTotal = totalRequestedGenerations - currentCount + clampedCount
+
+        if (nextTotal > MAX_TOTAL_GENERATIONS_PER_RUN) {
+            toast.error(`You can generate up to ${MAX_TOTAL_GENERATIONS_PER_RUN} images per run`)
+            return
+        }
+
+        setSelectedModelCounts((prev) => ({
+            ...prev,
+            [modelId]: clampedCount
+        }))
     }
 
     const commonImageSizes = useMemo(() => {
@@ -237,27 +321,32 @@ export function ImageGenerationSidebar() {
                     : []
 
             const results = await Promise.allSettled(
-                selectedModelIds.map(async (modelId) => {
-                    const model = imageModels.find((m) => m.id === modelId)
-                    const supportsResolution =
-                        model?.supportedImageResolutions &&
-                        model.supportedImageResolutions.length > 0
+                selectedModelIds
+                    .flatMap((modelId) => {
+                        const model = imageModels.find((m) => m.id === modelId)
+                        const supportsResolution =
+                            model?.supportedImageResolutions &&
+                            model.supportedImageResolutions.length > 0
+                        const count = selectedModelCounts[modelId] ?? DEFAULT_VARIANTS_PER_MODEL
 
-                    const id = Math.random().toString(36).substring(2, 11)
-                    addPendingGeneration({ id, aspectRatio })
+                        return Array.from({ length: count }, () => async () => {
+                            const id = Math.random().toString(36).substring(2, 11)
+                            addPendingGeneration({ id, aspectRatio })
 
-                    try {
-                        await generateImage({
-                            prompt,
-                            modelId,
-                            aspectRatio,
-                            referenceImageIds: uploadedReferenceKeys,
-                            ...(supportsResolution ? { resolution } : {})
+                            try {
+                                await generateImage({
+                                    prompt,
+                                    modelId,
+                                    aspectRatio,
+                                    referenceImageIds: uploadedReferenceKeys,
+                                    ...(supportsResolution ? { resolution } : {})
+                                })
+                            } finally {
+                                removePendingGeneration(id)
+                            }
                         })
-                    } finally {
-                        removePendingGeneration(id)
-                    }
-                })
+                    })
+                    .map((runGeneration) => runGeneration())
             )
 
             const failedResult = results.find(
@@ -372,60 +461,111 @@ export function ImageGenerationSidebar() {
                                 MODELS
                             </div>
                             <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                                {selectedModelIds.length} active
+                                {selectedModelIds.length} active • {totalRequestedGenerations}{" "}
+                                outputs
                             </span>
                         </div>
 
                         <div className="flex flex-col space-y-1">
                             {imageModels.map((model) => {
                                 const isSelected = selectedModelIds.includes(model.id)
+                                const modelCount =
+                                    selectedModelCounts[model.id] ?? DEFAULT_VARIANTS_PER_MODEL
+                                const modelMaxPerMessage = getModelMaxPerMessage(model)
+                                const canIncrement =
+                                    isSelected &&
+                                    modelCount < modelMaxPerMessage &&
+                                    totalRequestedGenerations < MAX_TOTAL_GENERATIONS_PER_RUN
                                 return (
-                                    <button
-                                        type="button"
+                                    <div
                                         key={model.id}
-                                        onClick={() => toggleModel(model.id)}
                                         className={cn(
-                                            "group flex items-center justify-between rounded-md p-3 text-left transition-all duration-200",
+                                            "group rounded-md p-2 transition-all duration-200",
                                             isSelected
                                                 ? "bg-primary/15 text-primary"
                                                 : "text-muted-foreground hover:bg-muted/50"
                                         )}
                                     >
-                                        <div className="flex flex-col">
-                                            <span
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleModel(model.id)}
+                                            className="flex w-full items-center justify-between p-1 text-left"
+                                        >
+                                            <div className="flex min-w-0 flex-col">
+                                                <span
+                                                    className={cn(
+                                                        "truncate font-medium",
+                                                        isSelected ? "text-foreground" : ""
+                                                    )}
+                                                >
+                                                    {model.name}
+                                                </span>
+                                                <span className="mt-0.5 text-[10px] opacity-70">
+                                                    Up to {modelMaxPerMessage} per run
+                                                </span>
+                                            </div>
+
+                                            <div
                                                 className={cn(
-                                                    "font-medium",
-                                                    isSelected ? "text-foreground" : ""
+                                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                                                    isSelected
+                                                        ? "border-primary bg-primary"
+                                                        : "border-muted-foreground/30 group-hover:border-muted-foreground/50"
                                                 )}
                                             >
-                                                {model.name}
-                                            </span>
-                                            <span className="mt-0.5 line-clamp-1 pr-2 text-[10px] opacity-70">
-                                                {model.description || "Image generation model"}
-                                            </span>
-                                        </div>
+                                                {isSelected && (
+                                                    <svg
+                                                        className="h-2.5 w-2.5 text-primary-foreground"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="3"
+                                                    >
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </button>
 
-                                        <div
-                                            className={cn(
-                                                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-                                                isSelected
-                                                    ? "border-primary bg-primary"
-                                                    : "border-muted-foreground/30 group-hover:border-muted-foreground/50"
-                                            )}
-                                        >
-                                            {isSelected && (
-                                                <svg
-                                                    className="h-2.5 w-2.5 text-primary-foreground"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="3"
-                                                >
-                                                    <polyline points="20 6 9 17 4 12" />
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </button>
+                                        {isSelected && (
+                                            <div className="mt-2 flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                <span className="text-[10px] uppercase tracking-wider opacity-70">
+                                                    Variants
+                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            updateModelCount(
+                                                                model.id,
+                                                                modelCount - 1
+                                                            )
+                                                        }
+                                                        disabled={modelCount <= 1}
+                                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >
+                                                        <Minus className="h-3 w-3" />
+                                                    </button>
+                                                    <span className="min-w-8 text-center font-medium text-foreground text-xs">
+                                                        {modelCount}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            updateModelCount(
+                                                                model.id,
+                                                                modelCount + 1
+                                                            )
+                                                        }
+                                                        disabled={!canIncrement}
+                                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >
+                                                        <Plus className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 )
                             })}
                         </div>
@@ -580,7 +720,9 @@ export function ImageGenerationSidebar() {
                     ) : (
                         <>
                             <Sparkles className="h-4 w-4 text-muted-foreground" />
-                            Generate
+                            {totalRequestedGenerations > 1
+                                ? `Generate ${totalRequestedGenerations} Images`
+                                : "Generate"}
                         </>
                     )}
                 </Button>

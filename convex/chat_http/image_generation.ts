@@ -368,6 +368,7 @@ export async function generateAndStoreImage({
         } else {
             console.log("[cvx][image_generation] Using ai-sdk generateImage fallback")
             const isGoogleOpenAIImageModel = imageModel.provider === "google.image"
+            const isOpenRouterImageModel = imageModel.provider === "openrouter"
 
             const { images } = await generateImage({
                 model: imageModel,
@@ -389,9 +390,18 @@ export async function generateAndStoreImage({
                                 }
                               : {})
                       }
-                    : size
-                      ? { size }
-                      : { aspectRatio })
+                    : {
+                          ...(size ? { size } : { aspectRatio }),
+                          ...(isOpenRouterImageModel
+                              ? {
+                                    providerOptions: {
+                                        openrouter: {
+                                            modalities: ["image"]
+                                        }
+                                    }
+                                }
+                              : {})
+                      })
             })
             imagesData = images.map((img) => ({
                 mediaType: img.mediaType,

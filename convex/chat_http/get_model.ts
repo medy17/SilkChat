@@ -166,6 +166,22 @@ export const getModel = async (
         }
 
         const provider = registry.providers[providerIdRaw]
+        const hasInternalOpenRouter =
+            providerIdRaw === "openrouter" && Boolean(getInternalOpenRouterApiKey())
+        if (providerIdRaw === "openrouter" && !provider && hasInternalOpenRouter) {
+            const sdk_provider = (await createProvider("openrouter", "internal", {
+                modelId: providerSpecificModelId
+            })) as unknown as OpenRouterProvider
+
+            finalModel =
+                model.mode === "image"
+                    ? sdk_provider.imageModel(providerSpecificModelId)
+                    : sdk_provider.chat(providerSpecificModelId)
+            providerSource = "internal"
+            runtimeProvider = "openrouter"
+            break
+        }
+
         if (!provider) {
             console.error(`Provider ${providerIdRaw} not found`)
             continue

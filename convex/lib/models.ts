@@ -4,11 +4,13 @@ import { ANTHROPIC_MODELS } from "./models/anthropic"
 import { GOOGLE_MODELS } from "./models/google"
 import { META_MODELS } from "./models/meta"
 import { OPENAI_MODELS } from "./models/openai"
+import { OPENROUTER_MODELS } from "./models/openrouter"
 import type { SharedModel } from "./models/types"
 import { XAI_MODELS } from "./models/xai"
 
 export const MODELS_SHARED: SharedModel[] = [
     ...OPENAI_MODELS,
+    ...OPENROUTER_MODELS,
     ...ANTHROPIC_MODELS,
     ...GOOGLE_MODELS,
     ...META_MODELS,
@@ -24,6 +26,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.adapters,
         model.abilities,
         model.mode,
+        model.maxPerMessage,
         model.supportedImageSizes,
         model.supportedImageResolutions,
         model.customIcon,

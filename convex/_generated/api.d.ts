@@ -40,6 +40,7 @@ import type * as lib_models_anthropic from "../lib/models/anthropic.js";
 import type * as lib_models_google from "../lib/models/google.js";
 import type * as lib_models_meta from "../lib/models/meta.js";
 import type * as lib_models_openai from "../lib/models/openai.js";
+import type * as lib_models_openrouter from "../lib/models/openrouter.js";
 import type * as lib_models_types from "../lib/models/types.js";
 import type * as lib_models_xai from "../lib/models/xai.js";
 import type * as lib_models from "../lib/models.js";
@@ -121,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   "lib/models/google": typeof lib_models_google;
   "lib/models/meta": typeof lib_models_meta;
   "lib/models/openai": typeof lib_models_openai;
+  "lib/models/openrouter": typeof lib_models_openrouter;
   "lib/models/types": typeof lib_models_types;
   "lib/models/xai": typeof lib_models_xai;
   "lib/models": typeof lib_models;
