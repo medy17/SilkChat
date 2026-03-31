@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite dev --port 3000",
+        "test": "vitest run",
         "local:setup": "node scripts/local-setup.mjs",
         "local:dev": "node scripts/local-dev.mjs",
         "local:infra:up": "docker compose up -d",

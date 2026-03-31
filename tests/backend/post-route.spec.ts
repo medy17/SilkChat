@@ -1,17 +1,58 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { getUserIdentityMock, getModelMock } = vi.hoisted(() => ({
+const {
+    buildPromptMock,
+    createUIMessageStreamMock,
+    dbMessagesToCoreMock,
+    generateAndStoreImageMock,
+    generateThreadNameMock,
+    getGoogleAuthModeMock,
+    getModelMock,
+    getResumableStreamContextMock,
+    getToolkitMock,
+    getUserIdentityMock,
+    manualStreamTransformMock,
+    smoothStreamMock,
+    stepCountIsMock,
+    streamTextMock
+} = vi.hoisted(() => ({
+    buildPromptMock: vi.fn(),
+    createUIMessageStreamMock: vi.fn(),
+    dbMessagesToCoreMock: vi.fn(),
+    generateAndStoreImageMock: vi.fn(),
+    generateThreadNameMock: vi.fn(),
+    getGoogleAuthModeMock: vi.fn(),
     getUserIdentityMock: vi.fn(),
-    getModelMock: vi.fn()
+    getModelMock: vi.fn(),
+    getResumableStreamContextMock: vi.fn(),
+    getToolkitMock: vi.fn(),
+    manualStreamTransformMock: vi.fn(),
+    smoothStreamMock: vi.fn(),
+    stepCountIsMock: vi.fn(),
+    streamTextMock: vi.fn()
 }))
 
 vi.mock("ai", () => ({
-    JsonToSseTransformStream: class {},
+    JsonToSseTransformStream: class {
+        readable: ReadableStream<string>
+        writable: WritableStream<unknown>
+
+        constructor() {
+            const stream = new TransformStream<unknown, string>({
+                transform(chunk, controller) {
+                    controller.enqueue(`${JSON.stringify(chunk)}\n`)
+                }
+            })
+
+            this.readable = stream.readable
+            this.writable = stream.writable
+        }
+    },
     UI_MESSAGE_STREAM_HEADERS: {},
-    createUIMessageStream: vi.fn(),
-    smoothStream: vi.fn(),
-    stepCountIs: vi.fn(),
-    streamText: vi.fn()
+    createUIMessageStream: createUIMessageStreamMock,
+    smoothStream: smoothStreamMock,
+    stepCountIs: stepCountIsMock,
+    streamText: streamTextMock
 }))
 
 vi.mock("../../convex/_generated/server", () => ({
@@ -20,8 +61,22 @@ vi.mock("../../convex/_generated/server", () => ({
 
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
+        credits: {
+            recordCreditEventForMessage: "recordCreditEventForMessage"
+        },
+        messages: {
+            getMessagesByThreadId: "getMessagesByThreadId",
+            patchMessage: "patchMessage"
+        },
+        settings: {
+            getUserSettingsInternal: "getUserSettingsInternal"
+        },
+        streams: {
+            appendStreamId: "appendStreamId"
+        },
         threads: {
-            createThreadOrInsertMessages: "createThreadOrInsertMessages"
+            createThreadOrInsertMessages: "createThreadOrInsertMessages",
+            updateThreadStreamingState: "updateThreadStreamingState"
         }
     }
 }))
@@ -35,35 +90,35 @@ vi.mock("../../convex/chat_http/get_model", () => ({
 }))
 
 vi.mock("../../convex/lib/resumable_stream_context", () => ({
-    getResumableStreamContext: vi.fn()
+    getResumableStreamContext: getResumableStreamContextMock
 }))
 
 vi.mock("../../convex/lib/db_to_core_messages", () => ({
-    dbMessagesToCore: vi.fn()
+    dbMessagesToCore: dbMessagesToCoreMock
 }))
 
 vi.mock("../../convex/lib/toolkit", () => ({
-    getToolkit: vi.fn()
+    getToolkit: getToolkitMock
 }))
 
 vi.mock("../../convex/chat_http/generate_thread_name", () => ({
-    generateThreadName: vi.fn()
+    generateThreadName: generateThreadNameMock
 }))
 
 vi.mock("../../convex/chat_http/image_generation", () => ({
-    generateAndStoreImage: vi.fn()
+    generateAndStoreImage: generateAndStoreImageMock
 }))
 
 vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
-    manualStreamTransform: vi.fn()
+    manualStreamTransform: manualStreamTransformMock
 }))
 
 vi.mock("../../convex/chat_http/prompt", () => ({
-    buildPrompt: vi.fn()
+    buildPrompt: buildPromptMock
 }))
 
 vi.mock("../../convex/lib/google_provider", () => ({
-    getGoogleAuthMode: vi.fn()
+    getGoogleAuthMode: getGoogleAuthModeMock
 }))
 
 vi.mock("../../convex/lib/models", () => ({
@@ -74,6 +129,16 @@ import { ChatError } from "@/lib/errors"
 import { chatPOST } from "../../convex/chat_http/post.route"
 
 type ChatPostCtx = Parameters<typeof chatPOST>[0]
+
+const createObjectStream = (chunks: unknown[]) =>
+    new ReadableStream({
+        start(controller) {
+            for (const chunk of chunks) {
+                controller.enqueue(chunk)
+            }
+            controller.close()
+        }
+    })
 
 const createRequest = (body: unknown) =>
     new Request("https://example.com/chat", {
@@ -90,8 +155,107 @@ const createCtx = () =>
 
 describe("chatPOST", () => {
     beforeEach(() => {
+        buildPromptMock.mockReset().mockReturnValue("system prompt")
+        createUIMessageStreamMock.mockReset().mockImplementation(
+            ({
+                execute,
+                onError
+            }: {
+                execute: (args: { writer: unknown }) => Promise<void>
+                onError?: (error: unknown) => string
+            }) =>
+                new ReadableStream({
+                    async start(controller) {
+                        const mergeTasks: Promise<void>[] = []
+                        const writer = {
+                            write(chunk: unknown) {
+                                controller.enqueue(chunk)
+                            },
+                            merge(stream: ReadableStream<unknown>) {
+                                const mergeTask = (async () => {
+                                    const reader = stream.getReader()
+                                    while (true) {
+                                        const result = await reader.read()
+                                        if (result.done) break
+                                        controller.enqueue(result.value)
+                                    }
+                                })()
+                                mergeTasks.push(mergeTask)
+                            }
+                        }
+
+                        try {
+                            await execute({ writer })
+                            await Promise.all(mergeTasks)
+                            controller.close()
+                        } catch (error) {
+                            const errorText = onError?.(error) ?? "Stream error occurred"
+                            controller.enqueue({ type: "error", errorText })
+                            controller.close()
+                        }
+                    }
+                })
+        )
+        dbMessagesToCoreMock.mockReset().mockResolvedValue([
+            {
+                role: "user",
+                content: "hello from the user"
+            }
+        ])
+        generateAndStoreImageMock.mockReset()
+        generateThreadNameMock.mockReset().mockResolvedValue("hello thread")
+        getGoogleAuthModeMock.mockReset().mockReturnValue("ai-studio")
         getUserIdentityMock.mockReset()
         getModelMock.mockReset()
+        getResumableStreamContextMock.mockReset().mockReturnValue(null)
+        getToolkitMock.mockReset().mockResolvedValue({
+            web_search: {
+                description: "Search"
+            }
+        })
+        manualStreamTransformMock.mockReset().mockImplementation(
+            (
+                parts: Array<{ type: string; text?: string }>,
+                totalTokenUsage: {
+                    promptTokens: number
+                    completionTokens: number
+                    reasoningTokens: number
+                }
+            ) =>
+                new TransformStream({
+                    transform(
+                        chunk: {
+                            type: string
+                            text?: string
+                            usage?: {
+                                inputTokens?: number
+                                outputTokens?: number
+                                outputTokenDetails?: { reasoningTokens?: number }
+                            }
+                        },
+                        controller
+                    ) {
+                        if (chunk.type === "text-delta" && chunk.text) {
+                            parts.push({
+                                type: "text",
+                                text: chunk.text
+                            })
+                        }
+
+                        if (chunk.type === "finish-step") {
+                            totalTokenUsage.promptTokens += chunk.usage?.inputTokens ?? 0
+                            totalTokenUsage.completionTokens += chunk.usage?.outputTokens ?? 0
+                            totalTokenUsage.reasoningTokens +=
+                                chunk.usage?.outputTokenDetails?.reasoningTokens ?? 0
+                        }
+
+                        controller.enqueue(chunk)
+                    }
+                })
+        )
+        smoothStreamMock.mockReset().mockReturnValue("smooth-transform")
+        stepCountIsMock.mockReset().mockReturnValue("stop-after-100")
+        streamTextMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
     })
 
@@ -264,6 +428,195 @@ describe("chatPOST", () => {
         expect(response.status).toBe(400)
         await expect(response.json()).resolves.toMatchObject({
             code: "bad_request:chat"
+        })
+    })
+
+    it("streams a text response, patches the assistant message, and records credits on the happy path", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                case "recordCreditEventForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const runtimeModel = { provider: "runtime-openai", modelType: "text" }
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getModelMock.mockResolvedValueOnce({
+            model: runtimeModel,
+            modelId: "gpt-5.4-mini",
+            modelName: "GPT 5.4 Mini",
+            runtimeProvider: "openai",
+            providerSource: "internal",
+            abilities: ["function_calling", "effort_control"],
+            registry: {
+                models: {
+                    "shared-text": {
+                        maxTokens: 2048
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: "pro"
+        })
+        manualStreamTransformMock.mockImplementationOnce(
+            (
+                parts: Array<{ type: string; text?: string }>,
+                totalTokenUsage: {
+                    promptTokens: number
+                    completionTokens: number
+                    reasoningTokens: number
+                }
+            ) => {
+                parts.push({
+                    type: "text",
+                    text: "Hello world"
+                })
+                totalTokenUsage.promptTokens = 12
+                totalTokenUsage.completionTokens = 34
+                totalTokenUsage.reasoningTokens = 5
+
+                return new TransformStream()
+            }
+        )
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([
+                { type: "text-start", id: "text-1" },
+                { type: "text-delta", id: "text-1", text: "Hello world" },
+                {
+                    type: "finish-step",
+                    finishReason: "stop",
+                    usage: {
+                        inputTokens: 12,
+                        outputTokens: 34,
+                        outputTokenDetails: {
+                            reasoningTokens: 5
+                        }
+                    }
+                },
+                { type: "text-end", id: "text-1" }
+            ]),
+            finishReason: Promise.resolve("stop")
+        })
+
+        const response = await chatPOST(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: ["web_search"],
+                reasoningEffort: "medium"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await response.text()
+
+        expect(generateThreadNameMock).toHaveBeenCalledTimes(1)
+        expect(buildPromptMock).toHaveBeenCalledWith(["web_search"], {
+            mcpServers: []
+        })
+        expect(getToolkitMock).toHaveBeenCalledWith(ctx, ["web_search"], {
+            mcpServers: []
+        })
+        expect(stepCountIsMock).toHaveBeenCalledWith(100)
+        expect(smoothStreamMock).toHaveBeenCalledTimes(1)
+        expect(streamTextMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                model: runtimeModel,
+                maxOutputTokens: 2048,
+                stopWhen: "stop-after-100",
+                experimental_transform: "smooth-transform",
+                tools: {
+                    web_search: {
+                        description: "Search"
+                    }
+                },
+                messages: [
+                    {
+                        role: "system",
+                        content: "system prompt"
+                    },
+                    {
+                        role: "user",
+                        content: "hello from the user"
+                    }
+                ]
+            })
+        )
+
+        expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
+            threadId: "thread-1",
+            isLive: true,
+            streamStartedAt: expect.any(Number),
+            currentStreamId: "stream-1"
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("patchMessage", {
+            threadId: "thread-1",
+            messageId: "assistant-1",
+            parts: [
+                {
+                    type: "text",
+                    text: "Hello world"
+                }
+            ],
+            metadata: expect.objectContaining({
+                modelId: "shared-text",
+                modelName: "GPT 5.4 Mini",
+                promptTokens: 12,
+                completionTokens: 34,
+                reasoningTokens: 5,
+                creditProviderSource: "internal",
+                creditFeature: "tool",
+                creditBucket: "pro",
+                creditUnits: 1,
+                creditCounted: true
+            })
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("recordCreditEventForMessage", {
+            userId: "user-1",
+            threadId: "thread-1",
+            messageId: "assistant-1",
+            messageKey: "42",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "tool",
+            bucket: "pro",
+            units: 1,
+            counted: true
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
+            threadId: "thread-1",
+            isLive: false,
+            currentStreamId: undefined
         })
     })
 })

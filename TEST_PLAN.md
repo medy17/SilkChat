@@ -18,7 +18,7 @@ I derived this from the codebase itself, not from `package.json`.
   - added local Vitest setup
   - adapted a repo-local pretty Vitest reporter from `/temp`
   - added 31 unit test files
-  - passing test batch: 135 tests across 31 files
+  - passing test batch: 138 tests across 31 files
 - In progress this round:
   - unit and hook/state coverage are at a solid baseline
   - next step would be standing up a real E2E environment
@@ -193,7 +193,69 @@ I derived this from the codebase itself, not from `package.json`.
 - reporter behavior:
   - local runs use the custom pretty reporter
   - CI falls back to Vitest's default reporter
-- run command used so far: `bunx vitest run`
+- primary run command: `bun run test`
+- direct Vitest command: `bunx vitest run`
+
+### Test Workflow
+
+Use this process when adding or editing tests so Biome and `lint-staged` do not fail at commit time.
+
+#### Normal local loop
+
+1. Write or update tests under the logical folder they belong to:
+   - backend: `tests/backend`
+   - routes: `tests/routes`
+   - library/utilities: `tests/lib`
+   - import/export: `tests/imports`
+   - hooks/state: `tests/hooks`
+2. Run the focused test file or slice while iterating:
+   - `bunx vitest run tests/backend/post-route.spec.ts`
+   - `bunx vitest run tests/hooks/use-voice-recorder.spec.ts`
+3. Run the full suite before staging:
+   - `bun run test`
+4. Run Biome on the files you changed before staging them:
+   - `bunx biome check --write package.json tests/backend/post-route.spec.ts --files-ignore-unknown=true --no-errors-on-unmatched`
+5. Stage the exact files after Biome has rewritten them:
+   - `git add package.json tests/backend/post-route.spec.ts`
+
+#### Commit safety rules
+
+- Do not partially stage a file that Biome is going to rewrite.
+- If you are committing changes from a file, stage the full file after running Biome on it.
+- If you have unrelated in-progress edits in the same file, either:
+  - finish and stage them too, or
+  - stash them first, then commit, then restore them
+- `lint-staged` can fail even when the code is correct if it hides unstaged edits, rewrites the staged copy, and then cannot re-apply your hidden patch cleanly.
+- If a commit fails because `lint-staged` could not restore unstaged changes, the usual cause is overlapping staged and unstaged edits in the same file.
+
+#### Pre-commit checklist
+
+Run these in order before `git commit` when test files changed:
+
+1. `bun run test`
+2. `bunx biome check --write <changed-files> --files-ignore-unknown=true --no-errors-on-unmatched`
+3. `git add <same-changed-files>`
+4. Optional sanity check: `bunx lint-staged`
+
+#### Common failure cases
+
+- `Unexpected any`
+  - Replace `any` with a concrete local type alias, a parameter-derived type, or `unknown` plus narrowing.
+- `delete process.env.X`
+  - Use `Reflect.deleteProperty(process.env, "X")`.
+- `Formatter would have printed the following content`
+  - Run Biome write on the changed files and re-stage them.
+- `Unstaged changes could not be restored due to a merge conflict`
+  - You committed with partially staged overlapping edits. Stage the full rewritten files or stash the unstaged remainder first.
+- Constructor lint errors in mocks
+  - Do not return a value from a class constructor. Wrap the mocked object with fields like `readable` and `writable` instead.
+
+#### Runner expectations
+
+- `bun run test` is the canonical one-shot test command for this repo.
+- It uses `vitest run`, not watch mode.
+- Local runs use the pretty reporter through `vitest.config.ts`.
+- CI should continue using the default reporter fallback.
 
 ### Recommended Next Slice
 
