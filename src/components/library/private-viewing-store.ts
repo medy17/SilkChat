@@ -22,10 +22,15 @@ export const usePrivateViewingStore = create<PrivateViewingStore>()(
         (set, get) => ({
             privateViewingEnabled: false,
             imageOverrides: {},
-            setPrivateViewingEnabled: (enabled) => set({ privateViewingEnabled: enabled }),
+            setPrivateViewingEnabled: (enabled) =>
+                set({
+                    privateViewingEnabled: enabled,
+                    imageOverrides: {}
+                }),
             togglePrivateViewingEnabled: () =>
                 set((state) => ({
-                    privateViewingEnabled: !state.privateViewingEnabled
+                    privateViewingEnabled: !state.privateViewingEnabled,
+                    imageOverrides: {}
                 })),
             toggleImageVisibility: (imageId) =>
                 set((state) => {

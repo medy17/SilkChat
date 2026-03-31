@@ -311,7 +311,7 @@ export function ImageDetailsModal({
                             )}
                             <button
                                 type="button"
-                                className="relative flex shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 style={{
                                     width: layout.imageWidth,
                                     height: layout.imageHeight
@@ -340,7 +340,7 @@ export function ImageDetailsModal({
                                 {isImageHidden && (
                                     <>
                                         <div className="pointer-events-none absolute inset-0 z-20 rounded-lg bg-black/20 backdrop-blur-[2px]" />
-                                        <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
+                                        <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
                                             Private viewing enabled
                                         </div>
                                     </>
@@ -498,7 +498,7 @@ export function ImageDetailsModal({
                         {isImageHidden && (
                             <>
                                 <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
-                                <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-full border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
+                                <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
                                     Private viewing enabled
                                 </div>
                             </>
