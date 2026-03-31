@@ -4,6 +4,7 @@ import { getFile, uploadFile } from "./attachments"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { uploadImportSource } from "./import_jobs_http"
+import { getPrivateBlur } from "./private_blur"
 import { transcribeAudio } from "./speech_to_text"
 
 const normalizeOrigin = (value?: string) => {
@@ -59,6 +60,12 @@ http.route({
     path: "/r2",
     method: "GET",
     handler: getFile
+})
+
+http.route({
+    path: "/private-blur",
+    method: "GET",
+    handler: getPrivateBlur
 })
 
 export default http

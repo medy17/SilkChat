@@ -1,35 +1,12 @@
 import { browserEnv } from "@/lib/browser-env"
+import { type PrivateBlurFormat, getConstrainedWidth } from "@/lib/private-blur-variants"
 
 const LOCAL_IMAGE_HOSTS = new Set(["localhost", "127.0.0.1"])
 
-const normalizeAspectRatio = (aspectRatio?: string) => {
-    if (!aspectRatio) return 1
+let preferredPrivateBlurFormat: PrivateBlurFormat | null | undefined
 
-    if (aspectRatio.includes("x")) {
-        const [width, height] = aspectRatio.split("x").map(Number)
-        if (width > 0 && height > 0) {
-            return width / height
-        }
-    }
-
-    if (aspectRatio.includes(":")) {
-        const baseRatio = aspectRatio.replace("-hd", "")
-        const [width, height] = baseRatio.split(":").map(Number)
-        if (width > 0 && height > 0) {
-            return width / height
-        }
-    }
-
-    return 1
-}
-
-const getConstrainedWidth = (aspectRatio: string | undefined, longEdge: number) => {
-    const ratio = normalizeAspectRatio(aspectRatio)
-    if (ratio >= 1) {
-        return longEdge
-    }
-
-    return Math.max(1, Math.round(longEdge * ratio))
+export const resetPrivateBlurFormatCacheForTests = () => {
+    preferredPrivateBlurFormat = undefined
 }
 
 const shouldBypassVercelOptimization = () => {
@@ -42,6 +19,47 @@ const shouldBypassVercelOptimization = () => {
     }
 
     return LOCAL_IMAGE_HOSTS.has(window.location.hostname)
+}
+
+const supportsCanvasMimeType = (mimeType: string) => {
+    if (typeof document === "undefined") {
+        return false
+    }
+
+    const canvas = document.createElement("canvas")
+    if (typeof canvas.toDataURL !== "function") {
+        return false
+    }
+
+    try {
+        return canvas.toDataURL(mimeType).startsWith(`data:${mimeType}`)
+    } catch {
+        return false
+    }
+}
+
+export const getPreferredPrivateBlurFormat = (): PrivateBlurFormat | null => {
+    if (preferredPrivateBlurFormat !== undefined) {
+        return preferredPrivateBlurFormat
+    }
+
+    if (typeof window === "undefined") {
+        preferredPrivateBlurFormat = null
+        return preferredPrivateBlurFormat
+    }
+
+    if (supportsCanvasMimeType("image/avif")) {
+        preferredPrivateBlurFormat = "avif"
+        return preferredPrivateBlurFormat
+    }
+
+    if (supportsCanvasMimeType("image/webp")) {
+        preferredPrivateBlurFormat = "webp"
+        return preferredPrivateBlurFormat
+    }
+
+    preferredPrivateBlurFormat = null
+    return preferredPrivateBlurFormat
 }
 
 export const getGeneratedImageProxyUrl = (storageKey: string) => {
@@ -70,15 +88,67 @@ export const getOptimizedGeneratedImageUrl = ({
     return `/_vercel/image?url=${encodeURIComponent(sourceUrl)}&w=${width}&q=${quality}`
 }
 
-export const getLibraryImageSources = ({
+export const getPrivateBlurImageUrl = ({
     storageKey,
-    aspectRatio
+    aspectRatio,
+    longEdge,
+    format
 }: {
     storageKey: string
     aspectRatio?: string
+    longEdge: number
+    format: PrivateBlurFormat
+}) => {
+    const width = getConstrainedWidth(aspectRatio, longEdge)
+    const params = new URLSearchParams({
+        key: storageKey,
+        w: String(width),
+        fmt: format
+    })
+
+    const apiBase = browserEnv("VITE_CONVEX_API_URL").replace(/\/$/, "")
+    return `${apiBase}/private-blur?${params.toString()}`
+}
+
+export const getLibraryImageSources = ({
+    storageKey,
+    aspectRatio,
+    hidden = false
+}: {
+    storageKey: string
+    aspectRatio?: string
+    hidden?: boolean
 }) => {
     const smallWidth = getConstrainedWidth(aspectRatio, 576)
     const largeWidth = getConstrainedWidth(aspectRatio, 720)
+    const preferredBlurFormat = hidden ? getPreferredPrivateBlurFormat() : null
+
+    if (hidden && preferredBlurFormat) {
+        return {
+            src: getPrivateBlurImageUrl({
+                storageKey,
+                aspectRatio,
+                longEdge: 720,
+                format: preferredBlurFormat
+            }),
+            srcSet: [
+                `${getPrivateBlurImageUrl({
+                    storageKey,
+                    aspectRatio,
+                    longEdge: 576,
+                    format: preferredBlurFormat
+                })} ${smallWidth}w`,
+                `${getPrivateBlurImageUrl({
+                    storageKey,
+                    aspectRatio,
+                    longEdge: 720,
+                    format: preferredBlurFormat
+                })} ${largeWidth}w`
+            ].join(", "),
+            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            useCssBlurFallback: false
+        }
+    }
 
     return {
         src: getOptimizedGeneratedImageUrl({
@@ -101,7 +171,8 @@ export const getLibraryImageSources = ({
                 quality: 76
             })} ${largeWidth}w`
         ].join(", "),
-        sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+        sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+        useCssBlurFallback: hidden
     }
 }
 

@@ -12,12 +12,14 @@ import {
     getExpandedImageUrl,
     getGeneratedImageProxyUrl,
     getLibraryImageSources,
-    getOptimizedGeneratedImageUrl
+    getOptimizedGeneratedImageUrl,
+    resetPrivateBlurFormatCacheForTests
 } from "@/lib/generated-image-urls"
 
 describe("generated-image-urls", () => {
     afterEach(() => {
         vi.unstubAllGlobals()
+        resetPrivateBlurFormatCacheForTests()
     })
 
     it("builds the base Convex proxy URL with an encoded storage key", () => {
@@ -78,7 +80,8 @@ describe("generated-image-urls", () => {
                 "https://api.example.com/r2?key=generated%2Fkey-3 432w",
                 "https://api.example.com/r2?key=generated%2Fkey-3 540w"
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            useCssBlurFallback: false
         })
 
         expect(
@@ -87,5 +90,67 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toBe("https://api.example.com/r2?key=generated%2Fkey-3")
+    })
+
+    it("falls back to css blur for hidden tiles when avif and webp are unsupported", () => {
+        vi.stubGlobal("window", {
+            location: {
+                hostname: "silkchat.app"
+            }
+        })
+        vi.stubGlobal("document", {
+            createElement: vi.fn(() => ({
+                toDataURL: vi.fn(() => "data:image/png;base64,fallback")
+            }))
+        })
+
+        expect(
+            getLibraryImageSources({
+                storageKey: "generated/key-4",
+                aspectRatio: "1:1",
+                hidden: true
+            })
+        ).toEqual({
+            src: "https://api.example.com/r2?key=generated%2Fkey-4",
+            srcSet: [
+                "https://api.example.com/r2?key=generated%2Fkey-4 576w",
+                "https://api.example.com/r2?key=generated%2Fkey-4 720w"
+            ].join(", "),
+            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            useCssBlurFallback: true
+        })
+    })
+
+    it("uses the private blur route for hidden tiles when avif is supported", () => {
+        vi.stubGlobal("window", {
+            location: {
+                hostname: "silkchat.app"
+            }
+        })
+        vi.stubGlobal("document", {
+            createElement: vi.fn(() => ({
+                toDataURL: vi.fn((mimeType: string) =>
+                    mimeType === "image/avif"
+                        ? "data:image/avif;base64,test"
+                        : "data:image/png;base64,fallback"
+                )
+            }))
+        })
+
+        expect(
+            getLibraryImageSources({
+                storageKey: "generated/key-5",
+                aspectRatio: "3:4",
+                hidden: true
+            })
+        ).toEqual({
+            src: "https://api.example.com/private-blur?key=generated%2Fkey-5&w=540&fmt=avif",
+            srcSet: [
+                "https://api.example.com/private-blur?key=generated%2Fkey-5&w=432&fmt=avif 432w",
+                "https://api.example.com/private-blur?key=generated%2Fkey-5&w=540&fmt=avif 540w"
+            ].join(", "),
+            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            useCssBlurFallback: false
+        })
     })
 })

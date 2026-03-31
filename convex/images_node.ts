@@ -1,6 +1,7 @@
 "use node"
 
 import { ChatError } from "@/lib/errors"
+import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
 import type { ImageModelV3 } from "@ai-sdk/provider"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
@@ -75,6 +76,23 @@ export const deleteGeneratedImage = action({
         } catch (error) {
             console.error("Failed to delete from R2:", error)
             throw new Error("Failed to delete image file from storage")
+        }
+
+        const blurredWidths = getLibraryPrivateBlurWidths(image.aspectRatio)
+        for (const width of blurredWidths) {
+            for (const format of ["avif", "webp"] as const) {
+                const blurredKey = getPrivateBlurStorageKey({
+                    storageKey: image.storageKey,
+                    width,
+                    format
+                })
+
+                try {
+                    await r2.deleteObject(ctx, blurredKey)
+                } catch {
+                    // Ignore missing derivatives during cleanup.
+                }
+            }
         }
 
         await ctx.runMutation(internal.images.removeGeneratedImageInternal, { id: args.id })

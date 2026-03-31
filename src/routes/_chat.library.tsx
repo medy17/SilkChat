@@ -161,8 +161,11 @@ const GeneratedImageItem = memo(
 
         const imageSources = getLibraryImageSources({
             storageKey: image.storageKey,
-            aspectRatio: image.aspectRatio
+            aspectRatio: image.aspectRatio,
+            hidden: isImageHidden
         })
+
+        const useCssBlurFallback = isImageHidden && imageSources.useCssBlurFallback
 
         const handleImageLoad = useCallback(() => {
             setLoadState("revealing")
@@ -333,8 +336,8 @@ const GeneratedImageItem = memo(
                                     loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
                                     loadState === "ready" &&
                                         "scale-100 opacity-100 blur-0 group-hover:scale-105",
-                                    isImageHidden &&
-                                        "scale-[1.08] blur-2xl brightness-75 saturate-50"
+                                    isImageHidden && "brightness-75 saturate-50",
+                                    useCssBlurFallback && "scale-[1.08] blur-2xl"
                                 )}
                                 onLoad={handleImageLoad}
                                 onError={handleImageError}
@@ -342,7 +345,12 @@ const GeneratedImageItem = memo(
                             />
                         )}
                         {isImageHidden && (
-                            <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
+                            <div
+                                className={cn(
+                                    "pointer-events-none absolute inset-0 z-20 bg-black/20",
+                                    useCssBlurFallback && "backdrop-blur-[2px]"
+                                )}
+                            />
                         )}
                         <div
                             className={cn(
@@ -353,23 +361,29 @@ const GeneratedImageItem = memo(
                             )}
                         >
                             <div className="relative min-h-[2rem] overflow-hidden text-white text-xs">
-                                <AnimatePresence initial={false} mode="wait">
-                                    <motion.p
-                                        key={isImageHidden ? "private-viewing" : "prompt"}
-                                        initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-                                        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                                        exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-                                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                        className={cn(
-                                            "line-clamp-2",
-                                            isImageHidden && "font-medium"
-                                        )}
-                                    >
-                                        {isImageHidden
-                                            ? "Private viewing enabled"
-                                            : (image.prompt ?? "No prompt")}
-                                    </motion.p>
-                                </AnimatePresence>
+                                <p
+                                    className={cn(
+                                        "absolute inset-0 line-clamp-2 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                        isImageHidden
+                                            ? "translate-y-[-35%] opacity-0"
+                                            : "translate-y-0 opacity-100"
+                                    )}
+                                >
+                                    {image.prompt ?? "No prompt"}
+                                </p>
+                                <p
+                                    className={cn(
+                                        "absolute inset-0 line-clamp-2 font-medium transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                        isImageHidden
+                                            ? "translate-y-0 opacity-100"
+                                            : "translate-y-[35%] opacity-0"
+                                    )}
+                                >
+                                    Private viewing enabled
+                                </p>
+                                <span className="invisible line-clamp-2 block font-medium">
+                                    Private viewing enabled
+                                </span>
                             </div>
                         </div>
                         {onToggleImageHidden && (
