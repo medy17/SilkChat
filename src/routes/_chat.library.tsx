@@ -1,7 +1,9 @@
 import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
+import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -30,6 +32,7 @@ import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { getGeneratedImageProxyUrl, getLibraryImageSources } from "@/lib/generated-image-urls"
+import { getIsImageHidden } from "@/lib/private-viewing"
 import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
@@ -40,6 +43,8 @@ import {
     Copy,
     Download,
     ExternalLink,
+    Eye,
+    EyeOff,
     Image as ImageIcon,
     ImageOff,
     Trash2
@@ -127,7 +132,9 @@ const GeneratedImageItem = memo(
         onStartSelection,
         selectedCount = 0,
         onBulkDelete,
-        onBulkDownload
+        onBulkDownload,
+        isImageHidden = false,
+        onToggleImageHidden
     }: {
         image: Doc<"generatedImages">
         onClick: () => void
@@ -141,11 +148,16 @@ const GeneratedImageItem = memo(
         selectedCount?: number
         onBulkDelete?: () => void
         onBulkDownload?: () => void
+        isImageHidden?: boolean
+        onToggleImageHidden?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
         const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
         const revealTimeoutRef = useRef<number | null>(null)
         const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
+        const hasInvalidStoredImage =
+            metadata !== undefined &&
+            (!metadata || (typeof metadata.size === "number" && metadata.size <= 0))
 
         const imageSources = getLibraryImageSources({
             storageKey: image.storageKey,
@@ -246,7 +258,13 @@ const GeneratedImageItem = memo(
             }
         }
 
-        if (isError) {
+        const handleToggleImageHidden = (e: React.MouseEvent) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onToggleImageHidden?.()
+        }
+
+        if (isError || hasInvalidStoredImage) {
             return (
                 <div
                     className="group relative overflow-hidden rounded-lg border bg-muted/50"
@@ -255,7 +273,9 @@ const GeneratedImageItem = memo(
                     <div className="flex h-full items-center justify-center">
                         <div className="text-center">
                             <ImageOff className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                            <p className="text-muted-foreground text-sm">Failed to load</p>
+                            <p className="text-muted-foreground text-sm">
+                                {hasInvalidStoredImage ? "Image unavailable" : "Failed to load"}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -265,15 +285,22 @@ const GeneratedImageItem = memo(
         return (
             <ContextMenu>
                 <ContextMenuTrigger asChild>
-                    <button
-                        type="button"
+                    <div
                         className={cn(
-                            "group relative w-full appearance-none overflow-hidden rounded-lg border bg-background text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                            "group relative w-full overflow-hidden rounded-lg border bg-background transition-all",
                             isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}
-                        onClick={handleClick}
                     >
+                        <button
+                            type="button"
+                            className="absolute inset-0 z-10 appearance-none rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={handleClick}
+                        >
+                            <span className="sr-only">
+                                {isSelectionMode ? "Select image" : "Open image details"}
+                            </span>
+                        </button>
                         {loadState !== "ready" && (
                             <div className="absolute inset-0 z-10 bg-background">
                                 {placeholder === "tiles" ? (
@@ -294,27 +321,68 @@ const GeneratedImageItem = memo(
                         {loadState !== "ready" && (
                             <ImageLoadIndicator complete={loadState === "revealing"} />
                         )}
-                        <img
-                            src={imageSources.src}
-                            srcSet={imageSources.srcSet}
-                            sizes={imageSources.sizes}
-                            alt={image.prompt || "AI generation"}
+                        {metadata && (
+                            <img
+                                src={imageSources.src}
+                                srcSet={imageSources.srcSet}
+                                sizes={imageSources.sizes}
+                                alt={image.prompt || "AI generation"}
+                                className={cn(
+                                    "absolute inset-0 h-full w-full object-cover transition-all duration-500",
+                                    loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
+                                    loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
+                                    loadState === "ready" &&
+                                        "scale-100 opacity-100 blur-0 group-hover:scale-105",
+                                    isImageHidden &&
+                                        "scale-[1.08] blur-2xl brightness-75 saturate-50"
+                                )}
+                                onLoad={handleImageLoad}
+                                onError={handleImageError}
+                                loading="lazy"
+                            />
+                        )}
+                        {isImageHidden && (
+                            <div className="absolute inset-0 z-20 bg-black/20 backdrop-blur-[2px]" />
+                        )}
+                        <div
                             className={cn(
-                                "absolute inset-0 h-full w-full object-cover transition-all duration-500",
-                                loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
-                                loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
-                                loadState === "ready" &&
-                                    "scale-100 opacity-100 blur-0 group-hover:scale-105"
+                                "absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 transition-all",
+                                isImageHidden
+                                    ? "translate-y-0 opacity-100"
+                                    : "opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
                             )}
-                            onLoad={handleImageLoad}
-                            onError={handleImageError}
-                            loading="lazy"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 z-20 translate-y-2 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                        >
                             <div className="line-clamp-2 text-white text-xs">
-                                <p>{image.prompt || "No prompt"}</p>
+                                <p>
+                                    {isImageHidden
+                                        ? "Private viewing enabled"
+                                        : (image.prompt ?? "No prompt")}
+                                </p>
                             </div>
                         </div>
+                        {onToggleImageHidden && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon"
+                                className={cn(
+                                    "absolute top-2 right-2 z-40 h-8 w-8 rounded-full border border-white/15 bg-background/80 text-foreground shadow-lg backdrop-blur-md transition-all hover:bg-background",
+                                    isImageHidden
+                                        ? "opacity-100"
+                                        : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+                                )}
+                                onClick={handleToggleImageHidden}
+                            >
+                                <span className="sr-only">
+                                    {isImageHidden ? "Unhide image" : "Hide image"}
+                                </span>
+                                {isImageHidden ? (
+                                    <Eye className="h-4 w-4" />
+                                ) : (
+                                    <EyeOff className="h-4 w-4" />
+                                )}
+                            </Button>
+                        )}
                         {isSelectionMode && (
                             <div className="pointer-events-none absolute inset-0 z-30 transition-colors duration-200">
                                 <div
@@ -340,7 +408,7 @@ const GeneratedImageItem = memo(
                                 />
                             </div>
                         )}
-                    </button>
+                    </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                     {onStartSelection && !isSelectionMode && (
@@ -386,6 +454,16 @@ const GeneratedImageItem = memo(
                                 <ContextMenuItem onClick={handleCopyPrompt}>
                                     <Clipboard className="mr-2 h-4 w-4" />
                                     Copy Prompt
+                                </ContextMenuItem>
+                            )}
+                            {onToggleImageHidden && (
+                                <ContextMenuItem onClick={onToggleImageHidden}>
+                                    {isImageHidden ? (
+                                        <Eye className="mr-2 h-4 w-4" />
+                                    ) : (
+                                        <EyeOff className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isImageHidden ? "Unhide Image" : "Hide Image"}
                                 </ContextMenuItem>
                             )}
                             <ContextMenuSeparator />
@@ -438,6 +516,12 @@ function LibraryPage() {
     const totalImages = useQuery(api.images.getGeneratedImagesCount, session.user?.id ? {} : "skip")
 
     const { pendingGenerations, completedGenerationCount } = useGenerationStore()
+    const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
+    const imageOverrides = usePrivateViewingStore((state) => state.imageOverrides)
+    const togglePrivateViewingEnabled = usePrivateViewingStore(
+        (state) => state.togglePrivateViewingEnabled
+    )
+    const toggleImageVisibility = usePrivateViewingStore((state) => state.toggleImageVisibility)
     const [animatedImageIds, setAnimatedImageIds] = useState<string[]>([])
     const previousPageImageIdsRef = useRef<string[]>([])
     const previousGenerationCountRef = useRef(0)
@@ -635,24 +719,44 @@ function LibraryPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                Sort
-                            </span>
-                            <Select
-                                value={sortBy}
-                                onValueChange={(value) =>
-                                    handleSortChange(value as ImageSortOption)
-                                }
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                            <Button
+                                type="button"
+                                variant={privateViewingEnabled ? "secondary" : "outline"}
+                                className="w-full justify-center gap-2 sm:w-44"
+                                onClick={togglePrivateViewingEnabled}
                             >
-                                <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="newest">Newest first</SelectItem>
-                                    <SelectItem value="oldest">Oldest first</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <span className="inline-flex h-4 w-4 items-center justify-center">
+                                    {privateViewingEnabled ? (
+                                        <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" />
+                                    )}
+                                </span>
+                                <span>Private Viewing</span>
+                                <span className="inline-flex w-7 justify-start">
+                                    {privateViewingEnabled ? "On" : "Off"}
+                                </span>
+                            </Button>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                    Sort
+                                </span>
+                                <Select
+                                    value={sortBy}
+                                    onValueChange={(value) =>
+                                        handleSortChange(value as ImageSortOption)
+                                    }
+                                >
+                                    <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="newest">Newest first</SelectItem>
+                                        <SelectItem value="oldest">Oldest first</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
 
@@ -704,39 +808,59 @@ function LibraryPage() {
                                                 />
                                             </motion.div>
                                         ))}
-                                    {images.map((image) => (
-                                        <motion.div
-                                            key={image._id}
-                                            layout
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.9, filter: "blur(8px)" }}
-                                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                                            className="mb-4 break-inside-avoid"
-                                        >
-                                            <GeneratedImageItem
-                                                image={image}
-                                                placeholder={
-                                                    animatedImageIds.includes(image._id)
-                                                        ? "tiles"
-                                                        : "skeleton"
-                                                }
-                                                onClick={() => setSelectedImage(image)}
-                                                onImageSettled={() => handleImageSettled(image._id)}
-                                                isSelected={selectedImageIds.has(image._id)}
-                                                isSelectionMode={isSelectionMode}
-                                                onToggleSelection={() =>
-                                                    handleToggleSelection(image._id)
-                                                }
-                                                onStartSelection={() =>
-                                                    handleStartSelection(image._id)
-                                                }
-                                                onDelete={() => handleDeleteImage(image._id)}
-                                                selectedCount={selectedImageIds.size}
-                                                onBulkDelete={handleBulkDelete}
-                                            />
-                                        </motion.div>
-                                    ))}
+                                    {images.map((image) => {
+                                        const isImageHidden = getIsImageHidden({
+                                            privateViewingEnabled,
+                                            override: imageOverrides[image._id]
+                                        })
+
+                                        return (
+                                            <motion.div
+                                                key={image._id}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{
+                                                    opacity: 0,
+                                                    scale: 0.9,
+                                                    filter: "blur(8px)"
+                                                }}
+                                                transition={{
+                                                    duration: 0.3,
+                                                    ease: [0.16, 1, 0.3, 1]
+                                                }}
+                                                className="mb-4 break-inside-avoid"
+                                            >
+                                                <GeneratedImageItem
+                                                    image={image}
+                                                    placeholder={
+                                                        animatedImageIds.includes(image._id)
+                                                            ? "tiles"
+                                                            : "skeleton"
+                                                    }
+                                                    onClick={() => setSelectedImage(image)}
+                                                    onImageSettled={() =>
+                                                        handleImageSettled(image._id)
+                                                    }
+                                                    isSelected={selectedImageIds.has(image._id)}
+                                                    isSelectionMode={isSelectionMode}
+                                                    onToggleSelection={() =>
+                                                        handleToggleSelection(image._id)
+                                                    }
+                                                    onStartSelection={() =>
+                                                        handleStartSelection(image._id)
+                                                    }
+                                                    onDelete={() => handleDeleteImage(image._id)}
+                                                    selectedCount={selectedImageIds.size}
+                                                    onBulkDelete={handleBulkDelete}
+                                                    isImageHidden={isImageHidden}
+                                                    onToggleImageHidden={() =>
+                                                        toggleImageVisibility(image._id)
+                                                    }
+                                                />
+                                            </motion.div>
+                                        )
+                                    })}
                                 </AnimatePresence>
                             </div>
 
