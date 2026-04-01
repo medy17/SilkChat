@@ -44,6 +44,7 @@ interface ImageDetailsModalProps {
     onNext?: () => void
     canNavigatePrevious?: boolean
     canNavigateNext?: boolean
+    prefetchImageUrls?: string[]
     onDeleteStart?: (id: Id<"generatedImages">) => void
 }
 
@@ -81,6 +82,7 @@ export function ImageDetailsModal({
     onNext,
     canNavigatePrevious = false,
     canNavigateNext = false,
+    prefetchImageUrls = [],
     onDeleteStart
 }: ImageDetailsModalProps) {
     const isMobile = useIsMobile()
@@ -178,6 +180,31 @@ export function ImageDetailsModal({
             window.removeEventListener("resize", updateViewportSize)
         }
     }, [isOpen])
+
+    useEffect(() => {
+        if (!isOpen || typeof window === "undefined" || prefetchImageUrls.length === 0) {
+            return
+        }
+
+        const prefetchedImages = prefetchImageUrls
+            .filter((url) => url && !loadedDetailImageUrls.has(url))
+            .map((url) => {
+                const image = new window.Image()
+                image.decoding = "async"
+                image.onload = () => {
+                    loadedDetailImageUrls.add(url)
+                }
+                image.src = url
+                return image
+            })
+
+        return () => {
+            for (const image of prefetchedImages) {
+                image.onload = null
+                image.onerror = null
+            }
+        }
+    }, [isOpen, prefetchImageUrls])
 
     const layout = useMemo(() => {
         const isDesktop = viewportSize.width >= DESKTOP_BREAKPOINT

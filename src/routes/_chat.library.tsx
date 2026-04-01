@@ -58,6 +58,7 @@ import {
     hasActiveGeneratedImageFilters
 } from "@/lib/generated-image-filters"
 import {
+    getExpandedImageUrl,
     getGeneratedImageCopyUrl,
     getGeneratedImageProxyUrl,
     getLibraryImageSources
@@ -988,6 +989,25 @@ function LibraryPage() {
     const canNavigateSelectedImagePrevious = selectedImageIndex > 0
     const canNavigateSelectedImageNext =
         selectedImageIndex >= 0 && selectedImageIndex < images.length - 1
+    const selectedImagePrefetchUrls = useMemo(() => {
+        if (selectedImageIndex < 0) {
+            return []
+        }
+
+        const nearbyIndices = [
+            selectedImageIndex - 1,
+            selectedImageIndex + 1,
+            selectedImageIndex - 2,
+            selectedImageIndex + 2
+        ].filter((index) => index >= 0 && index < images.length)
+
+        return nearbyIndices.map((index) =>
+            getExpandedImageUrl({
+                storageKey: images[index].storageKey,
+                aspectRatio: images[index].aspectRatio
+            })
+        )
+    }, [images, selectedImageIndex])
     const modelNameById = useMemo(
         () => new Map(sharedModels.map((model) => [model.id, model.name])),
         [sharedModels]
@@ -1725,6 +1745,7 @@ function LibraryPage() {
                     onNext={handleSelectNextImage}
                     canNavigatePrevious={canNavigateSelectedImagePrevious}
                     canNavigateNext={canNavigateSelectedImageNext}
+                    prefetchImageUrls={selectedImagePrefetchUrls}
                     onDeleteStart={(id) => {
                         setDeletedImageIds((prev) => new Set(prev).add(id))
                     }}
