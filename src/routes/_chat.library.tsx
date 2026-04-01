@@ -4,6 +4,7 @@ import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -11,6 +12,15 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
+import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
+} from "@/components/ui/drawer"
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -29,6 +39,7 @@ import {
     PaginationNext,
     PaginationPrevious
 } from "@/components/ui/pagination"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     Select,
     SelectContent,
@@ -40,6 +51,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
     type GeneratedImageFilters,
     type GeneratedImageOrientation,
@@ -61,12 +73,14 @@ import {
     ExternalLink,
     Eye,
     EyeOff,
+    Filter,
     Image as ImageIcon,
     ImageOff,
-    Trash2
+    Trash2,
+    X
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/_chat/library")({
@@ -122,6 +136,26 @@ const getFilterButtonLabel = ({
 
 const toggleFilterValue = <T extends string>(values: T[], value: T) =>
     values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value]
+
+const countActiveLibraryFilters = (filters: LibraryFiltersState) =>
+    filters.modelIds.length +
+    filters.resolutions.length +
+    filters.aspectRatios.length +
+    filters.orientations.length
+
+const areStringArraysEqual = (left: string[], right: string[]) =>
+    left.length === right.length && left.every((value, index) => value === right[index])
+
+const areLibraryFiltersEqual = (left: LibraryFiltersState, right: LibraryFiltersState) =>
+    areStringArraysEqual(left.modelIds, right.modelIds) &&
+    areStringArraysEqual(left.resolutions, right.resolutions) &&
+    areStringArraysEqual(left.aspectRatios, right.aspectRatios) &&
+    areStringArraysEqual(left.orientations, right.orientations)
+
+const MOBILE_SORT_OPTIONS: Array<{ value: ImageSortOption; label: string }> = [
+    { value: "newest", label: "Newest first" },
+    { value: "oldest", label: "Oldest first" }
+]
 
 const MultiSelectFilter = ({
     label,
@@ -201,6 +235,95 @@ const MultiSelectFilter = ({
         </div>
     )
 }
+
+const MobileFilterSection = ({
+    title,
+    action,
+    children
+}: {
+    title: string
+    action?: ReactNode
+    children: ReactNode
+}) => (
+    <section className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0">
+        <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold text-base">{title}</h3>
+            {action}
+        </div>
+        {children}
+    </section>
+)
+
+const MobileSortFilter = ({
+    value,
+    onChange
+}: {
+    value: ImageSortOption
+    onChange: (value: ImageSortOption) => void
+}) => (
+    <MobileFilterSection title="Sort By">
+        <RadioGroup value={value} onValueChange={(next) => onChange(next as ImageSortOption)}>
+            {MOBILE_SORT_OPTIONS.map((option) => (
+                <label
+                    key={option.value}
+                    htmlFor={`mobile-sort-${option.value}`}
+                    className="flex items-center gap-3 py-1.5 text-sm"
+                >
+                    <RadioGroupItem id={`mobile-sort-${option.value}`} value={option.value} />
+                    <span>{option.label}</span>
+                </label>
+            ))}
+        </RadioGroup>
+    </MobileFilterSection>
+)
+
+const MobileCheckboxFilter = ({
+    title,
+    selectedValues,
+    options,
+    onToggleValue,
+    onClear
+}: {
+    title: string
+    selectedValues: string[]
+    options: Array<{ value: string; label: string }>
+    onToggleValue: (value: string) => void
+    onClear: () => void
+}) => (
+    <MobileFilterSection
+        title={`${title}${selectedValues.length > 0 ? ` (${selectedValues.length})` : ""}`}
+        action={
+            selectedValues.length > 0 ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={onClear}
+                >
+                    Clear
+                </Button>
+            ) : undefined
+        }
+    >
+        <div className="space-y-3">
+            {options.map((option) => (
+                <label
+                    key={option.value}
+                    htmlFor={`${title.toLowerCase().replace(/\s+/g, "-")}-${option.value}`}
+                    className="flex items-center gap-3 py-1.5 text-sm"
+                >
+                    <Checkbox
+                        id={`${title.toLowerCase().replace(/\s+/g, "-")}-${option.value}`}
+                        checked={selectedValues.includes(option.value)}
+                        onCheckedChange={() => onToggleValue(option.value)}
+                    />
+                    <span>{option.label}</span>
+                </label>
+            ))}
+        </div>
+    </MobileFilterSection>
+)
 
 const GalleryImageSkeleton = memo(() => (
     <div className="relative h-full w-full overflow-hidden rounded-lg border border-border/60 bg-muted/40">
@@ -712,11 +835,15 @@ GeneratedImageItem.displayName = "GeneratedImageItem"
 
 function LibraryPage() {
     const session = useSession()
+    const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
     const [sortBy, setSortBy] = useState<ImageSortOption>("newest")
     const [filters, setFilters] = useState<LibraryFiltersState>(DEFAULT_LIBRARY_FILTERS)
+    const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
+    const [draftSortBy, setDraftSortBy] = useState<ImageSortOption>("newest")
+    const [draftFilters, setDraftFilters] = useState<LibraryFiltersState>(DEFAULT_LIBRARY_FILTERS)
     const [{ currentCursor, previousCursors }, setPaginationState] = useState<{
         currentCursor: string | null
         previousCursors: (string | null)[]
@@ -728,6 +855,11 @@ function LibraryPage() {
     const hasActiveFilters = useMemo(
         () => hasActiveGeneratedImageFilters(activeFilters),
         [activeFilters]
+    )
+    const activeFilterCount = useMemo(() => countActiveLibraryFilters(filters), [filters])
+    const draftActiveFilterCount = useMemo(
+        () => countActiveLibraryFilters(draftFilters),
+        [draftFilters]
     )
     const imagePage = useQuery(
         api.images.paginateGeneratedImages,
@@ -765,6 +897,12 @@ function LibraryPage() {
             migrateImages().catch(console.error)
         }
     }, [session.user?.id, migrateImages])
+
+    useEffect(() => {
+        if (!isMobile) {
+            setIsFiltersDrawerOpen(false)
+        }
+    }, [isMobile])
 
     const [selectedImage, setSelectedImage] = useState<Doc<"generatedImages"> | null>(null)
     const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(new Set())
@@ -859,6 +997,56 @@ function LibraryPage() {
         },
         [resetPagination]
     )
+
+    const handleOpenFiltersDrawer = useCallback(() => {
+        setDraftSortBy(sortBy)
+        setDraftFilters(filters)
+        setIsFiltersDrawerOpen(true)
+    }, [filters, sortBy])
+
+    const handleDraftFilterChange = useCallback(
+        <K extends keyof LibraryFiltersState>(key: K, value: string) => {
+            setDraftFilters((prev) => ({
+                ...prev,
+                [key]: toggleFilterValue(prev[key], value)
+            }))
+        },
+        []
+    )
+
+    const handleClearDraftFilterGroup = useCallback(
+        <K extends keyof LibraryFiltersState>(key: K) => {
+            setDraftFilters((prev) => ({
+                ...prev,
+                [key]: []
+            }))
+        },
+        []
+    )
+
+    const handleResetDraftFilters = useCallback(() => {
+        setDraftSortBy("newest")
+        setDraftFilters(DEFAULT_LIBRARY_FILTERS)
+    }, [])
+
+    const handleApplyDrawerFilters = useCallback(() => {
+        const didSortChange = draftSortBy !== sortBy
+        const didFiltersChange = !areLibraryFiltersEqual(draftFilters, filters)
+
+        if (didSortChange) {
+            setSortBy(draftSortBy)
+        }
+
+        if (didFiltersChange) {
+            setFilters(draftFilters)
+        }
+
+        if (didSortChange || didFiltersChange) {
+            resetPagination()
+        }
+
+        setIsFiltersDrawerOpen(false)
+    }, [draftFilters, draftSortBy, filters, resetPagination, sortBy])
 
     const handleNextPage = useCallback(() => {
         if (!imagePage || imagePage.isDone) return
@@ -1036,72 +1224,209 @@ function LibraryPage() {
                                     {privateViewingEnabled ? "On" : "Off"}
                                 </span>
                             </Button>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                                    Sort
-                                </span>
-                                <Select
-                                    value={sortBy}
-                                    onValueChange={(value) =>
-                                        handleSortChange(value as ImageSortOption)
-                                    }
-                                >
-                                    <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="newest">Newest first</SelectItem>
-                                        <SelectItem value="oldest">Oldest first</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {hasActiveFilters && (
+                            {isMobile ? (
                                 <Button
                                     type="button"
-                                    variant="ghost"
-                                    className="sm:self-end"
-                                    onClick={handleClearFilters}
+                                    variant={
+                                        hasActiveFilters || sortBy !== "newest"
+                                            ? "secondary"
+                                            : "outline"
+                                    }
+                                    className="w-full justify-between gap-3"
+                                    onClick={handleOpenFiltersDrawer}
                                 >
-                                    Clear filters
+                                    <span className="inline-flex items-center gap-2">
+                                        <Filter className="h-4 w-4" />
+                                        Filters & Sort
+                                    </span>
+                                    <span className="text-muted-foreground text-xs">
+                                        {activeFilterCount > 0
+                                            ? `${activeFilterCount} active`
+                                            : sortBy === "newest"
+                                              ? "Newest first"
+                                              : "Oldest first"}
+                                    </span>
                                 </Button>
+                            ) : (
+                                <>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <span className="text-muted-foreground text-xs uppercase tracking-wider">
+                                            Sort
+                                        </span>
+                                        <Select
+                                            value={sortBy}
+                                            onValueChange={(value) =>
+                                                handleSortChange(value as ImageSortOption)
+                                            }
+                                        >
+                                            <SelectTrigger className="w-full min-w-36 bg-background sm:w-40">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="newest">Newest first</SelectItem>
+                                                <SelectItem value="oldest">Oldest first</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {hasActiveFilters && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="sm:self-end"
+                                            onClick={handleClearFilters}
+                                        >
+                                            Clear filters
+                                        </Button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
 
-                    <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <MultiSelectFilter
-                            label="Model"
-                            emptyLabel="All models"
-                            selectedValues={filters.modelIds}
-                            options={modelFilterOptions}
-                            onToggleValue={(value) => handleFilterChange("modelIds", value)}
-                            onClear={() => handleClearFilterGroup("modelIds")}
-                        />
-                        <MultiSelectFilter
-                            label="Resolution"
-                            emptyLabel="All resolutions"
-                            selectedValues={filters.resolutions}
-                            options={resolutionFilterOptions}
-                            onToggleValue={(value) => handleFilterChange("resolutions", value)}
-                            onClear={() => handleClearFilterGroup("resolutions")}
-                        />
-                        <MultiSelectFilter
-                            label="Aspect Ratio"
-                            emptyLabel="All aspect ratios"
-                            selectedValues={filters.aspectRatios}
-                            options={aspectRatioFilterOptions}
-                            onToggleValue={(value) => handleFilterChange("aspectRatios", value)}
-                            onClear={() => handleClearFilterGroup("aspectRatios")}
-                        />
-                        <MultiSelectFilter
-                            label="Orientation"
-                            emptyLabel="All orientations"
-                            selectedValues={filters.orientations}
-                            options={orientationFilterOptions}
-                            onToggleValue={(value) => handleFilterChange("orientations", value)}
-                            onClear={() => handleClearFilterGroup("orientations")}
-                        />
-                    </div>
+                    {!isMobile && (
+                        <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <MultiSelectFilter
+                                label="Model"
+                                emptyLabel="All models"
+                                selectedValues={filters.modelIds}
+                                options={modelFilterOptions}
+                                onToggleValue={(value) => handleFilterChange("modelIds", value)}
+                                onClear={() => handleClearFilterGroup("modelIds")}
+                            />
+                            <MultiSelectFilter
+                                label="Resolution"
+                                emptyLabel="All resolutions"
+                                selectedValues={filters.resolutions}
+                                options={resolutionFilterOptions}
+                                onToggleValue={(value) => handleFilterChange("resolutions", value)}
+                                onClear={() => handleClearFilterGroup("resolutions")}
+                            />
+                            <MultiSelectFilter
+                                label="Aspect Ratio"
+                                emptyLabel="All aspect ratios"
+                                selectedValues={filters.aspectRatios}
+                                options={aspectRatioFilterOptions}
+                                onToggleValue={(value) => handleFilterChange("aspectRatios", value)}
+                                onClear={() => handleClearFilterGroup("aspectRatios")}
+                            />
+                            <MultiSelectFilter
+                                label="Orientation"
+                                emptyLabel="All orientations"
+                                selectedValues={filters.orientations}
+                                options={orientationFilterOptions}
+                                onToggleValue={(value) => handleFilterChange("orientations", value)}
+                                onClear={() => handleClearFilterGroup("orientations")}
+                            />
+                        </div>
+                    )}
+
+                    {isMobile && (
+                        <Drawer open={isFiltersDrawerOpen} onOpenChange={setIsFiltersDrawerOpen}>
+                            <DrawerContent
+                                className="z-[60] flex max-h-[90dvh] flex-col overflow-hidden"
+                                overlayClassName="z-[60]"
+                            >
+                                <DrawerHeader className="shrink-0 text-left">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <DrawerTitle>Filters</DrawerTitle>
+                                            <DrawerDescription>
+                                                Narrow the library and choose how results are
+                                                sorted.
+                                            </DrawerDescription>
+                                        </div>
+                                        <DrawerClose asChild>
+                                            <Button type="button" variant="ghost" size="icon">
+                                                <span className="sr-only">Close filters</span>
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </DrawerClose>
+                                    </div>
+                                </DrawerHeader>
+
+                                <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
+                                    <MobileSortFilter
+                                        value={draftSortBy}
+                                        onChange={setDraftSortBy}
+                                    />
+                                    <MobileCheckboxFilter
+                                        title="Model"
+                                        selectedValues={draftFilters.modelIds}
+                                        options={modelFilterOptions}
+                                        onToggleValue={(value) =>
+                                            handleDraftFilterChange("modelIds", value)
+                                        }
+                                        onClear={() => handleClearDraftFilterGroup("modelIds")}
+                                    />
+                                    <MobileCheckboxFilter
+                                        title="Resolution"
+                                        selectedValues={draftFilters.resolutions}
+                                        options={resolutionFilterOptions}
+                                        onToggleValue={(value) =>
+                                            handleDraftFilterChange("resolutions", value)
+                                        }
+                                        onClear={() => handleClearDraftFilterGroup("resolutions")}
+                                    />
+                                    <MobileCheckboxFilter
+                                        title="Aspect Ratio"
+                                        selectedValues={draftFilters.aspectRatios}
+                                        options={aspectRatioFilterOptions}
+                                        onToggleValue={(value) =>
+                                            handleDraftFilterChange("aspectRatios", value)
+                                        }
+                                        onClear={() => handleClearDraftFilterGroup("aspectRatios")}
+                                    />
+                                    <MobileCheckboxFilter
+                                        title="Orientation"
+                                        selectedValues={draftFilters.orientations}
+                                        options={orientationFilterOptions}
+                                        onToggleValue={(value) =>
+                                            handleDraftFilterChange("orientations", value)
+                                        }
+                                        onClear={() => handleClearDraftFilterGroup("orientations")}
+                                    />
+                                </div>
+
+                                <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                                    <div className="flex items-center justify-between gap-3 text-muted-foreground text-sm">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="px-0"
+                                            onClick={handleResetDraftFilters}
+                                        >
+                                            Reset all
+                                        </Button>
+                                        <span className="text-muted-foreground text-sm">
+                                            {draftActiveFilterCount > 0
+                                                ? `${draftActiveFilterCount} filters selected`
+                                                : draftSortBy === "newest"
+                                                  ? "Newest first"
+                                                  : "Oldest first"}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <DrawerClose asChild>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="flex-1"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </DrawerClose>
+                                        <Button
+                                            type="button"
+                                            className="flex-1"
+                                            onClick={handleApplyDrawerFilters}
+                                        >
+                                            Apply
+                                        </Button>
+                                    </div>
+                                </DrawerFooter>
+                            </DrawerContent>
+                        </Drawer>
+                    )}
 
                     {!imagePage ? (
                         <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">

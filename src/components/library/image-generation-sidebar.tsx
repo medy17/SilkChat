@@ -19,10 +19,20 @@ const MAX_TOTAL_GENERATIONS_PER_RUN = 10
 const getModelMaxPerMessage = (model: SharedModel) =>
     model.maxPerMessage ?? DEFAULT_VARIANTS_PER_MODEL
 
+const areStringArraysEqual = (left: string[], right: string[]) =>
+    left.length === right.length && left.every((value, index) => value === right[index])
+
+const areModelCountsEqual = (left: Record<string, number>, right: Record<string, number>) => {
+    const leftKeys = Object.keys(left)
+    const rightKeys = Object.keys(right)
+
+    return leftKeys.length === rightKeys.length && leftKeys.every((key) => left[key] === right[key])
+}
+
 export function ImageGenerationSidebar() {
     const { token } = useToken()
     const { models } = useSharedModels()
-    const imageModels = models.filter((m) => m.mode === "image")
+    const imageModels = useMemo(() => models.filter((m) => m.mode === "image"), [models])
     const { addPendingGeneration, removePendingGeneration } = useGenerationStore()
 
     const [prompt, setPrompt] = useState("")
@@ -49,10 +59,11 @@ export function ImageGenerationSidebar() {
                 imageModels.some((model) => model.id === id)
             )
             if (validSelections.length > 0) {
-                return validSelections
+                return areStringArraysEqual(prev, validSelections) ? prev : validSelections
             }
 
-            return imageModels.length > 0 ? [imageModels[0].id] : []
+            const fallbackSelection = imageModels.length > 0 ? [imageModels[0].id] : []
+            return areStringArraysEqual(prev, fallbackSelection) ? prev : fallbackSelection
         })
     }, [imageModels])
 
@@ -68,10 +79,12 @@ export function ImageGenerationSidebar() {
             )
 
             if (Object.keys(validCounts).length > 0) {
-                return validCounts
+                return areModelCountsEqual(prev, validCounts) ? prev : validCounts
             }
 
-            return imageModels.length > 0 ? { [imageModels[0].id]: DEFAULT_VARIANTS_PER_MODEL } : {}
+            const fallbackCounts =
+                imageModels.length > 0 ? { [imageModels[0].id]: DEFAULT_VARIANTS_PER_MODEL } : {}
+            return areModelCountsEqual(prev, fallbackCounts) ? prev : fallbackCounts
         })
     }, [imageModels])
 
@@ -409,7 +422,7 @@ export function ImageGenerationSidebar() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     onPaste={handlePaste}
-                    className="min-h-[100px] resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
+                    className="field-sizing-fixed max-h-[24dvh] min-h-[112px] resize-none overflow-y-auto rounded-md border-0 bg-muted/30 px-4 py-3 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
                 />
             </div>
 
