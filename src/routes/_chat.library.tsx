@@ -113,6 +113,27 @@ const ORIENTATION_LABELS: Record<GeneratedImageOrientation, string> = {
     square: "Square"
 }
 
+const appendRetryParam = (url: string, retryKey: number) =>
+    retryKey > 0 ? `${url}${url.includes("?") ? "&" : "?"}retry=${retryKey}` : url
+
+const appendRetryParamToSrcSet = (srcSet: string, retryKey: number) => {
+    if (retryKey <= 0) return srcSet
+
+    return srcSet
+        .split(", ")
+        .map((candidate) => {
+            const descriptorIndex = candidate.lastIndexOf(" ")
+            if (descriptorIndex === -1) {
+                return appendRetryParam(candidate, retryKey)
+            }
+
+            const candidateUrl = candidate.slice(0, descriptorIndex)
+            const descriptor = candidate.slice(descriptorIndex)
+            return `${appendRetryParam(candidateUrl, retryKey)}${descriptor}`
+        })
+        .join(", ")
+}
+
 const toGeneratedImageFilters = (filters: LibraryFiltersState): GeneratedImageFilters => ({
     modelIds: filters.modelIds,
     resolutions: filters.resolutions,
@@ -422,6 +443,7 @@ const GeneratedImageItem = memo(
         const [isBlurVariantReady, setIsBlurVariantReady] = useState(false)
         const [hasBlurVariantError, setHasBlurVariantError] = useState(false)
         const [hasMountedBlurVariant, setHasMountedBlurVariant] = useState(false)
+        const [blurVariantRetryKey, setBlurVariantRetryKey] = useState(0)
         const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
         const revealTimeoutRef = useRef<number | null>(null)
         const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
@@ -440,6 +462,14 @@ const GeneratedImageItem = memo(
             aspectRatio: image.aspectRatio,
             hidden: true
         })
+        const retriedHiddenImageSources = useMemo(
+            () => ({
+                ...hiddenImageSources,
+                src: appendRetryParam(hiddenImageSources.src, blurVariantRetryKey),
+                srcSet: appendRetryParamToSrcSet(hiddenImageSources.srcSet, blurVariantRetryKey)
+            }),
+            [blurVariantRetryKey, hiddenImageSources]
+        )
 
         const canUseBlurVariant = !hiddenImageSources.useCssBlurFallback && !hasBlurVariantError
         const shouldMountBlurVariant = canUseBlurVariant && (isImageHidden || hasMountedBlurVariant)
@@ -478,6 +508,7 @@ const GeneratedImageItem = memo(
             setIsBlurVariantReady(false)
             setHasBlurVariantError(false)
             setHasMountedBlurVariant(false)
+            setBlurVariantRetryKey(0)
         }, [image.storageKey])
 
         useEffect(() => {
@@ -485,6 +516,38 @@ const GeneratedImageItem = memo(
                 setHasMountedBlurVariant(true)
             }
         }, [canUseBlurVariant, isImageHidden])
+
+        useEffect(() => {
+            if (
+                hiddenImageSources.useCssBlurFallback ||
+                !isImageHidden ||
+                isBlurVariantReady ||
+                typeof window === "undefined" ||
+                typeof document === "undefined"
+            ) {
+                return
+            }
+
+            const retryBlurVariant = () => {
+                if (document.visibilityState === "hidden") {
+                    return
+                }
+
+                setHasBlurVariantError(false)
+                setIsBlurVariantReady(false)
+                setBlurVariantRetryKey((current) => current + 1)
+            }
+
+            window.addEventListener("focus", retryBlurVariant)
+            window.addEventListener("online", retryBlurVariant)
+            document.addEventListener("visibilitychange", retryBlurVariant)
+
+            return () => {
+                window.removeEventListener("focus", retryBlurVariant)
+                window.removeEventListener("online", retryBlurVariant)
+                document.removeEventListener("visibilitychange", retryBlurVariant)
+            }
+        }, [hiddenImageSources.useCssBlurFallback, isBlurVariantReady, isImageHidden])
 
         const aspectRatio = image.aspectRatio || "1:1"
         const cssAspectRatio = useMemo(() => {
@@ -645,9 +708,10 @@ const GeneratedImageItem = memo(
                                 />
                                 {shouldMountBlurVariant && (
                                     <img
-                                        src={hiddenImageSources.src}
-                                        srcSet={hiddenImageSources.srcSet}
-                                        sizes={hiddenImageSources.sizes}
+                                        key={`${image.storageKey}-${blurVariantRetryKey}`}
+                                        src={retriedHiddenImageSources.src}
+                                        srcSet={retriedHiddenImageSources.srcSet}
+                                        sizes={retriedHiddenImageSources.sizes}
                                         alt=""
                                         aria-hidden="true"
                                         className={cn(
