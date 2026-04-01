@@ -62,10 +62,19 @@ import {
     getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
+import {
+    DEFAULT_LIBRARY_FILTERS,
+    DEFAULT_LIBRARY_SEARCH,
+    type ImageSortOption,
+    type LibraryFiltersState,
+    cloneLibraryFilters,
+    getLibraryFiltersFromSearch,
+    validateLibrarySearch
+} from "@/lib/library-search"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn, copyImageUrlToClipboard } from "@/lib/utils"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
 import {
     Check,
@@ -88,25 +97,15 @@ import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/_chat/library")({
+    validateSearch: validateLibrarySearch,
+    search: {
+        middlewares: [stripSearchParams(DEFAULT_LIBRARY_SEARCH)]
+    },
     component: LibraryPage
 })
 
 const IMAGES_PER_PAGE = 50
-type ImageSortOption = "newest" | "oldest"
 type ImageLoadPlaceholder = "tiles" | "skeleton"
-type LibraryFiltersState = {
-    modelIds: string[]
-    resolutions: string[]
-    aspectRatios: string[]
-    orientations: GeneratedImageOrientation[]
-}
-
-const DEFAULT_LIBRARY_FILTERS: LibraryFiltersState = {
-    modelIds: [],
-    resolutions: [],
-    aspectRatios: [],
-    orientations: []
-}
 
 const ORIENTATION_LABELS: Record<GeneratedImageOrientation, string> = {
     landscape: "Landscape",
@@ -475,6 +474,7 @@ const GeneratedImageItem = memo(
         }, [])
 
         useEffect(() => {
+            void image.storageKey
             setIsBlurVariantReady(false)
             setHasBlurVariantError(false)
             setHasMountedBlurVariant(false)
@@ -841,23 +841,22 @@ const GeneratedImageItem = memo(
 GeneratedImageItem.displayName = "GeneratedImageItem"
 
 function LibraryPage() {
+    const navigate = Route.useNavigate()
+    const search = Route.useSearch()
     const session = useSession()
     const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
-    const [sortBy, setSortBy] = useState<ImageSortOption>("newest")
-    const [filters, setFilters] = useState<LibraryFiltersState>(DEFAULT_LIBRARY_FILTERS)
+    const sortBy = search.sort
+    const pageNumber = search.page
+    const currentCursor = pageNumber > 1 ? String((pageNumber - 1) * IMAGES_PER_PAGE) : null
+    const filters = getLibraryFiltersFromSearch(search)
     const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
-    const [draftSortBy, setDraftSortBy] = useState<ImageSortOption>("newest")
-    const [draftFilters, setDraftFilters] = useState<LibraryFiltersState>(DEFAULT_LIBRARY_FILTERS)
-    const [{ currentCursor, previousCursors }, setPaginationState] = useState<{
-        currentCursor: string | null
-        previousCursors: (string | null)[]
-    }>({
-        currentCursor: null,
-        previousCursors: []
-    })
+    const [draftSortBy, setDraftSortBy] = useState<ImageSortOption>(sortBy)
+    const [draftFilters, setDraftFilters] = useState<LibraryFiltersState>(() =>
+        cloneLibraryFilters(filters)
+    )
     const activeFilters = useMemo(() => toGeneratedImageFilters(filters), [filters])
     const hasActiveFilters = useMemo(
         () => hasActiveGeneratedImageFilters(activeFilters),
@@ -954,60 +953,84 @@ function LibraryPage() {
             })),
         [filterOptions?.orientations]
     )
-    const pageNumber = previousCursors.length + 1
     const totalPages =
         totalImages === undefined
             ? undefined
             : Math.max(1, Math.ceil(totalImages / IMAGES_PER_PAGE))
-    const canGoPrevious = previousCursors.length > 0
+    const canGoPrevious = pageNumber > 1
     const canGoNext = imagePage ? !imagePage.isDone : false
     const showPendingGenerations = pageNumber === 1 && !hasActiveFilters
-
-    const resetPagination = useCallback(() => {
-        setPaginationState({
-            currentCursor: null,
-            previousCursors: []
-        })
-    }, [])
+    const scrollResetKey = JSON.stringify(search)
 
     const handleSortChange = useCallback(
         (value: ImageSortOption) => {
-            setSortBy(value)
-            resetPagination()
+            navigate({
+                replace: true,
+                search: (prev) => ({
+                    ...prev,
+                    sort: value,
+                    page: DEFAULT_LIBRARY_SEARCH.page
+                })
+            })
         },
-        [resetPagination]
+        [navigate]
     )
 
     const handleFilterChange = useCallback(
-        <K extends keyof LibraryFiltersState>(key: K, value: string) => {
-            setFilters((prev) => ({
-                ...prev,
-                [key]: toggleFilterValue(prev[key], value)
-            }))
-            resetPagination()
+        <K extends keyof LibraryFiltersState>(key: K, value: LibraryFiltersState[K][number]) => {
+            navigate({
+                replace: true,
+                search: (prev) => {
+                    const nextFilters = getLibraryFiltersFromSearch(prev)
+                    nextFilters[key] = toggleFilterValue(
+                        nextFilters[key],
+                        value
+                    ) as LibraryFiltersState[K]
+
+                    return {
+                        ...prev,
+                        ...nextFilters,
+                        page: DEFAULT_LIBRARY_SEARCH.page
+                    }
+                }
+            })
         },
-        [resetPagination]
+        [navigate]
     )
 
     const handleClearFilters = useCallback(() => {
-        setFilters(DEFAULT_LIBRARY_FILTERS)
-        resetPagination()
-    }, [resetPagination])
+        navigate({
+            replace: true,
+            search: (prev) => ({
+                ...prev,
+                ...cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS),
+                page: DEFAULT_LIBRARY_SEARCH.page
+            })
+        })
+    }, [navigate])
 
     const handleClearFilterGroup = useCallback(
         <K extends keyof LibraryFiltersState>(key: K) => {
-            setFilters((prev) => ({
-                ...prev,
-                [key]: []
-            }))
-            resetPagination()
+            navigate({
+                replace: true,
+                search: (prev) => {
+                    const nextFilters = getLibraryFiltersFromSearch(prev)
+                    nextFilters[key] = []
+
+                    return {
+                        ...prev,
+                        ...nextFilters,
+                        page: DEFAULT_LIBRARY_SEARCH.page
+                    }
+                }
+            })
         },
-        [resetPagination]
+        [navigate]
     )
 
     const handleOpenFiltersDrawer = useCallback(() => {
         setDraftSortBy(sortBy)
-        setDraftFilters(filters)
+        setDraftFilters(cloneLibraryFilters(filters))
         setIsFiltersDrawerOpen(true)
     }, [filters, sortBy])
 
@@ -1032,67 +1055,69 @@ function LibraryPage() {
     )
 
     const handleResetDraftFilters = useCallback(() => {
-        setDraftSortBy("newest")
-        setDraftFilters(DEFAULT_LIBRARY_FILTERS)
+        setDraftSortBy(DEFAULT_LIBRARY_SEARCH.sort)
+        setDraftFilters(cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS))
     }, [])
 
     const handleApplyDrawerFilters = useCallback(() => {
         const didSortChange = draftSortBy !== sortBy
         const didFiltersChange = !areLibraryFiltersEqual(draftFilters, filters)
 
-        if (didSortChange) {
-            setSortBy(draftSortBy)
-        }
-
-        if (didFiltersChange) {
-            setFilters(draftFilters)
-        }
-
         if (didSortChange || didFiltersChange) {
-            resetPagination()
+            navigate({
+                replace: true,
+                search: (prev) => ({
+                    ...prev,
+                    ...cloneLibraryFilters(draftFilters),
+                    sort: draftSortBy,
+                    page: DEFAULT_LIBRARY_SEARCH.page
+                })
+            })
         }
 
         setIsFiltersDrawerOpen(false)
-    }, [draftFilters, draftSortBy, filters, resetPagination, sortBy])
+    }, [draftFilters, draftSortBy, filters, navigate, sortBy])
 
     const handleNextPage = useCallback(() => {
         if (!imagePage || imagePage.isDone) return
 
-        setPaginationState((prev) => ({
-            currentCursor: imagePage.continueCursor,
-            previousCursors: [...prev.previousCursors, prev.currentCursor]
-        }))
-    }, [imagePage])
+        navigate({
+            search: (prev) => ({
+                ...prev,
+                page: prev.page + 1
+            })
+        })
+    }, [imagePage, navigate])
 
     const handlePreviousPage = useCallback(() => {
-        setPaginationState((prev) => {
-            if (prev.previousCursors.length === 0) return prev
+        navigate({
+            search: (prev) => {
+                if (prev.page <= 1) return prev
 
-            return {
-                currentCursor: prev.previousCursors[prev.previousCursors.length - 1] ?? null,
-                previousCursors: prev.previousCursors.slice(0, -1)
+                return {
+                    ...prev,
+                    page: prev.page - 1
+                }
             }
         })
-    }, [])
+    }, [navigate])
 
     useEffect(() => {
-        if (!imagePage || currentCursor === null || imagePage.page.length > 0) return
+        if (totalPages === undefined || pageNumber <= totalPages) return
 
-        setPaginationState((prev) => {
-            if (prev.previousCursors.length === 0) {
-                return { currentCursor: null, previousCursors: [] }
-            }
-
-            return {
-                currentCursor: prev.previousCursors[prev.previousCursors.length - 1] ?? null,
-                previousCursors: prev.previousCursors.slice(0, -1)
-            }
+        navigate({
+            replace: true,
+            search: (prev) => ({
+                ...prev,
+                page: totalPages
+            })
         })
-    }, [currentCursor, imagePage])
+    }, [navigate, pageNumber, totalPages])
 
     useEffect(() => {
+        void scrollResetKey
         galleryRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-    }, [currentCursor, sortBy, activeFilters])
+    }, [scrollResetKey])
 
     useEffect(() => {
         const currentImageIds = images.map((image) => image._id)
@@ -1321,7 +1346,12 @@ function LibraryPage() {
                                 emptyLabel="All orientations"
                                 selectedValues={filters.orientations}
                                 options={orientationFilterOptions}
-                                onToggleValue={(value) => handleFilterChange("orientations", value)}
+                                onToggleValue={(value) =>
+                                    handleFilterChange(
+                                        "orientations",
+                                        value as GeneratedImageOrientation
+                                    )
+                                }
                                 onClear={() => handleClearFilterGroup("orientations")}
                             />
                         </div>

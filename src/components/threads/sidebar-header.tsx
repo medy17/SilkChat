@@ -1,6 +1,7 @@
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
+import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
@@ -53,7 +54,13 @@ export function ThreadsSidebarHeader({
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate({ to: isLibraryMode ? "/" : "/library" })}
+                    onClick={() =>
+                        navigate(
+                            isLibraryMode
+                                ? { to: "/" }
+                                : { to: "/library", search: DEFAULT_LIBRARY_SEARCH }
+                        )
+                    }
                     onMouseEnter={handleLibraryHover}
                     className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground"
                 >

@@ -6,6 +6,7 @@ import {
     SidebarGroupLabel,
     SidebarMenu
 } from "@/components/ui/sidebar"
+import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { isAfter, isToday, isYesterday, subDays } from "date-fns"
@@ -149,6 +150,7 @@ function LibraryLink() {
         <div className="px-2">
             <Link
                 to="/library"
+                search={DEFAULT_LIBRARY_SEARCH}
                 className={cn(buttonVariants({ variant: "ghost" }), "h-8 w-full justify-start")}
             >
                 <Image className="h-4 w-4" />
