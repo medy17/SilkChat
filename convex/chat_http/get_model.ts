@@ -100,6 +100,7 @@ export const getModel = async (
     let finalModel: LanguageModelV3 | ImageModelV3 | undefined = undefined
     let providerSource: "internal" | "byok" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
+    let runtimeApiKey: string | undefined = undefined
 
     for (const adapter of sortedAdapters) {
         const providerIdRaw = model.customProviderId ?? adapter.split(":")[0]
@@ -174,6 +175,8 @@ export const getModel = async (
             }
             providerSource = "internal"
             runtimeProvider = providerId
+            runtimeApiKey =
+                providerId === "xai" ? process.env.XAI_API_KEY?.trim() || undefined : undefined
             break
         }
 
@@ -262,6 +265,7 @@ export const getModel = async (
             providerSource = providerIdRaw === "openrouter" ? "openrouter" : "byok"
             runtimeProvider =
                 providerIdRaw === "openrouter" ? "openrouter" : (providerIdRaw as CoreProvider)
+            runtimeApiKey = providerIdRaw === "xai" ? provider.key : undefined
             break
         }
 
@@ -286,6 +290,7 @@ export const getModel = async (
         }
         providerSource = "custom"
         runtimeProvider = "custom"
+        runtimeApiKey = undefined
         break
     }
 
@@ -305,6 +310,7 @@ export const getModel = async (
         modelName: model.name ?? model.id,
         providerSource,
         runtimeProvider,
+        runtimeApiKey,
         prototypeCreditTier: model.prototypeCreditTier,
         prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
     }

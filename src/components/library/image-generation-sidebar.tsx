@@ -321,6 +321,17 @@ export function ImageGenerationSidebar() {
             selectedModels.every((model) => model.supportsReferenceImages === true),
         [selectedModels]
     )
+    const hasSingleReferenceXaiEdit = useMemo(
+        () =>
+            referenceFiles.length === 1 &&
+            selectedModels.some((model) =>
+                model.adapters.some((adapter) => {
+                    const providerId = adapter.split(":")[0]
+                    return providerId === "xai" || providerId === "i3-xai"
+                })
+            ),
+        [referenceFiles.length, selectedModels]
+    )
 
     const canGenerateBase =
         selectedModelIds.length > 0 && !isGenerating && commonImageSizes.length > 0
@@ -762,6 +773,13 @@ export function ImageGenerationSidebar() {
                                 )
                             })}
                         </div>
+                        {hasSingleReferenceXaiEdit && (
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                xAI single-image edits keep the input image's aspect ratio. The
+                                aspect ratio picker only reliably applies to text-to-image and
+                                multi-image edits.
+                            </p>
+                        )}
                     </div>
 
                     {/* Resolution Section */}

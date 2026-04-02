@@ -1,12 +1,75 @@
 import type { SharedModel } from "./types"
 
-const xaiTextAdapters = (modelId: string, openRouterModelId?: string) => [
+const xaiTextAdapters = (modelId: string, openRouterModelId?: string): SharedModel["adapters"] => [
     `i3-xai:${modelId}`,
     `xai:${modelId}`,
-    ...(openRouterModelId ? [`openrouter:${openRouterModelId}`] : [])
+    ...(openRouterModelId ? ([`openrouter:${openRouterModelId}`] as SharedModel["adapters"]) : [])
+]
+
+const xaiImageAdapters = (modelId: string): SharedModel["adapters"] => [
+    `i3-xai:${modelId}`,
+    `xai:${modelId}`
 ]
 
 export const XAI_MODELS: SharedModel[] = [
+    {
+        id: "grok-imagine-image-pro",
+        name: "Grok Imagine Image Pro",
+        shortName: "Imagine Pro",
+        releaseOrder: 20260402,
+        adapters: xaiImageAdapters("grok-imagine-image-pro"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 10,
+        supportsReferenceImages: true,
+        customIcon: "xai",
+        supportedImageSizes: [
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "2:1",
+            "1:2",
+            "19.5:9",
+            "9:19.5",
+            "20:9",
+            "9:20"
+        ],
+        supportedImageResolutions: ["1K", "2K"],
+        prototypeCreditTier: "pro"
+    },
+    {
+        id: "grok-imagine-image",
+        name: "Grok Imagine Image",
+        shortName: "Imagine",
+        releaseOrder: 20260401,
+        adapters: xaiImageAdapters("grok-imagine-image"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 10,
+        supportsReferenceImages: true,
+        customIcon: "xai",
+        supportedImageSizes: [
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "2:1",
+            "1:2",
+            "19.5:9",
+            "9:19.5",
+            "20:9",
+            "9:20"
+        ],
+        supportedImageResolutions: ["1K", "2K"],
+        prototypeCreditTier: "pro"
+    },
     {
         id: "grok-4-1-fast-reasoning",
         name: "Grok 4.1 Fast Reasoning",

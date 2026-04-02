@@ -1,3 +1,4 @@
+import sharp from "sharp"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { generateImageMock, generateTextMock, storeMock, getGoogleAuthModeMock } = vi.hoisted(
@@ -8,6 +9,8 @@ const { generateImageMock, generateTextMock, storeMock, getGoogleAuthModeMock } 
         getGoogleAuthModeMock: vi.fn()
     })
 )
+
+const fetchMock = vi.fn()
 
 vi.mock("ai", () => ({
     generateImage: generateImageMock,
@@ -20,7 +23,9 @@ vi.mock("@ai-sdk/openai", () => ({
 
 vi.mock("../../convex/attachments", () => ({
     r2: {
-        store: storeMock
+        store: storeMock,
+        getMetadata: vi.fn(),
+        getUrl: vi.fn()
     }
 }))
 
@@ -39,16 +44,30 @@ vi.mock("../../convex/lib/models", async () => {
     )
 
     return {
-        MODELS_SHARED: actual.OPENROUTER_MODELS,
+        MODELS_SHARED: [
+            ...actual.OPENROUTER_MODELS,
+            {
+                id: "grok-imagine-image",
+                name: "Grok Imagine Image",
+                mode: "image",
+                adapters: ["i3-xai:grok-imagine-image", "xai:grok-imagine-image"],
+                abilities: [],
+                supportsReferenceImages: true,
+                supportedImageSizes: ["1:1", "16:9", "9:16"],
+                supportedImageResolutions: ["1K", "2K"]
+            }
+        ],
         ImageResolution: undefined,
         ImageSize: undefined
     }
 })
 
+import { r2 } from "../../convex/attachments"
 import { generateAndStoreImage } from "../../convex/chat_http/image_generation"
 
 describe("generateAndStoreImage", () => {
     beforeEach(() => {
+        vi.stubGlobal("fetch", fetchMock)
         generateImageMock.mockReset().mockResolvedValue({
             images: [
                 {
@@ -60,6 +79,9 @@ describe("generateAndStoreImage", () => {
         generateTextMock.mockReset()
         storeMock.mockReset().mockResolvedValue("stored-key")
         getGoogleAuthModeMock.mockReset().mockReturnValue("ai-studio")
+        fetchMock.mockReset()
+        vi.mocked(r2.getMetadata).mockReset()
+        vi.mocked(r2.getUrl).mockReset()
     })
 
     it("passes Seedream image resolution through OpenRouter image_config", async () => {
@@ -97,6 +119,144 @@ describe("generateAndStoreImage", () => {
                 }
             })
         )
+        expect(storeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("uses the actual returned xAI image dimensions instead of the requested aspect ratio", async () => {
+        const landscapeImage = await sharp({
+            create: {
+                width: 1600,
+                height: 900,
+                channels: 3,
+                background: { r: 0, g: 0, b: 0 }
+            }
+        })
+            .png()
+            .toBuffer()
+
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        b64_json: landscapeImage.toString("base64")
+                    }
+                ]
+            })
+        })
+
+        const result = await generateAndStoreImage({
+            prompt: "A cinematic portrait",
+            imageSize: "9:16",
+            imageResolution: "2K",
+            imageModel: {
+                provider: "xai.image",
+                modelId: "grok-imagine-image"
+            } as never,
+            modelId: "grok-imagine-image",
+            userId: "user-1",
+            actionCtx: {} as never,
+            maxAssets: 1,
+            runtimeApiKey: "xai-key"
+        })
+
+        expect(generateImageMock).not.toHaveBeenCalled()
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://api.x.ai/v1/images/generations",
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Authorization: "Bearer xai-key",
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify({
+                    model: "grok-imagine-image",
+                    prompt: "A cinematic portrait",
+                    response_format: "b64_json",
+                    aspect_ratio: "9:16",
+                    resolution: "2k"
+                })
+            })
+        )
+        expect(result.assets[0]?.imageSize).toBe("16:9")
+        expect(storeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("calls the direct xAI edits endpoint with reference images as data URLs", async () => {
+        const squareImage = await sharp({
+            create: {
+                width: 1000,
+                height: 1000,
+                channels: 3,
+                background: { r: 255, g: 255, b: 255 }
+            }
+        })
+            .png()
+            .toBuffer()
+
+        vi.mocked(r2.getMetadata).mockResolvedValue({
+            authorId: "user-1"
+        } as never)
+        vi.mocked(r2.getUrl).mockResolvedValue("https://files.example/ref.png" as never)
+
+        fetchMock
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: {
+                    get: (name: string) => (name === "content-type" ? "image/png" : null)
+                },
+                arrayBuffer: async () => Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: [
+                        {
+                            b64_json: squareImage.toString("base64")
+                        }
+                    ]
+                })
+            })
+
+        const result = await generateAndStoreImage({
+            prompt: "Turn this into a poster",
+            imageSize: "1:1",
+            imageModel: {
+                provider: "xai.image",
+                modelId: "grok-imagine-image"
+            } as never,
+            modelId: "grok-imagine-image",
+            userId: "user-1",
+            actionCtx: {} as never,
+            referenceImageKeys: ["ref-key"],
+            maxAssets: 1,
+            runtimeApiKey: "xai-key"
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(fetchMock).toHaveBeenNthCalledWith(1, "https://files.example/ref.png")
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            2,
+            "https://api.x.ai/v1/images/edits",
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Authorization: "Bearer xai-key",
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify({
+                    model: "grok-imagine-image",
+                    prompt: "Turn this into a poster",
+                    response_format: "b64_json",
+                    aspect_ratio: "1:1",
+                    image: {
+                        type: "image_url",
+                        url: "data:image/png;base64,iVBORw0KGgo="
+                    }
+                })
+            })
+        )
+        expect(result.assets[0]?.imageSize).toBe("1:1")
         expect(storeMock).toHaveBeenCalledTimes(1)
     })
 })

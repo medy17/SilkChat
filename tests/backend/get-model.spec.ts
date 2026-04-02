@@ -38,6 +38,14 @@ vi.mock("../../convex/lib/models", () => ({
             adapters: ["openrouter:or-shared", "i3-openai:shared-text", "openai:shared-text"],
             prototypeCreditTier: "basic",
             prototypeCreditTierWithReasoning: "pro"
+        },
+        {
+            id: "shared-image",
+            name: "Shared Image",
+            mode: "image",
+            abilities: [],
+            adapters: ["i3-xai:grok-imagine-image", "xai:grok-imagine-image"],
+            prototypeCreditTier: "pro"
         }
     ]
 }))
@@ -51,7 +59,7 @@ const createCtx = (registry: Record<string, unknown>) =>
     ({
         auth: {},
         runQuery: vi.fn().mockResolvedValue(registry)
-    }) as GetModelCtx
+    }) as unknown as GetModelCtx
 
 describe("getModel", () => {
     beforeEach(() => {
@@ -60,6 +68,7 @@ describe("getModel", () => {
         createOpenAIMock.mockReset()
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
         Reflect.deleteProperty(process.env, "OPENAI_API_KEY")
+        Reflect.deleteProperty(process.env, "XAI_API_KEY")
     })
 
     it("returns unauthorized when the user identity cannot be resolved", async () => {
@@ -232,5 +241,43 @@ describe("getModel", () => {
         expect(result).toBeInstanceOf(ChatError)
         expect((result as ChatError).type).toBe("bad_model")
         expect((result as ChatError).cause).toBe("No internal adapters found for model")
+    })
+
+    it("returns the resolved xAI API key for internal xAI image models", async () => {
+        process.env.XAI_API_KEY = "internal-xai-key"
+
+        const imageModel = { provider: "xai", maxImagesPerCall: 1 }
+        createProviderMock.mockResolvedValueOnce({
+            imageModel: vi.fn().mockReturnValue(imageModel)
+        })
+
+        const result = await getModel(
+            createCtx({
+                providers: {},
+                models: {
+                    "shared-image": {
+                        id: "shared-image",
+                        name: "Shared Image",
+                        mode: "image",
+                        abilities: [],
+                        adapters: ["i3-xai:grok-imagine-image", "xai:grok-imagine-image"]
+                    }
+                }
+            }),
+            "shared-image"
+        )
+
+        expect(createProviderMock).toHaveBeenCalledWith("xai", "internal", {
+            modelId: "grok-imagine-image"
+        })
+        expect(result).toMatchObject({
+            providerSource: "internal",
+            runtimeProvider: "xai",
+            runtimeApiKey: "internal-xai-key",
+            model: {
+                provider: "xai",
+                modelType: "image"
+            }
+        })
     })
 })

@@ -18,8 +18,14 @@ export type BaseAspects =
     | "3:4"
     | "2:3"
     | "3:2"
+    | "2:1"
+    | "1:2"
     | "4:5"
     | "5:4"
+    | "19.5:9"
+    | "9:19.5"
+    | "20:9"
+    | "9:20"
     | "21:9"
 export type BaseResolution = `${number}x${number}`
 export type AllAspects = (BaseAspects | `${BaseAspects}-hd`) & {}

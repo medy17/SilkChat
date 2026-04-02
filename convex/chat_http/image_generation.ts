@@ -76,11 +76,17 @@ export interface ImageGenerationResult {
     modelId: string
 }
 
+type ImageBinaryPayload = {
+    mediaType: string
+    uint8Array: Uint8Array
+}
+
 type ImageExecutionPath =
     | "vertex-direct"
     | "openai-responses"
     | "ai-sdk-generate-image-openrouter"
     | "ai-sdk-generate-image-google-openai-compatible"
+    | "xai-direct"
     | "ai-sdk-generate-image-generic"
 
 type OpenRouterImageRequestOptions = {
@@ -136,6 +142,366 @@ function buildOpenRouterImageRequestOptions(
     }
 
     return options
+}
+
+const toXaiImageResolution = (resolution?: ImageResolution) => {
+    switch (resolution) {
+        case "1K":
+            return "1k"
+        case "2K":
+            return "2k"
+        default:
+            return undefined
+    }
+}
+
+const CANONICAL_ASPECT_RATIOS = [
+    "1:1",
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3",
+    "2:1",
+    "1:2",
+    "19.5:9",
+    "9:19.5",
+    "20:9",
+    "9:20",
+    "4:5",
+    "5:4",
+    "21:9"
+] as const satisfies readonly `${number}:${number}`[]
+
+const gcd = (left: number, right: number): number => {
+    let a = Math.abs(left)
+    let b = Math.abs(right)
+    while (b !== 0) {
+        const next = a % b
+        a = b
+        b = next
+    }
+    return a || 1
+}
+
+const findMatchingAspectRatio = (
+    width: number,
+    height: number,
+    supportedSizes?: ImageSize[]
+): ImageSize => {
+    const exactSize = `${width}x${height}` as ImageSize
+    if (supportedSizes?.includes(exactSize)) {
+        return exactSize
+    }
+
+    const ratio = width / height
+    const candidates = (supportedSizes?.filter((size) => size.includes(":")) as
+        | `${number}:${number}`[]
+        | undefined) ?? [...CANONICAL_ASPECT_RATIOS]
+
+    let bestCandidate: `${number}:${number}` | undefined
+    let bestDelta = Number.POSITIVE_INFINITY
+
+    for (const candidate of candidates) {
+        const [candidateWidth, candidateHeight] = candidate.split(":").map(Number)
+        const delta = Math.abs(ratio - candidateWidth / candidateHeight)
+        if (delta < bestDelta) {
+            bestDelta = delta
+            bestCandidate = candidate
+        }
+    }
+
+    if (bestCandidate && bestDelta < 0.02) {
+        return bestCandidate as ImageSize
+    }
+
+    const divisor = gcd(width, height)
+    return `${width / divisor}:${height / divisor}` as ImageSize
+}
+
+const getPngDimensions = (bytes: Uint8Array) => {
+    if (
+        bytes.length >= 24 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47
+    ) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        return {
+            width: view.getUint32(16, false),
+            height: view.getUint32(20, false)
+        }
+    }
+
+    return null
+}
+
+const getGifDimensions = (bytes: Uint8Array) => {
+    if (bytes.length >= 10 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        return {
+            width: view.getUint16(6, true),
+            height: view.getUint16(8, true)
+        }
+    }
+
+    return null
+}
+
+const getWebpDimensions = (bytes: Uint8Array) => {
+    if (
+        bytes.length < 30 ||
+        bytes[0] !== 0x52 ||
+        bytes[1] !== 0x49 ||
+        bytes[2] !== 0x46 ||
+        bytes[3] !== 0x46 ||
+        bytes[8] !== 0x57 ||
+        bytes[9] !== 0x45 ||
+        bytes[10] !== 0x42 ||
+        bytes[11] !== 0x50
+    ) {
+        return null
+    }
+
+    const chunk = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15])
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+
+    if (chunk === "VP8X" && bytes.length >= 30) {
+        const width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16)
+        const height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16)
+        return { width, height }
+    }
+
+    if (chunk === "VP8L" && bytes.length >= 25) {
+        const bits = bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24)
+        const width = (bits & 0x3fff) + 1
+        const height = ((bits >> 14) & 0x3fff) + 1
+        return { width, height }
+    }
+
+    if (chunk === "VP8 " && bytes.length >= 30) {
+        return {
+            width: view.getUint16(26, true) & 0x3fff,
+            height: view.getUint16(28, true) & 0x3fff
+        }
+    }
+
+    return null
+}
+
+const getJpegDimensions = (bytes: Uint8Array) => {
+    if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+        return null
+    }
+
+    let offset = 2
+    while (offset + 9 < bytes.length) {
+        if (bytes[offset] !== 0xff) {
+            offset++
+            continue
+        }
+
+        let marker = bytes[offset + 1]
+        while (marker === 0xff) {
+            offset++
+            marker = bytes[offset + 1]
+        }
+
+        if (marker === 0xd8 || marker === 0xd9) {
+            offset += 2
+            continue
+        }
+
+        if (offset + 4 > bytes.length) {
+            break
+        }
+
+        const segmentLength = (bytes[offset + 2] << 8) | bytes[offset + 3]
+        if (segmentLength < 2 || offset + 2 + segmentLength > bytes.length) {
+            break
+        }
+
+        const isStartOfFrame =
+            (marker >= 0xc0 && marker <= 0xc3) ||
+            (marker >= 0xc5 && marker <= 0xc7) ||
+            (marker >= 0xc9 && marker <= 0xcb) ||
+            (marker >= 0xcd && marker <= 0xcf)
+
+        if (isStartOfFrame && offset + 9 < bytes.length) {
+            return {
+                height: (bytes[offset + 5] << 8) | bytes[offset + 6],
+                width: (bytes[offset + 7] << 8) | bytes[offset + 8]
+            }
+        }
+
+        offset += 2 + segmentLength
+    }
+
+    return null
+}
+
+const getImageDimensions = (bytes: Uint8Array) =>
+    getPngDimensions(bytes) ??
+    getJpegDimensions(bytes) ??
+    getWebpDimensions(bytes) ??
+    getGifDimensions(bytes)
+
+const getActualImageSize = (
+    image: ImageBinaryPayload,
+    fallbackSize: ImageSize,
+    supportedSizes?: ImageSize[]
+) => {
+    try {
+        const dimensions = getImageDimensions(image.uint8Array)
+        if (!dimensions?.width || !dimensions.height) {
+            return fallbackSize
+        }
+
+        return findMatchingAspectRatio(dimensions.width, dimensions.height, supportedSizes)
+    } catch (error) {
+        console.warn("[cvx][image_generation] Failed to inspect image dimensions", error)
+        return fallbackSize
+    }
+}
+
+const detectImageMimeType = (bytes: Uint8Array) => {
+    if (
+        bytes.length >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a
+    ) {
+        return "image/png"
+    }
+
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+        return "image/jpeg"
+    }
+
+    if (
+        bytes.length >= 12 &&
+        bytes[0] === 0x52 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        bytes[3] === 0x46 &&
+        bytes[8] === 0x57 &&
+        bytes[9] === 0x45 &&
+        bytes[10] === 0x42 &&
+        bytes[11] === 0x50
+    ) {
+        return "image/webp"
+    }
+
+    return "image/png"
+}
+
+async function fetchXaiImageResponse({
+    apiKey,
+    prompt,
+    modelId,
+    aspectRatio,
+    imageResolution,
+    referenceImages,
+    maxAssets
+}: {
+    apiKey: string
+    prompt: string
+    modelId: string
+    aspectRatio?: `${number}:${number}`
+    imageResolution?: ImageResolution
+    referenceImages: Awaited<ReturnType<typeof loadReferenceImages>>
+    maxAssets?: number
+}): Promise<ImageBinaryPayload[]> {
+    const desiredImageCount =
+        typeof maxAssets === "number" && maxAssets > 0 ? Math.min(maxAssets, 10) : 1
+    const endpoint =
+        referenceImages.length > 0
+            ? "https://api.x.ai/v1/images/edits"
+            : "https://api.x.ai/v1/images/generations"
+    const resolution = toXaiImageResolution(imageResolution)
+
+    const body: Record<string, unknown> = {
+        model: modelId,
+        prompt,
+        response_format: "b64_json",
+        ...(desiredImageCount > 1 ? { n: desiredImageCount } : {}),
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        ...(resolution ? { resolution } : {})
+    }
+
+    if (referenceImages.length === 1) {
+        body.image = {
+            type: "image_url",
+            url: referenceImages[0].dataUrl
+        }
+    } else if (referenceImages.length > 1) {
+        body.images = referenceImages.map((image) => ({
+            type: "image_url",
+            url: image.dataUrl
+        }))
+    }
+
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    })
+
+    if (!response.ok) {
+        throw new Error(`xAI image API error: ${response.status} ${await response.text()}`)
+    }
+
+    const payload = (await response.json()) as {
+        data?: Array<{
+            b64_json?: string | null
+            url?: string | null
+            mime_type?: string | null
+        }>
+    }
+
+    const images: ImageBinaryPayload[] = []
+    for (const item of payload.data ?? []) {
+        if (item.b64_json) {
+            const uint8Array = base64ToUint8Array(item.b64_json)
+            images.push({
+                mediaType: item.mime_type || detectImageMimeType(uint8Array),
+                uint8Array
+            })
+            continue
+        }
+
+        if (item.url) {
+            const imageResponse = await fetch(item.url)
+            if (!imageResponse.ok) {
+                throw new Error(`Failed to download xAI image asset (${imageResponse.status})`)
+            }
+
+            const uint8Array = new Uint8Array(await imageResponse.arrayBuffer())
+            images.push({
+                mediaType:
+                    imageResponse.headers.get("content-type") ||
+                    item.mime_type ||
+                    detectImageMimeType(uint8Array),
+                uint8Array
+            })
+        }
+    }
+
+    if (images.length === 0) {
+        throw new Error("No images returned from xAI image API")
+    }
+
+    return images
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -212,7 +578,8 @@ export async function generateAndStoreImage({
     threadId,
     actionCtx,
     referenceImageKeys,
-    maxAssets
+    maxAssets,
+    runtimeApiKey
 }: {
     prompt: string
     imageSize: ImageSize
@@ -224,6 +591,7 @@ export async function generateAndStoreImage({
     actionCtx: GenericActionCtx<DataModel>
     referenceImageKeys?: string[]
     maxAssets?: number
+    runtimeApiKey?: string
 }): Promise<ImageGenerationResult> {
     console.log("[cvx][image_generation] Starting image generation")
 
@@ -278,12 +646,13 @@ export async function generateAndStoreImage({
             { imageSize, aspectRatio, size, imageResolution: requestedImageResolution }
         )
 
-        let imagesData: { mediaType: string; uint8Array: Uint8Array }[] = []
+        let imagesData: ImageBinaryPayload[] = []
 
         const authMode = getGoogleAuthMode("internal")
         const isVertex = authMode === "vertex" && imageModel.provider?.includes("google")
         const isOpenRouterImageModel = imageModel.provider === "openrouter"
         const isGoogleOpenAIImageModel = imageModel.provider === "google.image"
+        const isXaiImageModel = imageModel.provider?.startsWith("xai") === true
         const executionPath: ImageExecutionPath = isVertex
             ? "vertex-direct"
             : imageModel.provider?.includes("openai") && modelId.startsWith("gpt-5-image")
@@ -292,7 +661,9 @@ export async function generateAndStoreImage({
                 ? "ai-sdk-generate-image-openrouter"
                 : isGoogleOpenAIImageModel
                   ? "ai-sdk-generate-image-google-openai-compatible"
-                  : "ai-sdk-generate-image-generic"
+                  : isXaiImageModel
+                    ? "xai-direct"
+                    : "ai-sdk-generate-image-generic"
 
         if (hasReferenceImages && !sharedModel.supportsReferenceImages) {
             throw new Error(`Reference images are not supported for ${sharedModel.name}`)
@@ -455,6 +826,20 @@ export async function generateAndStoreImage({
             if (imagesData.length === 0) {
                 throw new Error("No images returned from GPT-5 image generation")
             }
+        } else if (isXaiImageModel) {
+            if (!runtimeApiKey) {
+                throw new Error("xAI API key not found for image model")
+            }
+
+            imagesData = await fetchXaiImageResponse({
+                apiKey: runtimeApiKey,
+                prompt,
+                modelId: imageModel.modelId,
+                aspectRatio,
+                imageResolution: requestedImageResolution,
+                referenceImages,
+                maxAssets
+            })
         } else {
             console.log("[cvx][image_generation] Using AI SDK generateImage path", {
                 path: executionPath,
@@ -524,6 +909,11 @@ export async function generateAndStoreImage({
         for (const image of imagesData) {
             const fileExtension = image.mediaType.split("/")[1] || "png"
             const key = `generations/${userId}/${Date.now()}-${crypto.randomUUID()}-gen.${fileExtension}`
+            const actualImageSize = await getActualImageSize(
+                image,
+                requestedImageSize,
+                sharedModel.supportedImageSizes
+            )
 
             const storedKey = await r2.store(actionCtx, image.uint8Array, {
                 authorId: userId,
@@ -535,7 +925,7 @@ export async function generateAndStoreImage({
 
             assets.push({
                 imageUrl: key,
-                imageSize: requestedImageSize,
+                imageSize: actualImageSize,
                 mimeType: image.mediaType
             })
         }

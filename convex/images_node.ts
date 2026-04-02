@@ -54,7 +54,7 @@ const parseAspectRatio = (aspectRatio?: string) => {
     const normalized = aspectRatio?.replace("-hd", "") || "1:1"
 
     if (normalized.includes("x")) {
-        const [width, height] = normalized.split("x").map((value) => Number.parseInt(value, 10))
+        const [width, height] = normalized.split("x").map((value) => Number.parseFloat(value))
         return {
             width: clampAspectValue(width),
             height: clampAspectValue(height)
@@ -62,7 +62,7 @@ const parseAspectRatio = (aspectRatio?: string) => {
     }
 
     if (normalized.includes(":")) {
-        const [width, height] = normalized.split(":").map((value) => Number.parseInt(value, 10))
+        const [width, height] = normalized.split(":").map((value) => Number.parseFloat(value))
         return {
             width: clampAspectValue(width),
             height: clampAspectValue(height)
@@ -226,7 +226,8 @@ export const generateStandaloneImage = action({
             userId: user.id,
             actionCtx: ctx,
             referenceImageKeys: args.referenceImageIds,
-            maxAssets: 1
+            maxAssets: 1,
+            runtimeApiKey: modelData.runtimeApiKey
         })
 
         const insertedIds: string[] = []
@@ -236,7 +237,7 @@ export const generateStandaloneImage = action({
                 storageKey: asset.imageUrl,
                 prompt: args.prompt,
                 modelId: args.modelId,
-                aspectRatio: args.aspectRatio,
+                aspectRatio: asset.imageSize,
                 resolution: args.resolution
             })
             insertedIds.push(id)
