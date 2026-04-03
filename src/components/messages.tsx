@@ -59,6 +59,48 @@ const getFileIcon = (part: { url: string; filename?: string; mediaType?: string 
     return <FileType className="size-4 text-gray-500" />
 }
 
+const hasVisibleAssistantContent = (message: UIMessage | undefined) => {
+    if (!message || message.role !== "assistant" || !message.parts?.length) {
+        return false
+    }
+
+    const reasoning = getMessageReasoningDetails(message)
+
+    return message.parts.some((part) => {
+        switch (part.type) {
+            case "text":
+                return part.text.trim() !== ""
+            case "reasoning":
+                return Boolean(reasoning)
+            case "file":
+            case "dynamic-tool":
+                return true
+            default:
+                return part.type.startsWith("tool-")
+        }
+    })
+}
+
+export const shouldShowTypingLoader = ({
+    messages,
+    status
+}: {
+    messages: UIMessage[]
+    status: string
+}) => {
+    const lastMessage = messages[messages.length - 1]
+
+    if (!lastMessage || lastMessage.role !== "assistant") {
+        return status === "submitted"
+    }
+
+    if (status !== "submitted" && status !== "streaming") {
+        return false
+    }
+
+    return !hasVisibleAssistantContent(lastMessage)
+}
+
 const FileAttachment = memo(
     ({
         part,
@@ -571,7 +613,8 @@ export function Messages({
                     (part.type === "reasoning" && !lastMessageReasoning)
             ))
 
-    const showTypingLoader = status === "submitted" || isStreamingWithoutContent
+    const showTypingLoader =
+        shouldShowTypingLoader({ messages, status }) || isStreamingWithoutContent
 
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")
 

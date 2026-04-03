@@ -74,21 +74,73 @@ const getMessageContentScore = (message: UIMessage | undefined) => {
     }, 0)
 }
 
+const getPartFingerprint = (part: UIMessage["parts"][number]) => {
+    switch (part.type) {
+        case "text":
+            return `text:${part.text}`
+        case "reasoning":
+            return `reasoning:${part.text}`
+        case "file":
+            return `file:${part.mediaType ?? ""}:${part.filename ?? ""}:${part.url}`
+        case "dynamic-tool":
+            return `dynamic-tool:${part.toolName}:${JSON.stringify("input" in part ? part.input : null)}:${JSON.stringify("output" in part ? part.output : null)}`
+        default:
+            if (part.type.startsWith("tool-")) {
+                return `${part.type}:${JSON.stringify("input" in part ? part.input : null)}:${JSON.stringify("output" in part ? part.output : null)}:${"state" in part ? part.state : ""}`
+            }
+            return part.type
+    }
+}
+
+const getMessagesIdentityFingerprint = (messages: UIMessage[]) =>
+    messages.map((message) => `${message.role}:${message.id}`).join("|")
+
+const getMessagesContentFingerprint = (messages: UIMessage[]) =>
+    messages
+        .map(
+            (message) =>
+                `${message.role}:${message.id}:${message.parts?.map(getPartFingerprint).join("~") ?? ""}`
+        )
+        .join("|")
+
 const getLatestAssistantMessage = (messages: UIMessage[]) =>
     [...messages].reverse().find((message) => message.role === "assistant")
 
-const shouldHydrateLiveMessages = (currentMessages: UIMessage[], backendMessages: UIMessage[]) => {
+const shouldAdoptBackendMessages = ({
+    currentMessages,
+    backendMessages,
+    status
+}: {
+    currentMessages: UIMessage[]
+    backendMessages: UIMessage[]
+    status?: string
+}) => {
     if (backendMessages.length === 0) return false
     if (currentMessages.length === 0) return true
-    if (backendMessages.length > currentMessages.length) return true
+
+    const currentIdentity = getMessagesIdentityFingerprint(currentMessages)
+    const backendIdentity = getMessagesIdentityFingerprint(backendMessages)
+    const isLocallyMutating = status === "streaming" || status === "submitted"
+
+    if (currentIdentity !== backendIdentity) {
+        return !isLocallyMutating
+    }
+
+    const currentContent = getMessagesContentFingerprint(currentMessages)
+    const backendContent = getMessagesContentFingerprint(backendMessages)
+
+    if (currentContent === backendContent) {
+        return false
+    }
 
     const currentAssistant = getLatestAssistantMessage(currentMessages)
     const backendAssistant = getLatestAssistantMessage(backendMessages)
 
-    if (!backendAssistant) return false
-    if (!currentAssistant) return true
+    if (getMessageContentScore(backendAssistant) > getMessageContentScore(currentAssistant)) {
+        return true
+    }
 
-    return getMessageContentScore(backendAssistant) > getMessageContentScore(currentAssistant)
+    return !isLocallyMutating
 }
 
 const hasMeaningfulAssistantContent = (messages: UIMessage[]) =>
@@ -290,19 +342,24 @@ export function useChatIntegration<IsShared extends boolean>({
     useEffect(() => {
         if (isShared) return
         if (!threadId) return
-        if (!thread?.isLive) return
         if (!threadMessages || "error" in threadMessages) return
 
-        if (shouldHydrateLiveMessages(chatHelpers.messages, initialMessages)) {
+        if (
+            shouldAdoptBackendMessages({
+                currentMessages: chatHelpers.messages,
+                backendMessages: initialMessages,
+                status: chatHelpers.status
+            })
+        ) {
             chatHelpers.setMessages(initialMessages)
         }
     }, [
         isShared,
         threadId,
-        thread?.isLive,
         threadMessages,
         initialMessages,
         chatHelpers.messages,
+        chatHelpers.status,
         chatHelpers.setMessages
     ])
 

@@ -76,17 +76,50 @@ type ThreadDoc = Record<string, unknown>
 type MessageDoc = Record<string, unknown>
 type ThreadsCtx = Parameters<typeof createThreadOrInsertMessages.handler>[0]
 
-const createMessageQuery = (messages: MessageDoc[]) => ({
-    withIndex: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-            collect: vi.fn().mockResolvedValue(messages)
-        })
-    })
+const createMessageQuery = (
+    messages: MessageDoc[],
+    messagesByMessageId?: Record<string, MessageDoc[]>
+) => ({
+    withIndex: vi
+        .fn()
+        .mockImplementation(
+            (
+                indexName: string,
+                applyIndex: (q: { eq: (_field: string, value: string) => string }) => string
+            ) => {
+                const matchValue = applyIndex({
+                    eq: (_field: string, value: string) => value
+                })
+
+                if (indexName === "byMessageId") {
+                    return {
+                        collect: vi
+                            .fn()
+                            .mockResolvedValue(
+                                messagesByMessageId?.[matchValue] ??
+                                    messages.filter((message) => message.messageId === matchValue)
+                            )
+                    }
+                }
+
+                const threadMessages = messages.filter((message) =>
+                    "threadId" in message ? message.threadId === matchValue : true
+                )
+
+                return {
+                    order: vi.fn().mockReturnValue({
+                        collect: vi.fn().mockResolvedValue(threadMessages)
+                    }),
+                    collect: vi.fn().mockResolvedValue(threadMessages)
+                }
+            }
+        )
 })
 
 const createCtx = (options?: {
     thread?: ThreadDoc
     messages?: MessageDoc[]
+    messagesByMessageId?: Record<string, MessageDoc[]>
     inserts?: string[]
 }) => {
     const insertValues = [...(options?.inserts ?? [])]
@@ -96,7 +129,11 @@ const createCtx = (options?: {
             get: vi.fn().mockImplementation(async () => options?.thread ?? null),
             patch: vi.fn(),
             delete: vi.fn(),
-            query: vi.fn().mockImplementation(() => createMessageQuery(options?.messages ?? []))
+            query: vi
+                .fn()
+                .mockImplementation(() =>
+                    createMessageQuery(options?.messages ?? [], options?.messagesByMessageId)
+                )
         }
     } as ThreadsCtx
 }
@@ -199,6 +236,94 @@ describe("createThreadOrInsertMessages", () => {
             userMessageId: "user-msg-2",
             assistantMessageId: "assistant-2",
             assistantMessageConvexId: "assistant-msg-doc"
+        })
+    })
+
+    it("returns the existing assistant placeholder for duplicate sends on an existing thread", async () => {
+        const ctx = createCtx({
+            thread: { _id: "thread-1", authorId: "user-1" },
+            messagesByMessageId: {
+                "user-msg-2": [
+                    {
+                        _id: "user-doc-existing",
+                        threadId: "thread-1",
+                        messageId: "user-msg-2",
+                        role: "user",
+                        parts: [{ type: "text", text: "Next prompt" }]
+                    }
+                ],
+                "assistant-2": [
+                    {
+                        _id: "assistant-doc-existing",
+                        threadId: "thread-1",
+                        messageId: "assistant-2",
+                        role: "assistant",
+                        parts: []
+                    }
+                ]
+            }
+        })
+
+        const result = await createThreadOrInsertMessages.handler(ctx, {
+            threadId: "thread-1",
+            authorId: "user-1",
+            proposedNewAssistantId: "assistant-2",
+            userMessage: {
+                messageId: "user-msg-2",
+                role: "user",
+                parts: [{ type: "text", text: "Next prompt" }]
+            }
+        })
+
+        expect(ctx.db.insert).not.toHaveBeenCalled()
+        expect(result).toEqual({
+            threadId: "thread-1",
+            userMessageId: "user-msg-2",
+            assistantMessageId: "assistant-2",
+            assistantMessageConvexId: "assistant-doc-existing"
+        })
+    })
+
+    it("returns the existing assistant placeholder for duplicate new-thread sends", async () => {
+        const ctx = createCtx({
+            messagesByMessageId: {
+                "user-msg-1": [
+                    {
+                        _id: "user-doc-existing",
+                        threadId: "thread-1",
+                        messageId: "user-msg-1",
+                        role: "user",
+                        parts: [{ type: "text", text: "Start thread" }]
+                    }
+                ],
+                "assistant-1": [
+                    {
+                        _id: "assistant-doc-existing",
+                        threadId: "thread-1",
+                        messageId: "assistant-1",
+                        role: "assistant",
+                        parts: []
+                    }
+                ]
+            }
+        })
+
+        const result = await createThreadOrInsertMessages.handler(ctx, {
+            authorId: "user-1",
+            proposedNewAssistantId: "assistant-1",
+            userMessage: {
+                messageId: "user-msg-1",
+                role: "user",
+                parts: [{ type: "text", text: "Start thread" }]
+            }
+        })
+
+        expect(ctx.db.insert).not.toHaveBeenCalled()
+        expect(result).toEqual({
+            threadId: "thread-1",
+            userMessageId: "user-msg-1",
+            assistantMessageId: "assistant-1",
+            assistantMessageConvexId: "assistant-doc-existing"
         })
     })
 

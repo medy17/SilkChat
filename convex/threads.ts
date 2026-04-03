@@ -247,10 +247,58 @@ export const createThreadOrInsertMessages = internalMutation({
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
 
+        const findExistingMessageById = async (
+            messageId: string | undefined,
+            role?: "user" | "assistant" | "system",
+            expectedThreadId?: Id<"threads">
+        ) => {
+            if (!messageId) return null
+
+            const matches = await ctx.db
+                .query("messages")
+                .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+                .collect()
+
+            return (
+                matches.find(
+                    (message) =>
+                        (role ? message.role === role : true) &&
+                        (expectedThreadId ? message.threadId === expectedThreadId : true)
+                ) ?? null
+            )
+        }
+
         const touchThread = async (targetThreadId: Id<"threads">) => {
             await ctx.db.patch(targetThreadId, {
                 updatedAt: Date.now()
             })
+        }
+
+        if (!targetFromMessageId) {
+            const expectedThreadId = threadId as Id<"threads"> | undefined
+            const existingUserMessage = await findExistingMessageById(
+                userMessage.messageId,
+                "user",
+                expectedThreadId
+            )
+            const existingAssistantMessage = await findExistingMessageById(
+                proposedNewAssistantId,
+                "assistant",
+                expectedThreadId
+            )
+
+            if (existingAssistantMessage) {
+                return {
+                    threadId: existingAssistantMessage.threadId,
+                    userMessageId:
+                        existingUserMessage?.messageId ??
+                        userMessage.messageId ??
+                        targetFromMessageId ??
+                        proposedNewAssistantId,
+                    assistantMessageId: existingAssistantMessage.messageId,
+                    assistantMessageConvexId: existingAssistantMessage._id
+                }
+            }
         }
 
         if (!threadId) {
