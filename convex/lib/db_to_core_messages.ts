@@ -57,11 +57,22 @@ export const dbMessagesToCore = async (
                         : await r2.getUrl(p.data)
 
                     if (fileTypeInfo.isVisionImage && !fileTypeInfo.isSvg) {
-                        // Handle image files
                         try {
+                            const data = await fetch(fileUrl)
+
+                            if (!data.ok) {
+                                console.warn(
+                                    `[cvx][chat] Failed to fetch image file ${p.data}: ${data.status} ${data.statusText}`
+                                )
+                                failedFileFetch("image", filename)
+                                continue
+                            }
+
                             mapped_content.push({
                                 type: "image",
-                                image: fileUrl
+                                image: await data.arrayBuffer(),
+                                mediaType:
+                                    p.mimeType || data.headers.get("content-type") || "image/*"
                             })
                         } catch (error) {
                             console.warn(

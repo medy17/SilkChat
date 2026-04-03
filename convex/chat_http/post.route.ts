@@ -341,6 +341,53 @@ const resolveRequiredPlanForModel = ({
     return prototypeCreditTier ?? (modelMode === "image" ? "pro" : "basic")
 }
 
+const createSafeResumableSseStream = ({
+    stream,
+    threadId,
+    streamId
+}: {
+    stream: ReadableStream<string>
+    threadId: Id<"threads">
+    streamId: string
+}) => {
+    let reader: ReadableStreamDefaultReader<string> | null = null
+
+    return new ReadableStream<string>({
+        async start(controller) {
+            reader = stream.getReader()
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    controller.enqueue(value)
+                }
+            } catch (error) {
+                console.error("[cvx][chat][stream] Resumable SSE source failed", {
+                    threadId,
+                    streamId,
+                    error
+                })
+                controller.enqueue(
+                    `data: ${JSON.stringify({ type: "error", errorText: "Stream error occurred" })}\n\n`
+                )
+                controller.enqueue("data: [DONE]\n\n")
+            } finally {
+                try {
+                    controller.close()
+                } catch {
+                    // Ignore close races after downstream cancellation.
+                }
+                reader.releaseLock()
+                reader = null
+            }
+        },
+        async cancel(reason) {
+            await reader?.cancel(reason)
+        }
+    })
+}
+
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
         id?: string
@@ -987,9 +1034,15 @@ export const chatPOST = httpAction(async (ctx, req) => {
     if (streamContext && !shouldBypassResumableForImagePayloads) {
         const sseStream = stream.pipeThrough(new JsonToSseTransformStream())
         return new Response(
-            (await streamContext.resumableStream(streamId, () => sseStream))?.pipeThrough(
-                new TextEncoderStream()
-            ),
+            (
+                await streamContext.resumableStream(streamId, () =>
+                    createSafeResumableSseStream({
+                        stream: sseStream,
+                        threadId: mutationResult.threadId,
+                        streamId
+                    })
+                )
+            )?.pipeThrough(new TextEncoderStream()),
             {
                 headers: UI_MESSAGE_STREAM_HEADERS
             }

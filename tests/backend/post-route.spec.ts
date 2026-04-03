@@ -670,4 +670,86 @@ describe("chatPOST", () => {
             currentStreamId: undefined
         })
     })
+
+    it("wraps resumable SSE sources so upstream stream errors become terminal error events", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "gpt-5.4-mini",
+            modelName: "GPT 5.4 Mini",
+            runtimeProvider: "openai",
+            providerSource: "internal",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {}
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+        getResumableStreamContextMock.mockReturnValueOnce({
+            resumableStream: vi.fn(
+                async (_streamId: string, makeStream: () => ReadableStream<string>) => makeStream()
+            )
+        })
+        createUIMessageStreamMock.mockImplementationOnce(
+            () =>
+                new ReadableStream({
+                    start(controller) {
+                        controller.enqueue({
+                            type: "start",
+                            messageId: "assistant-1"
+                        })
+                        controller.error(new Error("upstream broke"))
+                    }
+                })
+        )
+
+        const response = await chatPOST(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: []
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await expect(response.text()).resolves.toContain(
+            '"type":"error","errorText":"Stream error occurred"'
+        )
+    })
 })
