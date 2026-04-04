@@ -442,12 +442,14 @@ const GeneratedImageItem = memo(
         onToggleImageHidden?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
-        const [isBlurVariantReady, setIsBlurVariantReady] = useState(false)
-        const [hasBlurVariantError, setHasBlurVariantError] = useState(false)
-        const [hasMountedBlurVariant, setHasMountedBlurVariant] = useState(false)
+        const [blurVariantStatus, setBlurVariantStatus] = useState<
+            "idle" | "loading" | "ready" | "error"
+        >("idle")
         const [blurVariantRetryKey, setBlurVariantRetryKey] = useState(0)
         const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
         const revealTimeoutRef = useRef<number | null>(null)
+        const blurVariantRetryTimeoutRef = useRef<number | null>(null)
+        const blurVariantRequestIdRef = useRef(0)
         const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
         const hasInvalidStoredImage =
             metadata !== undefined &&
@@ -473,9 +475,26 @@ const GeneratedImageItem = memo(
             [blurVariantRetryKey, hiddenImageSources]
         )
 
-        const canUseBlurVariant = !hiddenImageSources.useCssBlurFallback && !hasBlurVariantError
-        const shouldMountBlurVariant = canUseBlurVariant && (isImageHidden || hasMountedBlurVariant)
-        const useCssBlurFallback = isImageHidden && (!canUseBlurVariant || !isBlurVariantReady)
+        const clearBlurVariantRetryTimeout = useCallback(() => {
+            if (blurVariantRetryTimeoutRef.current !== null) {
+                window.clearTimeout(blurVariantRetryTimeoutRef.current)
+                blurVariantRetryTimeoutRef.current = null
+            }
+        }, [])
+
+        const retryBlurVariant = useCallback(() => {
+            clearBlurVariantRetryTimeout()
+            blurVariantRequestIdRef.current += 1
+            setBlurVariantStatus("idle")
+            setBlurVariantRetryKey((current) => current + 1)
+        }, [clearBlurVariantRetryTimeout])
+
+        const canUseBlurVariant = !hiddenImageSources.useCssBlurFallback
+        const shouldMountBlurVariant =
+            canUseBlurVariant &&
+            (isImageHidden || blurVariantStatus === "loading" || blurVariantStatus === "ready")
+        const useCssBlurFallback =
+            isImageHidden && (!canUseBlurVariant || blurVariantStatus !== "ready")
 
         const handleImageLoad = useCallback(() => {
             setLoadState("revealing")
@@ -502,54 +521,111 @@ const GeneratedImageItem = memo(
                 if (revealTimeoutRef.current !== null) {
                     window.clearTimeout(revealTimeoutRef.current)
                 }
+
+                clearBlurVariantRetryTimeout()
+                blurVariantRequestIdRef.current += 1
             }
-        }, [])
+        }, [clearBlurVariantRetryTimeout])
 
         useEffect(() => {
             void image.storageKey
-            setIsBlurVariantReady(false)
-            setHasBlurVariantError(false)
-            setHasMountedBlurVariant(false)
+            clearBlurVariantRetryTimeout()
+            blurVariantRequestIdRef.current += 1
+            setBlurVariantStatus("idle")
             setBlurVariantRetryKey(0)
-        }, [image.storageKey])
+        }, [clearBlurVariantRetryTimeout, image.storageKey])
 
         useEffect(() => {
-            if (canUseBlurVariant && isImageHidden) {
-                setHasMountedBlurVariant(true)
+            if (!canUseBlurVariant || !isImageHidden || blurVariantStatus === "ready") {
+                return
             }
-        }, [canUseBlurVariant, isImageHidden])
+
+            if (typeof window === "undefined") {
+                return
+            }
+
+            const requestId = blurVariantRequestIdRef.current + 1
+            blurVariantRequestIdRef.current = requestId
+            setBlurVariantStatus("loading")
+
+            const preloadImage = new window.Image()
+            preloadImage.decoding = "async"
+            preloadImage.src = retriedHiddenImageSources.src
+            preloadImage.srcset = retriedHiddenImageSources.srcSet
+            preloadImage.sizes = retriedHiddenImageSources.sizes
+
+            preloadImage.onload = () => {
+                if (blurVariantRequestIdRef.current !== requestId) {
+                    return
+                }
+
+                clearBlurVariantRetryTimeout()
+                setBlurVariantStatus("ready")
+            }
+
+            preloadImage.onerror = () => {
+                if (blurVariantRequestIdRef.current !== requestId) {
+                    return
+                }
+
+                setBlurVariantStatus("error")
+            }
+
+            return () => {
+                preloadImage.onload = null
+                preloadImage.onerror = null
+            }
+        }, [
+            blurVariantStatus,
+            canUseBlurVariant,
+            clearBlurVariantRetryTimeout,
+            isImageHidden,
+            retriedHiddenImageSources.sizes,
+            retriedHiddenImageSources.src,
+            retriedHiddenImageSources.srcSet
+        ])
 
         useEffect(() => {
             if (
-                hiddenImageSources.useCssBlurFallback ||
+                !canUseBlurVariant ||
                 !isImageHidden ||
-                isBlurVariantReady ||
+                blurVariantStatus !== "error" ||
                 typeof window === "undefined" ||
                 typeof document === "undefined"
             ) {
                 return
             }
 
-            const retryBlurVariant = () => {
+            const retryWhenInteractive = () => {
                 if (document.visibilityState === "hidden") {
                     return
                 }
 
-                setHasBlurVariantError(false)
-                setIsBlurVariantReady(false)
-                setBlurVariantRetryKey((current) => current + 1)
+                retryBlurVariant()
             }
 
-            window.addEventListener("focus", retryBlurVariant)
-            window.addEventListener("online", retryBlurVariant)
-            document.addEventListener("visibilitychange", retryBlurVariant)
+            clearBlurVariantRetryTimeout()
+            blurVariantRetryTimeoutRef.current = window.setTimeout(() => {
+                retryWhenInteractive()
+            }, 2500)
+
+            window.addEventListener("focus", retryWhenInteractive)
+            window.addEventListener("online", retryWhenInteractive)
+            document.addEventListener("visibilitychange", retryWhenInteractive)
 
             return () => {
-                window.removeEventListener("focus", retryBlurVariant)
-                window.removeEventListener("online", retryBlurVariant)
-                document.removeEventListener("visibilitychange", retryBlurVariant)
+                clearBlurVariantRetryTimeout()
+                window.removeEventListener("focus", retryWhenInteractive)
+                window.removeEventListener("online", retryWhenInteractive)
+                document.removeEventListener("visibilitychange", retryWhenInteractive)
             }
-        }, [hiddenImageSources.useCssBlurFallback, isBlurVariantReady, isImageHidden])
+        }, [
+            blurVariantStatus,
+            canUseBlurVariant,
+            clearBlurVariantRetryTimeout,
+            isImageHidden,
+            retryBlurVariant
+        ])
 
         const aspectRatio = image.aspectRatio || "1:1"
         const cssAspectRatio = useMemo(() => {
@@ -718,15 +794,11 @@ const GeneratedImageItem = memo(
                                         aria-hidden="true"
                                         className={cn(
                                             "pointer-events-none absolute inset-0 h-full w-full object-cover brightness-70 saturate-[0.35] transition-opacity duration-300 ease-out",
-                                            isImageHidden && isBlurVariantReady
+                                            isImageHidden && blurVariantStatus === "ready"
                                                 ? "opacity-100"
                                                 : "opacity-0"
                                         )}
-                                        onLoad={() => setIsBlurVariantReady(true)}
-                                        onError={() => {
-                                            setHasBlurVariantError(true)
-                                            setIsBlurVariantReady(false)
-                                        }}
+                                        onLoad={() => setBlurVariantStatus("ready")}
                                         loading="lazy"
                                     />
                                 )}
