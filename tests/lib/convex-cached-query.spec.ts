@@ -82,6 +82,24 @@ describe("convex-cached-query", () => {
         expect(result.current).toEqual([{ id: "cached-2" }])
     })
 
+    it("persists primitive query results without probing them like objects", () => {
+        useQueryMock.mockReturnValue(310)
+
+        const { result } = renderHook(() =>
+            useDiskCachedQuery(
+                "query-ref" as never,
+                {
+                    key: "count",
+                    default: undefined
+                },
+                { userId: "user-1" } as never
+            )
+        )
+
+        expect(result.current).toBe(310)
+        expect(localStorage.getItem("CVX_DISK_CACHE:count")).toBe("310")
+    })
+
     it("returns the provided default on skip unless forceCache is enabled", () => {
         localStorage.setItem("CVX_DISK_CACHE:items", JSON.stringify([{ id: "cached-1" }]))
         useQueryMock.mockReturnValue(undefined)

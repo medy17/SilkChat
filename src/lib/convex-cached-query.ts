@@ -9,6 +9,9 @@ import type { FunctionReference } from "convex/server"
 import { useEffect, useMemo, useState } from "react"
 type IsArrayType<T> = T extends readonly unknown[] ? true : false
 
+const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
+    typeof value === "object" && value !== null && "error" in value
+
 type CachedItem<
     T,
     IsArray extends boolean = false,
@@ -68,7 +71,7 @@ export const useDiskCachedQuery = <
             : (result ?? disk_cache)
 
     useEffect(() => {
-        if (!result || "error" in result) return
+        if (result === undefined || isQueryErrorResult(result)) return
         if (cacheOptions.maxItems && Array.isArray(result)) {
             localStorage.setItem(
                 `CVX_DISK_CACHE:${cacheOptions.key}`,
