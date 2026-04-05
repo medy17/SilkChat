@@ -38,3 +38,5 @@ dist
 .env.local
 
 .nitro
+
+temp/

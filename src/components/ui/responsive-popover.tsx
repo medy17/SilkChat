@@ -114,7 +114,7 @@ export function ResponsivePopoverContent({
                         {description && <SheetDescription>{description}</SheetDescription>}
                     </SheetHeader>
                 )}
-                <div className={cn(!title && !description && "mt-4")}>
+                <div className={cn(!title && !description && !className?.includes("p-0") && "mt-4")}>
                     {children}
                 </div>
             </SheetContent>

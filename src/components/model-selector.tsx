@@ -39,16 +39,7 @@ import {
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
-import {
-    AudioLines,
-    Check,
-    ChevronDown,
-    Globe,
-    Image,
-    KeyRound,
-    MessageSquareText,
-    Search
-} from "lucide-react"
+import { Check, ChevronDown, Globe, Image, KeyRound, Search } from "lucide-react"
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
@@ -105,44 +96,9 @@ type ProviderSection = {
     icon: React.ReactNode
 }
 
-type SelectorCategory = "text" | "image" | "audio"
-
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
 const getModelReleaseOrder = (model: DisplayModel) =>
     "isCustom" in model && model.isCustom ? 0 : ((model as SharedModel).releaseOrder ?? 0)
-
-const SELECTOR_CATEGORIES: Array<{
-    id: SelectorCategory
-    label: string
-    compactLabel: string
-    icon: React.ReactNode
-}> = [
-    {
-        id: "text",
-        label: "Text",
-        compactLabel: "Text",
-        icon: <MessageSquareText className="size-4" />
-    },
-    {
-        id: "image",
-        label: "Image",
-        compactLabel: "Image",
-        icon: <Image className="size-4" />
-    },
-    {
-        id: "audio",
-        label: "Audio",
-        compactLabel: "Audio",
-        icon: <AudioLines className="size-4" />
-    }
-]
-
-const getSelectorCategory = (model?: DisplayModel): SelectorCategory => {
-    if (!model) return "text"
-    if (isImageGenerationCapableModel(model)) return "image"
-    if (model.mode === "speech-to-text") return "audio"
-    return "text"
-}
 
 const normalizeProviderId = (providerId: string) =>
     providerId.startsWith("i3-") ? providerId.slice(3) : providerId
@@ -357,7 +313,7 @@ const ModelCard = React.memo(function ModelCard({
             className={cn(
                 "w-full rounded-xl border bg-background/60 p-3 text-left transition-colors",
                 "hover:border-accent hover:bg-accent/10",
-                isSelected && "border-accent bg-accent/10 shadow-sm",
+                isSelected && "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20",
                 disabled &&
                     "cursor-not-allowed border-border/60 bg-muted/30 text-muted-foreground hover:border-border/60 hover:bg-muted/30"
             )}
@@ -496,7 +452,10 @@ export function ModelSelector({
     }, [auth.isLoading, session.user?.id])
 
     const providerSections = React.useMemo<ProviderSection[]>(() => {
-        const grouped = availableModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
+        const textModels = availableModels.filter(
+            (model) => !isImageGenerationCapableModel(model) && model.mode !== "speech-to-text"
+        )
+        const grouped = textModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
             const providerId = getModelProviderId(model)
             if (!acc[providerId]) {
                 acc[providerId] = []
@@ -560,18 +519,7 @@ export function ModelSelector({
         onModelChange(fallbackModelId)
     }, [fallbackModelId, isModelLocked, onModelChange, selectedModel, selectedModelData])
 
-    const selectedCategoryId = React.useMemo(
-        () => getSelectorCategory(selectedModelData),
-        [selectedModelData]
-    )
-
-    const [activeCategory, setActiveCategory] = React.useState<SelectorCategory>(selectedCategoryId)
-
     const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
-
-    React.useEffect(() => {
-        setActiveCategory(selectedCategoryId)
-    }, [selectedCategoryId])
 
     React.useEffect(() => {
         if (!open) {
@@ -639,18 +587,9 @@ export function ModelSelector({
 
     const filteredSections = React.useMemo(() => {
         const query = searchValue.trim().toLowerCase()
-        const categorySections = providerSections
-            .map((section) => ({
-                ...section,
-                models: section.models.filter(
-                    (model) => getSelectorCategory(model) === activeCategory
-                )
-            }))
-            .filter((section) => section.models.length > 0)
+        if (!query) return providerSections
 
-        if (!query) return categorySections
-
-        return categorySections
+        return providerSections
             .map((section) => ({
                 ...section,
                 models: section.models.filter((model) => {
@@ -667,7 +606,7 @@ export function ModelSelector({
                 })
             }))
             .filter((section) => section.models.length > 0)
-    }, [activeCategory, providerSections, searchValue])
+    }, [providerSections, searchValue])
 
     const selectedProviderId = React.useMemo(
         () =>
@@ -772,10 +711,14 @@ export function ModelSelector({
                         : {}),
                     maxHeight: "var(--radix-popover-content-available-height)"
                 }}
-                title="Select Model"
-                description="Choose a model for your conversation"
             >
-                <div className="shrink-0 border-b p-3">
+                <div className="shrink-0 rounded-t-lg bg-muted/50 p-3 pb-2 md:rounded-none">
+                    <div className="mb-3 px-1">
+                        <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
+                        <p className="text-muted-foreground text-sm sm:hidden">
+                            Choose a model for your conversation
+                        </p>
+                    </div>
                     <div className="relative">
                         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
                         <Input
@@ -785,65 +728,56 @@ export function ModelSelector({
                             className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
                         />
                     </div>
-                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                        {SELECTOR_CATEGORIES.map((category) => {
-                            const isActive = category.id === activeCategory
-
-                            return (
-                                <button
-                                    key={category.id}
-                                    type="button"
-                                    onClick={() => setActiveCategory(category.id)}
-                                    className={cn(
-                                        "inline-flex min-w-fit items-center gap-2 rounded-lg border px-3 py-1.5 font-medium text-xs transition-colors sm:text-sm",
-                                        "hover:border-accent hover:bg-accent/10",
-                                        isActive && "border-accent bg-accent/10 text-foreground"
-                                    )}
-                                >
-                                    {category.icon}
-                                    <span className="sm:hidden">{category.compactLabel}</span>
-                                    <span className="hidden sm:inline">{category.label}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
                 </div>
 
-                <div className="grid max-h-[50vh] min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:max-h-[400px] md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-1">
-                    <div className="flex min-h-0 min-w-0 flex-col border-b p-2 md:border-r md:border-b-0 md:p-1.5">
-                        <div className="scrollbar-none flex w-full gap-2 overflow-x-auto md:hidden">
-                            {filteredSections.map((section) => {
-                                const isActive = section.id === visibleSection?.id
-                                return (
-                                    <button
-                                        key={section.id}
-                                        type="button"
-                                        onClick={() => setActiveProvider(section.id)}
-                                        className={cn(
-                                            "flex min-w-fit items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
-                                            "hover:border-accent hover:bg-accent/10",
-                                            isActive && "border-accent bg-accent/10 text-foreground"
-                                        )}
-                                        aria-label={section.label}
-                                    >
-                                        <div className="flex size-7 items-center justify-center rounded-md bg-secondary/70">
-                                            {section.icon}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="truncate font-medium text-sm">
-                                                {section.compactLabel}
+                <div className="grid max-h-[50vh] min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:max-h-[400px] md:grid-cols-[80px_minmax(0,1fr)] md:grid-rows-1">
+                    <div className="flex min-h-0 min-w-0 flex-col bg-muted/50 md:border-r">
+                        <div className="relative border-border border-b md:hidden">
+                            <div className="scrollbar-none -mb-[1px] flex w-full gap-1 overflow-x-auto px-2 pt-2 pb-[1px]">
+                                {filteredSections.map((section) => {
+                                    const isActive = section.id === visibleSection?.id
+                                    return (
+                                        <button
+                                            key={section.id}
+                                            type="button"
+                                            onClick={() => setActiveProvider(section.id)}
+                                            className={cn(
+                                                "relative flex min-w-fit items-center gap-2 rounded-t-xl border-x border-t px-3 py-2 text-left transition-colors",
+                                                isActive
+                                                    ? "-mb-[1px] z-10 border-border bg-popover text-foreground"
+                                                    : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
+                                            )}
+                                            aria-label={section.label}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    "flex size-7 items-center justify-center rounded-md",
+                                                    isActive ? "bg-secondary/70" : "bg-transparent"
+                                                )}
+                                            >
+                                                {section.icon}
                                             </div>
-                                            <div className="truncate text-muted-foreground text-xs">
-                                                {section.models.length} model
-                                                {section.models.length === 1 ? "" : "s"}
+                                            <div className="min-w-0">
+                                                <div
+                                                    className={cn(
+                                                        "truncate font-medium text-sm",
+                                                        isActive ? "" : "opacity-80"
+                                                    )}
+                                                >
+                                                    {section.compactLabel}
+                                                </div>
+                                                <div className="truncate text-xs opacity-70">
+                                                    {section.models.length} model
+                                                    {section.models.length === 1 ? "" : "s"}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </button>
-                                )
-                            })}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
-                        <ScrollArea className="hidden flex-1 md:block">
-                            <div className="flex flex-col gap-2">
+                        <ScrollArea className="-mr-[1px] hidden flex-1 md:block">
+                            <div className="flex flex-col gap-1 py-2 pr-[1px] pl-2">
                                 {filteredSections.map((section) => {
                                     const isActive = section.id === visibleSection?.id
                                     return (
@@ -853,14 +787,21 @@ export function ModelSelector({
                                                     type="button"
                                                     onClick={() => setActiveProvider(section.id)}
                                                     className={cn(
-                                                        "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-3 text-left transition-colors",
-                                                        "hover:border-accent hover:bg-accent/10",
-                                                        isActive &&
-                                                            "border-accent bg-accent/10 text-foreground"
+                                                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
+                                                        isActive
+                                                            ? "-mr-[1px] z-10 border-border bg-popover text-foreground"
+                                                            : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
                                                     )}
                                                     aria-label={section.label}
                                                 >
-                                                    <div className="flex size-7 items-center justify-center rounded-md bg-secondary/70">
+                                                    <div
+                                                        className={cn(
+                                                            "flex size-7 items-center justify-center rounded-md",
+                                                            isActive
+                                                                ? "bg-secondary/70"
+                                                                : "bg-transparent"
+                                                        )}
+                                                    >
                                                         {section.icon}
                                                     </div>
                                                 </button>
@@ -875,7 +816,7 @@ export function ModelSelector({
                         </ScrollArea>
                     </div>
 
-                    <div className="flex min-h-0 flex-col p-3">
+                    <div className="flex min-h-0 flex-col bg-popover p-3">
                         {visibleSection ? (
                             <>
                                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
