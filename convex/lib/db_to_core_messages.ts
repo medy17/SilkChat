@@ -25,9 +25,23 @@ const isExternalFileReference = (value: string) =>
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "")
 
-const buildInternalFileProxyUrl = (key: string, publicAssetBaseUrl?: string) => {
+const buildInternalFileProxyUrl = (
+    key: string,
+    publicAssetBaseUrl?: string,
+    options?: {
+        redirectToStorage?: boolean
+    }
+) => {
     if (!publicAssetBaseUrl) return undefined
-    return `${trimTrailingSlash(publicAssetBaseUrl)}/r2?key=${encodeURIComponent(key)}`
+    const params = new URLSearchParams({
+        key
+    })
+
+    if (options?.redirectToStorage) {
+        params.set("redirect", "1")
+    }
+
+    return `${trimTrailingSlash(publicAssetBaseUrl)}/r2?${params.toString()}`
 }
 
 export const dbMessagesToCore = async (
@@ -35,7 +49,7 @@ export const dbMessagesToCore = async (
     modelAbilities: ModelAbility[],
     options?: {
         publicAssetBaseUrl?: string
-        preferDirectAssetUrls?: boolean
+        preferRedirectAssetUrls?: boolean
     }
 ): Promise<CoreMessage[]> => {
     const mapped_messages: CoreMessage[] = []
@@ -63,13 +77,11 @@ export const dbMessagesToCore = async (
 
                     const filename = p.filename || extractedFileName
                     const fileTypeInfo = getFileTypeInfo(filename, p.mimeType)
-                    const shouldPreferDirectAssetUrls = options?.preferDirectAssetUrls ?? false
                     const fileUrl = isExternalFileReference(p.data)
                         ? p.data
-                        : shouldPreferDirectAssetUrls
-                          ? await r2.getUrl(p.data)
-                          : buildInternalFileProxyUrl(p.data, options?.publicAssetBaseUrl) ||
-                            (await r2.getUrl(p.data))
+                        : buildInternalFileProxyUrl(p.data, options?.publicAssetBaseUrl, {
+                              redirectToStorage: options?.preferRedirectAssetUrls ?? false
+                          }) || (await r2.getUrl(p.data))
 
                     if (fileTypeInfo.isVisionImage && !fileTypeInfo.isSvg) {
                         try {

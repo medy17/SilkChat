@@ -61,7 +61,7 @@ describe("dbMessagesToCore", () => {
         expect(getUrlMock).not.toHaveBeenCalled()
     })
 
-    it("uses direct storage URLs for internal image attachments when requested for model-facing payloads", async () => {
+    it("uses stable redirecting proxy URLs for internal image attachments when requested for model-facing payloads", async () => {
         const result = await dbMessagesToCore(
             [
                 {
@@ -80,7 +80,7 @@ describe("dbMessagesToCore", () => {
             [],
             {
                 publicAssetBaseUrl: "https://convex.example",
-                preferDirectAssetUrls: true
+                preferRedirectAssetUrls: true
             }
         )
 
@@ -91,12 +91,12 @@ describe("dbMessagesToCore", () => {
                 content: [
                     {
                         type: "image",
-                        image: "https://files.example/image.png",
+                        image: "https://convex.example/r2?key=attachments%2Fuser-1%2Fimage.png&redirect=1",
                         mediaType: "image/png"
                     }
                 ]
             }
         ])
-        expect(getUrlMock).toHaveBeenCalledWith("attachments/user-1/image.png")
+        expect(getUrlMock).not.toHaveBeenCalled()
     })
 })

@@ -286,4 +286,21 @@ describe("attachments", () => {
         expect(response.headers.get("cache-control")).toBe("public, max-age=60")
         await expect(response.arrayBuffer()).resolves.toEqual(new Uint8Array([1, 2, 3]).buffer)
     })
+
+    it("redirects file fetches to the resolved storage URL when requested", async () => {
+        ;(r2.getUrl as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            "https://files.example.com/file-1?sig=abc"
+        )
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+
+        const response = await getFile(
+            createHttpCtx(),
+            new Request("https://example.com/file?key=file-1&redirect=1")
+        )
+
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(response.status).toBe(307)
+        expect(response.headers.get("location")).toBe("https://files.example.com/file-1?sig=abc")
+    })
 })

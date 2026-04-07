@@ -364,9 +364,20 @@ export const listGeneratedFiles = query({
 export const getFile = httpAction(async (ctx, req) => {
     const { searchParams } = new URL(req.url)
     const key = searchParams.get("key")
+    const shouldRedirect = searchParams.get("redirect") === "1"
     if (!key) return new Response(null, { status: 400 })
     try {
         const fileUrl = await r2.getUrl(key)
+
+        if (shouldRedirect) {
+            return new Response(null, {
+                status: 307,
+                headers: {
+                    Location: fileUrl
+                }
+            })
+        }
+
         const upstream = await fetch(fileUrl)
 
         if (!upstream.ok) {
