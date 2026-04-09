@@ -33,6 +33,7 @@ interface ResponsivePopoverContentProps extends Omit<React.ComponentPropsWithout
     title?: string
     description?: string
     side?: "top" | "right" | "bottom" | "left"
+    showCloseButton?: boolean
 }
 
 const ResponsivePopoverContext = React.createContext<{
@@ -92,6 +93,7 @@ export function ResponsivePopoverContent({
     title,
     description,
     side = "bottom",
+    showCloseButton = true,
     align,
     alignOffset,
     sideOffset,
@@ -103,6 +105,7 @@ export function ResponsivePopoverContent({
         return (
             <SheetContent 
                 side="bottom" 
+                showCloseButton={showCloseButton}
                 className={cn(
                     className,
                     "max-h-[85dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-popover"

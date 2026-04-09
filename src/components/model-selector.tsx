@@ -56,7 +56,8 @@ import {
     KeyRound,
     Search,
     Terminal,
-    Trophy
+    Trophy,
+    X
 } from "lucide-react"
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
@@ -523,11 +524,13 @@ const BenchmarkSection = ({
 const ModelDetailPanel = ({
     model,
     currentProviders,
-    benchmarkState
+    benchmarkState,
+    onRequestClose
 }: {
     model: DisplayModel
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     benchmarkState?: BenchmarkState
+    onRequestClose?: () => void
 }) => {
     const isCustom = "isCustom" in model && model.isCustom
     const modelAbilities = getModelAbilities(model)
@@ -536,11 +539,18 @@ const ModelDetailPanel = ({
     const developerLabel =
         sharedModel?.developer?.trim() ||
         (isCustom ? getProviderDisplayName(model.providerId, currentProviders) : providerLabel)
+    const closePanel = (
+        event: React.PointerEvent<HTMLButtonElement> | React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onRequestClose?.()
+    }
 
     return (
         <div className="flex h-full min-h-0 flex-col bg-background/30 p-4 md:p-5">
-            <div className="mb-4 flex items-start gap-3">
-                <div className="flex items-start gap-3">
+            <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                     <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
                         {getProviderIcon(model, isCustom)}
                     </div>
@@ -553,6 +563,17 @@ const ModelDetailPanel = ({
                         </p>
                     </div>
                 </div>
+                {onRequestClose && (
+                    <button
+                        type="button"
+                        aria-label={`Close details for ${model.name}`}
+                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-muted-foreground transition-colors hover:text-foreground"
+                        onPointerDown={closePanel}
+                        onClick={closePanel}
+                    >
+                        <X className="size-4" />
+                    </button>
+                )}
             </div>
 
             <ScrollArea className="min-h-0 flex-1 pr-1">
@@ -702,13 +723,14 @@ const ModelInfoFlyout = ({
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
                     className="w-full max-w-full overflow-hidden p-0"
-                    title={model.name}
+                    showCloseButton={false}
                 >
                     <div className="flex h-[min(75vh,42rem)] min-h-0 flex-col overflow-hidden">
                         <ModelDetailPanel
                             model={model}
                             currentProviders={currentProviders}
                             benchmarkState={benchmarkState}
+                            onRequestClose={() => setOpen(false)}
                         />
                     </div>
                 </ResponsivePopoverContent>
