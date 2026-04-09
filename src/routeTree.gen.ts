@@ -21,6 +21,7 @@ import { Route as SettingsCustomizationRouteImport } from './routes/settings/cus
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
+import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
@@ -115,6 +116,11 @@ const SettingsAiOptionsRoute = SettingsAiOptionsRouteImport.update({
   path: '/ai-options',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
+  id: '/api/model-benchmarks',
+  path: '/api/model-benchmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCreditSummaryRoute = ApiCreditSummaryRouteImport.update({
   id: '/api/credit-summary',
   path: '/api/credit-summary',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
+  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
+  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
+  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/library'
     | '/api/credit-summary'
+    | '/api/model-benchmarks'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/library'
     | '/api/credit-summary'
+    | '/api/model-benchmarks'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/_chat/library'
     | '/api/credit-summary'
+    | '/api/model-benchmarks'
     | '/settings/ai-options'
     | '/settings/appearance'
     | '/settings/attachments'
@@ -322,6 +334,7 @@ export interface RootRouteChildren {
   AboutLazyRoute: typeof AboutLazyRoute
   PrivacyPolicyLazyRoute: typeof PrivacyPolicyLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
+  ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDevCreditPlanRoute: typeof ApiDevCreditPlanRoute
@@ -427,6 +440,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/ai-options'
       preLoaderRoute: typeof SettingsAiOptionsRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/api/model-benchmarks': {
+      id: '/api/model-benchmarks'
+      path: '/api/model-benchmarks'
+      fullPath: '/api/model-benchmarks'
+      preLoaderRoute: typeof ApiModelBenchmarksRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/credit-summary': {
       id: '/api/credit-summary'
@@ -558,6 +578,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutLazyRoute: AboutLazyRoute,
   PrivacyPolicyLazyRoute: PrivacyPolicyLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
+  ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDevCreditPlanRoute: ApiDevCreditPlanRoute,

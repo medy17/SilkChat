@@ -12,6 +12,7 @@ import {
 } from "@/components/brand-icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import {
     ResponsivePopover,
@@ -19,6 +20,7 @@ import {
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
@@ -26,11 +28,14 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
+import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
 import { useModelStore } from "@/lib/model-store"
 import {
     type DisplayModel,
     getAbilityIcon,
     getAbilityLabel,
+    getModelDescription,
+    getModelShortDescription,
     getPrototypeCreditTierForModel,
     getProviderDisplayName,
     isImageGenerationCapableModel,
@@ -39,7 +44,20 @@ import {
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { Check, ChevronDown, Globe, Image, KeyRound, Search } from "lucide-react"
+import {
+    Calculator,
+    Check,
+    ChevronDown,
+    CircleHelp,
+    ExternalLink,
+    Globe,
+    GraduationCap,
+    Image,
+    KeyRound,
+    Search,
+    Terminal,
+    Trophy
+} from "lucide-react"
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
@@ -263,21 +281,450 @@ const CapabilityPill = ({
     </Tooltip>
 )
 
-const buildModelSubtitle = (model: DisplayModel) => {
-    if (isImageGenerationCapableModel(model)) {
-        return "Image generation"
+type BenchmarkState =
+    | {
+          status: "loading"
+      }
+    | {
+          status: "ready"
+          payload: ModelBenchmarkPayload
+      }
+
+const unavailableBenchmarkPayload = (): ModelBenchmarkPayload => ({
+    available: false,
+    sourceLabel: "Artificial Analysis",
+    sourceUrl: "https://artificialanalysis.ai/",
+    fetchedAt: new Date().toISOString(),
+    cards: []
+})
+
+const benchmarkStateCache = new Map<string, BenchmarkState>()
+const benchmarkRequestCache = new Map<string, Promise<BenchmarkState>>()
+const BENCHMARK_UI_VERSION = "2"
+const getBenchmarkCacheKey = (modelId: string) => `${BENCHMARK_UI_VERSION}:${modelId}`
+
+const loadBenchmarkState = async (modelId: string): Promise<BenchmarkState> => {
+    const response = await fetch(
+        `/api/model-benchmarks?modelId=${encodeURIComponent(modelId)}&v=${BENCHMARK_UI_VERSION}`,
+        {
+            cache: "no-store"
+        }
+    )
+
+    if (!response.ok) {
+        return {
+            status: "ready",
+            payload: unavailableBenchmarkPayload()
+        }
     }
 
-    if (model.mode === "speech-to-text") {
-        return "Speech to text"
+    const payload = (await response.json()) as ModelBenchmarkPayload
+    return {
+        status: "ready",
+        payload
+    }
+}
+
+const ensureBenchmarkState = (modelId: string): Promise<BenchmarkState> => {
+    const cacheKey = getBenchmarkCacheKey(modelId)
+    const cachedState = benchmarkStateCache.get(cacheKey)
+    if (cachedState?.status === "ready") {
+        return Promise.resolve(cachedState)
     }
 
-    const abilityLabels = model.abilities
-        .filter((ability) => ability !== "effort_control")
-        .slice(0, 3)
-        .map((ability) => getAbilityLabel(ability))
+    const inflightRequest = benchmarkRequestCache.get(cacheKey)
+    if (inflightRequest) {
+        return inflightRequest
+    }
 
-    return abilityLabels.length > 0 ? abilityLabels.join(" • ") : "General purpose chat"
+    const loadingState: BenchmarkState = {
+        status: "loading"
+    }
+    benchmarkStateCache.set(cacheKey, loadingState)
+
+    const request = loadBenchmarkState(modelId)
+        .catch(
+            () =>
+                ({
+                    status: "ready",
+                    payload: unavailableBenchmarkPayload()
+                }) satisfies BenchmarkState
+        )
+        .then((state) => {
+            benchmarkStateCache.set(cacheKey, state)
+            benchmarkRequestCache.delete(cacheKey)
+            return state
+        })
+
+    benchmarkRequestCache.set(cacheKey, request)
+    return request
+}
+
+const getModelAbilities = (model: DisplayModel) =>
+    isImageGenerationCapableModel(model)
+        ? ["image_generation", ...model.abilities]
+        : model.abilities.filter((ability) => ability !== "effort_control")
+
+const FeatureBadge = ({ ability }: { ability: string }) => (
+    <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-sm">
+        {renderAbilityIcon(ability, "size-4")}
+        <span>{getAbilityTooltip(ability)}</span>
+    </div>
+)
+
+const BenchmarkProgress = ({ value, label }: { value: number; label: string }) => {
+    const normalizedValue = Math.max(0, Math.min(value, 100))
+    const radius = 26
+    const circumference = 2 * Math.PI * radius
+    const strokeOffset = circumference * (1 - normalizedValue / 100)
+
+    return (
+        <div className="relative size-18 shrink-0">
+            <svg className="-rotate-90 size-full" viewBox="0 0 64 64" aria-hidden="true">
+                <circle
+                    cx="32"
+                    cy="32"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeOpacity="0.12"
+                    strokeWidth="5"
+                />
+                <circle
+                    cx="32"
+                    cy="32"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="5"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeOffset}
+                />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center font-semibold text-sm">
+                {label}
+            </div>
+        </div>
+    )
+}
+
+const BenchmarkCard = ({ card }: { card: ModelBenchmarkPayload["cards"][number] }) => {
+    const icon =
+        card.key === "intelligence" ? (
+            <GraduationCap className="size-5" />
+        ) : card.key === "coding" ? (
+            <Terminal className="size-5" />
+        ) : card.key === "math" ? (
+            <Calculator className="size-5" />
+        ) : null
+    const showRing = card.value >= 0 && card.value <= 100 && icon !== null
+
+    return (
+        <div className="rounded-[var(--radius-xl)] border bg-background/40 p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-3">
+                        {icon ? (
+                            <div className="flex size-9 items-center justify-center rounded-[var(--radius-lg)] border border-border/70 bg-secondary/40 text-muted-foreground">
+                                {icon}
+                            </div>
+                        ) : null}
+                        <div className="min-w-0">
+                            <p className="font-medium text-sm">{card.title}</p>
+                            {card.subtitle ? (
+                                <p className="mt-1 text-muted-foreground text-xs">
+                                    {card.subtitle}
+                                </p>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+                {showRing ? (
+                    <div className="self-center sm:self-start">
+                        <BenchmarkProgress value={card.value} label={card.displayValue} />
+                    </div>
+                ) : (
+                    <div className="shrink-0 self-start rounded-full border border-border/70 bg-secondary/40 px-3 py-2 font-semibold text-sm">
+                        {card.displayValue}
+                    </div>
+                )}
+            </div>
+            {(card.breakdownLabel || card.breakdownValue) && (
+                <div className="mt-4 flex items-center justify-between gap-3 border-border/70 border-t pt-4 text-sm">
+                    <span className="min-w-0 text-muted-foreground">
+                        {card.breakdownLabel ?? "Benchmark"}
+                    </span>
+                    <span className="shrink-0 font-medium">{card.breakdownValue}</span>
+                </div>
+            )}
+        </div>
+    )
+}
+
+const BenchmarkSection = ({
+    benchmarkState
+}: {
+    benchmarkState?: BenchmarkState
+}) => {
+    if (!benchmarkState || benchmarkState.status === "loading") {
+        return (
+            <div className="space-y-3">
+                <Skeleton className="h-28 rounded-[var(--radius-xl)]" />
+                <Skeleton className="h-28 rounded-[var(--radius-xl)]" />
+            </div>
+        )
+    }
+
+    if (!benchmarkState.payload.available || benchmarkState.payload.cards.length === 0) {
+        return (
+            <div className="flex min-h-48 flex-col items-center justify-center rounded-[var(--radius-xl)] border bg-background/30 px-6 py-8 text-center">
+                <Trophy className="mb-4 size-8 text-muted-foreground" />
+                <p className="font-medium text-base">Benchmarks unavailable for this model</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <p className="font-medium text-muted-foreground text-sm">
+                    via {benchmarkState.payload.sourceLabel}
+                </p>
+                <a
+                    href={benchmarkState.payload.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                >
+                    Source
+                    <ExternalLink className="size-3" />
+                </a>
+            </div>
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                {benchmarkState.payload.cards.map((card) => (
+                    <BenchmarkCard key={card.key} card={card} />
+                ))}
+            </div>
+        </div>
+    )
+}
+
+const ModelDetailPanel = ({
+    model,
+    currentProviders,
+    benchmarkState
+}: {
+    model: DisplayModel
+    currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
+    benchmarkState?: BenchmarkState
+}) => {
+    const isCustom = "isCustom" in model && model.isCustom
+    const modelAbilities = getModelAbilities(model)
+    const sharedModel = !isCustom ? (model as SharedModel) : null
+    const providerLabel = getProviderSectionLabel(getModelProviderId(model), currentProviders)
+    const developerLabel =
+        sharedModel?.developer?.trim() ||
+        (isCustom ? getProviderDisplayName(model.providerId, currentProviders) : providerLabel)
+
+    return (
+        <div className="flex h-full min-h-0 flex-col bg-background/30 p-4 md:p-5">
+            <div className="mb-4 flex items-start gap-3">
+                <div className="flex items-start gap-3">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
+                        {getProviderIcon(model, isCustom)}
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="truncate font-semibold text-lg">{model.name}</h3>
+                        </div>
+                        <p className="mt-1 text-muted-foreground text-sm">
+                            {getModelShortDescription(model)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <ScrollArea className="min-h-0 flex-1 pr-1">
+                <div className="space-y-6 pb-2">
+                    <section>
+                        <h4 className="font-semibold text-base">Description</h4>
+                        <p className="mt-2 text-muted-foreground text-sm leading-7">
+                            {getModelDescription(model)}
+                        </p>
+                    </section>
+
+                    {modelAbilities.length > 0 && (
+                        <section>
+                            <h4 className="font-semibold text-base">Features</h4>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {modelAbilities.map((ability) => (
+                                    <FeatureBadge
+                                        key={`${model.id}-feature-${ability}`}
+                                        ability={ability}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <h4 className="font-semibold text-base">Provider</h4>
+                            <p className="mt-2 text-muted-foreground text-sm">{providerLabel}</p>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-base">Developer</h4>
+                            <p className="mt-2 text-muted-foreground text-sm">{developerLabel}</p>
+                        </div>
+                        {sharedModel?.knowledgeCutoff && (
+                            <div>
+                                <h4 className="font-semibold text-base">Knowledge Cutoff</h4>
+                                <p className="mt-2 text-muted-foreground text-sm">
+                                    {sharedModel.knowledgeCutoff}
+                                </p>
+                            </div>
+                        )}
+                        {sharedModel?.addedOn && (
+                            <div>
+                                <h4 className="font-semibold text-base">Added On</h4>
+                                <p className="mt-2 text-muted-foreground text-sm">
+                                    {sharedModel.addedOn}
+                                </p>
+                            </div>
+                        )}
+                    </section>
+
+                    <section>
+                        <h4 className="font-semibold text-base">Benchmark Performance</h4>
+                        <div className="mt-3">
+                            <BenchmarkSection benchmarkState={benchmarkState} />
+                        </div>
+                    </section>
+                </div>
+            </ScrollArea>
+        </div>
+    )
+}
+
+const ModelInfoFlyout = ({
+    model,
+    currentProviders
+}: {
+    model: DisplayModel
+    currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
+}) => {
+    const isMobile = useIsMobile()
+    const [open, setOpen] = React.useState(false)
+    const [benchmarkState, setBenchmarkState] = React.useState<BenchmarkState | undefined>(() =>
+        benchmarkStateCache.get(getBenchmarkCacheKey(model.id))
+    )
+    const isMountedRef = React.useRef(true)
+
+    React.useEffect(() => {
+        isMountedRef.current = true
+        return () => {
+            isMountedRef.current = false
+        }
+    }, [])
+
+    const primeBenchmarks = React.useCallback(() => {
+        if ("isCustom" in model && model.isCustom) {
+            return
+        }
+
+        const cachedState = benchmarkStateCache.get(getBenchmarkCacheKey(model.id))
+        if (cachedState) {
+            setBenchmarkState(cachedState)
+            if (cachedState.status === "ready") {
+                return
+            }
+        } else {
+            setBenchmarkState({
+                status: "loading"
+            })
+        }
+
+        void ensureBenchmarkState(model.id).then((state) => {
+            if (isMountedRef.current) {
+                setBenchmarkState(state)
+            }
+        })
+    }, [model])
+
+    React.useEffect(() => {
+        if (!open) {
+            return
+        }
+
+        primeBenchmarks()
+    }, [open, primeBenchmarks])
+
+    const trigger = (
+        <button
+            type="button"
+            aria-label={`Show details for ${model.name}`}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground transition-colors hover:text-foreground"
+            onMouseEnter={() => {
+                if (!isMobile) {
+                    primeBenchmarks()
+                }
+            }}
+            onFocus={() => {
+                primeBenchmarks()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                primeBenchmarks()
+                if (isMobile) {
+                    setOpen(true)
+                }
+            }}
+        >
+            <CircleHelp className="size-4" />
+        </button>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen}>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="w-full max-w-full overflow-hidden p-0"
+                    title={model.name}
+                >
+                    <div className="flex h-[min(75vh,42rem)] min-h-0 flex-col overflow-hidden">
+                        <ModelDetailPanel
+                            model={model}
+                            currentProviders={currentProviders}
+                            benchmarkState={benchmarkState}
+                        />
+                    </div>
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120} onOpenChange={setOpen}>
+            <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+            <HoverCardContent
+                align="end"
+                side="right"
+                sideOffset={12}
+                className="w-[min(96vw,34rem)] overflow-hidden p-0 sm:w-[min(92vw,36rem)] lg:w-[min(46vw,40rem)]"
+            >
+                <div className="flex h-[min(70vh,40rem)] min-h-0 flex-col overflow-hidden">
+                    <ModelDetailPanel
+                        model={model}
+                        currentProviders={currentProviders}
+                        benchmarkState={benchmarkState}
+                    />
+                </div>
+            </HoverCardContent>
+        </HoverCard>
+    )
 }
 
 const ModelCard = React.memo(function ModelCard({
@@ -285,6 +732,7 @@ const ModelCard = React.memo(function ModelCard({
     selectedModel,
     onModelChange,
     onClose,
+    currentProviders,
     disabled,
     badgeLabel
 }: {
@@ -292,14 +740,13 @@ const ModelCard = React.memo(function ModelCard({
     selectedModel: string
     onModelChange: (modelId: string) => void
     onClose: () => void
+    currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     disabled?: boolean
     badgeLabel?: string
 }) {
     const isSelected = model.id === selectedModel
     const isCustom = "isCustom" in model && model.isCustom
-    const modelAbilities = isImageGenerationCapableModel(model)
-        ? ["image_generation", ...model.abilities]
-        : model.abilities.filter((ability) => ability !== "effort_control")
+    const modelAbilities = getModelAbilities(model)
 
     return (
         <button
@@ -340,32 +787,40 @@ const ModelCard = React.memo(function ModelCard({
                                 {isSelected && <Check className="size-4 shrink-0 text-primary" />}
                             </div>
                             <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
-                                {buildModelSubtitle(model)}
+                                {getModelShortDescription(model)}
                             </p>
                         </div>
-                        {modelAbilities.length > 0 && (
-                            <div className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">
+                        <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex">
+                            {modelAbilities.length > 0 && (
+                                <div className="flex flex-wrap justify-end gap-1">
+                                    {modelAbilities.slice(0, 4).map((ability) => (
+                                        <CapabilityPill
+                                            key={`${model.id}-${ability}`}
+                                            ability={ability}
+                                            emphasized={isSelected}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            <ModelInfoFlyout model={model} currentProviders={currentProviders} />
+                        </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3 sm:hidden">
+                        {modelAbilities.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
                                 {modelAbilities.slice(0, 4).map((ability) => (
                                     <CapabilityPill
-                                        key={`${model.id}-${ability}`}
+                                        key={`${model.id}-mobile-${ability}`}
                                         ability={ability}
                                         emphasized={isSelected}
                                     />
                                 ))}
                             </div>
+                        ) : (
+                            <div />
                         )}
+                        <ModelInfoFlyout model={model} currentProviders={currentProviders} />
                     </div>
-                    {modelAbilities.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1 sm:hidden">
-                            {modelAbilities.slice(0, 4).map((ability) => (
-                                <CapabilityPill
-                                    key={`${model.id}-mobile-${ability}`}
-                                    ability={ability}
-                                    emphasized={isSelected}
-                                />
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
         </button>
@@ -596,7 +1051,8 @@ export function ModelSelector({
                     const haystack = [
                         model.name,
                         model.id,
-                        buildModelSubtitle(model),
+                        getModelShortDescription(model),
+                        getModelDescription(model),
                         section.label
                     ]
                         .join(" ")
@@ -839,6 +1295,7 @@ export function ModelSelector({
                                                 selectedModel={selectedModel}
                                                 onModelChange={onModelChange}
                                                 onClose={() => setOpen(false)}
+                                                currentProviders={currentProviders}
                                                 disabled={isModelLocked(model)}
                                                 badgeLabel={
                                                     getPrototypeCreditTierForModel(

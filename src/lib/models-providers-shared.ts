@@ -172,6 +172,41 @@ export const isImageGenerationCapableModel = (model: DisplayModel) => {
     return (model.supportedImageResolutions?.length ?? 0) > 0
 }
 
+const buildFallbackModelDescription = (model: DisplayModel) => {
+    if (isImageGenerationCapableModel(model)) {
+        return "Image generation"
+    }
+
+    if (model.mode === "speech-to-text") {
+        return "Speech to text"
+    }
+
+    const abilityLabels = model.abilities
+        .filter((ability) => ability !== "effort_control")
+        .slice(0, 3)
+        .map((ability) => getAbilityLabel(ability))
+
+    return abilityLabels.length > 0 ? abilityLabels.join(" • ") : "General purpose chat"
+}
+
+export const getModelShortDescription = (model: DisplayModel) => {
+    if ("shortDescription" in model && typeof model.shortDescription === "string") {
+        const description = model.shortDescription.trim()
+        if (description) return description
+    }
+
+    return buildFallbackModelDescription(model)
+}
+
+export const getModelDescription = (model: DisplayModel) => {
+    if ("description" in model && typeof model.description === "string") {
+        const description = model.description.trim()
+        if (description) return description
+    }
+
+    return getModelShortDescription(model)
+}
+
 export const getPrototypeCreditTierForModel = (
     model: DisplayModel,
     reasoningEffort: ReasoningEffort = "off"

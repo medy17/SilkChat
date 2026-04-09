@@ -32,7 +32,7 @@ import { getExpandedImageUrl, getGeneratedImageProxyUrl } from "@/lib/generated-
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
-import { useAction, useQuery } from "convex/react"
+import { useAction, useConvex } from "convex/react"
 import { ChevronLeft, ChevronRight, Download, ExternalLink, Trash2, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -87,10 +87,12 @@ export function ImageDetailsModal({
 }: ImageDetailsModalProps) {
     const isMobile = useIsMobile()
     const { models } = useSharedModels()
+    const convex = useConvex()
     const deleteImage = useAction(api.images_node.deleteGeneratedImage)
     const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
     const imageOverrides = usePrivateViewingStore((state) => state.imageOverrides)
     const [localImage, setLocalImage] = useState(image)
+    const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const [isModalImageHidden, setIsModalImageHidden] = useState(false)
     useEffect(() => {
         if (image) {
@@ -98,10 +100,32 @@ export function ImageDetailsModal({
         }
     }, [image])
 
-    const metadata = useQuery(
-        api.attachments.getFileMetadata,
-        localImage ? { key: localImage.storageKey } : "skip"
-    )
+    useEffect(() => {
+        let cancelled = false
+
+        if (!localImage) {
+            setMetadata(null)
+            return
+        }
+
+        convex
+            .query(api.attachments.getFileMetadata, { key: localImage.storageKey })
+            .then((result) => {
+                if (!cancelled) {
+                    setMetadata(result)
+                }
+            })
+            .catch((error) => {
+                console.error("Failed to load image metadata:", error)
+                if (!cancelled) {
+                    setMetadata(null)
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [convex, localImage])
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")

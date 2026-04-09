@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api"
-import { useQuery } from "convex/react"
-import { type ReactNode, createContext, useContext, useMemo } from "react"
+import { useConvex } from "convex/react"
+import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from "react"
 
 type FileMetadata =
     | (Record<string, unknown> & {
@@ -20,13 +20,37 @@ export function ImageMetadataProvider({
     storageKeys: string[]
     children: ReactNode
 }) {
+    const convex = useConvex()
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const stableKeys = useMemo(() => [...storageKeys], [storageKeys.join(",")])
+    const [batchResult, setBatchResult] = useState<ImageMetadataMap>({})
 
-    const batchResult = useQuery(
-        api.attachments.getFilesMetadataBatch,
-        stableKeys.length > 0 ? { keys: stableKeys } : "skip"
-    )
+    useEffect(() => {
+        let cancelled = false
+
+        if (stableKeys.length === 0) {
+            setBatchResult({})
+            return
+        }
+
+        convex
+            .query(api.attachments.getFilesMetadataBatch, { keys: stableKeys })
+            .then((result) => {
+                if (!cancelled) {
+                    setBatchResult(result)
+                }
+            })
+            .catch((error) => {
+                console.error("Failed to load image metadata batch:", error)
+                if (!cancelled) {
+                    setBatchResult({})
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [convex, stableKeys])
 
     const metadataMap = useMemo<ImageMetadataMap>(() => {
         if (!batchResult) return {}

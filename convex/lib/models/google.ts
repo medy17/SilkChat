@@ -17,6 +17,14 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3-flash-preview",
         name: "Gemini 3 Flash Preview",
         shortName: "3 Flash",
+        shortDescription: "Lightning-fast Gemini model with strong everyday capability",
+        description:
+            "Gemini 3 Flash Preview is Google's fast general-purpose model for chat, search, and multimodal tasks. It emphasizes responsiveness while still supporting reasoning controls, tools, vision, and PDF workflows.",
+        developer: "Google",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gemini-3-flash"
+        },
         releaseOrder: 20260922,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -27,6 +35,14 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.1-flash-lite-preview",
         name: "Gemini 3.1 Flash Lite Preview",
         shortName: "3.1 Flash Lite",
+        shortDescription: "Lowest-latency Gemini 3.1 option for lightweight workloads",
+        description:
+            "Gemini 3.1 Flash Lite Preview is optimized for quick everyday responses and lower-cost workloads. It is a good fit for simple assistants, short-form drafting, and fast multimodal interactions where efficiency matters most.",
+        developer: "Google",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gemini-3-1-flash-lite-preview"
+        },
         releaseOrder: 20260921,
         adapters: googleTextAdapters("gemini-3.1-flash-lite-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -37,6 +53,14 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.1-pro-preview",
         name: "Gemini 3.1 Pro Preview",
         shortName: "3.1 Pro",
+        shortDescription: "Google flagship with advanced reasoning and multimodal depth",
+        description:
+            "Gemini 3.1 Pro Preview is Google's higher-end general model for more complex reasoning, larger multimodal contexts, and harder analysis tasks. It is the stronger choice when response quality matters more than pure speed.",
+        developer: "Google",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gemini-3-1-pro-preview"
+        },
         releaseOrder: 20260920,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -127,6 +151,10 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.1-flash-image-preview",
         name: "Gemini 3.1 Flash Image Preview",
         shortName: "3.1 Flash Image",
+        artificialAnalysis: {
+            type: "text-to-image",
+            slug: "nano-banana-2"
+        },
         releaseOrder: 20260912,
         adapters: googleImageAdapters("gemini-3.1-flash-image-preview"),
         abilities: [],

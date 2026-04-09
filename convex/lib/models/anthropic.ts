@@ -11,6 +11,14 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-sonnet-4.6",
         name: "Claude Sonnet 4.6",
         shortName: "Sonnet 4.6",
+        shortDescription: "Anthropic's balanced Claude model for real-world work",
+        description:
+            "Claude Sonnet 4.6 is Anthropic's balanced model for production chat, analysis, writing, and tool use. It aims to deliver strong quality without the higher cost and latency of the most premium Claude tier.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-sonnet-4-6"
+        },
         releaseOrder: 20260930,
         adapters: anthropicTextAdapters("claude-sonnet-4-6"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -21,6 +29,14 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.6",
         name: "Claude Opus 4.6",
         shortName: "Opus 4.6",
+        shortDescription: "Highest-end Claude model for difficult reasoning and analysis",
+        description:
+            "Claude Opus 4.6 is Anthropic's premium reasoning model for harder research, deeper analysis, and more demanding professional tasks. Use it when you want maximum Claude quality and are willing to spend more for it.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-opus-4-6"
+        },
         releaseOrder: 20260929,
         adapters: anthropicTextAdapters("claude-opus-4-6"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -41,6 +57,13 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-haiku-4.5",
         name: "Claude Haiku 4.5",
         shortName: "Haiku 4.5",
+        shortDescription: "Fast Claude model for lightweight chat and drafting",
+        description:
+            "Claude Haiku 4.5 is the faster, lighter Claude option for quick responses, drafting, and everyday assistant use. It trades some peak depth for speed and efficiency while keeping the core Claude workflow features intact.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm"
+        },
         releaseOrder: 20260927,
         adapters: anthropicTextAdapters("claude-haiku-4-5"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],

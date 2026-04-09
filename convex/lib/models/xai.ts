@@ -16,6 +16,10 @@ export const XAI_MODELS: SharedModel[] = [
         id: "grok-imagine-image-pro",
         name: "Grok Imagine Image Pro",
         shortName: "Imagine Pro",
+        artificialAnalysis: {
+            type: "text-to-image",
+            slug: "grok-imagine-image-pro"
+        },
         releaseOrder: 20260402,
         adapters: xaiImageAdapters("grok-imagine-image-pro"),
         abilities: [],
@@ -45,6 +49,10 @@ export const XAI_MODELS: SharedModel[] = [
         id: "grok-imagine-image",
         name: "Grok Imagine Image",
         shortName: "Imagine",
+        artificialAnalysis: {
+            type: "text-to-image",
+            slug: "grok-imagine-image"
+        },
         releaseOrder: 20260401,
         adapters: xaiImageAdapters("grok-imagine-image"),
         abilities: [],

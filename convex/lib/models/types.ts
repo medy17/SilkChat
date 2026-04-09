@@ -36,6 +36,14 @@ export type ReasoningEffortTier = "off" | "low" | "medium" | "high"
 export type PrototypeCreditTier = "basic" | "pro"
 type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
 
+export type ArtificialAnalysisModelType = "llm" | "text-to-image" | "image-editing"
+
+export type ArtificialAnalysisModelRef = {
+    type: ArtificialAnalysisModelType
+    id?: string
+    slug?: string
+}
+
 export type ModelReasoningProfiles = {
     google?: EffortTierMap<{
         thinkingBudget: number
@@ -54,6 +62,12 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     id: string
     name: string
     shortName?: string
+    shortDescription?: string
+    description?: string
+    developer?: string
+    knowledgeCutoff?: string
+    addedOn?: string
+    artificialAnalysis?: ArtificialAnalysisModelRef
     releaseOrder?: number
     adapters: RegistryKey[]
     abilities: Abilities

@@ -1,9 +1,9 @@
-import type { SharedModel } from "./types"
+import type { RegistryKey, SharedModel } from "./types"
 
-const groqTextAdapters = (modelId: string, openRouterModelId?: string) => [
+const groqTextAdapters = (modelId: string, openRouterModelId?: string): RegistryKey[] => [
     `i3-groq:${modelId}`,
     `groq:${modelId}`,
-    ...(openRouterModelId ? [`openrouter:${openRouterModelId}`] : [])
+    ...(openRouterModelId ? ([`openrouter:${openRouterModelId}`] as RegistryKey[]) : [])
 ]
 
 export const META_MODELS: SharedModel[] = [

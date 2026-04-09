@@ -17,6 +17,14 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5.4-nano",
         name: "GPT 5.4 nano",
         shortName: "5.4 nano",
+        shortDescription: "Smallest GPT-5.4 variant for fast, low-cost text and tool use",
+        description:
+            "GPT 5.4 nano is the lightest GPT-5.4 model, tuned for low-latency chat, lightweight automations, and high-volume workloads where speed and cost matter more than deep reasoning depth.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-4-nano"
+        },
         releaseOrder: 20261022,
         adapters: openAiTextAdapters("gpt-5.4-nano"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -27,6 +35,14 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5.4-mini",
         name: "GPT 5.4 mini",
         shortName: "5.4 mini",
+        shortDescription: "Balanced GPT-5.4 model for everyday chat, search, and tool use",
+        description:
+            "GPT 5.4 mini balances quality, speed, and cost for everyday assistant workflows. It is a practical default when you want strong multimodal and tool-calling support without paying for the largest GPT-5.4 tier.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-4-mini"
+        },
         releaseOrder: 20261021,
         adapters: openAiTextAdapters("gpt-5.4-mini"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -37,6 +53,14 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5.4",
         name: "GPT 5.4",
         shortName: "5.4",
+        shortDescription: "Fast OpenAI model for everyday chat and tools",
+        description:
+            "GPT 5.4 is a fast flagship-style OpenAI model aimed at high-quality chat, multimodal input, and tool use. It works well as a strong default when you want broad capability without switching into a more specialized reasoning-first model.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-4"
+        },
         releaseOrder: 20261020,
         adapters: openAiTextAdapters("gpt-5.4"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
@@ -258,6 +282,10 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-image-1.5",
         name: "GPT Image 1.5",
         shortName: "Image 1.5",
+        artificialAnalysis: {
+            type: "text-to-image",
+            slug: "openai-gpt_image-1-5"
+        },
         releaseOrder: 20260910,
         adapters: openAiImageAdapters("gpt-image-1.5"),
         abilities: [],
