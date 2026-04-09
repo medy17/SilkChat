@@ -17,7 +17,7 @@
         "start": "node .output/server/index.mjs",
         "lint": "biome check --write",
         "check-types": "tsc --noEmit",
-        "postinstall": "patch-package && cd node_modules/@convex-dev/r2 && tsc --project ./esm.json && echo '{\"type\": \"module\"}' > dist/esm/package.json",
+        "postinstall": "patch-package && node scripts/fix-tanstack-start-plugin-core.mjs && cd node_modules/@convex-dev/r2 && tsc --project ./esm.json && echo '{\"type\": \"module\"}' > dist/esm/package.json",
         "auth:generate": "npx @better-auth/cli generate --output src/database/auth-schema.ts",
         "auth:migrate": "npx drizzle-kit migrate",
         "auth:push": "npx drizzle-kit push",
