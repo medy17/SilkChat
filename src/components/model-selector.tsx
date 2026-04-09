@@ -1287,10 +1287,10 @@ export function ModelSelector({
                             <>
                                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="font-medium text-sm sm:text-base">
+                                        <h3 className="hidden font-medium text-sm md:block md:text-base">
                                             {visibleSection.label}
                                         </h3>
-                                        <p className="text-muted-foreground text-xs sm:text-sm">
+                                        <p className="hidden text-muted-foreground text-xs md:block md:text-sm">
                                             {visibleSection.models.length} available
                                         </p>
                                     </div>
