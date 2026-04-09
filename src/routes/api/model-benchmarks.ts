@@ -48,8 +48,13 @@ type DatasetResult = {
 
 const datasetCache = new Map<ArtificialAnalysisModelType, DatasetCacheEntry>()
 
-const toUnavailablePayload = (): ModelBenchmarkPayload => ({
+const toUnavailablePayload = (options?: {
+    retryable?: boolean
+    errorCode?: string
+}): ModelBenchmarkPayload => ({
     available: false,
+    retryable: options?.retryable,
+    errorCode: options?.errorCode,
     sourceLabel: "Artificial Analysis",
     sourceUrl: ARTIFICIAL_ANALYSIS_URL,
     fetchedAt: new Date().toISOString(),
@@ -119,13 +124,13 @@ const getCachedDataset = async (
             const backoffMs =
                 Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : 1000 * 60 * 5
 
-            datasetCache.set(type, {
-                expiresAt: now + backoffMs,
-                data: cached?.data ?? null,
-                error: cached?.data ? `stale_${error}` : error
-            })
-
             if (cached?.data) {
+                datasetCache.set(type, {
+                    expiresAt: now + backoffMs,
+                    data: cached.data,
+                    error: `stale_${error}`
+                })
+
                 return {
                     data: cached.data,
                     hasApiKey: true,
@@ -337,16 +342,20 @@ const buildMediaCards = (entry: DatasetEntry): ModelBenchmarkCard[] => {
 
 const buildPayload = (
     entry: DatasetEntry | null,
-    type: ArtificialAnalysisModelType
+    type: ArtificialAnalysisModelType,
+    options?: {
+        retryable?: boolean
+        errorCode?: string
+    }
 ): ModelBenchmarkPayload => {
     if (!entry) {
-        return toUnavailablePayload()
+        return toUnavailablePayload(options)
     }
 
     const cards = type === "llm" ? buildLlmCards(entry) : buildMediaCards(entry)
 
     if (cards.length === 0) {
-        return toUnavailablePayload()
+        return toUnavailablePayload(options)
     }
 
     return {
@@ -383,7 +392,15 @@ export const Route = createFileRoute("/api/model-benchmarks")({
                 const entry = datasetResult.data
                     ? findDatasetEntry(model, datasetResult.data)
                     : null
-                const payload = buildPayload(entry, type)
+                const payload = buildPayload(entry, type, {
+                    retryable:
+                        !entry &&
+                        (datasetResult.error === "fetch_failed" ||
+                            datasetResult.error?.startsWith("upstream_") ||
+                            datasetResult.error?.startsWith("stale_upstream_") ||
+                            datasetResult.error === "stale_fetch_failed"),
+                    errorCode: !entry ? datasetResult.error : undefined
+                })
 
                 return Response.json(
                     debug

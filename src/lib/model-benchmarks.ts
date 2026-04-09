@@ -10,6 +10,8 @@ export type ModelBenchmarkCard = {
 
 export type ModelBenchmarkPayload = {
     available: boolean
+    retryable?: boolean
+    errorCode?: string
     sourceLabel: string
     sourceUrl: string
     fetchedAt: string

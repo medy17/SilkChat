@@ -300,8 +300,10 @@ const unavailableBenchmarkPayload = (): ModelBenchmarkPayload => ({
 
 const benchmarkStateCache = new Map<string, BenchmarkState>()
 const benchmarkRequestCache = new Map<string, Promise<BenchmarkState>>()
-const BENCHMARK_UI_VERSION = "2"
+const BENCHMARK_UI_VERSION = "3"
 const getBenchmarkCacheKey = (modelId: string) => `${BENCHMARK_UI_VERSION}:${modelId}`
+const shouldPersistBenchmarkState = (state: BenchmarkState) =>
+    state.status === "ready" ? !state.payload.retryable : true
 
 const loadBenchmarkState = async (modelId: string): Promise<BenchmarkState> => {
     const response = await fetch(
@@ -347,11 +349,19 @@ const ensureBenchmarkState = (modelId: string): Promise<BenchmarkState> => {
             () =>
                 ({
                     status: "ready",
-                    payload: unavailableBenchmarkPayload()
+                    payload: {
+                        ...unavailableBenchmarkPayload(),
+                        retryable: true,
+                        errorCode: "fetch_failed"
+                    }
                 }) satisfies BenchmarkState
         )
         .then((state) => {
-            benchmarkStateCache.set(cacheKey, state)
+            if (shouldPersistBenchmarkState(state)) {
+                benchmarkStateCache.set(cacheKey, state)
+            } else {
+                benchmarkStateCache.delete(cacheKey)
+            }
             benchmarkRequestCache.delete(cacheKey)
             return state
         })
