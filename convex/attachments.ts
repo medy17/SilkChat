@@ -236,6 +236,25 @@ export const getFileMetadata = query({
     }
 })
 
+// Get file metadata for multiple keys in a single query
+export const getFilesMetadataBatch = query({
+    args: { keys: v.array(v.string()) },
+    handler: async (ctx, args) => {
+        const results: Record<string, Awaited<ReturnType<typeof r2.getMetadata>> | null> = {}
+        await Promise.all(
+            args.keys.map(async (key) => {
+                try {
+                    results[key] = await r2.getMetadata(ctx, key)
+                } catch (error) {
+                    console.error("Error getting file metadata for key:", key, error)
+                    results[key] = null
+                }
+            })
+        )
+        return results
+    }
+})
+
 // Mutation to delete file - now with auth check
 export const deleteFile = mutation({
     args: { key: v.string() },

@@ -31,11 +31,12 @@ import { toast } from "sonner"
 import { ImageGenerationSidebar } from "./library/image-generation-sidebar"
 import { ImportThreadDialog } from "./threads/import-thread-button"
 import { BulkDeleteThreadsDialog, BulkMoveThreadsDialog } from "./threads/sidebar-bulk-dialogs"
+import { PrototypeCreditsLoadingGroup } from "./threads/sidebar-credits"
+import { SidebarCreditsContainer } from "./threads/sidebar-credits-container"
 import {
-    type PrototypeCreditSummary,
-    PrototypeCreditsLoadingGroup,
-    PrototypeCreditsSection
-} from "./threads/sidebar-credits"
+    SidebarDialogsContainer,
+    type SidebarDialogsHandle
+} from "./threads/sidebar-dialogs-container"
 import { ThreadsSidebarHeader } from "./threads/sidebar-header"
 import { ImportJobsGroup } from "./threads/sidebar-import-jobs"
 import {
@@ -46,7 +47,6 @@ import {
     groupThreadsByTime
 } from "./threads/sidebar-sections"
 import { SelectionToolbar } from "./threads/sidebar-selection-toolbar"
-import { ThreadItemDialogs } from "./threads/thread-item-dialogs"
 import type { SidebarProject, Thread } from "./threads/types"
 
 function ThreadItemSkeleton() {
@@ -95,17 +95,6 @@ function EmptyState({ message }: { message: string }) {
     )
 }
 
-type PrototypeCreditPlanSummary = {
-    enabled: boolean
-    plan: "free" | "pro"
-    basic: {
-        limit: number
-    }
-    pro: {
-        limit: number
-    }
-}
-
 type SelectionScope = "thread" | "folder" | null
 
 export function ThreadsSidebar() {
@@ -120,18 +109,11 @@ export function ThreadsSidebar() {
     const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false)
     const [bulkMoveProjectId, setBulkMoveProjectId] = useState<string>("no-folder")
     const [isApplyingSelectionAction, setIsApplyingSelectionAction] = useState(false)
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-    const [showRenameDialog, setShowRenameDialog] = useState(false)
-    const [showMoveDialog, setShowMoveDialog] = useState(false)
-    const [currentThread, setCurrentThread] = useState<Thread | null>(null)
-    const [isUpdatingCreditPlan, setIsUpdatingCreditPlan] = useState(false)
-    const [creditPlanRefreshNonce, setCreditPlanRefreshNonce] = useState(0)
     const [primaryShortcutLabel, setPrimaryShortcutLabel] = useState("Ctrl")
-    const [prototypeCreditPlanSummary, setPrototypeCreditPlanSummary] =
-        useState<PrototypeCreditPlanSummary | null>(null)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
+    const dialogsRef = useRef<SidebarDialogsHandle>(null)
     const { data: session, isPending: isSessionPending } = authClient.useSession()
     const navigate = useNavigate()
     const location = useLocation()
@@ -155,17 +137,6 @@ export function ThreadsSidebar() {
             ? { threadId: params.threadId as Id<"threads"> }
             : "skip"
     )
-    const usageSummary = useDiskCachedQuery(
-        api.credits.getMyCreditUsageSummary,
-        {
-            key: session?.user?.id
-                ? `prototype-credit-usage:${session.user.id}`
-                : "prototype-credit-usage:guest",
-            default: null
-        },
-        session?.user?.id && !auth.isLoading ? {} : "skip"
-    )
-
     const {
         results: allThreads,
         status,
@@ -290,42 +261,6 @@ export function ThreadsSidebar() {
             ) ?? null,
         [importJobs]
     )
-    const resolvedUsageSummary =
-        usageSummary && typeof usageSummary === "object" && "error" in usageSummary
-            ? null
-            : usageSummary
-
-    const prototypeCreditSummary = useMemo<PrototypeCreditSummary | null>(() => {
-        if (!prototypeCreditPlanSummary || !resolvedUsageSummary) {
-            return null
-        }
-
-        return {
-            enabled: prototypeCreditPlanSummary.enabled,
-            plan: prototypeCreditPlanSummary.plan,
-            periodKey: resolvedUsageSummary.periodKey,
-            periodStartsAt: resolvedUsageSummary.periodStartsAt,
-            periodEndsAt: resolvedUsageSummary.periodEndsAt,
-            basic: {
-                limit: prototypeCreditPlanSummary.basic.limit,
-                used: resolvedUsageSummary.basic.used,
-                remaining: Math.max(
-                    0,
-                    prototypeCreditPlanSummary.basic.limit - resolvedUsageSummary.basic.used
-                )
-            },
-            pro: {
-                limit: prototypeCreditPlanSummary.pro.limit,
-                used: resolvedUsageSummary.pro.used,
-                remaining: Math.max(
-                    0,
-                    prototypeCreditPlanSummary.pro.limit - resolvedUsageSummary.pro.used
-                )
-            },
-            requestCounts: resolvedUsageSummary.requestCounts
-        }
-    }, [prototypeCreditPlanSummary, resolvedUsageSummary])
-
     useEffect(() => {
         if (!selectedThreadsQuery || selectedThreadIds.length === 0) {
             return
@@ -383,45 +318,6 @@ export function ThreadsSidebar() {
     }, [importJobs])
 
     useEffect(() => {
-        if (!session?.user?.id) {
-            setPrototypeCreditPlanSummary(null)
-            return
-        }
-
-        if (auth.isLoading) {
-            return
-        }
-
-        let cancelled = false
-        const refreshPlanSummary = async () => {
-            try {
-                const response = await fetch(
-                    `/api/credit-summary?refresh=${creditPlanRefreshNonce}`
-                )
-                if (!response.ok) {
-                    throw new Error(`Failed to load credit summary (${response.status})`)
-                }
-                const summary = (await response.json()) as PrototypeCreditPlanSummary
-                if (!cancelled) {
-                    setPrototypeCreditPlanSummary(summary)
-                }
-            } catch (error) {
-                console.error("Failed to load prototype credit summary:", error)
-            }
-        }
-
-        void refreshPlanSummary()
-        const interval = window.setInterval(() => {
-            void refreshPlanSummary()
-        }, 15000)
-
-        return () => {
-            cancelled = true
-            window.clearInterval(interval)
-        }
-    }, [auth.isLoading, creditPlanRefreshNonce, session?.user?.id])
-
-    useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (isEditableShortcutTarget(event.target)) {
                 return
@@ -467,47 +363,16 @@ export function ThreadsSidebar() {
         }
     }, [])
 
-    const handleSetCreditPlan = async (plan: "free" | "pro") => {
-        if (!session?.user?.id || isUpdatingCreditPlan) return
-
-        try {
-            setIsUpdatingCreditPlan(true)
-            const response = await fetch("/api/dev/credit-plan", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    plan
-                })
-            })
-
-            if (!response.ok) {
-                throw new Error(`Failed to update plan (${response.status})`)
-            }
-
-            setCreditPlanRefreshNonce((previous) => previous + 1)
-        } catch (error) {
-            console.error("Failed to update prototype credit plan:", error)
-            toast.error("Failed to update credit plan")
-        } finally {
-            setIsUpdatingCreditPlan(false)
-        }
-    }
-
     const handleOpenRenameDialog = useFunction((thread: Thread) => {
-        setCurrentThread(thread)
-        setShowRenameDialog(true)
+        dialogsRef.current?.openRename(thread)
     })
 
     const handleOpenMoveDialog = useFunction((thread: Thread) => {
-        setCurrentThread(thread)
-        setShowMoveDialog(true)
+        dialogsRef.current?.openMove(thread)
     })
 
     const handleOpenDeleteDialog = useFunction((thread: Thread) => {
-        setCurrentThread(thread)
-        setShowDeleteDialog(true)
+        dialogsRef.current?.openDelete(thread)
     })
 
     useEffect(() => {
@@ -758,33 +623,6 @@ export function ThreadsSidebar() {
         }
     })
 
-    const handleCloseRenameDialog = useFunction(() => {
-        setShowRenameDialog(false)
-        setTimeout(() => {
-            if (!showRenameDialog && !showMoveDialog && !showDeleteDialog) {
-                setCurrentThread(null)
-            }
-        }, 150)
-    })
-
-    const handleCloseMoveDialog = useFunction(() => {
-        setShowMoveDialog(false)
-        setTimeout(() => {
-            if (!showRenameDialog && !showMoveDialog && !showDeleteDialog) {
-                setCurrentThread(null)
-            }
-        }, 150)
-    })
-
-    const handleCloseDeleteDialog = useFunction(() => {
-        setShowDeleteDialog(false)
-        setTimeout(() => {
-            if (!showRenameDialog && !showMoveDialog && !showDeleteDialog) {
-                setCurrentThread(null)
-            }
-        }, 150)
-    })
-
     const handleNewChatClick = useFunction((event: MouseEvent<HTMLAnchorElement>) => {
         event.preventDefault()
         document.dispatchEvent(new CustomEvent("new_chat"))
@@ -910,12 +748,11 @@ export function ThreadsSidebar() {
                                 : "translate-x-0 opacity-100"
                         )}
                     >
-                        <PrototypeCreditsSection
-                            shouldShow={shouldShowPrototypeCredits}
-                            summary={prototypeCreditSummary}
+                        <SidebarCreditsContainer
+                            userId={session?.user?.id}
+                            isAuthLoading={auth.isLoading}
+                            shouldShowPrototypeCredits={shouldShowPrototypeCredits}
                             shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                            isUpdatingCreditPlan={isUpdatingCreditPlan}
-                            onSetCreditPlan={handleSetCreditPlan}
                         />
                         {renderContent()}
                     </SidebarContent>
@@ -950,16 +787,7 @@ export function ThreadsSidebar() {
                         onExitSelectionMode={handleExitSelectionMode}
                     />
                 )}
-                <ThreadItemDialogs
-                    showDeleteDialog={showDeleteDialog}
-                    showRenameDialog={showRenameDialog}
-                    showMoveDialog={showMoveDialog}
-                    onCloseDeleteDialog={handleCloseDeleteDialog}
-                    onCloseRenameDialog={handleCloseRenameDialog}
-                    onCloseMoveDialog={handleCloseMoveDialog}
-                    currentThread={currentThread}
-                    projects={resolvedProjects}
-                />
+                <SidebarDialogsContainer ref={dialogsRef} projects={resolvedProjects} />
                 <SidebarRail />
             </Sidebar>
             <BulkMoveThreadsDialog

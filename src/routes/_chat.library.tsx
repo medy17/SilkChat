@@ -64,6 +64,7 @@ import {
     getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
+import { ImageMetadataProvider, useImageMetadata } from "@/lib/image-metadata-context"
 import {
     DEFAULT_LIBRARY_FILTERS,
     DEFAULT_LIBRARY_SEARCH,
@@ -78,7 +79,7 @@ import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn, copyImageUrlToClipboard } from "@/lib/utils"
 import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react-router"
-import { useAction, useQuery } from "convex/react"
+import { useAction } from "convex/react"
 import {
     Check,
     CheckSquare2,
@@ -472,10 +473,7 @@ const GeneratedImageItem = memo(
         const revealTimeoutRef = useRef<number | null>(null)
         const blurVariantRetryTimeoutRef = useRef<number | null>(null)
         const blurVariantRequestIdRef = useRef(0)
-        const metadata = useQuery(api.attachments.getFileMetadata, { key: image.storageKey })
-        const hasInvalidStoredImage =
-            metadata !== undefined &&
-            (!metadata || (typeof metadata.size === "number" && metadata.size <= 0))
+        const { metadata, hasInvalidStoredImage } = useImageMetadata(image.storageKey)
 
         const visibleImageSources = getLibraryImageSources({
             storageKey: image.storageKey,
@@ -1724,86 +1722,92 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                         </div>
                     ) : (
                         <>
-                            <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
-                                <AnimatePresence>
-                                    {showPendingGenerations &&
-                                        pendingGenerations.map((pending) => (
-                                            <motion.div
-                                                key={pending.id}
-                                                layout
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{
-                                                    opacity: 0,
-                                                    scale: 0.9,
-                                                    filter: "blur(8px)"
-                                                }}
-                                                transition={{
-                                                    duration: 0.3,
-                                                    ease: [0.16, 1, 0.3, 1]
-                                                }}
-                                                className="mb-4 break-inside-avoid"
-                                            >
-                                                <PendingImageItem
-                                                    aspectRatio={pending.aspectRatio}
-                                                />
-                                            </motion.div>
-                                        ))}
-                                    {images.map((image) => {
-                                        const isImageHidden = getIsImageHidden({
-                                            privateViewingEnabled,
-                                            override: imageOverrides[image._id]
-                                        })
+                            <ImageMetadataProvider
+                                storageKeys={images.map((img) => img.storageKey)}
+                            >
+                                <div className="columns-1 gap-4 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5">
+                                    <AnimatePresence>
+                                        {showPendingGenerations &&
+                                            pendingGenerations.map((pending) => (
+                                                <motion.div
+                                                    key={pending.id}
+                                                    layout
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{
+                                                        opacity: 0,
+                                                        scale: 0.9,
+                                                        filter: "blur(8px)"
+                                                    }}
+                                                    transition={{
+                                                        duration: 0.3,
+                                                        ease: [0.16, 1, 0.3, 1]
+                                                    }}
+                                                    className="mb-4 break-inside-avoid"
+                                                >
+                                                    <PendingImageItem
+                                                        aspectRatio={pending.aspectRatio}
+                                                    />
+                                                </motion.div>
+                                            ))}
+                                        {images.map((image) => {
+                                            const isImageHidden = getIsImageHidden({
+                                                privateViewingEnabled,
+                                                override: imageOverrides[image._id]
+                                            })
 
-                                        return (
-                                            <motion.div
-                                                key={image._id}
-                                                layout
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{
-                                                    opacity: 0,
-                                                    scale: 0.9,
-                                                    filter: "blur(8px)"
-                                                }}
-                                                transition={{
-                                                    duration: 0.3,
-                                                    ease: [0.16, 1, 0.3, 1]
-                                                }}
-                                                className="mb-4 break-inside-avoid"
-                                            >
-                                                <GeneratedImageItem
-                                                    image={image}
-                                                    placeholder={
-                                                        animatedImageIds.includes(image._id)
-                                                            ? "tiles"
-                                                            : "skeleton"
-                                                    }
-                                                    onClick={() => setSelectedImage(image)}
-                                                    onImageSettled={() =>
-                                                        handleImageSettled(image._id)
-                                                    }
-                                                    isSelected={selectedImageIds.has(image._id)}
-                                                    isSelectionMode={isSelectionMode}
-                                                    onToggleSelection={() =>
-                                                        handleToggleSelection(image._id)
-                                                    }
-                                                    onStartSelection={() =>
-                                                        handleStartSelection(image._id)
-                                                    }
-                                                    onDelete={() => handleDeleteImage(image._id)}
-                                                    selectedCount={selectedImageIds.size}
-                                                    onBulkDelete={handleBulkDelete}
-                                                    isImageHidden={isImageHidden}
-                                                    onToggleImageHidden={() =>
-                                                        toggleImageVisibility(image._id)
-                                                    }
-                                                />
-                                            </motion.div>
-                                        )
-                                    })}
-                                </AnimatePresence>
-                            </div>
+                                            return (
+                                                <motion.div
+                                                    key={image._id}
+                                                    layout
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{
+                                                        opacity: 0,
+                                                        scale: 0.9,
+                                                        filter: "blur(8px)"
+                                                    }}
+                                                    transition={{
+                                                        duration: 0.3,
+                                                        ease: [0.16, 1, 0.3, 1]
+                                                    }}
+                                                    className="mb-4 break-inside-avoid"
+                                                >
+                                                    <GeneratedImageItem
+                                                        image={image}
+                                                        placeholder={
+                                                            animatedImageIds.includes(image._id)
+                                                                ? "tiles"
+                                                                : "skeleton"
+                                                        }
+                                                        onClick={() => setSelectedImage(image)}
+                                                        onImageSettled={() =>
+                                                            handleImageSettled(image._id)
+                                                        }
+                                                        isSelected={selectedImageIds.has(image._id)}
+                                                        isSelectionMode={isSelectionMode}
+                                                        onToggleSelection={() =>
+                                                            handleToggleSelection(image._id)
+                                                        }
+                                                        onStartSelection={() =>
+                                                            handleStartSelection(image._id)
+                                                        }
+                                                        onDelete={() =>
+                                                            handleDeleteImage(image._id)
+                                                        }
+                                                        selectedCount={selectedImageIds.size}
+                                                        onBulkDelete={handleBulkDelete}
+                                                        isImageHidden={isImageHidden}
+                                                        onToggleImageHidden={() =>
+                                                            toggleImageVisibility(image._id)
+                                                        }
+                                                    />
+                                                </motion.div>
+                                            )
+                                        })}
+                                    </AnimatePresence>
+                                </div>
+                            </ImageMetadataProvider>
 
                             {(canGoPrevious ||
                                 canGoNext ||

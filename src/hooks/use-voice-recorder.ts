@@ -207,6 +207,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
     const audioChunksRef = useRef<Blob[]>([])
     const tokenRef = useRef<string | undefined>(undefined)
     const mediaStreamRef = useRef<MediaStream | null>(null)
+    const isRecordingRef = useRef(false)
 
     // Keep token ref up to date
     useEffect(() => {
@@ -246,6 +247,17 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
     }, [])
 
     const cleanupRecording = useCallback(() => {
+        // Only log and act if there are actual resources to clean up
+        const hasResources =
+            durationIntervalRef.current !== null ||
+            audioLevelIntervalRef.current !== null ||
+            analyserRef.current !== null ||
+            mediaStreamRef.current !== null ||
+            audioContextRef.current !== null ||
+            mediaRecorderRef.current !== null
+
+        if (!hasResources) return
+
         console.log("Cleaning up recording resources...")
 
         // Clear intervals
@@ -410,6 +422,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
 
             recordingStartTimeRef.current = Date.now()
 
+            isRecordingRef.current = true
             setState((prev) => ({
                 ...prev,
                 isRecording: true,
@@ -455,10 +468,11 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
     }, [updateAudioLevel, cleanupRecording])
 
     const stopRecording = useCallback(() => {
-        if (mediaRecorderRef.current && state.isRecording) {
+        if (mediaRecorderRef.current && isRecordingRef.current) {
             console.log("Stopping recording...")
             mediaRecorderRef.current.stop()
 
+            isRecordingRef.current = false
             setState((prev) => ({
                 ...prev,
                 isRecording: false,
@@ -467,7 +481,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 waveformData: []
             }))
         }
-    }, [state.isRecording])
+    }, [])
 
     const transcribeAudio = useCallback(
         async (audioBlob: Blob) => {
@@ -546,7 +560,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
     )
 
     const cancelRecording = useCallback(() => {
-        if (mediaRecorderRef.current && state.isRecording) {
+        if (mediaRecorderRef.current && isRecordingRef.current) {
             console.log("Cancelling recording...")
             mediaRecorderRef.current.ondataavailable = null
             mediaRecorderRef.current.onstop = () => {
@@ -554,6 +568,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
             }
             mediaRecorderRef.current.stop()
 
+            isRecordingRef.current = false
             setState((prev) => ({
                 ...prev,
                 isRecording: false,
@@ -563,14 +578,16 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 waveformData: []
             }))
         }
-    }, [state.isRecording, cleanupRecording])
+    }, [cleanupRecording])
 
     // Clean up on unmount
     useEffect(() => {
         return () => {
             cleanupRecording()
         }
-    }, [cleanupRecording])
+        // cleanupRecording is stable (empty deps), safe to omit
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     return {
         state,

@@ -40,3 +40,5 @@ dist
 .nitro
 
 temp/
+
+.codex
