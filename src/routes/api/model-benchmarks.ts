@@ -74,6 +74,14 @@ const isFiniteNumber = (value: unknown): value is number =>
 const getBenchmarkType = (model: SharedModel): ArtificialAnalysisModelType =>
     model.artificialAnalysis?.type ?? (model.mode === "image" ? "text-to-image" : "llm")
 
+const logBenchmarkDiagnostic = (
+    level: "info" | "warn" | "error",
+    event: string,
+    details: Record<string, unknown>
+) => {
+    console[level]("[model-benchmarks]", JSON.stringify({ event, ...details }))
+}
+
 const getCachedDataset = async (
     type: ArtificialAnalysisModelType,
     options?: {
@@ -401,23 +409,44 @@ export const Route = createFileRoute("/api/model-benchmarks")({
                             datasetResult.error === "stale_fetch_failed"),
                     errorCode: !entry ? datasetResult.error : undefined
                 })
+                const diagnostic = {
+                    modelId,
+                    benchmarkType: type,
+                    available: payload.available,
+                    retryable: payload.retryable ?? false,
+                    errorCode: payload.errorCode ?? null,
+                    fromCache: datasetResult.fromCache,
+                    hasApiKey: datasetResult.hasApiKey,
+                    datasetSize: datasetResult.data?.length ?? 0,
+                    configuredRef: model.artificialAnalysis ?? null,
+                    matchedEntry: entry
+                        ? {
+                              id: entry.id ?? null,
+                              name: entry.name ?? null,
+                              slug: entry.slug ?? null
+                          }
+                        : null
+                }
+
+                if (payload.available) {
+                    logBenchmarkDiagnostic("info", "resolved", diagnostic)
+                } else if (payload.retryable) {
+                    logBenchmarkDiagnostic("warn", "retryable-unavailable", diagnostic)
+                } else {
+                    logBenchmarkDiagnostic("warn", "unavailable", diagnostic)
+                }
+
                 const responseBody = debug
                     ? {
                           ...payload,
                           debug: {
-                              hasApiKey: datasetResult.hasApiKey,
-                              fromCache: datasetResult.fromCache,
+                              hasApiKey: diagnostic.hasApiKey,
+                              fromCache: diagnostic.fromCache,
                               error: datasetResult.error ?? null,
-                              benchmarkType: type,
-                              artificialAnalysisRef: model.artificialAnalysis ?? null,
-                              datasetSize: datasetResult.data?.length ?? 0,
-                              matchedEntry: entry
-                                  ? {
-                                        id: entry.id ?? null,
-                                        name: entry.name ?? null,
-                                        slug: entry.slug ?? null
-                                    }
-                                  : null
+                              benchmarkType: diagnostic.benchmarkType,
+                              artificialAnalysisRef: diagnostic.configuredRef,
+                              datasetSize: diagnostic.datasetSize,
+                              matchedEntry: diagnostic.matchedEntry
                           }
                       }
                     : payload
@@ -429,7 +458,12 @@ export const Route = createFileRoute("/api/model-benchmarks")({
 
                 return Response.json(responseBody, {
                     headers: {
-                        "Cache-Control": cacheControl
+                        "Cache-Control": cacheControl,
+                        "X-Benchmark-Available": payload.available ? "1" : "0",
+                        "X-Benchmark-Retryable": payload.retryable ? "1" : "0",
+                        "X-Benchmark-Error": payload.errorCode ?? "none",
+                        "X-Benchmark-Cache": datasetResult.fromCache ? "hit" : "miss",
+                        "X-Benchmark-Matched-Slug": entry?.slug ?? "none"
                     }
                 })
             }
