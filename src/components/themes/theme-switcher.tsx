@@ -1,3 +1,4 @@
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useThemeManagement } from "@/hooks/use-theme-management"
 import { DEFAULT_THEME_PRESET } from "@/lib/theme-store"
 import { type FetchedTheme, extractThemeColors } from "@/lib/theme-utils"
@@ -93,6 +94,7 @@ function ThemeButton({ theme, isSelected, onSelect, currentMode }: ThemeButtonPr
 }
 
 export function ThemeSwitcher() {
+    const isMobile = useIsMobile()
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
 
     const {
@@ -143,7 +145,7 @@ export function ThemeSwitcher() {
 
                     <ResponsivePopoverContent
                         align="end"
-                        className="w-full p-0 md:w-80"
+                        className="flex h-[85dvh] min-h-0 w-full flex-col overflow-hidden p-0 md:h-auto md:w-80"
                         title="Theme Selector"
                         description="Choose a theme for your interface"
                     >
@@ -151,7 +153,9 @@ export function ThemeSwitcher() {
                         <Separator className="hidden md:block" />
 
                         {/* Search Input */}
-                        <div className="hidden p-2 md:block">
+                        <div
+                            className={cn("px-4 pt-3 pb-3 md:p-2", !isMobile && "hidden md:block")}
+                        >
                             <div className="relative">
                                 <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
                                 <Input
@@ -165,7 +169,7 @@ export function ThemeSwitcher() {
                         <Separator />
 
                         {/* Theme Count and Controls */}
-                        <div className="flex items-center justify-between px-3 py-2">
+                        <div className="flex items-center justify-between px-4 py-2 md:px-3">
                             <div className="text-muted-foreground text-sm">
                                 {isLoadingThemes
                                     ? "Loading..."
@@ -203,7 +207,7 @@ export function ThemeSwitcher() {
                         <Separator />
 
                         {/* Themes List */}
-                        <ScrollArea className="h-80">
+                        <ScrollArea className={cn("min-h-0 flex-1", !isMobile && "h-80")}>
                             <div className="p-3">
                                 {isLoadingThemes ? (
                                     <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">

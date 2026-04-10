@@ -12,6 +12,13 @@ import {
 } from "@/components/brand-icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerTitle
+} from "@/components/ui/drawer"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import {
@@ -56,8 +63,7 @@ import {
     KeyRound,
     Search,
     Terminal,
-    Trophy,
-    X
+    Trophy
 } from "lucide-react"
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
@@ -524,14 +530,13 @@ const BenchmarkSection = ({
 const ModelDetailPanel = ({
     model,
     currentProviders,
-    benchmarkState,
-    onRequestClose
+    benchmarkState
 }: {
     model: DisplayModel
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     benchmarkState?: BenchmarkState
-    onRequestClose?: () => void
 }) => {
+    const isMobile = useIsMobile()
     const isCustom = "isCustom" in model && model.isCustom
     const modelAbilities = getModelAbilities(model)
     const sharedModel = !isCustom ? (model as SharedModel) : null
@@ -539,45 +544,42 @@ const ModelDetailPanel = ({
     const developerLabel =
         sharedModel?.developer?.trim() ||
         (isCustom ? getProviderDisplayName(model.providerId, currentProviders) : providerLabel)
-    const closePanel = (
-        event: React.PointerEvent<HTMLButtonElement> | React.MouseEvent<HTMLButtonElement>
-    ) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onRequestClose?.()
-    }
 
     return (
-        <div className="flex h-full min-h-0 flex-col bg-background/30 p-4 md:p-5">
-            <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
-                        {getProviderIcon(model, isCustom)}
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <h3 className="truncate font-semibold text-lg">{model.name}</h3>
+        <div className="flex h-full min-h-0 flex-col bg-background">
+            {isMobile ? (
+                <DrawerHeader className="shrink-0 pb-0">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
+                            {getProviderIcon(model, isCustom)}
                         </div>
-                        <p className="mt-1 text-muted-foreground text-sm">
-                            {getModelShortDescription(model)}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                            <DrawerTitle className="truncate text-lg">{model.name}</DrawerTitle>
+                        </div>
+                    </div>
+                </DrawerHeader>
+            ) : (
+                <div className="p-4 pb-0 md:p-5 md:pb-0">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
+                                {getProviderIcon(model, isCustom)}
+                            </div>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="truncate font-semibold text-lg">{model.name}</h3>
+                                </div>
+                                <p className="mt-1 text-muted-foreground text-sm">
+                                    {getModelShortDescription(model)}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {onRequestClose && (
-                    <button
-                        type="button"
-                        aria-label={`Close details for ${model.name}`}
-                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-muted-foreground transition-colors hover:text-foreground"
-                        onPointerDown={closePanel}
-                        onClick={closePanel}
-                    >
-                        <X className="size-4" />
-                    </button>
-                )}
-            </div>
+            )}
 
-            <ScrollArea className="min-h-0 flex-1 pr-1">
-                <div className="space-y-6 pb-2">
+            <ScrollArea className={cn("min-h-0 flex-1", isMobile ? "px-4 pt-3 pb-4" : "pr-1")}>
+                <div className={cn("space-y-6", isMobile ? "pb-4" : "pb-2")}>
                     <section>
                         <h4 className="font-semibold text-base">Description</h4>
                         <p className="mt-2 text-muted-foreground text-sm leading-7">
@@ -740,18 +742,18 @@ const ModelInfoFlyout = ({
 
     if (isMobile) {
         return (
-            <ResponsivePopover open={open} onOpenChange={setOpen}>
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="w-full max-w-full overflow-hidden p-0"
+                    className="z-[91] h-[75dvh] min-h-0 w-full max-w-full overflow-hidden bg-background p-0"
+                    overlayClassName="z-[90]"
                     showCloseButton={false}
                 >
-                    <div className="flex h-[min(75vh,42rem)] min-h-0 flex-col overflow-hidden">
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden">
                         <ModelDetailPanel
                             model={model}
                             currentProviders={currentProviders}
                             benchmarkState={benchmarkState}
-                            onRequestClose={() => setOpen(false)}
                         />
                     </div>
                 </ResponsivePopoverContent>
@@ -901,7 +903,8 @@ export function ModelSelector({
     side = "bottom",
     align = "start",
     shortcutTarget = "none",
-    tone = "default"
+    tone = "default",
+    modal = true
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -913,6 +916,7 @@ export function ModelSelector({
     align?: "start" | "center" | "end"
     shortcutTarget?: "composer" | "none"
     tone?: "default" | "on-primary"
+    modal?: boolean
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -1177,54 +1181,272 @@ export function ModelSelector({
         [currentProviders, selectedModelData, sharedModels]
     )
 
-    return (
-        <ResponsivePopover open={open} onOpenChange={setOpen}>
-            <ResponsivePopoverTrigger asChild>
-                <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
-                    <Button
-                        variant="ghost"
-                        aria-expanded={open}
-                        className={cn(
-                            "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
-                            className,
-                            "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
+    const modelList = visibleSection ? (
+        <div className="space-y-2 pb-3">
+            {visibleSection.models.map((model) => (
+                <ModelCard
+                    key={model.id}
+                    model={model}
+                    selectedModel={selectedModel}
+                    onModelChange={onModelChange}
+                    onClose={() => setOpen(false)}
+                    currentProviders={currentProviders}
+                    disabled={isModelLocked(model)}
+                    badgeLabel={
+                        getPrototypeCreditTierForModel(model, reasoningEffort) === "pro"
+                            ? "Pro"
+                            : undefined
+                    }
+                />
+            ))}
+        </div>
+    ) : (
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm">
+            No models match your search.
+        </div>
+    )
+
+    const trigger = (
+        <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
+            <Button
+                type="button"
+                variant="ghost"
+                aria-expanded={open}
+                onClick={() => {
+                    if (isMobile) {
+                        setOpen(true)
+                    }
+                }}
+                className={cn(
+                    "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
+                    className,
+                    "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
+                )}
+            >
+                {selectedModelData && (
+                    <div className="flex items-center gap-2">
+                        <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
+                        <span className="hidden md:hidden min-[390px]:block">
+                            {preferShortName
+                                ? (selectedModelData as SharedModel)?.shortName ||
+                                  selectedModelData.name
+                                : selectedModelData.name}
+                        </span>
+                        <span className="hidden md:block">{selectedModelData.name}</span>
+                        {activeRuntimeProvider?.isByok && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className={cn(
+                                            "inline-flex text-muted-foreground",
+                                            tone === "on-primary" && "text-primary-foreground"
+                                        )}
+                                    >
+                                        <KeyRound className="size-3.5" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    Using your {activeRuntimeProvider.label} key
+                                </TooltipContent>
+                            </Tooltip>
                         )}
-                    >
-                        {selectedModelData && (
-                            <div className="flex items-center gap-2">
-                                <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
-                                <span className="hidden md:hidden min-[390px]:block">
-                                    {preferShortName
-                                        ? (selectedModelData as SharedModel)?.shortName ||
-                                          selectedModelData.name
-                                        : selectedModelData.name}
-                                </span>
-                                <span className="hidden md:block">{selectedModelData.name}</span>
-                                {activeRuntimeProvider?.isByok && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span
+                    </div>
+                )}
+                <ChevronDown className="ml-auto h-4 w-4" />
+            </Button>
+        </span>
+    )
+
+    const selectorContent = (
+        <>
+            {isMobile ? (
+                <>
+                    <DrawerHeader className="shrink-0 pb-0">
+                        <DrawerTitle>Select Model</DrawerTitle>
+                        <DrawerDescription>Choose a model for your conversation</DrawerDescription>
+                    </DrawerHeader>
+                    <div className="shrink-0 px-4 pt-3 pb-3">
+                        <div className="relative">
+                            <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+                            <Input
+                                value={searchValue}
+                                onChange={(event) => setSearchValue(event.target.value)}
+                                placeholder="Search models..."
+                                className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                            />
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="shrink-0 rounded-t-lg bg-muted/50 p-3 pb-2 md:rounded-none">
+                    <div className="mb-3 px-1">
+                        <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
+                        <p className="text-muted-foreground text-sm sm:hidden">
+                            Choose a model for your conversation
+                        </p>
+                    </div>
+                    <div className="relative">
+                        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+                        <Input
+                            value={searchValue}
+                            onChange={(event) => setSearchValue(event.target.value)}
+                            placeholder="Search models..."
+                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:max-h-[400px] md:grid-cols-[80px_minmax(0,1fr)] md:grid-rows-1">
+                <div
+                    className={cn(
+                        "flex min-h-0 min-w-0 flex-col",
+                        isMobile ? "bg-background" : "bg-muted/50 md:border-r"
+                    )}
+                >
+                    <div className="relative border-border border-b md:hidden">
+                        <div className="scrollbar-none -mb-[1px] flex w-full gap-1 overflow-x-auto overscroll-x-contain px-2 pt-2 pb-[1px]">
+                            {filteredSections.map((section) => {
+                                const isActive = section.id === visibleSection?.id
+                                return (
+                                    <button
+                                        key={section.id}
+                                        type="button"
+                                        onClick={() => setActiveProvider(section.id)}
+                                        className={cn(
+                                            "relative flex min-w-fit items-center gap-2 rounded-t-xl border-x border-t px-3 py-2 text-left transition-colors",
+                                            isActive
+                                                ? cn(
+                                                      "-mb-[1px] z-10 border-border text-foreground",
+                                                      isMobile ? "bg-secondary/70" : "bg-popover"
+                                                  )
+                                                : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
+                                        )}
+                                        aria-label={section.label}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "flex size-7 items-center justify-center rounded-md",
+                                                isActive ? "bg-secondary/70" : "bg-transparent"
+                                            )}
+                                        >
+                                            {section.icon}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div
                                                 className={cn(
-                                                    "inline-flex text-muted-foreground",
-                                                    tone === "on-primary" &&
-                                                        "text-primary-foreground"
+                                                    "truncate font-medium text-sm",
+                                                    isActive ? "" : "opacity-80"
                                                 )}
                                             >
-                                                <KeyRound className="size-3.5" />
-                                            </span>
+                                                {section.compactLabel}
+                                            </div>
+                                            <div className="truncate text-xs opacity-70">
+                                                {section.models.length} model
+                                                {section.models.length === 1 ? "" : "s"}
+                                            </div>
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                    <ScrollArea className="-mr-[1px] hidden flex-1 md:block">
+                        <div className="flex flex-col gap-1 py-2 pr-[1px] pl-2">
+                            {filteredSections.map((section) => {
+                                const isActive = section.id === visibleSection?.id
+                                return (
+                                    <Tooltip key={section.id}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveProvider(section.id)}
+                                                className={cn(
+                                                    "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
+                                                    isActive
+                                                        ? "-mr-[1px] z-10 border-border bg-popover text-foreground"
+                                                        : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
+                                                )}
+                                                aria-label={section.label}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "flex size-7 items-center justify-center rounded-md",
+                                                        isActive
+                                                            ? "bg-secondary/70"
+                                                            : "bg-transparent"
+                                                    )}
+                                                >
+                                                    {section.icon}
+                                                </div>
+                                            </button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                            Using your {activeRuntimeProvider.label} key
+                                        <TooltipContent side="right">
+                                            {section.label}
                                         </TooltipContent>
                                     </Tooltip>
-                                )}
-                            </div>
-                        )}
-                        <ChevronDown className="ml-auto h-4 w-4" />
-                    </Button>
-                </span>
-            </ResponsivePopoverTrigger>
+                                )
+                            })}
+                        </div>
+                    </ScrollArea>
+                </div>
 
+                <div
+                    className={cn(
+                        "flex min-h-0 flex-col p-3",
+                        isMobile ? "bg-background" : "bg-popover"
+                    )}
+                >
+                    {visibleSection && (
+                        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                            <div>
+                                <h3 className="hidden font-medium text-sm md:block md:text-base">
+                                    {visibleSection.label}
+                                </h3>
+                                <p className="hidden text-muted-foreground text-xs md:block md:text-sm">
+                                    {visibleSection.models.length} available
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {isMobile ? (
+                        <div
+                            className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"
+                            onTouchMoveCapture={(event) => event.stopPropagation()}
+                        >
+                            {modelList}
+                        </div>
+                    ) : (
+                        <ScrollArea className="min-h-0 flex-1 pr-1">{modelList}</ScrollArea>
+                    )}
+                </div>
+            </div>
+        </>
+    )
+
+    if (isMobile) {
+        return (
+            <>
+                {trigger}
+                <Drawer open={open} onOpenChange={setOpen} nested modal={modal}>
+                    <DrawerContent
+                        className={cn(
+                            "z-[81] flex h-[85dvh] max-h-[85dvh] flex-col gap-0 overflow-hidden bg-background p-0",
+                            contentClassName
+                        )}
+                        overlayClassName="z-[80]"
+                    >
+                        {selectorContent}
+                    </DrawerContent>
+                </Drawer>
+            </>
+        )
+    }
+
+    return (
+        <ResponsivePopover open={open} onOpenChange={setOpen} modal={modal}>
+            <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
             <ResponsivePopoverContent
                 className={cn(
                     "flex w-[min(92vw,680px)] flex-col overflow-hidden p-0 md:w-[680px]",
@@ -1243,155 +1465,7 @@ export function ModelSelector({
                     maxHeight: "var(--radix-popover-content-available-height)"
                 }}
             >
-                <div className="shrink-0 rounded-t-lg bg-muted/50 p-3 pb-2 md:rounded-none">
-                    <div className="mb-3 px-1">
-                        <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
-                        <p className="text-muted-foreground text-sm sm:hidden">
-                            Choose a model for your conversation
-                        </p>
-                    </div>
-                    <div className="relative">
-                        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
-                        <Input
-                            value={searchValue}
-                            onChange={(event) => setSearchValue(event.target.value)}
-                            placeholder="Search models..."
-                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
-                        />
-                    </div>
-                </div>
-
-                <div className="grid max-h-[50vh] min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:max-h-[400px] md:grid-cols-[80px_minmax(0,1fr)] md:grid-rows-1">
-                    <div className="flex min-h-0 min-w-0 flex-col bg-muted/50 md:border-r">
-                        <div className="relative border-border border-b md:hidden">
-                            <div className="scrollbar-none -mb-[1px] flex w-full gap-1 overflow-x-auto px-2 pt-2 pb-[1px]">
-                                {filteredSections.map((section) => {
-                                    const isActive = section.id === visibleSection?.id
-                                    return (
-                                        <button
-                                            key={section.id}
-                                            type="button"
-                                            onClick={() => setActiveProvider(section.id)}
-                                            className={cn(
-                                                "relative flex min-w-fit items-center gap-2 rounded-t-xl border-x border-t px-3 py-2 text-left transition-colors",
-                                                isActive
-                                                    ? "-mb-[1px] z-10 border-border bg-popover text-foreground"
-                                                    : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
-                                            )}
-                                            aria-label={section.label}
-                                        >
-                                            <div
-                                                className={cn(
-                                                    "flex size-7 items-center justify-center rounded-md",
-                                                    isActive ? "bg-secondary/70" : "bg-transparent"
-                                                )}
-                                            >
-                                                {section.icon}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div
-                                                    className={cn(
-                                                        "truncate font-medium text-sm",
-                                                        isActive ? "" : "opacity-80"
-                                                    )}
-                                                >
-                                                    {section.compactLabel}
-                                                </div>
-                                                <div className="truncate text-xs opacity-70">
-                                                    {section.models.length} model
-                                                    {section.models.length === 1 ? "" : "s"}
-                                                </div>
-                                            </div>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                        <ScrollArea className="-mr-[1px] hidden flex-1 md:block">
-                            <div className="flex flex-col gap-1 py-2 pr-[1px] pl-2">
-                                {filteredSections.map((section) => {
-                                    const isActive = section.id === visibleSection?.id
-                                    return (
-                                        <Tooltip key={section.id}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveProvider(section.id)}
-                                                    className={cn(
-                                                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
-                                                        isActive
-                                                            ? "-mr-[1px] z-10 border-border bg-popover text-foreground"
-                                                            : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
-                                                    )}
-                                                    aria-label={section.label}
-                                                >
-                                                    <div
-                                                        className={cn(
-                                                            "flex size-7 items-center justify-center rounded-md",
-                                                            isActive
-                                                                ? "bg-secondary/70"
-                                                                : "bg-transparent"
-                                                        )}
-                                                    >
-                                                        {section.icon}
-                                                    </div>
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="right">
-                                                {section.label}
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )
-                                })}
-                            </div>
-                        </ScrollArea>
-                    </div>
-
-                    <div className="flex min-h-0 flex-col bg-popover p-3">
-                        {visibleSection ? (
-                            <>
-                                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-                                    <div>
-                                        <h3 className="hidden font-medium text-sm md:block md:text-base">
-                                            {visibleSection.label}
-                                        </h3>
-                                        <p className="hidden text-muted-foreground text-xs md:block md:text-sm">
-                                            {visibleSection.models.length} available
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <ScrollArea className="max-h-[40vh] min-h-0 flex-1 pr-1 md:max-h-full">
-                                    <div className="space-y-2 pb-3">
-                                        {visibleSection.models.map((model) => (
-                                            <ModelCard
-                                                key={model.id}
-                                                model={model}
-                                                selectedModel={selectedModel}
-                                                onModelChange={onModelChange}
-                                                onClose={() => setOpen(false)}
-                                                currentProviders={currentProviders}
-                                                disabled={isModelLocked(model)}
-                                                badgeLabel={
-                                                    getPrototypeCreditTierForModel(
-                                                        model,
-                                                        reasoningEffort
-                                                    ) === "pro"
-                                                        ? "Pro"
-                                                        : undefined
-                                                }
-                                            />
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-                            </>
-                        ) : (
-                            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm">
-                                No models match your search.
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {selectorContent}
             </ResponsivePopoverContent>
         </ResponsivePopover>
     )

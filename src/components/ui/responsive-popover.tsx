@@ -1,18 +1,14 @@
 import * as React from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { 
-    Popover, 
-    PopoverContent, 
-    PopoverTrigger
-} from "@/components/ui/popover"
-import { 
-    Sheet, 
-    SheetContent, 
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger
+} from "@/components/ui/drawer"
 import { cn } from "@/lib/utils"
 
 interface ResponsivePopoverProps {
@@ -20,6 +16,7 @@ interface ResponsivePopoverProps {
     onOpenChange?: (open: boolean) => void
     children: React.ReactNode
     modal?: boolean
+    nested?: boolean
 }
 
 interface ResponsivePopoverTriggerProps {
@@ -34,6 +31,7 @@ interface ResponsivePopoverContentProps extends Omit<React.ComponentPropsWithout
     description?: string
     side?: "top" | "right" | "bottom" | "left"
     showCloseButton?: boolean
+    overlayClassName?: string
 }
 
 const ResponsivePopoverContext = React.createContext<{
@@ -46,7 +44,8 @@ export function ResponsivePopover({
     open, 
     onOpenChange, 
     children,
-    modal = true 
+    modal = true,
+    nested = false
 }: ResponsivePopoverProps) {
     const isMobile = useIsMobile()
 
@@ -58,9 +57,9 @@ export function ResponsivePopover({
     if (isMobile) {
         return (
             <ResponsivePopoverContext.Provider value={contextValue}>
-                <Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
+                <Drawer open={open} onOpenChange={onOpenChange} modal={modal} nested={nested}>
                     {children}
-                </Sheet>
+                </Drawer>
             </ResponsivePopoverContext.Provider>
         )
     }
@@ -81,7 +80,7 @@ export function ResponsivePopoverTrigger({
     const { isMobile } = React.useContext(ResponsivePopoverContext)
 
     if (isMobile) {
-        return <SheetTrigger asChild={asChild}>{children}</SheetTrigger>
+        return <DrawerTrigger asChild={asChild}>{children}</DrawerTrigger>
     }
 
     return <PopoverTrigger asChild={asChild}>{children}</PopoverTrigger>
@@ -93,7 +92,8 @@ export function ResponsivePopoverContent({
     title,
     description,
     side = "bottom",
-    showCloseButton = true,
+    showCloseButton: _showCloseButton = false,
+    overlayClassName,
     align,
     alignOffset,
     sideOffset,
@@ -103,24 +103,28 @@ export function ResponsivePopoverContent({
 
     if (isMobile) {
         return (
-            <SheetContent 
-                side="bottom" 
-                showCloseButton={showCloseButton}
+            <DrawerContent
+                overlayClassName={overlayClassName}
                 className={cn(
-                    className,
-                    "max-h-[85dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-popover"
+                    "max-h-[85dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-popover",
+                    className
                 )}
             >
                 {(title || description) && (
-                    <SheetHeader className="pb-0">
-                        {title && <SheetTitle>{title}</SheetTitle>}
-                        {description && <SheetDescription>{description}</SheetDescription>}
-                    </SheetHeader>
+                    <DrawerHeader className="pb-0 text-left">
+                        {title && <DrawerTitle>{title}</DrawerTitle>}
+                        {description && <DrawerDescription>{description}</DrawerDescription>}
+                    </DrawerHeader>
                 )}
-                <div className={cn(!title && !description && !className?.includes("p-0") && "mt-4")}>
+                <div
+                    className={cn(
+                        "flex min-h-0 flex-1 flex-col",
+                        !title && !description && !className?.includes("p-0") && "mt-4"
+                    )}
+                >
                     {children}
                 </div>
-            </SheetContent>
+            </DrawerContent>
         )
     }
 

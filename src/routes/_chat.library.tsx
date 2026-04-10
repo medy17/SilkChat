@@ -93,8 +93,7 @@ import {
     Filter,
     Image as ImageIcon,
     ImageOff,
-    Trash2,
-    X
+    Trash2
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -1587,21 +1586,10 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                 overlayClassName="z-[60]"
                             >
                                 <DrawerHeader className="shrink-0 text-left">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="space-y-1">
-                                            <DrawerTitle>Filters</DrawerTitle>
-                                            <DrawerDescription>
-                                                Narrow the library and choose how results are
-                                                sorted.
-                                            </DrawerDescription>
-                                        </div>
-                                        <DrawerClose asChild>
-                                            <Button type="button" variant="ghost" size="icon">
-                                                <span className="sr-only">Close filters</span>
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </DrawerClose>
-                                    </div>
+                                    <DrawerTitle>Filters</DrawerTitle>
+                                    <DrawerDescription>
+                                        Narrow the library and choose how results are sorted.
+                                    </DrawerDescription>
                                 </DrawerHeader>
 
                                 <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">

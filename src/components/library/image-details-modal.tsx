@@ -420,7 +420,7 @@ export function ImageDetailsModal({
             <>
                 <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
                     <DrawerContent className="flex h-[92vh] max-h-[92vh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
-                        <DrawerHeader className="sr-only">
+                        <DrawerHeader className="shrink-0 pb-0 text-left">
                             <DrawerTitle>Image Details</DrawerTitle>
                             <DrawerDescription>
                                 Viewing details of a generated image.
@@ -428,16 +428,7 @@ export function ImageDetailsModal({
                         </DrawerHeader>
 
                         {/* Top: Image Area */}
-                        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/20 p-4 pt-8">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-3 right-3 z-50 h-8 w-8 rounded-full bg-background/50 backdrop-blur-md"
-                                onClick={onClose}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
+                        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background p-4">
                             {loadState !== "ready" && (
                                 <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
                             )}
@@ -486,7 +477,7 @@ export function ImageDetailsModal({
                         </div>
 
                         {/* Bottom: Details Area */}
-                        <div className="flex max-h-[50vh] shrink-0 flex-col border-border/60 border-t bg-background/95 backdrop-blur-md">
+                        <div className="flex max-h-[50vh] shrink-0 flex-col border-border/60 border-t bg-background">
                             <div className="flex-1 space-y-6 overflow-y-auto p-5">
                                 <div>
                                     <h3 className="mb-2 font-semibold text-xl">Prompt</h3>

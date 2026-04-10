@@ -537,9 +537,6 @@ function PersonaEditorForm({
                     maxLength={10}
                     placeholder="Pep"
                 />
-                <p className="text-muted-foreground text-xs">
-                    Used in tighter mobile UI where the full persona name does not fit.
-                </p>
             </div>
 
             <div className="space-y-3">
@@ -601,9 +598,6 @@ function PersonaEditorForm({
                         Add a text chat model in Settings before assigning a persona default.
                     </div>
                 )}
-                <p className="text-muted-foreground text-xs">
-                    This only preselects the composer model for new chats using this persona.
-                </p>
             </div>
 
             <div className="space-y-4">
@@ -616,7 +610,7 @@ function PersonaEditorForm({
                 </div>
                 <div className="space-y-3">
                     {form.conversationStarters.map((starter, index) => (
-                        <div key={`${index}-${starter}`} className="flex gap-2">
+                        <div key={index} className="flex gap-2">
                             <Input
                                 value={starter}
                                 maxLength={160}
@@ -672,7 +666,7 @@ function PersonaEditorForm({
                 <div className="space-y-1">
                     <Label>Knowledge Base Documents</Label>
                     <p className="text-muted-foreground text-xs">
-                        Markdown only. Up to {MAX_PERSONA_KNOWLEDGE_DOCS} documents.
+                        Up to {MAX_PERSONA_KNOWLEDGE_DOCS} documents.
                     </p>
                 </div>
                 <input
@@ -728,6 +722,7 @@ function PersonaEditorForm({
                         onClick={() => docsInputRef.current?.click()}
                         disabled={!canAddDocs}
                     >
+                        <Plus className="h-3.5 w-3.5" />
                         Add knowledge document
                     </Button>
                 </div>
@@ -735,8 +730,7 @@ function PersonaEditorForm({
 
             {!canSave && (
                 <div className="rounded-lg border border-dashed px-3 py-2 text-muted-foreground text-sm">
-                    Name, description, instructions, and a compatible default text model are
-                    required before saving. Short name is also required.
+                    You must add a Name, Short name, Instructions, and a Default Model to save.
                 </div>
             )}
         </div>
@@ -950,6 +944,17 @@ function PersonasSettings() {
     }, [form.defaultModelId, personaModels])
 
     const personaPromptUsage = useMemo(() => estimatePromptUsage(form), [form])
+    const [debouncedPersonaPromptUsage, setDebouncedPersonaPromptUsage] =
+        useState(personaPromptUsage)
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedPersonaPromptUsage(personaPromptUsage)
+        }, 150)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [personaPromptUsage])
+
     const normalizedStarterCount = useMemo(
         () => normalizeStarterList(form.conversationStarters).length,
         [form.conversationStarters]
@@ -1297,7 +1302,7 @@ function PersonasSettings() {
                 onOpenChange={handleEditorOpenChange}
                 form={form}
                 setForm={setForm}
-                personaPromptUsage={personaPromptUsage}
+                personaPromptUsage={debouncedPersonaPromptUsage}
                 canSave={canSave}
                 hasPersonaModels={personaModels.length > 0}
                 avatarInputRef={avatarInputRef}
