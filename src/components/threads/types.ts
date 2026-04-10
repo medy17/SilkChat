@@ -8,6 +8,12 @@ export interface Thread {
     authorId: string
     pinned?: boolean
     projectId?: Id<"projects">
+    personaSource?: "builtin" | "user"
+    personaSourceId?: string
+    personaName?: string
+    personaAvatarKind?: "builtin" | "r2"
+    personaAvatarValue?: string
+    personaAvatarMimeType?: string
 }
 
 export interface Project {

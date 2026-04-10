@@ -1,0 +1,28 @@
+.persona-avatar-cropper__container {
+    background: radial-gradient(
+            circle at top,
+            color-mix(in oklab, var(--muted) 78%, var(--background)) 0%,
+            transparent 62%
+        ),
+        linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--muted) 82%, var(--background)) 0%,
+            var(--background) 100%
+        );
+}
+
+.persona-avatar-cropper__media {
+    will-change: transform;
+}
+
+.persona-avatar-cropper__area {
+    border: 1px solid color-mix(in oklab, var(--foreground) 18%, var(--background));
+    border-radius: var(--radius-xl);
+    box-shadow: 0 0 0 9999em color-mix(in oklab, var(--foreground) 44%, var(--background));
+    color: color-mix(in oklab, var(--foreground) 44%, var(--background));
+}
+
+.persona-avatar-cropper__area::before,
+.persona-avatar-cropper__area::after {
+    border-color: color-mix(in oklab, var(--foreground) 18%, var(--background));
+}

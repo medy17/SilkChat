@@ -895,6 +895,9 @@ export function ModelSelector({
     selectedModel,
     onModelChange,
     className,
+    triggerWrapperClassName,
+    contentClassName,
+    preferShortName = true,
     side = "bottom",
     align = "start",
     shortcutTarget = "none",
@@ -903,6 +906,9 @@ export function ModelSelector({
     selectedModel: string
     onModelChange: (modelId: string) => void
     className?: string
+    triggerWrapperClassName?: string
+    contentClassName?: string
+    preferShortName?: boolean
     side?: "top" | "right" | "bottom" | "left"
     align?: "start" | "center" | "end"
     shortcutTarget?: "composer" | "none"
@@ -1174,7 +1180,7 @@ export function ModelSelector({
     return (
         <ResponsivePopover open={open} onOpenChange={setOpen}>
             <ResponsivePopoverTrigger asChild>
-                <span ref={triggerRef} className="inline-flex">
+                <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
                     <Button
                         variant="ghost"
                         aria-expanded={open}
@@ -1188,8 +1194,10 @@ export function ModelSelector({
                             <div className="flex items-center gap-2">
                                 <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
                                 <span className="hidden md:hidden min-[390px]:block">
-                                    {(selectedModelData as SharedModel)?.shortName ||
-                                        selectedModelData.name}
+                                    {preferShortName
+                                        ? (selectedModelData as SharedModel)?.shortName ||
+                                          selectedModelData.name
+                                        : selectedModelData.name}
                                 </span>
                                 <span className="hidden md:block">{selectedModelData.name}</span>
                                 {activeRuntimeProvider?.isByok && (
@@ -1218,7 +1226,10 @@ export function ModelSelector({
             </ResponsivePopoverTrigger>
 
             <ResponsivePopoverContent
-                className="flex w-[min(92vw,680px)] flex-col overflow-hidden p-0 md:w-[680px]"
+                className={cn(
+                    "flex w-[min(92vw,680px)] flex-col overflow-hidden p-0 md:w-[680px]",
+                    contentClassName
+                )}
                 align={align}
                 side={side}
                 alignOffset={desktopAlignOffset}

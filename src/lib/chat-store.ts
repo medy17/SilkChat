@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid"
 import { create } from "zustand"
+
 export interface UploadedFile {
     key: string
     fileName: string
@@ -7,6 +8,16 @@ export interface UploadedFile {
     fileSize: number
     uploadedAt: number
 }
+
+export type PersonaSelection =
+    | {
+          source: "default"
+          id?: undefined
+      }
+    | {
+          source: "builtin" | "user"
+          id: string
+      }
 
 interface ChatState {
     threadId: string | undefined
@@ -20,6 +31,7 @@ interface ChatState {
     targetFromMessageId: string | undefined
     targetMode: "normal" | "edit" | "retry"
     uploading: boolean
+    selectedPersona: PersonaSelection
 }
 
 interface ChatActions {
@@ -38,6 +50,7 @@ interface ChatActions {
     setTargetMode: (mode: "normal" | "edit" | "retry") => void
     setUploading: (uploading: boolean) => void
     setRerenderTrigger: (rerenderTrigger: string) => void
+    setSelectedPersona: (persona: PersonaSelection) => void
 }
 
 const initialState: ChatState = {
@@ -51,7 +64,8 @@ const initialState: ChatState = {
     pendingStreams: {},
     targetFromMessageId: undefined,
     targetMode: "normal",
-    uploading: false
+    uploading: false,
+    selectedPersona: { source: "default" }
 }
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
@@ -72,6 +86,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     setSkipNextDataCheck: (skipNextDataCheck) => set({ skipNextDataCheck }),
     setUploading: (uploading) => set({ uploading }),
     setRerenderTrigger: (rerenderTrigger) => set({ rerenderTrigger }),
+    setSelectedPersona: (selectedPersona) => set({ selectedPersona }),
     resetChat: () => {
         set({
             ...initialState,

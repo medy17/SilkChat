@@ -4,6 +4,7 @@ import { getFile, uploadFile } from "./attachments"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { uploadImportSource } from "./import_jobs_http"
+import { uploadPersonaAvatar, uploadPersonaDoc } from "./persona_uploads"
 import { getPrivateBlur } from "./private_blur"
 import { transcribeAudio } from "./speech_to_text"
 
@@ -42,6 +43,18 @@ cors.route({
     path: "/upload",
     method: "POST",
     handler: uploadFile
+})
+
+cors.route({
+    path: "/upload/persona-avatar",
+    method: "POST",
+    handler: uploadPersonaAvatar
+})
+
+cors.route({
+    path: "/upload/persona-doc",
+    method: "POST",
+    handler: uploadPersonaDoc
 })
 
 cors.route({

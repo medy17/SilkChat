@@ -1,4 +1,5 @@
 import { ModelSelector } from "@/components/model-selector"
+import { PersonaSelector } from "@/components/persona-selector"
 import {
     PromptInput,
     PromptInputAction,
@@ -44,7 +45,6 @@ import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import type { useChat } from "@ai-sdk/react"
-import { useLocation } from "@tanstack/react-router"
 import { useConvexAuth } from "convex/react"
 import {
     ArrowUp,
@@ -259,6 +259,7 @@ export const ReasoningEffortSelector = ({
 
 export interface MultimodalInputRef {
     handleFileUpload: (files: File[]) => Promise<void>
+    setValue: (value: string) => void
 }
 
 export const MultimodalInput = forwardRef<
@@ -266,17 +267,13 @@ export const MultimodalInput = forwardRef<
     {
         onSubmit: (input?: string, files?: UploadedFile[]) => void
         status: ReturnType<typeof useChat>["status"]
+        threadId?: string
     }
->(function MultimodalInput({ onSubmit, status }, ref) {
+>(function MultimodalInput({ onSubmit, status, threadId }, ref) {
     const { token } = useToken()
-    const location = useLocation()
     const session = useSession()
     const auth = useConvexAuth()
     const { models: sharedModels } = useSharedModels()
-    // Extract threadId from URL
-    const threadId = location.pathname.includes("/thread/")
-        ? location.pathname.split("/thread/")[1]?.split("/")[0]
-        : undefined
 
     const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
     const { uploadedFiles, addUploadedFile, removeUploadedFile, uploading, setUploading } =
@@ -631,7 +628,12 @@ export const MultimodalInput = forwardRef<
     useImperativeHandle(
         ref,
         () => ({
-            handleFileUpload
+            handleFileUpload,
+            setValue: (value: string) => {
+                promptInputRef.current?.setValue(value)
+                localStorage.setItem("user-input", value)
+                setInputValue(value)
+            }
         }),
         [handleFileUpload]
     )
@@ -855,8 +857,8 @@ export const MultimodalInput = forwardRef<
                         }
                     />
 
-                    <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
-                        <div className="flex items-center gap-2">
+                    <PromptInputActions className="flex items-center gap-2 pt-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-2">
                             {selectedModel && (
                                 <ModelSelector
                                     selectedModel={selectedModel}
@@ -864,6 +866,7 @@ export const MultimodalInput = forwardRef<
                                     shortcutTarget="composer"
                                 />
                             )}
+                            <PersonaSelector threadId={threadId} />
 
                             {/* Desktop: Show everything inline */}
                             <div className="hidden items-center gap-2 sm:flex">

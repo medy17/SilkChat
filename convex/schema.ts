@@ -4,6 +4,7 @@ import { Project } from "./schema/folders"
 import { GeneratedImage } from "./schema/generated_image"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
+import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
 import { SharedThread, Thread } from "./schema/thread"
@@ -18,6 +19,8 @@ export {
     PrototypeCreditEvent,
     UserSettings,
     Project,
+    UserPersona,
+    ThreadPersonaSnapshot,
     ImportJob,
     ImportJobSource,
     ImportJobThread,
@@ -39,6 +42,10 @@ export default defineSchema({
     messages: defineTable(Message)
         .index("byThreadId", ["threadId"])
         .index("byMessageId", ["messageId"]),
+    userPersonas: defineTable(UserPersona)
+        .index("byAuthor", ["authorId"])
+        .index("byAuthorUpdatedAt", ["authorId", "updatedAt"]),
+    threadPersonaSnapshots: defineTable(ThreadPersonaSnapshot).index("byThreadId", ["threadId"]),
 
     sharedThreads: defineTable(SharedThread).index("byAuthorId", ["authorId"]),
     streams: defineTable(ResumableStream).index("byThreadId", ["threadId"]),

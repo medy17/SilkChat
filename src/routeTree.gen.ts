@@ -16,6 +16,7 @@ import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
 import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
@@ -89,6 +90,11 @@ const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsPersonasRoute = SettingsPersonasRouteImport.update({
+  id: '/personas',
+  path: '/personas',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
 const SettingsModelsRoute = SettingsModelsRouteImport.update({
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -209,6 +216,7 @@ export interface FileRoutesByTo {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/customization'
     | '/settings/models'
+    | '/settings/personas'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/customization'
     | '/settings/models'
+    | '/settings/personas'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -314,6 +325,7 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/customization'
     | '/settings/models'
+    | '/settings/personas'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -404,6 +416,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/personas': {
+      id: '/settings/personas'
+      path: '/personas'
+      fullPath: '/settings/personas'
+      preLoaderRoute: typeof SettingsPersonasRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
     '/settings/models': {
@@ -553,6 +572,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
   SettingsCustomizationRoute: typeof SettingsCustomizationRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
+  SettingsPersonasRoute: typeof SettingsPersonasRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
@@ -564,6 +584,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
   SettingsCustomizationRoute: SettingsCustomizationRoute,
   SettingsModelsRoute: SettingsModelsRoute,
+  SettingsPersonasRoute: SettingsPersonasRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,
   SettingsUsageRoute: SettingsUsageRoute,

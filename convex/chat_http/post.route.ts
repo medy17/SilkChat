@@ -20,6 +20,7 @@ import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { httpAction } from "../_generated/server"
+import { r2 } from "../attachments"
 import { resolvePrototypeCreditCharge } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getGoogleAuthMode } from "../lib/google_provider"
@@ -31,8 +32,10 @@ import {
     MODELS_SHARED,
     type ModelReasoningProfiles
 } from "../lib/models"
+import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
 import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import { type AbilityId, getToolkit } from "../lib/toolkit"
+import { getBuiltInPersonaDefinition } from "../personas"
 import type { HTTPAIMessage } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
@@ -388,6 +391,90 @@ const createSafeResumableSseStream = ({
     })
 }
 
+type PersonaSelection = {
+    source: "default" | "builtin" | "user"
+    id?: string
+}
+
+const fetchPersonaDocumentText = async (key: string) => {
+    const fileUrl = await r2.getUrl(key)
+    const response = await fetch(fileUrl)
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch persona knowledge document: ${key}`)
+    }
+
+    return await response.text()
+}
+
+const resolvePersonaSnapshotForRequest = async (
+    ctx: any,
+    userId: string,
+    selection?: PersonaSelection
+): Promise<CompiledPersonaSnapshot | null | ChatError> => {
+    if (!selection || selection.source === "default") {
+        return null
+    }
+
+    if (selection.source === "builtin") {
+        const persona = getBuiltInPersonaDefinition(selection.id ?? "")
+        if (!persona) {
+            return new ChatError("bad_request:chat", "Persona not found.")
+        }
+
+        return compilePersonaSnapshot({
+            source: "builtin",
+            sourceId: persona.id,
+            name: persona.name,
+            shortName: persona.shortName,
+            description: persona.description,
+            instructions: persona.instructions,
+            defaultModelId: persona.defaultModelId,
+            conversationStarters: persona.conversationStarters,
+            avatarKind: "builtin",
+            avatarValue: persona.avatarPath,
+            knowledgeDocs: persona.knowledgeDocs.map((doc) => ({
+                fileName: doc.fileName,
+                content: doc.content
+            }))
+        })
+    }
+
+    if (!selection.id) {
+        return new ChatError("bad_request:chat", "Persona not found.")
+    }
+
+    const persona = await ctx.runQuery(internal.personas.getUserPersonaByIdInternal, {
+        personaId: selection.id as Id<"userPersonas">
+    })
+
+    if (!persona || persona.authorId !== userId) {
+        return new ChatError("forbidden:chat", "Persona not found.")
+    }
+
+    const knowledgeDocs = await Promise.all(
+        persona.knowledgeDocs.map(async (doc: { key: string; fileName: string }) => ({
+            fileName: doc.fileName,
+            content: await fetchPersonaDocumentText(doc.key)
+        }))
+    )
+
+    return compilePersonaSnapshot({
+        source: "user",
+        sourceId: String(persona._id),
+        name: persona.name,
+        shortName: persona.shortName || persona.name.slice(0, 10),
+        description: persona.description,
+        instructions: persona.instructions,
+        defaultModelId: persona.defaultModelId,
+        conversationStarters: persona.conversationStarters,
+        avatarKind: persona.avatarKey ? "r2" : undefined,
+        avatarValue: persona.avatarKey,
+        avatarMimeType: persona.avatarMimeType,
+        knowledgeDocs
+    })
+}
+
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
         id?: string
@@ -402,6 +489,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         mcpOverrides?: Record<string, boolean>
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
+        personaSelection?: PersonaSelection
     }
 
     let body: ChatRequestBody
@@ -467,6 +555,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
         prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
     })
 
+    const personaSnapshot = !body.id
+        ? await resolvePersonaSnapshotForRequest(ctx, user.id, body.personaSelection)
+        : null
+
+    if (personaSnapshot instanceof ChatError) {
+        return personaSnapshot.toResponse()
+    }
+
     const mutationResult = await (async () => {
         try {
             return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
@@ -476,7 +572,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 proposedNewAssistantId: body.proposedNewAssistantId,
                 targetFromMessageId: body.targetFromMessageId,
                 targetMode: body.targetMode,
-                folderId: body.folderId
+                folderId: body.folderId,
+                personaSnapshot: personaSnapshot ?? undefined
             })
         } catch (error) {
             console.error("[cvx][chat] Failed to create or append messages", error)
@@ -521,13 +618,20 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
         userId: user.id
     })
+    const persistedPersonaSnapshot =
+        personaSnapshot ??
+        (await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
+            threadId: mutationResult.threadId
+        }))
 
     if (settings.mcpServers && settings.mcpServers.length > 0) {
-        const enabledMcpServers = settings.mcpServers.filter((server) => {
-            const overrideValue = body.mcpOverrides?.[server.name]
-            if (overrideValue === undefined) return server.enabled
-            return overrideValue !== false
-        })
+        const enabledMcpServers = settings.mcpServers.filter(
+            (server: { name: string; enabled?: boolean }) => {
+                const overrideValue = body.mcpOverrides?.[server.name]
+                if (overrideValue === undefined) return server.enabled
+                return overrideValue !== false
+            }
+        )
 
         if (enabledMcpServers.length > 0) {
             body.enabledTools.push("mcp")
@@ -691,7 +795,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
                               .filter((t) => t !== undefined)
                               .join(" ")
 
-                if (typeof prompt !== "string" || !prompt.trim()) {
+                const effectivePrompt = persistedPersonaSnapshot?.compiledPrompt
+                    ? `${persistedPersonaSnapshot.compiledPrompt}\n\n## User Request\n${prompt ?? ""}`
+                    : prompt
+
+                if (typeof effectivePrompt !== "string" || !effectivePrompt.trim()) {
                     console.error("[cvx][chat][stream] No valid prompt found for image generation")
                     parts.push({
                         type: "error",
@@ -729,7 +837,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             state: "call",
                             args: {
                                 imageSize,
-                                prompt
+                                prompt: effectivePrompt
                             },
                             toolCallId: nanoid(),
                             toolName: "image_generation"
@@ -767,7 +875,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     try {
                         // Generate the image
                         const result = await generateAndStoreImage({
-                            prompt,
+                            prompt: effectivePrompt,
                             imageSize,
                             imageResolution: body.imageResolution,
                             imageModel: model,
@@ -904,11 +1012,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     // Pass the filtered settings (with MCP overrides applied) to the toolkit
                     const filteredSettings = {
                         ...settings,
-                        mcpServers: settings.mcpServers?.filter((server) => {
-                            if (server.enabled === false) return false
-                            const overrideValue = body.mcpOverrides?.[server.name]
-                            return overrideValue !== false
-                        })
+                        mcpServers: settings.mcpServers?.filter(
+                            (server: { name: string; enabled?: boolean }) => {
+                                if (server.enabled === false) return false
+                                const overrideValue = body.mcpOverrides?.[server.name]
+                                return overrideValue !== false
+                            }
+                        )
                     }
                     const shouldDisableSmoothTransform = isGoogleImagePreviewModel(
                         modelData.modelId
@@ -930,7 +1040,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 ? [
                                       {
                                           role: "system",
-                                          content: buildPrompt(body.enabledTools, settings)
+                                          content: buildPrompt(
+                                              body.enabledTools,
+                                              settings,
+                                              persistedPersonaSnapshot?.compiledPrompt
+                                          )
                                       } as const
                                   ]
                                 : []),

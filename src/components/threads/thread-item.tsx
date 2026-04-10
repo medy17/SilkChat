@@ -1,3 +1,4 @@
+import { PersonaAvatar } from "@/components/persona-avatar"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -85,6 +86,7 @@ export const ThreadItem = memo(
         const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
         const params = useParams({ strict: false }) as { threadId?: string }
         const isActive = params.threadId === thread._id
+        const showPersonaAvatar = Boolean(thread.personaSource)
 
         const clearLongPressTimer = () => {
             if (longPressTimeoutRef.current !== null) {
@@ -338,6 +340,14 @@ export const ThreadItem = memo(
                                 onClick={handleToggleSelection}
                             >
                                 <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    {showPersonaAvatar ? (
+                                        <PersonaAvatar
+                                            name={thread.personaName || thread.title}
+                                            avatarKind={thread.personaAvatarKind}
+                                            avatarValue={thread.personaAvatarValue}
+                                            className="size-5 shrink-0"
+                                        />
+                                    ) : null}
                                     <span
                                         aria-hidden="true"
                                         className={cn(
@@ -386,7 +396,15 @@ export const ThreadItem = memo(
                                         : undefined
                                 }
                             >
-                                <div className="flex min-w-0 flex-1 items-center">
+                                <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    {showPersonaAvatar ? (
+                                        <PersonaAvatar
+                                            name={thread.personaName || thread.title}
+                                            avatarKind={thread.personaAvatarKind}
+                                            avatarValue={thread.personaAvatarValue}
+                                            className="size-5 shrink-0"
+                                        />
+                                    ) : null}
                                     <span
                                         className={cn(
                                             "block min-w-0 flex-1 truncate text-sm",
@@ -475,6 +493,9 @@ export const ThreadItem = memo(
             prevProps.thread._id === nextProps.thread._id &&
             prevProps.thread.title === nextProps.thread.title &&
             prevProps.thread.pinned === nextProps.thread.pinned &&
+            prevProps.thread.personaName === nextProps.thread.personaName &&
+            prevProps.thread.personaAvatarKind === nextProps.thread.personaAvatarKind &&
+            prevProps.thread.personaAvatarValue === nextProps.thread.personaAvatarValue &&
             prevProps.isInFolder === nextProps.isInFolder &&
             prevProps.isSelectionMode === nextProps.isSelectionMode &&
             prevProps.isSelected === nextProps.isSelected &&

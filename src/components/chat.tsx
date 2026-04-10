@@ -1,4 +1,5 @@
 import { Messages } from "@/components/messages"
+import { PersonaAvatar } from "@/components/persona-avatar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -85,6 +86,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
         folderId
     })
     const { status, messages, ...chatHelpers } = chat
+    const setMessagesRef = useRef(chatHelpers.setMessages)
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
@@ -104,6 +106,14 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
     }, [])
 
     const isEmpty = messages.length === 0 && !threadId
+    const personaOptions = useDiskCachedQuery(
+        api.personas.listPersonaPickerOptions,
+        {
+            key: "persona-picker-options",
+            default: { builtIns: [], userPersonas: [] }
+        },
+        session?.user?.id ? {} : "skip"
+    )
 
     const userName =
         session?.user?.name ?? (isPending ? localStorage.getItem("DISK_CACHE:user-name") : null)
@@ -113,20 +123,34 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
         localStorage.setItem("DISK_CACHE:user-name", session.user.name)
     }, [session?.user?.name, isPending])
 
-    const { resetChat } = useChatStore()
+    const { resetChat, selectedPersona } = useChatStore()
+    const selectedPersonaOption =
+        selectedPersona.source === "default" || "error" in personaOptions
+            ? null
+            : ([...personaOptions.builtIns, ...personaOptions.userPersonas].find(
+                  (persona) =>
+                      persona.source === selectedPersona.source && persona.id === selectedPersona.id
+              ) ?? null)
+    const hasSelectedPersonaAvatar = Boolean(
+        selectedPersonaOption?.avatarKind && selectedPersonaOption.avatarValue
+    )
 
-    const resetAll = () => {
+    useEffect(() => {
+        setMessagesRef.current = chatHelpers.setMessages
+    }, [chatHelpers.setMessages])
+
+    const resetAll = useCallback(() => {
         console.log("[chat] resetAll")
-        chatHelpers.setMessages([])
+        setMessagesRef.current([])
         resetChat()
-    }
+    }, [resetChat])
 
     useEffect(() => {
         document.addEventListener("new_chat", resetAll)
         return () => {
             document.removeEventListener("new_chat", resetAll)
         }
-    }, [threadId])
+    }, [resetAll])
 
     if (!session?.user && !isPending) {
         return (
@@ -165,20 +189,64 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
                         transition={{ duration: 0.2, ease: "easeInOut" }}
                         className="absolute inset-0 flex flex-col items-center justify-center"
                     >
-                        <div className="mb-6 size-16 rounded-full border-2 opacity-80">
-                            <Logo />
-                        </div>
+                        {hasSelectedPersonaAvatar && selectedPersonaOption ? (
+                            <PersonaAvatar
+                                name={selectedPersonaOption.name}
+                                avatarKind={selectedPersonaOption.avatarKind}
+                                avatarValue={selectedPersonaOption.avatarValue}
+                                className="mb-6 size-16 border-2 border-border shadow-sm"
+                                rounded="full"
+                            />
+                        ) : (
+                            <div className="mb-6 size-16 rounded-full border-2 opacity-80">
+                                <Logo />
+                            </div>
+                        )}
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2 }}
                             className="mb-8 text-center"
                         >
-                            <h1 className="px-4 font-medium text-3xl text-foreground">
-                                {userName
-                                    ? `What do you want to explore, ${userName?.split(" ")[0]}?`
-                                    : "What do you want to explore?"}
-                            </h1>
+                            {!selectedPersonaOption && (
+                                <h1 className="px-4 font-medium text-3xl text-foreground">
+                                    {userName
+                                        ? `What do you want to explore, ${userName?.split(" ")[0]}?`
+                                        : "What do you want to explore?"}
+                                </h1>
+                            )}
+                            {selectedPersonaOption && (
+                                <div className="mt-4 space-y-4 px-4">
+                                    <div className="mx-auto max-w-2xl space-y-1">
+                                        <p className="font-medium text-lg">
+                                            {selectedPersonaOption.name}
+                                        </p>
+                                        <p className="text-muted-foreground text-sm">
+                                            {selectedPersonaOption.description}
+                                        </p>
+                                    </div>
+                                    {selectedPersonaOption.conversationStarters.length > 0 && (
+                                        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
+                                            {selectedPersonaOption.conversationStarters.map(
+                                                (starter) => (
+                                                    <button
+                                                        key={starter}
+                                                        type="button"
+                                                        className="rounded-full border border-border bg-background/70 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                                                        onClick={() => {
+                                                            multimodalInputRef.current?.setValue(
+                                                                starter
+                                                            )
+                                                        }}
+                                                    >
+                                                        {starter}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </motion.div>
 
                         <motion.div
@@ -191,6 +259,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
                                 ref={multimodalInputRef}
                                 onSubmit={handleInputSubmitWithScroll}
                                 status={status}
+                                threadId={threadId}
                             />
                         </motion.div>
                     </motion.div>
@@ -211,6 +280,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId }: ChatProps) => {
                             ref={multimodalInputRef}
                             onSubmit={handleInputSubmitWithScroll}
                             status={status}
+                            threadId={threadId}
                         />
                     </motion.div>
                 )}

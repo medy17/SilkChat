@@ -244,6 +244,7 @@ export function useChatIntegration<IsShared extends boolean>({
                           reasoningEffort,
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
+                      const { selectedPersona } = useChatStore.getState()
                       const jwt = await resolveJwtToken(currentContext.token, {
                           forceRefresh: true
                       })
@@ -284,7 +285,10 @@ export function useChatIntegration<IsShared extends boolean>({
                               imageResolution: selectedImageResolution,
                               folderId: currentContext.folderId,
                               reasoningEffort,
-                              mcpOverrides
+                              mcpOverrides,
+                              personaSelection: currentContext.threadId
+                                  ? undefined
+                                  : selectedPersona
                           }
                       }
                   },

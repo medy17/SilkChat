@@ -263,6 +263,7 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
                                 <MultimodalInput
                                     onSubmit={handleInputSubmitWithScroll}
                                     status={status}
+                                    threadId={threadId}
                                 />
                             </motion.div>
                         </div>
@@ -283,7 +284,11 @@ const FolderChat = ({ folderId }: FolderChatProps) => {
                             isAtBottom={isAtBottom}
                             scrollToBottom={scrollToBottom}
                         />
-                        <MultimodalInput onSubmit={handleInputSubmitWithScroll} status={status} />
+                        <MultimodalInput
+                            onSubmit={handleInputSubmitWithScroll}
+                            status={status}
+                            threadId={threadId}
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>

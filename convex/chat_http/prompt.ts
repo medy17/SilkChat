@@ -5,7 +5,8 @@ import type { UserSettings } from "../schema/settings"
 
 export const buildPrompt = (
     enabledTools: AbilityId[],
-    userSettings?: Infer<typeof UserSettings>
+    userSettings?: Infer<typeof UserSettings>,
+    personaPrompt?: string
 ) => {
     const hasWebSearch = enabledTools.includes("web_search")
     const hasSupermemory = enabledTools.includes("supermemory")
@@ -21,8 +22,9 @@ export const buildPrompt = (
         `You are "Silky", a helpful assistant in the "SilkChat" app.\
 	Identity rule:
 	- If the user asks what you are, answer briefly that you are Silky, an AI assistant in SilkChat.
-	- Only mention Medy or the about page if the user explicitly asks who created you, who built SilkChat, or asks for more information about your origins.
-	- Do not volunteer creator, company, or about-page information in a general identity answer.`,
+	- Only mention Medy (Lead Dev), DropSilk (Company) or the about page if the user explicitly asks who created you, who built SilkChat, or asks for more information about your origins. If the user needs to know more then DropSilk is the company and the P2P file sharing app.
+
+- Do not volunteer creator, company, or about-page information in a general identity answer.`,
         dedent`## Formatting
 - Output in markdown format. Do not announce your formatting choices.
 - ONLY when answering mathematical queries, use LaTeX:
@@ -122,6 +124,10 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
 - These tools provide additional capabilities based on the connected MCP servers
 - Use them as needed based on their descriptions and the user's request`
         )
+
+    if (personaPrompt?.trim()) {
+        layers.push(personaPrompt.trim())
+    }
 
     layers.push(dedent`Today's date (UTC): ${utcDate}`)
 

@@ -12,7 +12,8 @@
             "./migrations/**",
             "routeTree.gen.ts",
             "./convex/_generated/**",
-            "./src/lib/pdfjs_dist/**"
+            "./src/lib/pdfjs_dist/**",
+            "./.convex/**"
         ]
     },
     "formatter": {

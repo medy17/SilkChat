@@ -43,6 +43,11 @@ const settingsNavItems = [
         icon: PaintBucket
     },
     {
+        title: "Personas",
+        href: "/settings/personas",
+        icon: Bot
+    },
+    {
         title: "Usage Analytics",
         href: "/settings/usage",
         icon: BarChart3

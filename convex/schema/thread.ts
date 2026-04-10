@@ -10,7 +10,13 @@ export const Thread = v.object({
     isLive: v.optional(v.boolean()),
     currentStreamId: v.optional(v.string()),
     pinned: v.optional(v.boolean()),
-    projectId: v.optional(v.id("projects"))
+    projectId: v.optional(v.id("projects")),
+    personaSource: v.optional(v.union(v.literal("builtin"), v.literal("user"))),
+    personaSourceId: v.optional(v.string()),
+    personaName: v.optional(v.string()),
+    personaAvatarKind: v.optional(v.union(v.literal("builtin"), v.literal("r2"))),
+    personaAvatarValue: v.optional(v.string()),
+    personaAvatarMimeType: v.optional(v.string())
 })
 
 export const SharedThread = v.object({

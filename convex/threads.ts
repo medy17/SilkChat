@@ -105,6 +105,27 @@ const ImportedMessage = v.object({
     metadata: v.optional(MessageMetadata)
 })
 
+const ThreadPersonaSnapshotInput = v.object({
+    source: v.union(v.literal("builtin"), v.literal("user")),
+    sourceId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    instructions: v.string(),
+    defaultModelId: v.string(),
+    conversationStarters: v.array(v.string()),
+    avatarKind: v.optional(v.union(v.literal("builtin"), v.literal("r2"))),
+    avatarValue: v.optional(v.string()),
+    avatarMimeType: v.optional(v.string()),
+    knowledgeDocs: v.array(
+        v.object({
+            fileName: v.string(),
+            tokenCount: v.number()
+        })
+    ),
+    compiledPrompt: v.string(),
+    promptTokenEstimate: v.number()
+})
+
 const normalizeImportedThreadTimestamps = ({
     sourceCreatedAt,
     sourceUpdatedAt,
@@ -231,7 +252,8 @@ export const createThreadOrInsertMessages = internalMutation({
         proposedNewAssistantId: v.string(),
         targetFromMessageId: v.optional(v.string()),
         targetMode: v.optional(v.union(v.literal("normal"), v.literal("edit"), v.literal("retry"))),
-        folderId: v.optional(v.id("projects"))
+        folderId: v.optional(v.id("projects")),
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
     },
     handler: async (
         ctx,
@@ -242,7 +264,8 @@ export const createThreadOrInsertMessages = internalMutation({
             proposedNewAssistantId,
             targetFromMessageId,
             targetMode,
-            folderId
+            folderId,
+            personaSnapshot
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
@@ -326,10 +349,24 @@ export const createThreadOrInsertMessages = internalMutation({
                 title: initialTitle,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
-                projectId: folderId // Set the project ID if creating from a folder
+                projectId: folderId, // Set the project ID if creating from a folder
+                personaSource: personaSnapshot?.source,
+                personaSourceId: personaSnapshot?.sourceId,
+                personaName: personaSnapshot?.name,
+                personaAvatarKind: personaSnapshot?.avatarKind,
+                personaAvatarValue: personaSnapshot?.avatarValue,
+                personaAvatarMimeType: personaSnapshot?.avatarMimeType
             })
             const doc = await ctx.db.get(newId)
             await aggregrateThreadsByFolder.insert(ctx, doc!)
+
+            if (personaSnapshot) {
+                await ctx.db.insert("threadPersonaSnapshots", {
+                    threadId: newId,
+                    ...personaSnapshot,
+                    createdAt: Date.now()
+                })
+            }
 
             // Thread count will be automatically updated by aggregate triggers
 
