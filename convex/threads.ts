@@ -109,6 +109,7 @@ const ThreadPersonaSnapshotInput = v.object({
     source: v.union(v.literal("builtin"), v.literal("user")),
     sourceId: v.string(),
     name: v.string(),
+    shortName: v.optional(v.string()),
     description: v.string(),
     instructions: v.string(),
     defaultModelId: v.string(),
