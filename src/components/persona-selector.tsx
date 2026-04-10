@@ -39,13 +39,13 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const isMobile = useIsMobile()
     const { selectedModel, setSelectedModel } = useModelStore()
     const { selectedPersona, setSelectedPersona } = useChatStore()
+    const thread = useQuery(
+        api.threads.getThread,
+        threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+    )
     const pickerOptions = useQuery(
         api.personas.listPersonaPickerOptions,
         session.user?.id && !auth.isLoading ? {} : "skip"
-    )
-    const threadSnapshot = useQuery(
-        api.personas.getThreadPersonaSnapshot,
-        threadId ? { threadId: threadId as Id<"threads"> } : "skip"
     )
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
@@ -88,24 +88,42 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
             : selectedOption.name
         : "Default"
 
-    if (threadId && threadSnapshot) {
+    if (threadId) {
+        const lockedPersonaName =
+            thread?.personaName ??
+            (thread === undefined && selectedOption
+                ? isMobile
+                    ? selectedOption.shortName
+                    : selectedOption.name
+                : null)
+        const lockedAvatarKind =
+            thread?.personaAvatarKind ??
+            (thread === undefined && selectedOption ? selectedOption.avatarKind : undefined)
+        const lockedAvatarValue =
+            thread?.personaAvatarValue ??
+            (thread === undefined && selectedOption ? selectedOption.avatarValue : undefined)
+
+        if (!lockedPersonaName) {
+            return null
+        }
+
         return (
             <PromptInputAction tooltip="Thread persona">
                 <Badge
                     variant="secondary"
                     className="flex h-8 items-center gap-2 rounded-md bg-secondary/70 px-2"
                 >
-                    <PersonaAvatar
-                        name={threadSnapshot.name}
-                        avatarKind={threadSnapshot.avatarKind}
-                        avatarValue={threadSnapshot.avatarValue}
-                        className="size-5"
-                    />
-                    <span className="max-w-[140px] truncate">
-                        {isMobile
-                            ? (threadSnapshot.shortName ?? threadSnapshot.name)
-                            : threadSnapshot.name}
-                    </span>
+                    {lockedAvatarKind && lockedAvatarValue ? (
+                        <PersonaAvatar
+                            name={lockedPersonaName}
+                            avatarKind={lockedAvatarKind}
+                            avatarValue={lockedAvatarValue}
+                            className="size-5"
+                        />
+                    ) : (
+                        <Sparkles className="size-4 shrink-0" />
+                    )}
+                    <span className="max-w-[140px] truncate">{lockedPersonaName}</span>
                 </Badge>
             </PromptInputAction>
         )
