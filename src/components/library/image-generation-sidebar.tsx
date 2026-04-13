@@ -6,6 +6,7 @@ import type { SharedModel } from "@/convex/lib/models"
 import { useToken } from "@/hooks/auth-hooks"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
+import { SELECTABLE_IMAGE_ASPECT_RATIOS } from "@/lib/image-aspect-ratios"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
@@ -249,29 +250,14 @@ export function ImageGenerationSidebar() {
     const commonImageSizes = useMemo(() => {
         if (selectedModelIds.length === 0) return []
         const selectedModels = imageModels.filter((m) => selectedModelIds.includes(m.id))
-        let intersection = selectedModels[0].supportedImageSizes || [
-            "1:1",
-            "16:9",
-            "9:16",
-            "4:3",
-            "3:4",
-            "21:9"
-        ]
+        let intersection = selectedModels[0].supportedImageSizes || SELECTABLE_IMAGE_ASPECT_RATIOS
 
         for (let i = 1; i < selectedModels.length; i++) {
-            const sizes = selectedModels[i].supportedImageSizes || [
-                "1:1",
-                "16:9",
-                "9:16",
-                "4:3",
-                "3:4",
-                "21:9"
-            ]
+            const sizes = selectedModels[i].supportedImageSizes || SELECTABLE_IMAGE_ASPECT_RATIOS
             intersection = intersection.filter((size) => sizes.includes(size))
         }
 
-        // Hardcode exactly what's on the screen if possible, but intersection is safer. Let's ensure these map well
-        return intersection
+        return SELECTABLE_IMAGE_ASPECT_RATIOS.filter((size) => intersection.includes(size))
     }, [selectedModelIds, imageModels])
 
     useEffect(() => {
@@ -490,8 +476,6 @@ export function ImageGenerationSidebar() {
             setGenerationMode(null)
         }
     }
-
-    const aspectRatios = ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"]
 
     return (
         <div className="custom-scrollbar flex h-full w-full flex-col text-foreground text-sm">
@@ -720,7 +704,7 @@ export function ImageGenerationSidebar() {
                         </div>
 
                         <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-2">
-                            {aspectRatios.map((size) => {
+                            {SELECTABLE_IMAGE_ASPECT_RATIOS.map((size) => {
                                 const isAvailable = commonImageSizes.includes(size)
                                 const isSelected = aspectRatio === size
                                 const [wStr, hStr] = size.split(":")

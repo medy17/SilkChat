@@ -4,6 +4,7 @@ import {
     getGeneratedImageOrientation,
     hasActiveGeneratedImageFilters,
     matchesGeneratedImageFilters,
+    normalizeGeneratedImageAspectRatio,
     normalizeGeneratedImageFilters
 } from "@/lib/generated-image-filters"
 import { describe, expect, it } from "vitest"
@@ -16,12 +17,19 @@ describe("generated-image-filters", () => {
         expect(getGeneratedImageOrientation(undefined)).toBeUndefined()
     })
 
+    it("normalizes quirky post-generation aspect ratios to simple buckets", () => {
+        expect(normalizeGeneratedImageAspectRatio("1024x1024")).toBe("1:1")
+        expect(normalizeGeneratedImageAspectRatio("1792x1024")).toBe("16:9")
+        expect(normalizeGeneratedImageAspectRatio("27:37")).toBe("3:4")
+        expect(normalizeGeneratedImageAspectRatio("111:158")).toBe("3:4")
+    })
+
     it("normalizes all-style filter values away", () => {
         expect(
             normalizeGeneratedImageFilters({
                 modelIds: ["", "flux-1", "flux-1"],
                 resolutions: [],
-                aspectRatios: ["1:1"],
+                aspectRatios: ["1:1", "1024x1024"],
                 orientations: ["portrait"]
             })
         ).toEqual({
@@ -38,7 +46,7 @@ describe("generated-image-filters", () => {
                 {
                     modelId: "flux-1",
                     resolution: "1K",
-                    aspectRatio: "9:16"
+                    aspectRatio: "896x1536"
                 },
                 {
                     modelIds: ["flux-1", "seedream"],
@@ -53,7 +61,20 @@ describe("generated-image-filters", () => {
                 {
                     modelId: "flux-1",
                     resolution: "1K",
-                    aspectRatio: "9:16"
+                    aspectRatio: "1024x1024"
+                },
+                {
+                    aspectRatios: ["1:1"]
+                }
+            )
+        ).toBe(true)
+
+        expect(
+            matchesGeneratedImageFilters(
+                {
+                    modelId: "flux-1",
+                    resolution: "1K",
+                    aspectRatio: "1024x1024"
                 },
                 {
                     orientations: ["landscape"]
@@ -83,23 +104,23 @@ describe("generated-image-filters", () => {
                 {
                     modelId: "flux-1",
                     resolution: "2K",
-                    aspectRatio: "16:9"
+                    aspectRatio: "1792x1024"
                 },
                 {
                     modelId: "gpt-image-1",
                     resolution: "1K",
-                    aspectRatio: "1:1"
+                    aspectRatio: "1024x1024"
                 },
                 {
                     modelId: "flux-1",
                     resolution: "1K",
-                    aspectRatio: "9:16"
+                    aspectRatio: "27:37"
                 }
             ])
         ).toEqual({
             modelIds: ["flux-1", "gpt-image-1"],
             resolutions: ["1K", "2K"],
-            aspectRatios: ["16:9", "1:1", "9:16"],
+            aspectRatios: ["16:9", "1:1", "3:4"],
             orientations: ["landscape", "portrait", "square"]
         })
     })

@@ -1,3 +1,5 @@
+import { SELECTABLE_IMAGE_ASPECT_RATIOS } from "@/lib/image-aspect-ratios"
+
 export type GeneratedImageOrientation = "portrait" | "landscape" | "square"
 
 export type GeneratedImageFilters = {
@@ -14,10 +16,40 @@ type FilterableGeneratedImage = {
     createdAt: number
 }
 
+const parseAspectRatioDimensions = (aspectRatio?: string) => {
+    if (!aspectRatio) return null
+
+    if (aspectRatio.includes("x")) {
+        const [width, height] = aspectRatio.split("x").map(Number)
+        if (width > 0 && height > 0) {
+            return { width, height }
+        }
+    }
+
+    if (aspectRatio.includes(":")) {
+        const [width, height] = aspectRatio.replace("-hd", "").split(":").map(Number)
+        if (width > 0 && height > 0) {
+            return { width, height }
+        }
+    }
+
+    return null
+}
+
 const normalizeValues = (values?: string[] | null) => {
     if (!values?.length) return undefined
 
     const normalized = [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+    return normalized.length > 0 ? normalized : undefined
+}
+
+const normalizeAspectRatios = (values?: string[] | null) => {
+    if (!values?.length) return undefined
+
+    const normalized = [
+        ...new Set(values.map((value) => normalizeGeneratedImageAspectRatio(value)).filter(Boolean))
+    ]
+
     return normalized.length > 0 ? normalized : undefined
 }
 
@@ -33,23 +65,29 @@ const normalizeOrientations = (values?: GeneratedImageOrientation[] | null) => {
 }
 
 const getAspectRatioValue = (aspectRatio?: string) => {
-    if (!aspectRatio) return null
+    const dimensions = parseAspectRatioDimensions(aspectRatio)
+    return dimensions ? dimensions.width / dimensions.height : null
+}
 
-    if (aspectRatio.includes("x")) {
-        const [width, height] = aspectRatio.split("x").map(Number)
-        if (width > 0 && height > 0) {
-            return width / height
+export const normalizeGeneratedImageAspectRatio = (aspectRatio?: string) => {
+    const ratio = getAspectRatioValue(aspectRatio)
+    if (ratio === null) return undefined
+
+    let closestRatio = SELECTABLE_IMAGE_ASPECT_RATIOS[0]
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    for (const candidate of SELECTABLE_IMAGE_ASPECT_RATIOS) {
+        const candidateValue = getAspectRatioValue(candidate)
+        if (candidateValue === null) continue
+
+        const distance = Math.abs(Math.log(ratio / candidateValue))
+        if (distance < closestDistance) {
+            closestDistance = distance
+            closestRatio = candidate
         }
     }
 
-    if (aspectRatio.includes(":")) {
-        const [width, height] = aspectRatio.replace("-hd", "").split(":").map(Number)
-        if (width > 0 && height > 0) {
-            return width / height
-        }
-    }
-
-    return null
+    return closestRatio
 }
 
 export const getGeneratedImageOrientation = (
@@ -66,7 +104,7 @@ export const normalizeGeneratedImageFilters = (
 ): GeneratedImageFilters => ({
     modelIds: normalizeValues(filters?.modelIds),
     resolutions: normalizeValues(filters?.resolutions),
-    aspectRatios: normalizeValues(filters?.aspectRatios),
+    aspectRatios: normalizeAspectRatios(filters?.aspectRatios),
     orientations: normalizeOrientations(filters?.orientations)
 })
 
@@ -99,7 +137,9 @@ export const matchesGeneratedImageFilters = (
 
     if (
         normalized.aspectRatios?.length &&
-        !normalized.aspectRatios.includes(image.aspectRatio ?? "")
+        !normalized.aspectRatios.includes(
+            normalizeGeneratedImageAspectRatio(image.aspectRatio) ?? ""
+        )
     ) {
         return false
     }
@@ -145,7 +185,9 @@ export const getGeneratedImageFilterOptions = (
     for (const image of images) {
         if (image.modelId) modelIds.add(image.modelId)
         if (image.resolution) resolutions.add(image.resolution)
-        if (image.aspectRatio) aspectRatios.add(image.aspectRatio)
+
+        const normalizedAspectRatio = normalizeGeneratedImageAspectRatio(image.aspectRatio)
+        if (normalizedAspectRatio) aspectRatios.add(normalizedAspectRatio)
 
         const orientation = getGeneratedImageOrientation(image.aspectRatio)
         if (orientation) orientations.add(orientation)
