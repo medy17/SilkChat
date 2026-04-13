@@ -50,7 +50,7 @@ describe("generated-image-urls", () => {
                 quality: 76
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-1"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-1"
         )
     })
 
@@ -80,7 +80,7 @@ describe("generated-image-urls", () => {
                 quality: 76
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=405,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-2"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=405,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-2"
         )
     })
 
@@ -97,10 +97,10 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-3",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-3 432w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-3 540w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 432w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 540w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: false
@@ -112,7 +112,7 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=810,quality=84,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-3"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=810,quality=84,format=auto/https://api.example.com/r2?key=generated%2Fkey-3"
         )
     })
 
@@ -135,10 +135,10 @@ describe("generated-image-urls", () => {
                 hidden: true
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-4",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-4",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=576,quality=80,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-4 576w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2%3Fkey=generated%2Fkey-4 720w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=576,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-4 576w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-4 720w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: true

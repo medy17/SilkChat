@@ -81,11 +81,6 @@ export const getGeneratedImageCopyUrl = (storageKey: string) => {
     return getGeneratedImageProxyUrl(storageKey)
 }
 
-const getCloudflareSourcePath = (sourceUrl: string) => {
-    const parsed = new URL(sourceUrl)
-    return `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search.replace("?", "%3F")}${parsed.hash.replace("#", "%23")}`
-}
-
 export const getCloudflareTransformedImageUrl = ({
     imageHost,
     sourceUrl,
@@ -97,7 +92,7 @@ export const getCloudflareTransformedImageUrl = ({
     width: number
     quality: number
 }) =>
-    `${imageHost.replace(/\/$/, "")}/cdn-cgi/image/fit=scale-down,width=${width},quality=${quality},format=auto/${getCloudflareSourcePath(sourceUrl)}`
+    `${imageHost.replace(/\/$/, "")}/cdn-cgi/image/fit=scale-down,width=${width},quality=${quality},format=auto/${sourceUrl}`
 
 export const getOptimizedGeneratedImageUrl = ({
     storageKey,
