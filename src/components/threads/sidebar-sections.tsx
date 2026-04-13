@@ -6,9 +6,9 @@ import {
     SidebarGroupLabel,
     SidebarMenu
 } from "@/components/ui/sidebar"
-import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
+import { getLastLibraryRoute } from "@/lib/last-chat-route"
 import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { isAfter, isToday, isYesterday, subDays } from "date-fns"
 import { ChevronRight, Image, Loader2, Pin } from "lucide-react"
 import { type ReactNode, type RefObject, useEffect, useState } from "react"
@@ -146,12 +146,17 @@ function ThreadsGroup({
 }
 
 function LibraryLink() {
+    const navigate = useNavigate()
+
     return (
         <div className="px-2">
             <Link
                 to="/library"
-                search={DEFAULT_LIBRARY_SEARCH}
                 className={cn(buttonVariants({ variant: "ghost" }), "h-8 w-full justify-start")}
+                onClick={(event) => {
+                    event.preventDefault()
+                    navigate({ href: getLastLibraryRoute() })
+                }}
             >
                 <Image className="h-4 w-4" />
                 Library

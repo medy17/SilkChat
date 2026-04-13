@@ -1656,7 +1656,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                             <SelectTrigger className="w-full bg-background">
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="z-[70]">
                                                 {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
                                                     <SelectItem key={option} value={String(option)}>
                                                         {option} per page

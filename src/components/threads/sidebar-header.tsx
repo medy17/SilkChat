@@ -1,8 +1,7 @@
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
-import { getLastChatRoute } from "@/lib/last-chat-route"
-import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
+import { getLastChatRoute, getLastLibraryRoute } from "@/lib/last-chat-route"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
@@ -48,7 +47,7 @@ export function ThreadsSidebarHeader({
             return
         }
 
-        navigate({ to: "/library", search: DEFAULT_LIBRARY_SEARCH })
+        navigate({ href: getLastLibraryRoute() })
     }
 
     return (

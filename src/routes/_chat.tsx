@@ -12,7 +12,7 @@ import { Header } from "@/components/header"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { isRestorableChatPath, setLastChatRoute } from "@/lib/last-chat-route"
+import { isRestorableChatPath, setLastChatRoute, setLastLibraryRoute } from "@/lib/last-chat-route"
 import {
     DEFAULT_LIBRARY_SEARCH,
     type LibrarySearchState,
@@ -59,9 +59,14 @@ function ChatLayout() {
     }, [activeLibrarySearch])
 
     useEffect(() => {
+        if (isLibraryRoute) {
+            setLastLibraryRoute(location.href)
+            return
+        }
+
         if (!isRestorableChatPath(location.pathname)) return
         setLastChatRoute(location.href)
-    }, [location.href, location.pathname])
+    }, [isLibraryRoute, location.href, location.pathname])
 
     return (
         <OnboardingProvider>
