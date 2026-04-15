@@ -1761,12 +1761,13 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
                             <Tabs
+                                className="w-full sm:w-auto"
                                 value={view}
                                 onValueChange={(value) =>
                                     handleViewChange(value as LibraryViewMode)
                                 }
                             >
-                                <TabsList>
+                                <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-fit">
                                     <TabsTrigger value="active">
                                         <ImageIcon className="mr-2 h-4 w-4" />
                                         Library
