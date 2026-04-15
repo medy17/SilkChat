@@ -49,6 +49,7 @@ import {
     SelectValue
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -74,6 +75,7 @@ import {
     type LibraryFiltersState,
     type LibraryPageSize,
     type LibrarySearchState,
+    type LibraryView as LibraryViewMode,
     cloneLibraryFilters,
     getLibraryFiltersFromSearch,
     validateLibrarySearch
@@ -82,8 +84,9 @@ import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn, copyImageUrlToClipboard } from "@/lib/utils"
 import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react-router"
-import { useAction } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import {
+    Archive,
     Check,
     CheckSquare2,
     Clipboard,
@@ -96,6 +99,7 @@ import {
     Image as ImageIcon,
     ImageOff,
     PlusCircle,
+    RotateCcw,
     Search,
     Trash2,
     X
@@ -154,7 +158,8 @@ const getLibraryCacheScope = ({
     pageSize,
     query,
     sortBy,
-    filters
+    filters,
+    view
 }: {
     userId: string
     pageNumber: number
@@ -162,6 +167,7 @@ const getLibraryCacheScope = ({
     query: string
     sortBy: ImageSortOption
     filters: LibraryFiltersState
+    view: LibraryViewMode
 }) =>
     JSON.stringify({
         userId,
@@ -169,7 +175,8 @@ const getLibraryCacheScope = ({
         pageSize,
         query,
         sortBy,
-        filters
+        filters,
+        view
     })
 
 const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
@@ -214,6 +221,9 @@ const getSortLabel = (sortBy: ImageSortOption) => {
     if (sortBy === "relevance") return "Best match"
     return sortBy === "newest" ? "Newest first" : "Oldest first"
 }
+
+const getLibraryViewLabel = (view: LibraryViewMode) =>
+    view === "archived" ? "Archive" : "AI Library"
 
 const getSortOptions = (
     includeRelevance: boolean
@@ -476,8 +486,13 @@ const GeneratedImageItem = memo(
         selectedCount = 0,
         onBulkDelete,
         onBulkDownload,
+        onBulkArchive,
+        onBulkRestore,
         isImageHidden = false,
-        onToggleImageHidden
+        onToggleImageHidden,
+        isArchivedView = false,
+        onArchive,
+        onRestore
     }: {
         image: Doc<"generatedImages">
         onClick: () => void
@@ -491,8 +506,13 @@ const GeneratedImageItem = memo(
         selectedCount?: number
         onBulkDelete?: () => void
         onBulkDownload?: () => void
+        onBulkArchive?: () => void
+        onBulkRestore?: () => void
         isImageHidden?: boolean
         onToggleImageHidden?: () => void
+        isArchivedView?: boolean
+        onArchive?: () => void
+        onRestore?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
         const [blurVariantStatus, setBlurVariantStatus] = useState<
@@ -732,6 +752,15 @@ const GeneratedImageItem = memo(
             window.open(fullResolutionUrl, "_blank")
         }
 
+        const handleArchiveStateChange = () => {
+            if (isArchivedView) {
+                onRestore?.()
+                return
+            }
+
+            onArchive?.()
+        }
+
         const handleClick = (e: React.MouseEvent) => {
             if (isSelectionMode) {
                 e.preventDefault()
@@ -957,6 +986,18 @@ const GeneratedImageItem = memo(
                                     Save Selected
                                 </ContextMenuItem>
                             )}
+                            {(onBulkArchive || onBulkRestore) && (
+                                <ContextMenuItem
+                                    onClick={isArchivedView ? onBulkRestore : onBulkArchive}
+                                >
+                                    {isArchivedView ? (
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                    ) : (
+                                        <Archive className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isArchivedView ? "Restore Selected" : "Archive Selected"}
+                                </ContextMenuItem>
+                            )}
                             <ContextMenuSeparator />
                             {onBulkDelete && (
                                 <ContextMenuItem
@@ -999,6 +1040,16 @@ const GeneratedImageItem = memo(
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 Open Full Resolution
                             </ContextMenuItem>
+                            {(onArchive || onRestore) && (
+                                <ContextMenuItem onClick={handleArchiveStateChange}>
+                                    {isArchivedView ? (
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                    ) : (
+                                        <Archive className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isArchivedView ? "Restore Image" : "Archive Image"}
+                                </ContextMenuItem>
+                            )}
                             {onDelete && (
                                 <>
                                     <ContextMenuSeparator />
@@ -1038,6 +1089,8 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     const searchQuery = search.query
     const hasSearchQuery = searchQuery.length > 0
     const sortBy = search.sort
+    const view = search.view
+    const isArchivedView = view === "archived"
     const sortOptions = useMemo(() => getSortOptions(hasSearchQuery), [hasSearchQuery])
     const pageNumber = search.page
     const pageSize = search.pageSize
@@ -1069,10 +1122,11 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                       pageSize,
                       query: searchQuery,
                       sortBy,
-                      filters
+                      filters,
+                      view
                   })
                 : null,
-        [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy]
+        [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
     const imagePage = useDiskCachedQuery(
         api.images.paginateGeneratedImages,
@@ -1085,7 +1139,8 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                   paginationOpts: { numItems: pageSize, cursor: currentCursor },
                   query: searchQuery,
                   sortBy,
-                  filters: activeFilters
+                  filters: activeFilters,
+                  view
               }
             : "skip"
     )
@@ -1095,17 +1150,17 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
             key: libraryCacheScope ? `library-count:${libraryCacheScope}` : "library-count:guest",
             default: undefined
         },
-        session.user?.id ? { query: searchQuery, filters: activeFilters } : "skip"
+        session.user?.id ? { query: searchQuery, filters: activeFilters, view } : "skip"
     )
     const filterOptions = useDiskCachedQuery(
         api.images.getGeneratedImageFacetOptions,
         {
             key: session.user?.id
-                ? `library-filter-options:${session.user.id}`
+                ? `library-filter-options:${session.user.id}:${view}`
                 : "library-filter-options:guest",
             default: undefined
         },
-        session.user?.id ? {} : "skip"
+        session.user?.id ? { view } : "skip"
     )
 
     const { pendingGenerations, completedGenerationCount } = useGenerationStore()
@@ -1192,16 +1247,26 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     }, [draftQuery, navigate, searchQuery])
 
     const [selectedImage, setSelectedImage] = useState<Doc<"generatedImages"> | null>(null)
-    const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(new Set())
+    const [hiddenImageIds, setHiddenImageIds] = useState<Set<string>>(new Set())
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
+    const archiveImage = useMutation(api.images.archiveGeneratedImage)
+    const restoreImage = useMutation(api.images.restoreGeneratedImage)
+
+    useEffect(() => {
+        void view
+        setHiddenImageIds(new Set())
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+        setSelectedImage(null)
+    }, [view])
 
     const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
     const resolvedTotalImages = isQueryErrorResult(totalImages) ? undefined : totalImages
     const resolvedFilterOptions = isQueryErrorResult(filterOptions) ? undefined : filterOptions
 
-    const images = (resolvedImagePage?.page ?? []).filter((img) => !deletedImageIds.has(img._id))
+    const images = (resolvedImagePage?.page ?? []).filter((img) => !hiddenImageIds.has(img._id))
     const selectedImageIndex = useMemo(
         () => (selectedImage ? images.findIndex((image) => image._id === selectedImage._id) : -1),
         [images, selectedImage]
@@ -1270,7 +1335,8 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
             : Math.max(1, Math.ceil(resolvedTotalImages / pageSize))
     const canGoPrevious = pageNumber > 1
     const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone : false
-    const showPendingGenerations = pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
+    const showPendingGenerations =
+        !isArchivedView && pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
     const scrollResetKey = JSON.stringify(search)
 
     const handleSortChange = useCallback(
@@ -1299,6 +1365,22 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
             })
         },
         [navigate]
+    )
+
+    const handleViewChange = useCallback(
+        (nextView: LibraryViewMode) => {
+            if (nextView === view) return
+
+            navigate({
+                replace: true,
+                search: (prev) => ({
+                    ...prev,
+                    view: nextView,
+                    page: DEFAULT_LIBRARY_SEARCH.page
+                })
+            })
+        },
+        [navigate, view]
     )
 
     const handleFilterChange = useCallback(
@@ -1487,12 +1569,44 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
         })
     }, [])
 
+    const hideImageLocally = useCallback((imageId: Id<"generatedImages">) => {
+        setHiddenImageIds((prev) => new Set(prev).add(imageId))
+        setSelectedImageIds((prev) => {
+            if (!prev.has(imageId)) {
+                return prev
+            }
+
+            const next = new Set(prev)
+            next.delete(imageId)
+            if (next.size === 0) {
+                setIsSelectionMode(false)
+            }
+            return next
+        })
+    }, [])
+
     const handleDeleteImage = useCallback(
         (imageId: Id<"generatedImages">) => {
-            setDeletedImageIds((prev) => new Set(prev).add(imageId))
+            hideImageLocally(imageId)
             deleteImageAction({ id: imageId }).catch(console.error)
         },
-        [deleteImageAction]
+        [deleteImageAction, hideImageLocally]
+    )
+
+    const handleArchiveImage = useCallback(
+        (imageId: Id<"generatedImages">) => {
+            hideImageLocally(imageId)
+            archiveImage({ id: imageId }).catch(console.error)
+        },
+        [archiveImage, hideImageLocally]
+    )
+
+    const handleRestoreImage = useCallback(
+        (imageId: Id<"generatedImages">) => {
+            hideImageLocally(imageId)
+            restoreImage({ id: imageId }).catch(console.error)
+        },
+        [hideImageLocally, restoreImage]
     )
 
     const handleSelectPreviousImage = useCallback(() => {
@@ -1511,7 +1625,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
         if (selectedImageIds.size === 0) return
 
         const idsToDelete = Array.from(selectedImageIds)
-        setDeletedImageIds((prev) => {
+        setHiddenImageIds((prev) => {
             const next = new Set(prev)
             idsToDelete.forEach((id) => next.add(id))
             return next
@@ -1527,11 +1641,49 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
         })
     }, [selectedImageIds, deleteImageAction])
 
+    const handleBulkArchive = useCallback(() => {
+        if (selectedImageIds.size === 0) return
+
+        const idsToArchive = Array.from(selectedImageIds)
+        setHiddenImageIds((prev) => {
+            const next = new Set(prev)
+            idsToArchive.forEach((id) => next.add(id))
+            return next
+        })
+
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+
+        idsToArchive.forEach((id) => {
+            archiveImage({ id }).catch(console.error)
+        })
+    }, [archiveImage, selectedImageIds])
+
+    const handleBulkRestore = useCallback(() => {
+        if (selectedImageIds.size === 0) return
+
+        const idsToRestore = Array.from(selectedImageIds)
+        setHiddenImageIds((prev) => {
+            const next = new Set(prev)
+            idsToRestore.forEach((id) => next.add(id))
+            return next
+        })
+
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+
+        idsToRestore.forEach((id) => {
+            restoreImage({ id }).catch(console.error)
+        })
+    }, [restoreImage, selectedImageIds])
+
     if (!session.user?.id) {
         return (
             <div className="container mx-auto max-w-6xl px-4 pt-16 pb-8">
                 <div className="mb-8 shrink-0">
-                    <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">AI Library</h1>
+                    <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">
+                        {getLibraryViewLabel(view)}
+                    </h1>
                     <p className="text-muted-foreground">Your collection of AI-generated images</p>
                 </div>
                 <Alert>
@@ -1561,17 +1713,19 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                     <div className="mb-8 flex flex-col gap-4">
                         <div className="shrink-0">
                             <h1 className="mb-2 whitespace-nowrap font-bold text-3xl">
-                                AI Library
+                                {getLibraryViewLabel(view)}
                             </h1>
                             <p className="text-muted-foreground">
-                                Your collection of AI-generated images
+                                {isArchivedView
+                                    ? "Archived images hidden from your main library."
+                                    : "Your collection of AI-generated images"}
                             </p>
                             <div className="mt-2 text-muted-foreground text-sm">
                                 {resolvedTotalImages === undefined
                                     ? "Loading image count..."
-                                    : `${resolvedTotalImages} images${totalPages && totalPages > 1 ? ` · Page ${pageNumber} of ${totalPages}` : ""}`}
+                                    : `${resolvedTotalImages} ${isArchivedView ? "archived image" : "image"}${resolvedTotalImages === 1 ? "" : "s"}${totalPages && totalPages > 1 ? ` · Page ${pageNumber} of ${totalPages}` : ""}`}
                                 {pendingGenerations.length > 0
-                                    ? !hasActiveFilters
+                                    ? !hasActiveFilters && !isArchivedView
                                         ? ` · ${pendingGenerations.length} pending`
                                         : ""
                                     : ""}
@@ -1606,6 +1760,24 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+                            <Tabs
+                                value={view}
+                                onValueChange={(value) =>
+                                    handleViewChange(value as LibraryViewMode)
+                                }
+                            >
+                                <TabsList>
+                                    <TabsTrigger value="active">
+                                        <ImageIcon className="mr-2 h-4 w-4" />
+                                        Library
+                                    </TabsTrigger>
+                                    <TabsTrigger value="archived">
+                                        <Archive className="mr-2 h-4 w-4" />
+                                        Archive
+                                    </TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+
                             <Button
                                 type="button"
                                 variant={privateViewingEnabled ? "secondary" : "outline"}
@@ -1880,22 +2052,38 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                         <div className="py-24 text-center">
                             <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
                             <h3 className="mb-2 font-medium text-xl">
-                                {hasSearchQuery && hasActiveFilters
-                                    ? "No images match this search"
-                                    : hasSearchQuery
+                                {isArchivedView
+                                    ? hasSearchQuery && hasActiveFilters
+                                        ? "No archived images match this search"
+                                        : hasSearchQuery
+                                          ? "No archived images match this search"
+                                          : hasActiveFilters
+                                            ? "No archived images match these filters"
+                                            : "No archived images yet"
+                                    : hasSearchQuery && hasActiveFilters
                                       ? "No images match this search"
-                                      : hasActiveFilters
-                                        ? "No images match these filters"
-                                        : "No generated images yet"}
+                                      : hasSearchQuery
+                                        ? "No images match this search"
+                                        : hasActiveFilters
+                                          ? "No images match these filters"
+                                          : "No generated images yet"}
                             </h3>
                             <p className="mx-auto max-w-sm text-muted-foreground">
-                                {hasSearchQuery && hasActiveFilters
-                                    ? "Try a different search, or loosen the active filters."
-                                    : hasSearchQuery
-                                      ? "Try a different prompt, style, subject, or metadata term."
-                                      : hasActiveFilters
-                                        ? "Try a different model, resolution, aspect ratio, or orientation."
-                                        : "Generate images using the sidebar to see them appear here."}
+                                {isArchivedView
+                                    ? hasSearchQuery && hasActiveFilters
+                                        ? "Try a different search, or loosen the active filters."
+                                        : hasSearchQuery
+                                          ? "Try a different prompt, style, subject, or metadata term."
+                                          : hasActiveFilters
+                                            ? "Try a different model, resolution, aspect ratio, or orientation."
+                                            : "Archived images will appear here until they are restored or deleted."
+                                    : hasSearchQuery && hasActiveFilters
+                                      ? "Try a different search, or loosen the active filters."
+                                      : hasSearchQuery
+                                        ? "Try a different prompt, style, subject, or metadata term."
+                                        : hasActiveFilters
+                                          ? "Try a different model, resolution, aspect ratio, or orientation."
+                                          : "Generate images using the sidebar to see them appear here."}
                             </p>
                         </div>
                     ) : (
@@ -1973,6 +2161,15 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                                         onDelete={() =>
                                                             handleDeleteImage(image._id)
                                                         }
+                                                        isArchivedView={isArchivedView}
+                                                        onArchive={() =>
+                                                            handleArchiveImage(image._id)
+                                                        }
+                                                        onRestore={() =>
+                                                            handleRestoreImage(image._id)
+                                                        }
+                                                        onBulkArchive={handleBulkArchive}
+                                                        onBulkRestore={handleBulkRestore}
                                                         selectedCount={selectedImageIds.size}
                                                         onBulkDelete={handleBulkDelete}
                                                         isImageHidden={isImageHidden}
@@ -2050,13 +2247,20 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                     image={selectedImage}
                     isOpen={!!selectedImage}
                     onClose={() => setSelectedImage(null)}
+                    isArchivedView={isArchivedView}
                     onPrevious={handleSelectPreviousImage}
                     onNext={handleSelectNextImage}
                     canNavigatePrevious={canNavigateSelectedImagePrevious}
                     canNavigateNext={canNavigateSelectedImageNext}
                     prefetchImageUrls={selectedImagePrefetchUrls}
                     onDeleteStart={(id) => {
-                        setDeletedImageIds((prev) => new Set(prev).add(id))
+                        setHiddenImageIds((prev) => new Set(prev).add(id))
+                    }}
+                    onArchiveStart={(id) => {
+                        setHiddenImageIds((prev) => new Set(prev).add(id))
+                    }}
+                    onRestoreStart={(id) => {
+                        setHiddenImageIds((prev) => new Set(prev).add(id))
                     }}
                 />
             </motion.div>

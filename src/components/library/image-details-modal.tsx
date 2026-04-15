@@ -32,20 +32,32 @@ import { getExpandedImageUrl, getGeneratedImageProxyUrl } from "@/lib/generated-
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
-import { useAction, useConvex } from "convex/react"
-import { ChevronLeft, ChevronRight, Download, ExternalLink, Trash2, X } from "lucide-react"
+import { useAction, useConvex, useMutation } from "convex/react"
+import {
+    Archive,
+    ChevronLeft,
+    ChevronRight,
+    Download,
+    ExternalLink,
+    RotateCcw,
+    Trash2,
+    X
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 interface ImageDetailsModalProps {
     image: Doc<"generatedImages"> | null
     isOpen: boolean
     onClose: () => void
+    isArchivedView?: boolean
     onPrevious?: () => void
     onNext?: () => void
     canNavigatePrevious?: boolean
     canNavigateNext?: boolean
     prefetchImageUrls?: string[]
     onDeleteStart?: (id: Id<"generatedImages">) => void
+    onArchiveStart?: (id: Id<"generatedImages">) => void
+    onRestoreStart?: (id: Id<"generatedImages">) => void
 }
 
 const DESKTOP_BREAKPOINT = 1100
@@ -78,17 +90,22 @@ export function ImageDetailsModal({
     image,
     isOpen,
     onClose,
+    isArchivedView = false,
     onPrevious,
     onNext,
     canNavigatePrevious = false,
     canNavigateNext = false,
     prefetchImageUrls = [],
-    onDeleteStart
+    onDeleteStart,
+    onArchiveStart,
+    onRestoreStart
 }: ImageDetailsModalProps) {
     const isMobile = useIsMobile()
     const { models } = useSharedModels()
     const convex = useConvex()
     const deleteImage = useAction(api.images_node.deleteGeneratedImage)
+    const archiveImage = useMutation(api.images.archiveGeneratedImage)
+    const restoreImage = useMutation(api.images.restoreGeneratedImage)
     const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
     const imageOverrides = usePrivateViewingStore((state) => state.imageOverrides)
     const [localImage, setLocalImage] = useState(image)
@@ -374,7 +391,9 @@ export function ImageDetailsModal({
     if (!localImage) return null
 
     const isImageHidden = isModalImageHidden
-    const fullResolutionUrl = metadata?.url || getGeneratedImageProxyUrl(localImage.storageKey)
+    const fullResolutionUrl =
+        (typeof metadata?.url === "string" ? metadata.url : null) ??
+        getGeneratedImageProxyUrl(localImage.storageKey)
     const model = models.find((m) => m.id === localImage.modelId)
     const formattedDate = new Date(localImage.createdAt).toLocaleDateString()
     const resolutionLabel = localImage.resolution || "1K"
@@ -390,6 +409,24 @@ export function ImageDetailsModal({
         // Fire and forget deletion
         deleteImage({ id: imageId }).catch((error) => {
             console.error("Failed to delete image", error)
+        })
+    }
+
+    const handleArchiveStateChange = () => {
+        const imageId = localImage._id as Id<"generatedImages">
+        onClose()
+
+        if (isArchivedView) {
+            onRestoreStart?.(imageId)
+            restoreImage({ id: imageId }).catch((error) => {
+                console.error("Failed to restore image", error)
+            })
+            return
+        }
+
+        onArchiveStart?.(imageId)
+        archiveImage({ id: imageId }).catch((error) => {
+            console.error("Failed to archive image", error)
         })
     }
     const sharedAlertDialog = (
@@ -533,6 +570,18 @@ export function ImageDetailsModal({
                                     >
                                         <Download className="mr-1.5 h-4 w-4" />
                                         Download
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="h-10 flex-1 text-xs"
+                                        onClick={handleArchiveStateChange}
+                                    >
+                                        {isArchivedView ? (
+                                            <RotateCcw className="mr-1.5 h-4 w-4" />
+                                        ) : (
+                                            <Archive className="mr-1.5 h-4 w-4" />
+                                        )}
+                                        {isArchivedView ? "Restore" : "Archive"}
                                     </Button>
                                     <Button
                                         variant="destructive"
@@ -722,6 +771,18 @@ export function ImageDetailsModal({
                                 >
                                     <Download className="mr-2 h-4 w-4" />
                                     Download
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={handleArchiveStateChange}
+                                >
+                                    {isArchivedView ? (
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                    ) : (
+                                        <Archive className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isArchivedView ? "Restore" : "Archive"}
                                 </Button>
                                 <Button
                                     variant="destructive"

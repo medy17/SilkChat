@@ -16,6 +16,7 @@ describe("library-search", () => {
                 page: "3",
                 query: "  cyberpunk robot  ",
                 sort: "oldest",
+                view: "archived",
                 modelIds: ["flux-1", "seedream"],
                 resolutions: "2K",
                 aspectRatios: ["16:9"],
@@ -26,6 +27,7 @@ describe("library-search", () => {
             pageSize: 20,
             query: "cyberpunk robot",
             sort: "oldest",
+            view: "archived",
             modelIds: ["flux-1", "seedream"],
             resolutions: ["2K"],
             aspectRatios: ["16:9"],
@@ -50,6 +52,7 @@ describe("library-search", () => {
             validateLibrarySearch({
                 page: 0,
                 sort: "sideways",
+                view: "deep-storage",
                 modelIds: ["flux-1", "flux-1", ""],
                 orientations: ["portrait", "invalid", "portrait"]
             })

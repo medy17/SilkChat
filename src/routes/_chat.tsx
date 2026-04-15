@@ -40,6 +40,7 @@ const areLibrarySearchStatesEqual = (left: LibrarySearchState, right: LibrarySea
     left.pageSize === right.pageSize &&
     left.query === right.query &&
     left.sort === right.sort &&
+    left.view === right.view &&
     areStringArraysEqual(left.modelIds, right.modelIds) &&
     areStringArraysEqual(left.resolutions, right.resolutions) &&
     areStringArraysEqual(left.aspectRatios, right.aspectRatios) &&

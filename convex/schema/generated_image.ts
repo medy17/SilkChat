@@ -8,5 +8,6 @@ export const GeneratedImage = {
     modelId: v.optional(v.string()),
     aspectRatio: v.optional(v.string()), // Or whatever format ImageSize is
     resolution: v.optional(v.string()), // If applicable
+    isArchived: v.optional(v.boolean()),
     createdAt: v.number() // timestamp
 }

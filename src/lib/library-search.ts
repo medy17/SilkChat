@@ -2,6 +2,7 @@ import type { GeneratedImageOrientation } from "@/lib/generated-image-filters"
 
 export type ImageSortOption = "relevance" | "newest" | "oldest"
 export type LibraryPageSize = 20 | 30 | 40 | 50
+export type LibraryView = "active" | "archived"
 
 export const LIBRARY_PAGE_SIZE_OPTIONS = [20, 30, 40, 50] as const
 
@@ -17,6 +18,7 @@ export type LibrarySearchState = LibraryFiltersState & {
     pageSize: LibraryPageSize
     query: string
     sort: ImageSortOption
+    view: LibraryView
 }
 
 export const DEFAULT_LIBRARY_FILTERS: LibraryFiltersState = {
@@ -31,6 +33,7 @@ export const DEFAULT_LIBRARY_SEARCH: LibrarySearchState = {
     pageSize: 20,
     query: "",
     sort: "newest",
+    view: "active",
     ...DEFAULT_LIBRARY_FILTERS
 }
 
@@ -41,6 +44,7 @@ const GENERATED_IMAGE_ORIENTATIONS = new Set<GeneratedImageOrientation>([
 ])
 
 const GENERATED_IMAGE_SORT_OPTIONS = new Set<ImageSortOption>(["relevance", "newest", "oldest"])
+const LIBRARY_VIEW_OPTIONS = new Set<LibraryView>(["active", "archived"])
 
 const getFirstValue = (value: unknown) => (Array.isArray(value) ? value[0] : value)
 
@@ -122,6 +126,15 @@ export const validateLibrarySearch = (search: Record<string, unknown>): LibraryS
         }
 
         return query ? "relevance" : DEFAULT_LIBRARY_SEARCH.sort
+    })(),
+    view: (() => {
+        const candidate = getFirstValue(search.view)
+
+        if (typeof candidate === "string" && LIBRARY_VIEW_OPTIONS.has(candidate as LibraryView)) {
+            return candidate as LibraryView
+        }
+
+        return DEFAULT_LIBRARY_SEARCH.view
     })(),
     modelIds: normalizeStringArray(search.modelIds),
     resolutions: normalizeStringArray(search.resolutions),

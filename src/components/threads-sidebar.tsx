@@ -21,6 +21,7 @@ import {
     isShortcutModifierPressed,
     matchesNewChatShortcut
 } from "@/lib/keyboard-shortcuts"
+import { validateLibrarySearch } from "@/lib/library-search"
 import { exportMultipleThreads, exportSingleThread } from "@/lib/thread-export-client"
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router"
@@ -118,6 +119,10 @@ export function ThreadsSidebar() {
     const navigate = useNavigate()
     const location = useLocation()
     const isLibraryMode = location.pathname.startsWith("/library")
+    const librarySearch = isLibraryMode
+        ? validateLibrarySearch(location.search as Record<string, unknown>)
+        : null
+    const isLibraryArchiveView = librarySearch?.view === "archived"
     const params = useParams({ strict: false }) as { threadId?: string; folderId?: string }
     const isMobile = useIsMobile()
     const { setOpenMobile } = useSidebar()
@@ -768,7 +773,7 @@ export function ThreadsSidebar() {
                                 : "pointer-events-none translate-x-4 opacity-0"
                         )}
                     >
-                        <ImageGenerationSidebar />
+                        <ImageGenerationSidebar disabled={isLibraryArchiveView} />
                     </div>
                 </div>
                 <div

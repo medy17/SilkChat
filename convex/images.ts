@@ -7,7 +7,7 @@ import {
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { internalMutation, internalQuery, query } from "./_generated/server"
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
 
 const generatedImageSortValidator = v.union(
@@ -28,7 +28,21 @@ const generatedImageFiltersValidator = v.optional(
         orientations: v.optional(v.array(generatedImageOrientationValidator))
     })
 )
+const generatedImageViewValidator = v.optional(v.union(v.literal("active"), v.literal("archived")))
 const MIN_GENERATED_IMAGE_SEARCH_QUERY_LENGTH = 2
+
+const isImageVisibleInView = (
+    image: {
+        isArchived?: boolean
+    },
+    view?: "active" | "archived"
+) => {
+    if (view === "archived") {
+        return image.isArchived === true
+    }
+
+    return image.isArchived !== true
+}
 
 export const insertGeneratedImage = internalMutation({
     args: {
@@ -81,9 +95,10 @@ export const paginateGeneratedImages = query({
         paginationOpts: paginationOptsValidator,
         query: v.optional(v.string()),
         sortBy: v.optional(generatedImageSortValidator),
-        filters: generatedImageFiltersValidator
+        filters: generatedImageFiltersValidator,
+        view: generatedImageViewValidator
     },
-    handler: async (ctx, { paginationOpts, query, sortBy, filters }) => {
+    handler: async (ctx, { paginationOpts, query, sortBy, filters, view }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             return {
@@ -110,11 +125,13 @@ export const paginateGeneratedImages = query({
                   )
                   .collect()
                   .then((images) => {
-                      const matchedImages = images.filter((image) =>
-                          matchesGeneratedImageFilters(
-                              image,
-                              filters as GeneratedImageFilters | undefined
-                          )
+                      const matchedImages = images.filter(
+                          (image) =>
+                              isImageVisibleInView(image, view) &&
+                              matchesGeneratedImageFilters(
+                                  image,
+                                  filters as GeneratedImageFilters | undefined
+                              )
                       )
 
                       if (normalizedSortBy === "relevance") {
@@ -130,10 +147,13 @@ export const paginateGeneratedImages = query({
                   .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
                   .collect()
                   .then((images) =>
-                      filterAndSortGeneratedImages(images, {
-                          filters: filters as GeneratedImageFilters | undefined,
-                          sortBy: chronologicalSortBy
-                      })
+                      filterAndSortGeneratedImages(
+                          images.filter((image) => isImageVisibleInView(image, view)),
+                          {
+                              filters: filters as GeneratedImageFilters | undefined,
+                              sortBy: chronologicalSortBy
+                          }
+                      )
                   )
 
         const cursorOffset = Number(paginationOpts.cursor || "0")
@@ -154,9 +174,10 @@ export const paginateGeneratedImages = query({
 export const getGeneratedImagesCount = query({
     args: {
         query: v.optional(v.string()),
-        filters: generatedImageFiltersValidator
+        filters: generatedImageFiltersValidator,
+        view: generatedImageViewValidator
     },
-    handler: async (ctx, { query, filters }) => {
+    handler: async (ctx, { query, filters, view }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return 0
 
@@ -174,8 +195,13 @@ export const getGeneratedImagesCount = query({
                 )
                 .collect()
 
-            return images.filter((image) =>
-                matchesGeneratedImageFilters(image, filters as GeneratedImageFilters | undefined)
+            return images.filter(
+                (image) =>
+                    isImageVisibleInView(image, view) &&
+                    matchesGeneratedImageFilters(
+                        image,
+                        filters as GeneratedImageFilters | undefined
+                    )
             ).length
         }
 
@@ -184,15 +210,20 @@ export const getGeneratedImagesCount = query({
             .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
             .collect()
 
-        return filterAndSortGeneratedImages(images, {
-            filters: filters as GeneratedImageFilters | undefined
-        }).length
+        return filterAndSortGeneratedImages(
+            images.filter((image) => isImageVisibleInView(image, view)),
+            {
+                filters: filters as GeneratedImageFilters | undefined
+            }
+        ).length
     }
 })
 
 export const getGeneratedImageFacetOptions = query({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        view: generatedImageViewValidator
+    },
+    handler: async (ctx, { view }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             return {
@@ -208,7 +239,41 @@ export const getGeneratedImageFacetOptions = query({
             .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
             .collect()
 
-        return getGeneratedImageFilterOptions(images)
+        return getGeneratedImageFilterOptions(
+            images.filter((image) => isImageVisibleInView(image, view))
+        )
+    }
+})
+
+export const archiveGeneratedImage = mutation({
+    args: { id: v.id("generatedImages") },
+    handler: async (ctx, args) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("unauthorized:chat")
+
+        const image = await ctx.db.get(args.id)
+        if (!image) throw new Error("Image not found")
+        if (image.userId !== user.id) throw new Error("Unauthorized to archive this image")
+
+        await ctx.db.patch(args.id, {
+            isArchived: true
+        })
+    }
+})
+
+export const restoreGeneratedImage = mutation({
+    args: { id: v.id("generatedImages") },
+    handler: async (ctx, args) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("unauthorized:chat")
+
+        const image = await ctx.db.get(args.id)
+        if (!image) throw new Error("Image not found")
+        if (image.userId !== user.id) throw new Error("Unauthorized to restore this image")
+
+        await ctx.db.patch(args.id, {
+            isArchived: false
+        })
     }
 })
 
