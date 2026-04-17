@@ -19,7 +19,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
             type: "llm",
             slug: "claude-sonnet-4-6"
         },
-        releaseOrder: 20260930,
+        releaseOrder: 20260217,
         adapters: anthropicTextAdapters("claude-sonnet-4-6"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
@@ -29,16 +29,35 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.6",
         name: "Claude Opus 4.6",
         shortName: "Opus 4.6",
-        shortDescription: "Highest-end Claude model for difficult reasoning and analysis",
+        shortDescription:
+            "Previous generation SOTA Claude model for difficult reasoning and analysis",
         description:
-            "Claude Opus 4.6 is Anthropic's premium reasoning model for harder research, deeper analysis, and more demanding professional tasks. Use it when you want maximum Claude quality and are willing to spend more for it.",
+            "Claude Opus 4.6 is Anthropic's previous generation premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
             slug: "claude-opus-4-6"
         },
-        releaseOrder: 20260929,
+        releaseOrder: 20260205,
         adapters: anthropicTextAdapters("claude-opus-4-6"),
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
+    },
+    {
+        id: "claude-opus-4.7",
+        name: "Claude Opus 4.7",
+        shortName: "Opus 4.7",
+        shortDescription: "Highest-end Claude model for difficult reasoning and analysis",
+        description:
+            "Claude Opus 4.7 is Anthropic's premium reasoning model for harder research, deeper analysis, and more demanding professional tasks. Use it when you want maximum Claude quality and are willing to spend more for it.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-opus-4-7"
+        },
+        releaseOrder: 20260416,
+        adapters: anthropicTextAdapters("claude-opus-4-7"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro"
@@ -47,11 +66,12 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.5",
         name: "Claude Opus 4.5",
         shortName: "Opus 4.5",
-        releaseOrder: 20260928,
+        releaseOrder: 20251124,
         adapters: anthropicTextAdapters("claude-opus-4-5"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro"
+        prototypeCreditTier: "pro",
+        legacy: true
     },
     {
         id: "claude-haiku-4.5",
@@ -64,7 +84,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         artificialAnalysis: {
             type: "llm"
         },
-        releaseOrder: 20260927,
+        releaseOrder: 20251015,
         adapters: anthropicTextAdapters("claude-haiku-4-5"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
@@ -74,17 +94,18 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-sonnet-4.5",
         name: "Claude Sonnet 4.5",
         shortName: "Sonnet 4.5",
-        releaseOrder: 20260926,
+        releaseOrder: 20250929,
         adapters: anthropicTextAdapters("claude-sonnet-4-5"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro"
+        prototypeCreditTier: "pro",
+        legacy: true
     },
     {
         id: "claude-opus-4.1",
         name: "Claude Opus 4.1",
         shortName: "Opus 4.1",
-        releaseOrder: 20260925,
+        releaseOrder: 20250805,
         adapters: anthropicTextAdapters("claude-opus-4-1"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
@@ -95,7 +116,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4",
         name: "Claude Opus 4",
         shortName: "Opus 4",
-        releaseOrder: 20260924,
+        releaseOrder: 20250522,
         adapters: anthropicTextAdapters("claude-opus-4"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
@@ -106,7 +127,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-sonnet-4",
         name: "Claude Sonnet 4",
         shortName: "Sonnet 4",
-        releaseOrder: 20260923,
+        releaseOrder: 20250522,
         adapters: anthropicTextAdapters("claude-sonnet-4"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
