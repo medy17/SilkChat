@@ -4,7 +4,11 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
-import { getProviderDisplayName, useAvailableModels } from "@/lib/models-providers-shared"
+import {
+    getProviderDisplayName,
+    isImageGenerationCapableModel,
+    useAvailableModels
+} from "@/lib/models-providers-shared"
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { Brain, RotateCcw } from "lucide-react"
@@ -84,7 +88,10 @@ export function RetryMenu({
     )
 
     const providerSections = React.useMemo(() => {
-        const grouped = availableModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
+        const textModels = availableModels.filter(
+            (model) => !isImageGenerationCapableModel(model) && model.mode !== "speech-to-text"
+        )
+        const grouped = textModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
             const providerId = getModelProviderId(model)
             if (!acc[providerId]) {
                 acc[providerId] = []
