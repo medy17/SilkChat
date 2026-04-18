@@ -39,6 +39,20 @@ const personaChromeTransition = {
     ease: [0.16, 1, 0.3, 1]
 } as const
 
+function PersonaSelectItem({ persona }: { persona: PersonaOption }) {
+    return (
+        <div className="flex min-w-0 items-center gap-2">
+            <PersonaAvatar
+                name={persona.name}
+                avatarKind={persona.avatarKind}
+                avatarValue={persona.avatarValue}
+                className="size-5"
+            />
+            <span className="truncate">{persona.name}</span>
+        </div>
+    )
+}
+
 export function PersonaSelector({ threadId }: { threadId?: string }) {
     const session = useSession()
     const auth = useConvexAuth()
@@ -182,16 +196,18 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         <SelectItem
                                             key={`builtin:${persona.id}`}
                                             value={getSelectValue("builtin", persona.id)}
+                                            textValue={persona.name}
                                         >
-                                            {persona.name}
+                                            <PersonaSelectItem persona={persona} />
                                         </SelectItem>
                                     ))}
                                     {pickerOptions?.userPersonas.map((persona) => (
                                         <SelectItem
                                             key={`user:${persona.id}`}
                                             value={getSelectValue("user", persona.id)}
+                                            textValue={persona.name}
                                         >
-                                            {persona.name}
+                                            <PersonaSelectItem persona={persona} />
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

@@ -24,6 +24,23 @@ vi.mock("@/components/persona-avatar", () => ({
     PersonaAvatar: () => React.createElement("span", { "data-testid": "persona-avatar" })
 }))
 
+vi.mock("@/components/ui/select", () => ({
+    Select: ({ children }: { children: React.ReactNode }) =>
+        React.createElement("div", {}, children),
+    SelectContent: ({ children }: { children: React.ReactNode }) =>
+        React.createElement("div", { "data-testid": "select-content" }, children),
+    SelectItem: ({
+        children,
+        value
+    }: {
+        children: React.ReactNode
+        value: string
+        textValue?: string
+    }) => React.createElement("div", { role: "option", "data-value": value }, children),
+    SelectTrigger: ({ children }: { children: React.ReactNode }) =>
+        React.createElement("button", { role: "combobox", type: "button" }, children)
+}))
+
 vi.mock("@/convex/_generated/api", () => ({
     api: {
         personas: {
@@ -143,5 +160,52 @@ describe("PersonaSelector", () => {
         expect(screen.getByText("Socrates")).toBeTruthy()
         expect(screen.getByTestId("persona-avatar")).toBeTruthy()
         expect(container.querySelector('[role="combobox"]')).toBeNull()
+    })
+
+    it("renders persona avatars inside the dropdown options", () => {
+        useQueryMock.mockImplementation((query: string) => {
+            if (query === "getThread") {
+                return undefined
+            }
+
+            if (query === "listPersonaPickerOptions") {
+                return {
+                    builtIns: [
+                        {
+                            source: "builtin",
+                            id: "socrates",
+                            name: "Socrates",
+                            shortName: "Socrates",
+                            description: "Ask better questions.",
+                            conversationStarters: [],
+                            defaultModelId: "gpt-4.1",
+                            avatarKind: "builtin",
+                            avatarValue: "/avatars/socrates.webp"
+                        }
+                    ],
+                    userPersonas: [
+                        {
+                            source: "user",
+                            id: "coach",
+                            name: "Coach",
+                            shortName: "Coach",
+                            description: "Direct and practical.",
+                            conversationStarters: [],
+                            defaultModelId: "gpt-4.1",
+                            avatarKind: "r2",
+                            avatarValue: "persona-avatars/user-1/coach.webp"
+                        }
+                    ]
+                }
+            }
+
+            return undefined
+        })
+
+        render(React.createElement(PersonaSelector))
+
+        expect(screen.getByText("Socrates")).toBeTruthy()
+        expect(screen.getByText("Coach")).toBeTruthy()
+        expect(screen.getAllByTestId("persona-avatar")).toHaveLength(2)
     })
 })
