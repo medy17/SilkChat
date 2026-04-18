@@ -15,7 +15,7 @@ const googleImageAdapters = (modelId: string): RegistryKey[] => [
 export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3-flash-preview",
-        name: "Gemini 3 Flash Preview",
+        name: "Gemini 3 Flash",
         shortName: "3 Flash",
         shortDescription: "Lightning-fast Gemini model with strong everyday capability",
         description:
@@ -33,7 +33,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3.1-flash-lite-preview",
-        name: "Gemini 3.1 Flash Lite Preview",
+        name: "Gemini 3.1 Flash Lite",
         shortName: "3.1 Flash Lite",
         shortDescription: "Lowest-latency Gemini 3.1 option for lightweight workloads",
         description:
@@ -51,7 +51,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3.1-pro-preview",
-        name: "Gemini 3.1 Pro Preview",
+        name: "Gemini 3.1 Pro",
         shortName: "3.1 Pro",
         shortDescription: "Google flagship with advanced reasoning and multimodal depth",
         description:
@@ -122,7 +122,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3-pro-preview",
-        name: "Gemini 3 Pro Preview",
+        name: "Gemini 3 Pro",
         shortName: "3 Pro",
         releaseOrder: 20251118,
         adapters: googleTextAdapters("gemini-3-pro-preview"),

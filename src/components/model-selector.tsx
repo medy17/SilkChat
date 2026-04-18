@@ -645,13 +645,8 @@ const ModelDetailPanel = ({
                 </div>
             )}
 
-            <ScrollArea
-                className={cn(
-                    "min-h-0 flex-1",
-                    isMobile ? "px-4 pt-3 pb-4" : "pr-1 pb-2 pl-4 md:pl-5"
-                )}
-            >
-                <div className={cn("space-y-6", isMobile ? "pb-4" : "pb-2")}>
+            <ScrollArea className="min-h-0 flex-1">
+                <div className={cn("space-y-6", isMobile ? "px-4 pt-3 pb-4" : "px-4 pb-2 md:px-5")}>
                     <section>
                         <h4 className="font-semibold text-base">Description</h4>
                         <p className="mt-2 text-muted-foreground text-sm leading-7">
