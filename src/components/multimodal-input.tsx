@@ -349,7 +349,7 @@ function MobileOverflowMenu({
                 side="top"
                 sideOffset={8}
                 avoidCollisions={false}
-                className="w-[min(14rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-background/95 p-1.5 shadow-lg backdrop-blur-xl"
+                className="w-[min(14rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-popover p-1.5 shadow-lg"
             >
                 <div className="space-y-1">
                     {(modelSupportsImageSizing || modelSupportsImageResolution) && (
