@@ -176,7 +176,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         </span>
                                     </div>
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-lg border-border/70 bg-background/95 shadow-lg backdrop-blur-xl">
                                     <SelectItem value="default">Default</SelectItem>
                                     {pickerOptions?.builtIns.map((persona) => (
                                         <SelectItem

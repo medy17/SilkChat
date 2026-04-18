@@ -346,7 +346,9 @@ function MobileOverflowMenu({
             </PopoverTrigger>
             <PopoverContent
                 align="end"
+                side="top"
                 sideOffset={8}
+                avoidCollisions={false}
                 className="w-[min(14rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-background/95 p-1.5 shadow-lg backdrop-blur-xl"
             >
                 <div className="space-y-1">
@@ -383,7 +385,7 @@ function MobileOverflowMenu({
                                 )}
                             </button>
                             {reasoningExpanded && (
-                                <div className="space-y-1 px-1 pb-1">
+                                <div className="space-y-1 px-2 pb-1">
                                     {allowedReasoningEfforts.map((effort) => {
                                         const effortLabel = getReasoningEffortLabelForModel(
                                             selectedSharedModel,
@@ -396,7 +398,7 @@ function MobileOverflowMenu({
                                                 key={effort}
                                                 type="button"
                                                 className={cn(
-                                                    "flex w-full items-center rounded-md px-8 py-2 text-left text-sm transition-colors hover:bg-accent/60",
+                                                    "flex w-full items-center rounded-md px-9 py-2 text-left text-sm transition-colors hover:bg-accent/60",
                                                     isSelected && "bg-accent/50 text-primary"
                                                 )}
                                                 onClick={() => setReasoningEffort(effort)}
