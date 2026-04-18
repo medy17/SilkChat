@@ -13,9 +13,9 @@ import {
 } from "@/lib/models-providers-shared"
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { Brain, RotateCcw } from "lucide-react"
+import { Archive, Brain, RotateCcw } from "lucide-react"
 import * as React from "react"
-import { getProviderIcon } from "./model-selector"
+import { getProviderSectionIcon } from "./model-selector"
 import { Button } from "./ui/button"
 import {
     DropdownMenu,
@@ -202,7 +202,6 @@ export function RetryMenu({
                     <span>Retry same</span>
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator />
                 <div className="flex items-center gap-2 px-2 py-1.5">
                     <div className="h-[1px] flex-1 bg-border" />
                     <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
@@ -224,7 +223,10 @@ export function RetryMenu({
 
                     return (
                         <DropdownMenuSub key={section.id}>
-                            <DropdownMenuSubTrigger className="cursor-pointer">
+                            <DropdownMenuSubTrigger className="cursor-pointer gap-2.5 pr-2">
+                                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border bg-secondary/50">
+                                    {getProviderSectionIcon(section.id, section.models, "size-3.5")}
+                                </div>
                                 <span className="flex-1 truncate">{section.label}</span>
                             </DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -234,8 +236,6 @@ export function RetryMenu({
                                     collisionPadding={16}
                                 >
                                     {visibleModels.map((model) => {
-                                        const isCustom = "isCustom" in model && model.isCustom
-
                                         const handleSelect = (effort?: ReasoningEffort) => {
                                             setSelectedModel(model.id)
                                             if (effort) {
@@ -261,11 +261,8 @@ export function RetryMenu({
                                                         onClick={() =>
                                                             handleSelect(allowedEfforts[0])
                                                         }
-                                                        className="flex-1 cursor-pointer gap-2 pr-2"
+                                                        className="flex-1 cursor-pointer pr-2"
                                                     >
-                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
-                                                            {getProviderIcon(model, isCustom)}
-                                                        </div>
                                                         <div className="flex min-w-0 flex-1 flex-col">
                                                             <span className="truncate font-medium text-sm">
                                                                 {model.name}
@@ -325,11 +322,8 @@ export function RetryMenu({
                                             <DropdownMenuItem
                                                 key={model.id}
                                                 onClick={() => handleSelect()}
-                                                className="cursor-pointer gap-2"
+                                                className="cursor-pointer"
                                             >
-                                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-secondary/60">
-                                                    {getProviderIcon(model, isCustom)}
-                                                </div>
                                                 <div className="flex min-w-0 flex-col">
                                                     <span className="truncate font-medium text-sm">
                                                         {model.name}
@@ -352,6 +346,7 @@ export function RetryMenu({
                                                     }))
                                                 }}
                                             >
+                                                <Archive className="size-3.5" />
                                                 <span className="font-medium text-xs">
                                                     Show legacy models
                                                 </span>

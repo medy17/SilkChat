@@ -73,14 +73,14 @@ import {
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
-const getDeveloperBrandIcon = (developer?: string) => {
+const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
     switch (developer?.trim()) {
         case "Z.ai":
-            return <ZAIIcon className="size-4" />
+            return <ZAIIcon className={className} />
         case "Moonshot AI":
-            return <MoonshotAIIcon className="size-4 rounded-sm" />
+            return <MoonshotAIIcon className={`${className} rounded-sm`} />
         case "DeepSeek":
-            return <DeepSeekIcon className="size-4 rounded-sm" />
+            return <DeepSeekIcon className={`${className} rounded-sm`} />
         default:
             return null
     }
@@ -286,29 +286,37 @@ const getProviderSectionLabel = (
     }
 }
 
-const getProviderSectionIcon = (providerId: string, models?: DisplayModel[]) => {
+export const getProviderSectionIcon = (
+    providerId: string,
+    models?: DisplayModel[],
+    className = "size-4"
+) => {
     if (providerId.startsWith("openrouter-developer:")) {
         const developer = models?.find((model) => !("isCustom" in model && model.isCustom)) as
             | SharedModel
             | undefined
-        return getDeveloperBrandIcon(developer?.developer) ?? <OpenRouterIcon className="size-4" />
+        return (
+            getDeveloperBrandIcon(developer?.developer, className) ?? (
+                <OpenRouterIcon className={className} />
+            )
+        )
     }
 
     switch (providerId) {
         case "openai":
-            return <OpenAIIcon className="size-4" />
+            return <OpenAIIcon className={className} />
         case "anthropic":
-            return <ClaudeIcon className="size-4" />
+            return <ClaudeIcon className={className} />
         case "google":
-            return <GeminiIcon className="size-4" />
+            return <GeminiIcon className={className} />
         case "xai":
-            return <XAIIcon className="size-4" />
+            return <XAIIcon className={className} />
         case "groq":
-            return <GroqIcon className="size-4" />
+            return <GroqIcon className={className} />
         case "fal":
-            return <FalAIIcon className="size-4" />
+            return <FalAIIcon className={className} />
         case "openrouter":
-            return <OpenRouterIcon className="size-4" />
+            return <OpenRouterIcon className={className} />
         default:
             return <Badge className="h-5 px-1 text-[10px]">Custom</Badge>
     }

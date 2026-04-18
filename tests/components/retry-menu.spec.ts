@@ -13,7 +13,8 @@ const { useAvailableModelsMock, useConvexAuthMock, useDiskCachedQueryMock, useSe
     }))
 
 vi.mock("@/components/model-selector", () => ({
-    getProviderIcon: () => React.createElement("span", { "data-testid": "provider-icon" })
+    getProviderSectionIcon: () =>
+        React.createElement("span", { "data-testid": "provider-section-icon" })
 }))
 
 vi.mock("@/convex/_generated/api", () => ({
@@ -112,6 +113,7 @@ describe("RetryMenu", () => {
 
         expect(await screen.findByText("Retry same")).toBeTruthy()
         expect(screen.getByText("OpenAI")).toBeTruthy()
+        expect(screen.getAllByTestId("provider-section-icon")).toHaveLength(1)
         expect(screen.queryByText("Fal AI")).toBeNull()
         expect(screen.queryByText("Groq")).toBeNull()
     })
