@@ -1,4 +1,4 @@
-import { Messages } from "@/components/messages"
+import { Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -18,8 +18,7 @@ import { useModelStore } from "@/lib/model-store"
 import { useDefaultModelId } from "@/lib/models-providers-shared"
 import { useThemeStore } from "@/lib/theme-store"
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useEffect, useRef } from "react"
-import { useStickToBottom } from "use-stick-to-bottom"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { FullPageDropOverlay } from "./full-page-drop-overlay"
 import { Logo } from "./logo"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
@@ -35,10 +34,8 @@ interface ChatProps {
 const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }: ChatProps) => {
     const { selectedModel, setSelectedModel } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId })
-    const { scrollToBottom, isAtBottom, contentRef, scrollRef } = useStickToBottom({
-        initial: "instant",
-        resize: "instant"
-    })
+    const messagesRef = useRef<MessagesHandle>(null)
+    const [isAtBottom, setIsAtBottom] = useState(true)
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -103,7 +100,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)
-        scrollToBottom({ animation: "smooth" })
+        messagesRef.current?.scrollToBottom("smooth")
     }
 
     const handleFileDrop = useCallback((files: File[]) => {
@@ -179,12 +176,13 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             <FullPageDropOverlay onDrop={handleFileDrop} enabled={isActiveRoute} />
 
             <Messages
+                ref={messagesRef}
                 messages={messages}
                 onRetry={handleRetry}
                 onEditAndRetry={handleEditAndRetry}
                 status={status}
-                contentRef={contentRef}
-                scrollRef={scrollRef}
+                onBottomStateChange={setIsAtBottom}
+                threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
             />
 
             <motion.div
@@ -277,7 +275,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         >
                             <StickToBottomButton
                                 isAtBottom={isAtBottom}
-                                scrollToBottom={scrollToBottom}
+                                scrollToBottom={() => messagesRef.current?.scrollToBottom("smooth")}
                             />
                         </motion.div>
                     )}

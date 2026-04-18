@@ -8,12 +8,21 @@ import { useModelStore } from "@/lib/model-store"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
-import type { FileUIPart, UIMessage, UIToolInvocation } from "ai"
+import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
 import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw, Trash2, X } from "lucide-react"
 import { ArrowUp, MoreHorizontal } from "lucide-react"
-import { memo, useState } from "react"
-import { useMemo } from "react"
-import type { useStickToBottom } from "use-stick-to-bottom"
+import {
+    forwardRef,
+    memo,
+    useCallback,
+    useEffect,
+    useImperativeHandle,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react"
+import { Virtualizer, type VirtualizerHandle } from "virtua"
 import { ChatActions } from "./chat-actions"
 import { MemoizedMarkdown } from "./memoized-markdown"
 import { ModelSelector } from "./model-selector"
@@ -239,7 +248,7 @@ const PartsRenderer = memo(
             case "dynamic-tool":
                 return (
                     <GenericToolRenderer
-                        toolInvocation={part as UIToolInvocation<unknown>}
+                        toolInvocation={part as UIToolInvocation<Tool>}
                         toolName={part.toolName}
                     />
                 )
@@ -498,29 +507,168 @@ const EditableMessage = memo(
 )
 EditableMessage.displayName = "EditableMessage"
 
-export function Messages({
-    messages,
-    onRetry,
-    onEditAndRetry,
-    status,
-    contentRef,
-    scrollRef
-}: {
-    messages: UIMessage[]
-    onRetry?: (message: UIMessage, modelIdOverride?: string) => void
-    onEditAndRetry?: (
-        messageId: string,
-        newContent: string,
-        remainingFileParts?: FileUIPart[],
-        deletedUrls?: string[]
-    ) => void
-    status: ReturnType<typeof useChatIntegration>["status"]
-    contentRef: ReturnType<typeof useStickToBottom>["contentRef"]
-    scrollRef: ReturnType<typeof useStickToBottom>["scrollRef"]
-}) {
+const MESSAGE_KEEP_MOUNTED_TAIL_COUNT = 40
+const MESSAGE_VIRTUALIZER_BUFFER = 700
+const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
+const BOTTOM_SCROLL_THRESHOLD_PX = 4
+
+type PreviewFile = {
+    url: string
+    filename?: string
+    mediaType?: string
+}
+
+const MessageRow = memo(
+    ({
+        message,
+        isStreamingMessage,
+        onRetry,
+        onEdit,
+        onSaveEdit,
+        onCancelEdit,
+        onFilePreview,
+        targetFromMessageId,
+        targetMode
+    }: {
+        message: UIMessage
+        isStreamingMessage: boolean
+        onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+        onEdit: (message: UIMessage) => void
+        onSaveEdit: (
+            newContent: string,
+            remainingFileParts?: FileUIPart[],
+            deletedUrls?: string[]
+        ) => void
+        onCancelEdit: () => void
+        onFilePreview: (part: PreviewFile) => void
+        targetFromMessageId?: string
+        targetMode?: string
+    }) => {
+        const reasoning = getMessageReasoningDetails(message)
+        const inlineParts = message.parts.filter(
+            (part) => part.type !== "file" && part.type !== "reasoning"
+        )
+        const fileParts = message.parts.filter((part) => part.type === "file")
+        const isEditing = targetFromMessageId === message.id && targetMode === "edit"
+
+        return (
+            <div className="pb-3">
+                <div
+                    className={cn(
+                        "prose relative prose-ol:my-2 prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background",
+                        "group prose-img:mx-auto prose-img:my-4 prose-pre:grid prose-code:before:hidden prose-code:after:hidden",
+                        "mb-8",
+                        message.role === "user" &&
+                            targetFromMessageId !== message.id &&
+                            "my-12 ml-auto w-fit max-w-md rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground"
+                    )}
+                >
+                    {isEditing ? (
+                        <EditableMessage
+                            message={message}
+                            onSave={onSaveEdit}
+                            onCancel={onCancelEdit}
+                        />
+                    ) : (
+                        <>
+                            <div className="prose-p:not-last:mb-4 max-w-[calc(100vw-2rem)] overflow-hidden">
+                                {reasoning && (
+                                    <Reasoning
+                                        className="mb-6"
+                                        isStreaming={isStreamingMessage && reasoning.isStreaming}
+                                    >
+                                        <ReasoningTrigger className="mb-4">
+                                            Reasoning
+                                        </ReasoningTrigger>
+                                        <ReasoningContent
+                                            markdown={message.role === "assistant"}
+                                            className="rounded-lg border bg-muted/50"
+                                            contentClassName="prose prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
+                                        >
+                                            {reasoning.text}
+                                        </ReasoningContent>
+                                    </Reasoning>
+                                )}
+
+                                {inlineParts.map((part, index) => (
+                                    <PartsRenderer
+                                        key={`${message.id}-text-${index}`}
+                                        part={part}
+                                        markdown={message.role === "assistant"}
+                                        id={`${message.id}-text-${index}`}
+                                        onFilePreview={onFilePreview}
+                                        isStreaming={isStreamingMessage}
+                                    />
+                                ))}
+                            </div>
+
+                            {fileParts.length > 0 && (
+                                <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                                    {fileParts.map((part, index) => (
+                                        <PartsRenderer
+                                            key={`${message.id}-file-${index}`}
+                                            part={part}
+                                            markdown={message.role === "assistant"}
+                                            id={`${message.id}-file-${index}`}
+                                            onFilePreview={onFilePreview}
+                                            isStreaming={isStreamingMessage}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {!targetFromMessageId && message.role === "user" ? (
+                                <ChatActions
+                                    role={message.role}
+                                    message={message}
+                                    onRetry={onRetry}
+                                    onEdit={onEdit}
+                                />
+                            ) : !targetFromMessageId && message.role === "assistant" ? (
+                                <ChatActions
+                                    role={message.role}
+                                    message={message}
+                                    onRetry={undefined}
+                                    onEdit={undefined}
+                                />
+                            ) : null}
+                        </>
+                    )}
+                </div>
+            </div>
+        )
+    }
+)
+MessageRow.displayName = "MessageRow"
+
+export type MessagesHandle = {
+    scrollToBottom: (behavior?: ScrollBehavior) => void
+}
+
+export const Messages = forwardRef<
+    MessagesHandle,
+    {
+        messages: UIMessage[]
+        onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+        onEditAndRetry?: (
+            messageId: string,
+            newContent: string,
+            remainingFileParts?: FileUIPart[],
+            deletedUrls?: string[]
+        ) => void
+        status: ReturnType<typeof useChatIntegration>["status"]
+        onBottomStateChange?: (isAtBottom: boolean) => void
+        threadKey?: string
+    }
+>(({ messages, onRetry, onEditAndRetry, status, onBottomStateChange, threadKey }, ref) => {
     const { setTargetFromMessageId, targetFromMessageId, setTargetMode, targetMode } =
         useChatStore()
     const { chatWidthState } = useChatWidthStore()
+    const scrollerRef = useRef<HTMLDivElement>(null)
+    const contentContainerRef = useRef<HTMLDivElement>(null)
+    const virtualizerRef = useRef<VirtualizerHandle>(null)
+    const isAtBottomRef = useRef(true)
+    const shouldStickToBottomRef = useRef(true)
 
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
     const [previewFile, setPreviewFile] = useState<{
@@ -529,32 +677,34 @@ export function Messages({
         mediaType?: string
     } | null>(null)
 
-    const handleEdit = (message: UIMessage) => {
-        setTargetFromMessageId(message.id)
-        setTargetMode("edit")
-    }
+    const handleEdit = useCallback(
+        (message: UIMessage) => {
+            setTargetFromMessageId(message.id)
+            setTargetMode("edit")
+        },
+        [setTargetFromMessageId, setTargetMode]
+    )
 
-    const handleSaveEdit = (
-        newContent: string,
-        remainingFileParts?: FileUIPart[],
-        deletedUrls?: string[]
-    ) => {
-        if (targetFromMessageId && onEditAndRetry) {
-            onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
-        }
+    const handleSaveEdit = useCallback(
+        (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
+            if (targetFromMessageId && onEditAndRetry) {
+                onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
+            }
+            setTargetFromMessageId(undefined)
+            setTargetMode("normal")
+        },
+        [onEditAndRetry, setTargetFromMessageId, setTargetMode, targetFromMessageId]
+    )
+
+    const handleCancelEdit = useCallback(() => {
         setTargetFromMessageId(undefined)
         setTargetMode("normal")
-    }
+    }, [setTargetFromMessageId, setTargetMode])
 
-    const handleCancelEdit = () => {
-        setTargetFromMessageId(undefined)
-        setTargetMode("normal")
-    }
-
-    const handleFilePreview = (part: { url: string; filename?: string; mediaType?: string }) => {
+    const handleFilePreview = useCallback((part: PreviewFile) => {
         setPreviewFile(part)
         setPreviewDialogOpen(true)
-    }
+    }, [])
 
     const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
 
@@ -616,148 +766,212 @@ export function Messages({
     const showTypingLoader =
         shouldShowTypingLoader({ messages, status }) || isStreamingWithoutContent
 
-    const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")
+    const updateBottomState = useCallback(
+        (nextIsAtBottom: boolean) => {
+            if (isAtBottomRef.current === nextIsAtBottom) {
+                return
+            }
+
+            isAtBottomRef.current = nextIsAtBottom
+            onBottomStateChange?.(nextIsAtBottom)
+        },
+        [onBottomStateChange]
+    )
+
+    const syncBottomStateFromOffset = useCallback(
+        (offset?: number) => {
+            const handle = virtualizerRef.current
+            if (!handle) {
+                return
+            }
+
+            const scrollOffset = offset ?? handle.scrollOffset
+            const distanceFromBottom = Math.max(
+                0,
+                handle.scrollSize - handle.viewportSize - scrollOffset
+            )
+            const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
+
+            shouldStickToBottomRef.current = isAtBottom
+            updateBottomState(isAtBottom)
+        },
+        [updateBottomState]
+    )
+
+    const scrollToBottom = useCallback(
+        (behavior: ScrollBehavior = "auto") => {
+            shouldStickToBottomRef.current = true
+            updateBottomState(true)
+
+            const scroller = scrollerRef.current
+            if (!scroller) {
+                return
+            }
+
+            scroller.scrollTo({
+                top: scroller.scrollHeight,
+                behavior
+            })
+        },
+        [updateBottomState]
+    )
+
+    useImperativeHandle(
+        ref,
+        () => ({
+            scrollToBottom
+        }),
+        [scrollToBottom]
+    )
+
+    const lastUserMessage = useMemo(
+        () => [...messages].reverse().find((message) => message.role === "user"),
+        [messages]
+    )
+
+    const keepMountedIndexes = useMemo(() => {
+        const alwaysMountedIndexes = new Set<number>()
+        const tailStartIndex = Math.max(0, messages.length - MESSAGE_KEEP_MOUNTED_TAIL_COUNT)
+
+        for (let index = tailStartIndex; index < messages.length; index += 1) {
+            alwaysMountedIndexes.add(index)
+        }
+
+        if (targetFromMessageId) {
+            const activeIndex = messages.findIndex((message) => message.id === targetFromMessageId)
+            if (activeIndex >= 0) {
+                alwaysMountedIndexes.add(activeIndex)
+            }
+        }
+
+        return [...alwaysMountedIndexes].sort((a, b) => a - b)
+    }, [messages, targetFromMessageId])
+
+    useLayoutEffect(() => {
+        void messages.length
+        void lastMessage?.id
+        void status
+
+        if (!shouldStickToBottomRef.current) {
+            return
+        }
+
+        scrollToBottom("auto")
+    }, [lastMessage?.id, messages.length, scrollToBottom, status])
+
+    useEffect(() => {
+        updateBottomState(true)
+    }, [updateBottomState])
+
+    useEffect(() => {
+        void threadKey
+
+        shouldStickToBottomRef.current = true
+        updateBottomState(true)
+
+        const frameId = requestAnimationFrame(() => {
+            scrollToBottom("auto")
+        })
+
+        return () => {
+            cancelAnimationFrame(frameId)
+        }
+    }, [scrollToBottom, threadKey, updateBottomState])
+
+    useEffect(() => {
+        const target = contentContainerRef.current
+        if (!target || typeof ResizeObserver === "undefined") {
+            return
+        }
+
+        let frameId: number | null = null
+        const observer = new ResizeObserver(() => {
+            if (!shouldStickToBottomRef.current) {
+                return
+            }
+
+            if (frameId !== null) {
+                cancelAnimationFrame(frameId)
+            }
+
+            frameId = requestAnimationFrame(() => {
+                scrollToBottom("auto")
+            })
+        })
+
+        observer.observe(target)
+
+        return () => {
+            if (frameId !== null) {
+                cancelAnimationFrame(frameId)
+            }
+            observer.disconnect()
+        }
+    }, [scrollToBottom])
 
     return (
         <>
-            <div className="min-h-[90dvh] overflow-y-auto p-4 pt-0" ref={scrollRef}>
+            <div
+                className="min-h-[90dvh] overflow-y-auto p-4 pt-0 [overflow-anchor:none]"
+                ref={scrollerRef}
+            >
                 <div
-                    ref={contentRef}
                     className={cn(
-                        "mx-auto space-y-3 pb-16",
+                        "mx-auto w-full pb-16",
                         getChatWidthClass(chatWidthState.chatWidth)
                     )}
                 >
-                    {messages.map((message) =>
-                        (() => {
-                            const reasoning = getMessageReasoningDetails(message)
-                            const inlineParts = message.parts.filter(
-                                (part) => part.type !== "file" && part.type !== "reasoning"
-                            )
-                            const fileParts = message.parts.filter((part) => part.type === "file")
-
-                            return (
-                                <div
+                    <div ref={contentContainerRef}>
+                        <Virtualizer
+                            ref={virtualizerRef}
+                            scrollRef={scrollerRef}
+                            bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
+                            itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
+                            keepMounted={keepMountedIndexes}
+                            onScroll={syncBottomStateFromOffset}
+                        >
+                            {messages.map((message) => (
+                                <MessageRow
                                     key={message.id}
-                                    className={cn(
-                                        "prose relative prose-ol:my-2 prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background",
-                                        "group prose-img:mx-auto prose-img:my-4 prose-pre:grid prose-code:before:hidden prose-code:after:hidden",
-                                        "mb-8",
-                                        message.role === "user" &&
-                                            targetFromMessageId !== message.id &&
-                                            "my-12 ml-auto w-fit max-w-md rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground"
-                                    )}
-                                >
-                                    {targetFromMessageId === message.id && targetMode === "edit" ? (
-                                        <EditableMessage
-                                            message={message}
-                                            onSave={handleSaveEdit}
-                                            onCancel={handleCancelEdit}
-                                        />
-                                    ) : (
-                                        <>
-                                            <div className="prose-p:not-last:mb-4 max-w-[calc(100vw-2rem)] overflow-hidden">
-                                                {reasoning && (
-                                                    <Reasoning
-                                                        className="mb-6"
-                                                        isStreaming={
-                                                            status === "streaming" &&
-                                                            message === lastMessage &&
-                                                            reasoning.isStreaming
-                                                        }
-                                                    >
-                                                        <ReasoningTrigger className="mb-4">
-                                                            Reasoning
-                                                        </ReasoningTrigger>
-                                                        <ReasoningContent
-                                                            markdown={message.role === "assistant"}
-                                                            className="rounded-lg border bg-muted/50"
-                                                            contentClassName="prose prose-p:my-0 prose-pre:my-2 prose-ul:my-2 prose-li:mt-1 prose-li:mb-0 max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-[1.65rem] [&>div>div>:is(p,blockquote,h1,h2,h3,h4,h5,h6)]:pl-2 [&>div>div>:is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6)]:pr-8 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
-                                                        >
-                                                            {reasoning.text}
-                                                        </ReasoningContent>
-                                                    </Reasoning>
-                                                )}
+                                    message={message}
+                                    isStreamingMessage={
+                                        status === "streaming" && message.id === lastMessage?.id
+                                    }
+                                    onRetry={onRetry}
+                                    onEdit={handleEdit}
+                                    onSaveEdit={handleSaveEdit}
+                                    onCancelEdit={handleCancelEdit}
+                                    onFilePreview={handleFilePreview}
+                                    targetFromMessageId={targetFromMessageId}
+                                    targetMode={targetMode}
+                                />
+                            ))}
+                        </Virtualizer>
 
-                                                {inlineParts.map((part, index) => (
-                                                    <PartsRenderer
-                                                        key={`${message.id}-text-${index}`}
-                                                        part={part}
-                                                        markdown={message.role === "assistant"}
-                                                        id={`${message.id}-text-${index}`}
-                                                        onFilePreview={handleFilePreview}
-                                                        isStreaming={
-                                                            status === "streaming" &&
-                                                            message === lastMessage
-                                                        }
-                                                    />
-                                                ))}
-                                            </div>
-
-                                            {fileParts.length > 0 && (
-                                                <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
-                                                    {fileParts.map((part, index) => (
-                                                        <PartsRenderer
-                                                            key={`${message.id}-file-${index}`}
-                                                            part={part}
-                                                            markdown={message.role === "assistant"}
-                                                            id={`${message.id}-file-${index}`}
-                                                            onFilePreview={handleFilePreview}
-                                                            isStreaming={
-                                                                status === "streaming" &&
-                                                                message === lastMessage
-                                                            }
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {!targetFromMessageId && message.role === "user" ? (
-                                                <ChatActions
-                                                    role={message.role}
-                                                    message={message}
-                                                    onRetry={onRetry}
-                                                    onEdit={handleEdit}
-                                                />
-                                            ) : !targetFromMessageId &&
-                                              message.role === "assistant" ? (
-                                                <ChatActions
-                                                    role={message.role}
-                                                    message={message}
-                                                    onRetry={undefined}
-                                                    onEdit={undefined}
-                                                />
-                                            ) : null}
-                                        </>
+                        {status === "error" && (
+                            <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
+                                <div className="flex w-full items-center justify-between">
+                                    <p className="text-destructive-foreground">
+                                        Oops! Something went wrong.
+                                    </p>
+                                    {lastUserMessage && (
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => onRetry?.(lastUserMessage)}
+                                            className="text-destructive-foreground hover:text-destructive-foreground/80"
+                                        >
+                                            <RotateCcw />
+                                            Retry
+                                        </Button>
                                     )}
                                 </div>
-                            )
-                        })()
-                    )}
-
-                    {status === "error" && (
-                        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
-                            <div className="flex w-full items-center justify-between">
-                                <p className="text-destructive-foreground">
-                                    Oops! Something went wrong.
-                                </p>
-                                {lastUserMessage && (
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => onRetry?.(lastUserMessage)}
-                                        className="text-destructive-foreground hover:text-destructive-foreground/80"
-                                    >
-                                        <RotateCcw />
-                                        Retry
-                                    </Button>
-                                )}
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <div className="flex min-h-[3rem] items-center gap-2 py-4">
-                        {showTypingLoader && <Loader variant="typing" size="md" />}
+                        <div className="flex min-h-[3rem] items-center gap-2 py-4">
+                            {showTypingLoader && <Loader variant="typing" size="md" />}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -787,4 +1001,6 @@ export function Messages({
             </Dialog>
         </>
     )
-}
+})
+
+Messages.displayName = "Messages"

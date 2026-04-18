@@ -1,5 +1,5 @@
 import { FolderHero } from "@/components/folder-hero"
-import { Messages } from "@/components/messages"
+import { Messages, type MessagesHandle } from "@/components/messages"
 import { MultimodalInput } from "@/components/multimodal-input"
 import { SignupMessagePrompt } from "@/components/signup-message-prompt"
 import { StickToBottomButton } from "@/components/stick-to-bottom-button"
@@ -22,8 +22,7 @@ import { Link, useLocation } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Clock, Pin } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useRef } from "react"
-import { useStickToBottom } from "use-stick-to-bottom"
+import { useEffect, useRef, useState } from "react"
 
 interface FolderChatProps {
     folderId: Id<"projects">
@@ -36,10 +35,8 @@ const getThreadActivityTime = (thread: { createdAt: number; updatedAt?: number }
 export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) {
     const { selectedModel, setSelectedModel } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId: undefined })
-    const { scrollToBottom, isAtBottom, contentRef, scrollRef } = useStickToBottom({
-        initial: "instant",
-        resize: "instant"
-    })
+    const messagesRef = useRef<MessagesHandle>(null)
+    const [isAtBottom, setIsAtBottom] = useState(true)
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -81,7 +78,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)
-        scrollToBottom({ animation: "smooth" })
+        messagesRef.current?.scrollToBottom("smooth")
     }
 
     const isEmpty = !threadId && messages.length === 0
@@ -221,12 +218,13 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
             )}
         >
             <Messages
+                ref={messagesRef}
                 messages={messages}
                 onRetry={handleRetry}
                 onEditAndRetry={handleEditAndRetry}
                 status={status}
-                contentRef={contentRef}
-                scrollRef={scrollRef}
+                onBottomStateChange={setIsAtBottom}
+                threadKey={threadId ?? folderId.toString()}
             />
 
             <AnimatePresence mode="sync">
@@ -280,7 +278,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                     >
                         <StickToBottomButton
                             isAtBottom={isAtBottom}
-                            scrollToBottom={scrollToBottom}
+                            scrollToBottom={() => messagesRef.current?.scrollToBottom("smooth")}
                         />
                         <MultimodalInput
                             onSubmit={handleInputSubmitWithScroll}
