@@ -625,30 +625,21 @@ const ModelDetailPanel = ({
         <div className="flex h-full min-h-0 flex-col bg-background">
             {isMobile ? (
                 <DrawerHeader className="shrink-0 pb-0">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
-                            {getProviderIcon(model, isCustom)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <DrawerTitle className="truncate text-lg">{model.name}</DrawerTitle>
-                        </div>
-                    </div>
+                    <DrawerTitle className="truncate text-lg">{model.name}</DrawerTitle>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        {getModelShortDescription(model)}
+                    </p>
                 </DrawerHeader>
             ) : (
                 <div className="p-4 pb-0 md:p-5 md:pb-0">
                     <div className="mb-4 flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border bg-secondary/60">
-                                {getProviderIcon(model, isCustom)}
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <h3 className="truncate font-semibold text-lg">{model.name}</h3>
                             </div>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="truncate font-semibold text-lg">{model.name}</h3>
-                                </div>
-                                <p className="mt-1 text-muted-foreground text-sm">
-                                    {getModelShortDescription(model)}
-                                </p>
-                            </div>
+                            <p className="mt-1 text-muted-foreground text-sm">
+                                {getModelShortDescription(model)}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -881,7 +872,6 @@ const ModelCard = React.memo(function ModelCard({
     badgeLabel?: string
 }) {
     const isSelected = model.id === selectedModel
-    const isCustom = "isCustom" in model && model.isCustom
     const modelAbilities = getModelAbilities(model)
     const selectModel = () => {
         if (disabled) return
@@ -905,10 +895,7 @@ const ModelCard = React.memo(function ModelCard({
                 onClick={selectModel}
                 className="block w-full text-left focus-visible:outline-none"
             >
-                <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex shrink-0 items-center justify-center rounded-md border bg-secondary/60 p-2">
-                        {getProviderIcon(model, isCustom)}
-                    </div>
+                <div className="flex items-start">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 pr-10 sm:pr-0">
