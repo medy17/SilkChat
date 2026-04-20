@@ -246,10 +246,15 @@ export const ReasoningEffortSelector = ({
         setReasoningEffort
     ])
     const isReasoningOff = reasoningEffort === "off"
+    const selectedModelBaseUsesProCredits =
+        selectedSharedModel !== undefined &&
+        getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
     const selectedEffortUsesProCredits =
         resolvedCreditPlan === "pro" &&
         selectedSharedModel !== undefined &&
+        !selectedModelBaseUsesProCredits &&
         getPrototypeCreditTierForModel(selectedSharedModel, reasoningEffort) === "pro"
+    const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
 
     if (!modelSupportsReasoningControl) return null
 
@@ -268,15 +273,15 @@ export const ReasoningEffortSelector = ({
                 >
                     <div className="hidden items-center gap-1.5 sm:flex">
                         {isReasoningOff ? <Zap className="size-4" /> : <Brain className="size-4" />}
-                        <SelectValue />
-                    </div>
-                    <span className="relative sm:hidden">
-                        <Zap className="size-4" />
                         {selectedEffortUsesProCredits && (
-                            <Crown
-                                className="-right-1 -top-1 absolute size-2.5"
-                                aria-label="Uses Pro credits"
-                            />
+                            <Crown className="size-3.5 shrink-0" aria-label="Uses Pro credits" />
+                        )}
+                        <span>{reasoningLabel}</span>
+                    </div>
+                    <span className="flex items-center gap-1 sm:hidden">
+                        {isReasoningOff ? <Zap className="size-4" /> : <Brain className="size-4" />}
+                        {selectedEffortUsesProCredits && (
+                            <Crown className="size-2.5 shrink-0" aria-label="Uses Pro credits" />
                         )}
                     </span>
                 </SelectTrigger>
@@ -289,6 +294,7 @@ export const ReasoningEffortSelector = ({
                         const effortUsesProCredits =
                             resolvedCreditPlan === "pro" &&
                             selectedSharedModel !== undefined &&
+                            !selectedModelBaseUsesProCredits &&
                             getPrototypeCreditTierForModel(selectedSharedModel, effort) === "pro"
 
                         return (
@@ -437,9 +443,13 @@ function MobileOverflowMenu({
     const { enabledTools, reasoningEffort, setReasoningEffort } = useModelStore()
     const [reasoningExpanded, setReasoningExpanded] = useState(false)
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
+    const selectedModelBaseUsesProCredits =
+        selectedSharedModel !== undefined &&
+        getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
     const selectedEffortUsesProCredits =
         creditPlan === "pro" &&
         selectedSharedModel !== undefined &&
+        !selectedModelBaseUsesProCredits &&
         getPrototypeCreditTierForModel(selectedSharedModel, reasoningEffort) === "pro"
     const webSearchEnabled = enabledTools.includes("web_search")
     const supermemoryEnabled = enabledTools.includes("supermemory")
@@ -491,15 +501,15 @@ function MobileOverflowMenu({
                                 ) : (
                                     <Brain className="size-4 shrink-0" />
                                 )}
-                                <span className="min-w-0 flex-1 truncate">
-                                    Reasoning: {reasoningLabel}
-                                </span>
                                 {selectedEffortUsesProCredits && (
                                     <Crown
                                         className="size-3.5 shrink-0"
                                         aria-label="Uses Pro credits"
                                     />
                                 )}
+                                <span className="min-w-0 flex-1 truncate">
+                                    Reasoning: {reasoningLabel}
+                                </span>
                                 {reasoningExpanded ? (
                                     <ChevronUp className="size-4 shrink-0" />
                                 ) : (
@@ -524,6 +534,7 @@ function MobileOverflowMenu({
                                         const effortUsesProCredits =
                                             creditPlan === "pro" &&
                                             selectedSharedModel !== undefined &&
+                                            !selectedModelBaseUsesProCredits &&
                                             getPrototypeCreditTierForModel(
                                                 selectedSharedModel,
                                                 effort

@@ -909,17 +909,6 @@ const ModelCard = React.memo(function ModelCard({
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 pr-10 sm:pr-0">
                                 <div className="flex items-center gap-2">
-                                    <span className="truncate font-medium text-sm sm:text-base">
-                                        {model.name}
-                                    </span>
-                                    {badgeLabel && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="border border-border/70 text-[10px] uppercase tracking-wide"
-                                        >
-                                            {badgeLabel}
-                                        </Badge>
-                                    )}
                                     {usesProCredits && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -930,6 +919,17 @@ const ModelCard = React.memo(function ModelCard({
                                             </TooltipTrigger>
                                             <TooltipContent>Uses Pro credits</TooltipContent>
                                         </Tooltip>
+                                    )}
+                                    <span className="truncate font-medium text-sm sm:text-base">
+                                        {model.name}
+                                    </span>
+                                    {badgeLabel && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="border border-border/70 text-[10px] uppercase tracking-wide"
+                                        >
+                                            {badgeLabel}
+                                        </Badge>
                                     )}
                                     {isSelected && (
                                         <Check className="size-4 shrink-0 text-primary" />
@@ -1299,6 +1299,10 @@ export function ModelSelector({
                 : null,
         [currentProviders, selectedModelData, sharedModels]
     )
+    const selectedModelUsesProCredits =
+        creditPlan === "pro" &&
+        selectedModelData !== undefined &&
+        getPrototypeCreditTierForModel(selectedModelData, "off") === "pro"
 
     const modelList = visibleSection ? (
         <div className="space-y-2 pb-3">
@@ -1350,6 +1354,17 @@ export function ModelSelector({
                 {selectedModelData && (
                     <div className="flex items-center gap-2">
                         <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
+                        {selectedModelUsesProCredits && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Crown
+                                        className="size-3.5 shrink-0"
+                                        aria-label="Uses Pro credits"
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent>Uses Pro credits</TooltipContent>
+                            </Tooltip>
+                        )}
                         <span className="hidden md:hidden min-[390px]:block">
                             {preferShortName
                                 ? (selectedModelData as SharedModel)?.shortName ||
