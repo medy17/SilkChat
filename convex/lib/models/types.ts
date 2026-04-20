@@ -88,4 +88,6 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     prototypeCreditTier?: PrototypeCreditTier
     prototypeCreditTierWithReasoning?: PrototypeCreditTier
     legacy?: boolean
+    sunsetOn?: string
+    replacementId?: string
 }

@@ -11,7 +11,8 @@ import {
     MODELS_SHARED,
     type RegistryKey,
     SHARED_MODELS_VERSION,
-    type SharedModel
+    type SharedModel,
+    isModelSunset
 } from "./lib/models"
 import type { UserSettings } from "./schema"
 import { NonSensitiveUserSettings } from "./schema/settings"
@@ -123,6 +124,8 @@ export const getUserRegistryInternal = internalQuery({
 
         const models: Record<string, SharedModel & { customProviderId?: string }> = {}
         for (const model of MODELS_SHARED) {
+            if (isModelSunset(model)) continue
+
             const available_adapters: RegistryKey[] = []
             for (const adapter of model.adapters) {
                 const provider = adapter.split(":")[0]

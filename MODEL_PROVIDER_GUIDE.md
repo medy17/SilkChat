@@ -17,6 +17,9 @@ Each entry defines:
 - `id`: the app-facing model ID
 - `name` and optional `shortName`
 - `adapters`: provider-specific targets like `openai:gpt-4o` or `i3-google:gemini-2.5-flash`
+- `legacy`: marks an older model that remains callable but should be hidden behind legacy UI affordances
+- `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
+- `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
 - `abilities`: feature flags used by the runtime and UI
 - optional `mode`: `text`, `image`, or `speech-to-text`
 - optional `supportedImageSizes`

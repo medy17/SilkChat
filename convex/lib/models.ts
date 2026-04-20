@@ -1,4 +1,5 @@
 export * from "./models/types"
+export * from "./models/lifecycle"
 
 import { ANTHROPIC_MODELS } from "./models/anthropic"
 import { DEEPSEEK_MODELS } from "./models/deepseek"
@@ -49,6 +50,8 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.availableToPickForReasoningEfforts,
         model.prototypeCreditTier,
         model.prototypeCreditTierWithReasoning,
-        model.legacy
+        model.legacy,
+        model.sunsetOn,
+        model.replacementId
     ])
 )

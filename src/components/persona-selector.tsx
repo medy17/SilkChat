@@ -6,11 +6,16 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+    notifyModelReplacement,
+    resolveAvailableModelReplacement
+} from "@/hooks/use-model-lifecycle-migration"
 import { useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels } from "@/lib/models-providers-shared"
+import { useSharedModels } from "@/lib/shared-models"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { useQuery } from "convex/react"
 import { Sparkles } from "lucide-react"
@@ -79,6 +84,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const { availableModels } = useAvailableModels(
         "error" in userSettings ? undefined : userSettings
     )
+    const { models: sharedModels } = useSharedModels()
     const availableModelIds = useMemo(
         () => new Set(availableModels.map((model) => model.id)),
         [availableModels]
@@ -162,9 +168,30 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
 
                                     setSelectedPersona({ source, id })
 
-                                    if (availableModelIds.has(option.defaultModelId)) {
-                                        if (selectedModel !== option.defaultModelId) {
-                                            setSelectedModel(option.defaultModelId)
+                                    const replacement = resolveAvailableModelReplacement({
+                                        modelId: option.defaultModelId,
+                                        sharedModels,
+                                        availableModels
+                                    })
+                                    const targetModelId = availableModelIds.has(
+                                        option.defaultModelId
+                                    )
+                                        ? option.defaultModelId
+                                        : replacement.replacementId
+
+                                    if (targetModelId && availableModelIds.has(targetModelId)) {
+                                        if (selectedModel !== targetModelId) {
+                                            setSelectedModel(targetModelId)
+                                        }
+                                        if (
+                                            targetModelId !== option.defaultModelId &&
+                                            replacement.originalModel &&
+                                            replacement.replacement
+                                        ) {
+                                            notifyModelReplacement(
+                                                replacement.originalModel,
+                                                replacement.replacement
+                                            )
                                         }
                                     } else {
                                         toast.warning(

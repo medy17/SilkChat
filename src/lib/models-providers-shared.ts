@@ -11,6 +11,7 @@ import {
     XAIIcon
 } from "@/components/brand-icons"
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
+import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import type { ReasoningEffort } from "@/lib/model-store"
@@ -232,18 +233,23 @@ export const isInternalProviderEnabled = (providerId: string) => {
     return !HIDDEN_PROVIDER_IDS.has(providerId) && enabledInternalProviders.has(coreProvider)
 }
 
-export const getDefaultModelId = (sharedModels: SharedModel[]) =>
-    (sharedModels.find(
-        (model) =>
-            model.id === "gemini-3-flash-preview" &&
-            model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
-    )?.id ??
-        sharedModels.find((model) =>
-            model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
-        )?.id) ||
-    sharedModels.find((model) =>
-        model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
-    )?.id
+export const getDefaultModelId = (sharedModels: SharedModel[]) => {
+    const activeModels = sharedModels.filter((model) => !isModelSunset(model))
+    const hasInternalProvider = (model: SharedModel) =>
+        model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
+
+    const preferredResolution = resolveModelReplacement("gemini-3-flash-preview", sharedModels, {
+        isCandidateAllowed: (model) => !isModelSunset(model) && hasInternalProvider(model)
+    })
+
+    return (
+        preferredResolution.resolvedId ??
+        activeModels.find((model) => hasInternalProvider(model))?.id ??
+        activeModels.find((model) =>
+            model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
+        )?.id
+    )
+}
 
 export const useDefaultModelId = () => {
     const { models } = useSharedModels()
@@ -447,6 +453,7 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
     sharedModels
         .filter(
             (model) =>
+                !isModelSunset(model) &&
                 isOpenRouterModelEnabledInBrowser(model) &&
                 model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
         )

@@ -91,7 +91,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         supportsDisablingReasoning: true,
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-17",
+        replacementId: "gemini-3-flash-preview"
     },
     {
         id: "gemini-2.5-flash-lite",
@@ -103,7 +105,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         supportsDisablingReasoning: true,
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-07-22",
+        replacementId: "gemini-3.1-flash-lite-preview"
     },
     {
         id: "gemini-2.5-pro",
@@ -114,7 +118,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-17",
+        replacementId: "gemini-3.1-pro-preview"
     },
     {
         id: "gemini-2.0-flash",
@@ -125,7 +131,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["vision", "function_calling", "pdf"],
         ...FREE_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-01",
+        replacementId: "gemini-2.5-flash"
     },
     {
         id: "gemini-2.0-flash-lite",
@@ -136,7 +144,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["vision", "function_calling", "pdf"],
         ...FREE_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-01",
+        replacementId: "gemini-2.5-flash-lite"
     },
     {
         id: "gemini-3-pro-preview",
@@ -147,7 +157,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-03-26",
+        replacementId: "gemini-3.1-pro-preview"
     },
     {
         id: "gemini-2.5-flash-image",
@@ -164,7 +176,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
         supportedImageResolutions: ["1K", "2K", "4K"],
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-10-02",
+        replacementId: "gemini-3.1-flash-image-preview"
     },
     {
         id: "gemini-3.1-flash-image-preview",

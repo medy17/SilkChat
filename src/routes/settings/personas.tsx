@@ -29,6 +29,10 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+    notifyModelReplacement,
+    resolveAvailableModelReplacement
+} from "@/hooks/use-model-lifecycle-migration"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
@@ -40,6 +44,7 @@ import {
     MAX_PERSONA_STARTERS,
     MIN_PERSONA_STARTERS
 } from "@/lib/personas/builtins"
+import { useSharedModels } from "@/lib/shared-models"
 import { useConvexAuth, useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Copy, Loader2, Pencil, Plus, Save, Trash2, Upload } from "lucide-react"
@@ -910,6 +915,7 @@ function PersonasSettings() {
     const { availableModels } = useAvailableModels(
         "error" in userSettings ? undefined : userSettings
     )
+    const { models: sharedModels } = useSharedModels()
 
     const personaModels = useMemo(
         () =>
@@ -942,6 +948,36 @@ function PersonasSettings() {
             }))
         }
     }, [form.defaultModelId, personaModels])
+
+    useEffect(() => {
+        if (
+            !form.defaultModelId ||
+            personaModels.some((model) => model.id === form.defaultModelId)
+        ) {
+            return
+        }
+
+        const replacement = resolveAvailableModelReplacement({
+            modelId: form.defaultModelId,
+            sharedModels,
+            availableModels: personaModels
+        })
+
+        if (!replacement.replacementId || !replacement.replacement) return
+
+        setForm((current) =>
+            current.defaultModelId === form.defaultModelId
+                ? {
+                      ...current,
+                      defaultModelId: replacement.replacementId!
+                  }
+                : current
+        )
+
+        if (replacement.originalModel) {
+            notifyModelReplacement(replacement.originalModel, replacement.replacement)
+        }
+    }, [form.defaultModelId, personaModels, sharedModels])
 
     const personaPromptUsage = useMemo(() => estimatePromptUsage(form), [form])
     const [debouncedPersonaPromptUsage, setDebouncedPersonaPromptUsage] =

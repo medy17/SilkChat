@@ -10,12 +10,14 @@ import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
+import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useModelStore } from "@/lib/model-store"
-import { useDefaultModelId } from "@/lib/models-providers-shared"
+import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
+import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
@@ -42,6 +44,8 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const { data: session, isPending } = useSession()
     const location = useLocation()
     const defaultModelId = useDefaultModelId()
+    const { availableModels } = useAvailableModels(undefined)
+    const { models: sharedModels } = useSharedModels()
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
 
@@ -50,6 +54,14 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
             setSelectedModel(defaultModelId)
         }
     }, [defaultModelId, selectedModel, setSelectedModel])
+
+    useSelectedModelLifecycleMigration({
+        selectedModel,
+        setSelectedModel,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId
+    })
 
     const projects = useDiskCachedQuery(
         api.folders.getUserProjects,

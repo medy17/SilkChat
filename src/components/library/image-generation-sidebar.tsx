@@ -3,7 +3,12 @@ import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
+import { isModelSunset } from "@/convex/lib/models/lifecycle"
 import { useToken } from "@/hooks/auth-hooks"
+import {
+    notifyModelReplacement,
+    resolveAvailableModelReplacement
+} from "@/hooks/use-model-lifecycle-migration"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import {
@@ -38,7 +43,10 @@ const areModelCountsEqual = (left: Record<string, number>, right: Record<string,
 export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolean }) {
     const { token } = useToken()
     const { models } = useSharedModels()
-    const imageModels = useMemo(() => models.filter((m) => m.mode === "image"), [models])
+    const imageModels = useMemo(
+        () => models.filter((m) => m.mode === "image" && !isModelSunset(m)),
+        [models]
+    )
     const {
         addPendingGeneration,
         removePendingGeneration,
@@ -116,18 +124,40 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     useEffect(() => {
         setSelectedModelIds((prev) => {
             const selectableModels = creditPlan === null ? imageModels : selectableImageModels
-            const validSelections = prev.filter((id) =>
-                selectableModels.some((model) => model.id === id)
-            )
+            const selectableIds = new Set(selectableModels.map((model) => model.id))
+            const fallbackPool = selectableModels.length > 0 ? selectableModels : imageModels
+            const validSelections = prev
+                .map((id) => {
+                    if (selectableIds.has(id)) return id
+
+                    const original = models.find((model) => model.id === id)
+                    if (!original || !isModelSunset(original)) return id
+
+                    const replacement = resolveAvailableModelReplacement({
+                        modelId: id,
+                        sharedModels: models,
+                        availableModels: selectableModels,
+                        fallbackModelId: fallbackPool[0]?.id
+                    })
+
+                    if (replacement.replacementId && replacement.replacement) {
+                        notifyModelReplacement(original, replacement.replacement)
+                        return replacement.replacementId
+                    }
+
+                    return id
+                })
+                .filter(
+                    (id, index, values) => selectableIds.has(id) && values.indexOf(id) === index
+                )
             if (validSelections.length > 0) {
                 return areStringArraysEqual(prev, validSelections) ? prev : validSelections
             }
 
-            const fallbackPool = selectableModels.length > 0 ? selectableModels : imageModels
             const fallbackSelection = fallbackPool.length > 0 ? [fallbackPool[0].id] : []
             return areStringArraysEqual(prev, fallbackSelection) ? prev : fallbackSelection
         })
-    }, [creditPlan, imageModels, selectableImageModels, setSelectedModelIds])
+    }, [creditPlan, imageModels, models, selectableImageModels, setSelectedModelIds])
 
     useEffect(() => {
         setSelectedModelCounts((prev) => {

@@ -6,6 +6,7 @@ import type { GenericActionCtx } from "convex/server"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { DataModel, Id } from "../_generated/dataModel"
+import { MODELS_SHARED, resolveModelReplacement } from "../lib/models"
 import type { UserSettings } from "../schema"
 import { getModel } from "./get_model"
 
@@ -13,10 +14,9 @@ const TITLE_MODEL_PREFERRED = "gemini-3.1-flash-lite-preview"
 
 const TITLE_MODEL_FALLBACKS = [
     "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview",
     "gpt-4.1-mini",
-    "gpt-4o-mini",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash"
+    "gpt-4o-mini"
 ] as const
 
 const contentToText = (content: ModelMessage["content"]): string => {
@@ -80,7 +80,13 @@ const getAvailableTitleModelId = async (
         userId
     })
 
-    const candidates = [TITLE_MODEL_PREFERRED, preferredModelId, ...TITLE_MODEL_FALLBACKS]
+    const preferredReplacement = resolveModelReplacement(preferredModelId, MODELS_SHARED).resolvedId
+    const candidates = [
+        TITLE_MODEL_PREFERRED,
+        preferredReplacement,
+        preferredModelId,
+        ...TITLE_MODEL_FALLBACKS
+    ].filter((candidate): candidate is string => Boolean(candidate))
 
     return candidates.find((candidate, index) => {
         if (candidates.indexOf(candidate) !== index) return false

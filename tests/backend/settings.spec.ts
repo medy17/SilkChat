@@ -34,7 +34,7 @@ vi.mock("@/lib/default-user-settings", () => ({
         coreAIProviders: {},
         customAIProviders: {},
         customModels: {},
-        titleGenerationModel: "gemini-2.0-flash-lite",
+        titleGenerationModel: "gemini-3.1-flash-lite-preview",
         customThemes: [],
         mcpServers: [],
         generalProviders: {
@@ -79,7 +79,9 @@ vi.mock("../../convex/lib/models", () => ({
             prototypeCreditTierWithReasoning: "pro"
         }
     ],
-    SHARED_MODELS_VERSION: "test-version"
+    SHARED_MODELS_VERSION: "test-version",
+    isModelSunset: (model: { sunsetOn?: string }) =>
+        Boolean(model.sunsetOn && model.sunsetOn <= "2026-04-20")
 }))
 
 vi.mock("../../convex/schema", () => ({

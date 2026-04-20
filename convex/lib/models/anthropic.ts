@@ -71,7 +71,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-11-24",
+        replacementId: "claude-opus-4.7"
     },
     {
         id: "claude-haiku-4.5",
@@ -99,7 +101,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-09-29",
+        replacementId: "claude-sonnet-4.6"
     },
     {
         id: "claude-opus-4.1",
@@ -110,7 +114,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-08-05",
+        replacementId: "claude-opus-4.7"
     },
     {
         id: "claude-opus-4",
@@ -121,7 +127,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-15",
+        replacementId: "claude-opus-4.7"
     },
     {
         id: "claude-sonnet-4",
@@ -132,6 +140,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
         supportsDisablingReasoning: true,
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-06-15",
+        replacementId: "claude-sonnet-4.6"
     }
 ]

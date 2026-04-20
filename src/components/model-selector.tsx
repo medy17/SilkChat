@@ -58,6 +58,7 @@ import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
 import {
+    Archive,
     Brain,
     Calculator,
     Check,
@@ -165,6 +166,7 @@ type ProviderSection = {
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
 const getModelReleaseOrder = (model: DisplayModel) =>
     "isCustom" in model && model.isCustom ? 0 : ((model as SharedModel).releaseOrder ?? 0)
+const isLegacyModel = (model: DisplayModel) => "legacy" in model && model.legacy === true
 
 const normalizeProviderId = (providerId: string) =>
     providerId.startsWith("i3-") ? providerId.slice(3) : providerId
@@ -1020,6 +1022,9 @@ export function ModelSelector({
 
     const [open, setOpen] = React.useState(false)
     const [searchValue, setSearchValue] = React.useState("")
+    const [expandedLegacySections, setExpandedLegacySections] = React.useState<
+        Record<string, boolean>
+    >({})
     const triggerRef = React.useRef<HTMLSpanElement>(null)
     const [desktopAlignOffset, setDesktopAlignOffset] = React.useState(0)
     const [desktopPopoverWidth, setDesktopPopoverWidth] = React.useState<number | null>(null)
@@ -1090,6 +1095,12 @@ export function ModelSelector({
                     label,
                     compactLabel: providerId === "google" ? "Gemini" : label,
                     models: [...models].sort((left, right) => {
+                        const legacyDelta =
+                            Number(isLegacyModel(left)) - Number(isLegacyModel(right))
+                        if (legacyDelta !== 0) {
+                            return legacyDelta
+                        }
+
                         const releaseDelta =
                             getModelReleaseOrder(right) - getModelReleaseOrder(left)
                         if (releaseDelta !== 0) {
@@ -1168,6 +1179,7 @@ export function ModelSelector({
     React.useEffect(() => {
         if (!open) {
             setSearchValue("")
+            setExpandedLegacySections({})
         }
     }, [open])
 
@@ -1304,9 +1316,22 @@ export function ModelSelector({
         selectedModelData !== undefined &&
         getPrototypeCreditTierForModel(selectedModelData, "off") === "pro"
 
+    const visibleSectionModels = React.useMemo(() => {
+        if (!visibleSection) return []
+        if (expandedLegacySections[visibleSection.id]) return visibleSection.models
+
+        const currentModels = visibleSection.models.filter((model) => !isLegacyModel(model))
+        return currentModels.length > 0 ? currentModels : visibleSection.models.slice(0, 5)
+    }, [expandedLegacySections, visibleSection])
+
+    const hiddenLegacyCount = React.useMemo(() => {
+        if (!visibleSection || expandedLegacySections[visibleSection.id]) return 0
+        return visibleSection.models.length - visibleSectionModels.length
+    }, [expandedLegacySections, visibleSection, visibleSectionModels.length])
+
     const modelList = visibleSection ? (
         <div className="space-y-2 pb-3">
-            {visibleSection.models.map((model) => (
+            {visibleSectionModels.map((model) => (
                 <ModelCard
                     key={model.id}
                     model={model}
@@ -1327,6 +1352,22 @@ export function ModelSelector({
                     }
                 />
             ))}
+            {hiddenLegacyCount > 0 && (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-center gap-2 text-muted-foreground text-sm hover:text-foreground"
+                    onClick={() =>
+                        setExpandedLegacySections((prev) => ({
+                            ...prev,
+                            [visibleSection.id]: true
+                        }))
+                    }
+                >
+                    <Archive className="size-4" />
+                    Show legacy models
+                </Button>
+            )}
         </div>
     ) : (
         <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm">

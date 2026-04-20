@@ -7,6 +7,7 @@ import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
+import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
@@ -15,7 +16,8 @@ import {
     isShortcutModifierPressed
 } from "@/lib/keyboard-shortcuts"
 import { useModelStore } from "@/lib/model-store"
-import { useDefaultModelId } from "@/lib/models-providers-shared"
+import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
+import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -40,6 +42,8 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
     const defaultModelId = useDefaultModelId()
+    const { availableModels } = useAvailableModels(undefined)
+    const { models: sharedModels } = useSharedModels()
     const multimodalInputRef = useRef<MultimodalInputRef>(null)
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
@@ -49,6 +53,14 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             setSelectedModel(defaultModelId)
         }
     }, [defaultModelId, selectedModel, setSelectedModel])
+
+    useSelectedModelLifecycleMigration({
+        selectedModel,
+        setSelectedModel,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId
+    })
 
     useEffect(() => {
         if (!isActiveRoute) {

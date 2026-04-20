@@ -1,6 +1,8 @@
 import type { SharedModel } from "@/convex/lib/models"
+import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
     getAllowedReasoningEffortsForModel,
+    getDefaultModelId,
     getReasoningEffortForPlan,
     getReasoningEffortLabelForModel,
     getRequiredPlanToPickModel,
@@ -187,5 +189,75 @@ describe("models-providers-shared OpenRouter visibility", () => {
         ])
         expect(getReasoningEffortForPlan(freeUpToLowReasoningModel, "high", "free")).toBe("low")
         expect(getReasoningEffortForPlan(freeWithoutReasoningModel, "medium", "free")).toBe("off")
+    })
+
+    it("treats sunset dates as an inclusive hard cutoff", () => {
+        const model = createModel({
+            sunsetOn: "2026-06-01"
+        })
+
+        expect(isModelSunset(model, "2026-05-31")).toBe(false)
+        expect(isModelSunset(model, "2026-06-01")).toBe(true)
+    })
+
+    it("cascades model replacements until it reaches an active model", () => {
+        const models = [
+            createModel({
+                id: "old",
+                sunsetOn: "2026-01-01",
+                replacementId: "middle"
+            }),
+            createModel({
+                id: "middle",
+                sunsetOn: "2026-02-01",
+                replacementId: "new"
+            }),
+            createModel({
+                id: "new"
+            })
+        ]
+
+        expect(resolveModelReplacement("old", models, { date: "2026-03-01" })).toMatchObject({
+            resolvedId: "new",
+            chain: ["old", "middle", "new"],
+            reason: "replaced"
+        })
+    })
+
+    it("guards replacement cycles", () => {
+        const models = [
+            createModel({
+                id: "old",
+                sunsetOn: "2026-01-01",
+                replacementId: "middle"
+            }),
+            createModel({
+                id: "middle",
+                sunsetOn: "2026-02-01",
+                replacementId: "old"
+            })
+        ]
+
+        expect(resolveModelReplacement("old", models, { date: "2026-03-01" })).toMatchObject({
+            resolvedId: null,
+            reason: "cycle"
+        })
+    })
+
+    it("uses an active replacement when the preferred default is sunset", () => {
+        const models = [
+            createModel({
+                id: "gemini-3-flash-preview",
+                adapters: ["i3-google:gemini-3-flash-preview"],
+                sunsetOn: "2026-01-01",
+                replacementId: "gemini-4-flash-preview"
+            }),
+            createModel({
+                id: "gemini-4-flash-preview",
+                adapters: ["i3-google:gemini-4-flash-preview"]
+            })
+        ]
+
+        expect(getDefaultModelId(models)).toBe("gemini-4-flash-preview")
     })
 })
