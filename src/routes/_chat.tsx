@@ -10,11 +10,13 @@ import { useEffect, useState } from "react"
 import { Chat } from "@/components/chat"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
+import { LandingPage } from "@/components/landing-page"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useSession } from "@/hooks/auth-hooks"
 import {
     isRestorableChatPath,
     peekLastChatRoute,
@@ -154,8 +156,13 @@ function PersistentChatView({
 }
 
 function ChatLayout() {
+    const { data: session, isPending } = useSession()
     const params = useParams({ strict: false })
     const location = useLocation()
+
+    const isRoot = location.pathname === "/"
+    const showLandingPage = !isPending && !session?.user && isRoot
+
     const threadId = params.threadId
     const isLibraryRoute = location.pathname.startsWith("/library")
     const activeLibrarySearch = isLibraryRoute
@@ -202,6 +209,10 @@ function ChatLayout() {
         if (!isRestorableChatPath(location.pathname)) return
         setLastChatRoute(location.href)
     }, [isLibraryRoute, location.href, location.pathname])
+
+    if (showLandingPage) {
+        return <LandingPage />
+    }
 
     const chatTargetToRender = currentChatTarget ?? cachedChatTarget
 
