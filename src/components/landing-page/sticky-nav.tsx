@@ -18,9 +18,9 @@ export function StickyNav({ containerRef }: StickyNavProps) {
 
     const sections = [
         { id: "hero", label: "Hero" },
+        { id: "showcase", label: "Interface" },
         { id: "features", label: "Features" },
         { id: "use-cases", label: "Use Cases" },
-        { id: "showcase", label: "Interface" },
         { id: "artifacts", label: "Artifacts" },
         { id: "comparison", label: "Comparison" },
         { id: "social-proof", label: "Testimonials" },

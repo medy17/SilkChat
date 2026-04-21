@@ -28,9 +28,9 @@ export function LandingPage() {
 
             <main className="w-full">
                 <HeroSection />
+                <ShowcaseSection />
                 <FeaturesSection />
                 <UseCasesSection />
-                <ShowcaseSection />
                 <ArtifactsSection />
                 <ComparisonSection />
                 <SocialProofSection />

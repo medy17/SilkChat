@@ -116,11 +116,11 @@ export function HeroSection() {
             <div className="relative z-10 flex flex-col items-center justify-center">
                 <h1
                     ref={headlineRef}
-                    className="mx-auto mb-8 flex max-w-4xl flex-wrap justify-center gap-x-4 font-bold text-5xl leading-[1.1] tracking-normal md:text-7xl lg:text-8xl"
+                    className="mx-auto mb-8 flex max-w-4xl flex-wrap justify-center gap-x-4 gap-y-6 font-bold text-5xl leading-[1.3] tracking-normal md:text-7xl lg:text-8xl"
                     style={{ perspective: "1000px" }}
                 >
                     {"The intelligent way to chat with any AI.".split(" ").map((word, i) => (
-                        <span key={i} className="-mb-2 inline-flex overflow-hidden pb-2">
+                        <span key={i} className="-mb-2 lh inline-flex overflow-hidden pb-2">
                             <span
                                 className="hero-word inline-block origin-bottom bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-transparent"
                                 style={{ willChange: "transform, opacity" }}
