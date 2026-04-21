@@ -11,6 +11,7 @@ import { Chat } from "@/components/chat"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
 import { LandingPage } from "@/components/landing-page"
+import { LogoSymbol } from "@/components/logo"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
@@ -33,6 +34,9 @@ import { LibraryView } from "./_chat.library"
 export const Route = createFileRoute("/_chat")({
     component: ChatLayout
 })
+
+const ROOT_SESSION_LOADING_DELAY_MS = 2000
+const ROOT_SESSION_EXIT_DELAY_MS = 700
 
 const areStringArraysEqual = (left: string[], right: string[]) =>
     left.length === right.length && left.every((value, index) => value === right[index])
@@ -161,7 +165,15 @@ function ChatLayout() {
     const location = useLocation()
 
     const isRoot = location.pathname === "/"
-    const showLandingPage = !isPending && !session?.user && isRoot
+    const [shouldRunInitialRootAuthGate] = useState(isRoot)
+    const [hasRootLoadingDelayElapsed, setHasRootLoadingDelayElapsed] = useState(!isRoot)
+    const [hasCompletedInitialRootAuthGate, setHasCompletedInitialRootAuthGate] = useState(!isRoot)
+    const [isRootLoaderExiting, setIsRootLoaderExiting] = useState(false)
+    const shouldShowInitialRootAuthGate =
+        shouldRunInitialRootAuthGate && !hasCompletedInitialRootAuthGate
+    const showRootSessionPendingState =
+        isRoot && (shouldShowInitialRootAuthGate || (!shouldRunInitialRootAuthGate && isPending))
+    const showLandingPage = isRoot && !showRootSessionPendingState && !session?.user
 
     const threadId = params.threadId
     const isLibraryRoute = location.pathname.startsWith("/library")
@@ -178,6 +190,35 @@ function ChatLayout() {
         return storedRoute ? parseCachedChatTarget(storedRoute) : null
     })
     const currentChatTarget = isLibraryRoute ? null : parseCachedChatTarget(location.pathname)
+
+    useEffect(() => {
+        if (!shouldRunInitialRootAuthGate) return
+
+        const timeoutId = window.setTimeout(() => {
+            setHasRootLoadingDelayElapsed(true)
+        }, ROOT_SESSION_LOADING_DELAY_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [shouldRunInitialRootAuthGate])
+
+    useEffect(() => {
+        if (!shouldRunInitialRootAuthGate) return
+        if (isPending || !hasRootLoadingDelayElapsed) return
+        if (hasCompletedInitialRootAuthGate) return
+
+        setIsRootLoaderExiting(true)
+
+        const timeoutId = window.setTimeout(() => {
+            setHasCompletedInitialRootAuthGate(true)
+        }, ROOT_SESSION_EXIT_DELAY_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [
+        hasCompletedInitialRootAuthGate,
+        hasRootLoadingDelayElapsed,
+        isPending,
+        shouldRunInitialRootAuthGate
+    ])
 
     useEffect(() => {
         if (!activeLibrarySearch) return
@@ -209,6 +250,14 @@ function ChatLayout() {
         if (!isRestorableChatPath(location.pathname)) return
         setLastChatRoute(location.href)
     }, [isLibraryRoute, location.href, location.pathname])
+
+    if (showRootSessionPendingState) {
+        return (
+            <RootSessionPendingState
+                isExiting={isRootLoaderExiting && shouldShowInitialRootAuthGate}
+            />
+        )
+    }
 
     if (showLandingPage) {
         return <LandingPage />
@@ -283,6 +332,45 @@ function ChatLayout() {
                 </SidebarInset>
             </SidebarProvider>
         </OnboardingProvider>
+    )
+}
+
+function RootSessionPendingState({ isExiting }: { isExiting: boolean }) {
+    return (
+        <motion.div
+            animate={{
+                opacity: isExiting ? 0 : 1
+            }}
+            aria-busy="true"
+            aria-label="Loading session"
+            className="flex min-h-svh items-center justify-center overflow-hidden bg-background"
+            initial={false}
+            transition={{
+                duration: ROOT_SESSION_EXIT_DELAY_MS / 1000,
+                ease: [0.16, 1, 0.3, 1]
+            }}
+        >
+            <motion.div
+                animate={{
+                    scale: isExiting ? 4.5 : 1
+                }}
+                className="relative size-24"
+                initial={false}
+                transition={{
+                    duration: ROOT_SESSION_EXIT_DELAY_MS / 1000,
+                    ease: [0.16, 1, 0.3, 1]
+                }}
+            >
+                <LogoSymbol className="absolute inset-0 size-full text-muted-foreground/20" />
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-0 animate-[root-logo-fill_2s_ease-in-out_forwards] overflow-hidden"
+                >
+                    <LogoSymbol className="absolute bottom-0 left-0 size-24 text-primary" />
+                </div>
+                <span className="sr-only">Loading session</span>
+            </motion.div>
+        </motion.div>
     )
 }
 

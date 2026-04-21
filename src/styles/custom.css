@@ -37,6 +37,16 @@
     --color-warning-foreground: var(--warning-foreground);
 }
 
+@keyframes root-logo-fill {
+    from {
+        height: 0%;
+    }
+
+    to {
+        height: 100%;
+    }
+}
+
 /** iOS Dynamic System Font Scaling */
 /* @supports (-webkit-touch-callout: none) {
     html {
