@@ -358,7 +358,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
         for (let i = 1; i < selectedModels.length; i++) {
             const sizes = selectedModels[i].supportedImageSizes || SELECTABLE_IMAGE_ASPECT_RATIOS
-            intersection = intersection.filter((size) => sizes.includes(size))
+            intersection = intersection.filter((size) =>
+                (sizes as readonly string[]).includes(size)
+            )
         }
 
         return SELECTABLE_IMAGE_ASPECT_RATIOS.filter((size) => intersection.includes(size))
