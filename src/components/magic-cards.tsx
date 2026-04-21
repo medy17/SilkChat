@@ -5,9 +5,8 @@ import { useCallback, useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
-interface MagicCardProps {
+interface MagicCardProps extends React.HTMLAttributes<HTMLDivElement> {
     children?: React.ReactNode
-    className?: string
     gradientSize?: number
     gradientColor?: string
     gradientOpacity?: number
@@ -22,7 +21,8 @@ export function MagicCard({
     gradientColor = "hsl(var(--muted))",
     gradientOpacity = 0.8,
     gradientFrom = "hsl(var(--primary))",
-    gradientTo = "hsl(var(--accent))"
+    gradientTo = "hsl(var(--accent))",
+    ...props
 }: MagicCardProps) {
     const cardRef = useRef<HTMLDivElement>(null)
     const mouseX = useMotionValue(-gradientSize)
@@ -76,7 +76,7 @@ export function MagicCard({
     }, [gradientSize, mouseX, mouseY])
 
     return (
-        <div ref={cardRef} className={cn("group relative rounded-[inherit]", className)}>
+        <div ref={cardRef} className={cn("group relative rounded-[inherit]", className)} {...props}>
             <motion.div
                 className="pointer-events-none absolute inset-0 rounded-[inherit] bg-border duration-300 group-hover:opacity-100"
                 style={{
