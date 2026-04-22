@@ -42,3 +42,6 @@ dist
 temp/
 
 .codex
+
+test-*.html
+test-*.tsx

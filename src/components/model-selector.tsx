@@ -66,6 +66,7 @@ import {
     Calculator,
     Check,
     ChevronDown,
+    ChevronUp,
     CircleHelp,
     Crown,
     ExternalLink,
@@ -1041,6 +1042,39 @@ export function ModelSelector({
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
+    const [canScrollUp, setCanScrollUp] = React.useState(false)
+    const [canScrollDown, setCanScrollDown] = React.useState(false)
+    const leftPanelRef = React.useRef<HTMLDivElement>(null)
+
+    const checkScroll = React.useCallback(() => {
+        if (!leftPanelRef.current) return
+        const { scrollTop, scrollHeight, clientHeight } = leftPanelRef.current
+        setCanScrollUp(scrollTop > 0)
+        setCanScrollDown(scrollTop + clientHeight < scrollHeight - 1)
+    }, [])
+
+    React.useEffect(() => {
+        checkScroll()
+        const current = leftPanelRef.current
+        if (current) {
+            const resizeObserver = new ResizeObserver(checkScroll)
+            resizeObserver.observe(current)
+            if (current.firstElementChild) {
+                resizeObserver.observe(current.firstElementChild)
+            }
+            return () => resizeObserver.disconnect()
+        }
+    }, [checkScroll, searchValue])
+
+    const handleLeftPanelScroll = React.useCallback(() => {
+        checkScroll()
+    }, [checkScroll])
+
+    const scrollPanel = React.useCallback((amount: number) => {
+        if (leftPanelRef.current) {
+            leftPanelRef.current.scrollBy({ top: amount, behavior: "smooth" })
+        }
+    }, [])
 
     const { availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
@@ -1540,44 +1574,72 @@ export function ModelSelector({
                             })}
                         </div>
                     </div>
-                    <ScrollArea className="-mr-[1px] hidden flex-1 md:block">
-                        <div className="flex flex-col gap-1 py-2 pr-[1px] pl-2">
-                            {filteredSections.map((section) => {
-                                const isActive = section.id === visibleSection?.id
-                                return (
-                                    <Tooltip key={section.id}>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveProvider(section.id)}
-                                                className={cn(
-                                                    "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
-                                                    isActive
-                                                        ? "-mr-[1px] z-10 border-border bg-popover text-foreground"
-                                                        : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
-                                                )}
-                                                aria-label={section.label}
-                                            >
-                                                <div
+                    <div className="-mr-[1px] relative hidden min-h-0 flex-1 overflow-hidden md:block">
+                        {canScrollUp && (
+                            <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
+                                <button
+                                    type="button"
+                                    className="pointer-events-auto cursor-pointer pt-1 text-muted-foreground transition-colors hover:text-foreground"
+                                    onClick={() => scrollPanel(-100)}
+                                >
+                                    <ChevronUp className="size-4 animate-bounce" />
+                                </button>
+                            </div>
+                        )}
+                        <div
+                            ref={leftPanelRef}
+                            onScroll={handleLeftPanelScroll}
+                            className="scrollbar-none relative h-full overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        >
+                            <div className="relative flex flex-col gap-1 py-2 pr-[1px] pl-2">
+                                {filteredSections.map((section) => {
+                                    const isActive = section.id === visibleSection?.id
+                                    return (
+                                        <Tooltip key={section.id}>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveProvider(section.id)}
                                                     className={cn(
-                                                        "flex size-7 items-center justify-center rounded-md",
+                                                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
                                                         isActive
-                                                            ? "bg-secondary/70"
-                                                            : "bg-transparent"
+                                                            ? "-mr-[1px] before:-z-10 before:-left-[1px] sticky top-0 bottom-0 z-20 border-border bg-popover text-foreground shadow-[0_6px_12px_-4px_rgba(0,0,0,0.15),0_-6px_12px_-4px_rgba(0,0,0,0.15)] before:absolute before:inset-0 before:rounded-l-xl before:bg-popover"
+                                                            : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
                                                     )}
+                                                    aria-label={section.label}
                                                 >
-                                                    {section.icon}
-                                                </div>
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="right">
-                                            {section.label}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                )
-                            })}
+                                                    <div
+                                                        className={cn(
+                                                            "flex size-7 items-center justify-center rounded-md",
+                                                            isActive
+                                                                ? "bg-secondary/70"
+                                                                : "bg-transparent"
+                                                        )}
+                                                    >
+                                                        {section.icon}
+                                                    </div>
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="right">
+                                                {section.label}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )
+                                })}
+                            </div>
                         </div>
-                    </ScrollArea>
+                        {canScrollDown && (
+                            <div className="pointer-events-none absolute right-[1px] bottom-0 left-0 z-30 flex h-12 items-end justify-center bg-gradient-to-t from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
+                                <button
+                                    type="button"
+                                    className="pointer-events-auto cursor-pointer pb-1 text-muted-foreground transition-colors hover:text-foreground"
+                                    onClick={() => scrollPanel(100)}
+                                >
+                                    <ChevronDown className="size-4 animate-bounce" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div
