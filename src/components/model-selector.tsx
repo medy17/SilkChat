@@ -60,13 +60,15 @@ import {
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
+import { useGSAP } from "@gsap/react"
+import gsap from "gsap"
+import { Draggable } from "gsap/Draggable"
 import {
     Archive,
     Brain,
     Calculator,
     Check,
     ChevronDown,
-    ChevronUp,
     CircleHelp,
     Crown,
     ExternalLink,
@@ -81,6 +83,269 @@ import {
 } from "lucide-react"
 import * as React from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
+
+gsap.registerPlugin(Draggable)
+
+function ProviderDial({
+    sections,
+    activeSectionId,
+    onSelect
+}: {
+    sections: ProviderSection[]
+    activeSectionId: string
+    onSelect: (id: string) => void
+}) {
+    const containerRef = React.useRef<HTMLDivElement>(null)
+    const cardsRef = React.useRef<HTMLUListElement>(null)
+    const proxyRef = React.useRef<HTMLDivElement>(null)
+
+    const activeSectionIdRef = React.useRef(activeSectionId)
+    const internalUpdate = React.useRef(false)
+    const scrollToOffsetRef = React.useRef<(offset: number) => void>()
+    const spacing = 0.08
+
+    React.useEffect(() => {
+        activeSectionIdRef.current = activeSectionId
+    }, [activeSectionId])
+
+    useGSAP(() => {
+        if (!containerRef.current || !cardsRef.current || !proxyRef.current) return
+
+        const iteration = 0
+        const cards = gsap.utils.toArray(cardsRef.current.children) as HTMLElement[]
+        if (cards.length === 0) return
+
+        gsap.set(cards, { yPercent: 1200, opacity: 0, scale: 0 })
+
+        const snapTime = gsap.utils.snap(spacing)
+        const animateFunc = (element: HTMLElement) => {
+            const tl = gsap.timeline()
+            tl.fromTo(
+                element,
+                { scale: 0.3, opacity: 0 },
+                {
+                    scale: 1.15,
+                    opacity: 1,
+                    zIndex: 100,
+                    duration: 0.5,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: "power1.in",
+                    immediateRender: false
+                }
+            ).fromTo(
+                element,
+                { yPercent: 1200 },
+                { yPercent: -1200, duration: 1, ease: "none", immediateRender: false },
+                0
+            )
+            return tl
+        }
+
+        const buildSeamlessLoop = (items: HTMLElement[], spacing: number) => {
+            const overlap = Math.ceil(1 / spacing)
+            const startTime = items.length * spacing + 0.5
+            const loopTime = (items.length + overlap) * spacing + 1
+            const rawSequence = gsap.timeline({ paused: true })
+            const seamlessLoop = gsap.timeline({
+                paused: true,
+                repeat: -1,
+                onRepeat() {
+                    if (this._time === this._dur) {
+                        this._tTime += this._dur - 0.01
+                    }
+                }
+            })
+
+            const l = items.length + overlap * 2
+            for (let i = 0; i < l; i++) {
+                const index = i % items.length
+                const time = i * spacing
+                rawSequence.add(animateFunc(items[index]), time)
+            }
+
+            rawSequence.time(startTime)
+            seamlessLoop
+                .to(rawSequence, {
+                    time: loopTime,
+                    duration: loopTime - startTime,
+                    ease: "none"
+                })
+                .fromTo(
+                    rawSequence,
+                    { time: overlap * spacing + 1 },
+                    {
+                        time: startTime,
+                        duration: startTime - (overlap * spacing + 1),
+                        immediateRender: false,
+                        ease: "none"
+                    }
+                )
+            return seamlessLoop
+        }
+
+        const seamlessLoop = buildSeamlessLoop(cards, spacing)
+        const playhead = { offset: 0 }
+        const wrapTime = gsap.utils.wrap(0, seamlessLoop.duration())
+
+        const scrub = gsap.to(playhead, {
+            offset: 0,
+            onUpdate() {
+                seamlessLoop.time(wrapTime(playhead.offset))
+            },
+            duration: 0.5,
+            ease: "power3",
+            paused: true
+        })
+
+        const scrollToOffset = (offset: number) => {
+            const snappedTime = snapTime(offset)
+            gsap.to(playhead, {
+                offset: snappedTime,
+                duration: 0.3,
+                ease: "power2.out",
+                onUpdate() {
+                    seamlessLoop.time(wrapTime(playhead.offset))
+                },
+                onComplete() {
+                    const normalizedIndex = gsap.utils.wrap(
+                        0,
+                        sections.length,
+                        Math.round(snappedTime / spacing)
+                    )
+                    const targetSection = sections[normalizedIndex]
+                    if (targetSection && targetSection.id !== activeSectionIdRef.current) {
+                        internalUpdate.current = true
+                        onSelect(targetSection.id)
+                    }
+                }
+            })
+            scrub.vars.offset = snappedTime
+        }
+
+        const scrollToIndex = (index: number) => {
+            const cycleDuration = sections.length * spacing
+            const currentOffset = scrub.vars.offset
+            const targetBase = index * spacing
+
+            const currentMod = gsap.utils.wrap(0, cycleDuration, currentOffset)
+            let diff = targetBase - currentMod
+
+            if (diff > cycleDuration / 2) diff -= cycleDuration
+            if (diff < -cycleDuration / 2) diff += cycleDuration
+
+            scrollToOffset(currentOffset + diff)
+        }
+
+        scrollToOffsetRef.current = scrollToIndex
+
+        const activeIndex = Math.max(
+            0,
+            sections.findIndex((s) => s.id === activeSectionIdRef.current)
+        )
+        const initialOffset = activeIndex * spacing
+        scrub.vars.offset = initialOffset
+        playhead.offset = initialOffset
+        seamlessLoop.time(wrapTime(initialOffset))
+
+        let snapTimeout: ReturnType<typeof setTimeout>
+
+        const onWheel = (e: WheelEvent) => {
+            e.preventDefault()
+            scrub.vars.offset += e.deltaY * 0.0005
+            scrub.invalidate().restart()
+            clearTimeout(snapTimeout)
+            snapTimeout = setTimeout(() => scrollToOffset(scrub.vars.offset), 150)
+        }
+        containerRef.current.addEventListener("wheel", onWheel, { passive: false })
+
+        Draggable.create(proxyRef.current, {
+            type: "y",
+            trigger: containerRef.current,
+            onPress() {
+                this.startOffset = scrub.vars.offset
+            },
+            onDrag() {
+                scrub.vars.offset = this.startOffset + (this.startY - this.y) * 0.001
+                scrub.invalidate().restart()
+            },
+            onDragEnd() {
+                scrollToOffset(scrub.vars.offset)
+            }
+        })
+
+        return () => {
+            containerRef.current?.removeEventListener("wheel", onWheel)
+        }
+    }, [sections.length])
+
+    React.useEffect(() => {
+        if (internalUpdate.current) {
+            internalUpdate.current = false
+            return
+        }
+        if (scrollToOffsetRef.current) {
+            const activeIndex = Math.max(
+                0,
+                sections.findIndex((s) => s.id === activeSectionId)
+            )
+            scrollToOffsetRef.current(activeIndex)
+        }
+    }, [activeSectionId, sections])
+
+    return (
+        <div
+            ref={containerRef}
+            className="-mr-[1px] relative hidden h-[400px] min-h-0 w-[80px] flex-1 flex-col items-center justify-center overflow-hidden border-r bg-muted/50 pt-4 pb-4 md:flex"
+        >
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-popover to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-popover to-transparent" />
+            <ul
+                ref={cardsRef}
+                className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 m-0 h-10 w-10 p-0"
+            >
+                {sections.map((section, idx) => {
+                    const isActive = section.id === activeSectionId
+                    return (
+                        <li
+                            key={`${section.id}-${idx}`}
+                            className="absolute top-0 left-0 flex h-10 w-10 cursor-pointer list-none items-center justify-center"
+                            onClick={() => {
+                                if (activeSectionId !== section.id) {
+                                    onSelect(section.id)
+                                }
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    if (activeSectionId !== section.id) {
+                                        onSelect(section.id)
+                                    }
+                                }
+                            }}
+                        >
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className={cn(
+                                            "flex size-10 items-center justify-center rounded-xl shadow-sm transition-colors duration-200",
+                                            isActive
+                                                ? "border border-border bg-popover text-foreground shadow-[0_6px_12px_-4px_rgba(0,0,0,0.15)]"
+                                                : "bg-transparent text-muted-foreground hover:bg-muted/50"
+                                        )}
+                                    >
+                                        {section.icon}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">{section.label}</TooltipContent>
+                            </Tooltip>
+                        </li>
+                    )
+                })}
+            </ul>
+            <div ref={proxyRef} className="invisible absolute" />
+        </div>
+    )
+}
 
 const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
     switch (developer?.trim()) {
@@ -1064,7 +1329,7 @@ export function ModelSelector({
             }
             return () => resizeObserver.disconnect()
         }
-    }, [checkScroll, searchValue])
+    }, [checkScroll])
 
     const handleLeftPanelScroll = React.useCallback(() => {
         checkScroll()
@@ -1520,7 +1785,7 @@ export function ModelSelector({
                 </div>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:max-h-[400px] md:grid-cols-[80px_minmax(0,1fr)] md:grid-rows-1">
+            <div className="grid min-h-[400px] flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:h-[400px] md:grid-cols-[80px_minmax(0,1fr)] md:grid-rows-1">
                 <div
                     className={cn(
                         "flex min-h-0 min-w-0 flex-col",
@@ -1574,72 +1839,11 @@ export function ModelSelector({
                             })}
                         </div>
                     </div>
-                    <div className="-mr-[1px] relative hidden min-h-0 flex-1 overflow-hidden md:block">
-                        {canScrollUp && (
-                            <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
-                                <button
-                                    type="button"
-                                    className="pointer-events-auto cursor-pointer pt-1 text-muted-foreground transition-colors hover:text-foreground"
-                                    onClick={() => scrollPanel(-100)}
-                                >
-                                    <ChevronUp className="size-4 animate-bounce" />
-                                </button>
-                            </div>
-                        )}
-                        <div
-                            ref={leftPanelRef}
-                            onScroll={handleLeftPanelScroll}
-                            className="scrollbar-none relative h-full overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                        >
-                            <div className="relative flex flex-col gap-1 py-2 pr-[1px] pl-2">
-                                {filteredSections.map((section) => {
-                                    const isActive = section.id === visibleSection?.id
-                                    return (
-                                        <Tooltip key={section.id}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveProvider(section.id)}
-                                                    className={cn(
-                                                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
-                                                        isActive
-                                                            ? "-mr-[1px] before:-z-10 before:-left-[1px] sticky top-0 bottom-0 z-20 border-border bg-popover text-foreground shadow-[0_6px_12px_-4px_rgba(0,0,0,0.15),0_-6px_12px_-4px_rgba(0,0,0,0.15)] before:absolute before:inset-0 before:rounded-l-xl before:bg-popover"
-                                                            : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
-                                                    )}
-                                                    aria-label={section.label}
-                                                >
-                                                    <div
-                                                        className={cn(
-                                                            "flex size-7 items-center justify-center rounded-md",
-                                                            isActive
-                                                                ? "bg-secondary/70"
-                                                                : "bg-transparent"
-                                                        )}
-                                                    >
-                                                        {section.icon}
-                                                    </div>
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="right">
-                                                {section.label}
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                        {canScrollDown && (
-                            <div className="pointer-events-none absolute right-[1px] bottom-0 left-0 z-30 flex h-12 items-end justify-center bg-gradient-to-t from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
-                                <button
-                                    type="button"
-                                    className="pointer-events-auto cursor-pointer pb-1 text-muted-foreground transition-colors hover:text-foreground"
-                                    onClick={() => scrollPanel(100)}
-                                >
-                                    <ChevronDown className="size-4 animate-bounce" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    <ProviderDial
+                        sections={filteredSections}
+                        activeSectionId={activeProvider!}
+                        onSelect={setActiveProvider}
+                    />
                 </div>
 
                 <div
