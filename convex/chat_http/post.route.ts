@@ -275,13 +275,16 @@ const buildOpenRouterProviderOptions = (
     modelId: string,
     reasoningEffort: ReasoningEffort,
     supportsEffortControl = false,
-    supportsReasoningToggle = false
+    supportsReasoningToggle = false,
+    supportsReasoning = false
 ): OpenRouterProviderOptions => {
     const options: OpenRouterRequestProviderOptions = {}
     const shouldForceReasoningForVariant =
         modelId.endsWith("-reasoning") || modelId.endsWith("-thinking")
+    const isAlwaysOnReasoningModel =
+        supportsReasoning && !supportsReasoningToggle && !supportsEffortControl
 
-    if (reasoningEffort === "off") {
+    if (reasoningEffort === "off" && !isAlwaysOnReasoningModel) {
         options.reasoning = {
             enabled: false,
             exclude: true,
@@ -299,10 +302,14 @@ const buildOpenRouterProviderOptions = (
         return options
     }
 
-    if (supportsReasoningToggle && !supportsEffortControl && !shouldForceReasoningForVariant) {
+    if (
+        (supportsReasoningToggle || isAlwaysOnReasoningModel) &&
+        !supportsEffortControl &&
+        !shouldForceReasoningForVariant
+    ) {
         options.reasoning = {
             enabled: true
-        }
+        } as OpenRouterRequestProviderOptions["reasoning"]
         options.extraBody = {
             provider: {
                 require_parameters: true
@@ -329,7 +336,7 @@ const buildOpenRouterProviderOptions = (
 
     options.reasoning = {
         enabled: true,
-        effort: reasoningEffort
+        effort: reasoningEffort === "off" ? "medium" : reasoningEffort
     }
     options.extraBody = {
         provider: {
@@ -348,13 +355,20 @@ const resolveEffectiveReasoningEffort = (
     modelId: string,
     requestedReasoningEffort?: ReasoningEffort,
     supportsReasoningToggle = false,
-    supportsEffortControl = false
+    supportsEffortControl = false,
+    supportsReasoning = false
 ): ReasoningEffort => {
     const reasoningEffort = requestedReasoningEffort ?? "medium"
     const isForcedReasoningVariant = modelId.endsWith("-reasoning") || modelId.endsWith("-thinking")
     const isToggleOnlyReasoningModel = supportsReasoningToggle && !supportsEffortControl
+    const isAlwaysOnReasoningModel =
+        supportsReasoning && !supportsReasoningToggle && !supportsEffortControl
 
     if (isForcedReasoningVariant && reasoningEffort === "off") {
+        return "medium"
+    }
+
+    if (isAlwaysOnReasoningModel) {
         return "medium"
     }
 
@@ -553,6 +567,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const supportsReasoningToggle =
         selectedRegistryModel?.abilities?.includes("reasoning") === true &&
         selectedRegistryModel?.supportsDisablingReasoning === true
+    const supportsReasoning = selectedRegistryModel?.abilities?.includes("reasoning") === true
     const supportsEffortControl = modelData.abilities.includes("effort_control")
     const maxTokens =
         typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
@@ -562,7 +577,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         body.model,
         body.reasoningEffort,
         supportsReasoningToggle,
-        supportsEffortControl
+        supportsEffortControl,
+        supportsReasoning
     )
     const reasoningProfiles = resolveReasoningProfiles(body.model)
     const requiredPlanForModel = resolveRequiredPlanForModelAccess({
@@ -1088,7 +1104,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                       modelData.modelId,
                                       effectiveReasoningEffort,
                                       supportsEffortControl,
-                                      supportsReasoningToggle
+                                      supportsReasoningToggle,
+                                      supportsReasoning
                                   )
                               }
                             : {

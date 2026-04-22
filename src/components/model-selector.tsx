@@ -6,11 +6,14 @@ import {
     GeminiIcon,
     GroqIcon,
     MetaIcon,
+    MiniMaxIcon,
     MoonshotAIIcon,
     OpenAIIcon,
     OpenRouterIcon,
+    QwenIcon,
     StabilityIcon,
     XAIIcon,
+    XiaomiIcon,
     ZAIIcon
 } from "@/components/brand-icons"
 import { Badge } from "@/components/ui/badge"
@@ -86,6 +89,12 @@ const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
             return <MoonshotAIIcon className={`${className} rounded-sm`} />
         case "DeepSeek":
             return <DeepSeekIcon className={`${className} rounded-sm`} />
+        case "Qwen":
+            return <QwenIcon className={className} />
+        case "Xiaomi":
+            return <XiaomiIcon className={className} />
+        case "MiniMax":
+            return <MiniMaxIcon className={className} />
         default:
             return null
     }

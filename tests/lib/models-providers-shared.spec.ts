@@ -117,6 +117,15 @@ describe("models-providers-shared OpenRouter visibility", () => {
         expect(getReasoningEffortLabelForModel(model, "medium")).toBe("Thinking")
     })
 
+    it("maps always-on reasoning models to thinking only", () => {
+        const model = createModel({
+            abilities: ["reasoning", "function_calling"]
+        })
+
+        expect(getAllowedReasoningEffortsForModel(model)).toEqual(["medium"])
+        expect(getReasoningEffortLabelForModel(model, "medium")).toBe("Thinking")
+    })
+
     it("keeps granular effort controls for effort_control models", () => {
         const model = createModel({
             abilities: ["reasoning", "function_calling", "effort_control"],

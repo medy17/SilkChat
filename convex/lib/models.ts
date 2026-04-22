@@ -5,11 +5,14 @@ import { ANTHROPIC_MODELS } from "./models/anthropic"
 import { DEEPSEEK_MODELS } from "./models/deepseek"
 import { GOOGLE_MODELS } from "./models/google"
 import { META_MODELS } from "./models/meta"
+import { MINIMAX_MODELS } from "./models/minimax"
 import { MOONSHOT_MODELS } from "./models/moonshot"
 import { OPENAI_MODELS } from "./models/openai"
 import { OPENROUTER_MODELS } from "./models/openrouter"
+import { QWEN_MODELS } from "./models/qwen"
 import type { SharedModel } from "./models/types"
 import { XAI_MODELS } from "./models/xai"
+import { XIAOMI_MODELS } from "./models/xiaomi"
 import { ZAI_MODELS } from "./models/zai"
 
 export const MODELS_SHARED: SharedModel[] = [
@@ -17,6 +20,9 @@ export const MODELS_SHARED: SharedModel[] = [
     ...DEEPSEEK_MODELS,
     ...ZAI_MODELS,
     ...MOONSHOT_MODELS,
+    ...QWEN_MODELS,
+    ...XIAOMI_MODELS,
+    ...MINIMAX_MODELS,
     ...OPENROUTER_MODELS,
     ...ANTHROPIC_MODELS,
     ...GOOGLE_MODELS,

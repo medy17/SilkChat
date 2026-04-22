@@ -344,7 +344,7 @@ export const getAllowedReasoningEffortsForModel = (
         return ["off", "medium"]
     }
 
-    return []
+    return ["medium"]
 }
 
 export const getSelectableReasoningEffortsForPlan = (
@@ -392,9 +392,14 @@ export const getReasoningEffortLabelForModel = (
     const allowedEfforts = getAllowedReasoningEffortsForModel(model)
     const isToggleOnlyReasoningModel =
         allowedEfforts.length === 2 && allowedEfforts[0] === "off" && allowedEfforts[1] === "medium"
+    const isAlwaysOnReasoningModel = allowedEfforts.length === 1 && allowedEfforts[0] === "medium"
 
     if (isToggleOnlyReasoningModel) {
         return effort === "off" ? "Instant" : "Thinking"
+    }
+
+    if (isAlwaysOnReasoningModel) {
+        return "Thinking"
     }
 
     return effort.charAt(0).toUpperCase() + effort.slice(1)
