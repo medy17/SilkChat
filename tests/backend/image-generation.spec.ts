@@ -62,6 +62,7 @@ vi.mock("../../convex/lib/models", async () => {
                 mode: "image",
                 adapters: ["i3-openai:gpt-image-2", "openai:gpt-image-2"],
                 abilities: [],
+                supportsReferenceImages: true,
                 supportedImageSizes: ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"],
                 supportedImageResolutions: ["1K", "2K", "4K"],
                 defaultImageQuality: "low"
@@ -177,6 +178,92 @@ describe("generateAndStoreImage", () => {
                 })
             })
         )
+        expect(storeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("sends GPT Image 2 references through Responses input images with low detail", async () => {
+        vi.mocked(r2.getMetadata).mockResolvedValue({
+            authorId: "user-1"
+        } as never)
+        vi.mocked(r2.getUrl).mockResolvedValue("https://files.example/ref.png" as never)
+
+        fetchMock
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: {
+                    get: (name: string) => (name === "content-type" ? "image/png" : null)
+                },
+                arrayBuffer: async () => Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    output: [
+                        {
+                            type: "image_generation_call",
+                            result: "AQID"
+                        }
+                    ]
+                })
+            })
+
+        await generateAndStoreImage({
+            prompt: "Use this product reference",
+            imageSize: "1:1",
+            imageResolution: "1K",
+            imageModel: {
+                provider: "openai.image",
+                modelId: "gpt-image-2"
+            } as never,
+            modelId: "gpt-5.4-image-2",
+            userId: "user-1",
+            actionCtx: {} as never,
+            referenceImageKeys: ["ref-key"],
+            maxAssets: 1,
+            runtimeApiKey: "openai-key"
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(fetchMock).toHaveBeenNthCalledWith(1, "https://files.example/ref.png")
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            2,
+            "https://api.openai.com/v1/responses",
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Authorization: "Bearer openai-key",
+                    "Content-Type": "application/json"
+                })
+            })
+        )
+
+        const responsesBody = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)
+        expect(responsesBody).toEqual({
+            model: "gpt-5.4",
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "input_text", text: "Use this product reference" },
+                        {
+                            type: "input_image",
+                            image_url: "data:image/png;base64,iVBORw0KGgo=",
+                            detail: "low"
+                        }
+                    ]
+                }
+            ],
+            tools: [
+                {
+                    type: "image_generation",
+                    model: "gpt-image-2",
+                    moderation: "low",
+                    quality: "low",
+                    size: "1024x1024"
+                }
+            ],
+            tool_choice: { type: "image_generation" }
+        })
         expect(storeMock).toHaveBeenCalledTimes(1)
     })
 

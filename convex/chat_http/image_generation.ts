@@ -89,6 +89,7 @@ type ImageBinaryPayload = {
 type ImageExecutionPath =
     | "vertex-direct"
     | "openai-responses"
+    | "openai-responses-image-tool"
     | "openai-direct"
     | "ai-sdk-generate-image-openrouter"
     | "ai-sdk-generate-image-google-openai-compatible"
@@ -192,6 +193,14 @@ const toOpenAIDirectImageSize = (
     }
 
     return OPENAI_DIRECT_IMAGE_SIZES[imageResolution ?? "1K"][imageSize] ?? "1024x1024"
+}
+
+const toOpenAIResponsesModelId = (appModelId: string) => {
+    if (appModelId === "gpt-5.4-image-2") {
+        return "gpt-5.4"
+    }
+
+    return appModelId.replace("-image", "")
 }
 
 const toXaiImageResolution = (resolution?: ImageResolution) => {
@@ -636,6 +645,88 @@ async function fetchOpenAiDirectImageResponse({
     return images
 }
 
+async function fetchOpenAiResponsesImageToolResponse({
+    apiKey,
+    prompt,
+    responsesModelId,
+    imageToolModelId,
+    size,
+    imageQuality,
+    referenceImages
+}: {
+    apiKey: string
+    prompt: string
+    responsesModelId: string
+    imageToolModelId: string
+    size: `${number}x${number}`
+    imageQuality?: ImageQuality
+    referenceImages: Awaited<ReturnType<typeof loadReferenceImages>>
+}): Promise<ImageBinaryPayload[]> {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: responsesModelId,
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "input_text", text: prompt },
+                        ...referenceImages.map((image) => ({
+                            type: "input_image",
+                            image_url: image.dataUrl,
+                            detail: "low"
+                        }))
+                    ]
+                }
+            ],
+            tools: [
+                {
+                    type: "image_generation",
+                    model: imageToolModelId,
+                    moderation: "low",
+                    quality: imageQuality,
+                    size
+                }
+            ],
+            tool_choice: { type: "image_generation" }
+        })
+    })
+
+    if (!response.ok) {
+        throw new Error(
+            `OpenAI Responses image API error: ${response.status} ${await response.text()}`
+        )
+    }
+
+    const payload = (await response.json()) as {
+        output?: Array<{
+            type?: string
+            result?: string | null
+        }>
+    }
+
+    const images: ImageBinaryPayload[] = []
+    for (const item of payload.output ?? []) {
+        if (item.type === "image_generation_call" && item.result) {
+            const uint8Array = base64ToUint8Array(item.result)
+            images.push({
+                mediaType: detectImageMimeType(uint8Array),
+                uint8Array
+            })
+        }
+    }
+
+    if (images.length === 0) {
+        throw new Error("No images returned from OpenAI Responses image generation")
+    }
+
+    return images
+}
+
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
     const buffer = new ArrayBuffer(bytes.byteLength)
     new Uint8Array(buffer).set(bytes)
@@ -787,19 +878,22 @@ export async function generateAndStoreImage({
         const isGoogleOpenAIImageModel = imageModel.provider === "google.image"
         const isXaiImageModel = imageModel.provider?.startsWith("xai") === true
         const isOpenAiResponsesImageModel = isOpenAiImageModel && modelId.startsWith("gpt-5-image")
+        const isOpenAiResponsesImageToolModel = isOpenAiImageModel && hasReferenceImages
         const executionPath: ImageExecutionPath = isVertex
             ? "vertex-direct"
-            : isOpenAiResponsesImageModel
-              ? "openai-responses"
-              : isOpenAiImageModel
-                ? "openai-direct"
-                : isOpenRouterImageModel
-                  ? "ai-sdk-generate-image-openrouter"
-                  : isGoogleOpenAIImageModel
-                    ? "ai-sdk-generate-image-google-openai-compatible"
-                    : isXaiImageModel
-                      ? "xai-direct"
-                      : "ai-sdk-generate-image-generic"
+            : isOpenAiResponsesImageToolModel
+              ? "openai-responses-image-tool"
+              : isOpenAiResponsesImageModel
+                ? "openai-responses"
+                : isOpenAiImageModel
+                  ? "openai-direct"
+                  : isOpenRouterImageModel
+                    ? "ai-sdk-generate-image-openrouter"
+                    : isGoogleOpenAIImageModel
+                      ? "ai-sdk-generate-image-google-openai-compatible"
+                      : isXaiImageModel
+                        ? "xai-direct"
+                        : "ai-sdk-generate-image-generic"
 
         if (hasReferenceImages && !sharedModel.supportsReferenceImages) {
             throw new Error(`Reference images are not supported for ${sharedModel.name}`)
@@ -924,6 +1018,27 @@ export async function generateAndStoreImage({
             if (imagesData.length === 0) {
                 throw new Error("No valid images returned from Vertex API")
             }
+        } else if (isOpenAiResponsesImageToolModel) {
+            const openAiSize = toOpenAIDirectImageSize(imageSize, requestedImageResolution)
+            const openAiApiKey = runtimeApiKey ?? process.env.OPENAI_API_KEY?.trim()
+            if (!openAiApiKey) {
+                throw new Error("OpenAI API key not found for image model")
+            }
+
+            const responsesModelId = toOpenAIResponsesModelId(modelId)
+            console.log(
+                `[cvx][image_generation] Using OpenAI Responses image tool: ${responsesModelId} / ${imageModel.modelId}`
+            )
+
+            imagesData = await fetchOpenAiResponsesImageToolResponse({
+                apiKey: openAiApiKey,
+                prompt,
+                responsesModelId,
+                imageToolModelId: imageModel.modelId,
+                size: openAiSize,
+                imageQuality: sharedModel.defaultImageQuality,
+                referenceImages
+            })
         } else if (isOpenAiResponsesImageModel) {
             // GPT-5 image models use the Responses API with the image_generation tool,
             // NOT the /images/generations endpoint.

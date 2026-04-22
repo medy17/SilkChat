@@ -143,6 +143,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
+        supportsReferenceImages: true,
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
