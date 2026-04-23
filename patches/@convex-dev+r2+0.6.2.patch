@@ -20,14 +20,13 @@ index 5060c3f..680092a 100644
    }
    /**
 diff --git a/node_modules/@convex-dev/r2/src/component/lib.ts b/node_modules/@convex-dev/r2/src/component/lib.ts
-index 0a2836a..c1fad58 100644
+index 0a2836a..8988696 100644
 --- a/node_modules/@convex-dev/r2/src/component/lib.ts
 +++ b/node_modules/@convex-dev/r2/src/component/lib.ts
-@@ -24,6 +24,14 @@ import { Id } from "./_generated/dataModel";
+@@ -26,6 +26,14 @@ import { Id } from "./_generated/dataModel";
  const DEFAULT_LIST_LIMIT = 100;
  const retrier = new ActionRetrier(components.actionRetrier);
--
-+
+ 
 +const isNoSuchKeyError = (error: unknown) =>
 +  typeof error === "object" &&
 +  error !== null &&
@@ -39,7 +38,7 @@ index 0a2836a..c1fad58 100644
  const getUrl = async (r2: S3Client, bucket: string, key: string) => {
    return await getSignedUrl(
      r2,
-@@ -92,6 +92,7 @@ export const listMetadata = query({
+@@ -92,6 +100,7 @@ export const listMetadata = query({
      limit: v.optional(v.number()),
      cursor: v.optional(v.string()),
      authorId: v.optional(v.string()),
@@ -47,7 +46,7 @@ index 0a2836a..c1fad58 100644
      ...r2ConfigValidator.fields,
    },
    returns: paginationReturnValidator(
-@@ -102,7 +103,7 @@ export const listMetadata = query({
+@@ -102,7 +111,7 @@ export const listMetadata = query({
      })
    ),
    handler: async (ctx, args) => {
@@ -56,7 +55,7 @@ index 0a2836a..c1fad58 100644
      const r2 = createR2Client(r2Config);
      let results: PaginationResult<
        Infer<typeof schema.tables.metadata.validator> & {
-@@ -112,7 +113,21 @@ export const listMetadata = query({
+@@ -112,7 +121,21 @@ export const listMetadata = query({
      >;
  
      const base = paginator(ctx.db, schema).query("metadata");
@@ -79,7 +78,7 @@ index 0a2836a..c1fad58 100644
        results = await base
          .withIndex("bucket_author_key", (q) =>
            q.eq("bucket", r2Config.bucket).eq("authorId", authorId)
-@@ -121,6 +136,18 @@ export const listMetadata = query({
+@@ -121,6 +144,18 @@ export const listMetadata = query({
            numItems: limit ?? DEFAULT_LIST_LIMIT,
            cursor: cursor ?? null,
          });
@@ -98,7 +97,7 @@ index 0a2836a..c1fad58 100644
      } else {
        results = await base
          .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
-@@ -270,8 +298,15 @@ export const deleteR2Object = action({
+@@ -244,8 +279,15 @@ export const deleteR2Object = action({
    handler: async (ctx, args) => {
      const { key, ...r2Config } = args;
      const r2 = createR2Client(r2Config);
