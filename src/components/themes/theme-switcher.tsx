@@ -21,7 +21,6 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "../ui/responsive-popover"
-import { ScrollArea } from "../ui/scroll-area"
 import { Separator } from "../ui/separator"
 import { ImportThemeDialog } from "./import-theme-dialog"
 
@@ -125,6 +124,7 @@ export function ThemeSwitcher() {
                 open={isImportDialogOpen}
                 onOpenChange={setIsImportDialogOpen}
                 onThemeImported={handleThemeImported}
+                nested={isMobile}
             />
             <div className="flex items-center gap-2">
                 <Button
@@ -151,7 +151,7 @@ export function ThemeSwitcher() {
 
                     <ResponsivePopoverContent
                         align="end"
-                        className="flex h-[85dvh] min-h-0 w-full flex-col overflow-hidden p-0 md:h-auto md:w-80"
+                        className="flex h-[85dvh] min-h-0 w-full flex-col overflow-hidden p-0 md:h-auto md:max-h-[min(32rem,var(--radix-popover-content-available-height))] md:w-80"
                         title="Theme Selector"
                         description="Choose a theme for your interface"
                     >
@@ -213,7 +213,13 @@ export function ThemeSwitcher() {
                         <Separator />
 
                         {/* Themes List */}
-                        <ScrollArea className={cn("min-h-0 flex-1", !isMobile && "h-80")}>
+                        <div
+                            className={cn(
+                                "min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                                !isMobile &&
+                                    "h-[clamp(12rem,calc(var(--radix-popover-content-available-height)-8.5rem),20rem)]"
+                            )}
+                        >
                             <div className="p-3">
                                 {isLoadingThemes ? (
                                     <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
@@ -351,7 +357,7 @@ export function ThemeSwitcher() {
                                     </>
                                 )}
                             </div>
-                        </ScrollArea>
+                        </div>
                     </ResponsivePopoverContent>
                 </ResponsivePopover>
             </div>
