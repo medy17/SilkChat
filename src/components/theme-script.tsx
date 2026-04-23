@@ -1,8 +1,12 @@
+import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
+
 export function ThemeScript() {
     const scriptContent = `
     (function() {
       const storageKey = "theme-store";
       const root = document.documentElement;
+      const defaultThemePreset = ${JSON.stringify(DEFAULT_THEME_PRESET)};
+      const legacyGreenThemePreset = ${JSON.stringify(LEGACY_GREEN_THEME_PRESET)};
       const DEFAULT_FONT_WEIGHTS = ["400"];
       const SYSTEM_FONTS = new Set([
         "ui-sans-serif",
@@ -49,18 +53,81 @@ export function ThemeScript() {
         document.head.appendChild(link);
       }
 
+      function isObject(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+
+      function deepEqual(left, right) {
+        if (left === right) return true;
+        if (!isObject(left) || !isObject(right)) return false;
+
+        const leftKeys = Object.keys(left);
+        const rightKeys = Object.keys(right);
+        if (leftKeys.length !== rightKeys.length) return false;
+
+        for (const key of leftKeys) {
+          if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+          if (!deepEqual(left[key], right[key])) return false;
+        }
+
+        return true;
+      }
+
+      function getDefaultThemeState(mode) {
+        return {
+          currentMode: mode,
+          cssVars: {
+            theme: { ...defaultThemePreset.cssVars.theme },
+            light: { ...defaultThemePreset.cssVars.light },
+            dark: { ...defaultThemePreset.cssVars.dark }
+          }
+        };
+      }
+
       let themeState = null;
+      let persistedStore = null;
+      let persistedState = null;
       try {
         const persistedStateJSON = localStorage.getItem(storageKey);
         if (persistedStateJSON) {
-          themeState = JSON.parse(persistedStateJSON)?.state?.themeState;
+          persistedStore = JSON.parse(persistedStateJSON);
+          persistedState = persistedStore?.state || null;
+          themeState = persistedState?.themeState || null;
         }
       } catch (e) {
         console.warn("Theme initialization: Failed to read/parse localStorage:", e);
       }
 
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const mode = themeState?.currentMode ?? (prefersDark ? "dark" : "light");
+      const preferredMode = "dark";
+      const hasSelectedTheme = Boolean(persistedState?.selectedThemeUrl);
+      const shouldUseDefaultTheme =
+        !themeState?.cssVars ||
+        (!hasSelectedTheme && deepEqual(themeState.cssVars, legacyGreenThemePreset.cssVars));
+
+      if (shouldUseDefaultTheme) {
+        themeState = getDefaultThemeState(themeState?.currentMode || preferredMode);
+
+        if (persistedStore) {
+          try {
+            localStorage.setItem(
+              storageKey,
+              JSON.stringify({
+                ...persistedStore,
+                state: {
+                  ...(persistedState || {}),
+                  themeState,
+                  selectedThemeUrl: null
+                },
+                version: 1
+              })
+            );
+          } catch (e) {
+            console.warn("Theme initialization: Failed to migrate localStorage:", e);
+          }
+        }
+      }
+
+      const mode = themeState?.currentMode ?? preferredMode;
       const baseStyles = themeState?.cssVars?.theme;
 
       const activeStyles =

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useThemeManagement } from "@/hooks/use-theme-management"
-import { DEFAULT_THEME_PRESET } from "@/lib/theme-store"
+import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 import { extractThemeColors } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
 import {
@@ -289,11 +289,17 @@ function ThemeSelector() {
         toggleMode,
         selectedThemeUrl,
         isDefaultThemeSelected,
-        resetToDefaultTheme
+        isLegacyGreenThemeSelected,
+        resetToDefaultTheme,
+        selectLegacyGreenTheme
     } = useThemeManagement()
 
     const popularThemes = filteredThemes.filter((theme) => theme.type === "built-in").slice(0, 5)
     const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, themeState.currentMode)
+    const legacyGreenThemeColors = extractThemeColors(
+        LEGACY_GREEN_THEME_PRESET,
+        themeState.currentMode
+    )
 
     return (
         <div className="w-full max-w-md space-y-4">
@@ -334,6 +340,32 @@ function ThemeSelector() {
                         </div>
                         <div className="flex h-1.5 overflow-hidden rounded">
                             {defaultThemeColors.slice(0, 4).map((color, index) => (
+                                <div
+                                    key={index}
+                                    className="flex-1"
+                                    style={{ backgroundColor: color }}
+                                />
+                            ))}
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={selectLegacyGreenTheme}
+                        className={cn(
+                            "relative overflow-hidden rounded-lg border p-2 text-left transition-all hover:scale-[1.02]",
+                            isLegacyGreenThemeSelected
+                                ? "border-primary ring-2 ring-primary/20"
+                                : "border-border hover:border-primary/50"
+                        )}
+                    >
+                        <div className="mb-1 flex items-center justify-between">
+                            <span className="truncate font-medium text-xs">SilkChat Legacy</span>
+                            {isLegacyGreenThemeSelected && (
+                                <CheckCircle className="h-3 w-3 flex-shrink-0 text-primary" />
+                            )}
+                        </div>
+                        <div className="flex h-1.5 overflow-hidden rounded">
+                            {legacyGreenThemeColors.slice(0, 4).map((color, index) => (
                                 <div
                                     key={index}
                                     className="flex-1"

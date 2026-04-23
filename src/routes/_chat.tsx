@@ -29,6 +29,11 @@ import {
     type LibrarySearchState,
     validateLibrarySearch
 } from "@/lib/library-search"
+import {
+    normalizeThemeStoreStateForDefault,
+    shouldMigrateToDefaultTheme,
+    useThemeStore
+} from "@/lib/theme-store"
 import { LibraryView } from "./_chat.library"
 
 export const Route = createFileRoute("/_chat")({
@@ -219,6 +224,25 @@ function ChatLayout() {
         isPending,
         shouldRunInitialRootAuthGate
     ])
+
+    useEffect(() => {
+        if (!shouldRunInitialRootAuthGate) return
+        if (isPending || session?.user) return
+
+        const store = useThemeStore.getState()
+        const persistedThemeState = {
+            themeState: store.themeState,
+            selectedThemeUrl: store.selectedThemeUrl
+        }
+
+        if (!shouldMigrateToDefaultTheme(persistedThemeState)) return
+
+        const normalizedState = normalizeThemeStoreStateForDefault(persistedThemeState)
+        if (!normalizedState.themeState) return
+
+        store.setThemeState(normalizedState.themeState)
+        store.setSelectedThemeUrl(normalizedState.selectedThemeUrl ?? null)
+    }, [isPending, session?.user, shouldRunInitialRootAuthGate])
 
     useEffect(() => {
         if (!activeLibrarySearch) return

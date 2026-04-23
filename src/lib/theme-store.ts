@@ -1,11 +1,22 @@
+import isEqual from "fast-deep-equal"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 export const THEME_STORE_KEY = "theme-store"
+export const VERCEL_THEME_URL = "https://tweakcn.com/editor/theme?theme=vercel"
+export const LEGACY_GREEN_THEME_URL = "silkchat:legacy-green"
 
-type ThemeMode = "dark" | "light"
+export type ThemeMode = "dark" | "light"
 
-type ThemeState = {
+export type ThemePreset = {
+    cssVars: {
+        theme: Record<string, string>
+        light: Record<string, string>
+        dark: Record<string, string>
+    }
+}
+
+export type ThemeState = {
     currentMode: ThemeMode
     cssVars: {
         theme: Record<string, string>
@@ -22,7 +33,145 @@ type ThemeStore = {
     resetThemeToDefault: () => void
 }
 
-export const DEFAULT_THEME_PRESET = {
+type PersistedThemeState = {
+    themeState?: ThemeState | null
+    selectedThemeUrl?: string | null
+}
+
+export const VERCEL_THEME_PRESET = {
+    cssVars: {
+        theme: {
+            "font-sans": "Geist, sans-serif",
+            "font-mono": "Geist Mono, monospace",
+            "font-serif": "Georgia, serif",
+            radius: "0.5rem",
+            "tracking-tighter": "calc(var(--tracking-normal) - 0.05em)",
+            "tracking-tight": "calc(var(--tracking-normal) - 0.025em)",
+            "tracking-wide": "calc(var(--tracking-normal) + 0.025em)",
+            "tracking-wider": "calc(var(--tracking-normal) + 0.05em)",
+            "tracking-widest": "calc(var(--tracking-normal) + 0.1em)"
+        },
+        light: {
+            background: "oklch(0.9900 0 0)",
+            foreground: "oklch(0 0 0)",
+            card: "oklch(1 0 0)",
+            "card-foreground": "oklch(0 0 0)",
+            popover: "oklch(0.9900 0 0)",
+            "popover-foreground": "oklch(0 0 0)",
+            primary: "oklch(0 0 0)",
+            "primary-foreground": "oklch(1 0 0)",
+            secondary: "oklch(0.9400 0 0)",
+            "secondary-foreground": "oklch(0 0 0)",
+            muted: "oklch(0.9700 0 0)",
+            "muted-foreground": "oklch(0.4400 0 0)",
+            accent: "oklch(0.9400 0 0)",
+            "accent-foreground": "oklch(0 0 0)",
+            destructive: "oklch(0.6300 0.1900 23.0300)",
+            "destructive-foreground": "oklch(1 0 0)",
+            border: "oklch(0.9200 0 0)",
+            input: "oklch(0.9400 0 0)",
+            ring: "oklch(0 0 0)",
+            "chart-1": "oklch(0.8100 0.1700 75.3500)",
+            "chart-2": "oklch(0.5500 0.2200 264.5300)",
+            "chart-3": "oklch(0.7200 0 0)",
+            "chart-4": "oklch(0.9200 0 0)",
+            "chart-5": "oklch(0.5600 0 0)",
+            radius: "0.5rem",
+            sidebar: "oklch(0.9900 0 0)",
+            "sidebar-foreground": "oklch(0 0 0)",
+            "sidebar-primary": "oklch(0 0 0)",
+            "sidebar-primary-foreground": "oklch(1 0 0)",
+            "sidebar-accent": "oklch(0.9400 0 0)",
+            "sidebar-accent-foreground": "oklch(0 0 0)",
+            "sidebar-border": "oklch(0.9400 0 0)",
+            "sidebar-ring": "oklch(0 0 0)",
+            "font-sans": "Geist, sans-serif",
+            "font-serif": "Georgia, serif",
+            "font-mono": "Geist Mono, monospace",
+            "shadow-color": "hsl(0 0% 0%)",
+            "shadow-opacity": "0.18",
+            "shadow-blur": "2px",
+            "shadow-spread": "0px",
+            "shadow-offset-x": "0px",
+            "shadow-offset-y": "1px",
+            "letter-spacing": "0em",
+            spacing: "0.25rem",
+            "shadow-2xs": "0px 1px 2px 0px hsl(0 0% 0% / 0.09)",
+            "shadow-xs": "0px 1px 2px 0px hsl(0 0% 0% / 0.09)",
+            "shadow-sm":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18)",
+            shadow: "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-md":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 2px 4px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-lg":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-xl":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-2xl": "0px 1px 2px 0px hsl(0 0% 0% / 0.45)",
+            "tracking-normal": "0em"
+        },
+        dark: {
+            background: "oklch(0 0 0)",
+            foreground: "oklch(1 0 0)",
+            card: "oklch(0.1400 0 0)",
+            "card-foreground": "oklch(1 0 0)",
+            popover: "oklch(0.1800 0 0)",
+            "popover-foreground": "oklch(1 0 0)",
+            primary: "oklch(1 0 0)",
+            "primary-foreground": "oklch(0 0 0)",
+            secondary: "oklch(0.2500 0 0)",
+            "secondary-foreground": "oklch(1 0 0)",
+            muted: "oklch(0.2300 0 0)",
+            "muted-foreground": "oklch(0.7200 0 0)",
+            accent: "oklch(0.3200 0 0)",
+            "accent-foreground": "oklch(1 0 0)",
+            destructive: "oklch(0.6900 0.2000 23.9100)",
+            "destructive-foreground": "oklch(0 0 0)",
+            border: "oklch(0.2600 0 0)",
+            input: "oklch(0.3200 0 0)",
+            ring: "oklch(0.7200 0 0)",
+            "chart-1": "oklch(0.8100 0.1700 75.3500)",
+            "chart-2": "oklch(0.5800 0.2100 260.8400)",
+            "chart-3": "oklch(0.5600 0 0)",
+            "chart-4": "oklch(0.4400 0 0)",
+            "chart-5": "oklch(0.9200 0 0)",
+            radius: "0.5rem",
+            sidebar: "oklch(0.1800 0 0)",
+            "sidebar-foreground": "oklch(1 0 0)",
+            "sidebar-primary": "oklch(1 0 0)",
+            "sidebar-primary-foreground": "oklch(0 0 0)",
+            "sidebar-accent": "oklch(0.3200 0 0)",
+            "sidebar-accent-foreground": "oklch(1 0 0)",
+            "sidebar-border": "oklch(0.3200 0 0)",
+            "sidebar-ring": "oklch(0.7200 0 0)",
+            "font-sans": "Geist, sans-serif",
+            "font-serif": "Georgia, serif",
+            "font-mono": "Geist Mono, monospace",
+            "shadow-color": "hsl(0 0% 0%)",
+            "shadow-opacity": "0.18",
+            "shadow-blur": "2px",
+            "shadow-spread": "0px",
+            "shadow-offset-x": "0px",
+            "shadow-offset-y": "1px",
+            "letter-spacing": "0em",
+            spacing: "0.25rem",
+            "shadow-2xs": "0px 1px 2px 0px hsl(0 0% 0% / 0.09)",
+            "shadow-xs": "0px 1px 2px 0px hsl(0 0% 0% / 0.09)",
+            "shadow-sm":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18)",
+            shadow: "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-md":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 2px 4px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-lg":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-xl":
+                "0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18)",
+            "shadow-2xl": "0px 1px 2px 0px hsl(0 0% 0% / 0.45)"
+        }
+    }
+} as const
+
+export const LEGACY_GREEN_THEME_PRESET = {
     cssVars: {
         theme: {
             "font-sans": "Outfit, sans-serif",
@@ -147,14 +296,61 @@ export const DEFAULT_THEME_PRESET = {
     }
 } as const
 
-export function getDefaultThemeState(currentMode: ThemeMode = "light"): ThemeState {
+export const DEFAULT_THEME_PRESET = VERCEL_THEME_PRESET
+
+function clonePresetCssVars(preset: ThemePreset): ThemeState["cssVars"] {
+    return {
+        theme: { ...preset.cssVars.theme },
+        light: { ...preset.cssVars.light },
+        dark: { ...preset.cssVars.dark }
+    }
+}
+
+export function isDefaultThemeCssVars(cssVars: ThemeState["cssVars"] | null | undefined) {
+    return isEqual(cssVars, DEFAULT_THEME_PRESET.cssVars)
+}
+
+export function isLegacyGreenThemeCssVars(cssVars: ThemeState["cssVars"] | null | undefined) {
+    return isEqual(cssVars, LEGACY_GREEN_THEME_PRESET.cssVars)
+}
+
+export function shouldMigrateToDefaultTheme(
+    state: PersistedThemeState | null | undefined
+): boolean {
+    if (!state) return true
+    if (state.selectedThemeUrl) return false
+    if (!state.themeState?.cssVars) return true
+
+    return isLegacyGreenThemeCssVars(state.themeState.cssVars)
+}
+
+export function normalizeThemeStoreStateForDefault(
+    state: PersistedThemeState | null | undefined
+): PersistedThemeState {
+    if (!shouldMigrateToDefaultTheme(state)) {
+        return state ?? {}
+    }
+
+    const currentMode = state?.themeState?.currentMode ?? "light"
+
+    return {
+        ...state,
+        themeState: getDefaultThemeState(currentMode),
+        selectedThemeUrl: null
+    }
+}
+
+export function getDefaultThemeState(currentMode: ThemeMode = "dark"): ThemeState {
     return {
         currentMode,
-        cssVars: {
-            theme: { ...DEFAULT_THEME_PRESET.cssVars.theme },
-            light: { ...DEFAULT_THEME_PRESET.cssVars.light },
-            dark: { ...DEFAULT_THEME_PRESET.cssVars.dark }
-        }
+        cssVars: clonePresetCssVars(DEFAULT_THEME_PRESET)
+    }
+}
+
+export function getLegacyGreenThemeState(currentMode: ThemeMode = "dark"): ThemeState {
+    return {
+        currentMode,
+        cssVars: clonePresetCssVars(LEGACY_GREEN_THEME_PRESET)
     }
 }
 
@@ -173,6 +369,9 @@ export const useThemeStore = create<ThemeStore>()(
         }),
         {
             name: THEME_STORE_KEY,
+            version: 1,
+            migrate: (persistedState) =>
+                normalizeThemeStoreStateForDefault(persistedState as PersistedThemeState),
             partialize: (state) => ({
                 themeState: state.themeState,
                 selectedThemeUrl: state.selectedThemeUrl

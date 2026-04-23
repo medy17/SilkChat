@@ -1,6 +1,6 @@
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useThemeManagement } from "@/hooks/use-theme-management"
-import { DEFAULT_THEME_PRESET } from "@/lib/theme-store"
+import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 import { type FetchedTheme, extractThemeColors } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
 import {
@@ -103,15 +103,21 @@ export function ThemeSwitcher() {
         setSearchQuery,
         selectedThemeUrl,
         isDefaultThemeSelected,
+        isLegacyGreenThemeSelected,
         isLoadingThemes,
         filteredThemes,
         handleThemeImported,
         handleThemeSelect,
         toggleMode,
         resetToDefaultTheme,
+        selectLegacyGreenTheme,
         randomizeTheme
     } = useThemeManagement()
     const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, themeState.currentMode)
+    const legacyGreenThemeColors = extractThemeColors(
+        LEGACY_GREEN_THEME_PRESET,
+        themeState.currentMode
+    )
 
     return (
         <>
@@ -237,7 +243,7 @@ export function ThemeSwitcher() {
                                                                 Default
                                                             </div>
                                                             <div className="text-muted-foreground text-xs">
-                                                                SilkChat base colors
+                                                                Modern monochromatic theme
                                                             </div>
                                                         </div>
                                                         {isDefaultThemeSelected && (
@@ -256,6 +262,45 @@ export function ThemeSwitcher() {
                                                                 }}
                                                             />
                                                         ))}
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={selectLegacyGreenTheme}
+                                                    className={cn(
+                                                        "w-full cursor-pointer overflow-hidden rounded-lg border transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
+                                                        isLegacyGreenThemeSelected
+                                                            ? "border-primary shadow-sm ring-2 ring-primary/20"
+                                                            : "border-border hover:border-primary/50"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between p-3">
+                                                        <div className="text-left">
+                                                            <div className="font-medium text-sm">
+                                                                SilkChat Legacy
+                                                            </div>
+                                                            <div className="text-muted-foreground text-xs">
+                                                                Our legacy green theme.
+                                                            </div>
+                                                        </div>
+                                                        {isLegacyGreenThemeSelected && (
+                                                            <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                                                <CheckCircle className="size-4 text-primary" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex h-2">
+                                                        {legacyGreenThemeColors.map(
+                                                            (color, index) => (
+                                                                <div
+                                                                    key={index}
+                                                                    className="flex-1"
+                                                                    style={{
+                                                                        backgroundColor: color
+                                                                    }}
+                                                                />
+                                                            )
+                                                        )}
                                                     </div>
                                                 </button>
                                             </div>

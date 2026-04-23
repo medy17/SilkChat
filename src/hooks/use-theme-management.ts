@@ -1,6 +1,12 @@
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
-import { DEFAULT_THEME_PRESET, useThemeStore } from "@/lib/theme-store"
+import {
+    LEGACY_GREEN_THEME_URL,
+    getLegacyGreenThemeState,
+    isDefaultThemeCssVars,
+    isLegacyGreenThemeCssVars,
+    useThemeStore
+} from "@/lib/theme-store"
 import {
     type FetchedTheme,
     THEME_URLS,
@@ -57,6 +63,10 @@ export function useThemeManagement() {
             return selectedThemeUrl
         }
 
+        if (isDefaultThemeCssVars(themeState.cssVars)) {
+            return null
+        }
+
         const matchedTheme = fetchedThemes.find(
             (theme) =>
                 !("error" in theme && theme.error) &&
@@ -67,9 +77,14 @@ export function useThemeManagement() {
     }, [fetchedThemes, selectedThemeUrl, themeState.cssVars])
 
     const isDefaultThemeSelected = useMemo(
+        () => isDefaultThemeCssVars(themeState.cssVars) && resolvedSelectedThemeUrl === null,
+        [resolvedSelectedThemeUrl, themeState.cssVars]
+    )
+
+    const isLegacyGreenThemeSelected = useMemo(
         () =>
-            isEqual(themeState.cssVars, DEFAULT_THEME_PRESET.cssVars) &&
-            resolvedSelectedThemeUrl === null,
+            resolvedSelectedThemeUrl === LEGACY_GREEN_THEME_URL &&
+            isLegacyGreenThemeCssVars(themeState.cssVars),
         [resolvedSelectedThemeUrl, themeState.cssVars]
     )
 
@@ -127,6 +142,11 @@ export function useThemeManagement() {
         resetThemeToDefault()
     }
 
+    const selectLegacyGreenTheme = () => {
+        setThemeState(getLegacyGreenThemeState(themeState.currentMode))
+        setSelectedThemeUrl(LEGACY_GREEN_THEME_URL)
+    }
+
     const randomizeTheme = () => {
         const availableThemes = fetchedThemes.filter((theme) => !("error" in theme && theme.error))
         if (availableThemes.length > 0) {
@@ -149,6 +169,7 @@ export function useThemeManagement() {
         setSearchQuery,
         selectedThemeUrl: resolvedSelectedThemeUrl,
         isDefaultThemeSelected,
+        isLegacyGreenThemeSelected,
         isLoadingThemes,
         fetchedThemes,
         filteredThemes,
@@ -162,6 +183,7 @@ export function useThemeManagement() {
         toggleMode,
         randomizeTheme,
         resetToDefaultTheme,
+        selectLegacyGreenTheme,
         applyThemePreset,
 
         // User session

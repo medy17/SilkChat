@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useThemeManagement } from "@/hooks/use-theme-management"
 import { useChatWidthStore } from "@/lib/chat-width-store"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
-import { DEFAULT_THEME_PRESET } from "@/lib/theme-store"
+import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 import { type FetchedTheme, extractThemeColors } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
@@ -156,6 +156,7 @@ function AppearanceSettings() {
         setSearchQuery,
         selectedThemeUrl,
         isDefaultThemeSelected,
+        isLegacyGreenThemeSelected,
         isLoadingThemes,
         filteredThemes,
         customThemes,
@@ -165,9 +166,14 @@ function AppearanceSettings() {
         handleThemeDelete,
         toggleMode,
         resetToDefaultTheme,
+        selectLegacyGreenTheme,
         randomizeTheme
     } = useThemeManagement()
     const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, themeState.currentMode)
+    const legacyGreenThemeColors = extractThemeColors(
+        LEGACY_GREEN_THEME_PRESET,
+        themeState.currentMode
+    )
 
     if (!session.user?.id) {
         return (
@@ -476,10 +482,49 @@ function AppearanceSettings() {
                                                     )}
                                                 </div>
                                                 <p className="mb-3 text-muted-foreground text-xs">
-                                                    Restore SilkChat&apos;s original palette.
+                                                    Restore the Vercel default palette.
                                                 </p>
                                                 <div className="-mx-4 flex h-3 overflow-hidden rounded-sm bg-background/50">
                                                     {defaultThemeColors.map((color, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex-1"
+                                                            style={{
+                                                                backgroundColor: color
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </Card>
+                                    <Card
+                                        className={cn(
+                                            "group relative overflow-hidden p-0",
+                                            isLegacyGreenThemeSelected
+                                                ? "bg-primary/5 ring-1 ring-primary/20"
+                                                : "hover:ring-1 hover:ring-border"
+                                        )}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="flex w-full items-center justify-between p-4 pb-0 text-left"
+                                            onClick={selectLegacyGreenTheme}
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <h4 className="truncate font-medium text-foreground text-sm">
+                                                        SilkChat Legacy
+                                                    </h4>
+                                                    {isLegacyGreenThemeSelected && (
+                                                        <CheckCircle className="size-4 flex-shrink-0 text-primary" />
+                                                    )}
+                                                </div>
+                                                <p className="mb-3 text-muted-foreground text-xs">
+                                                    Original green SilkChat palette.
+                                                </p>
+                                                <div className="-mx-4 flex h-3 overflow-hidden rounded-sm bg-background/50">
+                                                    {legacyGreenThemeColors.map((color, index) => (
                                                         <div
                                                             key={index}
                                                             className="flex-1"
