@@ -23,6 +23,22 @@ diff --git a/node_modules/@convex-dev/r2/src/component/lib.ts b/node_modules/@co
 index 0a2836a..c1fad58 100644
 --- a/node_modules/@convex-dev/r2/src/component/lib.ts
 +++ b/node_modules/@convex-dev/r2/src/component/lib.ts
+@@ -24,6 +24,14 @@ import { Id } from "./_generated/dataModel";
+ const DEFAULT_LIST_LIMIT = 100;
+ const retrier = new ActionRetrier(components.actionRetrier);
+-
++
++const isNoSuchKeyError = (error: unknown) =>
++  typeof error === "object" &&
++  error !== null &&
++  ("name" in error || "Code" in error || "code" in error) &&
++  ((error as { name?: unknown }).name === "NoSuchKey" ||
++    (error as { Code?: unknown }).Code === "NoSuchKey" ||
++    (error as { code?: unknown }).code === "NoSuchKey");
++
+ const getUrl = async (r2: S3Client, bucket: string, key: string) => {
+   return await getSignedUrl(
+     r2,
 @@ -92,6 +92,7 @@ export const listMetadata = query({
      limit: v.optional(v.number()),
      cursor: v.optional(v.string()),
@@ -82,3 +98,22 @@ index 0a2836a..c1fad58 100644
      } else {
        results = await base
          .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
+@@ -270,8 +298,15 @@ export const deleteR2Object = action({
+   handler: async (ctx, args) => {
+     const { key, ...r2Config } = args;
+     const r2 = createR2Client(r2Config);
+-    await r2.send(
+-      new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key })
+-    );
++    try {
++      await r2.send(
++        new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key })
++      );
++    } catch (error) {
++      if (isNoSuchKeyError(error)) {
++        return null;
++      }
++      throw error;
++    }
+   },
+ });
