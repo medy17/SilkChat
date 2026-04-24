@@ -235,7 +235,9 @@ export function useChatIntegration<IsShared extends boolean>({
         return backendToUiMessages(threadMessages)
     }, [threadMessages, sharedThread, isShared, sharedThreadId])
     const disableMessageThrottle =
-        hasPendingLocalStream && previousStatusRef.current !== "streaming"
+        hasPendingLocalStream ||
+        previousStatusRef.current === "streaming" ||
+        previousStatusRef.current === "submitted"
 
     const chatHelpers = useChat({
         id: isShared ? `shared_${sharedThreadId}` : rerenderTrigger,
@@ -402,6 +404,7 @@ export function useChatIntegration<IsShared extends boolean>({
         if (isShared) return
         if (!threadId) return
         if (!threadMessages || "error" in threadMessages) return
+        if (hasPendingLocalStream) return
 
         if (
             shouldAdoptBackendMessages({
@@ -421,6 +424,7 @@ export function useChatIntegration<IsShared extends boolean>({
         chatHelpers.messages,
         chatHelpers.status,
         hasActiveThreadStream,
+        hasPendingLocalStream,
         chatHelpers.setMessages
     ])
 
