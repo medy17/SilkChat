@@ -152,9 +152,32 @@ export function useChatIntegration<IsShared extends boolean>({
     isShared?: IsShared
     folderId?: Id<"projects">
 }) {
+    type ChatMessage = UIMessage<{
+        modelId?: string
+        modelName?: string
+        displayProvider?: string
+        runtimeProvider?: string
+        reasoningEffort?: ReasoningEffort
+        promptTokens?: number
+        completionTokens?: number
+        reasoningTokens?: number
+        totalTokens?: number
+        estimatedCostUsd?: number
+        estimatedPromptCostUsd?: number
+        estimatedCompletionCostUsd?: number
+        serverDurationMs?: number
+        timeToFirstVisibleMs?: number
+        threadId?: string
+        streamId?: string
+        modelIdOverride?: string
+    }>
+
     const tokenData = useToken()
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
     const seededNextId = useRef<string | null>(null)
+    const setMessagesRef = useRef<
+        ((messages: ChatMessage[] | ((messages: ChatMessage[]) => ChatMessage[])) => void) | null
+    >(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
     const latestRequestContextRef = useRef({
         folderId,
@@ -185,26 +208,6 @@ export function useChatIntegration<IsShared extends boolean>({
         api.threads.getThread,
         !isShared && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
     )
-
-    type ChatMessage = UIMessage<{
-        modelId?: string
-        modelName?: string
-        displayProvider?: string
-        runtimeProvider?: string
-        reasoningEffort?: ReasoningEffort
-        promptTokens?: number
-        completionTokens?: number
-        reasoningTokens?: number
-        totalTokens?: number
-        estimatedCostUsd?: number
-        estimatedPromptCostUsd?: number
-        estimatedCompletionCostUsd?: number
-        serverDurationMs?: number
-        timeToFirstVisibleMs?: number
-        threadId?: string
-        streamId?: string
-        modelIdOverride?: string
-    }>
 
     const initialMessages = useMemo<ChatMessage[]>(() => {
         if (isShared) {
@@ -310,10 +313,34 @@ export function useChatIntegration<IsShared extends boolean>({
                   }
               }),
         messages: initialMessages,
-        onFinish: () => {
+        onFinish: ({ message, messages, finishReason, isAbort, isDisconnect, isError }) => {
             if (!isShared && shouldUpdateQuery) {
                 setShouldUpdateQuery(false)
             }
+
+            if (
+                finishReason !== "stop" ||
+                isAbort ||
+                isDisconnect ||
+                isError ||
+                message.role !== "assistant"
+            ) {
+                return
+            }
+
+            setMessagesRef.current?.(
+                messages.map((streamedMessage) =>
+                    streamedMessage.id === message.id
+                        ? {
+                              ...streamedMessage,
+                              parts: [...streamedMessage.parts],
+                              ...(streamedMessage.metadata
+                                  ? { metadata: { ...streamedMessage.metadata } }
+                                  : {})
+                          }
+                        : streamedMessage
+                )
+            )
         },
         generateId: () => {
             if (seededNextId.current) {
@@ -324,6 +351,7 @@ export function useChatIntegration<IsShared extends boolean>({
             return nanoid()
         }
     })
+    setMessagesRef.current = chatHelpers.setMessages
 
     useEffect(() => {
         if (isShared) return

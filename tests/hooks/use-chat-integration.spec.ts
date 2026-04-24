@@ -36,7 +36,14 @@ type TransportConfig = {
 type UseChatOptions = {
     id?: string
     transport?: TransportConfig
-    onFinish?: () => void
+    onFinish?: (options: {
+        message: Record<string, unknown>
+        messages: Array<Record<string, unknown>>
+        isAbort: boolean
+        isDisconnect: boolean
+        isError: boolean
+        finishReason?: string
+    }) => void
     generateId?: () => string
 }
 type AutoResumeInvocation = {
@@ -300,7 +307,18 @@ describe("useChatIntegration", () => {
         })
 
         act(() => {
-            latestUseChatOptions?.onFinish?.()
+            latestUseChatOptions?.onFinish?.({
+                message: {
+                    id: "assistant-1",
+                    role: "assistant",
+                    parts: []
+                },
+                messages: [],
+                isAbort: false,
+                isDisconnect: false,
+                isError: false,
+                finishReason: "stop"
+            })
         })
 
         expect(useChatStore.getState().shouldUpdateQuery).toBe(false)
@@ -509,6 +527,81 @@ describe("useChatIntegration", () => {
         rerender()
 
         expect(setMessages).toHaveBeenCalledWith(partialAssistantMessage)
+    })
+
+    it("replaces the finished assistant message on stop so metadata-driven UI updates immediately", () => {
+        const localMessage = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Final reply" }],
+                metadata: {
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const finishedMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Final reply" }],
+                metadata: {
+                    modelName: "GPT 5.4 Mini",
+                    runtimeProvider: "openrouter",
+                    promptTokens: 757,
+                    completionTokens: 159,
+                    totalTokens: 916,
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [{ id: "backend-assistant-1", role: "assistant", parts: [] }],
+            getThread: {
+                _id: "thread-1",
+                isLive: false,
+                currentStreamId: undefined
+            }
+        }
+
+        backendToUiMessagesMock.mockReturnValue(localMessage)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: "ready",
+                messages: localMessage,
+                setMessages,
+                resumeStream: vi.fn()
+            }
+        })
+
+        renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        setMessages.mockClear()
+        act(() => {
+            latestUseChatOptions?.onFinish?.({
+                message: finishedMessages[0],
+                messages: finishedMessages,
+                isAbort: false,
+                isDisconnect: false,
+                isError: false,
+                finishReason: "stop"
+            })
+        })
+
+        expect(setMessages).toHaveBeenCalledWith([
+            {
+                ...finishedMessages[0],
+                parts: [...finishedMessages[0].parts],
+                metadata: { ...finishedMessages[0].metadata }
+            }
+        ])
     })
 
     it("adopts remote retry truncation when the backend thread diverges while idle", () => {
