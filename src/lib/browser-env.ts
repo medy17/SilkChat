@@ -1,6 +1,7 @@
 type Env = {
     VITE_CONVEX_URL: string
     VITE_CONVEX_API_URL: string
+    VITE_R2_PUBLIC_BASE_URL?: string
     VITE_CLOUDFLARE_IMAGE_HOST?: string
     VITE_POSTHOG_KEY?: string
     VITE_POSTHOG_HOST?: string

@@ -1,10 +1,10 @@
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
-import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { getMessageReasoningDetails } from "@/lib/message-reasoning"
 import { useModelStore } from "@/lib/model-store"
+import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
@@ -162,11 +162,7 @@ const FileAttachment = memo(
 
             return (
                 <img
-                    src={
-                        part.url.startsWith("http") || part.url.startsWith("data:")
-                            ? part.url
-                            : `${browserEnv("VITE_CONVEX_API_URL")}${part.url}`
-                    }
+                    src={resolvePublicFileUrl(part.url)}
                     alt={fileName}
                     className="w-full max-w-md cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-90"
                     onClick={handleInteraction}
@@ -368,12 +364,7 @@ const EditableMessage = memo(
                                 >
                                     {isImage ? (
                                         <img
-                                            src={
-                                                part.url.startsWith("http") ||
-                                                part.url.startsWith("data:")
-                                                    ? part.url
-                                                    : `${browserEnv("VITE_CONVEX_API_URL")}${part.url}`
-                                            }
+                                            src={resolvePublicFileUrl(part.url)}
                                             alt="Attachment"
                                             className={cn(
                                                 "object-cover",
@@ -717,12 +708,7 @@ export const Messages = forwardRef<
             <div className="max-h-full overflow-auto">
                 {isImage && (
                     <img
-                        src={
-                            previewFile.url.startsWith("http") ||
-                            previewFile.url.startsWith("data:")
-                                ? previewFile.url
-                                : `${browserEnv("VITE_CONVEX_API_URL")}${previewFile.url}`
-                        }
+                        src={resolvePublicFileUrl(previewFile.url)}
                         alt={fileName}
                         className="h-auto w-full rounded object-contain"
                         onError={(e) => {
@@ -736,12 +722,7 @@ export const Messages = forwardRef<
 
                 {(isText || isPdf) && (
                     <iframe
-                        src={
-                            previewFile.url.startsWith("http") ||
-                            previewFile.url.startsWith("data:")
-                                ? previewFile.url
-                                : `${browserEnv("VITE_CONVEX_API_URL")}${previewFile.url}`
-                        }
+                        src={resolvePublicFileUrl(previewFile.url)}
                         className="h-[69dvh] w-full rounded border-0"
                         title={fileName}
                     />

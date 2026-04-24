@@ -1,5 +1,6 @@
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import { type PrivateBlurFormat, getConstrainedWidth } from "@/lib/private-blur-variants"
+import { getPublicR2AssetUrl, getR2ProxyUrl } from "@/lib/r2-public-url"
 
 const DEV_CONVEX_HTTP_PROXY_PREFIX = "/convex-http"
 const LOCAL_IMAGE_HOSTS = new Set(["localhost", "127.0.0.1"])
@@ -69,8 +70,7 @@ export const getPreferredPrivateBlurFormat = (): PrivateBlurFormat | null => {
 }
 
 export const getGeneratedImageProxyUrl = (storageKey: string) => {
-    const apiBase = browserEnv("VITE_CONVEX_API_URL").replace(/\/$/, "")
-    return `${apiBase}/r2?key=${encodeURIComponent(storageKey)}`
+    return getR2ProxyUrl(storageKey)
 }
 
 export const getGeneratedImageCopyUrl = (storageKey: string) => {
@@ -78,8 +78,10 @@ export const getGeneratedImageCopyUrl = (storageKey: string) => {
         return `${DEV_CONVEX_HTTP_PROXY_PREFIX}/r2?key=${encodeURIComponent(storageKey)}`
     }
 
-    return getGeneratedImageProxyUrl(storageKey)
+    return getPublicR2AssetUrl(storageKey)
 }
+
+export const getGeneratedImageDirectUrl = (storageKey: string) => getPublicR2AssetUrl(storageKey)
 
 export const getCloudflareTransformedImageUrl = ({
     imageHost,

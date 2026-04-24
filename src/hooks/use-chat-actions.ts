@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { browserEnv } from "@/lib/browser-env"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
@@ -67,7 +67,7 @@ export function useChatActions<TMessage extends UIMessage>({
                     ...finalFiles.map((file) => {
                         return {
                             type: "file",
-                            url: `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${file.key}`,
+                            url: getPublicR2AssetUrl(file.key),
                             mediaType: file.fileType,
                             filename: file.fileName
                         } satisfies FileUIPart
@@ -121,14 +121,9 @@ export function useChatActions<TMessage extends UIMessage>({
 
             if (deletedUrls && deletedUrls.length > 0) {
                 deletedUrls.forEach((url) => {
-                    try {
-                        const parsed = new URL(url, browserEnv("VITE_CONVEX_API_URL"))
-                        const key = parsed.searchParams.get("key")
-                        if (key) {
-                            deleteFileMutation({ key }).catch(console.error)
-                        }
-                    } catch {
-                        // ignore
+                    const key = extractR2KeyFromUrl(url)
+                    if (key) {
+                        deleteFileMutation({ key }).catch(console.error)
                     }
                 })
             }

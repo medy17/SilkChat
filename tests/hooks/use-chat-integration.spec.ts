@@ -76,7 +76,8 @@ vi.mock("@/lib/auth-token", () => ({
 }))
 
 vi.mock("@/lib/browser-env", () => ({
-    browserEnv: browserEnvMock
+    browserEnv: browserEnvMock,
+    optionalBrowserEnv: vi.fn(() => undefined)
 }))
 
 vi.mock("@ai-sdk/react", () => ({

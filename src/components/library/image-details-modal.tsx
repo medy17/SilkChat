@@ -28,7 +28,11 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { getExpandedImageUrl, getGeneratedImageProxyUrl } from "@/lib/generated-image-urls"
+import {
+    getExpandedImageUrl,
+    getGeneratedImageDirectUrl,
+    getGeneratedImageProxyUrl
+} from "@/lib/generated-image-urls"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -392,7 +396,7 @@ export function ImageDetailsModal({
 
     const isImageHidden = isModalImageHidden
     const fullResolutionUrl =
-        (typeof metadata?.url === "string" ? metadata.url : null) ??
+        getGeneratedImageDirectUrl(localImage.storageKey) ??
         getGeneratedImageProxyUrl(localImage.storageKey)
     const model = models.find((m) => m.id === localImage.modelId)
     const formattedDate = new Date(localImage.createdAt).toLocaleDateString()

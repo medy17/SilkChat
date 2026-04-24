@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
-import { browserEnv } from "@/lib/browser-env"
+import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery } from "convex/react"
 import { Archive, Download, File, FileText, Image, Music, Trash2, Video } from "lucide-react"
@@ -87,7 +87,7 @@ const FileCard = memo(
         }, [file.key])
 
         const fileUrl = useMemo(() => {
-            return `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${file.key}`
+            return getPublicR2AssetUrl(file.key)
         }, [file.key])
 
         const handleDownload = useCallback(() => {

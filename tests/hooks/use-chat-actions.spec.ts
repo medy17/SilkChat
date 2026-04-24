@@ -28,7 +28,8 @@ vi.mock("@/convex/_generated/api", () => ({
 }))
 
 vi.mock("@/lib/browser-env", () => ({
-    browserEnv: browserEnvMock
+    browserEnv: browserEnvMock,
+    optionalBrowserEnv: vi.fn(() => undefined)
 }))
 
 import { useChatActions } from "@/hooks/use-chat-actions"

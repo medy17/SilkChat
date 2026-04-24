@@ -1,5 +1,5 @@
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
-import { browserEnv } from "@/lib/browser-env"
+import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import type { UIToolInvocation } from "ai"
 import { AlertCircle } from "lucide-react"
@@ -164,7 +164,7 @@ const ImageWithErrorHandler = memo(
                 style={{ aspectRatio: cssAspectRatio }}
             >
                 <img
-                    src={`${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${asset.imageUrl}`}
+                    src={getPublicR2AssetUrl(asset.imageUrl)}
                     alt={prompt || "Generated image"}
                     className="w-full max-w-md rounded-xl border bg-background object-cover"
                     style={{ aspectRatio: cssAspectRatio }}

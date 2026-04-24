@@ -63,6 +63,7 @@ import {
 import {
     getExpandedImageUrl,
     getGeneratedImageCopyUrl,
+    getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
@@ -719,7 +720,7 @@ const GeneratedImageItem = memo(
 
         const sourceImageUrl = getGeneratedImageProxyUrl(image.storageKey)
         const copyImageUrl = getGeneratedImageCopyUrl(image.storageKey)
-        const fullResolutionUrl = metadata?.url || sourceImageUrl
+        const fullResolutionUrl = getGeneratedImageDirectUrl(image.storageKey) || sourceImageUrl
 
         const handleDownload = () => {
             window.open(fullResolutionUrl, "_blank")

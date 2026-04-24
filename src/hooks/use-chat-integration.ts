@@ -8,6 +8,7 @@ import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
+import { extractR2KeyFromUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
@@ -22,13 +23,7 @@ type BackendMessagePart =
 const extractAttachmentData = (url: string) => {
     if (url.startsWith("data:")) return url
 
-    try {
-        const parsed = new URL(url, browserEnv("VITE_CONVEX_API_URL"))
-        const key = parsed.searchParams.get("key")
-        return key || url
-    } catch {
-        return url
-    }
+    return extractR2KeyFromUrl(url) || url
 }
 
 const normalizeUserMessageParts = (

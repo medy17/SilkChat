@@ -7,7 +7,6 @@ import {
     OpenRouterIcon,
     XAIIcon
 } from "@/components/brand-icons"
-import { browserEnv } from "@/lib/browser-env"
 import {
     type AssistantMessageMetadata,
     deriveMessageFooterStats,
@@ -20,6 +19,7 @@ import {
     formatFooterTokenTotal
 } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
+import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { cn, copyToClipboard } from "@/lib/utils"
 import type { UIMessage } from "ai"
 import { Check, Clock3, Copy, Cpu, DollarSign, Download, Edit3, Zap } from "lucide-react"
@@ -301,11 +301,11 @@ export const ChatActions = memo(
 
         const handleDownload = async () => {
             if (imageGenerationAssets.length === 1) {
-                const url = `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${imageGenerationAssets[0]}`
+                const url = getPublicR2AssetUrl(imageGenerationAssets[0])
                 window.open(url, "_blank")
             } else {
                 imageGenerationAssets.forEach((asset, index) => {
-                    const url = `${browserEnv("VITE_CONVEX_API_URL")}/r2?key=${asset}`
+                    const url = getPublicR2AssetUrl(asset)
                     setTimeout(() => window.open(url, "_blank"), index * 200)
                 })
             }

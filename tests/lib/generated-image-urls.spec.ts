@@ -1,16 +1,19 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { browserEnvMock } = vi.hoisted(() => ({
+const { browserEnvMock, optionalBrowserEnvMock } = vi.hoisted(() => ({
     browserEnvMock: vi.fn((key: string) =>
         key === "VITE_CLOUDFLARE_IMAGE_HOST"
             ? "https://img.silkchat.dev"
             : "https://api.example.com/"
+    ),
+    optionalBrowserEnvMock: vi.fn((key: string) =>
+        key === "VITE_CLOUDFLARE_IMAGE_HOST" ? "https://img.silkchat.dev" : undefined
     )
 }))
 
 vi.mock("@/lib/browser-env", () => ({
     browserEnv: browserEnvMock,
-    optionalBrowserEnv: browserEnvMock
+    optionalBrowserEnv: optionalBrowserEnvMock
 }))
 
 import {
@@ -24,6 +27,12 @@ import {
 } from "@/lib/generated-image-urls"
 
 describe("generated-image-urls", () => {
+    beforeEach(() => {
+        optionalBrowserEnvMock.mockImplementation((key: string) =>
+            key === "VITE_CLOUDFLARE_IMAGE_HOST" ? "https://img.silkchat.dev" : undefined
+        )
+    })
+
     afterEach(() => {
         vi.unstubAllGlobals()
         resetPrivateBlurFormatCacheForTests()
