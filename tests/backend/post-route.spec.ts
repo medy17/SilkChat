@@ -169,6 +169,13 @@ const createRequest = (body: unknown) =>
         body: typeof body === "string" ? body : JSON.stringify(body)
     })
 
+const createAbortableRequest = (body: unknown, signal: AbortSignal) =>
+    new Request("https://example.com/chat", {
+        method: "POST",
+        body: typeof body === "string" ? body : JSON.stringify(body),
+        signal
+    })
+
 const createCtx = () =>
     ({
         auth: {},
@@ -823,6 +830,106 @@ describe("chatPOST", () => {
         expect(
             (finalPatch as { metadata?: { modelId?: string } } | undefined)?.metadata?.modelId
         ).toBe("shared-text")
+    })
+
+    it("aborts the provider stream when the incoming request is aborted", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                case "recordCreditEventForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "gpt-5.4-mini",
+            modelName: "GPT 5.4 Mini",
+            runtimeProvider: "openai",
+            providerSource: "internal",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {}
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+
+        streamTextMock.mockImplementationOnce(({ abortSignal }: { abortSignal?: AbortSignal }) => ({
+            fullStream: new ReadableStream({
+                start(controller) {
+                    abortSignal?.addEventListener(
+                        "abort",
+                        () => {
+                            controller.close()
+                        },
+                        { once: true }
+                    )
+                }
+            }),
+            finishReason: Promise.resolve("abort")
+        }))
+
+        const controller = new AbortController()
+        const response = await chatPOSTHandler(
+            ctx,
+            createAbortableRequest(
+                {
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: []
+                },
+                controller.signal
+            )
+        )
+
+        const responseTextPromise = response.text()
+        await Promise.resolve()
+
+        const abortSignal = streamTextMock.mock.calls[0]?.[0]?.abortSignal as
+            | AbortSignal
+            | undefined
+        expect(abortSignal).toBeDefined()
+        expect(abortSignal?.aborted).toBe(false)
+
+        controller.abort("user stop")
+        await responseTextPromise
+
+        expect(abortSignal?.aborted).toBe(true)
+        expect(abortSignal?.reason).toBe("user stop")
     })
 
     it("wraps resumable SSE sources so upstream stream errors become terminal error events", async () => {

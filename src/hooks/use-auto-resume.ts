@@ -23,6 +23,9 @@ export function useAutoResume({
     threadMessages
 }: AutoResumeProps) {
     const pending = useChatStore((s) => (threadId ? s.pendingStreams[threadId] : false))
+    const manuallyStopped = useChatStore((s) =>
+        threadId ? s.manuallyStoppedThreads[threadId] : false
+    )
     const resumeAttemptRef = useRef<{
         streamId?: string
         attempts: number
@@ -53,6 +56,7 @@ export function useAutoResume({
             return
         }
 
+        if (manuallyStopped) return
         if (pending) return
         const currentStreamId = thread.currentStreamId
 
@@ -111,6 +115,7 @@ export function useAutoResume({
         thread?.currentStreamId,
         threadId,
         pending,
+        manuallyStopped,
         experimental_resume,
         status,
         threadMessages

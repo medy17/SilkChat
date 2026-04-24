@@ -28,6 +28,7 @@ interface ChatState {
     skipNextDataCheck: boolean
     attachedStreamIds: Record<string, string>
     pendingStreams: Record<string, boolean>
+    manuallyStoppedThreads: Record<string, boolean>
     targetFromMessageId: string | undefined
     targetMode: "normal" | "edit" | "retry"
     uploading: boolean
@@ -46,6 +47,7 @@ interface ChatActions {
     triggerRerender: () => void
     setAttachedStreamId: (threadId: string, streamId: string) => void
     setPendingStream: (threadId: string, pending: boolean) => void
+    setManuallyStoppedThread: (threadId: string, stopped: boolean) => void
     setTargetFromMessageId: (messageId: string | undefined) => void
     setTargetMode: (mode: "normal" | "edit" | "retry") => void
     setUploading: (uploading: boolean) => void
@@ -62,6 +64,7 @@ const initialState: ChatState = {
     skipNextDataCheck: true,
     attachedStreamIds: {},
     pendingStreams: {},
+    manuallyStoppedThreads: {},
     targetFromMessageId: undefined,
     targetMode: "normal",
     uploading: false,
@@ -92,6 +95,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
             ...initialState,
             rerenderTrigger: nanoid(),
             attachedStreamIds: {},
+            manuallyStoppedThreads: {},
             targetFromMessageId: undefined,
             lastProcessedDataIndex: -1,
             skipNextDataCheck: true,
@@ -120,6 +124,16 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
             pendingStreams: {
                 ...state.pendingStreams,
                 [threadId]: pending
+            }
+        }))
+    },
+
+    setManuallyStoppedThread: (threadId, stopped) => {
+        if (!threadId) return
+        set((state) => ({
+            manuallyStoppedThreads: {
+                ...state.manuallyStoppedThreads,
+                [threadId]: stopped
             }
         }))
     },

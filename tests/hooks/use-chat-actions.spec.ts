@@ -47,6 +47,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false
@@ -91,6 +92,8 @@ describe("useChatActions", () => {
 
         expect(stop).toHaveBeenCalledTimes(1)
         expect(sendMessage).not.toHaveBeenCalled()
+        expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(false)
+        expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(true)
     })
 
     it("sends trimmed input plus uploaded files and clears the store", () => {

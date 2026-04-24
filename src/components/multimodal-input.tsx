@@ -50,6 +50,7 @@ import {
     getReasoningEffortLabelForModel,
     getRequiredPlanToPickModel
 } from "@/lib/models-providers-shared"
+import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { useSharedModels } from "@/lib/shared-models"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { cn } from "@/lib/utils"
@@ -802,8 +803,14 @@ export const MultimodalInput = forwardRef<
 
     const handleSubmit = async () => {
         const inputValue = promptInputRef.current?.getValue() || ""
+        const submitAction = resolveMultimodalSubmitAction(status, inputValue)
 
-        if (!inputValue.trim()) {
+        if (submitAction === "stop") {
+            onSubmit()
+            return
+        }
+
+        if (submitAction === "focus") {
             promptInputRef.current?.focus()
             return
         }

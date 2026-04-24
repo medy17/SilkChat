@@ -645,6 +645,15 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const streamStartTime = Date.now()
 
     const remoteCancel = new AbortController()
+    const abortRemoteGeneration = () => {
+        remoteCancel.abort(req.signal.reason)
+    }
+
+    if (req.signal.aborted) {
+        abortRemoteGeneration()
+    } else {
+        req.signal.addEventListener("abort", abortRemoteGeneration, { once: true })
+    }
     const parts: Array<
         | { type: "text"; text: string }
         | { type: "reasoning"; reasoning: string; duration?: number; details?: [] }
@@ -1176,6 +1185,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }
             remoteCancel.abort()
             console.log()
+            req.signal.removeEventListener("abort", abortRemoteGeneration)
 
             if (livePersistTimeout) {
                 clearTimeout(livePersistTimeout)
@@ -1276,6 +1286,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 .catch((err) => console.error("Failed to update thread state:", err))
         },
         onError: (error) => {
+            req.signal.removeEventListener("abort", abortRemoteGeneration)
             console.error("[cvx][chat][stream] Fatal error:", error)
             // Mark thread as not live on error
             ctx.runMutation(internal.threads.updateThreadStreamingState, {

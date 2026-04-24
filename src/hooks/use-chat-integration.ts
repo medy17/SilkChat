@@ -248,6 +248,9 @@ export function useChatIntegration<IsShared extends boolean>({
                       }
 
                       if (currentContext.threadId) {
+                          useChatStore
+                              .getState()
+                              .setManuallyStoppedThread(currentContext.threadId, false)
                           useChatStore.getState().setPendingStream(currentContext.threadId, true)
                       }
 

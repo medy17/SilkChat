@@ -1,7 +1,7 @@
 import { essayColumnistPersona } from "./essay-columnist"
 import { mourinhoPersona } from "./jose-mourinho"
 import { pepGuardiolaPersona } from "./pep-guardiola"
-import { schemingAssholePersona } from "./scheming-asshole"
+import { schemingBastardPersona } from "./scheming-bastard"
 import { seniorCodeReviewerPersona } from "./senior-code-reviewer"
 import { socraticTutorPersona } from "./socratic-tutor"
 
@@ -17,7 +17,7 @@ export const BUILT_IN_PERSONAS = [
     essayColumnistPersona,
     mourinhoPersona,
     pepGuardiolaPersona,
-    schemingAssholePersona,
+    schemingBastardPersona,
     seniorCodeReviewerPersona,
     socraticTutorPersona
 ]

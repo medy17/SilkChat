@@ -31,20 +31,31 @@ interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
 }
 
 export function useChatActions<TMessage extends UIMessage>({
+    threadId,
     chat
 }: {
     threadId: string | undefined
     folderId?: Id<"projects">
     chat: ChatActionHelpers<TMessage>
 }) {
-    const { uploadedFiles, setUploadedFiles, setTargetFromMessageId, setTargetMode } =
-        useChatStore()
+    const {
+        uploadedFiles,
+        setUploadedFiles,
+        setPendingStream,
+        setManuallyStoppedThread,
+        setTargetFromMessageId,
+        setTargetMode
+    } = useChatStore()
     const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
 
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
             if (status === "streaming") {
+                if (threadId) {
+                    setPendingStream(threadId, false)
+                    setManuallyStoppedThread(threadId, true)
+                }
                 stop()
                 return
             }
@@ -78,7 +89,16 @@ export function useChatActions<TMessage extends UIMessage>({
 
             setUploadedFiles([])
         },
-        [sendMessage, stop, status, uploadedFiles, setUploadedFiles]
+        [
+            sendMessage,
+            setManuallyStoppedThread,
+            setPendingStream,
+            stop,
+            status,
+            threadId,
+            uploadedFiles,
+            setUploadedFiles
+        ]
     )
 
     const handleRetry = useCallback(

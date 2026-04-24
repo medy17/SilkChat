@@ -116,6 +116,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false
@@ -204,7 +205,10 @@ describe("useChatIntegration", () => {
             }
         })
         useChatStore.setState({
-            shouldUpdateQuery: true
+            shouldUpdateQuery: true,
+            manuallyStoppedThreads: {
+                "thread-1": true
+            }
         })
 
         renderHook(() =>
@@ -277,6 +281,7 @@ describe("useChatIntegration", () => {
                 }
             }
         })
+        expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(latestUseChatOptions?.generateId).toBeDefined()
         expect(latestUseChatOptions!.generateId!()).toBe("assistant-1")

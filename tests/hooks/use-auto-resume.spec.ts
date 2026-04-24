@@ -16,6 +16,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false
@@ -60,6 +61,26 @@ describe("useAutoResume", () => {
 
     it("does not resume while the store still marks the thread as pending", () => {
         useChatStore.getState().setPendingStream("thread-1", true)
+        const experimentalResume = vi.fn()
+
+        renderHook(() =>
+            useAutoResume({
+                autoResume: true,
+                threadId: "thread-1",
+                thread: liveThread,
+                experimental_resume: experimentalResume,
+                status: "idle",
+                threadMessages: [{ _id: "message-1" }]
+            })
+        )
+
+        vi.advanceTimersByTime(5_000)
+
+        expect(experimentalResume).not.toHaveBeenCalled()
+    })
+
+    it("does not resume when the thread was manually stopped by the user", () => {
+        useChatStore.getState().setManuallyStoppedThread("thread-1", true)
         const experimentalResume = vi.fn()
 
         renderHook(() =>
