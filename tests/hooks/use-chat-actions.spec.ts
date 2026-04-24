@@ -177,6 +177,9 @@ describe("useChatActions", () => {
         result.current.handleRetry(messages[1], "model-override")
 
         expect(setMessages).toHaveBeenCalledWith(messages.slice(0, 2))
+        expect(setMessages.mock.invocationCallOrder[0]).toBeLessThan(
+            regenerate.mock.invocationCallOrder[0]
+        )
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
         expect(useChatStore.getState().targetFromMessageId).toBeUndefined()
@@ -243,6 +246,9 @@ describe("useChatActions", () => {
         expect(deleteFileMutationMock).toHaveBeenCalledWith({
             key: "file-1"
         })
+        expect(setMessages.mock.invocationCallOrder[0]).toBeLessThan(
+            regenerate.mock.invocationCallOrder[0]
+        )
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
         expect(setMessages).toHaveBeenCalledWith([

@@ -6,6 +6,7 @@ import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
 import { useCallback } from "react"
+import { flushSync } from "react-dom"
 
 type UserTextPart = {
     type: "text"
@@ -119,13 +120,15 @@ export function useChatActions<TMessage extends UIMessage>({
                 messageId: message.id,
                 modelIdOverride
             })
-            if (threadId) {
-                setPendingStream(threadId, true)
-                setManuallyStoppedThread(threadId, false)
-            }
-            setMessages(messagesUpToRetry)
-            setTargetFromMessageId(undefined)
-            setTargetMode("normal")
+            flushSync(() => {
+                if (threadId) {
+                    setPendingStream(threadId, true)
+                    setManuallyStoppedThread(threadId, false)
+                }
+                setMessages(messagesUpToRetry)
+                setTargetFromMessageId(undefined)
+                setTargetMode("normal")
+            })
             void regenerate({
                 messageId: message.id,
                 body: {
@@ -179,13 +182,15 @@ export function useChatActions<TMessage extends UIMessage>({
                 messageIndex,
                 messageId
             })
-            if (threadId) {
-                setPendingStream(threadId, true)
-                setManuallyStoppedThread(threadId, false)
-            }
-            setMessages([...messagesUpToEdit, updatedEditedMessage])
-            setTargetFromMessageId(undefined)
-            setTargetMode("normal")
+            flushSync(() => {
+                if (threadId) {
+                    setPendingStream(threadId, true)
+                    setManuallyStoppedThread(threadId, false)
+                }
+                setMessages([...messagesUpToEdit, updatedEditedMessage])
+                setTargetFromMessageId(undefined)
+                setTargetMode("normal")
+            })
             void regenerate({
                 messageId,
                 body: {
