@@ -188,6 +188,7 @@ export function useChatIntegration<IsShared extends boolean>({
     )
     const seededNextId = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    const previousStatusRef = useRef<string>("ready")
     const latestRequestContextRef = useRef({
         folderId,
         threadId,
@@ -233,10 +234,14 @@ export function useChatIntegration<IsShared extends boolean>({
         if (!threadMessages || "error" in threadMessages) return []
         return backendToUiMessages(threadMessages)
     }, [threadMessages, sharedThread, isShared, sharedThreadId])
+    const disableMessageThrottle =
+        hasPendingLocalStream && previousStatusRef.current !== "streaming"
 
     const chatHelpers = useChat({
         id: isShared ? `shared_${sharedThreadId}` : rerenderTrigger,
-        experimental_throttle: 50,
+        // Keep local truncation and the first streamed write synchronous to avoid
+        // briefly rendering the stale assistant response during retry/edit.
+        experimental_throttle: disableMessageThrottle ? undefined : 50,
         transport: isShared
             ? undefined
             : new DefaultChatTransport<ChatMessage>({
@@ -351,6 +356,10 @@ export function useChatIntegration<IsShared extends boolean>({
         chatHelpers.status === "submitted" ||
         hasPendingLocalStream ||
         (thread && "isLive" in thread && thread.isLive === true && Boolean(thread.currentStreamId))
+
+    useEffect(() => {
+        previousStatusRef.current = chatHelpers.status
+    }, [chatHelpers.status])
 
     useEffect(() => {
         if (isShared) return

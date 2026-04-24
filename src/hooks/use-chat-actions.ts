@@ -113,13 +113,6 @@ export function useChatActions<TMessage extends UIMessage>({
             if (messageIndex === -1) return
 
             const messagesUpToRetry = messages.slice(0, messageIndex + 1)
-            console.log("[CA:handleRetry]", {
-                messages,
-                messagesUpToRetry: messagesUpToRetry.length,
-                messageIndex,
-                messageId: message.id,
-                modelIdOverride
-            })
             flushSync(() => {
                 if (threadId) {
                     setPendingStream(threadId, true)
@@ -177,11 +170,6 @@ export function useChatActions<TMessage extends UIMessage>({
                 parts: [...(remainingFileParts || []), { type: "text" as const, text: newContent }]
             }
 
-            console.log("alarm:handleEditAndRetry", {
-                messagesUpToEdit: messagesUpToEdit.length,
-                messageIndex,
-                messageId
-            })
             flushSync(() => {
                 if (threadId) {
                     setPendingStream(threadId, true)

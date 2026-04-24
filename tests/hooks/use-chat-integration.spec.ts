@@ -35,6 +35,7 @@ type TransportConfig = {
 }
 type UseChatOptions = {
     id?: string
+    experimental_throttle?: number
     transport?: TransportConfig
     onFinish?: (options: {
         message: Record<string, unknown>
@@ -879,5 +880,65 @@ describe("useChatIntegration", () => {
         )
 
         expect(setMessages).not.toHaveBeenCalledWith(staleBackendMessages)
+    })
+
+    it("disables message throttling until the replacement stream has started", async () => {
+        let currentStatus = "ready"
+
+        useConvexQueryMock.mockImplementation((query: string) => {
+            if (query === "getThreadMessages") return []
+            if (query === "getThread") {
+                return {
+                    _id: "thread-1",
+                    isLive: true,
+                    currentStreamId: "stream-1"
+                }
+            }
+
+            return undefined
+        })
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: currentStatus,
+                messages: [],
+                setMessages: vi.fn(),
+                resumeStream: vi.fn()
+            }
+        })
+
+        const { rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(latestUseChatOptions?.experimental_throttle).toBe(50)
+
+        act(() => {
+            useChatStore.getState().setPendingStream("thread-1", true)
+        })
+
+        await act(async () => {
+            rerender()
+        })
+        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+
+        currentStatus = "submitted"
+        await act(async () => {
+            rerender()
+        })
+        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+
+        currentStatus = "streaming"
+        await act(async () => {
+            rerender()
+        })
+        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+
+        await act(async () => {
+            rerender()
+        })
+        expect(latestUseChatOptions?.experimental_throttle).toBe(50)
     })
 })
