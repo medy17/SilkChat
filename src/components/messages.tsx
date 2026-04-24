@@ -9,7 +9,16 @@ import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
-import { Code, FileType, FileType2, Image as ImageIcon, RotateCcw, Trash2, X } from "lucide-react"
+import {
+    Code,
+    ExternalLink,
+    FileType,
+    FileType2,
+    Image as ImageIcon,
+    RotateCcw,
+    Trash2,
+    X
+} from "lucide-react"
 import { ArrowUp, MoreHorizontal } from "lucide-react"
 import {
     forwardRef,
@@ -702,13 +711,18 @@ export const Messages = forwardRef<
     const renderFilePreview = () => {
         if (!previewFile) return null
 
+        const resolvedPreviewUrl = resolvePublicFileUrl(previewFile.url)
         const { isImage, isText, isPdf } = getFileTypeInfo(fileName, previewFile.mediaType)
+        const isExternalPreviewUrl =
+            resolvedPreviewUrl.startsWith("http://") || resolvedPreviewUrl.startsWith("https://")
+        const shouldUseGenericExternalPreview =
+            !isImage && !isText && !isPdf && isExternalPreviewUrl
 
         return (
             <div className="max-h-full overflow-auto">
                 {isImage && (
                     <img
-                        src={resolvePublicFileUrl(previewFile.url)}
+                        src={resolvedPreviewUrl}
                         alt={fileName}
                         className="h-auto w-full rounded object-contain"
                         onError={(e) => {
@@ -722,10 +736,41 @@ export const Messages = forwardRef<
 
                 {(isText || isPdf) && (
                     <iframe
-                        src={resolvePublicFileUrl(previewFile.url)}
+                        src={resolvedPreviewUrl}
                         className="h-[69dvh] w-full rounded border-0"
                         title={fileName}
                     />
+                )}
+
+                {shouldUseGenericExternalPreview && (
+                    <div className="space-y-3">
+                        <iframe
+                            src={resolvedPreviewUrl}
+                            className="h-[69dvh] w-full rounded border-0"
+                            title={fileName}
+                        />
+                        <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-muted-foreground text-sm">
+                                Preview type could not be detected from this external URL. If the
+                                embed is blank, open the source directly.
+                            </p>
+                            <Button asChild variant="outline" size="sm">
+                                <a href={resolvedPreviewUrl} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="mr-2 size-4" />
+                                    Open Original
+                                </a>
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {!isImage && !isText && !isPdf && !shouldUseGenericExternalPreview && (
+                    <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                        <p className="font-medium">Preview unavailable</p>
+                        <p className="mt-1 text-muted-foreground">
+                            This file type could not be detected for inline preview.
+                        </p>
+                    </div>
                 )}
             </div>
         )
