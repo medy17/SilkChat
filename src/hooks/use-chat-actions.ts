@@ -122,13 +122,20 @@ export function useChatActions<TMessage extends UIMessage>({
             if (messageIndex === -1) return
 
             const messagesUpToRetry = messages.slice(0, messageIndex + 1)
+            const originalAssistantMessage = messages.find(
+                (m, i) => i > messageIndex && m.role === "assistant"
+            )
+
             primeImmediateMessageUpdates()
             flushSync(() => {
                 setTargetFromMessageId(undefined)
                 setTargetMode("normal")
             })
             flushSync(() => {
-                setMessages(messagesUpToRetry)
+                setMessages([
+                    ...messagesUpToRetry,
+                    ...(originalAssistantMessage ? [originalAssistantMessage] : [])
+                ])
             })
             void regenerate({
                 messageId: message.id,
@@ -183,8 +190,17 @@ export function useChatActions<TMessage extends UIMessage>({
                 setTargetFromMessageId(undefined)
                 setTargetMode("normal")
             })
+
+            const originalAssistantMessage = messages.find(
+                (m, i) => i > messageIndex && m.role === "assistant"
+            )
+
             flushSync(() => {
-                setMessages([...messagesUpToEdit, updatedEditedMessage])
+                setMessages([
+                    ...messagesUpToEdit,
+                    updatedEditedMessage,
+                    ...(originalAssistantMessage ? [originalAssistantMessage] : [])
+                ])
             })
             void regenerate({
                 messageId,
