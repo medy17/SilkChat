@@ -36,6 +36,26 @@ const FREE_WITHOUT_REASONING_ACCESS = {
 
 export const OPENAI_MODELS: SharedModel[] = [
     {
+        id: "gpt-5.5",
+        name: "GPT 5.5",
+        shortName: "5.5",
+        shortDescription: "Latest SOTA OpenAI model for everyday chat and tools",
+        description:
+            "GPT 5.5 is OpenAI's latest SOTA model. Expensive but built to be a token-efficient model for high-quality chat, multimodal input, and tool use.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-5"
+        },
+        releaseOrder: 20261023,
+        adapters: openAiTextAdapters("gpt-5.5"),
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        prototypeCreditTier: "basic",
+        prototypeCreditTierWithReasoning: "pro"
+    },
+    {
         id: "gpt-5.4-nano",
         name: "GPT 5.4 nano",
         shortName: "5.4 nano",
