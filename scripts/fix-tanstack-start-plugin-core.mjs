@@ -1,30 +1,41 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 
-const files = [
-    "node_modules/@tanstack/start-plugin-core/dist/esm/import-protection-plugin/postCompileUsage.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/import-protection-plugin/rewriteDeniedImports.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/start-compiler-plugin/compiler.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/start-compiler-plugin/handleCreateIsomorphicFn.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/start-compiler-plugin/handleCreateServerFn.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/start-compiler-plugin/handleEnvOnly.js",
-    "node_modules/@tanstack/start-plugin-core/dist/esm/start-compiler-plugin/utils.js"
-]
+const root = path.resolve(process.cwd(), "node_modules/@tanstack/start-plugin-core/dist/esm")
 
 const from = 'from "@babel/types";'
 const to = 'from "@babel/types/lib/index.js";'
 
-for (const relativeFile of files) {
-    const file = path.resolve(process.cwd(), relativeFile)
-    const source = await fs.readFile(file, "utf8")
+const walk = async (dir) => {
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+    const files = await Promise.all(
+        entries.map(async (entry) => {
+            const fullPath = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+                return walk(fullPath)
+            }
+            return entry.isFile() && entry.name.endsWith(".js") ? [fullPath] : []
+        })
+    )
 
-    if (source.includes(to)) {
-        continue
+    return files.flat()
+}
+
+try {
+    const files = await walk(root)
+
+    for (const file of files) {
+        const source = await fs.readFile(file, "utf8")
+        if (!source.includes(from) || source.includes(to)) {
+            continue
+        }
+
+        await fs.writeFile(file, source.replaceAll(from, to))
     }
-
-    if (!source.includes(from)) {
-        throw new Error(`Expected import not found in ${relativeFile}`)
+} catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        console.warn("[postinstall] @tanstack/start-plugin-core dist/esm not found; skipping patch")
+    } else {
+        throw error
     }
-
-    await fs.writeFile(file, source.replaceAll(from, to))
 }

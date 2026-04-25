@@ -155,7 +155,7 @@
     },
   },
   "patchedDependencies": {
-    "@ai-sdk/openai@3.0.53": "patches/@ai-sdk-openai@3.0.53.patch",
+    "@ai-sdk/openai@3.0.53": "bun-patches/@ai-sdk-openai@3.0.53.patch",
   },
   "packages": {
     "@ai-sdk/anthropic": ["@ai-sdk/anthropic@3.0.71", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.23" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-bUWOzrzR0gJKJO/PLGMR4uH2dqEgqGhrsCV+sSpk4KtOEnUQlfjZI/F7BFlqSvVpFbjdgYRRLysAeEZpJ6S1lg=="],
