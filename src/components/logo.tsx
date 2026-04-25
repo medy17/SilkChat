@@ -1,4 +1,5 @@
 import chatLogoUrl from "@/assets/silkchat.svg?url"
+import SilkscreenLogo from "@/assets/silkscreen.svg"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 
@@ -50,4 +51,8 @@ export function LogoMark({ className }: { className?: string }) {
             className={cn(className, mode === "dark" && "invert")}
         />
     )
+}
+
+export function LibraryLogo({ className }: { className?: string }) {
+    return <SilkscreenLogo aria-label="Library Logo" className={cn(className, "text-foreground")} />
 }

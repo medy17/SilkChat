@@ -8,7 +8,7 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
 import { Image as ImageIcon, MessageSquare, Search } from "lucide-react"
 import { type MouseEvent, useRef } from "react"
-import { LogoMark } from "../logo"
+import { LibraryLogo, LogoMark } from "../logo"
 import { ImportThreadButton } from "./import-thread-button"
 
 export function ThreadsSidebarHeader({
@@ -145,7 +145,11 @@ export function ThreadsSidebarHeader({
                 <div className="hidden h-8 w-8 shrink-0 md:block" />
 
                 <Link to="/">
-                    <LogoMark className="h-5 w-auto" />
+                    {isLibraryMode ? (
+                        <LibraryLogo className="h-5 w-auto" />
+                    ) : (
+                        <LogoMark className="h-5 w-auto" />
+                    )}
                 </Link>
 
                 <Button
