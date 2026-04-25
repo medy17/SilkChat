@@ -1734,26 +1734,11 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                     !isArchivedView
                                         ? ` · ${pendingGenerations.length} pending`
                                         : ""}
+                                    {totalPages !== undefined && totalPages > 0
+                                        ? ` · Page ${pageNumber} of ${totalPages}`
+                                        : ""}
                                 </p>
                             </div>
-                            <Tabs
-                                value={view}
-                                onValueChange={(value) =>
-                                    handleViewChange(value as LibraryViewMode)
-                                }
-                                className="hidden pb-0.5 sm:block"
-                            >
-                                <TabsList className="h-9">
-                                    <TabsTrigger value="active" className="text-xs">
-                                        <ImageIcon className="mr-2 h-3.5 w-3.5" />
-                                        Library
-                                    </TabsTrigger>
-                                    <TabsTrigger value="archived" className="text-xs">
-                                        <Archive className="mr-2 h-3.5 w-3.5" />
-                                        Archive
-                                    </TabsTrigger>
-                                </TabsList>
-                            </Tabs>
                         </div>
 
                         {/* Top Right Actions */}
@@ -1763,13 +1748,14 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                 onValueChange={(value) =>
                                     handleViewChange(value as LibraryViewMode)
                                 }
-                                className="sm:hidden"
                             >
                                 <TabsList className="h-9">
                                     <TabsTrigger value="active" className="text-xs">
+                                        <ImageIcon className="mr-2 hidden h-3.5 w-3.5 sm:block" />
                                         Library
                                     </TabsTrigger>
                                     <TabsTrigger value="archived" className="text-xs">
+                                        <Archive className="mr-2 hidden h-3.5 w-3.5 sm:block" />
                                         Archive
                                     </TabsTrigger>
                                 </TabsList>
