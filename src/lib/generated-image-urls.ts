@@ -4,7 +4,11 @@ import {
     isLocalImageOptimizerEnabled
 } from "@/lib/local-image-optimizer"
 import { type PrivateBlurFormat, getConstrainedWidth } from "@/lib/private-blur-variants"
-import { getPublicR2AssetUrl, getR2ProxyUrl } from "@/lib/r2-public-url"
+import {
+    getPublicR2AssetUrl,
+    getR2ProxyUrl,
+    getRequiredPublicR2AssetUrl
+} from "@/lib/r2-public-url"
 
 const DEV_CONVEX_HTTP_PROXY_PREFIX = "/convex-http"
 const LOCAL_IMAGE_HOSTS = new Set(["localhost", "127.0.0.1"])
@@ -91,6 +95,9 @@ export const getGeneratedImageCopyUrl = (storageKey: string) => {
 
 export const getGeneratedImageDirectUrl = (storageKey: string) => getPublicR2AssetUrl(storageKey)
 
+export const getGeneratedImageTransformSourceUrl = (storageKey: string) =>
+    getRequiredPublicR2AssetUrl(storageKey)
+
 export const getCloudflareTransformedImageUrl = ({
     imageHost,
     sourceUrl,
@@ -115,7 +122,7 @@ export const getOptimizedGeneratedImageUrl = ({
     longEdge: number
     quality?: number
 }) => {
-    const sourceUrl = getGeneratedImageProxyUrl(storageKey)
+    const sourceUrl = getGeneratedImageTransformSourceUrl(storageKey)
     const width = getConstrainedWidth(aspectRatio, longEdge)
 
     if (isLocalImageOptimizerEnabled()) {

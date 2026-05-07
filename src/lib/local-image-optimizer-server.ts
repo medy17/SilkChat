@@ -14,6 +14,7 @@ type OutputFormat = "avif" | "webp" | "png" | "jpeg"
 type LocalImageOptimizerConfig = {
     cacheDir: string
     convexApiUrl: string
+    publicAssetBaseUrl?: string
 }
 
 const LONG_LIVED_CACHE_CONTROL = "public, max-age=31536000, immutable"
@@ -176,7 +177,8 @@ const writeOptimizedImage = async ({
 
 export const createLocalImageOptimizerHandler = ({
     cacheDir,
-    convexApiUrl
+    convexApiUrl,
+    publicAssetBaseUrl
 }: LocalImageOptimizerConfig) => {
     const inflightTransforms = new Map<string, Promise<Response>>()
 
@@ -204,7 +206,8 @@ export const createLocalImageOptimizerHandler = ({
         if (
             !isAllowedLocalImageOptimizerSource({
                 sourceUrl: requestParts.sourceUrl,
-                convexApiUrl
+                convexApiUrl,
+                publicAssetBaseUrl
             })
         ) {
             return buildErrorResponse(403, "Source URL is not allowed")

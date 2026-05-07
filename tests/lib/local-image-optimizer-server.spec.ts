@@ -55,12 +55,13 @@ describe("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http"
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
         const request = createRequest({
             pathName:
-                "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1"
+                "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-1"
         })
 
         const firstResponse = await handleRequest(request)
@@ -105,13 +106,14 @@ describe("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http"
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-webp-preferred",
+                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-webp-preferred",
                 accept: "image/avif,image/webp,image/*"
             })
         )
@@ -149,13 +151,14 @@ describe("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http"
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-2",
+                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-2",
                 accept: "image/png"
             })
         )
@@ -170,7 +173,8 @@ describe("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http"
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
         const response = await handleRequest(
@@ -189,13 +193,14 @@ describe("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http"
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=cover,width=8,quality=72,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-3"
+                    "/cdn-cgi/image/fit=cover,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-3"
             })
         )
 

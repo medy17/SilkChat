@@ -15,6 +15,11 @@ const getPublicR2BaseUrl = () => {
     return value ? trimTrailingSlash(value) : undefined
 }
 
+export const getRequiredPublicR2AssetUrl = (key: string) => {
+    const publicBaseUrl = trimTrailingSlash(browserEnv("VITE_R2_PUBLIC_BASE_URL"))
+    return `${publicBaseUrl}/${encodeKeyPath(key)}`
+}
+
 export const getR2ProxyUrl = (key: string) => {
     const apiBase = trimTrailingSlash(browserEnv("VITE_CONVEX_API_URL"))
     return `${apiBase}/r2?key=${encodeURIComponent(key)}`

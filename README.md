@@ -40,6 +40,10 @@ bun run local:dev
 - the Vite app
 - a local Sharp-backed image optimizer that serves mocked `/cdn-cgi/image/...` URLs and caches outputs in `/.optimised-image-cache`
 
+Before running it, set `VITE_R2_PUBLIC_BASE_URL` to a publicly readable asset base.
+The optimized Library image path now fetches directly from that public asset origin instead of the Convex `/r2` proxy.
+`bun run local:setup` now makes the default local MinIO bucket publicly readable for that purpose.
+
 If you prefer separate terminals:
 
 ```bash
@@ -51,7 +55,7 @@ bun run local:app
 ```
 
 The app runs at `http://localhost:3000`.
-Plain `bun run dev` still uses the old direct local `/r2` image path without the optimizer helper.
+Plain `bun run dev` bypasses the optimizer helper and loads generated images directly from `VITE_R2_PUBLIC_BASE_URL`.
 
 ## Push To Cloud Dev
 

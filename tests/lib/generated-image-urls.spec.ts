@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { browserEnvMock, optionalBrowserEnvMock } = vi.hoisted(() => ({
-    browserEnvMock: vi.fn((key: string): string =>
-        key === "VITE_CLOUDFLARE_IMAGE_HOST"
-            ? "https://img.silkchat.dev"
-            : "https://api.example.com/"
-    ),
-    optionalBrowserEnvMock: vi.fn((key: string): string | undefined =>
-        key === "VITE_CLOUDFLARE_IMAGE_HOST" ? "https://img.silkchat.dev" : undefined
-    )
+    browserEnvMock: vi.fn((key: string): string => {
+        switch (key) {
+            case "VITE_CLOUDFLARE_IMAGE_HOST":
+                return "https://img.silkchat.dev"
+            case "VITE_R2_PUBLIC_BASE_URL":
+                return "https://r2.silkchat.dev"
+            default:
+                return "https://api.example.com/"
+        }
+    }),
+    optionalBrowserEnvMock: vi.fn((key: string): string | undefined => {
+        switch (key) {
+            case "VITE_CLOUDFLARE_IMAGE_HOST":
+                return "https://img.silkchat.dev"
+            case "VITE_R2_PUBLIC_BASE_URL":
+                return "https://r2.silkchat.dev"
+            default:
+                return undefined
+        }
+    })
 }))
 
 vi.mock("@/lib/browser-env", () => ({
@@ -28,9 +40,26 @@ import {
 
 describe("generated-image-urls", () => {
     beforeEach(() => {
-        optionalBrowserEnvMock.mockImplementation((key: string) =>
-            key === "VITE_CLOUDFLARE_IMAGE_HOST" ? "https://img.silkchat.dev" : undefined
-        )
+        browserEnvMock.mockImplementation((key: string): string => {
+            switch (key) {
+                case "VITE_CLOUDFLARE_IMAGE_HOST":
+                    return "https://img.silkchat.dev"
+                case "VITE_R2_PUBLIC_BASE_URL":
+                    return "https://r2.silkchat.dev"
+                default:
+                    return "https://api.example.com/"
+            }
+        })
+        optionalBrowserEnvMock.mockImplementation((key: string) => {
+            switch (key) {
+                case "VITE_CLOUDFLARE_IMAGE_HOST":
+                    return "https://img.silkchat.dev"
+                case "VITE_R2_PUBLIC_BASE_URL":
+                    return "https://r2.silkchat.dev"
+                default:
+                    return undefined
+            }
+        })
     })
 
     afterEach(() => {
@@ -54,12 +83,12 @@ describe("generated-image-urls", () => {
         expect(
             getCloudflareTransformedImageUrl({
                 imageHost: "https://img.silkchat.dev",
-                sourceUrl: "https://api.example.com/r2?key=generated%2Fkey-1",
+                sourceUrl: "https://r2.silkchat.dev/generated/key-1",
                 width: 540,
                 quality: 76
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-1"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-1"
         )
     })
 
@@ -77,7 +106,7 @@ describe("generated-image-urls", () => {
                 longEdge: 720,
                 quality: 80
             })
-        ).toBe("https://api.example.com/r2?key=generated%2Fkey-1")
+        ).toBe("https://r2.silkchat.dev/generated/key-1")
     })
 
     it("routes localhost image optimization through the local optimizer helper when enabled", () => {
@@ -98,7 +127,7 @@ describe("generated-image-urls", () => {
                 quality: 80
             })
         ).toBe(
-            "/cdn-cgi/image/fit=scale-down,width=405,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-1"
+            "/cdn-cgi/image/fit=scale-down,width=405,quality=80,format=auto/https://r2.silkchat.dev/generated/key-1"
         )
     })
 
@@ -111,7 +140,7 @@ describe("generated-image-urls", () => {
                 quality: 76
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=405,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-2"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=405,quality=76,format=auto/https://r2.silkchat.dev/generated/key-2"
         )
     })
 
@@ -128,10 +157,10 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 432w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 540w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 432w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 540w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: false
@@ -143,7 +172,7 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toBe(
-            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=810,quality=84,format=auto/https://api.example.com/r2?key=generated%2Fkey-3"
+            "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=810,quality=84,format=auto/https://r2.silkchat.dev/generated/key-3"
         )
     })
 
@@ -163,10 +192,10 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toEqual({
-            src: "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3",
+            src: "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
             srcSet: [
-                "/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 432w",
-                "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-3 540w"
+                "/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 432w",
+                "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 540w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: false
@@ -192,10 +221,10 @@ describe("generated-image-urls", () => {
                 hidden: true
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-4",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=576,quality=80,format=auto/https://api.example.com/r2?key=generated%2Fkey-4 576w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-4 720w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=576,quality=80,format=auto/https://r2.silkchat.dev/generated/key-4 576w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4 720w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: true
@@ -225,13 +254,39 @@ describe("generated-image-urls", () => {
                 hidden: true
             })
         ).toEqual({
-            src: "https://api.example.com/r2?key=generated%2Fkey-5",
+            src: "https://r2.silkchat.dev/generated/key-5",
             srcSet: [
-                "https://api.example.com/r2?key=generated%2Fkey-5 432w",
-                "https://api.example.com/r2?key=generated%2Fkey-5 540w"
+                "https://r2.silkchat.dev/generated/key-5 432w",
+                "https://r2.silkchat.dev/generated/key-5 540w"
             ].join(", "),
             sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
             useCssBlurFallback: true
         })
+    })
+
+    it("throws when optimized image URLs are requested without a public R2 base", () => {
+        browserEnvMock.mockImplementation((key: string): string => {
+            if (key === "VITE_CLOUDFLARE_IMAGE_HOST") {
+                return "https://img.silkchat.dev"
+            }
+
+            if (key === "VITE_CONVEX_API_URL") {
+                return "https://api.example.com/"
+            }
+
+            throw new Error(`Missing environment variable(browser): ${key}`)
+        })
+        optionalBrowserEnvMock.mockImplementation((key: string) =>
+            key === "VITE_CLOUDFLARE_IMAGE_HOST" ? "https://img.silkchat.dev" : undefined
+        )
+
+        expect(() =>
+            getOptimizedGeneratedImageUrl({
+                storageKey: "generated/key-6",
+                aspectRatio: "1:1",
+                longEdge: 720,
+                quality: 76
+            })
+        ).toThrow("Missing environment variable(browser): VITE_R2_PUBLIC_BASE_URL")
     })
 })

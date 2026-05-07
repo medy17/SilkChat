@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { browserEnvMock, optionalBrowserEnvMock } = vi.hoisted(() => ({
-    browserEnvMock: vi.fn((key: string) =>
-        key === "VITE_CONVEX_API_URL" ? "https://api.example.com/" : "https://unused.example.com"
-    ),
+    browserEnvMock: vi.fn((key: string) => {
+        switch (key) {
+            case "VITE_CONVEX_API_URL":
+                return "https://api.example.com/"
+            case "VITE_R2_PUBLIC_BASE_URL":
+                return "https://r2.silkchat.dev"
+            default:
+                return "https://unused.example.com"
+        }
+    }),
     optionalBrowserEnvMock: vi.fn((key: string) =>
         key === "VITE_R2_PUBLIC_BASE_URL" ? "https://r2.silkchat.dev" : undefined
     )
@@ -18,16 +25,22 @@ import {
     extractR2KeyFromUrl,
     getPublicR2AssetUrl,
     getR2ProxyUrl,
+    getRequiredPublicR2AssetUrl,
     resolvePublicFileUrl
 } from "@/lib/r2-public-url"
 
 describe("r2-public-url", () => {
     beforeEach(() => {
-        browserEnvMock.mockImplementation((key: string) =>
-            key === "VITE_CONVEX_API_URL"
-                ? "https://api.example.com/"
-                : "https://unused.example.com"
-        )
+        browserEnvMock.mockImplementation((key: string) => {
+            switch (key) {
+                case "VITE_CONVEX_API_URL":
+                    return "https://api.example.com/"
+                case "VITE_R2_PUBLIC_BASE_URL":
+                    return "https://r2.silkchat.dev"
+                default:
+                    return "https://unused.example.com"
+            }
+        })
         optionalBrowserEnvMock.mockImplementation((key: string) =>
             key === "VITE_R2_PUBLIC_BASE_URL" ? "https://r2.silkchat.dev" : undefined
         )
@@ -41,6 +54,12 @@ describe("r2-public-url", () => {
 
     it("builds direct public asset URLs without duplicating the bucket path", () => {
         expect(getPublicR2AssetUrl("generations/user-1/image key.png")).toBe(
+            "https://r2.silkchat.dev/generations/user-1/image%20key.png"
+        )
+    })
+
+    it("builds required direct public asset URLs for strict callers", () => {
+        expect(getRequiredPublicR2AssetUrl("generations/user-1/image key.png")).toBe(
             "https://r2.silkchat.dev/generations/user-1/image%20key.png"
         )
     })

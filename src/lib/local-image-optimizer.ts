@@ -32,6 +32,8 @@ const parseIntegerInRange = (value: string | undefined, min: number, max: number
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "")
 
+const trimLeadingSlash = (value: string) => value.replace(/^\/+/, "")
+
 export const isLocalImageOptimizerEnabled = () =>
     import.meta.env.DEV && optionalBrowserEnv(LOCAL_IMAGE_OPTIMIZER_ENV_KEY) === "1"
 
@@ -135,25 +137,46 @@ export const extractLocalImageOptimizerRequestParts = (requestUrl: URL) => {
 
 export const isAllowedLocalImageOptimizerSource = ({
     sourceUrl,
-    convexApiUrl
+    convexApiUrl,
+    publicAssetBaseUrl
 }: {
     sourceUrl: string
     convexApiUrl: string
+    publicAssetBaseUrl?: string
 }) => {
     try {
         const parsedSourceUrl = new URL(sourceUrl)
         const convexUrl = new URL(convexApiUrl)
         const expectedPath = `${trimTrailingSlash(convexUrl.pathname)}/r2`
 
-        if (parsedSourceUrl.origin !== convexUrl.origin) {
+        if (
+            parsedSourceUrl.origin === convexUrl.origin &&
+            parsedSourceUrl.pathname === expectedPath
+        ) {
+            return Boolean(parsedSourceUrl.searchParams.get("key"))
+        }
+
+        if (!publicAssetBaseUrl) {
             return false
         }
 
-        if (parsedSourceUrl.pathname !== expectedPath) {
+        const publicBaseUrl = new URL(publicAssetBaseUrl)
+        const publicBasePath = trimTrailingSlash(publicBaseUrl.pathname)
+
+        if (parsedSourceUrl.origin !== publicBaseUrl.origin) {
             return false
         }
 
-        return Boolean(parsedSourceUrl.searchParams.get("key"))
+        if (
+            publicBasePath &&
+            !parsedSourceUrl.pathname.startsWith(`${publicBasePath}/`) &&
+            parsedSourceUrl.pathname !== publicBasePath
+        ) {
+            return false
+        }
+
+        const keyPath = trimLeadingSlash(parsedSourceUrl.pathname.slice(publicBasePath.length))
+        return keyPath.length > 0
     } catch {
         return false
     }

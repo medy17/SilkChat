@@ -1,5 +1,11 @@
 import { spawn } from "node:child_process"
 
+const LOCAL_MINIO_ALIAS = "local"
+const LOCAL_MINIO_URL = "http://127.0.0.1:9000"
+const LOCAL_MINIO_ACCESS_KEY = "minioadmin"
+const LOCAL_MINIO_SECRET_KEY = "minioadmin"
+const LOCAL_R2_BUCKET = "intern3-user-files"
+
 const run = (label, command, args, { allowFailure = false } = {}) =>
     new Promise((resolve, reject) => {
         console.log(`\n[local-setup] ${label}`)
@@ -22,8 +28,34 @@ const run = (label, command, args, { allowFailure = false } = {}) =>
         })
     })
 
+const runInMinioClient = (label, script) =>
+    run(
+        label,
+        "docker",
+        [
+            "run",
+            "--rm",
+            "--entrypoint",
+            "/bin/sh",
+            "--network",
+            "host",
+            "minio/mc",
+            "-lc",
+            script
+        ]
+    )
+
 const main = async () => {
     await run("Starting Docker services (Postgres + MinIO)", "docker", ["compose", "up", "-d"])
+
+    await runInMinioClient(
+        "Configuring local MinIO bucket for public asset reads",
+        [
+            `mc alias set ${LOCAL_MINIO_ALIAS} ${LOCAL_MINIO_URL} ${LOCAL_MINIO_ACCESS_KEY} ${LOCAL_MINIO_SECRET_KEY}`,
+            `mc anonymous set download ${LOCAL_MINIO_ALIAS}/${LOCAL_R2_BUCKET}`,
+            `mc anonymous get ${LOCAL_MINIO_ALIAS}/${LOCAL_R2_BUCKET}`
+        ].join(" && ")
+    )
 
     await run("Pushing Better Auth schema to local Postgres", "bun", ["run", "auth:push"])
 

@@ -11,12 +11,12 @@ describe("local-image-optimizer", () => {
     it("builds a local optimizer URL with the mocked Cloudflare path shape", () => {
         expect(
             buildLocalImageOptimizerUrl({
-                sourceUrl: "https://api.example.com/r2?key=generated%2Fkey-1",
+                sourceUrl: "https://r2.silkchat.dev/generated/key-1",
                 width: 540,
                 quality: 76
             })
         ).toBe(
-            "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://api.example.com/r2?key=generated%2Fkey-1"
+            "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-1"
         )
     })
 
@@ -54,7 +54,7 @@ describe("local-image-optimizer", () => {
         })
     })
 
-    it("allows only Convex /r2 source URLs with a key", () => {
+    it("allows Convex /r2 source URLs with a key", () => {
         expect(
             isAllowedLocalImageOptimizerSource({
                 sourceUrl: "http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1",
@@ -73,6 +73,24 @@ describe("local-image-optimizer", () => {
             isAllowedLocalImageOptimizerSource({
                 sourceUrl: "https://cdn.example.com/r2?key=generated%2Fkey-1",
                 convexApiUrl: "http://127.0.0.1:3210/http"
+            })
+        ).toBe(false)
+    })
+
+    it("allows configured public R2 asset URLs", () => {
+        expect(
+            isAllowedLocalImageOptimizerSource({
+                sourceUrl: "https://r2.silkchat.dev/generated/key-1",
+                convexApiUrl: "http://127.0.0.1:3210/http",
+                publicAssetBaseUrl: "https://r2.silkchat.dev"
+            })
+        ).toBe(true)
+
+        expect(
+            isAllowedLocalImageOptimizerSource({
+                sourceUrl: "https://r2.silkchat.dev-private/generated/key-1",
+                convexApiUrl: "http://127.0.0.1:3210/http",
+                publicAssetBaseUrl: "https://r2.silkchat.dev"
             })
         ).toBe(false)
     })
