@@ -74,9 +74,9 @@ function TermsOfServicePage() {
                         Terms for the Services covered by that agreement.
                     </p>
                     <p className="text-muted-foreground">
-                        <strong>Arbitration, venue, and governing law details are TO-DO.</strong>{" "}
-                        Any final dispute-resolution clause should be reviewed and finalized before
-                        being treated as binding commercial policy.
+                        If you have a dispute, claim, or legal concern relating to the Services, you
+                        should submit it first to <strong>legal@silkchat.dev</strong> so we can
+                        attempt to address it directly before further escalation.
                     </p>
                     <p className="text-muted-foreground">
                         By using, downloading, installing, or otherwise accessing the Services, you
@@ -271,9 +271,18 @@ function TermsOfServicePage() {
                             pricing rules.
                         </TermsItem>
                         <TermsItem>
-                            The exact pricing, quota, credit, billing, and overage model is{" "}
-                            <strong>TO-DO</strong> unless separately described in the product at the
-                            time of purchase or use.
+                            Users are on the free plan by default. If you upgrade to Pro, the
+                            subscription price is <strong>USD $8.99 per month</strong>, with no
+                            annual-plan discount.
+                        </TermsItem>
+                        <TermsItem>
+                            Listed prices do not include applicable taxes and do not include any
+                            trial period unless expressly stated in-product.
+                        </TermsItem>
+                        <TermsItem>
+                            We may offer discount codes from time to time. If a valid discount code
+                            is provided and accepted at checkout, the discounted price shown at
+                            checkout will apply.
                         </TermsItem>
                         <TermsItem>
                             If paid plans or credits are introduced or expanded, your use of those
@@ -285,10 +294,9 @@ function TermsOfServicePage() {
 
                 <TermsSection number="7" title="Right of Withdrawal (EU Customers)">
                     <p className="text-muted-foreground">
-                        Consumer withdrawal and digital-content cancellation rights for EU customers
-                        are <strong>TO-DO</strong>. If or when paid consumer digital services are
-                        offered directly by us, this section should be updated to reflect the final
-                        billing and fulfillment model.
+                        Except where non-waivable consumer rights apply under applicable law, we do
+                        not offer refunds, money-back guarantees, or trial periods for paid digital
+                        services.
                     </p>
                 </TermsSection>
 
@@ -329,9 +337,9 @@ function TermsOfServicePage() {
                             not commercially, legally, or technically feasible.
                         </TermsItem>
                         <TermsItem>
-                            Account cancellation, refund policy, and post-termination retrieval
-                            workflow details are <strong>TO-DO</strong> to the extent they are not
-                            already presented in-product.
+                            We do not offer refunds or money-back guarantees except where required
+                            by applicable law. Account suspension, appeal, and reinstatement
+                            requests are handled through <strong>support@silkchat.dev</strong>.
                         </TermsItem>
                         <TermsItem>
                             You are responsible for exporting your User Content before terminating
@@ -453,8 +461,8 @@ function TermsOfServicePage() {
                         <TermsItem>Your physical or electronic signature.</TermsItem>
                     </TermsList>
                     <p className="text-muted-foreground">
-                        Designated copyright agent name, legal address, and DMCA contact email are{" "}
-                        <strong>TO-DO</strong>.
+                        Copyright or IP complaints may be submitted to{" "}
+                        <strong>legal@silkchat.dev</strong>.
                     </p>
                 </TermsSection>
 
@@ -496,9 +504,10 @@ function TermsOfServicePage() {
 
                 <TermsSection number="19" title="Disputes">
                     <p className="text-muted-foreground">
-                        Governing law, venue, arbitration procedure, opt-out procedure, class-action
-                        waiver, and limitation periods are <strong>TO-DO</strong>. Until finalized,
-                        this section should not be treated as a complete dispute-resolution clause.
+                        If you have a dispute, claim, or legal notice relating to the Services or
+                        these Terms, you must initiate it by contacting{" "}
+                        <strong>legal@silkchat.dev</strong>. We may attempt to resolve the matter
+                        informally before any formal proceeding is pursued.
                     </p>
                 </TermsSection>
 
@@ -538,10 +547,12 @@ function TermsOfServicePage() {
                             <ExternalLink href={APP_URL}>{APP_URL}</ExternalLink>
                         </TermsItem>
                         <TermsItem>
-                            <strong>Legal contact email</strong>: <strong>TO-DO</strong>
+                            <strong>Legal contact email</strong>:{" "}
+                            <strong>legal@silkchat.dev</strong>
                         </TermsItem>
                         <TermsItem>
-                            <strong>Mailing address</strong>: <strong>TO-DO</strong>
+                            <strong>Mailing address</strong>:{" "}
+                            <strong>47500 Subang Jaya, D7 BLOK SEVEN, Selangor, Malaysia.</strong>
                         </TermsItem>
                     </TermsList>
                 </TermsSection>

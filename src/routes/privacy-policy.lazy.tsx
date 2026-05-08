@@ -155,13 +155,18 @@ function PrivacyPolicyPage() {
                     <PolicySubsection title="2.6 Billing and payment data">
                         <PolicyList>
                             <PolicyItem>
-                                Paid-plan billing architecture and payment processor details are{" "}
-                                <strong>TO-DO</strong>.
+                                Users are on the free plan by default. If you upgrade to Pro, you
+                                receive <strong>1,500 Basic Credits</strong> and{" "}
+                                <strong>100 Pro Credits</strong>.
                             </PolicyItem>
                             <PolicyItem>
-                                If paid subscriptions are enabled later, this section should be
-                                updated with the exact processor, merchant-of-record status, data
-                                collected, and retention periods.
+                                At our discretion, models may be assigned to consume Basic Credits
+                                or Pro Credits based on upstream cost and operational convenience.
+                            </PolicyItem>
+                            <PolicyItem>
+                                Payments for paid plans are processed by{" "}
+                                <strong>LemonSqueezy</strong>, which acts as our{" "}
+                                <strong>Merchant of Record</strong>.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -335,7 +340,8 @@ function PrivacyPolicyPage() {
                                 elsewhere.
                             </PolicyItem>
                             <PolicyItem>
-                                <strong>Payment processor</strong>: <strong>TO-DO</strong>.
+                                <strong>Payment processor</strong>: <strong>LemonSqueezy</strong>,
+                                which also acts as our <strong>Merchant of Record</strong>.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -584,10 +590,12 @@ function PrivacyPolicyPage() {
                             <strong>Operator</strong>: {COMPANY_NAME}
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Mailing address</strong>: <strong>TO-DO</strong>
+                            <strong>Mailing address</strong>:{" "}
+                            <strong>47500 Subang Jaya, D7 BLOK SEVEN, Selangor, Malaysia.</strong>
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Privacy contact email</strong>: <strong>TO-DO</strong>
+                            <strong>Privacy contact email</strong>:{" "}
+                            <strong>legal@silkchat.dev</strong>
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Support/admin response SLA</strong>: <strong>TO-DO</strong>
