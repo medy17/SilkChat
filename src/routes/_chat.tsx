@@ -5,7 +5,7 @@ import {
     useParams
 } from "@tanstack/react-router"
 import { motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
 import { FolderChat } from "@/components/folder-chat"
@@ -15,6 +15,7 @@ import { LogoSymbol } from "@/components/logo"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
+import { CircularLoader } from "@/components/ui/loader"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -42,6 +43,8 @@ export const Route = createFileRoute("/_chat")({
 
 const ROOT_SESSION_LOADING_DELAY_MS = 2000
 const ROOT_SESSION_EXIT_DELAY_MS = 700
+const CHAT_TRANSITION_MIN_SPINNER_MS = 500
+const CHAT_TRANSITION_SWAP_DELAY_MS = 180
 
 const areStringArraysEqual = (left: string[], right: string[]) =>
     left.length === right.length && left.every((value, index) => value === right[index])
@@ -132,6 +135,23 @@ const areCachedChatTargetsEqual = (
     }
 }
 
+const getCachedChatTargetKey = (target: CachedChatTarget | null) => {
+    if (!target) return null
+
+    switch (target.kind) {
+        case "root":
+            return "root"
+        case "thread":
+            return `thread:${target.threadId}`
+        case "folder":
+            return `folder:${target.folderId}`
+        case "folderThread":
+            return `folder-thread:${target.folderId}:${target.threadId}`
+        case "shared":
+            return `shared:${target.sharedThreadId}`
+    }
+}
+
 function PersistentChatView({
     target,
     isActiveRoute
@@ -185,6 +205,7 @@ function ChatLayout() {
     const activeLibrarySearch = isLibraryRoute
         ? validateLibrarySearch(location.search as Record<string, unknown>)
         : undefined
+    const currentChatTarget = isLibraryRoute ? null : parseCachedChatTarget(location.pathname)
     const [cachedLibrarySearch, setCachedLibrarySearch] =
         useState<LibrarySearchState>(DEFAULT_LIBRARY_SEARCH)
     const [hasMountedLibrary, setHasMountedLibrary] = useState(false)
@@ -194,7 +215,15 @@ function ChatLayout() {
         const storedRoute = peekLastChatRoute()
         return storedRoute ? parseCachedChatTarget(storedRoute) : null
     })
-    const currentChatTarget = isLibraryRoute ? null : parseCachedChatTarget(location.pathname)
+    const [displayedChatTarget, setDisplayedChatTarget] = useState<CachedChatTarget | null>(
+        () => currentChatTarget ?? cachedChatTarget
+    )
+    const [isChatTransitionOverlayVisible, setIsChatTransitionOverlayVisible] = useState(false)
+    const previousChatTargetKeyRef = useRef<string | null>(
+        getCachedChatTargetKey(currentChatTarget)
+    )
+    const chatTransitionHideTimeoutRef = useRef<number | null>(null)
+    const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
 
     useEffect(() => {
         if (!shouldRunInitialRootAuthGate) return
@@ -266,6 +295,62 @@ function ChatLayout() {
     }, [isLibraryRoute, location.pathname])
 
     useEffect(() => {
+        if (chatTransitionHideTimeoutRef.current !== null) {
+            window.clearTimeout(chatTransitionHideTimeoutRef.current)
+            chatTransitionHideTimeoutRef.current = null
+        }
+
+        if (chatTransitionSwapTimeoutRef.current !== null) {
+            window.clearTimeout(chatTransitionSwapTimeoutRef.current)
+            chatTransitionSwapTimeoutRef.current = null
+        }
+
+        if (isLibraryRoute) {
+            setIsChatTransitionOverlayVisible(false)
+            return
+        }
+
+        const nextKey = getCachedChatTargetKey(currentChatTarget)
+        const previousKey = previousChatTargetKeyRef.current
+        previousChatTargetKeyRef.current = nextKey
+
+        if (!nextKey || !previousKey || nextKey === previousKey) {
+            setDisplayedChatTarget((previous) =>
+                areCachedChatTargetsEqual(previous, currentChatTarget)
+                    ? previous
+                    : currentChatTarget
+            )
+            return
+        }
+
+        setIsChatTransitionOverlayVisible(true)
+        chatTransitionSwapTimeoutRef.current = window.setTimeout(() => {
+            setDisplayedChatTarget((previous) =>
+                areCachedChatTargetsEqual(previous, currentChatTarget)
+                    ? previous
+                    : currentChatTarget
+            )
+            chatTransitionSwapTimeoutRef.current = null
+        }, CHAT_TRANSITION_SWAP_DELAY_MS)
+        chatTransitionHideTimeoutRef.current = window.setTimeout(() => {
+            setIsChatTransitionOverlayVisible(false)
+            chatTransitionHideTimeoutRef.current = null
+        }, CHAT_TRANSITION_MIN_SPINNER_MS)
+
+        return () => {
+            if (chatTransitionHideTimeoutRef.current !== null) {
+                window.clearTimeout(chatTransitionHideTimeoutRef.current)
+                chatTransitionHideTimeoutRef.current = null
+            }
+
+            if (chatTransitionSwapTimeoutRef.current !== null) {
+                window.clearTimeout(chatTransitionSwapTimeoutRef.current)
+                chatTransitionSwapTimeoutRef.current = null
+            }
+        }
+    }, [currentChatTarget, isLibraryRoute])
+
+    useEffect(() => {
         if (isLibraryRoute) {
             setLastLibraryRoute(location.href)
             return
@@ -287,7 +372,9 @@ function ChatLayout() {
         return <LandingPage />
     }
 
-    const chatTargetToRender = currentChatTarget ?? cachedChatTarget
+    const chatTargetToRender = displayedChatTarget ?? currentChatTarget ?? cachedChatTarget
+    const isRenderedChatActiveRoute =
+        !isLibraryRoute && areCachedChatTargetsEqual(chatTargetToRender, currentChatTarget)
 
     return (
         <OnboardingProvider>
@@ -347,8 +434,31 @@ function ChatLayout() {
                                 >
                                     <PersistentChatView
                                         target={chatTargetToRender}
-                                        isActiveRoute={!isLibraryRoute}
+                                        isActiveRoute={isRenderedChatActiveRoute}
                                     />
+                                </motion.div>
+                            ) : null}
+                            {isChatTransitionOverlayVisible && !isLibraryRoute ? (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+                                    aria-busy="true"
+                                    aria-label="Loading conversation"
+                                    className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden bg-background backdrop-blur-3xl"
+                                    style={{
+                                        backgroundImage: "url(/noise.png)",
+                                        backgroundRepeat: "repeat",
+                                        backgroundSize: "auto"
+                                    }}
+                                >
+                                    <div className="flex flex-col items-center gap-3 text-center">
+                                        <CircularLoader size="lg" />
+                                        <div className="text-muted-foreground text-sm">
+                                            Loading conversation
+                                        </div>
+                                    </div>
                                 </motion.div>
                             ) : null}
                         </div>

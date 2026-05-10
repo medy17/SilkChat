@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useQuery as useConvexQuery } from "convex/react"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 interface UseDynamicTitleProps {
     threadId: string | undefined
@@ -13,17 +13,38 @@ export function useDynamicTitle({ threadId, enabled = true }: UseDynamicTitlePro
         api.threads.getThread,
         threadId ? { threadId: threadId as Id<"threads"> } : "skip"
     )
+    const previousActiveThreadIdRef = useRef<string | undefined>(undefined)
 
     useEffect(() => {
         if (!enabled) {
+            if (!threadId) {
+                document.title = "SilkChat"
+            }
+            return
+        }
+
+        if (!threadId) {
+            previousActiveThreadIdRef.current = undefined
             document.title = "SilkChat"
             return
         }
 
-        if (threadId && thread && !("error" in thread)) {
+        if (thread && !("error" in thread)) {
+            previousActiveThreadIdRef.current = threadId
             document.title = `${thread.title} - SilkChat`
-        } else {
-            document.title = "SilkChat"
+            return
         }
+
+        if (thread && "error" in thread) {
+            previousActiveThreadIdRef.current = threadId
+            document.title = "SilkChat"
+            return
+        }
+
+        if (previousActiveThreadIdRef.current && previousActiveThreadIdRef.current !== threadId) {
+            return
+        }
+
+        document.title = "SilkChat"
     }, [enabled, threadId, thread])
 }
