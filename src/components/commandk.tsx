@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/command"
 import { api } from "@/convex/_generated/api"
 import { authClient } from "@/lib/auth-client"
+import { matchesSearchChatsShortcut } from "@/lib/keyboard-shortcuts"
 
 interface Thread {
     _id: string
@@ -61,10 +62,12 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
 
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                setOpen(!open)
+            if (!matchesSearchChatsShortcut(e)) {
+                return
             }
+
+            e.preventDefault()
+            setOpen(!open)
         }
 
         document.addEventListener("keydown", down)

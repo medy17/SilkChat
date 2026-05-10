@@ -14,13 +14,14 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { copyToClipboard } from "@/lib/utils"
 import { useAction } from "convex/react"
 import { Check, Copy, Share2 } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 
 interface ShareButtonProps {
     threadId: string
+    trigger?: ReactNode
 }
 
-export function ShareButton({ threadId }: ShareButtonProps) {
+export function ShareButton({ threadId, trigger }: ShareButtonProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [sharedUrl, setSharedUrl] = useState<string | null>(null)
     const [isSharing, setIsSharing] = useState(false)
@@ -71,13 +72,15 @@ export function ShareButton({ threadId }: ShareButtonProps) {
         }
     }
 
+    const triggerContent = trigger ?? (
+        <Button variant="outline" size="icon" className="size-8 rounded-[var(--radius-md)]">
+            <Share2 className="h-4 w-4" />
+        </Button>
+    )
+
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="icon" className="size-8 rounded-md">
-                    <Share2 className="h-4 w-4" />
-                </Button>
-            </DialogTrigger>
+            <DialogTrigger asChild>{triggerContent}</DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Share Thread</DialogTitle>

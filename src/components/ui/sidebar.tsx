@@ -17,6 +17,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { matchesSidebarToggleShortcut } from "@/lib/keyboard-shortcuts";
 import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 import { mergeButtonRefs } from "@/lib/merge-button-refs";
 import { cn } from "@/lib/utils";
@@ -27,8 +28,6 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
-
 //* new constants for sidebar resizing
 const MIN_SIDEBAR_WIDTH = "14rem";
 const MAX_SIDEBAR_WIDTH = "22rem";
@@ -156,13 +155,9 @@ const SidebarProvider = React.forwardRef<
 		// Adds a keyboard shortcut to toggle the sidebar.
 		React.useEffect(() => {
 			const handleKeyDown = (event: KeyboardEvent) => {
-				if (
-					event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-					(event.metaKey || event.ctrlKey)
-				) {
-					event.preventDefault();
-					toggleSidebar();
-				}
+				if (!matchesSidebarToggleShortcut(event)) return;
+				event.preventDefault();
+				toggleSidebar();
 			};
 
 			window.addEventListener("keydown", handleKeyDown);

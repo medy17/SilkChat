@@ -33,6 +33,7 @@ import {
     getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
+import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -612,12 +613,12 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 return
             }
 
-            if (event.key === "ArrowLeft" && canNavigatePrevious && onPrevious) {
+            if (matchesPreviousImageShortcut(event) && canNavigatePrevious && onPrevious) {
                 event.preventDefault()
                 onPrevious()
             }
 
-            if (event.key === "ArrowRight" && canNavigateNext && onNext) {
+            if (matchesNextImageShortcut(event) && canNavigateNext && onNext) {
                 event.preventDefault()
                 onNext()
             }

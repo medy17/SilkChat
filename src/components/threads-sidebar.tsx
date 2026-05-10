@@ -20,8 +20,7 @@ import { authClient } from "@/lib/auth-client"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import {
     isEditableShortcutTarget,
-    isMacLikePlatform,
-    isShortcutModifierPressed,
+    matchesDeleteCurrentThreadShortcut,
     matchesNewChatShortcut
 } from "@/lib/keyboard-shortcuts"
 import { validateLibrarySearch } from "@/lib/library-search"
@@ -129,6 +128,7 @@ export function ThreadsSidebar() {
     const [commandKOpen, setCommandKOpen] = useState(false)
     const [importOpen, setImportOpen] = useState(false)
     const [importDialogJobId, setImportDialogJobId] = useState<Id<"importJobs"> | null>(null)
+    const [isSidebarHovered, setIsSidebarHovered] = useState(false)
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectionScope, setSelectionScope] = useState<SelectionScope>(null)
     const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([])
@@ -136,7 +136,7 @@ export function ThreadsSidebar() {
     const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false)
     const [bulkMoveProjectId, setBulkMoveProjectId] = useState<string>("no-folder")
     const [isApplyingSelectionAction, setIsApplyingSelectionAction] = useState(false)
-    const [primaryShortcutLabel, setPrimaryShortcutLabel] = useState("Ctrl")
+    const [isAltPressed, setIsAltPressed] = useState(false)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
@@ -279,6 +279,8 @@ export function ThreadsSidebar() {
     }, [selectedThreads])
     const isThreadSelectionMode = isSelectionMode && selectionScope === "thread"
     const isFolderSelectionMode = isSelectionMode && selectionScope === "folder"
+    const isDesktopSelectionPreview =
+        !isMobile && !isLibraryMode && isAltPressed && isSidebarHovered && !isSelectionMode
 
     const groupedNonProjectThreads = useMemo(() => groupThreadsByTime(allThreads), [allThreads])
 
@@ -304,10 +306,6 @@ export function ThreadsSidebar() {
         const existingIds = new Set(selectedThreadsQuery.map((thread) => thread._id))
         setSelectedThreadIds((previous) => previous.filter((threadId) => existingIds.has(threadId)))
     }, [selectedThreadIds.length, selectedThreadsQuery])
-
-    useEffect(() => {
-        setPrimaryShortcutLabel(isMacLikePlatform() ? "⌘" : "Ctrl")
-    }, [])
 
     useEffect(() => {
         if (isSelectionMode && selectedThreadIds.length === 0) {
@@ -365,6 +363,43 @@ export function ThreadsSidebar() {
     }, [navigate])
 
     useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Alt") {
+                return
+            }
+
+            if (isEditableShortcutTarget(event.target)) {
+                return
+            }
+
+            setIsAltPressed(true)
+        }
+
+        const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.key !== "Alt") {
+                return
+            }
+
+            setIsAltPressed(false)
+        }
+
+        const handleWindowBlur = () => {
+            setIsAltPressed(false)
+            setIsSidebarHovered(false)
+        }
+
+        document.addEventListener("keydown", handleKeyDown)
+        document.addEventListener("keyup", handleKeyUp)
+        window.addEventListener("blur", handleWindowBlur)
+
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown)
+            document.removeEventListener("keyup", handleKeyUp)
+            window.removeEventListener("blur", handleWindowBlur)
+        }
+    }, [])
+
+    useEffect(() => {
         const container = scrollContainerRef.current
         if (!container) return
 
@@ -412,11 +447,7 @@ export function ThreadsSidebar() {
                 return
             }
 
-            if (!currentThreadForShortcut || !isShortcutModifierPressed(event) || !event.shiftKey) {
-                return
-            }
-
-            if (event.key !== "Backspace" && event.key !== "Delete") {
+            if (!currentThreadForShortcut || !matchesDeleteCurrentThreadShortcut(event)) {
                 return
             }
 
@@ -435,6 +466,10 @@ export function ThreadsSidebar() {
     })
 
     const handleToggleSelection = useFunction((thread: Thread) => {
+        if (!isSelectionMode) {
+            setIsSelectionMode(true)
+        }
+
         if (selectionScope !== "thread") {
             setSelectionScope("thread")
         }
@@ -499,6 +534,10 @@ export function ThreadsSidebar() {
 
             if (selectionScope !== "folder") {
                 setSelectionScope("folder")
+            }
+
+            if (!isSelectionMode) {
+                setIsSelectionMode(true)
             }
 
             const folderThreadIdSet = new Set(threadIds)
@@ -708,7 +747,7 @@ export function ThreadsSidebar() {
                     <FoldersSection
                         projects={resolvedProjects}
                         currentFolderId={params.folderId}
-                        isSelectionMode={isFolderSelectionMode}
+                        isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
                         enableContextMenu={!isMobile}
                         enableLongPressSelection={isMobile}
                         getFolderSelectionState={getFolderSelectionState}
@@ -729,7 +768,7 @@ export function ThreadsSidebar() {
                 <FoldersSection
                     projects={resolvedProjects}
                     currentFolderId={params.folderId}
-                    isSelectionMode={isFolderSelectionMode}
+                    isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
                     enableContextMenu={!isMobile}
                     enableLongPressSelection={isMobile}
                     getFolderSelectionState={getFolderSelectionState}
@@ -740,8 +779,12 @@ export function ThreadsSidebar() {
                     <ThreadSections
                         groupedThreads={groupedNonProjectThreads}
                         activeThreadId={params.threadId}
-                        isSelectionMode={isThreadSelectionMode}
-                        selectedThreadIds={isThreadSelectionMode ? selectedThreadIds : []}
+                        isSelectionMode={isThreadSelectionMode || isDesktopSelectionPreview}
+                        selectedThreadIds={
+                            isThreadSelectionMode || isDesktopSelectionPreview
+                                ? selectedThreadIds
+                                : []
+                        }
                         enableContextMenu={!isMobile}
                         enableLongPressSelection={isMobile}
                         canBulkTogglePin={canBulkTogglePin}
@@ -771,13 +814,16 @@ export function ThreadsSidebar() {
         <>
             <Sidebar variant="inset">
                 <ThreadsSidebarHeader
-                    primaryShortcutLabel={primaryShortcutLabel}
                     onNewChat={handleNewChatClick}
                     onImportClick={handleImportClick}
                     onSearchClick={handleSearchClick}
                     isLibraryMode={isLibraryMode}
                 />
-                <div className="relative flex min-h-0 flex-1 overflow-hidden">
+                <div
+                    className="relative flex min-h-0 flex-1 overflow-hidden"
+                    onPointerEnter={() => setIsSidebarHovered(true)}
+                    onPointerLeave={() => setIsSidebarHovered(false)}
+                >
                     <SidebarContent
                         ref={scrollContainerRef}
                         className={cn(

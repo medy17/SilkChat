@@ -2,6 +2,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { SHORTCUTS, getShortcutDisplayTokens } from "@/lib/keyboard-shortcuts"
 import { getLastChatRoute, getLastLibraryRoute } from "@/lib/last-chat-route"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
@@ -12,13 +13,11 @@ import { LibraryLogo, LogoMark } from "../logo"
 import { ImportThreadButton } from "./import-thread-button"
 
 export function ThreadsSidebarHeader({
-    primaryShortcutLabel,
     onNewChat,
     onImportClick,
     onSearchClick,
     isLibraryMode
 }: {
-    primaryShortcutLabel: string
     onNewChat: (event: MouseEvent<HTMLAnchorElement>) => void
     onImportClick: () => void
     onSearchClick: () => void
@@ -29,6 +28,7 @@ export function ThreadsSidebarHeader({
     const convex = useConvex()
     const hasPrefetchedLibraryRef = useRef(false)
     const hasPrefetchedChatRef = useRef(false)
+    const searchShortcutTokens = getShortcutDisplayTokens(SHORTCUTS.searchChats)
 
     const prefetchThread = (threadId: string) => {
         convex
@@ -220,8 +220,21 @@ export function ThreadsSidebarHeader({
                             Search chats
                             <div className="ml-auto flex items-center gap-1 text-xs">
                                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-muted-foreground">
-                                    <span className="text-sm">{primaryShortcutLabel}</span>
-                                    <span className="text-xs">K</span>
+                                    {searchShortcutTokens.map((token, index) => (
+                                        <span
+                                            key={token}
+                                            className="inline-flex items-center gap-1"
+                                        >
+                                            {index > 0 ? <span className="text-xs">+</span> : null}
+                                            <span
+                                                className={
+                                                    token.length === 1 ? "text-xs" : "text-sm"
+                                                }
+                                            >
+                                                {token}
+                                            </span>
+                                        </span>
+                                    ))}
                                 </kbd>
                             </div>
                         </Button>

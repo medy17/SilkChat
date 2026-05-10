@@ -21,11 +21,13 @@ import {
     FolderOpen,
     Loader2,
     Pin,
+    Share2,
     Sparkles,
     Trash2
 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { ShareButton } from "../share-button"
 import type { Thread } from "./types"
 
 interface ThreadItemProps {
@@ -286,6 +288,15 @@ export const ThreadItem = memo(
                             )}
                             Export as Markdown
                         </ContextMenuItem>
+                        <ShareButton
+                            threadId={thread._id}
+                            trigger={
+                                <ContextMenuItem>
+                                    <Share2 className="h-4 w-4" />
+                                    Share
+                                </ContextMenuItem>
+                            }
+                        />
                         <ContextMenuItem
                             onClick={() => {
                                 void handleRegenerateTitle()
@@ -336,18 +347,10 @@ export const ThreadItem = memo(
                         {isSelectionMode ? (
                             <button
                                 type="button"
-                                className="flex h-full w-full min-w-0 items-center gap-2"
+                                className="flex h-full w-full min-w-0 items-center justify-start gap-2 text-left"
                                 onClick={handleToggleSelection}
                             >
-                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                    {showPersonaAvatar ? (
-                                        <PersonaAvatar
-                                            name={thread.personaName || thread.title}
-                                            avatarKind={thread.personaAvatarKind}
-                                            avatarValue={thread.personaAvatarValue}
-                                            className="size-5 shrink-0"
-                                        />
-                                    ) : null}
+                                <div className="flex min-w-0 flex-1 items-center justify-start gap-2 text-left">
                                     <span
                                         aria-hidden="true"
                                         className={cn(
@@ -359,6 +362,14 @@ export const ThreadItem = memo(
                                     >
                                         {isSelected && <Check className="h-3 w-3" />}
                                     </span>
+                                    {showPersonaAvatar ? (
+                                        <PersonaAvatar
+                                            name={thread.personaName || thread.title}
+                                            avatarKind={thread.personaAvatarKind}
+                                            avatarValue={thread.personaAvatarValue}
+                                            className="size-5 shrink-0"
+                                        />
+                                    ) : null}
                                     <span
                                         className={cn(
                                             "block min-w-0 flex-1 truncate text-sm",

@@ -11,13 +11,12 @@ import {
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { Archive, Eye, EyeOff, Image as ImageIcon } from "lucide-react"
-import { ShareButton } from "./share-button"
 import { ThemeSwitcher } from "./themes/theme-switcher"
-import { ThreadExportButton } from "./thread-export-button"
+import { SidebarShortcutsHelper } from "./threads/sidebar-shortcuts-helper"
 import { SidebarTrigger, useSidebar } from "./ui/sidebar"
 import { UserButton } from "./user-button"
 
-export function Header({ threadId }: { threadId?: string }) {
+export function Header() {
     const { isMobile, openMobile } = useSidebar()
     const { data: session } = useSession()
     const location = useLocation()
@@ -104,8 +103,7 @@ export function Header({ threadId }: { threadId?: string }) {
                                 <div className="h-4 w-px bg-border" />
                             </>
                         )}
-                        {threadId && <ThreadExportButton threadId={threadId} />}
-                        {threadId && <ShareButton threadId={threadId} />}
+                        {!isMobile && <SidebarShortcutsHelper />}
                         <ThemeSwitcher />
                         <div className="h-4 w-px bg-border" />
                         <UserButton />

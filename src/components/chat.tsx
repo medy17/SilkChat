@@ -13,7 +13,7 @@ import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import {
     OPEN_MODEL_PICKER_SHORTCUT_EVENT,
-    isShortcutModifierPressed
+    matchesOpenModelPickerShortcut
 } from "@/lib/keyboard-shortcuts"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
@@ -68,11 +68,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         }
 
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isShortcutModifierPressed(event) || event.shiftKey || event.altKey) {
-                return
-            }
-
-            if (event.key !== "/") {
+            if (!matchesOpenModelPickerShortcut(event)) {
                 return
             }
 

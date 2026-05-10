@@ -316,11 +316,11 @@ export function FolderItem({
                     {isSelectionMode ? (
                         <button
                             type="button"
-                            className="flex h-full w-full min-w-0 items-center gap-2"
+                            className="flex h-full w-full min-w-0 items-center justify-start gap-2 text-left"
                             onClick={handleToggleSelection}
                             disabled={!hasThreads}
                         >
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-center justify-start gap-2 text-left">
                                 <span
                                     aria-hidden="true"
                                     className={cn(

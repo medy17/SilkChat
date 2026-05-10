@@ -1,5 +1,6 @@
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { matchesSubmitPromptShortcut } from "@/lib/keyboard-shortcuts"
 import { cn } from "@/lib/utils"
 import type React from "react"
 import {
@@ -197,7 +198,7 @@ function PromptInputTextarea({
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (matchesSubmitPromptShortcut(e)) {
                 e.preventDefault()
                 onSubmit?.()
             }

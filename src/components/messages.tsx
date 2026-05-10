@@ -3,6 +3,10 @@ import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerp
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
+import {
+    matchesCancelMessageEditShortcut,
+    matchesSaveMessageEditShortcut
+} from "@/lib/keyboard-shortcuts"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getMessageReasoningDetails } from "@/lib/message-reasoning"
@@ -330,11 +334,11 @@ const EditableMessage = memo(
         }
 
         const handleKeyDown = (e: React.KeyboardEvent) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (matchesSaveMessageEditShortcut(e)) {
                 e.preventDefault()
                 handleSave()
             }
-            if (e.key === "Escape") {
+            if (matchesCancelMessageEditShortcut(e)) {
                 onCancel()
             }
         }
