@@ -6,12 +6,12 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
-import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useConvex, useMutation } from "convex/react"
 import {
     Check,
@@ -86,6 +86,8 @@ export const ThreadItem = memo(
 
         const convex = useConvex()
         const isMobile = useIsMobile()
+        const { setOpenMobile } = useSidebar()
+        const navigate = useNavigate()
         const togglePinMutation = useMutation(api.threads.togglePinThread)
         const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
         const showPersonaAvatar = Boolean(thread.personaSource)
@@ -228,7 +230,28 @@ export const ThreadItem = memo(
             if (longPressTriggeredRef.current) {
                 event.preventDefault()
                 event.stopPropagation()
+                return
             }
+
+            if (!isMobile) {
+                return
+            }
+
+            event.preventDefault()
+            setOpenMobile(false)
+
+            let didNavigate = false
+            const doNavigate = () => {
+                if (didNavigate) return
+                didNavigate = true
+                void navigate({
+                    to: "/thread/$threadId",
+                    params: { threadId: thread._id }
+                })
+            }
+
+            window.addEventListener("popstate", doNavigate, { once: true })
+            window.setTimeout(doNavigate, 150)
         }
 
         const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {
