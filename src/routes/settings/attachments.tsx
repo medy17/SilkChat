@@ -18,15 +18,28 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery } from "convex/react"
 import { Archive, Download, File, FileText, Image, Music, Trash2, Video } from "lucide-react"
-import { memo, useCallback, useMemo } from "react"
+import { memo, useCallback, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/attachments")({
-    component: FilesSettingsPage
+    component: LegacyAttachmentsRedirect
 })
+
+function LegacyAttachmentsRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/files",
+            replace: true
+        })
+    }, [navigate])
+
+    return null
+}
 
 interface FileMetadata {
     key: string

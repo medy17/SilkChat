@@ -40,14 +40,14 @@ import {
 } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { Box, Check, Image, Plus, SquarePen, Trash2, X } from "lucide-react"
-import { memo, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/models")({
-    component: ModelsSettingsPage
+    component: LegacyModelsRedirect
 })
 
 type ModelCardProps = {
@@ -234,6 +234,20 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
         </Card>
     )
 })
+
+function LegacyModelsRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/ai-setup",
+            search: { tab: "models" },
+            replace: true
+        })
+    }, [navigate])
+
+    return null
+}
 
 export function ModelsSettingsContent() {
     const session = useSession()

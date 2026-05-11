@@ -6,14 +6,27 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Loader2, Save } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/customization")({
-    component: BehaviorSettingsPage
+    component: LegacyCustomizationRedirect
 })
+
+function LegacyCustomizationRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/behavior",
+            replace: true
+        })
+    }, [navigate])
+
+    return null
+}
 
 export function BehaviorSettingsContent() {
     const session = useSession()

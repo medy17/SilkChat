@@ -16,7 +16,7 @@ import {
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { queryClient } from "@/providers"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import {
     Edit,
     Globe,
@@ -29,13 +29,26 @@ import {
     UserX,
     X
 } from "lucide-react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { UAParser } from "ua-parser-js"
 
 export const Route = createFileRoute("/settings/profile")({
-    component: AccountSettingsPage
+    component: LegacyProfileRedirect
 })
+
+function LegacyProfileRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/account",
+            replace: true
+        })
+    }, [navigate])
+
+    return null
+}
 
 export function AccountSettingsContent() {
     const { data: session, isLoading: sessionLoading } = useSession()

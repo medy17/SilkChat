@@ -36,7 +36,7 @@ import {
 } from "@/lib/models-providers-shared"
 import Logo from "@/logo.svg"
 import { useConvexQuery } from "@convex-dev/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import {
     AlertCircle,
@@ -52,11 +52,11 @@ import {
     Trash2,
     X
 } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/providers")({
-    component: ProvidersSettingsPage
+    component: LegacyProvidersRedirect
 })
 
 type ProviderCardProps = {
@@ -558,6 +558,20 @@ const CustomProviderCard = memo(
         )
     }
 )
+
+function LegacyProvidersRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/ai-setup",
+            search: { tab: "providers" },
+            replace: true
+        })
+    }, [navigate])
+
+    return null
+}
 
 export function ProvidersSettingsContent() {
     const session = useSession()

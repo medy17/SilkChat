@@ -83,7 +83,7 @@ function WebSearchInfoContent({
 
             {!available && (
                 <a
-                    href="/settings/providers"
+                    href="/settings/ai-setup?tab=providers"
                     className="inline-flex items-center gap-1 text-primary text-xs underline"
                 >
                     Configure provider key

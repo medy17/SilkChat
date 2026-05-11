@@ -10,13 +10,13 @@ import type { MCPServerConfig } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import { SEARCH_PROVIDERS } from "@/lib/models-providers-shared"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import type { Infer } from "convex/values"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/ai-options")({
-    component: AIOptionsSettingsPage
+    component: LegacyAIOptionsRedirect
 })
 
 type SearchProvider = "firecrawl" | "brave" | "tavily" | "serper"
@@ -38,6 +38,20 @@ const getProviderStatus = (
     if (providerAvailability.byok) return "BYOK"
     if (providerAvailability.deployment) return "Server"
     return "Not configured"
+}
+
+function LegacyAIOptionsRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/ai-setup",
+            search: { tab: "tools" },
+            replace: true
+        })
+    }, [navigate])
+
+    return null
 }
 
 export function SearchMemoryToolsSettingsContent() {
@@ -164,7 +178,10 @@ export function SearchMemoryToolsSettingsContent() {
                     <p className="mt-1 text-muted-foreground text-sm">
                         Choose which service to use for web searches. BYOK providers take priority
                         over server providers. Configure BYOK keys on the{" "}
-                        <a href="/settings/providers" className="text-primary underline">
+                        <a
+                            href="/settings/ai-setup?tab=providers"
+                            className="text-primary underline"
+                        >
                             Providers page
                         </a>
                         .
