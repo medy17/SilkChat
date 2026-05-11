@@ -1,5 +1,12 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
@@ -7,7 +14,16 @@ import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
 import { Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
 import { Link } from "@tanstack/react-router"
-import { ArrowLeft, BarChart3, Bot, Box, Key, PaintBucket, Paperclip, User } from "lucide-react"
+import {
+    ArrowLeft,
+    BarChart3,
+    Bot,
+    PaintBucket,
+    Paperclip,
+    SlidersHorizontal,
+    User,
+    Users
+} from "lucide-react"
 import { type ReactNode, useEffect } from "react"
 
 interface SettingsLayoutProps {
@@ -18,51 +34,61 @@ interface SettingsLayoutProps {
 
 const settingsNavItems = [
     {
-        title: "Profile",
-        href: "/settings/profile",
+        title: "Account",
+        href: "/settings/account",
         icon: User
     },
     {
-        title: "Providers",
-        href: "/settings/providers",
-        icon: Key
-    },
-    {
-        title: "Models",
-        href: "/settings/models",
-        icon: Box
-    },
-    {
-        title: "AI Options",
-        href: "/settings/ai-options",
+        title: "AI Setup",
+        href: "/settings/ai-setup",
         icon: Bot
     },
     {
-        title: "Customization",
-        href: "/settings/customization",
-        icon: PaintBucket
+        title: "Behavior",
+        href: "/settings/behavior",
+        icon: SlidersHorizontal
     },
     {
         title: "Personas",
         href: "/settings/personas",
-        icon: Bot
-    },
-    {
-        title: "Usage Analytics",
-        href: "/settings/usage",
-        icon: BarChart3
-    },
-    {
-        title: "Attachments",
-        href: "/settings/attachments",
-        icon: Paperclip
+        icon: Users
     },
     {
         title: "Appearance",
         href: "/settings/appearance",
         icon: PaintBucket
+    },
+    {
+        title: "Files",
+        href: "/settings/files",
+        icon: Paperclip
+    },
+    {
+        title: "Usage",
+        href: "/settings/usage",
+        icon: BarChart3
     }
 ]
+
+type SettingsNavHref = (typeof settingsNavItems)[number]["href"]
+
+const legacySettingsRouteMap: Record<string, SettingsNavHref> = {
+    "/settings/profile": "/settings/account",
+    "/settings/providers": "/settings/ai-setup",
+    "/settings/models": "/settings/ai-setup",
+    "/settings/ai-options": "/settings/ai-setup",
+    "/settings/customization": "/settings/behavior",
+    "/settings/attachments": "/settings/files"
+}
+
+const getActiveSettingsHref = (pathname: string): SettingsNavHref => {
+    const exactMatch = settingsNavItems.find((item) => item.href === pathname)
+    if (exactMatch) {
+        return exactMatch.href
+    }
+
+    return legacySettingsRouteMap[pathname] ?? "/settings/account"
+}
 
 export const Route = createLazyFileRoute("/settings")({
     component: SettingsPage
@@ -111,11 +137,12 @@ const Inner = () => {
 function SettingsPage({ title, description }: SettingsLayoutProps) {
     const location = useLocation()
     const navigate = useNavigate()
+    const activeSettingsHref = getActiveSettingsHref(location.pathname)
 
     useEffect(() => {
         if (location.pathname === "/settings" || location.pathname === "/settings/") {
             navigate({
-                to: "/settings/profile",
+                to: "/settings/account",
                 replace: true
             })
         }
@@ -125,8 +152,8 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
         <div className="flex h-screen flex-col overflow-y-auto bg-background">
             <div className="container mx-auto flex max-w-6xl flex-1 flex-col p-3 pb-6 lg:max-h-dvh lg:overflow-y-hidden lg:p-6">
                 {/* Header */}
-                <div className="mb-8 max-md:px-2">
-                    <div className="mb-6 flex items-center gap-4">
+                <div className="mb-5 max-md:px-2 lg:mb-8">
+                    <div className="mb-4 flex items-center gap-4 lg:mb-6">
                         <Link to="/">
                             <Button
                                 variant="ghost"
@@ -139,7 +166,29 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
                         </Link>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="mb-5 lg:hidden">
+                        <Select
+                            value={activeSettingsHref}
+                            onValueChange={(value) =>
+                                navigate({
+                                    to: value as SettingsNavHref
+                                })
+                            }
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a settings category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {settingsNavItems.map((item) => (
+                                    <SelectItem key={item.href} value={item.href}>
+                                        {item.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="hidden space-y-1 lg:block">
                         <h1 className="font-semibold text-3xl tracking-tight">Settings</h1>
                         <p className="text-muted-foreground">
                             Manage your account preferences and configuration.
@@ -149,10 +198,10 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
 
                 <div className="grid w-full grid-cols-1 gap-8 lg:grid-cols-4">
                     {/* Navigation */}
-                    <div className="w-full flex-shrink-0 lg:w-64 lg:pr-2">
+                    <div className="hidden w-full flex-shrink-0 lg:block lg:w-64 lg:pr-2">
                         <nav className="w-full space-y-1">
                             {settingsNavItems.map((item) => {
-                                const isActive = location.pathname === item.href
+                                const isActive = activeSettingsHref === item.href
                                 const Icon = item.icon
 
                                 return (

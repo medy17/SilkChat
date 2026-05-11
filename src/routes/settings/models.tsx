@@ -47,7 +47,7 @@ import { memo, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/models")({
-    component: ModelsSettings
+    component: ModelsSettingsPage
 })
 
 type ModelCardProps = {
@@ -235,7 +235,7 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
     )
 })
 
-function ModelsSettings() {
+export function ModelsSettingsContent() {
     const session = useSession()
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
@@ -393,515 +393,477 @@ function ModelsSettings() {
     }
 
     if (!session.user?.id) {
-        return (
-            <SettingsLayout
-                title="Models"
-                description="View available models and configure custom models from your providers."
-            >
-                <p className="text-muted-foreground text-sm">Sign in to manage your models.</p>
-            </SettingsLayout>
-        )
+        return <p className="text-muted-foreground text-sm">Sign in to manage your models.</p>
     }
 
     if (!userSettings || "error" in userSettings) {
-        return (
-            <SettingsLayout
-                title="Models"
-                description="View available models and configure custom models from your providers."
-            >
-                <p className="text-muted-foreground text-sm">Loading model settings...</p>
-            </SettingsLayout>
-        )
+        return <p className="text-muted-foreground text-sm">Loading model settings...</p>
     }
 
     return (
-        <SettingsLayout
-            title="Models"
-            description="View available models and configure custom models from your providers."
-        >
-            <div className="space-y-6">
+        <div className="space-y-6">
+            <div className="space-y-1.5">
+                <div className="space-y-0.25">
+                    <h3 className="font-semibold text-base">Available Models</h3>
+                    <p className="text-muted-foreground text-xs">
+                        Models available from your configured providers
+                    </p>
+                </div>
+
                 <div className="space-y-1.5">
-                    <div className="space-y-0.25">
-                        <h3 className="font-semibold text-base">Available Models</h3>
-                        <p className="text-muted-foreground text-xs">
-                            Models available from your configured providers
-                        </p>
-                    </div>
+                    {/* Available Models */}
+                    {availableModels.map((model) => (
+                        <ModelCard
+                            key={model.id}
+                            model={model}
+                            currentProviders={currentProviders}
+                            onEdit={handleEditCustomModel}
+                            onDelete={handleDeleteCustomModel}
+                        />
+                    ))}
 
-                    <div className="space-y-1.5">
-                        {/* Available Models */}
-                        {availableModels.map((model) => (
-                            <ModelCard
-                                key={model.id}
-                                model={model}
-                                currentProviders={currentProviders}
-                                onEdit={handleEditCustomModel}
-                                onDelete={handleDeleteCustomModel}
-                            />
-                        ))}
-
-                        {/* Divider */}
-                        {unavailableModels.length > 0 && (
-                            <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center gap-4 py-4">
-                                    <div className="h-px flex-1 bg-border" />
-                                    <span className="text-muted-foreground text-sm">
-                                        Unavailable Models
-                                    </span>
-                                    <div className="h-px flex-1 bg-border" />
-                                </div>
-                                <span className="text-muted-foreground text-xs">
-                                    Configure a provider to use these models
+                    {/* Divider */}
+                    {unavailableModels.length > 0 && (
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-4 py-4">
+                                <div className="h-px flex-1 bg-border" />
+                                <span className="text-muted-foreground text-sm">
+                                    Unavailable Models
                                 </span>
+                                <div className="h-px flex-1 bg-border" />
                             </div>
-                        )}
+                            <span className="text-muted-foreground text-xs">
+                                Configure a provider to use these models
+                            </span>
+                        </div>
+                    )}
 
-                        {/* Unavailable Models */}
-                        {unavailableModels.map((model) => (
-                            <ModelCard
-                                key={model.id}
-                                model={model}
-                                currentProviders={currentProviders}
-                                onEdit={handleEditCustomModel}
-                                onDelete={handleDeleteCustomModel}
-                            />
-                        ))}
+                    {/* Unavailable Models */}
+                    {unavailableModels.map((model) => (
+                        <ModelCard
+                            key={model.id}
+                            model={model}
+                            currentProviders={currentProviders}
+                            onEdit={handleEditCustomModel}
+                            onDelete={handleDeleteCustomModel}
+                        />
+                    ))}
 
-                        {/* Edit Custom Model */}
-                        {editingCustomModel && (
-                            <Card className="p-4 shadow-xs">
+                    {/* Edit Custom Model */}
+                    {editingCustomModel && (
+                        <Card className="p-4 shadow-xs">
+                            <div className="space-y-4">
+                                <h4 className="font-semibold">Edit Custom Model</h4>
+
                                 <div className="space-y-4">
-                                    <h4 className="font-semibold">Edit Custom Model</h4>
+                                    <div className="flex items-center space-x-2">
+                                        <Switch
+                                            id="edit-custom-model-enabled"
+                                            checked={customModelForm.enabled}
+                                            onCheckedChange={(checked) =>
+                                                setCustomModelForm((prev) => ({
+                                                    ...prev,
+                                                    enabled: checked
+                                                }))
+                                            }
+                                        />
+                                        <Label htmlFor="edit-custom-model-enabled">
+                                            Enable Model
+                                        </Label>
+                                    </div>
 
-                                    <div className="space-y-4">
-                                        <div className="flex items-center space-x-2">
-                                            <Switch
-                                                id="edit-custom-model-enabled"
-                                                checked={customModelForm.enabled}
-                                                onCheckedChange={(checked) =>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-custom-model-name">
+                                                Model Name
+                                            </Label>
+                                            <Input
+                                                id="edit-custom-model-name"
+                                                value={customModelForm.name}
+                                                onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        enabled: checked
+                                                        name: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="GPT-4 Custom"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-custom-model-id">Model ID</Label>
+                                            <Input
+                                                id="edit-custom-model-id"
+                                                value={customModelForm.modelId}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        modelId: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="gpt-4-custom"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-custom-model-provider">Provider</Label>
+                                        <Select
+                                            value={customModelForm.providerId}
+                                            onValueChange={(value) =>
+                                                setCustomModelForm((prev) => ({
+                                                    ...prev,
+                                                    providerId: value
+                                                }))
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a provider" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableProviders.map((providerId) => (
+                                                    <SelectItem key={providerId} value={providerId}>
+                                                        {getProviderDisplayName(
+                                                            providerId,
+                                                            currentProviders
+                                                        )}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-custom-model-context">
+                                                Context Length
+                                            </Label>
+                                            <Input
+                                                id="edit-custom-model-context"
+                                                type="number"
+                                                value={customModelForm.contextLength}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        contextLength:
+                                                            Number.parseInt(e.target.value) || 4096
                                                     }))
                                                 }
                                             />
-                                            <Label htmlFor="edit-custom-model-enabled">
-                                                Enable Model
-                                            </Label>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="edit-custom-model-name">
-                                                    Model Name
-                                                </Label>
-                                                <Input
-                                                    id="edit-custom-model-name"
-                                                    value={customModelForm.name}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            name: e.target.value
-                                                        }))
-                                                    }
-                                                    placeholder="GPT-4 Custom"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="edit-custom-model-id">
-                                                    Model ID
-                                                </Label>
-                                                <Input
-                                                    id="edit-custom-model-id"
-                                                    value={customModelForm.modelId}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            modelId: e.target.value
-                                                        }))
-                                                    }
-                                                    placeholder="gpt-4-custom"
-                                                />
-                                            </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="edit-custom-model-provider">
-                                                Provider
+                                            <Label htmlFor="edit-custom-model-tokens">
+                                                Max Tokens
                                             </Label>
-                                            <Select
-                                                value={customModelForm.providerId}
-                                                onValueChange={(value) =>
+                                            <Input
+                                                id="edit-custom-model-tokens"
+                                                type="number"
+                                                value={customModelForm.maxTokens}
+                                                onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        providerId: value
-                                                    }))
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a provider" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {availableProviders.map((providerId) => (
-                                                        <SelectItem
-                                                            key={providerId}
-                                                            value={providerId}
-                                                        >
-                                                            {getProviderDisplayName(
-                                                                providerId,
-                                                                currentProviders
-                                                            )}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="edit-custom-model-context">
-                                                    Context Length
-                                                </Label>
-                                                <Input
-                                                    id="edit-custom-model-context"
-                                                    type="number"
-                                                    value={customModelForm.contextLength}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            contextLength:
-                                                                Number.parseInt(e.target.value) ||
-                                                                4096
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="edit-custom-model-tokens">
-                                                    Max Tokens
-                                                </Label>
-                                                <Input
-                                                    id="edit-custom-model-tokens"
-                                                    type="number"
-                                                    value={customModelForm.maxTokens}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            maxTokens:
-                                                                Number.parseInt(e.target.value) ||
-                                                                1024
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Abilities</Label>
-                                            <div className="flex gap-2">
-                                                {(
-                                                    [
-                                                        "vision",
-                                                        "reasoning",
-                                                        "function_calling"
-                                                    ] as ModelAbility[]
-                                                ).map((ability) => {
-                                                    const Icon = getAbilityIcon(ability)
-                                                    const isSelected =
-                                                        customModelForm.abilities.includes(ability)
-                                                    return (
-                                                        <Button
-                                                            key={ability}
-                                                            variant={
-                                                                isSelected ? "default" : "outline"
-                                                            }
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setCustomModelForm((prev) => ({
-                                                                    ...prev,
-                                                                    abilities: isSelected
-                                                                        ? prev.abilities.filter(
-                                                                              (a) => a !== ability
-                                                                          )
-                                                                        : [
-                                                                              ...prev.abilities,
-                                                                              ability
-                                                                          ]
-                                                                }))
-                                                            }}
-                                                        >
-                                                            <Icon className="h-4 w-4" />
-                                                            {getAbilityLabel(ability)}
-                                                        </Button>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            <Button
-                                                onClick={handleSaveCustomModelEdit}
-                                                disabled={
-                                                    loading ||
-                                                    !customModelForm.name ||
-                                                    !customModelForm.modelId ||
-                                                    !customModelForm.providerId
-                                                }
-                                                size="sm"
-                                            >
-                                                <Check className="h-4 w-4" />
-                                                {loading ? "Updating..." : "Update Model"}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setEditingCustomModel(null)
-                                                    setCustomModelForm({
-                                                        name: "",
-                                                        modelId: "",
-                                                        providerId: "",
-                                                        contextLength: 4096,
-                                                        maxTokens: 1024,
-                                                        abilities: [],
-                                                        enabled: true
-                                                    })
-                                                }}
-                                            >
-                                                <X className="h-4 w-4" />
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {!editingCustomModel && addingCustomModel ? (
-                            <Card className="p-4 shadow-xs">
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold">Add Custom Model</h4>
-
-                                    <div className="space-y-4">
-                                        <div className="flex items-center space-x-2">
-                                            <Switch
-                                                id="custom-model-enabled"
-                                                checked={customModelForm.enabled}
-                                                onCheckedChange={(checked) =>
-                                                    setCustomModelForm((prev) => ({
-                                                        ...prev,
-                                                        enabled: checked
+                                                        maxTokens:
+                                                            Number.parseInt(e.target.value) || 1024
                                                     }))
                                                 }
                                             />
-                                            <Label htmlFor="custom-model-enabled">
-                                                Enable Model
-                                            </Label>
                                         </div>
+                                    </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="custom-model-name">
-                                                    Model Name
-                                                </Label>
-                                                <Input
-                                                    id="custom-model-name"
-                                                    value={customModelForm.name}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            name: e.target.value
-                                                        }))
-                                                    }
-                                                    placeholder="GPT-4 Custom"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="custom-model-id">Model ID</Label>
-                                                <Input
-                                                    id="custom-model-id"
-                                                    value={customModelForm.modelId}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            modelId: e.target.value
-                                                        }))
-                                                    }
-                                                    placeholder="gpt-4-custom"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="custom-model-provider">Provider</Label>
-                                            <Select
-                                                value={customModelForm.providerId}
-                                                onValueChange={(value) =>
-                                                    setCustomModelForm((prev) => ({
-                                                        ...prev,
-                                                        providerId: value
-                                                    }))
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a provider" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {availableProviders.map((providerId) => (
-                                                        <SelectItem
-                                                            key={providerId}
-                                                            value={providerId}
-                                                        >
-                                                            {getProviderDisplayName(
-                                                                providerId,
-                                                                currentProviders
-                                                            )}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="custom-model-context">
-                                                    Context Length
-                                                </Label>
-                                                <Input
-                                                    id="custom-model-context"
-                                                    type="number"
-                                                    value={customModelForm.contextLength}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            contextLength:
-                                                                Number.parseInt(e.target.value) ||
-                                                                4096
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="custom-model-tokens">
-                                                    Max Tokens
-                                                </Label>
-                                                <Input
-                                                    id="custom-model-tokens"
-                                                    type="number"
-                                                    value={customModelForm.maxTokens}
-                                                    onChange={(e) =>
-                                                        setCustomModelForm((prev) => ({
-                                                            ...prev,
-                                                            maxTokens:
-                                                                Number.parseInt(e.target.value) ||
-                                                                1024
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Abilities</Label>
-                                            <div className="flex gap-2">
-                                                {(
-                                                    [
-                                                        "vision",
-                                                        "reasoning",
-                                                        "function_calling"
-                                                    ] as ModelAbility[]
-                                                ).map((ability) => {
-                                                    const Icon = getAbilityIcon(ability)
-                                                    const isSelected =
-                                                        customModelForm.abilities.includes(ability)
-                                                    return (
-                                                        <Button
-                                                            key={ability}
-                                                            variant={
-                                                                isSelected ? "default" : "outline"
-                                                            }
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setCustomModelForm((prev) => ({
-                                                                    ...prev,
-                                                                    abilities: isSelected
-                                                                        ? prev.abilities.filter(
-                                                                              (a) => a !== ability
-                                                                          )
-                                                                        : [
-                                                                              ...prev.abilities,
-                                                                              ability
-                                                                          ]
-                                                                }))
-                                                            }}
-                                                        >
-                                                            <Icon className="h-4 w-4" />
-                                                            {getAbilityLabel(ability)}
-                                                        </Button>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-
+                                    <div className="space-y-2">
+                                        <Label>Abilities</Label>
                                         <div className="flex gap-2">
-                                            <Button
-                                                onClick={handleSaveCustomModel}
-                                                disabled={
-                                                    loading ||
-                                                    !customModelForm.name ||
-                                                    !customModelForm.modelId ||
-                                                    !customModelForm.providerId
-                                                }
-                                                size="sm"
-                                            >
-                                                <Check className="h-4 w-4" />
-                                                {loading ? "Adding..." : "Add Model"}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setAddingCustomModel(false)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                                Cancel
-                                            </Button>
+                                            {(
+                                                [
+                                                    "vision",
+                                                    "reasoning",
+                                                    "function_calling"
+                                                ] as ModelAbility[]
+                                            ).map((ability) => {
+                                                const Icon = getAbilityIcon(ability)
+                                                const isSelected =
+                                                    customModelForm.abilities.includes(ability)
+                                                return (
+                                                    <Button
+                                                        key={ability}
+                                                        variant={isSelected ? "default" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setCustomModelForm((prev) => ({
+                                                                ...prev,
+                                                                abilities: isSelected
+                                                                    ? prev.abilities.filter(
+                                                                          (a) => a !== ability
+                                                                      )
+                                                                    : [...prev.abilities, ability]
+                                                            }))
+                                                        }}
+                                                    >
+                                                        <Icon className="h-4 w-4" />
+                                                        {getAbilityLabel(ability)}
+                                                    </Button>
+                                                )
+                                            })}
                                         </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={handleSaveCustomModelEdit}
+                                            disabled={
+                                                loading ||
+                                                !customModelForm.name ||
+                                                !customModelForm.modelId ||
+                                                !customModelForm.providerId
+                                            }
+                                            size="sm"
+                                        >
+                                            <Check className="h-4 w-4" />
+                                            {loading ? "Updating..." : "Update Model"}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setEditingCustomModel(null)
+                                                setCustomModelForm({
+                                                    name: "",
+                                                    modelId: "",
+                                                    providerId: "",
+                                                    contextLength: 4096,
+                                                    maxTokens: 1024,
+                                                    abilities: [],
+                                                    enabled: true
+                                                })
+                                            }}
+                                        >
+                                            <X className="h-4 w-4" />
+                                            Cancel
+                                        </Button>
                                     </div>
                                 </div>
-                            </Card>
-                        ) : !editingCustomModel ? (
-                            <Card className="border-dashed p-4 shadow-xs">
-                                <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
-                                        <Box className="size-6" />
+                            </div>
+                        </Card>
+                    )}
+
+                    {!editingCustomModel && addingCustomModel ? (
+                        <Card className="p-4 shadow-xs">
+                            <div className="space-y-4">
+                                <h4 className="font-semibold">Add Custom Model</h4>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Switch
+                                            id="custom-model-enabled"
+                                            checked={customModelForm.enabled}
+                                            onCheckedChange={(checked) =>
+                                                setCustomModelForm((prev) => ({
+                                                    ...prev,
+                                                    enabled: checked
+                                                }))
+                                            }
+                                        />
+                                        <Label htmlFor="custom-model-enabled">Enable Model</Label>
                                     </div>
-                                    <h4 className="mb-2 font-semibold">Add Custom Model</h4>
-                                    <p className="mb-4 text-muted-foreground text-sm">
-                                        Add a custom model from any of your configured providers
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="custom-model-name">Model Name</Label>
+                                            <Input
+                                                id="custom-model-name"
+                                                value={customModelForm.name}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        name: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="GPT-4 Custom"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="custom-model-id">Model ID</Label>
+                                            <Input
+                                                id="custom-model-id"
+                                                value={customModelForm.modelId}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        modelId: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="gpt-4-custom"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="custom-model-provider">Provider</Label>
+                                        <Select
+                                            value={customModelForm.providerId}
+                                            onValueChange={(value) =>
+                                                setCustomModelForm((prev) => ({
+                                                    ...prev,
+                                                    providerId: value
+                                                }))
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a provider" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableProviders.map((providerId) => (
+                                                    <SelectItem key={providerId} value={providerId}>
+                                                        {getProviderDisplayName(
+                                                            providerId,
+                                                            currentProviders
+                                                        )}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="custom-model-context">
+                                                Context Length
+                                            </Label>
+                                            <Input
+                                                id="custom-model-context"
+                                                type="number"
+                                                value={customModelForm.contextLength}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        contextLength:
+                                                            Number.parseInt(e.target.value) || 4096
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="custom-model-tokens">Max Tokens</Label>
+                                            <Input
+                                                id="custom-model-tokens"
+                                                type="number"
+                                                value={customModelForm.maxTokens}
+                                                onChange={(e) =>
+                                                    setCustomModelForm((prev) => ({
+                                                        ...prev,
+                                                        maxTokens:
+                                                            Number.parseInt(e.target.value) || 1024
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Abilities</Label>
+                                        <div className="flex gap-2">
+                                            {(
+                                                [
+                                                    "vision",
+                                                    "reasoning",
+                                                    "function_calling"
+                                                ] as ModelAbility[]
+                                            ).map((ability) => {
+                                                const Icon = getAbilityIcon(ability)
+                                                const isSelected =
+                                                    customModelForm.abilities.includes(ability)
+                                                return (
+                                                    <Button
+                                                        key={ability}
+                                                        variant={isSelected ? "default" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setCustomModelForm((prev) => ({
+                                                                ...prev,
+                                                                abilities: isSelected
+                                                                    ? prev.abilities.filter(
+                                                                          (a) => a !== ability
+                                                                      )
+                                                                    : [...prev.abilities, ability]
+                                                            }))
+                                                        }}
+                                                    >
+                                                        <Icon className="h-4 w-4" />
+                                                        {getAbilityLabel(ability)}
+                                                    </Button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={handleSaveCustomModel}
+                                            disabled={
+                                                loading ||
+                                                !customModelForm.name ||
+                                                !customModelForm.modelId ||
+                                                !customModelForm.providerId
+                                            }
+                                            size="sm"
+                                        >
+                                            <Check className="h-4 w-4" />
+                                            {loading ? "Adding..." : "Add Model"}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setAddingCustomModel(false)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    ) : !editingCustomModel ? (
+                        <Card className="border-dashed p-4 shadow-xs">
+                            <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
+                                    <Box className="size-6" />
+                                </div>
+                                <h4 className="mb-2 font-semibold">Add Custom Model</h4>
+                                <p className="mb-4 text-muted-foreground text-sm">
+                                    Add a custom model from any of your configured providers
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setAddingCustomModel(true)}
+                                    disabled={availableProviders.length === 0}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add Model
+                                </Button>
+                                {availableProviders.length === 0 && (
+                                    <p className="mt-2 text-muted-foreground text-xs">
+                                        Configure a provider first to add custom models
                                     </p>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setAddingCustomModel(true)}
-                                        disabled={availableProviders.length === 0}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Add Model
-                                    </Button>
-                                    {availableProviders.length === 0 && (
-                                        <p className="mt-2 text-muted-foreground text-xs">
-                                            Configure a provider first to add custom models
-                                        </p>
-                                    )}
-                                </div>
-                            </Card>
-                        ) : null}
-                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    ) : null}
                 </div>
             </div>
+        </div>
+    )
+}
+
+function ModelsSettingsPage() {
+    return (
+        <SettingsLayout
+            title="Models"
+            description="Review available models and configure custom models for your providers."
+        >
+            <ModelsSettingsContent />
         </SettingsLayout>
     )
 }

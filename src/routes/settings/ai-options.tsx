@@ -16,7 +16,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/ai-options")({
-    component: AIOptionsSettings
+    component: AIOptionsSettingsPage
 })
 
 type SearchProvider = "firecrawl" | "brave" | "tavily" | "serper"
@@ -40,7 +40,7 @@ const getProviderStatus = (
     return "Not configured"
 }
 
-function AIOptionsSettings() {
+export function SearchMemoryToolsSettingsContent() {
     const session = useSession()
     const [isLoading, setIsLoading] = useState(false)
 
@@ -133,104 +133,107 @@ function AIOptionsSettings() {
     }
 
     return (
-        <SettingsLayout
-            title="AI Options"
-            description="Configure AI search, memory, and web search preferences."
-        >
-            <div className="space-y-8">
-                {/* Supermemory Section */}
-                <div className="space-y-4">
-                    <div>
-                        <h3 className="font-semibold text-foreground">AI Memory</h3>
-                        <p className="mt-1 text-muted-foreground text-sm">
-                            Store and retrieve information across conversations for enhanced AI
-                            context
-                        </p>
-                    </div>
-
-                    <SupermemoryCard
-                        userSettings={userSettings}
-                        onSave={handleSupermemoryUpdate}
-                        loading={isLoading}
-                    />
+        <div className="space-y-8">
+            {/* Supermemory Section */}
+            <div className="space-y-4">
+                <div>
+                    <h3 className="font-semibold text-foreground">AI Memory</h3>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        Store and retrieve information across conversations for enhanced AI context
+                    </p>
                 </div>
 
-                {/* MCP Servers Section */}
-                <MCPServersCard
+                <SupermemoryCard
                     userSettings={userSettings}
-                    onSave={handleMCPServersUpdate}
+                    onSave={handleSupermemoryUpdate}
                     loading={isLoading}
                 />
+            </div>
 
-                {/* Search Provider Section */}
-                <div className="space-y-4">
-                    <div>
-                        <h3 className="font-semibold text-foreground">Web Search Provider</h3>
-                        <p className="mt-1 text-muted-foreground text-sm">
-                            Choose which service to use for web searches. BYOK providers take
-                            priority over server providers. Configure BYOK keys on the{" "}
-                            <a href="/settings/providers" className="text-primary underline">
-                                Providers page
-                            </a>
-                            .
-                        </p>
-                    </div>
+            {/* MCP Servers Section */}
+            <MCPServersCard
+                userSettings={userSettings}
+                onSave={handleMCPServersUpdate}
+                loading={isLoading}
+            />
 
-                    <div className="grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
-                        {SEARCH_PROVIDERS.map((providerInfo) => {
-                            const providerId = providerInfo.id as SearchProvider
-                            const providerAvailability = searchProviderAvailability?.[providerId]
-                            const isAvailable = providerAvailability?.available === true
-                            const status = getProviderStatus(providerId, searchProviderAvailability)
-
-                            return (
-                                <SearchProviderCard
-                                    key={providerId}
-                                    provider={providerId}
-                                    isSelected={userSettings.searchProvider === providerId}
-                                    onSelect={handleSearchProviderChange}
-                                    title={`${providerInfo.name} ${status !== "Not configured" ? `(${status})` : ""}`}
-                                    description={providerInfo.description}
-                                    disabled={!isAvailable}
-                                    statusText={
-                                        isAvailable
-                                            ? `Available through ${status}.`
-                                            : "Configure a BYOK key before selecting this provider."
-                                    }
-                                />
-                            )
-                        })}
-                    </div>
+            {/* Search Provider Section */}
+            <div className="space-y-4">
+                <div>
+                    <h3 className="font-semibold text-foreground">Web Search Provider</h3>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        Choose which service to use for web searches. BYOK providers take priority
+                        over server providers. Configure BYOK keys on the{" "}
+                        <a href="/settings/providers" className="text-primary underline">
+                            Providers page
+                        </a>
+                        .
+                    </p>
                 </div>
 
-                {/* Search Sources Section */}
-                <div className="space-y-4">
-                    <div>
-                        <h3 className="font-semibold text-foreground">Search Sources</h3>
-                        <p className="mt-1 text-muted-foreground text-sm">
-                            Control whether to include source information in search results by
-                            default
-                        </p>
-                    </div>
+                <div className="grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
+                    {SEARCH_PROVIDERS.map((providerInfo) => {
+                        const providerId = providerInfo.id as SearchProvider
+                        const providerAvailability = searchProviderAvailability?.[providerId]
+                        const isAvailable = providerAvailability?.available === true
+                        const status = getProviderStatus(providerId, searchProviderAvailability)
 
-                    <Card className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Include Sources by Default</Label>
-                                <div className="text-muted-foreground text-sm">
-                                    Automatically include source links and citations in search
-                                    responses
-                                </div>
-                            </div>
-                            <Switch
-                                checked={userSettings.searchIncludeSourcesByDefault}
-                                onCheckedChange={handleIncludeSourcesToggle}
-                                disabled={isLoading}
+                        return (
+                            <SearchProviderCard
+                                key={providerId}
+                                provider={providerId}
+                                isSelected={userSettings.searchProvider === providerId}
+                                onSelect={handleSearchProviderChange}
+                                title={`${providerInfo.name} ${status !== "Not configured" ? `(${status})` : ""}`}
+                                description={providerInfo.description}
+                                disabled={!isAvailable}
+                                statusText={
+                                    isAvailable
+                                        ? `Available through ${status}.`
+                                        : "Configure a BYOK key before selecting this provider."
+                                }
                             />
-                        </div>
-                    </Card>
+                        )
+                    })}
                 </div>
             </div>
+
+            {/* Search Sources Section */}
+            <div className="space-y-4">
+                <div>
+                    <h3 className="font-semibold text-foreground">Search Sources</h3>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        Control whether to include source information in search results by default
+                    </p>
+                </div>
+
+                <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <Label className="text-base">Include Sources by Default</Label>
+                            <div className="text-muted-foreground text-sm">
+                                Automatically include source links and citations in search responses
+                            </div>
+                        </div>
+                        <Switch
+                            checked={userSettings.searchIncludeSourcesByDefault}
+                            onCheckedChange={handleIncludeSourcesToggle}
+                            disabled={isLoading}
+                        />
+                    </div>
+                </Card>
+            </div>
+        </div>
+    )
+}
+
+function AIOptionsSettingsPage() {
+    return (
+        <SettingsLayout
+            title="Search, Memory & Tools"
+            description="Configure web search, long-term memory, and connected tool servers."
+        >
+            <SearchMemoryToolsSettingsContent />
         </SettingsLayout>
     )
 }

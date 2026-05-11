@@ -18,10 +18,14 @@ import { Route as SettingsProvidersRouteImport } from './routes/settings/provide
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
+import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
+import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
+import { Route as SettingsAiSetupRouteImport } from './routes/settings/ai-setup'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
+import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
@@ -110,9 +114,19 @@ const SettingsModelsRoute = SettingsModelsRouteImport.update({
   path: '/models',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsFilesRoute = SettingsFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
   id: '/customization',
   path: '/customization',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsBehaviorRoute = SettingsBehaviorRouteImport.update({
+  id: '/behavior',
+  path: '/behavior',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
 const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
@@ -125,9 +139,19 @@ const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
   path: '/appearance',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsAiSetupRoute = SettingsAiSetupRouteImport.update({
+  id: '/ai-setup',
+  path: '/ai-setup',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsAiOptionsRoute = SettingsAiOptionsRouteImport.update({
   id: '/ai-options',
   path: '/ai-options',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
 const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
@@ -195,10 +219,14 @@ export interface FileRoutesByFullPath {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
+  '/settings/ai-setup': typeof SettingsAiSetupRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/customization': typeof SettingsCustomizationRoute
+  '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -221,10 +249,14 @@ export interface FileRoutesByTo {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
+  '/settings/ai-setup': typeof SettingsAiSetupRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/customization': typeof SettingsCustomizationRoute
+  '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -250,10 +282,14 @@ export interface FileRoutesById {
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
+  '/settings/ai-setup': typeof SettingsAiSetupRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/customization': typeof SettingsCustomizationRoute
+  '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -280,10 +316,14 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/settings/account'
     | '/settings/ai-options'
+    | '/settings/ai-setup'
     | '/settings/appearance'
     | '/settings/attachments'
+    | '/settings/behavior'
     | '/settings/customization'
+    | '/settings/files'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -306,10 +346,14 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/settings/account'
     | '/settings/ai-options'
+    | '/settings/ai-setup'
     | '/settings/appearance'
     | '/settings/attachments'
+    | '/settings/behavior'
     | '/settings/customization'
+    | '/settings/files'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -334,10 +378,14 @@ export interface FileRouteTypes {
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/settings/account'
     | '/settings/ai-options'
+    | '/settings/ai-setup'
     | '/settings/appearance'
     | '/settings/attachments'
+    | '/settings/behavior'
     | '/settings/customization'
+    | '/settings/files'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -454,11 +502,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsModelsRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/files': {
+      id: '/settings/files'
+      path: '/files'
+      fullPath: '/settings/files'
+      preLoaderRoute: typeof SettingsFilesRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/customization': {
       id: '/settings/customization'
       path: '/customization'
       fullPath: '/settings/customization'
       preLoaderRoute: typeof SettingsCustomizationRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/behavior': {
+      id: '/settings/behavior'
+      path: '/behavior'
+      fullPath: '/settings/behavior'
+      preLoaderRoute: typeof SettingsBehaviorRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
     '/settings/attachments': {
@@ -475,11 +537,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAppearanceRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/ai-setup': {
+      id: '/settings/ai-setup'
+      path: '/ai-setup'
+      fullPath: '/settings/ai-setup'
+      preLoaderRoute: typeof SettingsAiSetupRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/ai-options': {
       id: '/settings/ai-options'
       path: '/ai-options'
       fullPath: '/settings/ai-options'
       preLoaderRoute: typeof SettingsAiOptionsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
     '/api/model-benchmarks': {
@@ -589,10 +665,14 @@ const ChatRouteChildren: ChatRouteChildren = {
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
 interface SettingsRouteLazyRouteChildren {
+  SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAiOptionsRoute: typeof SettingsAiOptionsRoute
+  SettingsAiSetupRoute: typeof SettingsAiSetupRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
+  SettingsBehaviorRoute: typeof SettingsBehaviorRoute
   SettingsCustomizationRoute: typeof SettingsCustomizationRoute
+  SettingsFilesRoute: typeof SettingsFilesRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
   SettingsPersonasRoute: typeof SettingsPersonasRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
@@ -601,10 +681,14 @@ interface SettingsRouteLazyRouteChildren {
 }
 
 const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
+  SettingsAccountRoute: SettingsAccountRoute,
   SettingsAiOptionsRoute: SettingsAiOptionsRoute,
+  SettingsAiSetupRoute: SettingsAiSetupRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
+  SettingsBehaviorRoute: SettingsBehaviorRoute,
   SettingsCustomizationRoute: SettingsCustomizationRoute,
+  SettingsFilesRoute: SettingsFilesRoute,
   SettingsModelsRoute: SettingsModelsRoute,
   SettingsPersonasRoute: SettingsPersonasRoute,
   SettingsProfileRoute: SettingsProfileRoute,

@@ -25,7 +25,7 @@ import { memo, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/attachments")({
-    component: AttachmentsPage
+    component: FilesSettingsPage
 })
 
 interface FileMetadata {
@@ -176,7 +176,7 @@ const FileCard = memo(
 
 FileCard.displayName = "FileCard"
 
-function AttachmentsPage() {
+export function FilesSettingsContent() {
     const session = useSession()
     const filesResult = useQuery(api.attachments.listFiles, session.user?.id ? {} : "skip")
     const deleteFile = useMutation(api.attachments.deleteFile)
@@ -244,101 +244,100 @@ function AttachmentsPage() {
 
     if (!session.user?.id) {
         return (
-            <SettingsLayout
-                title="Attachments"
-                description="Manage your uploaded files and attachments."
-            >
-                <Alert>
-                    <AlertDescription>
-                        Sign in to view and manage your attachments.
-                    </AlertDescription>
-                </Alert>
-            </SettingsLayout>
+            <Alert>
+                <AlertDescription>Sign in to view and manage your attachments.</AlertDescription>
+            </Alert>
         )
     }
 
     return (
-        <SettingsLayout
-            title="Attachments"
-            description="Manage your uploaded files and attachments."
-        >
-            <div className="space-y-4">
-                {/* Files List */}
-                <Card className="gap-3 p-4">
-                    <CardHeader className="gap-0 px-0">
-                        <CardTitle>Your Files</CardTitle>
-                        <CardDescription>All your uploaded attachments and files</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0 pt-0">
-                        {!files ? (
-                            <div className="space-y-3">
-                                {Array.from({ length: 3 }).map((_, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center gap-3 rounded-lg border p-4"
-                                    >
-                                        <Skeleton className="h-10 w-10 rounded-lg" />
-                                        <div className="flex-1 space-y-2">
-                                            <Skeleton className="h-4 w-32" />
-                                            <Skeleton className="h-3 w-24" />
-                                        </div>
-                                        <div className="flex gap-1">
-                                            <Skeleton className="h-8 w-8" />
-                                            <Skeleton className="h-8 w-8" />
-                                        </div>
+        <div className="space-y-4">
+            {/* Files List */}
+            <Card className="gap-3 p-4">
+                <CardHeader className="gap-0 px-0">
+                    <CardTitle>Your Files</CardTitle>
+                    <CardDescription>All your uploaded attachments and files</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0 pt-0">
+                    {!files ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex items-center gap-3 rounded-lg border p-4"
+                                >
+                                    <Skeleton className="h-10 w-10 rounded-lg" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-4 w-32" />
+                                        <Skeleton className="h-3 w-24" />
                                     </div>
-                                ))}
-                            </div>
-                        ) : files.length === 0 ? (
-                            <div className="py-12 text-center">
-                                <File className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                <h3 className="mb-2 font-medium text-lg">No files yet</h3>
-                                <p className="mx-auto max-w-sm text-muted-foreground text-sm">
-                                    Upload files through the chat interface to see them here.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {files.map((file) => (
-                                    <FileCard key={file.key} file={file} onDelete={handleDelete} />
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Storage Info */}
-                <Card className="gap-3 p-4">
-                    <CardHeader className="gap-2 px-0">
-                        <CardTitle>Storage Information</CardTitle>
-                        <CardDescription>Information about your file storage usage</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0 pt-0">
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">File size limit</span>
-                                <span className="font-medium">5 MB per file</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Current usage</span>
-                                <span className="font-medium">{formatFileSize(totalSize)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Total files</span>
-                                <span className="font-medium">{files?.length || 0}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Images</span>
-                                <span className="font-medium">{fileStats.images}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Documents</span>
-                                <span className="font-medium">{fileStats.documents}</span>
-                            </div>
+                                    <div className="flex gap-1">
+                                        <Skeleton className="h-8 w-8" />
+                                        <Skeleton className="h-8 w-8" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
+                    ) : files.length === 0 ? (
+                        <div className="py-12 text-center">
+                            <File className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                            <h3 className="mb-2 font-medium text-lg">No files yet</h3>
+                            <p className="mx-auto max-w-sm text-muted-foreground text-sm">
+                                Upload files through the chat interface to see them here.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {files.map((file) => (
+                                <FileCard key={file.key} file={file} onDelete={handleDelete} />
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Storage Info */}
+            <Card className="gap-3 p-4">
+                <CardHeader className="gap-2 px-0">
+                    <CardTitle>Storage Information</CardTitle>
+                    <CardDescription>Information about your file storage usage</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0 pt-0">
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">File size limit</span>
+                            <span className="font-medium">5 MB per file</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Current usage</span>
+                            <span className="font-medium">{formatFileSize(totalSize)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Total files</span>
+                            <span className="font-medium">{files?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Images</span>
+                            <span className="font-medium">{fileStats.images}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Documents</span>
+                            <span className="font-medium">{fileStats.documents}</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+function FilesSettingsPage() {
+    return (
+        <SettingsLayout
+            title="Files"
+            description="Manage uploaded attachments and review how much storage you're using."
+        >
+            <FilesSettingsContent />
         </SettingsLayout>
     )
 }

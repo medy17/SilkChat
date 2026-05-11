@@ -56,7 +56,7 @@ import { memo, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/providers")({
-    component: ProvidersSettings
+    component: ProvidersSettingsPage
 })
 
 type ProviderCardProps = {
@@ -559,7 +559,7 @@ const CustomProviderCard = memo(
     }
 )
 
-function ProvidersSettings() {
+export function ProvidersSettingsContent() {
     const session = useSession()
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
@@ -722,290 +722,272 @@ function ProvidersSettings() {
     }
 
     if (!session.user?.id) {
-        return (
-            <SettingsLayout
-                title="Providers"
-                description="Manage your AI provider API keys and configure custom providers."
-            >
-                <p className="text-muted-foreground text-sm">Sign in to manage your providers.</p>
-            </SettingsLayout>
-        )
+        return <p className="text-muted-foreground text-sm">Sign in to manage your providers.</p>
     }
 
     if (!userSettings || "error" in userSettings) {
-        return (
-            <SettingsLayout
-                title="Providers"
-                description="Manage your AI provider API keys and configure custom providers."
-            >
-                <p className="text-muted-foreground text-sm">Loading provider settings...</p>
-            </SettingsLayout>
-        )
+        return <p className="text-muted-foreground text-sm">Loading provider settings...</p>
     }
 
     const currentSearchProviders = getCurrentSearchProviders()
 
     return (
-        <SettingsLayout
-            title="Providers"
-            description="Manage your AI and search provider API keys. Keys are encrypted and stored securely."
-        >
-            <div className="space-y-6">
-                <div className="space-y-1.5">
-                    <div className="space-y-0.25">
-                        <h3 className="font-semibold text-base">Built-in Providers</h3>
-                        <p className="text-muted-foreground text-xs">
-                            Access built-in services without needing API keys
-                        </p>
-                    </div>
+        <div className="space-y-6">
+            <div className="space-y-1.5">
+                <div className="space-y-0.25">
+                    <h3 className="font-semibold text-base">Built-in Providers</h3>
+                    <p className="text-muted-foreground text-xs">
+                        Access built-in services without needing API keys
+                    </p>
+                </div>
 
-                    {/* Built-in AI Provider */}
-                    <Card className="p-4 shadow-xs">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                                <div className="flex size-8 items-center justify-center rounded-lg">
-                                    <Logo />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-sm">SilkChat Built-in</h4>
-                                    <p className="mt-0.5 text-muted-foreground text-xs">
-                                        Access built-in AI models without needing API keys. Rate
-                                        limits may apply.
-                                    </p>
-                                </div>
+                {/* Built-in AI Provider */}
+                <Card className="p-4 shadow-xs">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                            <div className="flex size-8 items-center justify-center rounded-lg">
+                                <Logo />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                                <span className="text-muted-foreground text-xs">Active</span>
+                            <div>
+                                <h4 className="font-semibold text-sm">SilkChat Built-in</h4>
+                                <p className="mt-0.5 text-muted-foreground text-xs">
+                                    Access built-in AI models without needing API keys. Rate limits
+                                    may apply.
+                                </p>
                             </div>
                         </div>
-                    </Card>
+                        <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-muted-foreground text-xs">Active</span>
+                        </div>
+                    </div>
+                </Card>
 
-                    {/* Built-in Web Search Provider */}
-                    <Card className="p-4 shadow-xs">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                                <div className="flex size-8 items-center justify-center rounded-lg">
-                                    <Globe className="size-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-sm">Web Search</h4>
-                                    <p className="mt-0.5 text-muted-foreground text-xs">
-                                        4 search providers available from server
-                                    </p>
-                                </div>
+                {/* Built-in Web Search Provider */}
+                <Card className="p-4 shadow-xs">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                            <div className="flex size-8 items-center justify-center rounded-lg">
+                                <Globe className="size-5" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                                <span className="text-muted-foreground text-xs">Active</span>
+                            <div>
+                                <h4 className="font-semibold text-sm">Web Search</h4>
+                                <p className="mt-0.5 text-muted-foreground text-xs">
+                                    4 search providers available from server
+                                </p>
                             </div>
                         </div>
-                    </Card>
+                        <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-muted-foreground text-xs">Active</span>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="space-y-1.5">
+                <div className="space-y-0.25">
+                    <h3 className="font-semibold text-base">BYOK AI Providers</h3>
+                    <p className="text-muted-foreground text-xs">
+                        Built-in text and image models use your OpenRouter key when BYOK is enabled
+                    </p>
                 </div>
 
-                <div className="space-y-1.5">
-                    <div className="space-y-0.25">
-                        <h3 className="font-semibold text-base">BYOK AI Providers</h3>
-                        <p className="text-muted-foreground text-xs">
-                            Built-in text and image models use your OpenRouter key when BYOK is
-                            enabled
-                        </p>
-                    </div>
+                {CORE_PROVIDERS.filter(shouldShowCoreInferenceProvider).map((provider) => (
+                    <ProviderCard
+                        key={provider.id}
+                        provider={provider}
+                        currentProvider={currentProviders.core[provider.id]}
+                        onSave={handleSaveProvider}
+                        loading={loading}
+                    />
+                ))}
+            </div>
 
-                    {CORE_PROVIDERS.filter(shouldShowCoreInferenceProvider).map((provider) => (
-                        <ProviderCard
-                            key={provider.id}
-                            provider={provider}
-                            currentProvider={currentProviders.core[provider.id]}
-                            onSave={handleSaveProvider}
-                            loading={loading}
-                        />
-                    ))}
+            <div className="space-y-1.5">
+                <div className="space-y-0.25">
+                    <h3 className="font-semibold text-base">BYOK Search Providers</h3>
+                    <p className="text-muted-foreground text-xs">
+                        Your keys take priority over server keys when available
+                    </p>
                 </div>
 
-                <div className="space-y-1.5">
-                    <div className="space-y-0.25">
-                        <h3 className="font-semibold text-base">BYOK Search Providers</h3>
-                        <p className="text-muted-foreground text-xs">
-                            Your keys take priority over server keys when available
-                        </p>
-                    </div>
+                {SEARCH_PROVIDERS.map((provider) => (
+                    <BYOKSearchProviderCard
+                        key={provider.id}
+                        provider={provider}
+                        currentConfig={currentSearchProviders[provider.id]}
+                        onSave={handleSaveSearchProvider}
+                        loading={loading}
+                    />
+                ))}
+            </div>
 
-                    {SEARCH_PROVIDERS.map((provider) => (
-                        <BYOKSearchProviderCard
-                            key={provider.id}
-                            provider={provider}
-                            currentConfig={currentSearchProviders[provider.id]}
-                            onSave={handleSaveSearchProvider}
-                            loading={loading}
-                        />
-                    ))}
+            <div className="space-y-1.5">
+                <div className="space-y-0.25">
+                    <h3 className="font-semibold text-base">Custom Providers</h3>
+                    <p className="text-muted-foreground text-xs">
+                        Add any OpenAI-compatible provider
+                    </p>
                 </div>
 
-                <div className="space-y-1.5">
-                    <div className="space-y-0.25">
-                        <h3 className="font-semibold text-base">Custom Providers</h3>
-                        <p className="text-muted-foreground text-xs">
-                            Add any OpenAI-compatible provider
-                        </p>
-                    </div>
+                {/* Custom Providers */}
+                {Object.entries(currentProviders.custom).map(([id, provider]) => (
+                    <CustomProviderCard
+                        key={id}
+                        providerId={id}
+                        provider={provider}
+                        onSave={handleSaveCustomProvider}
+                        onDelete={handleDeleteCustomProvider}
+                        loading={loading}
+                    />
+                ))}
 
-                    {/* Custom Providers */}
-                    {Object.entries(currentProviders.custom).map(([id, provider]) => (
-                        <CustomProviderCard
-                            key={id}
-                            providerId={id}
-                            provider={provider}
-                            onSave={handleSaveCustomProvider}
-                            onDelete={handleDeleteCustomProvider}
-                            loading={loading}
-                        />
-                    ))}
+                {/* Add Custom Provider */}
+                {addingCustomProvider ? (
+                    <Card className="p-4 shadow-xs">
+                        <div className="space-y-4">
+                            <h4 className="font-semibold text-sm">Add Custom Provider</h4>
 
-                    {/* Add Custom Provider */}
-                    {addingCustomProvider ? (
-                        <Card className="p-4 shadow-xs">
                             <div className="space-y-4">
-                                <h4 className="font-semibold text-sm">Add Custom Provider</h4>
+                                <div className="flex items-center space-x-2">
+                                    <Switch
+                                        id="custom-provider-enabled"
+                                        checked={customProviderForm.enabled}
+                                        onCheckedChange={(checked) =>
+                                            setCustomProviderForm((prev) => ({
+                                                ...prev,
+                                                enabled: checked
+                                            }))
+                                        }
+                                    />
+                                    <Label htmlFor="custom-provider-enabled">Enable Provider</Label>
+                                </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center space-x-2">
-                                        <Switch
-                                            id="custom-provider-enabled"
-                                            checked={customProviderForm.enabled}
-                                            onCheckedChange={(checked) =>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="custom-provider-name">Provider Name</Label>
+                                        <Input
+                                            id="custom-provider-name"
+                                            value={customProviderForm.name}
+                                            onChange={(e) =>
                                                 setCustomProviderForm((prev) => ({
                                                     ...prev,
-                                                    enabled: checked
+                                                    name: e.target.value
                                                 }))
                                             }
+                                            placeholder="My Custom Provider"
                                         />
-                                        <Label htmlFor="custom-provider-enabled">
-                                            Enable Provider
-                                        </Label>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="custom-provider-name">
-                                                Provider Name
-                                            </Label>
-                                            <Input
-                                                id="custom-provider-name"
-                                                value={customProviderForm.name}
-                                                onChange={(e) =>
-                                                    setCustomProviderForm((prev) => ({
-                                                        ...prev,
-                                                        name: e.target.value
-                                                    }))
-                                                }
-                                                placeholder="My Custom Provider"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="custom-provider-endpoint">
-                                                Base URL
-                                            </Label>
-                                            <Input
-                                                id="custom-provider-endpoint"
-                                                value={customProviderForm.endpoint}
-                                                onChange={(e) =>
-                                                    setCustomProviderForm((prev) => ({
-                                                        ...prev,
-                                                        endpoint: e.target.value
-                                                    }))
-                                                }
-                                                placeholder="https://api.example.com/v1"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {customProviderForm.enabled && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="custom-provider-key">API Key</Label>
-                                            <Input
-                                                id="custom-provider-key"
-                                                type="password"
-                                                value={customProviderForm.key}
-                                                onChange={(e) =>
-                                                    setCustomProviderForm((prev) => ({
-                                                        ...prev,
-                                                        key: e.target.value
-                                                    }))
-                                                }
-                                                placeholder="sk-..."
-                                                className="font-mono"
-                                            />
-                                            {customProviderForm.enabled &&
-                                                !customProviderForm.key.trim() && (
-                                                    <div className="flex items-center gap-2 text-amber-600">
-                                                        <AlertCircle className="h-4 w-4" />
-                                                        <span className="text-xs">
-                                                            API key required to enable provider
-                                                        </span>
-                                                    </div>
-                                                )}
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-2">
-                                        <Button
-                                            onClick={handleAddCustomProvider}
-                                            disabled={
-                                                loading ||
-                                                !customProviderForm.name.trim() ||
-                                                !customProviderForm.endpoint.trim() ||
-                                                (customProviderForm.enabled &&
-                                                    !customProviderForm.key.trim())
+                                    <div className="space-y-2">
+                                        <Label htmlFor="custom-provider-endpoint">Base URL</Label>
+                                        <Input
+                                            id="custom-provider-endpoint"
+                                            value={customProviderForm.endpoint}
+                                            onChange={(e) =>
+                                                setCustomProviderForm((prev) => ({
+                                                    ...prev,
+                                                    endpoint: e.target.value
+                                                }))
                                             }
-                                            size="sm"
-                                        >
-                                            <Check className="h-4 w-4" />
-                                            {loading ? "Adding..." : "Add Provider"}
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setAddingCustomProvider(false)
-                                                setCustomProviderForm({
-                                                    name: "",
-                                                    endpoint: "",
-                                                    enabled: true,
-                                                    key: ""
-                                                })
-                                            }}
-                                        >
-                                            <X className="h-4 w-4" />
-                                            Cancel
-                                        </Button>
+                                            placeholder="https://api.example.com/v1"
+                                        />
                                     </div>
                                 </div>
-                            </div>
-                        </Card>
-                    ) : (
-                        <Card className="border-dashed p-4 shadow-xs">
-                            <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
-                                    <PackageIcon className="size-6" />
+
+                                {customProviderForm.enabled && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="custom-provider-key">API Key</Label>
+                                        <Input
+                                            id="custom-provider-key"
+                                            type="password"
+                                            value={customProviderForm.key}
+                                            onChange={(e) =>
+                                                setCustomProviderForm((prev) => ({
+                                                    ...prev,
+                                                    key: e.target.value
+                                                }))
+                                            }
+                                            placeholder="sk-..."
+                                            className="font-mono"
+                                        />
+                                        {customProviderForm.enabled &&
+                                            !customProviderForm.key.trim() && (
+                                                <div className="flex items-center gap-2 text-amber-600">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <span className="text-xs">
+                                                        API key required to enable provider
+                                                    </span>
+                                                </div>
+                                            )}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={handleAddCustomProvider}
+                                        disabled={
+                                            loading ||
+                                            !customProviderForm.name.trim() ||
+                                            !customProviderForm.endpoint.trim() ||
+                                            (customProviderForm.enabled &&
+                                                !customProviderForm.key.trim())
+                                        }
+                                        size="sm"
+                                    >
+                                        <Check className="h-4 w-4" />
+                                        {loading ? "Adding..." : "Add Provider"}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setAddingCustomProvider(false)
+                                            setCustomProviderForm({
+                                                name: "",
+                                                endpoint: "",
+                                                enabled: true,
+                                                key: ""
+                                            })
+                                        }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Cancel
+                                    </Button>
                                 </div>
-                                <h4 className="mb-2 font-semibold">Add Custom Provider</h4>
-                                <p className="mb-4 text-muted-foreground text-sm">
-                                    Add any OpenAI-compatible provider with an API key and base URL
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setAddingCustomProvider(true)}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Provider
-                                </Button>
                             </div>
-                        </Card>
-                    )}
-                </div>
+                        </div>
+                    </Card>
+                ) : (
+                    <Card className="border-dashed p-4 shadow-xs">
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
+                                <PackageIcon className="size-6" />
+                            </div>
+                            <h4 className="mb-2 font-semibold">Add Custom Provider</h4>
+                            <p className="mb-4 text-muted-foreground text-sm">
+                                Add any OpenAI-compatible provider with an API key and base URL
+                            </p>
+                            <Button variant="outline" onClick={() => setAddingCustomProvider(true)}>
+                                <Plus className="h-4 w-4" />
+                                Add Provider
+                            </Button>
+                        </div>
+                    </Card>
+                )}
             </div>
+        </div>
+    )
+}
+
+function ProvidersSettingsPage() {
+    return (
+        <SettingsLayout
+            title="Providers"
+            description="Manage AI and search provider credentials. Keys are encrypted and stored securely."
+        >
+            <ProvidersSettingsContent />
         </SettingsLayout>
     )
 }

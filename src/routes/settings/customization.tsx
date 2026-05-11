@@ -12,10 +12,10 @@ import { useRef, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/settings/customization")({
-    component: CustomizationSettings
+    component: BehaviorSettingsPage
 })
 
-function CustomizationSettings() {
+export function BehaviorSettingsContent() {
     const session = useSession()
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
@@ -52,111 +52,107 @@ function CustomizationSettings() {
 
     if (!session.user?.id) {
         return (
-            <SettingsLayout
-                title="Customization"
-                description="Personalize how the AI interacts with you"
-            >
-                <p className="text-muted-foreground text-sm">
-                    Sign in to customize your AI experience.
-                </p>
-            </SettingsLayout>
+            <p className="text-muted-foreground text-sm">
+                Sign in to customize your AI experience.
+            </p>
         )
     }
 
     if (!userSettings) {
         return (
-            <SettingsLayout
-                title="Customization"
-                description="Personalize how the AI interacts with you"
-            >
-                <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            </SettingsLayout>
+            <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
         )
     }
 
     return (
-        <SettingsLayout
-            title="Customization"
-            description="Personalize how the AI interacts with you"
-        >
-            <div className="space-y-8">
-                <div className="space-y-4">
-                    <div>
-                        <h3 className="font-semibold text-foreground">AI Personalization</h3>
-                        <p className="mt-1 text-muted-foreground text-sm">
-                            Customize how the AI addresses you and behaves in conversations
+        <div className="space-y-8">
+            <div className="space-y-4">
+                <div>
+                    <h3 className="font-semibold text-foreground">Assistant Defaults</h3>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        Set the baseline context and communication style for the assistant.
+                    </p>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Your Name</Label>
+                        <Input
+                            id="name"
+                            ref={nameRef}
+                            defaultValue={userSettings?.customization?.name || ""}
+                            placeholder="How should the AI address you?"
+                            maxLength={100}
+                        />
+                        <p className="text-muted-foreground text-xs">
+                            This helps the AI address you personally in conversations.
                         </p>
                     </div>
 
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Your Name</Label>
-                            <Input
-                                id="name"
-                                ref={nameRef}
-                                defaultValue={userSettings?.customization?.name || ""}
-                                placeholder="How should the AI address you?"
-                                maxLength={100}
-                            />
-                            <p className="text-muted-foreground text-xs">
-                                This helps the AI address you personally in conversations.
-                            </p>
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="personality">AI Personality</Label>
+                        <Textarea
+                            id="personality"
+                            ref={personalityRef}
+                            defaultValue={userSettings?.customization?.aiPersonality || ""}
+                            placeholder="Describe how you want the AI to behave and communicate..."
+                            rows={4}
+                            maxLength={2000}
+                        />
+                        <p className="text-muted-foreground text-xs">
+                            Shape the AI's communication style and personality.
+                        </p>
+                    </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="personality">AI Personality</Label>
-                            <Textarea
-                                id="personality"
-                                ref={personalityRef}
-                                defaultValue={userSettings?.customization?.aiPersonality || ""}
-                                placeholder="Describe how you want the AI to behave and communicate..."
-                                rows={4}
-                                maxLength={2000}
-                            />
-                            <p className="text-muted-foreground text-xs">
-                                Shape the AI's communication style and personality.
-                            </p>
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="context">Additional Context</Label>
+                        <Textarea
+                            id="context"
+                            ref={contextRef}
+                            defaultValue={userSettings?.customization?.additionalContext || ""}
+                            placeholder="Share relevant information about yourself, your work, or preferences..."
+                            rows={4}
+                            maxLength={2000}
+                        />
+                        <p className="text-muted-foreground text-xs">
+                            Provide context that helps the AI give you more relevant responses.
+                        </p>
+                    </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="context">Additional Context</Label>
-                            <Textarea
-                                id="context"
-                                ref={contextRef}
-                                defaultValue={userSettings?.customization?.additionalContext || ""}
-                                placeholder="Share relevant information about yourself, your work, or preferences..."
-                                rows={4}
-                                maxLength={2000}
-                            />
-                            <p className="text-muted-foreground text-xs">
-                                Provide context that helps the AI give you more relevant responses.
-                            </p>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <Button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="min-w-[6.25rem]"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="h-4 w-4" />
-                                        Save Changes
-                                    </>
-                                )}
-                            </Button>
-                        </div>
+                    <div className="flex justify-end pt-4">
+                        <Button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="min-w-[6.25rem]"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="h-4 w-4" />
+                                    Save Changes
+                                </>
+                            )}
+                        </Button>
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+function BehaviorSettingsPage() {
+    return (
+        <SettingsLayout
+            title="Behavior"
+            description="Control the assistant's default tone, context, and how it addresses you."
+        >
+            <BehaviorSettingsContent />
         </SettingsLayout>
     )
 }
