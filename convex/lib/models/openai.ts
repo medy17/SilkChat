@@ -167,7 +167,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiGatewayImageAdapters("gpt-image-2"),
         abilities: [],
         mode: "image",
-        maxPerMessage: 2,
+        maxPerMessage: 4,
         supportsReferenceImages: true,
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
