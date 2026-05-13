@@ -1156,14 +1156,6 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
               }
             : "skip"
     )
-    const totalImages = useDiskCachedQuery(
-        api.images.getGeneratedImagesCount,
-        {
-            key: libraryCacheScope ? `library-count:${libraryCacheScope}` : "library-count:guest",
-            default: undefined
-        },
-        session.user?.id ? { query: searchQuery, filters: activeFilters, view } : "skip"
-    )
     const filterOptions = useDiskCachedQuery(
         api.images.getGeneratedImageFacetOptions,
         {
@@ -1314,7 +1306,6 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     }, [view])
 
     const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
-    const resolvedTotalImages = isQueryErrorResult(totalImages) ? undefined : totalImages
     const resolvedFilterOptions = isQueryErrorResult(filterOptions) ? undefined : filterOptions
 
     const images = (resolvedImagePage?.page ?? []).filter((img) => !hiddenImageIds.has(img._id))
@@ -1380,23 +1371,20 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
             })),
         [resolvedFilterOptions?.orientations]
     )
-    const totalPages =
-        resolvedTotalImages === undefined
-            ? undefined
-            : Math.max(1, Math.ceil(resolvedTotalImages / pageSize))
     const libraryTitle = getLibraryViewLabel(view)
-    const librarySummaryParts =
-        resolvedTotalImages === undefined
-            ? ["Loading..."]
-            : [
-                  `${resolvedTotalImages} ${isArchivedView ? "archived image" : "image"}${resolvedTotalImages === 1 ? "" : "s"}`,
-                  ...(pendingGenerations.length > 0 && !hasActiveFilters && !isArchivedView
-                      ? [`${pendingGenerations.length} pending`]
-                      : []),
-                  ...(totalPages !== undefined && totalPages > 0
-                      ? [`Page ${pageNumber} of ${totalPages}`]
-                      : [])
-              ]
+    const librarySummaryParts = [
+        hasSearchQuery
+            ? "Search results"
+            : isArchivedView
+              ? "Archived image generations"
+              : "Recent image generations",
+        ...(hasActiveFilters
+            ? [`${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active`]
+            : []),
+        ...(pendingGenerations.length > 0 && !hasActiveFilters && !isArchivedView
+            ? [`${pendingGenerations.length} pending`]
+            : [])
+    ]
     const canGoPrevious = pageNumber > 1
     const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone : false
     const showPendingGenerations =
@@ -1578,16 +1566,17 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     }, [navigate])
 
     useEffect(() => {
-        if (totalPages === undefined || pageNumber <= totalPages) return
+        if (!resolvedImagePage || pageNumber <= 1) return
+        if (resolvedImagePage.page.length > 0 || !resolvedImagePage.isDone) return
 
         navigate({
             replace: true,
             search: (prev) => ({
                 ...prev,
-                page: totalPages
+                page: Math.max(1, prev.page - 1)
             })
         })
-    }, [navigate, pageNumber, totalPages])
+    }, [navigate, pageNumber, resolvedImagePage])
 
     useEffect(() => {
         void scrollResetKey
@@ -2261,9 +2250,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                 </div>
                             </ImageMetadataProvider>
 
-                            {(canGoPrevious ||
-                                canGoNext ||
-                                (totalPages !== undefined && totalPages > 1)) && (
+                            {(canGoPrevious || canGoNext) && (
                                 <div className="mt-8 border-t pt-4">
                                     <Pagination>
                                         <PaginationContent>

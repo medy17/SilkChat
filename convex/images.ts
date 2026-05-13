@@ -2,6 +2,7 @@ import {
     type GeneratedImageFilters,
     filterAndSortGeneratedImages,
     getGeneratedImageFilterOptions,
+    hasActiveGeneratedImageFilters,
     matchesGeneratedImageFilters
 } from "@/lib/generated-image-filters"
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
@@ -42,6 +43,61 @@ const isImageVisibleInView = (
     }
 
     return image.isArchived !== true
+}
+
+const getCursorOffset = (cursor: string | null) => {
+    const offset = Number(cursor || "0")
+    return Number.isFinite(offset) && offset >= 0 ? Math.floor(offset) : 0
+}
+
+const shouldUseLatestGeneratedImagesPath = ({
+    effectiveQuery,
+    normalizedSortBy,
+    filters
+}: {
+    effectiveQuery?: string
+    normalizedSortBy: "relevance" | "newest" | "oldest"
+    filters?: GeneratedImageFilters
+}) => !effectiveQuery && normalizedSortBy === "newest" && !hasActiveGeneratedImageFilters(filters)
+
+const paginateLatestVisibleGeneratedImages = async (
+    ctx: any,
+    {
+        userId,
+        paginationOpts,
+        view
+    }: {
+        userId: string
+        paginationOpts: {
+            numItems: number
+            cursor: string | null
+        }
+        view?: "active" | "archived"
+    }
+) => {
+    const startIndex = getCursorOffset(paginationOpts.cursor)
+    const endIndex = startIndex + paginationOpts.numItems
+    const result = await ctx.db
+        .query("generatedImages")
+        .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", userId))
+        .filter((q: any) =>
+            view === "archived"
+                ? q.eq(q.field("isArchived"), true)
+                : q.neq(q.field("isArchived"), true)
+        )
+        .order("desc")
+        .paginate({
+            numItems: endIndex,
+            cursor: null
+        })
+
+    const page = result.page.slice(startIndex, endIndex)
+
+    return {
+        page,
+        isDone: result.isDone,
+        continueCursor: result.isDone ? "" : String(startIndex + page.length)
+    }
 }
 
 export const insertGeneratedImage = internalMutation({
@@ -117,6 +173,23 @@ export const paginateGeneratedImages = query({
             sortBy === "relevance" && !effectiveQuery ? "newest" : (sortBy ?? "newest")
         const chronologicalSortBy = normalizedSortBy === "relevance" ? "newest" : normalizedSortBy
 
+        if (
+            shouldUseLatestGeneratedImagesPath({
+                effectiveQuery,
+                normalizedSortBy,
+                filters: filters as GeneratedImageFilters | undefined
+            })
+        ) {
+            return await paginateLatestVisibleGeneratedImages(ctx, {
+                userId: user.id,
+                paginationOpts: {
+                    numItems: paginationOpts.numItems,
+                    cursor: paginationOpts.cursor
+                },
+                view
+            })
+        }
+
         const filteredImages = effectiveQuery
             ? await ctx.db
                   .query("generatedImages")
@@ -156,9 +229,7 @@ export const paginateGeneratedImages = query({
                       )
                   )
 
-        const cursorOffset = Number(paginationOpts.cursor || "0")
-        const startIndex =
-            Number.isFinite(cursorOffset) && cursorOffset >= 0 ? Math.floor(cursorOffset) : 0
+        const startIndex = getCursorOffset(paginationOpts.cursor)
         const page = filteredImages.slice(startIndex, startIndex + paginationOpts.numItems)
         const nextOffset = startIndex + page.length
         const isDone = nextOffset >= filteredImages.length

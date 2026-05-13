@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { SHORTCUTS, getShortcutDisplayTokens } from "@/lib/keyboard-shortcuts"
 import { getLastChatRoute, getLastLibraryRoute } from "@/lib/last-chat-route"
+import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
@@ -43,11 +44,15 @@ export function ThreadsSidebarHeader({
             hasPrefetchedLibraryRef.current = true
 
             // Fire and forget queries into the Convex cache
-            convex.query(api.images.getGeneratedImagesCount, {}).catch(() => {})
             convex
                 .query(api.images.paginateGeneratedImages, {
-                    paginationOpts: { numItems: 50, cursor: null },
-                    sortBy: "newest"
+                    paginationOpts: {
+                        numItems: DEFAULT_LIBRARY_SEARCH.pageSize,
+                        cursor: null
+                    },
+                    query: DEFAULT_LIBRARY_SEARCH.query,
+                    sortBy: DEFAULT_LIBRARY_SEARCH.sort,
+                    view: DEFAULT_LIBRARY_SEARCH.view
                 })
                 .catch(() => {})
             return
