@@ -29,6 +29,10 @@ import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
+    getNextGeneratedImageRecoveryPhase,
+    resolveGeneratedImageRenderSource
+} from "@/lib/generated-image-recovery"
+import {
     getExpandedImageUrl,
     getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl
@@ -206,6 +210,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
     const [isDetailsPreviewVisible, setIsDetailsPreviewVisible] = useState(false)
     const [isPromptCopied, setIsPromptCopied] = useState(false)
+    const [imageRecoveryPhase, setImageRecoveryPhase] = useState<"primary" | "fallback">("primary")
     const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
     const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 })
     const [mobileDrawerTop, setMobileDrawerTop] = useState<number | null>(null)
@@ -217,6 +222,11 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const mobileSwipeStartYRef = useRef<number | null>(null)
     const mobileSwipeTrackingRef = useRef(false)
     const suppressImageClickRef = useRef(false)
+
+    useEffect(() => {
+        setImageRecoveryPhase("primary")
+    }, [image?.storageKey])
+
     const aspectRatio = localImage?.aspectRatio || "1:1"
     const cssAspectRatio = useMemo(() => {
         if (aspectRatio.includes("x")) {
@@ -231,12 +241,23 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     }, [aspectRatio])
 
     const aspectRatioValue = useMemo(() => getAspectRatioValue(aspectRatio), [aspectRatio])
-    const imageUrl = localImage
+    const optimizedImageUrl = localImage
         ? getExpandedImageUrl({
               storageKey: localImage.storageKey,
               aspectRatio: localImage.aspectRatio
           })
         : ""
+    const directImageUrl = localImage ? getGeneratedImageDirectUrl(localImage.storageKey) : ""
+    const renderedImageSource = resolveGeneratedImageRenderSource({
+        phase: imageRecoveryPhase,
+        primary: {
+            src: optimizedImageUrl
+        },
+        fallback: {
+            directSrc: directImageUrl
+        }
+    })
+    const renderedImageUrl = renderedImageSource.src
 
     useEffect(() => {
         if (!localImage || !isOpen) return
@@ -246,7 +267,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             revealTimeoutRef.current = null
         }
 
-        if (loadedDetailImageUrls.has(imageUrl)) {
+        if (loadedDetailImageUrls.has(renderedImageUrl)) {
             setLoadState("ready")
             return
         }
@@ -259,7 +280,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 return
             }
 
-            loadedDetailImageUrls.add(imageUrl)
+            loadedDetailImageUrls.add(renderedImageUrl)
             setLoadState("ready")
         })
 
@@ -274,7 +295,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 copyPromptTimeoutRef.current = null
             }
         }
-    }, [imageUrl, isOpen, localImage])
+    }, [isOpen, localImage, renderedImageUrl])
 
     useEffect(() => {
         if (!isOpen || typeof window === "undefined") return
@@ -403,12 +424,12 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         : false
 
     const handleImageLoad = () => {
-        if (loadedDetailImageUrls.has(imageUrl)) {
+        if (loadedDetailImageUrls.has(renderedImageUrl)) {
             setLoadState("ready")
             return
         }
 
-        loadedDetailImageUrls.add(imageUrl)
+        loadedDetailImageUrls.add(renderedImageUrl)
         setLoadState("revealing")
 
         if (revealTimeoutRef.current !== null) {
@@ -422,8 +443,16 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     }
 
     const handleImageError = () => {
-        loadedDetailImageUrls.delete(imageUrl)
-        setLoadState("ready")
+        loadedDetailImageUrls.delete(renderedImageUrl)
+
+        const nextPhase = getNextGeneratedImageRecoveryPhase(imageRecoveryPhase)
+        if (nextPhase === "error") {
+            setLoadState("ready")
+            return
+        }
+
+        setImageRecoveryPhase(nextPhase)
+        setLoadState("loading")
     }
 
     const handleDownload = () => {
@@ -634,9 +663,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     if (!localImage) return null
 
     const isImageHidden = isModalImageHidden
-    const fullResolutionUrl =
-        getGeneratedImageDirectUrl(localImage.storageKey) ??
-        getGeneratedImageProxyUrl(localImage.storageKey)
+    const fullResolutionUrl = directImageUrl || getGeneratedImageProxyUrl(localImage.storageKey)
     const model = models.find((m) => m.id === localImage.modelId)
     const formattedDate = new Date(localImage.createdAt).toLocaleDateString()
     const resolutionLabel = localImage.resolution || "1K"
@@ -780,7 +807,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                     )}
                                     <img
                                         ref={imageRef}
-                                        src={imageUrl}
+                                        src={renderedImageUrl}
                                         alt={localImage.prompt || "Generated Image"}
                                         className={cn(
                                             "h-full w-full rounded-[var(--radius-xl)] object-contain shadow-2xl transition-all duration-500",
@@ -1043,7 +1070,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                             </span>
                             <img
                                 ref={imageRef}
-                                src={imageUrl}
+                                src={renderedImageUrl}
                                 alt={localImage.prompt || "Generated Image"}
                                 className={cn(
                                     "h-full w-full object-contain transition-all duration-500",

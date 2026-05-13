@@ -62,6 +62,10 @@ import {
     hasActiveGeneratedImageFilters
 } from "@/lib/generated-image-filters"
 import {
+    getNextGeneratedImageRecoveryPhase,
+    resolveGeneratedImageRenderSource
+} from "@/lib/generated-image-recovery"
+import {
     getExpandedImageUrl,
     getGeneratedImageCopyUrl,
     getGeneratedImageDirectUrl,
@@ -518,6 +522,9 @@ const GeneratedImageItem = memo(
         onRestore?: () => void
     }) => {
         const [isError, setIsError] = useState(false)
+        const [imageRecoveryPhase, setImageRecoveryPhase] = useState<"primary" | "fallback">(
+            "primary"
+        )
         const [blurVariantStatus, setBlurVariantStatus] = useState<
             "idle" | "loading" | "ready" | "error"
         >("idle")
@@ -584,10 +591,18 @@ const GeneratedImageItem = memo(
         }, [onImageSettled])
 
         const handleImageError = useCallback(() => {
-            setIsError(true)
-            setLoadState("ready")
-            onImageSettled?.()
-        }, [onImageSettled])
+            const nextPhase = getNextGeneratedImageRecoveryPhase(imageRecoveryPhase)
+
+            if (nextPhase === "error") {
+                setIsError(true)
+                setLoadState("ready")
+                onImageSettled?.()
+                return
+            }
+
+            setImageRecoveryPhase(nextPhase)
+            setLoadState("loading")
+        }, [imageRecoveryPhase, onImageSettled])
 
         useEffect(() => {
             return () => {
@@ -604,6 +619,9 @@ const GeneratedImageItem = memo(
             void image.storageKey
             clearBlurVariantRetryTimeout()
             blurVariantRequestIdRef.current += 1
+            setIsError(false)
+            setImageRecoveryPhase("primary")
+            setLoadState("loading")
             setBlurVariantStatus("idle")
             setBlurVariantRetryKey(0)
         }, [clearBlurVariantRetryTimeout, image.storageKey])
@@ -723,6 +741,17 @@ const GeneratedImageItem = memo(
         const sourceImageUrl = getGeneratedImageProxyUrl(image.storageKey)
         const copyImageUrl = getGeneratedImageCopyUrl(image.storageKey)
         const fullResolutionUrl = getGeneratedImageDirectUrl(image.storageKey) || sourceImageUrl
+        const renderedImageSource = resolveGeneratedImageRenderSource({
+            phase: imageRecoveryPhase,
+            primary: {
+                src: visibleImageSources.src,
+                srcSet: visibleImageSources.srcSet,
+                sizes: visibleImageSources.sizes
+            },
+            fallback: {
+                directSrc: fullResolutionUrl
+            }
+        })
 
         const handleDownload = () => {
             window.open(fullResolutionUrl, "_blank")
@@ -845,9 +874,9 @@ const GeneratedImageItem = memo(
                             )}
                         >
                             <img
-                                src={visibleImageSources.src}
-                                srcSet={visibleImageSources.srcSet}
-                                sizes={visibleImageSources.sizes}
+                                src={renderedImageSource.src}
+                                srcSet={renderedImageSource.srcSet}
+                                sizes={renderedImageSource.sizes}
                                 alt={image.prompt || "AI generation"}
                                 className={cn(
                                     "absolute inset-0 h-full w-full object-cover transition-[opacity,filter] duration-300 ease-out",
