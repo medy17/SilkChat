@@ -458,5 +458,9 @@ export const migrateUserImages = action({
                 searchText
             })
         }
+
+        await ctx.runMutation(internal.images.rebuildGeneratedImageFacetsInternal, {
+            userId: user.id
+        })
     }
 })

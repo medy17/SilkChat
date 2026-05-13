@@ -1,6 +1,7 @@
 import {
     filterAndSortGeneratedImages,
     getGeneratedImageFilterOptions,
+    getGeneratedImageFilterOptionsFromCounts,
     getGeneratedImageOrientation,
     hasActiveGeneratedImageFilters,
     matchesGeneratedImageFilters,
@@ -117,6 +118,22 @@ describe("generated-image-filters", () => {
                     aspectRatio: "27:37"
                 }
             ])
+        ).toEqual({
+            modelIds: ["flux-1", "gpt-image-1"],
+            resolutions: ["1K", "2K"],
+            aspectRatios: ["16:9", "1:1", "3:4"],
+            orientations: ["landscape", "portrait", "square"]
+        })
+    })
+
+    it("extracts distinct filter options from aggregate counts", () => {
+        expect(
+            getGeneratedImageFilterOptionsFromCounts({
+                modelIds: { "flux-1": 2, "gpt-image-1": 1, stale: 0 },
+                resolutions: { "2K": 1, "1K": 3 },
+                aspectRatios: { "16:9": 4, "1:1": 2, "3:4": 1, "2:3": 0 },
+                orientations: { landscape: 4, portrait: 1, square: 2 }
+            })
         ).toEqual({
             modelIds: ["flux-1", "gpt-image-1"],
             resolutions: ["1K", "2K"],

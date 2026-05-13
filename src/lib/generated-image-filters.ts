@@ -12,6 +12,13 @@ export type GeneratedImageFilters = {
     orientations?: GeneratedImageOrientation[]
 }
 
+export type GeneratedImageFilterOptionCounts = {
+    modelIds: Record<string, number>
+    resolutions: Record<string, number>
+    aspectRatios: Record<string, number>
+    orientations: Record<string, number>
+}
+
 type FilterableGeneratedImage = {
     modelId?: string
     resolution?: string
@@ -206,13 +213,30 @@ export const getGeneratedImageFilterOptions = (
         if (orientation) orientations.add(orientation)
     }
 
-    return {
-        modelIds: sortStrings(modelIds),
-        resolutions: sortStrings(resolutions),
-        aspectRatios: sortAspectRatios(aspectRatios),
-        orientations: ORIENTATION_ORDER.filter((orientation) => orientations.has(orientation))
-    }
+    return getGeneratedImageFilterOptionsFromCounts({
+        modelIds: Object.fromEntries([...modelIds].map((value) => [value, 1])),
+        resolutions: Object.fromEntries([...resolutions].map((value) => [value, 1])),
+        aspectRatios: Object.fromEntries([...aspectRatios].map((value) => [value, 1])),
+        orientations: Object.fromEntries([...orientations].map((value) => [value, 1]))
+    })
 }
+
+export const getGeneratedImageFilterOptionsFromCounts = (
+    counts: GeneratedImageFilterOptionCounts
+) => ({
+    modelIds: sortStrings(
+        Object.keys(counts.modelIds).filter((value) => (counts.modelIds[value] ?? 0) > 0)
+    ),
+    resolutions: sortStrings(
+        Object.keys(counts.resolutions).filter((value) => (counts.resolutions[value] ?? 0) > 0)
+    ),
+    aspectRatios: sortAspectRatios(
+        Object.keys(counts.aspectRatios).filter((value) => (counts.aspectRatios[value] ?? 0) > 0)
+    ),
+    orientations: ORIENTATION_ORDER.filter(
+        (orientation) => (counts.orientations[orientation] ?? 0) > 0
+    )
+})
 
 export const filterAndSortGeneratedImages = <T extends FilterableGeneratedImage>(
     images: T[],

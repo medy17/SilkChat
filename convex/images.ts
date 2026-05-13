@@ -1,9 +1,12 @@
 import {
+    type GeneratedImageFilterOptionCounts,
     type GeneratedImageFilters,
     filterAndSortGeneratedImages,
-    getGeneratedImageFilterOptions,
+    getGeneratedImageFilterOptionsFromCounts,
+    getGeneratedImageOrientation,
     hasActiveGeneratedImageFilters,
-    matchesGeneratedImageFilters
+    matchesGeneratedImageFilters,
+    normalizeGeneratedImageAspectRatio
 } from "@/lib/generated-image-filters"
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { paginationOptsValidator } from "convex/server"
@@ -60,6 +63,152 @@ const shouldUseLatestGeneratedImagesPath = ({
     filters?: GeneratedImageFilters
 }) => !effectiveQuery && normalizedSortBy === "newest" && !hasActiveGeneratedImageFilters(filters)
 
+const createEmptyFacetCounts = (): GeneratedImageFilterOptionCounts => ({
+    modelIds: {},
+    resolutions: {},
+    aspectRatios: {},
+    orientations: {}
+})
+
+const createEmptyFacetSnapshot = () => ({
+    active: createEmptyFacetCounts(),
+    archived: createEmptyFacetCounts()
+})
+
+const cloneFacetCounts = (
+    counts: GeneratedImageFilterOptionCounts
+): GeneratedImageFilterOptionCounts => ({
+    modelIds: { ...counts.modelIds },
+    resolutions: { ...counts.resolutions },
+    aspectRatios: { ...counts.aspectRatios },
+    orientations: { ...counts.orientations }
+})
+
+const cloneFacetSnapshot = (snapshot: ReturnType<typeof createEmptyFacetSnapshot>) => ({
+    active: cloneFacetCounts(snapshot.active),
+    archived: cloneFacetCounts(snapshot.archived)
+})
+
+const updateFacetCountRecord = (
+    record: Record<string, number>,
+    value: string | undefined,
+    delta: 1 | -1
+) => {
+    if (!value) return
+
+    const next = (record[value] ?? 0) + delta
+    if (next <= 0) {
+        delete record[value]
+        return
+    }
+
+    record[value] = next
+}
+
+const applyImageToFacetCounts = (
+    counts: GeneratedImageFilterOptionCounts,
+    image: {
+        modelId?: string
+        resolution?: string
+        aspectRatio?: string
+    },
+    delta: 1 | -1
+) => {
+    updateFacetCountRecord(counts.modelIds, image.modelId, delta)
+    updateFacetCountRecord(counts.resolutions, image.resolution, delta)
+    updateFacetCountRecord(
+        counts.aspectRatios,
+        normalizeGeneratedImageAspectRatio(image.aspectRatio),
+        delta
+    )
+    updateFacetCountRecord(
+        counts.orientations,
+        getGeneratedImageOrientation(image.aspectRatio),
+        delta
+    )
+}
+
+const getFacetSnapshotForImage = (
+    snapshot: ReturnType<typeof createEmptyFacetSnapshot>,
+    image: { isArchived?: boolean }
+) => (image.isArchived === true ? snapshot.archived : snapshot.active)
+
+const getGeneratedImageFacetsDoc = async (ctx: any, userId: string) =>
+    await ctx.db
+        .query("generatedImageFacets")
+        .withIndex("byUserId", (q: any) => q.eq("userId", userId))
+        .first()
+
+const patchGeneratedImageFacets = async (
+    ctx: any,
+    userId: string,
+    update: (snapshot: ReturnType<typeof createEmptyFacetSnapshot>) => void,
+    options?: {
+        rebuildIfMissing?: boolean
+    }
+) => {
+    const existing = await getGeneratedImageFacetsDoc(ctx, userId)
+    if (!existing && options?.rebuildIfMissing) {
+        await rebuildGeneratedImageFacets(ctx, userId)
+        return null
+    }
+
+    const snapshot = existing
+        ? cloneFacetSnapshot({
+              active: existing.active,
+              archived: existing.archived
+          })
+        : createEmptyFacetSnapshot()
+
+    update(snapshot)
+
+    const payload = {
+        userId,
+        active: snapshot.active,
+        archived: snapshot.archived,
+        updatedAt: Date.now()
+    }
+
+    if (existing) {
+        await ctx.db.patch(existing._id, payload)
+        return existing._id
+    }
+
+    return await ctx.db.insert("generatedImageFacets", payload)
+}
+
+const buildGeneratedImageFacetSnapshot = (
+    images: Array<{
+        modelId?: string
+        resolution?: string
+        aspectRatio?: string
+        isArchived?: boolean
+    }>
+) => {
+    const snapshot = createEmptyFacetSnapshot()
+    for (const image of images) {
+        applyImageToFacetCounts(getFacetSnapshotForImage(snapshot, image), image, 1)
+    }
+
+    return snapshot
+}
+
+const rebuildGeneratedImageFacets = async (ctx: any, userId: string) => {
+    const images = await ctx.db
+        .query("generatedImages")
+        .withIndex("byUserIdAndCreatedAt", (q: any) => q.eq("userId", userId))
+        .collect()
+
+    const snapshot = buildGeneratedImageFacetSnapshot(images)
+
+    await patchGeneratedImageFacets(ctx, userId, (next) => {
+        next.active = snapshot.active
+        next.archived = snapshot.archived
+    })
+
+    return snapshot
+}
+
 const paginateLatestVisibleGeneratedImages = async (
     ctx: any,
     {
@@ -112,11 +261,23 @@ export const insertGeneratedImage = internalMutation({
     },
     handler: async (ctx, args) => {
         const { createdAt, ...rest } = args
-        return await ctx.db.insert("generatedImages", {
+        const image = {
             ...rest,
             searchText: buildGeneratedImageSearchText(rest),
             createdAt: createdAt ?? Date.now()
-        })
+        }
+        const id = await ctx.db.insert("generatedImages", image)
+
+        await patchGeneratedImageFacets(
+            ctx,
+            args.userId,
+            (snapshot) => {
+                applyImageToFacetCounts(snapshot.active, image, 1)
+            },
+            { rebuildIfMissing: true }
+        )
+
+        return id
     }
 })
 
@@ -305,13 +466,20 @@ export const getGeneratedImageFacetOptions = query({
             }
         }
 
+        const facets = await getGeneratedImageFacetsDoc(ctx, user.id)
+        if (facets) {
+            return getGeneratedImageFilterOptionsFromCounts(
+                view === "archived" ? facets.archived : facets.active
+            )
+        }
+
         const images = await ctx.db
             .query("generatedImages")
             .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
             .collect()
-
-        return getGeneratedImageFilterOptions(
-            images.filter((image) => isImageVisibleInView(image, view))
+        const snapshot = buildGeneratedImageFacetSnapshot(images)
+        return getGeneratedImageFilterOptionsFromCounts(
+            view === "archived" ? snapshot.archived : snapshot.active
         )
     }
 })
@@ -325,10 +493,21 @@ export const archiveGeneratedImage = mutation({
         const image = await ctx.db.get(args.id)
         if (!image) throw new Error("Image not found")
         if (image.userId !== user.id) throw new Error("Unauthorized to archive this image")
+        if (image.isArchived === true) return
 
         await ctx.db.patch(args.id, {
             isArchived: true
         })
+
+        await patchGeneratedImageFacets(
+            ctx,
+            image.userId,
+            (snapshot) => {
+                applyImageToFacetCounts(snapshot.active, image, -1)
+                applyImageToFacetCounts(snapshot.archived, image, 1)
+            },
+            { rebuildIfMissing: true }
+        )
     }
 })
 
@@ -341,10 +520,21 @@ export const restoreGeneratedImage = mutation({
         const image = await ctx.db.get(args.id)
         if (!image) throw new Error("Image not found")
         if (image.userId !== user.id) throw new Error("Unauthorized to restore this image")
+        if (image.isArchived !== true) return
 
         await ctx.db.patch(args.id, {
             isArchived: false
         })
+
+        await patchGeneratedImageFacets(
+            ctx,
+            image.userId,
+            (snapshot) => {
+                applyImageToFacetCounts(snapshot.archived, image, -1)
+                applyImageToFacetCounts(snapshot.active, image, 1)
+            },
+            { rebuildIfMissing: true }
+        )
     }
 })
 
@@ -358,7 +548,28 @@ export const getGeneratedImageInternal = internalQuery({
 export const removeGeneratedImageInternal = internalMutation({
     args: { id: v.id("generatedImages") },
     handler: async (ctx, args) => {
+        const image = await ctx.db.get(args.id)
+        if (!image) return
+
         await ctx.db.delete(args.id)
+
+        await patchGeneratedImageFacets(
+            ctx,
+            image.userId,
+            (snapshot) => {
+                applyImageToFacetCounts(getFacetSnapshotForImage(snapshot, image), image, -1)
+            },
+            { rebuildIfMissing: true }
+        )
+    }
+})
+
+export const rebuildGeneratedImageFacetsInternal = internalMutation({
+    args: {
+        userId: v.string()
+    },
+    handler: async (ctx, args) => {
+        await rebuildGeneratedImageFacets(ctx, args.userId)
     }
 })
 
