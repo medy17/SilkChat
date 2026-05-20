@@ -11,10 +11,12 @@ import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
+import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { DefaultSettings } from "@/lib/default-user-settings"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
@@ -35,7 +37,7 @@ const getThreadActivityTime = (thread: { createdAt: number; updatedAt?: number }
     thread.updatedAt ?? thread.createdAt
 
 export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) {
-    const { selectedModel, setSelectedModel } = useModelStore()
+    const { selectedModel, setSelectedModel, reasoningEffort, setReasoningEffort } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId: undefined })
     const messagesRef = useRef<MessagesHandle>(null)
     const [isAtBottom, setIsAtBottom] = useState(true)
@@ -44,7 +46,18 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const { data: session, isPending } = useSession()
     const location = useLocation()
     const defaultModelId = useDefaultModelId()
-    const { availableModels } = useAvailableModels(undefined)
+    const userSettings = useDiskCachedQuery(
+        api.settings.getUserSettings,
+        {
+            key: "user-settings",
+            default: DefaultSettings(session?.user?.id ?? "CACHE"),
+            forceCache: true
+        },
+        session?.user?.id && !isPending ? {} : "skip"
+    )
+    const resolvedUserSettings =
+        "error" in userSettings ? DefaultSettings(session?.user?.id ?? "") : userSettings
+    const { availableModels } = useAvailableModels(resolvedUserSettings)
     const { models: sharedModels } = useSharedModels()
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
@@ -61,6 +74,17 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         sharedModels,
         availableModels,
         fallbackModelId: defaultModelId
+    })
+
+    useThreadComposerHydration({
+        threadId,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId,
+        selectedModel,
+        reasoningEffort,
+        setSelectedModel,
+        setReasoningEffort
     })
 
     const projects = useDiskCachedQuery(
@@ -83,7 +107,9 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
-        folderId,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId,
         chat
     })
 

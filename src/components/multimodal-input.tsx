@@ -49,7 +49,8 @@ import {
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
-    getRequiredPlanToPickModel
+    getRequiredPlanToPickModel,
+    isInstantReasoningEffortForModel
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { useSharedModels } from "@/lib/shared-models"
@@ -257,7 +258,7 @@ export const ReasoningEffortSelector = ({
         selectedSharedModel,
         setReasoningEffort
     ])
-    const isReasoningOff = reasoningEffort === "off"
+    const isReasoningOff = isInstantReasoningEffortForModel(selectedSharedModel, reasoningEffort)
     const selectedModelBaseUsesProCredits =
         selectedSharedModel !== undefined &&
         getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
@@ -267,7 +268,7 @@ export const ReasoningEffortSelector = ({
         !selectedModelBaseUsesProCredits &&
         getPrototypeCreditTierForModel(selectedSharedModel, reasoningEffort) === "pro"
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
-    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort)
+    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
 
     if (!modelSupportsReasoningControl) return null
 
@@ -300,7 +301,7 @@ export const ReasoningEffortSelector = ({
                 </SelectTrigger>
                 <SelectContent>
                     {allowedEfforts.map((effort) => {
-                        const EffortIcon = getReasoningEffortIcon(effort)
+                        const EffortIcon = getReasoningEffortIcon(effort, selectedSharedModel)
                         const isEffortLocked =
                             resolvedCreditPlan === "free" &&
                             selectedSharedModel !== undefined &&
@@ -462,7 +463,7 @@ function MobileOverflowMenu({
     const { enabledTools, reasoningEffort, setReasoningEffort } = useModelStore()
     const [reasoningExpanded, setReasoningExpanded] = useState(false)
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
-    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort)
+    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
     const selectedModelBaseUsesProCredits =
         selectedSharedModel !== undefined &&
         getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
@@ -536,7 +537,10 @@ function MobileOverflowMenu({
                             {reasoningExpanded && (
                                 <div className="space-y-1 px-2 pb-1">
                                     {allowedReasoningEfforts.map((effort) => {
-                                        const EffortIcon = getReasoningEffortIcon(effort)
+                                        const EffortIcon = getReasoningEffortIcon(
+                                            effort,
+                                            selectedSharedModel
+                                        )
                                         const effortLabel = getReasoningEffortLabelForModel(
                                             selectedSharedModel,
                                             effort

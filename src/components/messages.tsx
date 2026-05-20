@@ -1,5 +1,6 @@
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
+import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
@@ -542,7 +543,7 @@ type MessageRowProps = {
     isStreamingMessage: boolean
     isEditing: boolean
     hasActiveTarget: boolean
-    onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+    onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
     onEdit: (message: UIMessage) => void
     onSaveEdit: (
         newContent: string,
@@ -682,7 +683,7 @@ export const Messages = forwardRef<
     MessagesHandle,
     {
         messages: UIMessage[]
-        onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+        onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
         onEditAndRetry?: (
             messageId: string,
             newContent: string,

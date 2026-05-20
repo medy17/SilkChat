@@ -1,6 +1,7 @@
 "use node"
 
 import { ChatError } from "@/lib/errors"
+import type { ReasoningEffort } from "@/lib/model-store"
 import type { GatewayProvider } from "@ai-sdk/gateway"
 import { type OpenAIProvider, createOpenAI } from "@ai-sdk/openai"
 import type { ImageModelV3, LanguageModelV3 } from "@ai-sdk/provider"
@@ -52,7 +53,7 @@ export const getModel = async (
     modelId: string,
     options?: {
         internalOnly?: boolean
-        reasoningEffort?: "off" | "low" | "medium" | "high"
+        reasoningEffort?: ReasoningEffort
     }
 ) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })

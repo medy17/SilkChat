@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { SharedModel } from "@/convex/lib/models"
 import { renderHook } from "@testing-library/react"
 import type { FileUIPart, UIMessage } from "ai"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -34,8 +35,18 @@ vi.mock("@/lib/browser-env", () => ({
 
 import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatStore } from "@/lib/chat-store"
+import { useModelStore } from "@/lib/model-store"
 
 type TestMessage = UIMessage
+
+const createModel = (overrides: Partial<SharedModel>): SharedModel =>
+    ({
+        id: "test-model",
+        name: "Test Model",
+        adapters: ["openrouter:vendor/model"],
+        abilities: [],
+        ...overrides
+    }) as SharedModel
 
 const resetChatStore = () => {
     useChatStore.setState({
@@ -51,6 +62,10 @@ const resetChatStore = () => {
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false
+    })
+    useModelStore.setState({
+        selectedModel: "current-model",
+        reasoningEffort: "off"
     })
 }
 
@@ -77,6 +92,9 @@ describe("useChatActions", () => {
         const { result } = renderHook(() =>
             useChatActions({
                 threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
                 chat: {
                     status: "streaming",
                     sendMessage,
@@ -112,6 +130,9 @@ describe("useChatActions", () => {
         const { result } = renderHook(() =>
             useChatActions({
                 threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
                 chat: {
                     status: "idle",
                     sendMessage,
@@ -151,7 +172,15 @@ describe("useChatActions", () => {
         const regenerate = vi.fn()
         const messages: TestMessage[] = [
             { id: "m1", role: "user", parts: [] },
-            { id: "m2", role: "assistant", parts: [] },
+            {
+                id: "m2",
+                role: "assistant",
+                parts: [],
+                metadata: {
+                    modelId: "claude-opus-4.6",
+                    reasoningEffort: "high"
+                }
+            },
             { id: "m3", role: "user", parts: [] }
         ]
 
@@ -163,6 +192,9 @@ describe("useChatActions", () => {
         const { result } = renderHook(() =>
             useChatActions({
                 threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [{ id: "model-override" }],
+                fallbackModelId: undefined,
                 chat: {
                     status: "idle",
                     sendMessage: vi.fn(),
@@ -174,9 +206,11 @@ describe("useChatActions", () => {
             })
         )
 
-        result.current.handleRetry(messages[1], "model-override")
+        result.current.handleRetry(messages[0], {
+            modelIdOverride: "model-override"
+        })
 
-        expect(setMessages).toHaveBeenCalledWith(messages.slice(0, 2))
+        expect(setMessages).toHaveBeenCalledWith(messages.slice(0, 1))
         expect(setMessages.mock.invocationCallOrder[0]).toBeLessThan(
             regenerate.mock.invocationCallOrder[0]
         )
@@ -185,11 +219,120 @@ describe("useChatActions", () => {
         expect(useChatStore.getState().targetFromMessageId).toBeUndefined()
         expect(useChatStore.getState().targetMode).toBe("normal")
         expect(regenerate).toHaveBeenCalledWith({
-            messageId: "m2",
+            messageId: "m1",
             body: {
                 targetMode: "retry",
-                targetFromMessageId: "m2",
-                modelIdOverride: "model-override"
+                targetFromMessageId: "m1",
+                modelIdOverride: "model-override",
+                reasoningEffortOverride: "high"
+            }
+        })
+    })
+
+    it("retries with the persisted assistant config when retry same is used", () => {
+        const setMessages = vi.fn()
+        const regenerate = vi.fn()
+        const messages: TestMessage[] = [
+            { id: "u1", role: "user", parts: [] },
+            {
+                id: "a1",
+                role: "assistant",
+                parts: [],
+                metadata: {
+                    modelId: "claude-opus-4.6",
+                    reasoningEffort: "high"
+                }
+            }
+        ]
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [{ id: "claude-opus-4.6" }],
+                fallbackModelId: "fallback-model",
+                chat: {
+                    status: "idle",
+                    sendMessage: vi.fn(),
+                    stop: vi.fn(),
+                    messages,
+                    setMessages,
+                    regenerate
+                }
+            })
+        )
+
+        result.current.handleRetry(messages[0])
+
+        expect(useModelStore.getState().selectedModel).toBe("claude-opus-4.6")
+        expect(useModelStore.getState().reasoningEffort).toBe("high")
+        expect(regenerate).toHaveBeenCalledWith({
+            messageId: "u1",
+            body: {
+                targetMode: "retry",
+                targetFromMessageId: "u1",
+                modelIdOverride: "claude-opus-4.6",
+                reasoningEffortOverride: "high"
+            }
+        })
+    })
+
+    it("resolves sunset retry targets before regenerating", () => {
+        const setMessages = vi.fn()
+        const regenerate = vi.fn()
+        const messages: TestMessage[] = [
+            { id: "u1", role: "user", parts: [] },
+            {
+                id: "a1",
+                role: "assistant",
+                parts: [],
+                metadata: {
+                    modelId: "old-model",
+                    reasoningEffort: "off"
+                }
+            }
+        ]
+        const oldModel = createModel({
+            id: "old-model",
+            abilities: ["reasoning", "effort_control"],
+            sunsetOn: "2026-01-01",
+            replacementId: "new-model"
+        })
+        const newModel = createModel({
+            id: "new-model",
+            abilities: ["reasoning", "effort_control"],
+            reasoningEfforts: ["minimal", "low", "medium", "high"],
+            defaultReasoningEffort: "minimal"
+        })
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [oldModel, newModel],
+                availableModels: [{ id: "new-model" }],
+                fallbackModelId: "new-model",
+                chat: {
+                    status: "idle",
+                    sendMessage: vi.fn(),
+                    stop: vi.fn(),
+                    messages,
+                    setMessages,
+                    regenerate
+                }
+            })
+        )
+
+        result.current.handleRetry(messages[0])
+
+        expect(useModelStore.getState().selectedModel).toBe("new-model")
+        expect(useModelStore.getState().reasoningEffort).toBe("minimal")
+        expect(regenerate).toHaveBeenCalledWith({
+            messageId: "u1",
+            body: {
+                targetMode: "retry",
+                targetFromMessageId: "u1",
+                modelIdOverride: "new-model",
+                reasoningEffortOverride: "minimal"
             }
         })
     })
@@ -227,6 +370,9 @@ describe("useChatActions", () => {
         const { result } = renderHook(() =>
             useChatActions({
                 threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
                 chat: {
                     status: "idle",
                     sendMessage: vi.fn(),

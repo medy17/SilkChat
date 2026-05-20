@@ -42,7 +42,7 @@ import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
 import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
-import { useModelStore } from "@/lib/model-store"
+import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     type DisplayModel,
     getAbilityIcon,
@@ -149,10 +149,7 @@ export const getProviderIcon = (model: DisplayModel, isCustom: boolean) => {
     return <Badge className="text-xs">Built-in</Badge>
 }
 
-const getGrokModeIcon = (
-    model: SharedModel,
-    reasoningEffort: "off" | "low" | "medium" | "high"
-) => {
+const getGrokModeIcon = (model: SharedModel, reasoningEffort: ReasoningEffort) => {
     const isToggleOnlyReasoningModel =
         model.customIcon === "xai" &&
         model.abilities.includes("reasoning") &&
@@ -161,7 +158,7 @@ const getGrokModeIcon = (
 
     if (!isToggleOnlyReasoningModel) return null
 
-    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort)
+    const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, model)
     return <ReasoningIcon className="size-4" />
 }
 

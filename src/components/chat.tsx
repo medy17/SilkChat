@@ -8,9 +8,11 @@ import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
+import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { DefaultSettings } from "@/lib/default-user-settings"
 import {
     OPEN_MODEL_PICKER_SHORTCUT_EVENT,
     matchesOpenModelPickerShortcut
@@ -34,7 +36,7 @@ interface ChatProps {
 }
 
 const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }: ChatProps) => {
-    const { selectedModel, setSelectedModel } = useModelStore()
+    const { selectedModel, setSelectedModel, reasoningEffort, setReasoningEffort } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId })
     const messagesRef = useRef<MessagesHandle>(null)
     const [isAtBottom, setIsAtBottom] = useState(true)
@@ -42,7 +44,18 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
     const defaultModelId = useDefaultModelId()
-    const { availableModels } = useAvailableModels(undefined)
+    const userSettings = useDiskCachedQuery(
+        api.settings.getUserSettings,
+        {
+            key: "user-settings",
+            default: DefaultSettings(session?.user?.id ?? "CACHE"),
+            forceCache: true
+        },
+        session?.user?.id && !isPending ? {} : "skip"
+    )
+    const resolvedUserSettings =
+        "error" in userSettings ? DefaultSettings(session?.user?.id ?? "") : userSettings
+    const { availableModels } = useAvailableModels(resolvedUserSettings)
     const { models: sharedModels } = useSharedModels()
     const multimodalInputRef = useRef<MultimodalInputRef>(null)
 
@@ -60,6 +73,17 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         sharedModels,
         availableModels,
         fallbackModelId: defaultModelId
+    })
+
+    useThreadComposerHydration({
+        threadId,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId,
+        selectedModel,
+        reasoningEffort,
+        setSelectedModel,
+        setReasoningEffort
     })
 
     useEffect(() => {
@@ -101,7 +125,9 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
-        folderId,
+        sharedModels,
+        availableModels,
+        fallbackModelId: defaultModelId,
         chat
     })
 

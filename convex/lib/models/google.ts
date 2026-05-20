@@ -24,7 +24,26 @@ const FREE_UP_TO_LOW_REASONING_ACCESS = {
     }
 } satisfies Pick<SharedModel, "availableToPickFor" | "availableToPickForReasoningEfforts">
 
+const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const
+
 export const GOOGLE_MODELS: SharedModel[] = [
+    {
+        id: "gemini-3.5-flash",
+        name: "Gemini 3.5 Flash",
+        shortName: "3.5 Flash",
+        shortDescription:
+            "High-efficiency Gemini model tuned for fast multimodal reasoning and coding",
+        description:
+            "Gemini 3.5 Flash is Google's high-efficiency multimodal model, designed to deliver near-Pro level coding and reasoning while keeping Flash-tier speed and cost characteristics.",
+        developer: "Google",
+        releaseOrder: 20260519,
+        adapters: googleTextAdapters("gemini-3.5-flash"),
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
+        defaultReasoningEffort: "minimal",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        prototypeCreditTier: "basic"
+    },
     {
         id: "gemini-3-flash-preview",
         name: "Gemini 3 Flash",
@@ -40,7 +59,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20251217,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true,
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
         prototypeCreditTier: "basic"
     },
@@ -59,7 +78,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260303,
         adapters: googleTextAdapters("gemini-3.1-flash-lite-preview"),
         abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
-        supportsDisablingReasoning: true,
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
+        defaultReasoningEffort: "minimal",
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
         prototypeCreditTier: "basic"
     },

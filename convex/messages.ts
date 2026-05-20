@@ -28,6 +28,7 @@ export const patchMessage = internalMutation({
                 reasoningEffort: v.optional(
                     v.union(
                         v.literal("off"),
+                        v.literal("minimal"),
                         v.literal("low"),
                         v.literal("medium"),
                         v.literal("high")

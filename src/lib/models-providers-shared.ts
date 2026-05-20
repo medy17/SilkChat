@@ -16,6 +16,11 @@ import {
 } from "@/components/brand-icons"
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
+import {
+    getNearestReasoningEffort,
+    getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
+    getDefaultReasoningEffortForModel as getSharedDefaultReasoningEffortForModel
+} from "@/convex/lib/models/reasoning"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import type { ReasoningEffort } from "@/lib/model-store"
@@ -344,21 +349,7 @@ export const getRequiredPlanToPickModel = (
 
 export const getAllowedReasoningEffortsForModel = (
     model: SharedModel | null | undefined
-): ReasoningEffort[] => {
-    if (!model?.abilities.includes("reasoning")) return []
-
-    if (model.abilities.includes("effort_control")) {
-        return model.supportsDisablingReasoning
-            ? ["off", "low", "medium", "high"]
-            : ["low", "medium", "high"]
-    }
-
-    if (model.supportsDisablingReasoning) {
-        return ["off", "medium"]
-    }
-
-    return ["medium"]
-}
+): ReasoningEffort[] => getSharedAllowedReasoningEffortsForModel(model)
 
 export const getSelectableReasoningEffortsForPlan = (
     model: SharedModel | null | undefined,
@@ -378,31 +369,34 @@ export const getReasoningEffortForPlan = (
     reasoningEffort: ReasoningEffort,
     creditPlan: "free" | "pro" | null | undefined
 ): ReasoningEffort | null => {
+    const allowedEfforts = getAllowedReasoningEffortsForModel(model)
     const selectableEfforts = getSelectableReasoningEffortsForPlan(model, creditPlan)
 
     if (selectableEfforts.includes(reasoningEffort)) {
         return reasoningEffort
     }
 
-    const effortRank: Record<ReasoningEffort, number> = {
-        off: 0,
-        low: 1,
-        medium: 2,
-        high: 3
+    const requestedEffortIsInvalidForModel = !allowedEfforts.includes(reasoningEffort)
+    const defaultEffort = getSharedDefaultReasoningEffortForModel(model)
+    if (
+        requestedEffortIsInvalidForModel &&
+        defaultEffort &&
+        selectableEfforts.includes(defaultEffort)
+    ) {
+        return defaultEffort
     }
-    const requestedRank = effortRank[reasoningEffort]
-    const nearestLowerEffort = selectableEfforts
-        .filter((effort) => effortRank[effort] <= requestedRank)
-        .sort((left, right) => effortRank[right] - effortRank[left])[0]
 
-    return nearestLowerEffort ?? selectableEfforts[0] ?? null
+    return getNearestReasoningEffort(reasoningEffort, selectableEfforts)
 }
 
 export const getReasoningEffortLabelForModel = (
     model: SharedModel | null | undefined,
     effort: ReasoningEffort
 ) => {
-    if (effort === "off") {
+    if (
+        effort === "off" ||
+        (effort === "minimal" && !getAllowedReasoningEffortsForModel(model).includes("off"))
+    ) {
         return "Instant"
     }
 
@@ -422,10 +416,19 @@ export const getReasoningEffortLabelForModel = (
     return effort.charAt(0).toUpperCase() + effort.slice(1)
 }
 
-export const getReasoningEffortIcon = (effort: ReasoningEffort) => {
+export const isInstantReasoningEffortForModel = (
+    model: SharedModel | null | undefined,
+    effort: ReasoningEffort
+) =>
+    effort === "off" ||
+    (effort === "minimal" && !getAllowedReasoningEffortsForModel(model).includes("off"))
+
+export const getReasoningEffortIcon = (effort: ReasoningEffort, model?: SharedModel | null) => {
     switch (effort) {
         case "off":
             return Zap
+        case "minimal":
+            return isInstantReasoningEffortForModel(model, effort) ? Zap : ReasoningLowIcon
         case "low":
             return ReasoningLowIcon
         case "medium":

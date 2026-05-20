@@ -34,8 +34,13 @@ import {
     type ImageResolution,
     type ImageSize,
     MODELS_SHARED,
-    type ModelReasoningProfiles
+    type ModelReasoningProfiles,
+    type SharedModel
 } from "../lib/models"
+import {
+    getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
+    resolveReasoningEffortForModel
+} from "../lib/models/reasoning"
 import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
 import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import {
@@ -61,6 +66,7 @@ type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
 const DEFAULT_REASONING_PROFILES: ModelReasoningProfiles = {
     google: {
         off: { thinkingBudget: 0, includeThoughts: false },
+        minimal: { thinkingLevel: "minimal", includeThoughts: true },
         low: { thinkingBudget: 1000, includeThoughts: true },
         medium: { thinkingBudget: 6000, includeThoughts: true },
         high: { thinkingBudget: 12000, includeThoughts: true }
@@ -168,6 +174,10 @@ const resolveDisplayProvider = (
 }
 
 const isGoogleImagePreviewModel = (modelId: string) => GOOGLE_IMAGE_PREVIEW_MODEL_IDS.has(modelId)
+const isStandardReasoningEffort = (
+    effort: ReasoningEffort
+): effort is Exclude<ReasoningEffort, "off" | "minimal"> =>
+    effort === "low" || effort === "medium" || effort === "high"
 
 const buildGoogleProviderOptions = (
     modelId: string,
@@ -213,10 +223,19 @@ const buildGoogleProviderOptions = (
         const googleProfile =
             reasoningProfiles?.google?.[reasoningEffort] ??
             DEFAULT_REASONING_PROFILES.google?.[reasoningEffort]
+        const isGemini3Model = /^gemini-3(\.|-)/.test(modelId)
 
         if (googleProfile) {
             options.thinkingConfig = {
-                thinkingBudget: googleProfile.thinkingBudget,
+                ...(isGemini3Model
+                    ? {
+                          thinkingLevel:
+                              googleProfile.thinkingLevel ??
+                              (reasoningEffort === "off" ? undefined : reasoningEffort)
+                      }
+                    : googleProfile.thinkingBudget !== undefined
+                      ? { thinkingBudget: googleProfile.thinkingBudget }
+                      : {}),
                 ...(googleProfile.includeThoughts !== undefined
                     ? { includeThoughts: googleProfile.includeThoughts }
                     : {})
@@ -235,11 +254,10 @@ const buildOpenAIProviderOptions = (
 ): OpenAIResponsesProviderOptions => {
     const options: OpenAIResponsesProviderOptions = {}
 
-    const openaiProfile =
-        reasoningEffort !== "off"
-            ? (reasoningProfiles?.openai?.[reasoningEffort] ??
-              DEFAULT_REASONING_PROFILES.openai?.[reasoningEffort])
-            : undefined
+    const openaiProfile = isStandardReasoningEffort(reasoningEffort)
+        ? (reasoningProfiles?.openai?.[reasoningEffort] ??
+          DEFAULT_REASONING_PROFILES.openai?.[reasoningEffort])
+        : undefined
 
     if (
         supportsEffortControl &&
@@ -263,11 +281,10 @@ const buildAnthropicProviderOptions = (
 ): AnthropicProviderOptions => {
     const options: AnthropicProviderOptions = {}
 
-    const anthropicProfile =
-        reasoningEffort !== "off"
-            ? (reasoningProfiles?.anthropic?.[reasoningEffort] ??
-              DEFAULT_REASONING_PROFILES.anthropic?.[reasoningEffort])
-            : undefined
+    const anthropicProfile = isStandardReasoningEffort(reasoningEffort)
+        ? (reasoningProfiles?.anthropic?.[reasoningEffort] ??
+          DEFAULT_REASONING_PROFILES.anthropic?.[reasoningEffort])
+        : undefined
 
     if (
         anthropicProfile &&
@@ -366,13 +383,15 @@ const buildOpenRouterProviderOptions = (
 
 const resolveEffectiveReasoningEffort = (
     modelId: string,
+    selectedModel: SharedModel | null | undefined,
     requestedReasoningEffort?: ReasoningEffort,
-    supportsReasoningToggle = false,
-    supportsEffortControl = false,
-    supportsReasoning = false
+    supportsEffortControl = false
 ): ReasoningEffort => {
     const reasoningEffort = requestedReasoningEffort ?? "medium"
     const isForcedReasoningVariant = modelId.endsWith("-reasoning") || modelId.endsWith("-thinking")
+    const allowedReasoningEfforts = getSharedAllowedReasoningEffortsForModel(selectedModel)
+    const supportsReasoningToggle = allowedReasoningEfforts.includes("off")
+    const supportsReasoning = allowedReasoningEfforts.length > 0
     const isToggleOnlyReasoningModel = supportsReasoningToggle && !supportsEffortControl
     const isAlwaysOnReasoningModel = supportsReasoning && !supportsReasoningToggle
 
@@ -381,11 +400,10 @@ const resolveEffectiveReasoningEffort = (
     }
 
     if (isAlwaysOnReasoningModel) {
-        return supportsEffortControl
-            ? reasoningEffort === "off"
-                ? "low"
-                : reasoningEffort
-            : "medium"
+        return (
+            resolveReasoningEffortForModel(selectedModel, requestedReasoningEffort) ??
+            (supportsEffortControl ? "low" : "medium")
+        )
     }
 
     if (isToggleOnlyReasoningModel) {
@@ -580,10 +598,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
     const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
     const selectedRegistryModel = modelData.registry.models[body.model]
-    const supportsReasoningToggle =
-        selectedRegistryModel?.abilities?.includes("reasoning") === true &&
-        selectedRegistryModel?.supportsDisablingReasoning === true
-    const supportsReasoning = selectedRegistryModel?.abilities?.includes("reasoning") === true
+    const allowedReasoningEfforts = getSharedAllowedReasoningEffortsForModel(selectedRegistryModel)
+    const supportsReasoningToggle = allowedReasoningEfforts.includes("off")
+    const supportsReasoning = allowedReasoningEfforts.length > 0
     const supportsEffortControl =
         modelData.abilities.includes("effort_control") &&
         (!OPENROUTER_ONLY_REASONING_CONTROL_MODEL_IDS.has(body.model) ||
@@ -594,10 +611,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
             : 16096
     const effectiveReasoningEffort = resolveEffectiveReasoningEffort(
         body.model,
+        selectedRegistryModel,
         body.reasoningEffort,
-        supportsReasoningToggle,
-        supportsEffortControl,
-        supportsReasoning
+        supportsEffortControl
     )
     const reasoningProfiles = resolveReasoningProfiles(body.model)
     const requiredPlanForModel = resolveRequiredPlanForModelAccess({

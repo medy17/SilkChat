@@ -73,7 +73,13 @@ const MessageMetadata = v.object({
     displayProvider: v.optional(v.string()),
     runtimeProvider: v.optional(v.string()),
     reasoningEffort: v.optional(
-        v.union(v.literal("off"), v.literal("low"), v.literal("medium"), v.literal("high"))
+        v.union(
+            v.literal("off"),
+            v.literal("minimal"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high")
+        )
     ),
     promptTokens: v.optional(v.number()),
     completionTokens: v.optional(v.number()),

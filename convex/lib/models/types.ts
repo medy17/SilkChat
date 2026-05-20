@@ -41,10 +41,12 @@ export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
 export type ImageQuality = ("low" | "medium" | "high" | "auto") & {}
 
-export type ReasoningEffortTier = "off" | "low" | "medium" | "high"
+export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"
 export type PrototypeCreditTier = "basic" | "pro"
 export type PrototypeAccessPlan = "free" | "pro"
 type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
+type GoogleThinkingLevel = Exclude<ReasoningEffortTier, "off">
+type StandardReasoningEffortTier = Exclude<ReasoningEffortTier, "off" | "minimal">
 
 export type ArtificialAnalysisModelType = "llm" | "text-to-image" | "image-editing"
 
@@ -56,16 +58,27 @@ export type ArtificialAnalysisModelRef = {
 
 export type ModelReasoningProfiles = {
     google?: EffortTierMap<{
-        thinkingBudget: number
+        thinkingBudget?: number
+        thinkingLevel?: GoogleThinkingLevel
         includeThoughts?: boolean
     }>
-    openai?: EffortTierMap<{
-        reasoningEffort: Exclude<ReasoningEffortTier, "off">
-        reasoningSummary?: "auto" | "concise" | "detailed"
-    }>
-    anthropic?: EffortTierMap<{
-        budgetTokens: number
-    }>
+    openai?: Partial<
+        Record<
+            StandardReasoningEffortTier,
+            {
+                reasoningEffort: StandardReasoningEffortTier
+                reasoningSummary?: "auto" | "concise" | "detailed"
+            }
+        >
+    >
+    anthropic?: Partial<
+        Record<
+            StandardReasoningEffortTier,
+            {
+                budgetTokens: number
+            }
+        >
+    >
 }
 
 export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
@@ -92,6 +105,8 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     defaultImageQuality?: ImageQuality
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean
+    reasoningEfforts?: ReasoningEffortTier[]
+    defaultReasoningEffort?: ReasoningEffortTier
     reasoningProfiles?: ModelReasoningProfiles
     availableToPickFor?: PrototypeAccessPlan
     availableToPickForReasoningEfforts?: EffortTierMap<PrototypeAccessPlan>

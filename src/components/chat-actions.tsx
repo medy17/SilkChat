@@ -7,6 +7,7 @@ import {
     OpenRouterIcon,
     XAIIcon
 } from "@/components/brand-icons"
+import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import {
     type AssistantMessageMetadata,
     deriveMessageFooterStats,
@@ -137,7 +138,7 @@ export const ChatActions = memo(
     }: {
         role: UIMessage["role"]
         message: UIMessage
-        onRetry?: (message: UIMessage, modelIdOverride?: string) => void
+        onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
         onEdit?: (message: UIMessage) => void
     }) => {
         const [copied, setCopied] = useState(false)
@@ -315,7 +316,7 @@ export const ChatActions = memo(
                 )}
             >
                 {onRetry && (
-                    <RetryMenu onRetry={(modelIdOverride) => onRetry(message, modelIdOverride)} />
+                    <RetryMenu onRetry={(configOverride) => onRetry(message, configOverride)} />
                 )}
 
                 {onEdit && (

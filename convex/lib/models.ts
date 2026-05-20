@@ -53,6 +53,8 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.defaultImageQuality,
         model.customIcon,
         model.supportsDisablingReasoning,
+        model.reasoningEfforts,
+        model.defaultReasoningEffort,
         model.availableToPickFor,
         model.availableToPickForReasoningEfforts,
         model.prototypeCreditTier,

@@ -1,10 +1,10 @@
-import type { ImageResolution, ImageSize } from "@/convex/lib/models"
+import type { ImageResolution, ImageSize, ReasoningEffortTier } from "@/convex/lib/models"
 import { type AIConfig, loadAIConfig, saveAIConfig } from "@/lib/persistence"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-export type ReasoningEffort = "off" | "low" | "medium" | "high"
+export type ReasoningEffort = ReasoningEffortTier
 
 export type ModelStore = {
     selectedModel: string | null

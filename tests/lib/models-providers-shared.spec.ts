@@ -1,6 +1,10 @@
 import type { SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
+    getDefaultReasoningEffortForModel,
+    resolveReasoningEffortForModel
+} from "@/convex/lib/models/reasoning"
+import {
     getAllowedReasoningEffortsForModel,
     getDefaultModelId,
     getReasoningEffortForPlan,
@@ -137,6 +141,43 @@ describe("models-providers-shared OpenRouter visibility", () => {
         expect(getReasoningEffortLabelForModel(model, "high")).toBe("High")
     })
 
+    it("allows explicit minimal reasoning levels without requiring off", () => {
+        const model = createModel({
+            abilities: ["reasoning", "function_calling", "effort_control"],
+            reasoningEfforts: ["minimal", "low", "medium", "high"]
+        })
+
+        expect(getAllowedReasoningEffortsForModel(model)).toEqual([
+            "minimal",
+            "low",
+            "medium",
+            "high"
+        ])
+        expect(getReasoningEffortLabelForModel(model, "minimal")).toBe("Instant")
+    })
+
+    it("uses explicit model defaults when old off states become invalid", () => {
+        const model = createModel({
+            abilities: ["reasoning", "function_calling", "effort_control"],
+            reasoningEfforts: ["minimal", "low", "medium", "high"],
+            defaultReasoningEffort: "low"
+        })
+
+        expect(getDefaultReasoningEffortForModel(model)).toBe("low")
+        expect(resolveReasoningEffortForModel(model, "off")).toBe("low")
+        expect(getReasoningEffortForPlan(model, "off", "pro")).toBe("low")
+    })
+
+    it("falls back to minimal when a model removes off but has no explicit default override", () => {
+        const model = createModel({
+            abilities: ["reasoning", "function_calling", "effort_control"],
+            reasoningEfforts: ["minimal", "low", "medium", "high"]
+        })
+
+        expect(resolveReasoningEffortForModel(model, "off")).toBe("minimal")
+        expect(getReasoningEffortForPlan(model, "off", "pro")).toBe("minimal")
+    })
+
     it("resolves picker access from availability metadata instead of credit buckets", () => {
         const proGatedBasicModel = createModel({
             availableToPickFor: "pro",
@@ -198,6 +239,23 @@ describe("models-providers-shared OpenRouter visibility", () => {
         ])
         expect(getReasoningEffortForPlan(freeUpToLowReasoningModel, "high", "free")).toBe("low")
         expect(getReasoningEffortForPlan(freeWithoutReasoningModel, "medium", "free")).toBe("off")
+    })
+
+    it("keeps old threads selectable on minimal-supporting free models", () => {
+        const model = createModel({
+            abilities: ["reasoning", "effort_control"],
+            reasoningEfforts: ["minimal", "low", "medium", "high"],
+            defaultReasoningEffort: "low",
+            availableToPickFor: "free",
+            availableToPickForReasoningEfforts: {
+                medium: "pro",
+                high: "pro"
+            }
+        })
+
+        expect(getSelectableReasoningEffortsForPlan(model, "free")).toEqual(["minimal", "low"])
+        expect(getReasoningEffortForPlan(model, "off", "free")).toBe("low")
+        expect(getReasoningEffortForPlan(model, "high", "free")).toBe("low")
     })
 
     it("treats sunset dates as an inclusive hard cutoff", () => {

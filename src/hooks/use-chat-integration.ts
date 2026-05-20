@@ -187,6 +187,7 @@ export function useChatIntegration<IsShared extends boolean>({
         threadId?: string
         streamId?: string
         modelIdOverride?: string
+        reasoningEffortOverride?: ReasoningEffort
     }>
     type StreamRenderPhase = "idle" | "pre-first-paint" | "post-first-paint"
 
@@ -296,6 +297,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
                       const requestBody = body as Record<string, unknown> & {
                           modelIdOverride?: string
+                          reasoningEffortOverride?: ReasoningEffort
                       }
 
                       return {
@@ -316,7 +318,8 @@ export function useChatIntegration<IsShared extends boolean>({
                               imageSize: selectedImageSize,
                               imageResolution: selectedImageResolution,
                               folderId: currentContext.folderId,
-                              reasoningEffort,
+                              reasoningEffort:
+                                  requestBody.reasoningEffortOverride ?? reasoningEffort,
                               mcpOverrides,
                               personaSelection: currentContext.threadId
                                   ? undefined

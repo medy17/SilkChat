@@ -2,7 +2,7 @@ type AssistantMessageMetadata = {
     modelName?: string
     displayProvider?: string
     runtimeProvider?: string
-    reasoningEffort?: "off" | "low" | "medium" | "high"
+    reasoningEffort?: "off" | "minimal" | "low" | "medium" | "high"
     promptTokens?: number
     completionTokens?: number
     reasoningTokens?: number
@@ -127,6 +127,8 @@ export const formatFooterReasoningEffort = (
 ) => {
     switch (value) {
         case "off":
+            return "Instant"
+        case "minimal":
             return "Instant"
         case "low":
             return "Low"

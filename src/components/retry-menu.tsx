@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
+import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
@@ -105,7 +106,7 @@ const getProviderSectionLabel = (
 export function RetryMenu({
     onRetry
 }: {
-    onRetry: (modelIdOverride?: string) => void
+    onRetry: (configOverride?: AssistantConfigOverride) => void
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -122,8 +123,6 @@ export function RetryMenu({
     const [expandedProviders, setExpandedProviders] = React.useState<Record<string, boolean>>({})
 
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
-    const setSelectedModel = useModelStore((state) => state.setSelectedModel)
-    const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
 
     const { availableModels, currentProviders } = useAvailableModels(
@@ -332,11 +331,12 @@ export function RetryMenu({
                                             if (isModelLocked) {
                                                 return
                                             }
-                                            setSelectedModel(model.id)
-                                            if (effort) {
-                                                setReasoningEffort(effort)
-                                            }
-                                            onRetry(model.id)
+                                            onRetry({
+                                                modelIdOverride: model.id,
+                                                ...(effort
+                                                    ? { reasoningEffortOverride: effort }
+                                                    : {})
+                                            })
                                         }
 
                                         if (allowedEfforts.length > 0) {
@@ -440,7 +440,8 @@ export function RetryMenu({
                                                                         ) => {
                                                                             const EffortIcon =
                                                                                 getReasoningEffortIcon(
-                                                                                    effort
+                                                                                    effort,
+                                                                                    sharedModel
                                                                                 )
 
                                                                             return (

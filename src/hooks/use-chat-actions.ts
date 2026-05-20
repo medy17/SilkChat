@@ -1,6 +1,12 @@
 import { api } from "@/convex/_generated/api"
-import type { Id } from "@/convex/_generated/dataModel"
+import type { SharedModel } from "@/convex/lib/models"
+import {
+    type AssistantConfigOverride,
+    getRetryTargetAssistantConfig,
+    resolveAssistantConfigOverride
+} from "@/lib/assistant-config"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { useModelStore } from "@/lib/model-store"
 import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
@@ -33,10 +39,15 @@ interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
 
 export function useChatActions<TMessage extends UIMessage>({
     threadId,
+    sharedModels,
+    availableModels,
+    fallbackModelId,
     chat
 }: {
     threadId: string | undefined
-    folderId?: Id<"projects">
+    sharedModels: readonly SharedModel[]
+    availableModels: readonly { id: string }[]
+    fallbackModelId?: string | null
     chat: ChatActionHelpers<TMessage>
 }) {
     const {
@@ -48,6 +59,10 @@ export function useChatActions<TMessage extends UIMessage>({
         setTargetMode,
         setLastLocalMutationAt
     } = useChatStore()
+    const selectedModel = useModelStore((state) => state.selectedModel)
+    const reasoningEffort = useModelStore((state) => state.reasoningEffort)
+    const setSelectedModel = useModelStore((state) => state.setSelectedModel)
+    const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
 
@@ -119,11 +134,23 @@ export function useChatActions<TMessage extends UIMessage>({
     )
 
     const handleRetry = useCallback(
-        (message: UIMessage, modelIdOverride?: string) => {
+        (message: UIMessage, configOverride?: AssistantConfigOverride) => {
             const messageIndex = messages.findIndex((m) => m.id === message.id)
             if (messageIndex === -1) return
 
             const messagesUpToRetry = messages.slice(0, messageIndex + 1)
+            const persistedAssistantConfig = getRetryTargetAssistantConfig(messages, message.id)
+            const resolvedRetryConfig = resolveAssistantConfigOverride({
+                config: {
+                    modelId: configOverride?.modelIdOverride ?? persistedAssistantConfig?.modelId,
+                    reasoningEffort:
+                        configOverride?.reasoningEffortOverride ??
+                        persistedAssistantConfig?.reasoningEffort
+                },
+                sharedModels,
+                availableModels,
+                fallbackModelId
+            })
 
             primeImmediateMessageUpdates()
             flushSync(() => {
@@ -133,24 +160,40 @@ export function useChatActions<TMessage extends UIMessage>({
             flushSync(() => {
                 setMessages(messagesUpToRetry)
             })
+            if (
+                resolvedRetryConfig?.modelIdOverride &&
+                resolvedRetryConfig.modelIdOverride !== selectedModel
+            ) {
+                setSelectedModel(resolvedRetryConfig.modelIdOverride)
+            }
+            if (
+                resolvedRetryConfig?.reasoningEffortOverride &&
+                resolvedRetryConfig.reasoningEffortOverride !== reasoningEffort
+            ) {
+                setReasoningEffort(resolvedRetryConfig.reasoningEffortOverride)
+            }
             void regenerate({
                 messageId: message.id,
                 body: {
                     targetMode: "retry",
                     targetFromMessageId: message.id,
-                    ...(modelIdOverride ? { modelIdOverride } : {})
+                    ...resolvedRetryConfig
                 }
             })
         },
         [
+            availableModels,
+            fallbackModelId,
             messages,
+            reasoningEffort,
             setMessages,
+            setReasoningEffort,
+            setSelectedModel,
             setTargetFromMessageId,
             setTargetMode,
+            sharedModels,
+            selectedModel,
             regenerate,
-            setPendingStream,
-            setManuallyStoppedThread,
-            threadId,
             primeImmediateMessageUpdates
         ]
     )

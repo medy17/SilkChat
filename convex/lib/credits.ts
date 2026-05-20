@@ -8,7 +8,7 @@ export type PrototypeCreditProviderSource =
     | "custom"
     | "unknown"
 export type PrototypeCreditFeature = "chat" | "image" | "tool"
-export type PrototypeReasoningEffort = "off" | "low" | "medium" | "high"
+export type PrototypeReasoningEffort = "off" | "minimal" | "low" | "medium" | "high"
 export type PrototypeToolFundingSource = "byok" | "deployment" | "none"
 export type PrototypeReasoningAccessPlanMap = Partial<
     Record<PrototypeReasoningEffort, PrototypeAccessPlan>

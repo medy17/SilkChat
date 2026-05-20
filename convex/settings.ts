@@ -187,6 +187,8 @@ export const getUserRegistryInternal = internalQuery({
                 abilities: model.abilities,
                 mode: model.mode,
                 supportsDisablingReasoning: model.supportsDisablingReasoning,
+                reasoningEfforts: model.reasoningEfforts,
+                defaultReasoningEffort: model.defaultReasoningEffort,
                 maxPerMessage: model.maxPerMessage,
                 supportsReferenceImages: model.supportsReferenceImages,
                 openrouterImageModalities: model.openrouterImageModalities,
