@@ -1,4 +1,4 @@
-import { SettingsLayout } from "@/components/settings/settings-layout"
+import { PrototypeCreditsCard } from "@/components/credits/prototype-credits"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import {
     useSession,
     useUpdateUser
 } from "@/hooks/auth-hooks"
+import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { queryClient } from "@/providers"
@@ -59,6 +60,18 @@ export function AccountSettingsContent() {
     const router = useRouter()
     const [isEditingName, setIsEditingName] = useState(false)
     const [nameValue, setNameValue] = useState("")
+    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
+    const {
+        summary: prototypeCreditSummary,
+        isLoading: isCreditsLoading,
+        isRefreshing: isRefreshingCredits,
+        isUpdatingCreditPlan,
+        refreshCredits,
+        setCreditPlan
+    } = usePrototypeCredits({
+        userId: session?.user?.id,
+        isAuthLoading: sessionLoading
+    })
 
     // Initialize name value when session data loads
     const displayName = useMemo(() => {
@@ -124,7 +137,7 @@ export function AccountSettingsContent() {
             toast.error("Failed to sign out")
             console.error("Error signing out:", error)
         }
-    }, [])
+    }, [router])
 
     const handleRevokeOtherSessions = useCallback(async () => {
         try {
@@ -187,98 +200,108 @@ export function AccountSettingsContent() {
 
     return (
         <div className="space-y-6">
-            {/* Profile Information */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Profile Information</CardTitle>
-                    <CardDescription>Your personal account information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="flex items-center space-x-4">
-                        <Avatar className="h-20 w-20">
-                            <AvatarImage src={session?.user?.image || ""} />
-                            <AvatarFallback className="text-lg">
-                                {displayName ? displayName.charAt(0).toUpperCase() : "?"}
-                            </AvatarFallback>
-                        </Avatar>
-                    </div>
-
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="name"
-                                className="font-medium text-muted-foreground text-sm"
-                            >
-                                Name
-                            </Label>
-                            {isEditingName ? (
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <Input
-                                        id="name"
-                                        value={nameValue}
-                                        onChange={(e) => setNameValue(e.target.value)}
-                                        placeholder="Enter your name"
-                                        className="flex-1"
-                                    />
-                                    <div className="flex gap-2">
-                                        <Button
-                                            onClick={handleSaveName}
-                                            disabled={updateUser.isPending}
-                                            size="sm"
-                                            className="flex-1 sm:flex-none"
-                                        >
-                                            <Save className="h-4 w-4" />
-                                            {updateUser.isPending ? "Saving..." : "Save"}
-                                        </Button>
-                                        <Button
-                                            onClick={handleCancelEdit}
-                                            variant="outline"
-                                            size="sm"
-                                            className="flex-1 sm:flex-none"
-                                        >
-                                            <X className="h-4 w-4" />
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-between">
-                                    <div
-                                        className={cn(
-                                            "text-sm",
-                                            !displayName && "text-muted-foreground italic"
-                                        )}
-                                    >
-                                        {displayName || "No name"}
-                                    </div>
-                                    <Button onClick={handleEditName} variant="ghost" size="sm">
-                                        <Edit className="h-4 w-4" />
-                                        Edit
-                                    </Button>
-                                </div>
-                            )}
+            <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Profile Information</CardTitle>
+                        <CardDescription>Your personal account information</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="flex items-center space-x-4">
+                            <Avatar className="h-20 w-20">
+                                <AvatarImage src={session?.user?.image || ""} />
+                                <AvatarFallback className="text-lg">
+                                    {displayName ? displayName.charAt(0).toUpperCase() : "?"}
+                                </AvatarFallback>
+                            </Avatar>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="font-medium text-muted-foreground text-sm">
-                                Email
-                            </Label>
-                            <div className="text-sm">{session?.user?.email}</div>
-                        </div>
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="name"
+                                    className="font-medium text-muted-foreground text-sm"
+                                >
+                                    Name
+                                </Label>
+                                {isEditingName ? (
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                        <Input
+                                            id="name"
+                                            value={nameValue}
+                                            onChange={(e) => setNameValue(e.target.value)}
+                                            placeholder="Enter your name"
+                                            className="flex-1"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={handleSaveName}
+                                                disabled={updateUser.isPending}
+                                                size="sm"
+                                                className="flex-1 sm:flex-none"
+                                            >
+                                                <Save className="h-4 w-4" />
+                                                {updateUser.isPending ? "Saving..." : "Save"}
+                                            </Button>
+                                            <Button
+                                                onClick={handleCancelEdit}
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 sm:flex-none"
+                                            >
+                                                <X className="h-4 w-4" />
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between">
+                                        <div
+                                            className={cn(
+                                                "text-sm",
+                                                !displayName && "text-muted-foreground italic"
+                                            )}
+                                        >
+                                            {displayName || "No name"}
+                                        </div>
+                                        <Button onClick={handleEditName} variant="ghost" size="sm">
+                                            <Edit className="h-4 w-4" />
+                                            Edit
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
 
-                        <div className="space-y-2">
-                            <Label className="font-medium text-muted-foreground text-sm">
-                                User ID
-                            </Label>
-                            <div className="font-mono text-muted-foreground text-xs">
-                                {session?.user?.id}
+                            <div className="space-y-2">
+                                <Label className="font-medium text-muted-foreground text-sm">
+                                    Email
+                                </Label>
+                                <div className="text-sm">{session?.user?.email}</div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="font-medium text-muted-foreground text-sm">
+                                    User ID
+                                </Label>
+                                <div className="font-mono text-muted-foreground text-xs">
+                                    {session?.user?.id}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            {/* Session Management */}
+                <PrototypeCreditsCard
+                    summary={prototypeCreditSummary}
+                    isLoading={isCreditsLoading}
+                    isRefreshing={isRefreshingCredits}
+                    shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                    isUpdatingCreditPlan={isUpdatingCreditPlan}
+                    onSetCreditPlan={setCreditPlan}
+                    onRefresh={refreshCredits}
+                />
+            </div>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Active Sessions</CardTitle>
@@ -401,16 +424,5 @@ export function AccountSettingsContent() {
                 </CardContent>
             </Card>
         </div>
-    )
-}
-
-function AccountSettingsPage() {
-    return (
-        <SettingsLayout
-            title="Account"
-            description="Manage your profile, active sessions, and sign-in security."
-        >
-            <AccountSettingsContent />
-        </SettingsLayout>
     )
 }

@@ -1,8 +1,10 @@
+import { PrototypeCreditsQuickView } from "@/components/credits/prototype-credits"
 import { useDesktopLibraryChromeStore } from "@/components/library/desktop-library-chrome-store"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "@/hooks/auth-hooks"
+import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import {
     DEFAULT_LIBRARY_SEARCH,
     type LibraryView,
@@ -18,7 +20,7 @@ import { UserButton } from "./user-button"
 
 export function Header() {
     const { isMobile, openMobile } = useSidebar()
-    const { data: session } = useSession()
+    const { data: session, isPending: isSessionPending } = useSession()
     const location = useLocation()
     const navigate = useNavigate()
     const isDesktopLibraryChromeCollapsed = useDesktopLibraryChromeStore(
@@ -28,6 +30,18 @@ export function Header() {
     const togglePrivateViewingEnabled = usePrivateViewingStore(
         (state) => state.togglePrivateViewingEnabled
     )
+    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
+    const {
+        summary: prototypeCreditSummary,
+        isLoading: isCreditsLoading,
+        isRefreshing: isRefreshingCredits,
+        isUpdatingCreditPlan,
+        refreshCredits,
+        setCreditPlan
+    } = usePrototypeCredits({
+        userId: session?.user?.id,
+        isAuthLoading: isSessionPending
+    })
 
     const showTrigger = isMobile ? !openMobile : true
     const isLibraryRoute = location.pathname.startsWith("/library")
@@ -102,6 +116,17 @@ export function Header() {
                                 </Button>
                                 <div className="h-4 w-px bg-border" />
                             </>
+                        )}
+                        {session?.user?.id && (
+                            <PrototypeCreditsQuickView
+                                summary={prototypeCreditSummary}
+                                isLoading={isCreditsLoading}
+                                isRefreshing={isRefreshingCredits}
+                                shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                                isUpdatingCreditPlan={isUpdatingCreditPlan}
+                                onSetCreditPlan={setCreditPlan}
+                                onRefresh={refreshCredits}
+                            />
                         )}
                         {!isMobile && <SidebarShortcutsHelper />}
                         <ThemeSwitcher />

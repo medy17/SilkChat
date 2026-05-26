@@ -35,8 +35,6 @@ import { toast } from "sonner"
 import { ImageGenerationSidebar } from "./library/image-generation-sidebar"
 import { ImportThreadDialog } from "./threads/import-thread-button"
 import { BulkDeleteThreadsDialog, BulkMoveThreadsDialog } from "./threads/sidebar-bulk-dialogs"
-import { PrototypeCreditsLoadingGroup } from "./threads/sidebar-credits"
-import { SidebarCreditsContainer } from "./threads/sidebar-credits-container"
 import {
     SidebarDialogsContainer,
     type SidebarDialogsHandle
@@ -61,13 +59,12 @@ function ThreadItemSkeleton() {
     )
 }
 
-function LoadingSkeleton({ shouldShowCredits }: { shouldShowCredits: boolean }) {
+function LoadingSkeleton() {
     return (
         <div className="flex flex-col gap-2 py-2">
             <div className="px-2">
                 <Skeleton className="h-8 w-full" />
             </div>
-            {shouldShowCredits && <PrototypeCreditsLoadingGroup />}
             <div className="mt-4 flex flex-col gap-2 px-2">
                 <div className="mb-2 flex flex-col gap-2">
                     <Skeleton className="h-4 w-20" />
@@ -141,7 +138,7 @@ export function ThreadsSidebar() {
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
     const dialogsRef = useRef<SidebarDialogsHandle>(null)
-    const { data: session, isPending: isSessionPending } = authClient.useSession()
+    const { data: session } = authClient.useSession()
     const navigate = useNavigate()
     const location = useLocation()
     const isLibraryMode = location.pathname.startsWith("/library")
@@ -242,8 +239,6 @@ export function ThreadsSidebar() {
         threshold: 0.1
     })
 
-    const isAuthenticated = Boolean(session?.user?.id)
-    const shouldShowPrototypeCredits = isAuthenticated || isSessionPending
     const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
 
     const currentThreadForShortcut = useMemo(
@@ -730,7 +725,7 @@ export function ThreadsSidebar() {
 
     const renderContent = () => {
         if (isLoading) {
-            return <LoadingSkeleton shouldShowCredits={false} />
+            return <LoadingSkeleton />
         }
 
         if (hasError || hasProjectsError) {
@@ -833,12 +828,6 @@ export function ThreadsSidebar() {
                                 : "translate-x-0 opacity-100"
                         )}
                     >
-                        <SidebarCreditsContainer
-                            userId={session?.user?.id}
-                            isAuthLoading={auth.isLoading}
-                            shouldShowPrototypeCredits={shouldShowPrototypeCredits}
-                            shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                        />
                         {shouldShowDevCreditPlanToggle && (
                             <DevToolsGroup onShowOnboarding={handleShowOnboardingClick} />
                         )}
