@@ -6,7 +6,6 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PrototypeCreditSummary } from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
@@ -265,7 +264,6 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                 title="Credits"
                 className="w-full max-w-none overflow-hidden p-0 md:w-[22rem] md:p-4"
             >
-                <Separator className="hidden md:block" />
                 {isLoading ? (
                     <PrototypeCreditsLoadingState className="px-4 pt-5 pb-4 md:p-0" />
                 ) : (
