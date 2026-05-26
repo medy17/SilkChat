@@ -1,4 +1,4 @@
-import chatLogoUrl from "@/assets/silkchat.svg?url"
+import SilkchatLogo from "@/assets/silkchat.svg"
 import SilkscreenLogo from "@/assets/silkscreen.svg"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
@@ -42,16 +42,10 @@ export function Logo() {
 }
 
 export function LogoMark({ className }: { className?: string }) {
-    const { themeState } = useThemeStore()
-    const mode = themeState.currentMode
-
-    return (
-        <img
-            src={chatLogoUrl}
-            alt="Chat Logo"
-            className={cn(className, mode === "dark" && "invert")}
-        />
-    )
+    return React.createElement(SilkchatLogo as any, {
+        "aria-label": "Chat Logo",
+        className: cn(className, "text-foreground")
+    })
 }
 
 export function LibraryLogo({ className }: { className?: string }) {
