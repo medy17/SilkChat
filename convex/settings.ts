@@ -513,6 +513,7 @@ export const updateUserSettingsPartial = mutation({
         ),
         searchIncludeSourcesByDefault: v.optional(v.boolean()),
         titleGenerationModel: v.optional(v.string()),
+        invertSendNewlineBehavior: v.optional(v.boolean()),
         customization: v.optional(
             v.object({
                 name: v.optional(v.string()),
@@ -636,6 +637,9 @@ export const updateUserSettingsPartial = mutation({
         }
         if (args.titleGenerationModel !== undefined) {
             newSettings.titleGenerationModel = args.titleGenerationModel
+        }
+        if (args.invertSendNewlineBehavior !== undefined) {
+            newSettings.invertSendNewlineBehavior = args.invertSendNewlineBehavior
         }
         if (args.customization !== undefined) {
             newSettings.customization = {

@@ -75,6 +75,7 @@ export const NonSensitiveUserSettings = v.object({
     titleGenerationModel: v.string(),
     customThemes: v.optional(v.array(v.string())),
     mcpServers: v.optional(v.array(MCPServerConfig)),
+    invertSendNewlineBehavior: v.optional(v.boolean()),
     customization: v.optional(UserCustomization),
     onboardingCompleted: v.optional(v.boolean())
 })

@@ -4,7 +4,9 @@ import {
     SHORTCUTS,
     SHORTCUT_HELP_SECTIONS,
     getShortcutDisplayTokens,
+    getShortcutHelpSections,
     matchesDeleteCurrentThreadShortcut,
+    matchesInsertPromptNewlineShortcut,
     matchesNewChatShortcut,
     matchesOpenModelPickerShortcut,
     matchesSearchChatsShortcut,
@@ -86,8 +88,40 @@ describe("keyboard-shortcuts", () => {
         expect(
             matchesSubmitPromptShortcut({
                 key: "Enter",
-                shiftKey: false
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                metaKey: false,
+                isComposing: false
             } as KeyboardEvent)
+        ).toBe(true)
+
+        expect(
+            matchesSubmitPromptShortcut(
+                {
+                    key: "Enter",
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: true,
+                    metaKey: false,
+                    isComposing: false
+                } as KeyboardEvent,
+                true
+            )
+        ).toBe(true)
+
+        expect(
+            matchesInsertPromptNewlineShortcut(
+                {
+                    key: "Enter",
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    metaKey: false,
+                    isComposing: false
+                } as KeyboardEvent,
+                true
+            )
         ).toBe(true)
 
         expect(
@@ -109,5 +143,29 @@ describe("keyboard-shortcuts", () => {
             "Library"
         ])
         expect(SHORTCUT_HELP_SECTIONS[2].shortcuts).toContain(SHORTCUTS.previewSidebarSelection)
+    })
+
+    it("swaps composer shortcut labels when enter behavior is inverted", () => {
+        const composerSection = getShortcutHelpSections(true).find(
+            (section) => section.title === "Composer"
+        )
+
+        expect(
+            composerSection?.shortcuts.find((shortcut) => shortcut.id === "submit-prompt")
+        ).toMatchObject({
+            display: {
+                mac: ["⌘", "Enter"],
+                default: ["Ctrl", "Enter"]
+            }
+        })
+
+        expect(
+            composerSection?.shortcuts.find((shortcut) => shortcut.id === "insert-prompt-newline")
+        ).toMatchObject({
+            display: {
+                mac: ["Enter"],
+                default: ["Enter"]
+            }
+        })
     })
 })

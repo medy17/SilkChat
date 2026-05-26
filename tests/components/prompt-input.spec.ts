@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
-import { applyPromptTextareaSize } from "@/components/prompt-kit/prompt-input"
-import { describe, expect, it } from "vitest"
+import {
+    PromptInput,
+    PromptInputTextarea,
+    applyPromptTextareaSize
+} from "@/components/prompt-kit/prompt-input"
+import { fireEvent, render, screen } from "@testing-library/react"
+import React from "react"
+import { describe, expect, it, vi } from "vitest"
 
 const defineScrollHeight = (element: HTMLTextAreaElement, value: number) => {
     Object.defineProperty(element, "scrollHeight", {
@@ -43,5 +49,39 @@ describe("applyPromptTextareaSize", () => {
 
         expect(textarea.style.height).toBe("")
         expect(textarea.style.overflowY).toBe("")
+    })
+})
+
+describe("PromptInputTextarea submit behavior", () => {
+    it("submits on desktop enter by default", () => {
+        const onSubmit = vi.fn()
+
+        render(
+            React.createElement(PromptInput, { onSubmit }, React.createElement(PromptInputTextarea))
+        )
+
+        fireEvent.keyDown(screen.getByRole("textbox"), {
+            key: "Enter"
+        })
+
+        expect(onSubmit).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not submit on enter when keyboard submit is disabled", () => {
+        const onSubmit = vi.fn()
+
+        render(
+            React.createElement(
+                PromptInput,
+                { onSubmit, disableKeyboardSubmit: true },
+                React.createElement(PromptInputTextarea)
+            )
+        )
+
+        fireEvent.keyDown(screen.getByRole("textbox"), {
+            key: "Enter"
+        })
+
+        expect(onSubmit).not.toHaveBeenCalled()
     })
 })

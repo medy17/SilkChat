@@ -4,13 +4,18 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
+import { api } from "@/convex/_generated/api"
+import { useSession } from "@/hooks/auth-hooks"
+import { useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { DefaultSettings } from "@/lib/default-user-settings"
 import {
     SHORTCUTS,
-    SHORTCUT_HELP_SECTIONS,
     getShortcutDisplayLabel,
-    getShortcutDisplayTokens
+    getShortcutDisplayTokens,
+    getShortcutHelpSections
 } from "@/lib/keyboard-shortcuts"
 import { cn } from "@/lib/utils"
+import { useConvexAuth } from "@convex-dev/react-query"
 import { Keyboard } from "lucide-react"
 
 function ShortcutTokens({ tokens }: { tokens: readonly string[] }) {
@@ -34,6 +39,21 @@ function ShortcutTokens({ tokens }: { tokens: readonly string[] }) {
 }
 
 export function SidebarShortcutsHelper() {
+    const session = useSession()
+    const auth = useConvexAuth()
+    const userSettings = useDiskCachedQuery(
+        api.settings.getUserSettings,
+        {
+            key: "user-settings",
+            default: DefaultSettings(session.user?.id ?? "CACHE"),
+            forceCache: true
+        },
+        session.user?.id && !auth.isLoading ? {} : "skip"
+    )
+    const invertSendNewlineBehavior =
+        !("error" in userSettings) && userSettings.invertSendNewlineBehavior === true
+    const shortcutHelpSections = getShortcutHelpSections(invertSendNewlineBehavior)
+
     return (
         <ResponsivePopover modal={false}>
             <ResponsivePopoverTrigger asChild>
@@ -58,7 +78,7 @@ export function SidebarShortcutsHelper() {
                 className="w-[min(28rem,calc(100vw-2rem))] overflow-hidden p-0"
             >
                 <div className="max-h-[min(30rem,calc(100dvh-8rem))] overflow-y-auto">
-                    {SHORTCUT_HELP_SECTIONS.map((section) => (
+                    {shortcutHelpSections.map((section) => (
                         <section key={section.title} className="border-b p-4 last:border-b-0">
                             <div className="mb-3 text-muted-foreground text-xs uppercase tracking-[0.12em]">
                                 {section.title}

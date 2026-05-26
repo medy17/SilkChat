@@ -43,6 +43,8 @@ type PromptInputContextType = {
     maxHeight: number | string
     onSubmit?: () => void
     disabled?: boolean
+    disableKeyboardSubmit: boolean
+    invertSendNewlineBehavior: boolean
     textareaRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
@@ -51,6 +53,8 @@ const PromptInputContext = createContext<PromptInputContextType>({
     maxHeight: 240,
     onSubmit: undefined,
     disabled: false,
+    disableKeyboardSubmit: false,
+    invertSendNewlineBehavior: false,
     textareaRef: { current: null }
 })
 
@@ -74,12 +78,25 @@ type PromptInputProps = {
     isLoading?: boolean
     maxHeight?: number | string
     onSubmit?: () => void
+    disableKeyboardSubmit?: boolean
+    invertSendNewlineBehavior?: boolean
     children: React.ReactNode
     className?: string
 }
 
 const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
-    ({ className, isLoading = false, maxHeight = 240, onSubmit, children }, ref) => {
+    (
+        {
+            className,
+            isLoading = false,
+            maxHeight = 240,
+            onSubmit,
+            disableKeyboardSubmit = false,
+            invertSendNewlineBehavior = false,
+            children
+        },
+        ref
+    ) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null)
         const resizeFrameRef = useRef<number | null>(null)
         const resizeTextarea = useCallback(
@@ -157,6 +174,8 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                         isLoading,
                         maxHeight,
                         onSubmit,
+                        disableKeyboardSubmit,
+                        invertSendNewlineBehavior,
                         textareaRef
                     }}
                 >
@@ -187,7 +206,14 @@ function PromptInputTextarea({
     disableAutosize = false,
     ...props
 }: PromptInputTextareaProps) {
-    const { maxHeight, onSubmit, disabled, textareaRef } = usePromptInput()
+    const {
+        maxHeight,
+        onSubmit,
+        disabled,
+        disableKeyboardSubmit,
+        invertSendNewlineBehavior,
+        textareaRef
+    } = usePromptInput()
 
     const resizeTextarea = useCallback(
         (target: HTMLTextAreaElement) => {
@@ -198,13 +224,16 @@ function PromptInputTextarea({
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            if (matchesSubmitPromptShortcut(e)) {
+            if (
+                !disableKeyboardSubmit &&
+                matchesSubmitPromptShortcut(e, invertSendNewlineBehavior)
+            ) {
                 e.preventDefault()
                 onSubmit?.()
             }
             onKeyDown?.(e)
         },
-        [onSubmit, onKeyDown]
+        [disableKeyboardSubmit, invertSendNewlineBehavior, onSubmit, onKeyDown]
     )
 
     const handleInput = useCallback(

@@ -10,7 +10,7 @@ function BehaviorSettingsRoute() {
     return (
         <SettingsLayout
             title="Behavior"
-            description="Control the assistant's default tone, context, and how it addresses you."
+            description="Control composer behavior, assistant defaults, and saved context."
         >
             <BehaviorSettingsContent />
         </SettingsLayout>

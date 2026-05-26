@@ -23,6 +23,7 @@ import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
 import type { ImageResolution, ImageSize, SharedModel } from "@/convex/lib/models"
 import { useSession, useToken } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
@@ -713,6 +714,7 @@ export const MultimodalInput = forwardRef<
     const { token } = useToken()
     const session = useSession()
     const auth = useConvexAuth()
+    const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
     const creditPlan = usePrototypeCreditPlan()
 
@@ -825,6 +827,8 @@ export const MultimodalInput = forwardRef<
     const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
     const mcpServers = (userSettings.mcpServers || []).filter((server) => server.enabled !== false)
     const hasMcpServers = mcpServers.length > 0
+    const invertSendNewlineBehavior =
+        !("error" in userSettings) && userSettings.invertSendNewlineBehavior === true
 
     useEffect(() => {
         const unavailableTools = new Set<AbilityId>()
@@ -1555,6 +1559,8 @@ export const MultimodalInput = forwardRef<
                 <PromptInput
                     ref={promptInputRef}
                     onSubmit={handleSubmit}
+                    disableKeyboardSubmit={isMobile}
+                    invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={240}
                     className={cn("mx-auto w-full", getChatWidthClass(chatWidthState.chatWidth))}
                 >

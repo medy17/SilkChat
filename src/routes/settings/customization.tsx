@@ -1,10 +1,13 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Loader2, Save } from "lucide-react"
@@ -30,6 +33,7 @@ function LegacyCustomizationRedirect() {
 
 export function BehaviorSettingsContent() {
     const session = useSession()
+    const isMobile = useIsMobile()
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
         session.user?.id ? {} : "skip"
@@ -37,6 +41,7 @@ export function BehaviorSettingsContent() {
     const updateSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
 
     const [isSaving, setIsSaving] = useState(false)
+    const [isUpdatingComposerBehavior, setIsUpdatingComposerBehavior] = useState(false)
 
     const nameRef = useRef<HTMLInputElement>(null)
     const personalityRef = useRef<HTMLTextAreaElement>(null)
@@ -60,6 +65,27 @@ export function BehaviorSettingsContent() {
             toast.error("Failed to save customization settings")
         } finally {
             setIsSaving(false)
+        }
+    }
+
+    const handleComposerBehaviorToggle = async (checked: boolean) => {
+        if (!session.user?.id) return
+
+        setIsUpdatingComposerBehavior(true)
+        try {
+            await updateSettings({
+                invertSendNewlineBehavior: checked
+            })
+            toast.success(
+                checked
+                    ? "Enter now inserts new lines by default"
+                    : "Enter now sends messages by default"
+            )
+        } catch (error) {
+            console.error("Failed to update composer behavior:", error)
+            toast.error("Failed to update composer behavior")
+        } finally {
+            setIsUpdatingComposerBehavior(false)
         }
     }
 
@@ -134,6 +160,44 @@ export function BehaviorSettingsContent() {
                         </p>
                     </div>
 
+                    {!isMobile ? (
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="font-semibold text-foreground">Composer</h3>
+                                <p className="mt-1 text-muted-foreground text-sm">
+                                    Control how the main chat composer handles sending and line
+                                    breaks.
+                                </p>
+                            </div>
+
+                            <Card className="p-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-base">
+                                            Invert Send/New Line Behavior
+                                        </Label>
+                                        <div className="space-y-1 text-muted-foreground text-sm">
+                                            <p>
+                                                When enabled, use Enter for new lines and Cmd/Ctrl +
+                                                Enter to send messages.
+                                            </p>
+                                            <p>
+                                                When disabled, use Enter to send and Shift + Enter
+                                                for new lines.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Switch
+                                        checked={userSettings.invertSendNewlineBehavior === true}
+                                        onCheckedChange={handleComposerBehaviorToggle}
+                                        disabled={isUpdatingComposerBehavior}
+                                        aria-label="Invert send and new line behavior"
+                                    />
+                                </div>
+                            </Card>
+                        </div>
+                    ) : null}
+
                     <div className="flex justify-end pt-4">
                         <Button
                             onClick={handleSave}
@@ -163,7 +227,7 @@ function BehaviorSettingsPage() {
     return (
         <SettingsLayout
             title="Behavior"
-            description="Control the assistant's default tone, context, and how it addresses you."
+            description="Control composer behavior, assistant defaults, and saved context."
         >
             <BehaviorSettingsContent />
         </SettingsLayout>

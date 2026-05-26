@@ -8,6 +8,7 @@ export const DefaultSettings = (userId: string) => ({
     titleGenerationModel: "gemini-3.1-flash-lite-preview",
     customThemes: [],
     mcpServers: [],
+    invertSendNewlineBehavior: false,
     generalProviders: {
         supermemory: undefined,
         firecrawl: undefined,

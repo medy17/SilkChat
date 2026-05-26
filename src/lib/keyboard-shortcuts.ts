@@ -17,9 +17,38 @@ export type ShortcutDefinition = {
     display: ShortcutDisplay
 }
 
-type ShortcutKeyEvent = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">
+type ShortcutKeyEvent = Pick<
+    KeyboardEvent,
+    "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey"
+> & {
+    isComposing?: boolean
+}
 
 const defineShortcut = <T extends ShortcutDefinition>(shortcut: T) => shortcut
+
+const getSubmitPromptShortcutDisplay = (invertSendNewlineBehavior: boolean): ShortcutDisplay =>
+    invertSendNewlineBehavior
+        ? {
+              mac: ["⌘", "Enter"],
+              default: ["Ctrl", "Enter"]
+          }
+        : {
+              mac: ["Enter"],
+              default: ["Enter"]
+          }
+
+const getInsertPromptNewlineShortcutDisplay = (
+    invertSendNewlineBehavior: boolean
+): ShortcutDisplay =>
+    invertSendNewlineBehavior
+        ? {
+              mac: ["Enter"],
+              default: ["Enter"]
+          }
+        : {
+              mac: ["Shift", "Enter"],
+              default: ["Shift", "Enter"]
+          }
 
 export const isShortcutModifierPressed = (event: Pick<KeyboardEvent, "metaKey" | "ctrlKey">) =>
     event.metaKey || event.ctrlKey
@@ -93,20 +122,14 @@ export const SHORTCUTS = {
         title: "Send message",
         category: "Composer",
         context: "Composer",
-        display: {
-            mac: ["Enter"],
-            default: ["Enter"]
-        }
+        display: getSubmitPromptShortcutDisplay(false)
     }),
     insertPromptNewline: defineShortcut({
         id: "insert-prompt-newline",
         title: "New line",
         category: "Composer",
         context: "Composer",
-        display: {
-            mac: ["Shift", "Enter"],
-            default: ["Shift", "Enter"]
-        }
+        display: getInsertPromptNewlineShortcutDisplay(false)
     }),
     saveMessageEdit: defineShortcut({
         id: "save-message-edit",
@@ -171,30 +194,45 @@ export const SHORTCUTS = {
     })
 } as const
 
-export const SHORTCUT_HELP_SECTIONS = [
-    {
-        title: "Navigation",
-        shortcuts: [SHORTCUTS.toggleSidebar, SHORTCUTS.searchChats, SHORTCUTS.newChat]
-    },
-    {
-        title: "Composer",
-        shortcuts: [
-            SHORTCUTS.openModelPicker,
-            SHORTCUTS.submitPrompt,
-            SHORTCUTS.insertPromptNewline,
-            SHORTCUTS.saveMessageEdit,
-            SHORTCUTS.cancelMessageEdit
-        ]
-    },
-    {
-        title: "Sidebar",
-        shortcuts: [SHORTCUTS.previewSidebarSelection, SHORTCUTS.deleteCurrentThread]
-    },
-    {
-        title: "Library",
-        shortcuts: [SHORTCUTS.previousImage, SHORTCUTS.nextImage]
-    }
-] as const
+export const getSubmitPromptShortcut = (invertSendNewlineBehavior = false) =>
+    defineShortcut({
+        ...SHORTCUTS.submitPrompt,
+        display: getSubmitPromptShortcutDisplay(invertSendNewlineBehavior)
+    })
+
+export const getInsertPromptNewlineShortcut = (invertSendNewlineBehavior = false) =>
+    defineShortcut({
+        ...SHORTCUTS.insertPromptNewline,
+        display: getInsertPromptNewlineShortcutDisplay(invertSendNewlineBehavior)
+    })
+
+export const getShortcutHelpSections = (invertSendNewlineBehavior = false) =>
+    [
+        {
+            title: "Navigation",
+            shortcuts: [SHORTCUTS.toggleSidebar, SHORTCUTS.searchChats, SHORTCUTS.newChat]
+        },
+        {
+            title: "Composer",
+            shortcuts: [
+                SHORTCUTS.openModelPicker,
+                getSubmitPromptShortcut(invertSendNewlineBehavior),
+                getInsertPromptNewlineShortcut(invertSendNewlineBehavior),
+                SHORTCUTS.saveMessageEdit,
+                SHORTCUTS.cancelMessageEdit
+            ]
+        },
+        {
+            title: "Sidebar",
+            shortcuts: [SHORTCUTS.previewSidebarSelection, SHORTCUTS.deleteCurrentThread]
+        },
+        {
+            title: "Library",
+            shortcuts: [SHORTCUTS.previousImage, SHORTCUTS.nextImage]
+        }
+    ] as const
+
+export const SHORTCUT_HELP_SECTIONS = getShortcutHelpSections()
 
 export const getShortcutDisplayTokens = (
     shortcut: ShortcutDefinition,
@@ -246,8 +284,35 @@ export const matchesDeleteCurrentThreadShortcut = (event: ShortcutKeyEvent) =>
     isShortcutModifierPressed(event) &&
     event.shiftKey
 
-export const matchesSubmitPromptShortcut = (event: Pick<KeyboardEvent, "key" | "shiftKey">) =>
-    event.key === "Enter" && !event.shiftKey
+export const matchesSubmitPromptShortcut = (
+    event: ShortcutKeyEvent,
+    invertSendNewlineBehavior = false
+) => {
+    if (event.isComposing || event.key !== "Enter") {
+        return false
+    }
+
+    if (invertSendNewlineBehavior) {
+        return hasPrimaryModifier(event)
+    }
+
+    return !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
+}
+
+export const matchesInsertPromptNewlineShortcut = (
+    event: ShortcutKeyEvent,
+    invertSendNewlineBehavior = false
+) => {
+    if (event.isComposing || event.key !== "Enter") {
+        return false
+    }
+
+    if (invertSendNewlineBehavior) {
+        return !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
+    }
+
+    return event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
+}
 
 export const matchesSaveMessageEditShortcut = (event: ShortcutKeyEvent) =>
     event.key === "Enter" && hasPrimaryModifier(event)

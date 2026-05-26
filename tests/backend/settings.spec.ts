@@ -37,6 +37,7 @@ vi.mock("@/lib/default-user-settings", () => ({
         titleGenerationModel: "gemini-3.1-flash-lite-preview",
         customThemes: [],
         mcpServers: [],
+        invertSendNewlineBehavior: false,
         generalProviders: {
             supermemory: undefined,
             firecrawl: undefined,
@@ -96,7 +97,8 @@ import { ChatError } from "@/lib/errors"
 import {
     getSearchProviderAvailability,
     getUserRegistryInternal,
-    updateUserSettings
+    updateUserSettings,
+    updateUserSettingsPartial
 } from "../../convex/settings"
 
 const getUserRegistryInternalHandler = getUserRegistryInternal as unknown as {
@@ -106,6 +108,9 @@ const getSearchProviderAvailabilityHandler = getSearchProviderAvailability as un
     handler: (ctx: any, args: any) => Promise<any>
 }
 const updateUserSettingsHandler = updateUserSettings as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const updateUserSettingsPartialHandler = updateUserSettingsPartial as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
@@ -392,5 +397,41 @@ describe("settings", () => {
                 customProviders: {}
             })
         ).rejects.toBeInstanceOf(ChatError)
+    })
+
+    it("persists inverted composer enter behavior through partial settings updates", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            searchProvider: "firecrawl",
+            searchIncludeSourcesByDefault: false,
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            customThemes: [],
+            mcpServers: [],
+            invertSendNewlineBehavior: false,
+            generalProviders: {
+                supermemory: undefined,
+                firecrawl: undefined,
+                tavily: undefined,
+                brave: undefined,
+                serper: undefined
+            },
+            customization: undefined,
+            onboardingCompleted: false
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            invertSendNewlineBehavior: true
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                invertSendNewlineBehavior: true
+            })
+        )
     })
 })
