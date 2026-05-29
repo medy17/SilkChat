@@ -95,8 +95,12 @@ export const XAI_MODELS: SharedModel[] = [
             "openrouter:x-ai/grok-4.1-fast"
         ],
         abilities: ["reasoning", "function_calling"],
+        contextLength: 2_000_000,
         supportsDisablingReasoning: true,
-        customIcon: "xai"
+        customIcon: "xai",
+        legacy: true,
+        sunsetOn: "2026-05-15",
+        replacementId: "grok-4.3"
     },
     {
         id: "grok-4.20-0309",
