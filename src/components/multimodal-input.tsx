@@ -54,6 +54,7 @@ import {
     isInstantReasoningEffortForModel
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
+import { appendQuotedSelection } from "@/lib/quote-selection"
 import { useSharedModels } from "@/lib/shared-models"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { cn } from "@/lib/utils"
@@ -354,6 +355,7 @@ export const ReasoningEffortSelector = ({
 export interface MultimodalInputRef {
     handleFileUpload: (files: File[]) => Promise<void>
     setValue: (value: string) => void
+    insertQuote: (selection: string) => void
 }
 
 const mobileMenuRowClassName =
@@ -1250,6 +1252,19 @@ export const MultimodalInput = forwardRef<
                 promptInputRef.current?.setValue(value)
                 localStorage.setItem("user-input", value)
                 setInputValue(value)
+            },
+            insertQuote: (selection: string) => {
+                const currentValue = promptInputRef.current?.getValue() || ""
+                const nextValue = appendQuotedSelection(currentValue, selection)
+
+                if (nextValue === currentValue) {
+                    return
+                }
+
+                promptInputRef.current?.setValue(nextValue)
+                promptInputRef.current?.focus()
+                localStorage.setItem("user-input", nextValue)
+                setInputValue(nextValue)
             }
         }),
         [handleFileUpload]

@@ -16,6 +16,7 @@ import {
     getMessageRenderFingerprint
 } from "@/lib/message-render-fingerprint"
 import { useModelStore } from "@/lib/model-store"
+import { formatQuotedSelection } from "@/lib/quote-selection"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -27,6 +28,7 @@ import {
     FileType,
     FileType2,
     Image as ImageIcon,
+    Quote,
     RotateCcw,
     Trash2,
     X
@@ -528,11 +530,21 @@ const MESSAGE_MARKDOWN_CLASS =
     "prose relative max-w-none prose-pre:bg-transparent prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
 const REASONING_MARKDOWN_CLASS =
     "prose max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
+const QUOTE_TOOLTIP_SIZE_PX = 32
+const QUOTE_TOOLTIP_MARGIN_PX = 8
+const QUOTE_TOOLTIP_GAP_PX = 12
 
 type PreviewFile = {
     url: string
     filename?: string
     mediaType?: string
+}
+
+type QuoteSelectionState = {
+    selection: string
+    x: number
+    y: number
+    placement: "above" | "below"
 }
 
 type MessageRowProps = {
@@ -690,430 +702,572 @@ export const Messages = forwardRef<
             remainingFileParts?: FileUIPart[],
             deletedUrls?: string[]
         ) => void
+        onQuoteSelection?: (selection: string) => void
         status: ReturnType<typeof useChatIntegration>["status"]
         onBottomStateChange?: (isAtBottom: boolean) => void
         threadKey?: string
     }
->(({ messages, onRetry, onEditAndRetry, status, onBottomStateChange, threadKey }, ref) => {
-    const { setTargetFromMessageId, targetFromMessageId, setTargetMode, targetMode } =
-        useChatStore()
-    const { chatWidthState } = useChatWidthStore()
-    const scrollerRef = useRef<HTMLDivElement>(null)
-    const contentContainerRef = useRef<HTMLDivElement>(null)
-    const virtualizerRef = useRef<VirtualizerHandle>(null)
-    const isAtBottomRef = useRef(true)
-    const shouldStickToBottomRef = useRef(true)
-
-    const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
-    const [previewFile, setPreviewFile] = useState<{
-        url: string
-        filename?: string
-        mediaType?: string
-    } | null>(null)
-
-    const handleEdit = useCallback(
-        (message: UIMessage) => {
-            setTargetFromMessageId(message.id)
-            setTargetMode("edit")
+>(
+    (
+        {
+            messages,
+            onRetry,
+            onEditAndRetry,
+            onQuoteSelection,
+            status,
+            onBottomStateChange,
+            threadKey
         },
-        [setTargetFromMessageId, setTargetMode]
-    )
+        ref
+    ) => {
+        const { setTargetFromMessageId, targetFromMessageId, setTargetMode, targetMode } =
+            useChatStore()
+        const { chatWidthState } = useChatWidthStore()
+        const scrollerRef = useRef<HTMLDivElement>(null)
+        const contentContainerRef = useRef<HTMLDivElement>(null)
+        const virtualizerRef = useRef<VirtualizerHandle>(null)
+        const isAtBottomRef = useRef(true)
+        const shouldStickToBottomRef = useRef(true)
 
-    const handleSaveEdit = useCallback(
-        (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
-            if (targetFromMessageId && onEditAndRetry) {
-                onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
-            }
+        const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+        const [previewFile, setPreviewFile] = useState<{
+            url: string
+            filename?: string
+            mediaType?: string
+        } | null>(null)
+        const [quoteSelection, setQuoteSelection] = useState<QuoteSelectionState | null>(null)
+
+        const handleEdit = useCallback(
+            (message: UIMessage) => {
+                setTargetFromMessageId(message.id)
+                setTargetMode("edit")
+            },
+            [setTargetFromMessageId, setTargetMode]
+        )
+
+        const handleSaveEdit = useCallback(
+            (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
+                if (targetFromMessageId && onEditAndRetry) {
+                    onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
+                }
+                setTargetFromMessageId(undefined)
+                setTargetMode("normal")
+            },
+            [onEditAndRetry, setTargetFromMessageId, setTargetMode, targetFromMessageId]
+        )
+
+        const handleCancelEdit = useCallback(() => {
             setTargetFromMessageId(undefined)
             setTargetMode("normal")
-        },
-        [onEditAndRetry, setTargetFromMessageId, setTargetMode, targetFromMessageId]
-    )
+        }, [setTargetFromMessageId, setTargetMode])
 
-    const handleCancelEdit = useCallback(() => {
-        setTargetFromMessageId(undefined)
-        setTargetMode("normal")
-    }, [setTargetFromMessageId, setTargetMode])
+        const handleFilePreview = useCallback((part: PreviewFile) => {
+            setPreviewFile(part)
+            setPreviewDialogOpen(true)
+        }, [])
+        const renderFingerprints = useMessageRenderFingerprints(messages)
 
-    const handleFilePreview = useCallback((part: PreviewFile) => {
-        setPreviewFile(part)
-        setPreviewDialogOpen(true)
-    }, [])
-    const renderFingerprints = useMessageRenderFingerprints(messages)
+        const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
 
-    const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
+        const renderFilePreview = () => {
+            if (!previewFile) return null
 
-    const renderFilePreview = () => {
-        if (!previewFile) return null
+            const resolvedPreviewUrl = resolvePublicFileUrl(previewFile.url)
+            const { isImage, isText, isPdf } = getFileTypeInfo(fileName, previewFile.mediaType)
+            const isExternalPreviewUrl =
+                resolvedPreviewUrl.startsWith("http://") ||
+                resolvedPreviewUrl.startsWith("https://")
+            const shouldUseGenericExternalPreview =
+                !isImage && !isText && !isPdf && isExternalPreviewUrl
 
-        const resolvedPreviewUrl = resolvePublicFileUrl(previewFile.url)
-        const { isImage, isText, isPdf } = getFileTypeInfo(fileName, previewFile.mediaType)
-        const isExternalPreviewUrl =
-            resolvedPreviewUrl.startsWith("http://") || resolvedPreviewUrl.startsWith("https://")
-        const shouldUseGenericExternalPreview =
-            !isImage && !isText && !isPdf && isExternalPreviewUrl
+            return (
+                <div className="max-h-full overflow-auto">
+                    {isImage && (
+                        <img
+                            src={resolvedPreviewUrl}
+                            alt={fileName}
+                            className="h-auto w-full rounded object-contain"
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = "none"
+                                const errorDiv = target.nextElementSibling as HTMLElement
+                                if (errorDiv) errorDiv.style.display = "flex"
+                            }}
+                        />
+                    )}
 
-        return (
-            <div className="max-h-full overflow-auto">
-                {isImage && (
-                    <img
-                        src={resolvedPreviewUrl}
-                        alt={fileName}
-                        className="h-auto w-full rounded object-contain"
-                        onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = "none"
-                            const errorDiv = target.nextElementSibling as HTMLElement
-                            if (errorDiv) errorDiv.style.display = "flex"
-                        }}
-                    />
-                )}
-
-                {(isText || isPdf) && (
-                    <iframe
-                        src={resolvedPreviewUrl}
-                        className="h-[69dvh] w-full rounded border-0"
-                        title={fileName}
-                    />
-                )}
-
-                {shouldUseGenericExternalPreview && (
-                    <div className="space-y-3">
+                    {(isText || isPdf) && (
                         <iframe
                             src={resolvedPreviewUrl}
                             className="h-[69dvh] w-full rounded border-0"
                             title={fileName}
                         />
-                        <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-muted-foreground text-sm">
-                                Preview type could not be detected from this external URL. If the
-                                embed is blank, open the source directly.
-                            </p>
-                            <Button asChild variant="outline" size="sm">
-                                <a href={resolvedPreviewUrl} target="_blank" rel="noreferrer">
-                                    <ExternalLink className="mr-2 size-4" />
-                                    Open Original
-                                </a>
-                            </Button>
+                    )}
+
+                    {shouldUseGenericExternalPreview && (
+                        <div className="space-y-3">
+                            <iframe
+                                src={resolvedPreviewUrl}
+                                className="h-[69dvh] w-full rounded border-0"
+                                title={fileName}
+                            />
+                            <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-muted-foreground text-sm">
+                                    Preview type could not be detected from this external URL. If
+                                    the embed is blank, open the source directly.
+                                </p>
+                                <Button asChild variant="outline" size="sm">
+                                    <a href={resolvedPreviewUrl} target="_blank" rel="noreferrer">
+                                        <ExternalLink className="mr-2 size-4" />
+                                        Open Original
+                                    </a>
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {!isImage && !isText && !isPdf && !shouldUseGenericExternalPreview && (
-                    <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-                        <p className="font-medium">Preview unavailable</p>
-                        <p className="mt-1 text-muted-foreground">
-                            This file type could not be detected for inline preview.
-                        </p>
-                    </div>
-                )}
-            </div>
-        )
-    }
-
-    const lastMessage = messages[messages.length - 1]
-    const lastMessageFooterMetadataKey =
-        lastMessage?.role === "assistant" ? getMessageFooterMetadataKey(lastMessage) : undefined
-    const lastMessageReasoning = lastMessage ? getMessageReasoningDetails(lastMessage) : null
-    const hasActiveTarget = Boolean(targetFromMessageId)
-    const isStreamingWithoutContent =
-        status === "streaming" &&
-        lastMessage?.role === "assistant" &&
-        (!lastMessage.parts ||
-            lastMessage.parts.length === 0 ||
-            lastMessage.parts.every(
-                (part) =>
-                    (part.type === "text" && (!part.text || part.text.trim() === "")) ||
-                    (part.type === "reasoning" && !lastMessageReasoning)
-            ))
-
-    const showTypingLoader =
-        shouldShowTypingLoader({ messages, status }) || isStreamingWithoutContent
-
-    const updateBottomState = useCallback(
-        (nextIsAtBottom: boolean) => {
-            if (isAtBottomRef.current === nextIsAtBottom) {
-                return
-            }
-
-            isAtBottomRef.current = nextIsAtBottom
-            onBottomStateChange?.(nextIsAtBottom)
-        },
-        [onBottomStateChange]
-    )
-
-    const syncBottomStateFromOffset = useCallback(
-        (offset?: number) => {
-            const handle = virtualizerRef.current
-            if (!handle) {
-                return
-            }
-
-            const scrollOffset = offset ?? handle.scrollOffset
-            const distanceFromBottom = Math.max(
-                0,
-                handle.scrollSize - handle.viewportSize - scrollOffset
+                    {!isImage && !isText && !isPdf && !shouldUseGenericExternalPreview && (
+                        <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                            <p className="font-medium">Preview unavailable</p>
+                            <p className="mt-1 text-muted-foreground">
+                                This file type could not be detected for inline preview.
+                            </p>
+                        </div>
+                    )}
+                </div>
             )
-            const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
+        }
 
-            shouldStickToBottomRef.current = isAtBottom
-            updateBottomState(isAtBottom)
-        },
-        [updateBottomState]
-    )
+        const lastMessage = messages[messages.length - 1]
+        const lastMessageFooterMetadataKey =
+            lastMessage?.role === "assistant" ? getMessageFooterMetadataKey(lastMessage) : undefined
+        const lastMessageReasoning = lastMessage ? getMessageReasoningDetails(lastMessage) : null
+        const hasActiveTarget = Boolean(targetFromMessageId)
+        const isStreamingWithoutContent =
+            status === "streaming" &&
+            lastMessage?.role === "assistant" &&
+            (!lastMessage.parts ||
+                lastMessage.parts.length === 0 ||
+                lastMessage.parts.every(
+                    (part) =>
+                        (part.type === "text" && (!part.text || part.text.trim() === "")) ||
+                        (part.type === "reasoning" && !lastMessageReasoning)
+                ))
 
-    const scrollToBottom = useCallback(
-        (behavior: ScrollBehavior = "auto") => {
-            shouldStickToBottomRef.current = true
-            updateBottomState(true)
+        const showTypingLoader =
+            shouldShowTypingLoader({ messages, status }) || isStreamingWithoutContent
 
-            const scroller = scrollerRef.current
-            if (!scroller) {
-                return
-            }
-
-            scroller.scrollTo({
-                top: scroller.scrollHeight,
-                behavior
-            })
-        },
-        [updateBottomState]
-    )
-
-    useImperativeHandle(
-        ref,
-        () => ({
-            scrollToBottom
-        }),
-        [scrollToBottom]
-    )
-
-    const lastUserMessage = useMemo(
-        () => [...messages].reverse().find((message) => message.role === "user"),
-        [messages]
-    )
-    const messageRows = useMemo(
-        () =>
-            messages.map((message) => {
-                const isStreamingMessage = status === "streaming" && message.id === lastMessage?.id
-                const isEditing = targetFromMessageId === message.id && targetMode === "edit"
-                const shouldUseLiveFingerprint = isStreamingMessage || isEditing
-
-                return {
-                    message,
-                    renderFingerprint:
-                        renderFingerprints[message.id] ?? `${message.role}:${message.id}`,
-                    liveRenderFingerprint: shouldUseLiveFingerprint
-                        ? getMessageRenderFingerprint(message)
-                        : undefined,
-                    footerMetadataKey:
-                        message.role === "assistant"
-                            ? getMessageFooterMetadataKey(message)
-                            : undefined,
-                    isStreamingMessage,
-                    isEditing,
-                    hasActiveTarget
+        const updateBottomState = useCallback(
+            (nextIsAtBottom: boolean) => {
+                if (isAtBottomRef.current === nextIsAtBottom) {
+                    return
                 }
+
+                isAtBottomRef.current = nextIsAtBottom
+                onBottomStateChange?.(nextIsAtBottom)
+            },
+            [onBottomStateChange]
+        )
+
+        const syncBottomStateFromOffset = useCallback(
+            (offset?: number) => {
+                const handle = virtualizerRef.current
+                if (!handle) {
+                    return
+                }
+
+                const scrollOffset = offset ?? handle.scrollOffset
+                const distanceFromBottom = Math.max(
+                    0,
+                    handle.scrollSize - handle.viewportSize - scrollOffset
+                )
+                const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
+
+                shouldStickToBottomRef.current = isAtBottom
+                updateBottomState(isAtBottom)
+            },
+            [updateBottomState]
+        )
+
+        const scrollToBottom = useCallback(
+            (behavior: ScrollBehavior = "auto") => {
+                shouldStickToBottomRef.current = true
+                updateBottomState(true)
+
+                const scroller = scrollerRef.current
+                if (!scroller) {
+                    return
+                }
+
+                scroller.scrollTo({
+                    top: scroller.scrollHeight,
+                    behavior
+                })
+            },
+            [updateBottomState]
+        )
+
+        useImperativeHandle(
+            ref,
+            () => ({
+                scrollToBottom
             }),
-        [
-            hasActiveTarget,
-            lastMessage?.id,
-            messages,
-            renderFingerprints,
-            status,
-            targetFromMessageId,
-            targetMode
-        ]
-    )
+            [scrollToBottom]
+        )
 
-    const keepMountedIndexes = useMemo(() => {
-        const alwaysMountedIndexes = new Set<number>()
-        const tailStartIndex = Math.max(0, messages.length - MESSAGE_KEEP_MOUNTED_TAIL_COUNT)
+        const lastUserMessage = useMemo(
+            () => [...messages].reverse().find((message) => message.role === "user"),
+            [messages]
+        )
+        const messageRows = useMemo(
+            () =>
+                messages.map((message) => {
+                    const isStreamingMessage =
+                        status === "streaming" && message.id === lastMessage?.id
+                    const isEditing = targetFromMessageId === message.id && targetMode === "edit"
+                    const shouldUseLiveFingerprint = isStreamingMessage || isEditing
 
-        for (let index = tailStartIndex; index < messages.length; index += 1) {
-            alwaysMountedIndexes.add(index)
-        }
+                    return {
+                        message,
+                        renderFingerprint:
+                            renderFingerprints[message.id] ?? `${message.role}:${message.id}`,
+                        liveRenderFingerprint: shouldUseLiveFingerprint
+                            ? getMessageRenderFingerprint(message)
+                            : undefined,
+                        footerMetadataKey:
+                            message.role === "assistant"
+                                ? getMessageFooterMetadataKey(message)
+                                : undefined,
+                        isStreamingMessage,
+                        isEditing,
+                        hasActiveTarget
+                    }
+                }),
+            [
+                hasActiveTarget,
+                lastMessage?.id,
+                messages,
+                renderFingerprints,
+                status,
+                targetFromMessageId,
+                targetMode
+            ]
+        )
 
-        if (targetFromMessageId) {
-            const activeIndex = messages.findIndex((message) => message.id === targetFromMessageId)
-            if (activeIndex >= 0) {
-                alwaysMountedIndexes.add(activeIndex)
+        const keepMountedIndexes = useMemo(() => {
+            const alwaysMountedIndexes = new Set<number>()
+            const tailStartIndex = Math.max(0, messages.length - MESSAGE_KEEP_MOUNTED_TAIL_COUNT)
+
+            for (let index = tailStartIndex; index < messages.length; index += 1) {
+                alwaysMountedIndexes.add(index)
             }
-        }
 
-        return [...alwaysMountedIndexes].sort((a, b) => a - b)
-    }, [messages, targetFromMessageId])
+            if (targetFromMessageId) {
+                const activeIndex = messages.findIndex(
+                    (message) => message.id === targetFromMessageId
+                )
+                if (activeIndex >= 0) {
+                    alwaysMountedIndexes.add(activeIndex)
+                }
+            }
 
-    useLayoutEffect(() => {
-        void messages.length
-        void lastMessage?.id
-        void status
+            return [...alwaysMountedIndexes].sort((a, b) => a - b)
+        }, [messages, targetFromMessageId])
 
-        if (!shouldStickToBottomRef.current) {
-            return
-        }
+        useLayoutEffect(() => {
+            void messages.length
+            void lastMessage?.id
+            void status
 
-        scrollToBottom("auto")
-    }, [lastMessage?.id, messages.length, scrollToBottom, status])
-
-    useEffect(() => {
-        updateBottomState(true)
-    }, [updateBottomState])
-
-    useEffect(() => {
-        if (
-            lastMessage?.role !== "assistant" ||
-            !("metadata" in lastMessage) ||
-            !lastMessage.metadata ||
-            lastMessageFooterMetadataKey === undefined
-        ) {
-            return
-        }
-
-        useMessageFooterStore
-            .getState()
-            .setFooterMetadata(lastMessage.id, lastMessage.metadata as AssistantMessageMetadata)
-    }, [lastMessage?.id, lastMessage, lastMessageFooterMetadataKey])
-
-    useEffect(() => {
-        void threadKey
-
-        shouldStickToBottomRef.current = true
-        updateBottomState(true)
-
-        const frameId = requestAnimationFrame(() => {
-            scrollToBottom("auto")
-        })
-
-        return () => {
-            cancelAnimationFrame(frameId)
-        }
-    }, [scrollToBottom, threadKey, updateBottomState])
-
-    useEffect(() => {
-        const target = contentContainerRef.current
-        if (!target || typeof ResizeObserver === "undefined") {
-            return
-        }
-
-        let frameId: number | null = null
-        const observer = new ResizeObserver(() => {
             if (!shouldStickToBottomRef.current) {
                 return
             }
 
-            if (frameId !== null) {
-                cancelAnimationFrame(frameId)
+            scrollToBottom("auto")
+        }, [lastMessage?.id, messages.length, scrollToBottom, status])
+
+        useEffect(() => {
+            updateBottomState(true)
+        }, [updateBottomState])
+
+        useEffect(() => {
+            if (
+                lastMessage?.role !== "assistant" ||
+                !("metadata" in lastMessage) ||
+                !lastMessage.metadata ||
+                lastMessageFooterMetadataKey === undefined
+            ) {
+                return
             }
 
-            frameId = requestAnimationFrame(() => {
+            useMessageFooterStore
+                .getState()
+                .setFooterMetadata(lastMessage.id, lastMessage.metadata as AssistantMessageMetadata)
+        }, [lastMessage?.id, lastMessage, lastMessageFooterMetadataKey])
+
+        useEffect(() => {
+            void threadKey
+
+            shouldStickToBottomRef.current = true
+            updateBottomState(true)
+
+            const frameId = requestAnimationFrame(() => {
                 scrollToBottom("auto")
             })
-        })
 
-        observer.observe(target)
-
-        return () => {
-            if (frameId !== null) {
+            return () => {
                 cancelAnimationFrame(frameId)
             }
-            observer.disconnect()
-        }
-    }, [scrollToBottom])
+        }, [scrollToBottom, threadKey, updateBottomState])
 
-    return (
-        <>
-            <div
-                className="min-h-[90dvh] overflow-y-auto p-4 pt-0 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
-                ref={scrollerRef}
-            >
+        useEffect(() => {
+            const target = contentContainerRef.current
+            if (!target || typeof ResizeObserver === "undefined") {
+                return
+            }
+
+            let frameId: number | null = null
+            const observer = new ResizeObserver(() => {
+                if (!shouldStickToBottomRef.current) {
+                    return
+                }
+
+                if (frameId !== null) {
+                    cancelAnimationFrame(frameId)
+                }
+
+                frameId = requestAnimationFrame(() => {
+                    scrollToBottom("auto")
+                })
+            })
+
+            observer.observe(target)
+
+            return () => {
+                if (frameId !== null) {
+                    cancelAnimationFrame(frameId)
+                }
+                observer.disconnect()
+            }
+        }, [scrollToBottom])
+
+        useEffect(() => {
+            if (!onQuoteSelection) {
+                return
+            }
+
+            const scroller = scrollerRef.current
+
+            const isNodeWithinThread = (node: Node | null) => {
+                const container = contentContainerRef.current
+                if (!container || !node) {
+                    return false
+                }
+
+                return container.contains(
+                    node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode
+                )
+            }
+
+            const updateQuoteSelection = () => {
+                const selection = window.getSelection()
+
+                if (
+                    !selection ||
+                    selection.rangeCount === 0 ||
+                    selection.isCollapsed ||
+                    !isNodeWithinThread(selection.anchorNode) ||
+                    !isNodeWithinThread(selection.focusNode)
+                ) {
+                    setQuoteSelection(null)
+                    return
+                }
+
+                const selectionText = formatQuotedSelection(selection.toString())
+                if (!selectionText) {
+                    setQuoteSelection(null)
+                    return
+                }
+
+                const range = selection.getRangeAt(0)
+                const rect = range.getBoundingClientRect()
+                const fallbackRect = range.getClientRects()[0]
+                const targetRect = rect.width > 0 || rect.height > 0 ? rect : fallbackRect
+
+                if (!targetRect) {
+                    setQuoteSelection(null)
+                    return
+                }
+
+                const viewportWidth = window.innerWidth
+                const viewportHeight = window.innerHeight
+                const centeredX = targetRect.left + targetRect.width / 2
+                const clampedX = Math.min(
+                    Math.max(centeredX, QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_SIZE_PX / 2),
+                    viewportWidth - QUOTE_TOOLTIP_MARGIN_PX - QUOTE_TOOLTIP_SIZE_PX / 2
+                )
+                const hasRoomAbove =
+                    targetRect.top >=
+                    QUOTE_TOOLTIP_SIZE_PX + QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_GAP_PX
+                const hasRoomBelow =
+                    viewportHeight - targetRect.bottom >=
+                    QUOTE_TOOLTIP_SIZE_PX + QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_GAP_PX
+                const placement =
+                    hasRoomAbove || !hasRoomBelow ? ("above" as const) : ("below" as const)
+                const tooltipY =
+                    placement === "above"
+                        ? targetRect.top - QUOTE_TOOLTIP_GAP_PX
+                        : targetRect.bottom + QUOTE_TOOLTIP_GAP_PX
+
+                setQuoteSelection({
+                    selection: selection.toString(),
+                    x: clampedX,
+                    y: tooltipY,
+                    placement
+                })
+            }
+
+            const clearQuoteSelection = () => {
+                setQuoteSelection(null)
+            }
+
+            document.addEventListener("selectionchange", updateQuoteSelection)
+            window.addEventListener("resize", updateQuoteSelection)
+            scroller?.addEventListener("scroll", updateQuoteSelection, { passive: true })
+
+            return () => {
+                document.removeEventListener("selectionchange", updateQuoteSelection)
+                window.removeEventListener("resize", updateQuoteSelection)
+                scroller?.removeEventListener("scroll", updateQuoteSelection)
+                clearQuoteSelection()
+            }
+        }, [onQuoteSelection])
+
+        return (
+            <>
                 <div
-                    className={cn(
-                        "mx-auto w-full pb-16",
-                        getChatWidthClass(chatWidthState.chatWidth)
-                    )}
+                    className="min-h-[90dvh] overflow-y-auto p-4 pt-0 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
+                    ref={scrollerRef}
                 >
-                    <div ref={contentContainerRef}>
-                        <Virtualizer
-                            ref={virtualizerRef}
-                            scrollRef={scrollerRef}
-                            bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
-                            itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
-                            keepMounted={keepMountedIndexes}
-                            onScroll={syncBottomStateFromOffset}
-                        >
-                            {messageRows.map((row) => (
-                                <MessageRow
-                                    key={row.message.id}
-                                    message={row.message}
-                                    renderFingerprint={row.renderFingerprint}
-                                    liveRenderFingerprint={row.liveRenderFingerprint}
-                                    footerMetadataKey={row.footerMetadataKey}
-                                    isStreamingMessage={row.isStreamingMessage}
-                                    isEditing={row.isEditing}
-                                    hasActiveTarget={row.hasActiveTarget}
-                                    onRetry={onRetry}
-                                    onEdit={handleEdit}
-                                    onSaveEdit={handleSaveEdit}
-                                    onCancelEdit={handleCancelEdit}
-                                    onFilePreview={handleFilePreview}
-                                />
-                            ))}
-                        </Virtualizer>
-
-                        {status === "error" && (
-                            <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
-                                <div className="flex w-full items-center justify-between">
-                                    <p className="text-destructive-foreground">
-                                        Oops! Something went wrong.
-                                    </p>
-                                    {lastUserMessage && (
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => onRetry?.(lastUserMessage)}
-                                            className="text-destructive-foreground hover:text-destructive-foreground/80"
-                                        >
-                                            <RotateCcw />
-                                            Retry
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
+                    <div
+                        className={cn(
+                            "mx-auto w-full pb-16",
+                            getChatWidthClass(chatWidthState.chatWidth)
                         )}
+                    >
+                        <div ref={contentContainerRef}>
+                            <Virtualizer
+                                ref={virtualizerRef}
+                                scrollRef={scrollerRef}
+                                bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
+                                itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
+                                keepMounted={keepMountedIndexes}
+                                onScroll={syncBottomStateFromOffset}
+                            >
+                                {messageRows.map((row) => (
+                                    <MessageRow
+                                        key={row.message.id}
+                                        message={row.message}
+                                        renderFingerprint={row.renderFingerprint}
+                                        liveRenderFingerprint={row.liveRenderFingerprint}
+                                        footerMetadataKey={row.footerMetadataKey}
+                                        isStreamingMessage={row.isStreamingMessage}
+                                        isEditing={row.isEditing}
+                                        hasActiveTarget={row.hasActiveTarget}
+                                        onRetry={onRetry}
+                                        onEdit={handleEdit}
+                                        onSaveEdit={handleSaveEdit}
+                                        onCancelEdit={handleCancelEdit}
+                                        onFilePreview={handleFilePreview}
+                                    />
+                                ))}
+                            </Virtualizer>
 
-                        <div className="flex min-h-[3rem] items-center gap-2 py-4">
-                            {showTypingLoader && <Loader variant="typing" size="md" />}
+                            {status === "error" && (
+                                <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
+                                    <div className="flex w-full items-center justify-between">
+                                        <p className="text-destructive-foreground">
+                                            Oops! Something went wrong.
+                                        </p>
+                                        {lastUserMessage && (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => onRetry?.(lastUserMessage)}
+                                                className="text-destructive-foreground hover:text-destructive-foreground/80"
+                                            >
+                                                <RotateCcw />
+                                                Retry
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex min-h-[3rem] items-center gap-2 py-4">
+                                {showTypingLoader && <Loader variant="typing" size="md" />}
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <Dialog
-                open={previewDialogOpen}
-                onOpenChange={(open) => {
-                    setPreviewDialogOpen(open)
-                    if (!open) {
-                        setTimeout(() => setPreviewFile(null), 100)
-                    }
-                }}
-            >
-                <DialogContent className="md:!max-w-[min(90vw,60rem)] max-h-[90dvh]">
-                    {previewFile && (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                    {getFileIcon(previewFile)}
-                                    {fileName || "Unknown file"}
-                                </DialogTitle>
-                            </DialogHeader>
-                            {renderFilePreview()}
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </>
-    )
-})
+                {quoteSelection && onQuoteSelection && (
+                    <div
+                        className="pointer-events-none fixed z-[60]"
+                        style={{
+                            left: quoteSelection.x,
+                            top: quoteSelection.y,
+                            transform:
+                                quoteSelection.placement === "above"
+                                    ? "translate(-50%, -100%)"
+                                    : "translate(-50%, 0)"
+                        }}
+                    >
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            className="pointer-events-auto size-8 rounded-md border border-border/70 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-accent"
+                            aria-label="Quote selection"
+                            title="Quote selection"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                                onQuoteSelection(quoteSelection.selection)
+                                setQuoteSelection(null)
+                                window.getSelection()?.removeAllRanges()
+                            }}
+                        >
+                            <Quote className="size-4" />
+                        </Button>
+                    </div>
+                )}
+
+                <Dialog
+                    open={previewDialogOpen}
+                    onOpenChange={(open) => {
+                        setPreviewDialogOpen(open)
+                        if (!open) {
+                            setTimeout(() => setPreviewFile(null), 100)
+                        }
+                    }}
+                >
+                    <DialogContent className="md:!max-w-[min(90vw,60rem)] max-h-[90dvh]">
+                        {previewFile && (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                        {getFileIcon(previewFile)}
+                                        {fileName || "Unknown file"}
+                                    </DialogTitle>
+                                </DialogHeader>
+                                {renderFilePreview()}
+                            </>
+                        )}
+                    </DialogContent>
+                </Dialog>
+            </>
+        )
+    }
+)
 
 Messages.displayName = "Messages"

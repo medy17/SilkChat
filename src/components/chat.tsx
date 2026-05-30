@@ -142,6 +142,10 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         multimodalInputRef.current?.handleFileUpload(files)
     }, [])
 
+    const handleQuoteSelection = useCallback((selection: string) => {
+        multimodalInputRef.current?.insertQuote(selection)
+    }, [])
+
     const isEmpty = messages.length === 0 && !threadId
     const personaOptions = useDiskCachedQuery(
         api.personas.listPersonaPickerOptions,
@@ -215,6 +219,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 messages={deferredMessages}
                 onRetry={handleRetry}
                 onEditAndRetry={handleEditAndRetry}
+                onQuoteSelection={handleQuoteSelection}
                 status={status}
                 onBottomStateChange={setIsAtBottom}
                 threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
