@@ -95,7 +95,6 @@ export const auth = betterAuth({
               }
             : {},
     plugins: [
-        tanstackStartCookies(),
         jwt({
             jwt: {
                 audience: "intern3",
@@ -113,6 +112,7 @@ export const auth = betterAuth({
                     extractable: true
                 }
             }
-        })
+        }),
+        tanstackStartCookies()
     ]
 })

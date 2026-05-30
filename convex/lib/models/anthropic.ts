@@ -29,10 +29,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.6",
         name: "Claude Opus 4.6",
         shortName: "Opus 4.6",
-        shortDescription:
-            "Previous generation SOTA Claude model for difficult reasoning and analysis",
+        shortDescription: "Earlier high-end Claude model for difficult reasoning and analysis",
         description:
-            "Claude Opus 4.6 is Anthropic's previous generation premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
+            "Claude Opus 4.6 is an earlier premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
@@ -45,12 +44,30 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro"
     },
     {
+        id: "claude-opus-4.8",
+        name: "Claude Opus 4.8",
+        shortName: "Opus 4.8",
+        shortDescription: "Highest-end Claude model for complex reasoning and agentic work",
+        description:
+            "Claude Opus 4.8 is Anthropic's most capable generally available Claude model for complex reasoning, long-horizon agentic coding, and high-autonomy professional work. Use it when you want maximum Claude quality and are willing to spend more for it.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-opus-4-8"
+        },
+        releaseOrder: 20260528,
+        adapters: anthropicTextAdapters("claude-opus-4-8"),
+        abilities: ["reasoning", "vision", "function_calling", "pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
+    },
+    {
         id: "claude-opus-4.7",
         name: "Claude Opus 4.7",
         shortName: "Opus 4.7",
-        shortDescription: "Highest-end Claude model for difficult reasoning and analysis",
+        shortDescription: "Previous generation Claude model for difficult reasoning and analysis",
         description:
-            "Claude Opus 4.7 is Anthropic's premium reasoning model for harder research, deeper analysis, and more demanding professional tasks. Use it when you want maximum Claude quality and are willing to spend more for it.",
+            "Claude Opus 4.7 is Anthropic's previous generation premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
@@ -73,7 +90,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-11-24",
-        replacementId: "claude-opus-4.7"
+        replacementId: "claude-opus-4.8"
     },
     {
         id: "claude-haiku-4.5",
@@ -116,7 +133,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-08-05",
-        replacementId: "claude-opus-4.7"
+        replacementId: "claude-opus-4.8"
     },
     {
         id: "claude-opus-4",
@@ -129,7 +146,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-06-15",
-        replacementId: "claude-opus-4.7"
+        replacementId: "claude-opus-4.8"
     },
     {
         id: "claude-sonnet-4",
