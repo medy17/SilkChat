@@ -63,6 +63,13 @@ type ModelCardProps = {
     onDelete?: (modelId: string) => void
 }
 
+const CUSTOM_MODEL_ABILITIES = [
+    "vision",
+    "reasoning",
+    "function_calling",
+    "native_pdf"
+] as ModelAbility[]
+
 const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCardProps) => {
     // Determine the active provider following priority:
     // shared built-ins prefer OpenRouter BYOK > Built-in > legacy direct BYOK
@@ -588,13 +595,7 @@ export function ModelsSettingsContent() {
                                     <div className="space-y-2">
                                         <Label>Abilities</Label>
                                         <div className="flex gap-2">
-                                            {(
-                                                [
-                                                    "vision",
-                                                    "reasoning",
-                                                    "function_calling"
-                                                ] as ModelAbility[]
-                                            ).map((ability) => {
+                                            {CUSTOM_MODEL_ABILITIES.map((ability) => {
                                                 const Icon = getAbilityIcon(ability)
                                                 const isSelected =
                                                     customModelForm.abilities.includes(ability)
@@ -779,13 +780,7 @@ export function ModelsSettingsContent() {
                                     <div className="space-y-2">
                                         <Label>Abilities</Label>
                                         <div className="flex gap-2">
-                                            {(
-                                                [
-                                                    "vision",
-                                                    "reasoning",
-                                                    "function_calling"
-                                                ] as ModelAbility[]
-                                            ).map((ability) => {
+                                            {CUSTOM_MODEL_ABILITIES.map((ability) => {
                                                 const Icon = getAbilityIcon(ability)
                                                 const isSelected =
                                                     customModelForm.abilities.includes(ability)

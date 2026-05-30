@@ -38,6 +38,7 @@ import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { modelSupportsNativePdf } from "@/lib/attachment-support"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
@@ -877,6 +878,7 @@ const ModelCard = React.memo(function ModelCard({
     onClose,
     currentProviders,
     disabled,
+    disabledReason,
     badgeLabel,
     usesProCredits
 }: {
@@ -886,6 +888,7 @@ const ModelCard = React.memo(function ModelCard({
     onClose: () => void
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     disabled?: boolean
+    disabledReason?: string
     badgeLabel?: string
     usesProCredits?: boolean
 }) {
@@ -947,6 +950,11 @@ const ModelCard = React.memo(function ModelCard({
                                 <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
                                     {getModelShortDescription(model)}
                                 </p>
+                                {disabled && disabledReason && (
+                                    <p className="mt-2 text-muted-foreground text-xs">
+                                        {disabledReason}
+                                    </p>
+                                )}
                             </div>
                             <div className="hidden shrink-0 flex-col items-end gap-2 pr-10 sm:flex">
                                 {modelAbilities.length > 0 && (
@@ -1001,7 +1009,8 @@ export function ModelSelector({
     align = "start",
     shortcutTarget = "none",
     tone = "default",
-    modal = true
+    modal = true,
+    requiresNativePdf = false
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -1014,6 +1023,7 @@ export function ModelSelector({
     shortcutTarget?: "composer" | "none"
     tone?: "default" | "on-primary"
     modal?: boolean
+    requiresNativePdf?: boolean
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -1176,6 +1186,27 @@ export function ModelSelector({
         [creditPlan, reasoningEffort]
     )
 
+    const isModelDisabled = React.useCallback(
+        (model: DisplayModel) =>
+            isModelLocked(model) || (requiresNativePdf && !modelSupportsNativePdf(model)),
+        [isModelLocked, requiresNativePdf]
+    )
+
+    const getModelDisabledReason = React.useCallback(
+        (model: DisplayModel) => {
+            if (requiresNativePdf && !modelSupportsNativePdf(model)) {
+                return "This thread requires native PDF support."
+            }
+
+            if (isModelLocked(model)) {
+                return "Requires Pro plan."
+            }
+
+            return undefined
+        },
+        [isModelLocked, requiresNativePdf]
+    )
+
     const selectedSharedModel = React.useMemo(
         () => sharedModels.find((model) => model.id === selectedModel),
         [selectedModel, sharedModels]
@@ -1189,14 +1220,18 @@ export function ModelSelector({
     }, [creditPlan, reasoningEffort, selectedSharedModel])
 
     const fallbackModelId = React.useMemo(
-        () => availableModels.find((model) => !isModelLocked(model))?.id,
-        [availableModels, isModelLocked]
+        () => availableModels.find((model) => !isModelDisabled(model))?.id,
+        [availableModels, isModelDisabled]
     )
 
     React.useEffect(() => {
         if (!selectedModelData || !fallbackModelId) return
-        if (!isModelLocked(selectedModelData)) return
-        if (fallbackReasoningEffort && fallbackReasoningEffort !== reasoningEffort) {
+        if (!isModelDisabled(selectedModelData)) return
+        if (
+            isModelLocked(selectedModelData) &&
+            fallbackReasoningEffort &&
+            fallbackReasoningEffort !== reasoningEffort
+        ) {
             setReasoningEffort(fallbackReasoningEffort)
             return
         }
@@ -1206,6 +1241,7 @@ export function ModelSelector({
     }, [
         fallbackModelId,
         fallbackReasoningEffort,
+        isModelDisabled,
         isModelLocked,
         onModelChange,
         reasoningEffort,
@@ -1379,12 +1415,15 @@ export function ModelSelector({
                     onModelChange={onModelChange}
                     onClose={() => setOpen(false)}
                     currentProviders={currentProviders}
-                    disabled={isModelLocked(model)}
+                    disabled={isModelDisabled(model)}
+                    disabledReason={getModelDisabledReason(model)}
                     badgeLabel={
-                        creditPlan === "free" &&
-                        getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
-                            ? "Pro"
-                            : undefined
+                        requiresNativePdf && !modelSupportsNativePdf(model)
+                            ? "PDF"
+                            : creditPlan === "free" &&
+                                getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
+                              ? "Pro"
+                              : undefined
                     }
                     usesProCredits={
                         creditPlan === "pro" &&

@@ -90,7 +90,8 @@ vi.mock("../../convex/schema", () => ({
 }))
 
 vi.mock("../../convex/schema/settings", () => ({
-    NonSensitiveUserSettings: {}
+    NonSensitiveUserSettings: {},
+    StoredModelAbilitySchema: {}
 }))
 
 import { ChatError } from "@/lib/errors"
@@ -214,6 +215,40 @@ describe("settings", () => {
             name: "Custom Model",
             adapters: ["customprov:custom-model-id"],
             customProviderId: "customprov"
+        })
+    })
+
+    it("normalizes legacy custom-model pdf abilities to native_pdf in the registry", async () => {
+        const result = await getUserRegistryInternalHandler.handler(
+            createCtx({
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {
+                    customprov: {
+                        enabled: true,
+                        encryptedKey: "custom-key",
+                        endpoint: "https://custom.example.com/v1",
+                        name: "Custom Provider"
+                    }
+                },
+                customModels: {
+                    "custom-model": {
+                        enabled: true,
+                        providerId: "customprov",
+                        modelId: "custom-model-id",
+                        name: "Custom Model",
+                        abilities: ["pdf"],
+                        contextLength: 32000,
+                        maxTokens: 8000
+                    }
+                },
+                generalProviders: {}
+            }),
+            { userId: "user-1" }
+        )
+
+        expect(result.models["custom-model"]).toMatchObject({
+            abilities: ["native_pdf"]
         })
     })
 

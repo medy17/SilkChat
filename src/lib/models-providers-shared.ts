@@ -14,6 +14,7 @@ import {
     VercelIcon,
     XAIIcon
 } from "@/components/brand-icons"
+import { normalizeModelAbilities } from "@/convex/lib/model_abilities"
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
@@ -544,7 +545,9 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
         const modelData = {
             id,
             name: customModel.name || customModel.modelId,
-            abilities: customModel.abilities,
+            abilities: normalizeModelAbilities(
+                customModel.abilities as Parameters<typeof normalizeModelAbilities>[0]
+            ),
             isCustom: true as const,
             providerId: customModel.providerId
         }
@@ -559,31 +562,31 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
     return { availableModels, unavailableModels, currentProviders }
 }
 
-export const getAbilityIcon = (ability: ModelAbility) => {
-    switch (ability) {
+export const getAbilityIcon = (ability: ModelAbility | "pdf") => {
+    switch (ability === "pdf" ? "native_pdf" : ability) {
         case "vision":
             return Eye
         case "reasoning":
             return Brain
         case "function_calling":
             return Code
-        case "pdf":
+        case "native_pdf":
             return File
         default:
             return Key
     }
 }
 
-export const getAbilityLabel = (ability: ModelAbility) => {
-    switch (ability) {
+export const getAbilityLabel = (ability: ModelAbility | "pdf") => {
+    switch (ability === "pdf" ? "native_pdf" : ability) {
         case "function_calling":
             return "Function Calling"
         case "vision":
             return "Vision"
         case "reasoning":
             return "Reasoning"
-        case "pdf":
-            return "PDF"
+        case "native_pdf":
+            return "Native PDF"
         default:
             return ability
     }

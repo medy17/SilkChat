@@ -14,6 +14,7 @@ import { components } from "../_generated/api"
 import type { Message } from "../schema/message"
 import type { ModelAbility } from "../schema/settings"
 import { getFileTypeInfo } from "./file_constants"
+import { supportsNativePdf } from "./model_abilities"
 
 export type CoreMessage = ModelMessage & {
     messageId: string
@@ -101,33 +102,18 @@ export const dbMessagesToCore = async (
                             console.warn(`[cvx][chat] Error processing text file ${p.data}:`, error)
                             failedFileFetch("text", filename)
                         }
-                    } else if (fileTypeInfo.isPdf && modelAbilities.includes("pdf")) {
-                        try {
-                            const data = await fetch(fileUrl)
-
-                            if (data.ok) {
-                                const blob = await data.blob()
-                                mapped_content.push({
-                                    type: "file",
-                                    mediaType: "application/pdf",
-                                    filename: filename,
-                                    data: await blob.arrayBuffer()
-                                })
-                            } else {
-                                console.warn(
-                                    `[cvx][chat] Failed to fetch text file ${p.data}: ${data.status} ${data.statusText}`
-                                )
-                                failedFileFetch("pdf", filename)
-                            }
-                        } catch (error) {
-                            console.warn(`[cvx][chat] Error processing text file ${p.data}:`, error)
-                            failedFileFetch("pdf", filename)
-                        }
+                    } else if (fileTypeInfo.isPdf && supportsNativePdf(modelAbilities)) {
+                        mapped_content.push({
+                            type: "file",
+                            mediaType: "application/pdf",
+                            filename,
+                            data: fileUrl
+                        })
                     } else {
                         mapped_content.push({
                             type: "text",
                             text: fileTypeInfo.isPdf
-                                ? "<internal-system-error>PDF files are not supported by this model. Please try again with a different model.</internal-system-error>"
+                                ? "<internal-system-error>Native PDF input is not supported by this model. Please try again with a different model.</internal-system-error>"
                                 : `<internal-system-error>Unsupported file type: ${filename} (${p.mimeType})</internal-system-error>`
                         })
                     }

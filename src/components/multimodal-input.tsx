@@ -25,6 +25,10 @@ import type { ImageResolution, ImageSize, SharedModel } from "@/convex/lib/model
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
+import {
+    getAttachmentValidationError,
+    hasPdfAttachmentInUploadedFiles
+} from "@/lib/attachment-support"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
@@ -38,7 +42,6 @@ import {
     getFileAcceptAttribute,
     getFileTypeInfo,
     isImageMimeType,
-    isSupportedFile,
     isSvgExtension,
     isSvgMimeType,
     isTextMimeType
@@ -711,8 +714,12 @@ export const MultimodalInput = forwardRef<
         status: ReturnType<typeof useChat>["status"]
         threadId?: string
         isActive?: boolean
+        threadHasPdfAttachments?: boolean
     }
->(function MultimodalInput({ onSubmit, status, threadId, isActive = true }, ref) {
+>(function MultimodalInput(
+    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false },
+    ref
+) {
     const { token } = useToken()
     const session = useSession()
     const auth = useConvexAuth()
@@ -800,15 +807,17 @@ export const MultimodalInput = forwardRef<
     const [
         modelSupportsVision,
         modelSupportsFunctionCalling,
+        modelSupportsNativePdf,
         isImageModel,
         modelSupportsImageSizing,
         modelSupportsImageResolution
     ] = useMemo(() => {
-        if (!selectedModel) return [false, false, false, false, false]
+        if (!selectedModel) return [false, false, false, false, false, false]
         const model = sharedModels.find((m) => m.id === selectedModel)
         return [
             model?.abilities.includes("vision") ?? false,
             model?.abilities.includes("function_calling") ?? false,
+            model?.abilities.includes("native_pdf") ?? false,
             model?.mode === "image",
             (model?.supportedImageSizes?.length ?? 0) > 0,
             (model?.supportedImageResolutions?.length ?? 0) > 0
@@ -824,6 +833,11 @@ export const MultimodalInput = forwardRef<
     useEffect(() => {
         setExtendedFiles(uploadedFiles.map((file) => ({ ...file })))
     }, [uploadedFiles])
+
+    const requiresNativePdfForModelSelection = useMemo(
+        () => threadHasPdfAttachments || hasPdfAttachmentInUploadedFiles(uploadedFiles),
+        [threadHasPdfAttachments, uploadedFiles]
+    )
 
     const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
     const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
@@ -889,6 +903,27 @@ export const MultimodalInput = forwardRef<
 
         if (submitAction === "focus") {
             promptInputRef.current?.focus()
+            return
+        }
+
+        const attachmentValidationErrors = uploadedFiles
+            .map((file) =>
+                getAttachmentValidationError(
+                    {
+                        name: file.fileName,
+                        mimeType: file.fileType,
+                        size: file.fileSize
+                    },
+                    {
+                        supportsVision: modelSupportsVision,
+                        supportsNativePdf: modelSupportsNativePdf
+                    }
+                )
+            )
+            .filter((error): error is string => Boolean(error))
+
+        if (attachmentValidationErrors.length > 0) {
+            toast.error(`File validation failed:\n${attachmentValidationErrors.join("\n")}`)
             return
         }
 
@@ -1078,20 +1113,20 @@ export const MultimodalInput = forwardRef<
             const validFiles: File[] = []
 
             for (const file of filesToUpload) {
-                if (!isSupportedFile(file.name, file.type)) {
-                    syncErrors.push(`${file.name}: Unsupported file type`)
-                    continue
-                }
+                const validationError = getAttachmentValidationError(
+                    {
+                        name: file.name,
+                        mimeType: file.type,
+                        size: file.size
+                    },
+                    {
+                        supportsVision: modelSupportsVision,
+                        supportsNativePdf: modelSupportsNativePdf
+                    }
+                )
 
-                const fileTypeInfo = getFileTypeInfo(file.name, file.type)
-
-                if (fileTypeInfo.isVisionImage && !modelSupportsVision) {
-                    syncErrors.push(`${file.name}: Current model doesn't support image files`)
-                    continue
-                }
-
-                if (!fileTypeInfo.isVisionImage && file.size > MAX_FILE_SIZE) {
-                    syncErrors.push(`${file.name}: File size exceeds 5MB limit`)
+                if (validationError) {
+                    syncErrors.push(validationError)
                     continue
                 }
 
@@ -1240,6 +1275,7 @@ export const MultimodalInput = forwardRef<
             setUploading,
             readFileContent,
             modelSupportsVision,
+            modelSupportsNativePdf,
             compressImageIfNeeded
         ]
     )
@@ -1612,6 +1648,7 @@ export const MultimodalInput = forwardRef<
                                         selectedModel={selectedModel}
                                         onModelChange={setSelectedModel}
                                         shortcutTarget="composer"
+                                        requiresNativePdf={requiresNativePdfForModelSelection}
                                     />
                                 </motion.div>
                             )}

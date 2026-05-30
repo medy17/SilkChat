@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { getUrlMock } = vi.hoisted(() => ({
     getUrlMock: vi.fn()
@@ -19,6 +19,10 @@ vi.mock("../../convex/_generated/api", () => ({
 import { dbMessagesToCore } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals()
+    })
+
     beforeEach(() => {
         getUrlMock.mockReset().mockResolvedValue("https://files.example/image.png")
     })
@@ -59,5 +63,45 @@ describe("dbMessagesToCore", () => {
             }
         ])
         expect(getUrlMock).not.toHaveBeenCalled()
+    })
+
+    it("passes native pdf attachments through as file URLs", async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+        getUrlMock.mockResolvedValueOnce("https://files.example/doc.pdf")
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/report.pdf",
+                            filename: "report.pdf",
+                            mimeType: "application/pdf"
+                        }
+                    ]
+                }
+            ] as never,
+            ["native_pdf"] as never
+        )
+
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(result).toEqual([
+            {
+                role: "user",
+                messageId: "message-1",
+                content: [
+                    {
+                        type: "file",
+                        mediaType: "application/pdf",
+                        filename: "report.pdf",
+                        data: "https://files.example/doc.pdf"
+                    }
+                ]
+            }
+        ])
     })
 })

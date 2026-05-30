@@ -6,6 +6,7 @@ import { type QueryCtx, internalQuery, mutation, query } from "./_generated/serv
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
 import { isInternalProviderConfigured } from "./lib/internal_provider_config"
+import { normalizeModelAbilities } from "./lib/model_abilities"
 import {
     type CoreProvider,
     MODELS_SHARED,
@@ -17,7 +18,7 @@ import {
 import { getDeploymentSearchProviderApiKey, resolveToolAvailability } from "./lib/toolkit"
 import type { SearchProviderType } from "./lib/tools/adapters"
 import type { UserSettings } from "./schema"
-import { NonSensitiveUserSettings } from "./schema/settings"
+import { NonSensitiveUserSettings, StoredModelAbilitySchema } from "./schema/settings"
 
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
@@ -26,6 +27,27 @@ const CoreProviderUpdate = v.object({
 })
 
 const hasInternalOpenRouterConfig = () => Boolean(process.env.OPENROUTER_API_KEY?.trim())
+
+const normalizeSettingsCustomModels = <
+    TSettings extends {
+        customModels?: Record<string, { abilities: readonly string[] }>
+    }
+>(
+    settings: TSettings
+) => ({
+    ...settings,
+    customModels: Object.fromEntries(
+        Object.entries(settings.customModels ?? {}).map(([modelId, model]) => [
+            modelId,
+            {
+                ...model,
+                abilities: normalizeModelAbilities(
+                    model.abilities as Parameters<typeof normalizeModelAbilities>[0]
+                )
+            }
+        ])
+    )
+})
 
 const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey) => {
     if (!hasInternalOpenRouterConfig()) {
@@ -60,7 +82,7 @@ const getSettings = async (
     if (!settings) {
         return DefaultSettings(userId)
     }
-    return settings
+    return normalizeSettingsCustomModels(settings)
 }
 export const getUserSettingsInternal = internalQuery({
     args: {
@@ -207,7 +229,9 @@ export const getUserRegistryInternal = internalQuery({
                 id: model.modelId,
                 name: model.name ?? model.modelId,
                 adapters: [`${model.providerId}:${model.modelId}`],
-                abilities: model.abilities,
+                abilities: normalizeModelAbilities(
+                    model.abilities as Parameters<typeof normalizeModelAbilities>[0]
+                ),
                 contextLength: model.contextLength,
                 maxTokens: model.maxTokens,
                 customProviderId: model.providerId
@@ -309,7 +333,7 @@ export const updateUserSettings = mutation({
         const settings = await getSettings(ctx, args.userId)
 
         const newSettings: Infer<typeof UserSettings> = {
-            ...args.baseSettings,
+            ...normalizeSettingsCustomModels(args.baseSettings),
             coreAIProviders: {},
             customAIProviders: {},
             generalProviders: {
@@ -582,15 +606,7 @@ export const updateUserSettingsPartial = mutation({
                         providerId: v.string(),
                         contextLength: v.number(),
                         maxTokens: v.number(),
-                        abilities: v.array(
-                            v.union(
-                                v.literal("reasoning"),
-                                v.literal("vision"),
-                                v.literal("function_calling"),
-                                v.literal("pdf"),
-                                v.literal("effort_control")
-                            )
-                        )
+                        abilities: v.array(StoredModelAbilitySchema)
                     }),
                     v.null() // Delete model
                 )
@@ -739,7 +755,10 @@ export const updateUserSettingsPartial = mutation({
                     delete newSettings.customModels[modelId]
                 } else {
                     // Update model
-                    newSettings.customModels[modelId] = update
+                    newSettings.customModels[modelId] = {
+                        ...update,
+                        abilities: normalizeModelAbilities(update.abilities)
+                    }
                 }
             }
         }

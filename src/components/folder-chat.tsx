@@ -13,6 +13,7 @@ import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
+import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
@@ -26,7 +27,7 @@ import { Link, useLocation } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Clock, Pin } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useDeferredValue, useEffect, useRef, useState } from "react"
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
 interface FolderChatProps {
     folderId: Id<"projects">
@@ -104,6 +105,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     })
     const { status, messages } = chat
     const deferredMessages = useDeferredValue(messages)
+    const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
         threadId,
@@ -301,6 +303,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                     status={status}
                                     threadId={threadId}
                                     isActive={isActiveRoute}
+                                    threadHasPdfAttachments={threadHasPdfAttachments}
                                 />
                             </motion.div>
                         </div>
@@ -335,6 +338,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                             status={status}
                             threadId={threadId}
                             isActive={isActiveRoute}
+                            threadHasPdfAttachments={threadHasPdfAttachments}
                         />
                     </motion.div>
                 )}

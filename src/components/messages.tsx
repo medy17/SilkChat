@@ -1,6 +1,7 @@
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
+import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
@@ -283,7 +284,8 @@ const EditableMessage = memo(
     ({
         message,
         onSave,
-        onCancel
+        onCancel,
+        requiresNativePdfForModelSelection = false
     }: {
         message: UIMessage
         onSave: (
@@ -292,6 +294,7 @@ const EditableMessage = memo(
             deletedUrls?: string[]
         ) => void
         onCancel: () => void
+        requiresNativePdfForModelSelection?: boolean
     }) => {
         const location = useLocation()
         const threadId = location.pathname.includes("/thread/")
@@ -456,6 +459,7 @@ const EditableMessage = memo(
                                 side="top"
                                 tone="on-primary"
                                 className="border-none bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                                requiresNativePdf={requiresNativePdfForModelSelection}
                             />
                         )}
 
@@ -564,6 +568,7 @@ type MessageRowProps = {
     ) => void
     onCancelEdit: () => void
     onFilePreview: (part: PreviewFile) => void
+    requiresNativePdfForModelSelection: boolean
 }
 
 const MessageRowComponent = ({
@@ -575,7 +580,8 @@ const MessageRowComponent = ({
     onEdit,
     onSaveEdit,
     onCancelEdit,
-    onFilePreview
+    onFilePreview,
+    requiresNativePdfForModelSelection
 }: MessageRowProps) => {
     const reasoning = getMessageReasoningDetails(message)
     const inlineParts = message.parts.filter(
@@ -600,6 +606,7 @@ const MessageRowComponent = ({
                         message={message}
                         onSave={onSaveEdit}
                         onCancel={onCancelEdit}
+                        requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
                     />
                 ) : (
                     <>
@@ -682,7 +689,9 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.onEdit === nextProps.onEdit &&
     previousProps.onSaveEdit === nextProps.onSaveEdit &&
     previousProps.onCancelEdit === nextProps.onCancelEdit &&
-    previousProps.onFilePreview === nextProps.onFilePreview
+    previousProps.onFilePreview === nextProps.onFilePreview &&
+    previousProps.requiresNativePdfForModelSelection ===
+        nextProps.requiresNativePdfForModelSelection
 
 const MessageRow = memo(MessageRowComponent, areMessageRowPropsEqual)
 MessageRow.displayName = "MessageRow"
@@ -766,6 +775,10 @@ export const Messages = forwardRef<
             setPreviewDialogOpen(true)
         }, [])
         const renderFingerprints = useMessageRenderFingerprints(messages)
+        const threadHasPdfAttachments = useMemo(
+            () => hasPdfAttachmentInMessages(messages),
+            [messages]
+        )
 
         const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
 
@@ -1179,6 +1192,7 @@ export const Messages = forwardRef<
                                         onSaveEdit={handleSaveEdit}
                                         onCancelEdit={handleCancelEdit}
                                         onFilePreview={handleFilePreview}
+                                        requiresNativePdfForModelSelection={threadHasPdfAttachments}
                                     />
                                 ))}
                             </Virtualizer>

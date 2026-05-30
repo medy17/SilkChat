@@ -47,10 +47,12 @@ const ModelAbilitySchema = v.union(
     v.literal("reasoning"),
     v.literal("vision"),
     v.literal("function_calling"),
-    v.literal("pdf"),
+    v.literal("native_pdf"),
     v.literal("effort_control")
 )
 export type ModelAbility = Infer<typeof ModelAbilitySchema>
+export const StoredModelAbilitySchema = v.union(ModelAbilitySchema, v.literal("pdf"))
+export type StoredModelAbility = Infer<typeof StoredModelAbilitySchema>
 
 export const CustomModel = v.object({
     enabled: v.boolean(),
@@ -59,7 +61,7 @@ export const CustomModel = v.object({
     providerId: v.union(CoreProvidersSchema, v.string()),
     contextLength: v.number(),
     maxTokens: v.number(),
-    abilities: v.array(ModelAbilitySchema)
+    abilities: v.array(StoredModelAbilitySchema)
 })
 
 export const NonSensitiveUserSettings = v.object({

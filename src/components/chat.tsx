@@ -10,6 +10,7 @@ import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
+import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -22,7 +23,7 @@ import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-sh
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react"
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { FullPageDropOverlay } from "./full-page-drop-overlay"
 import { Logo } from "./logo"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
@@ -121,6 +122,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     })
     const { status, messages, ...chatHelpers } = chat
     const deferredMessages = useDeferredValue(messages)
+    const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
     const setMessagesRef = useRef(chatHelpers.setMessages)
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
@@ -338,6 +340,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         status={status}
                         threadId={threadId}
                         isActive={isActiveRoute}
+                        threadHasPdfAttachments={threadHasPdfAttachments}
                     />
                 </div>
             </motion.div>
