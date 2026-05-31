@@ -466,7 +466,7 @@ export function useChatIntegration<IsShared extends boolean>({
                 currentMessages: chatHelpers.messages,
                 backendMessages: initialMessages,
                 status: chatHelpers.status,
-                hasActiveStream: hasActiveThreadStream
+                hasActiveStream: hasActiveThreadStream ?? undefined
             })
         ) {
             chatHelpers.setMessages(initialMessages)
