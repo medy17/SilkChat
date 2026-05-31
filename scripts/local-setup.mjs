@@ -47,7 +47,7 @@ const runInMinioClient = (label, script) =>
 
 const main = async () => {
     await run(
-        "Starting Docker services (MinIO, plus Postgres for optional legacy backfill)",
+        "Starting Docker services (MinIO)",
         "docker",
         ["compose", "up", "-d"]
     )

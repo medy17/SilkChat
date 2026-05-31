@@ -33,19 +33,19 @@ bunx convex dev
 Deploy Convex functions:
 
 ```bash
-npx convex deploy
+bunx convex deploy
 ```
 
 Set a Convex environment variable:
 
 ```bash
-npx convex env set OPENAI_API_KEY your-key
+bunx convex env set OPENAI_API_KEY your-key
 ```
 
 List Convex environment variables:
 
 ```bash
-npx convex env list
+bunx convex env list
 ```
 
 ## Auth Dependency

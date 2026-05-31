@@ -208,10 +208,7 @@ function RouteComponent() {
                                 <span className="font-medium text-sm">Vite</span>
                             </div>
                             <div className="rounded-full bg-foreground/5 px-4 py-2">
-                                <span className="font-medium text-sm">PostgreSQL</span>
-                            </div>
-                            <div className="rounded-full bg-foreground/5 px-4 py-2">
-                                <span className="font-medium text-sm">Drizzle ORM</span>
+                                <span className="font-medium text-sm">Convex Auth</span>
                             </div>
                             <div className="rounded-full bg-foreground/5 px-4 py-2">
                                 <span className="font-medium text-sm">shadcn-ui</span>

@@ -41,12 +41,6 @@ bunx convex dev
 bun run dev
 ```
 
-If you need to backfill local legacy auth data, also set `DATABASE_URL` and run:
-
-```bash
-bun run local:auth:backfill
-```
-
 ## Better Auth Notes
 
 The current auth implementation depends on these details:
@@ -55,10 +49,6 @@ The current auth implementation depends on these details:
 - Better Auth JWTs are issued and validated by Convex, so `/api/auth/convex/jwks` must stay healthy.
   - for local Convex, `VITE_CONVEX_SITE_URL` should usually be `http://127.0.0.1:3211`
 - Google client credentials must exist in the Convex environment as well as the app environment used for local development.
-
-## Production Database Note
-
-For Vercel deployments, use a connection string that works from Vercel's runtime. In practice that usually means a Supabase pooler or other Vercel-safe Postgres endpoint rather than a direct host that may fail DNS or network resolution.
 
 ## Troubleshooting
 

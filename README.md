@@ -1,6 +1,6 @@
 # SilkChat
 
-SilkChat is a TanStack Start + Convex chat app with Better Auth, Postgres-backed auth data, internal provider credits, BYOK support, file uploads, web search, artifacts, and image generation.
+SilkChat is a TanStack Start + Convex chat app with Better Auth, internal provider credits, BYOK support, file uploads, web search, artifacts, and image generation.
 
 This repository is the source of truth for setup and model/provider changes. The old hosted docs were lagging behind the actual code.
 
@@ -8,7 +8,6 @@ This repository is the source of truth for setup and model/provider changes. The
 
 - `src/`: TanStack Start app, Better Auth routes, UI, browser env handling
 - `convex/`: chat runtime, model selection, provider factory, settings, HTTP actions
-- `Postgres`: Better Auth tables via Drizzle
 - `Convex`: app backend, chat streaming, provider execution, user settings, file storage integration
 - `Vercel`: web app hosting and server routes
 
@@ -22,7 +21,7 @@ bun install
 
 2. Copy `.env.example` to `.env.local` and fill in the values you actually need.
 
-3. One-time local setup (starts Docker services, pushes auth schema, prompts for local Convex):
+3. One-time local setup (starts Docker services and prompts for local Convex):
 
 ```bash
 bun run local:setup
@@ -96,7 +95,6 @@ The repo uses two different runtime environments.
 These variables are read by the web app and Better Auth:
 
 - `BETTER_AUTH_SECRET`
-- `DATABASE_URL`
 - `VITE_BETTER_AUTH_URL`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -174,5 +172,4 @@ See [MODEL_PROVIDER_GUIDE.md](./MODEL_PROVIDER_GUIDE.md) for the rules behind th
 ## Development Notes
 
 - Use the local loop first. Do not debug auth or model changes by waiting on repeated Vercel builds unless the bug only reproduces in production.
-- For production on Vercel, prefer a Postgres connection string that is Vercel-safe, for example a Supabase pooler URL. Direct database hosts can fail with DNS or network restrictions.
 - Better Auth and Convex are coupled through the proxied `/api/auth/*` surface, especially `/api/auth/convex/jwks`, so auth changes are never just a UI concern.

@@ -11,8 +11,6 @@ The app is split across three runtime layers:
    - proxies `/api/auth/*` to Convex
 2. `Convex`
    - runs Better Auth, chat, tools, file routes, speech-to-text, search, and model execution
-3. `Postgres`
-   - stores app-owned legacy data during migration
 
 Convex issues and validates Better Auth JWTs itself. The app keeps `/api/auth/*` stable by proxying that path to the Convex site URL.
 
@@ -20,7 +18,6 @@ Convex issues and validates Better Auth JWTs itself. The app keeps `/api/auth/*`
 
 The included `docker-compose.yml` starts:
 
-- Postgres on `localhost:5432`
 - MinIO on `localhost:9000` and console `localhost:9001`
 
 Start them with:
@@ -35,7 +32,7 @@ docker compose up -d
 
 1. Copy `.env.example` to `.env.local`.
 2. Fill in the variables you need.
-3. Use local Postgres + local Convex URLs:
+3. Use local app + local Convex URLs:
 
 ```bash
 VITE_BETTER_AUTH_URL=http://localhost:3000
@@ -51,13 +48,7 @@ VITE_CONVEX_SITE_URL=http://127.0.0.1:3211
 bun run local:setup
 ```
 
-6. If you need to import existing local Postgres auth users and plans into local Convex, keep `DATABASE_URL` in `.env.local` and run:
-
-```bash
-bun run local:auth:backfill
-```
-
-7. Start the local dev loop:
+6. Start the local dev loop:
 
 ```bash
 bun run local:dev
@@ -122,7 +113,6 @@ Only switch back to Vercel when you already have a likely fix.
 ### Vercel owns
 
 - `BETTER_AUTH_SECRET`
-- `DATABASE_URL`
 - `VITE_BETTER_AUTH_URL`
 - `VITE_CONVEX_SITE_URL`
   - local default site port is `3211`, not `3210`
@@ -142,14 +132,10 @@ Only switch back to Vercel when you already have a likely fix.
 Use:
 
 ```bash
-npx convex env set NAME value
-npx convex deploy
+bunx convex env set NAME value
+bunx convex deploy
 vercel --prod
 ```
-
-## Production Database Guidance
-
-For Vercel, use a database connection that the runtime can actually reach. If you use Supabase, prefer the pooler or another Vercel-safe endpoint over a direct host that may fail DNS resolution or require network paths Vercel cannot use reliably.
 
 ## Auth-Specific Notes
 

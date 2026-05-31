@@ -265,7 +265,7 @@ Run these in order before `git commit` when test files changed:
 ### E2E Feasibility Check
 
 - There is no existing Playwright config, browser test directory, or repo-owned E2E harness checked in right now.
-- The app boot path depends on TanStack Start plus Convex, Better Auth, Postgres-backed auth/session state, and environment-provided service URLs.
+- The app boot path depends on TanStack Start plus Convex, Better Auth, live auth/session state, and environment-provided service URLs.
 - Auth is not mocked at the app boundary:
   - `src/providers.tsx` wires `AuthQueryProvider`, Better Auth UI, and a live `ConvexQueryClient`
   - `src/lib/auth.ts` configures Better Auth against the real database adapter and trusted origins
@@ -273,7 +273,7 @@ Run these in order before `git commit` when test files changed:
 - Because of that, adding Playwright files right now would mostly create scaffolding, not reliable signal.
 - The honest next step for E2E is to first define:
   - how the app is started in test mode
-  - how Convex/Postgres/auth are provisioned for tests
+- how Convex/auth are provisioned for tests
   - how a deterministic signed-in session is created
   - which flows are allowed to hit real external providers versus mocked endpoints
 - Until that exists, the most trustworthy coverage in this repo is still the unit and hook/state layer above.
@@ -291,7 +291,6 @@ Run these in order before `git commit` when test files changed:
 - The codebase is split between:
   - TanStack Start frontend in `src/`
   - Convex backend/runtime in `convex/`
-  - Postgres-backed auth/user plan data in `src/database/`
 - Several important behaviors are custom and should be pinned down with tests because regressions would be user-visible and hard to diagnose:
   - stale JWKS recovery
   - JWT resolution/fallback
