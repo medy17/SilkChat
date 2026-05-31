@@ -33,6 +33,11 @@ const betterAuthSecret = getEnv("BETTER_AUTH_SECRET")
 const googleClientId = getEnv("GOOGLE_CLIENT_ID")
 const googleClientSecret = getEnv("GOOGLE_CLIENT_SECRET")
 const convexSiteUrl = getEnv("VITE_CONVEX_SITE_URL")
+const isLocalAuthRuntime =
+    baseURL.includes("localhost") ||
+    baseURL.includes("127.0.0.1") ||
+    convexSiteUrl?.includes("localhost") ||
+    convexSiteUrl?.includes("127.0.0.1")
 
 export const authComponent = createClient(betterAuthComponent)
 
@@ -41,6 +46,19 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         secret: betterAuthSecret,
         baseURL,
         basePath: "/api/auth",
+        rateLimit: {
+            enabled: !isLocalAuthRuntime
+        },
+        advanced: {
+            ipAddress: {
+                ipAddressHeaders: [
+                    "x-forwarded-for",
+                    "x-real-ip",
+                    "cf-connecting-ip",
+                    "true-client-ip"
+                ]
+            }
+        },
         trustedOrigins: [
             baseURL,
             convexSiteUrl,

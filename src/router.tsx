@@ -1,9 +1,7 @@
-import { useSession, useToken } from "@/hooks/auth-hooks"
-import { resolveJwtToken } from "@/lib/auth-token"
+import { authClient } from "@/lib/auth-client"
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routerWithQueryClient } from "@tanstack/react-router-with-query"
-import { ConvexProviderWithAuth } from "convex/react"
-import { useMemo } from "react"
 import { getConvexQueryClient, queryClient } from "./providers"
 import { routeTree } from "./routeTree.gen"
 
@@ -34,12 +32,12 @@ const createAppRouter = () =>
                 typeof window === "undefined" ? (
                     children
                 ) : (
-                    <ConvexProviderWithAuth
+                    <ConvexBetterAuthProvider
                         client={getConvexQueryClient()!.convexClient}
-                        useAuth={useBetterAuth}
+                        authClient={authClient}
                     >
                         {children}
-                    </ConvexProviderWithAuth>
+                    </ConvexBetterAuthProvider>
                 )
         }),
         queryClient
@@ -58,27 +56,6 @@ export function getRouter() {
 
 export function createRouter() {
     return getRouter()
-}
-
-const useBetterAuth = () => {
-    //   const { data: initialToken } = useQuery({
-    //     queryKey: ["auth_token"],
-    //   });
-    const data = useToken({
-        initialData: () => {
-            const token = queryClient.getQueryData(["token"])
-            return token ?? undefined
-        }
-    })
-    const session = useSession()
-    return useMemo(
-        () => ({
-            isLoading: data.isPending || data.isLoading,
-            isAuthenticated: !!session.user?.id,
-            fetchAccessToken: async () => (await resolveJwtToken(data.token)) ?? null
-        }),
-        [data.isPending, data.isLoading, session.user?.id, data.token]
-    )
 }
 
 declare module "@tanstack/react-router" {
