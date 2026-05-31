@@ -1,8 +1,8 @@
-import { auth } from "@/lib/auth"
-import { type UserCreditPlan, setUserCreditPlan } from "@/lib/user-subscription"
+import { api } from "@/convex/_generated/api.js"
+import { authServer } from "@/lib/auth-server"
 import { createFileRoute } from "@tanstack/react-router"
 
-const isValidCreditPlan = (value: unknown): value is UserCreditPlan =>
+const isValidCreditPlan = (value: unknown): value is "free" | "pro" =>
     value === "free" || value === "pro"
 
 export const Route = createFileRoute("/api/dev/credit-plan")({
@@ -13,11 +13,9 @@ export const Route = createFileRoute("/api/dev/credit-plan")({
                     return Response.json({ error: "Not found" }, { status: 404 })
                 }
 
-                const session = await auth.api.getSession({
-                    headers: request.headers
-                })
+                const currentUser = await authServer.fetchAuthQuery(api.auth.getCurrentUser)
 
-                if (!session?.user?.id) {
+                if (!currentUser?.id) {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })
                 }
 
@@ -32,11 +30,21 @@ export const Route = createFileRoute("/api/dev/credit-plan")({
                     return Response.json({ error: "Invalid plan" }, { status: 400 })
                 }
 
-                const plan = await setUserCreditPlan(session.user.id, body.plan)
+                let account: { plan: "free" | "pro" }
+                try {
+                    account = await authServer.fetchAuthMutation(
+                        api.credits.setMyPrototypeCreditPlan,
+                        {
+                            plan: body.plan
+                        }
+                    )
+                } catch {
+                    return Response.json({ error: "Unauthorized" }, { status: 401 })
+                }
 
                 return Response.json({
                     ok: true,
-                    plan
+                    plan: account.plan
                 })
             }
         }

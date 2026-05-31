@@ -9,6 +9,7 @@ const { generateAndStoreImageMock, getModelMock, getUserIdentityMock } = vi.hois
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         credits: {
+            getUserCreditPlanInternal: "getUserCreditPlanInternal",
             recordCreditEventForMessage: "recordCreditEventForMessage"
         },
         images: {
@@ -40,6 +41,7 @@ import { generateStandaloneImage } from "../../convex/images_node"
 type GenerateStandaloneImageCtx = {
     auth: Record<string, unknown>
     runMutation: ReturnType<typeof vi.fn>
+    runQuery: ReturnType<typeof vi.fn>
 }
 
 const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
@@ -56,7 +58,8 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
 const createCtx = (): GenerateStandaloneImageCtx =>
     ({
         auth: {},
-        runMutation: vi.fn().mockResolvedValue("generated-image-1")
+        runMutation: vi.fn().mockResolvedValue("generated-image-1"),
+        runQuery: vi.fn().mockResolvedValue("pro")
     }) as GenerateStandaloneImageCtx
 
 const createImageModelData = (
@@ -94,9 +97,10 @@ describe("images_node", () => {
     })
 
     it("rejects free users before standalone pro image generation runs", async () => {
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "free" })
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
         const ctx = createCtx()
+        ctx.runQuery.mockResolvedValueOnce("free")
 
         await expect(
             generateStandaloneImageHandler(ctx, {
@@ -111,7 +115,7 @@ describe("images_node", () => {
     })
 
     it("allows pro users to run standalone pro image generation", async () => {
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
         const ctx = createCtx()
 
@@ -148,6 +152,9 @@ describe("images_node", () => {
             bucket: "pro",
             units: 1,
             counted: true
+        })
+        expect(ctx.runQuery).toHaveBeenCalledWith("getUserCreditPlanInternal", {
+            userId: "user-1"
         })
     })
 })

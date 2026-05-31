@@ -1,23 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { authHandlerMock, deleteExecuteMock, deleteMock } = vi.hoisted(() => ({
-    authHandlerMock: vi.fn(),
-    deleteExecuteMock: vi.fn(),
-    deleteMock: vi.fn()
+const { authHandlerMock } = vi.hoisted(() => ({
+    authHandlerMock: vi.fn()
 }))
 
-vi.mock("@/database/db", () => ({
-    db: {
-        delete: deleteMock
-    }
-}))
-
-vi.mock("@/database/schema", () => ({
-    jwkss: { table: "jwkss" }
-}))
-
-vi.mock("@/lib/auth", () => ({
-    auth: {
+vi.mock("@/lib/auth-server", () => ({
+    authServer: {
         handler: authHandlerMock
     }
 }))
@@ -33,6 +21,7 @@ const routeHandlers = (
         server: {
             handlers: {
                 GET: (args: { request: Request }) => Promise<Response>
+                POST: (args: { request: Request }) => Promise<Response>
             }
         }
     }
@@ -41,41 +30,29 @@ const routeHandlers = (
 describe("api auth route", () => {
     beforeEach(() => {
         authHandlerMock.mockReset()
-        deleteExecuteMock.mockReset()
-        deleteMock.mockReset().mockReturnValue({
-            execute: deleteExecuteMock
-        })
     })
 
-    it("clears stale jwks and retries recoverable decrypt failures", async () => {
-        const recoveredResponse = new Response("ok", { status: 200 })
-
-        authHandlerMock
-            .mockRejectedValueOnce(new Error("Failed to decrypt private private key"))
-            .mockResolvedValueOnce(recoveredResponse)
-
+    it("proxies auth GET requests to the Convex-backed auth handler", async () => {
+        const proxiedResponse = new Response("ok", { status: 200 })
+        authHandlerMock.mockResolvedValueOnce(proxiedResponse)
         const response = await routeHandlers.GET({
             request: new Request("https://example.com/api/auth/sign-in")
         })
 
-        expect(response).toBe(recoveredResponse)
-        expect(deleteMock).toHaveBeenCalledWith({ table: "jwkss" })
-        expect(deleteExecuteMock).toHaveBeenCalledTimes(1)
-        expect(authHandlerMock).toHaveBeenCalledTimes(2)
+        expect(response).toBe(proxiedResponse)
+        expect(authHandlerMock).toHaveBeenCalledTimes(1)
     })
 
-    it("retries get-session requests after a recoverable 5xx response", async () => {
-        authHandlerMock
-            .mockResolvedValueOnce(new Response("broken", { status: 500 }))
-            .mockResolvedValueOnce(new Response("recovered", { status: 200 }))
-
-        const response = await routeHandlers.GET({
-            request: new Request("https://example.com/api/auth/get-session")
+    it("proxies auth POST requests to the Convex-backed auth handler", async () => {
+        const proxiedResponse = new Response("created", { status: 201 })
+        authHandlerMock.mockResolvedValueOnce(proxiedResponse)
+        const response = await routeHandlers.POST({
+            request: new Request("https://example.com/api/auth/sign-out", {
+                method: "POST"
+            })
         })
 
-        expect(response.status).toBe(200)
-        await expect(response.text()).resolves.toBe("recovered")
-        expect(deleteExecuteMock).toHaveBeenCalledTimes(1)
-        expect(authHandlerMock).toHaveBeenCalledTimes(2)
+        expect(response).toBe(proxiedResponse)
+        expect(authHandlerMock).toHaveBeenCalledTimes(1)
     })
 })

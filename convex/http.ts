@@ -1,6 +1,7 @@
 import { corsRouter } from "convex-helpers/server/cors"
 import { httpRouter } from "convex/server"
 import { getFile, uploadFile } from "./attachments"
+import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { uploadImportSource } from "./import_jobs_http"
@@ -15,6 +16,7 @@ const normalizeOrigin = (value?: string) => {
 
 const http = httpRouter()
 const isPrivateBlurEnabled = process.env.LOCAL_DISABLE_PRIVATE_BLUR !== "1"
+authComponent.registerRoutes(http, createAuth)
 const cors = corsRouter(http, {
     allowedOrigins: [
         normalizeOrigin(process.env.VITE_BETTER_AUTH_URL),

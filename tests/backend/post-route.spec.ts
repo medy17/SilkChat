@@ -67,6 +67,7 @@ vi.mock("../../convex/_generated/server", () => ({
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         credits: {
+            getUserCreditPlanInternal: "getUserCreditPlanInternal",
             recordCreditEventForMessage: "recordCreditEventForMessage"
         },
         messages: {
@@ -222,7 +223,13 @@ const createCtx = () =>
     ({
         auth: {},
         runMutation: vi.fn(),
-        runQuery: vi.fn()
+        runQuery: vi.fn().mockImplementation(async (name: string) => {
+            if (name === "getUserCreditPlanInternal") {
+                return "pro"
+            }
+
+            return null
+        })
     }) as ChatPostCtx
 
 describe("chatPOST", () => {
@@ -445,7 +452,7 @@ describe("chatPOST", () => {
     })
 
     it("forwards model-resolution errors", async () => {
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce(new ChatError("bad_model:api"))
 
         const response = await chatPOSTHandler(
@@ -468,7 +475,7 @@ describe("chatPOST", () => {
     })
 
     it("rejects free users when the selected model requires pro", async () => {
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "free" })
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
             modelName: "Shared Text",
@@ -476,7 +483,9 @@ describe("chatPOST", () => {
             abilities: [],
             registry: {
                 models: {
-                    "shared-text": {}
+                    "shared-text": {
+                        abilities: []
+                    }
                 }
             },
             availableToPickFor: "pro",
@@ -484,8 +493,17 @@ describe("chatPOST", () => {
             prototypeCreditTierWithReasoning: undefined
         })
 
+        const ctx = createCtx()
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            if (name === "getUserCreditPlanInternal") {
+                return "free"
+            }
+
+            return null
+        })
+
         const response = await chatPOSTHandler(
-            createCtx(),
+            ctx,
             createRequest({
                 model: "shared-text",
                 proposedNewAssistantId: "assistant-1",
@@ -509,7 +527,7 @@ describe("chatPOST", () => {
         const ctx = createCtx()
         ctx.runMutation.mockRejectedValueOnce(new Error("db failure"))
 
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
             modelName: "Shared Text",
@@ -517,7 +535,9 @@ describe("chatPOST", () => {
             abilities: [],
             registry: {
                 models: {
-                    "shared-text": {}
+                    "shared-text": {
+                        abilities: []
+                    }
                 }
             },
             prototypeCreditTier: "basic",
@@ -566,6 +586,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -595,6 +617,7 @@ describe("chatPOST", () => {
             registry: {
                 models: {
                     "shared-text": {
+                        abilities: [],
                         maxTokens: 2048
                     }
                 }
@@ -812,6 +835,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -835,7 +860,9 @@ describe("chatPOST", () => {
             abilities: [],
             registry: {
                 models: {
-                    "shared-text": {}
+                    "shared-text": {
+                        abilities: []
+                    }
                 }
             },
             prototypeCreditTier: "basic",
@@ -927,6 +954,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -950,7 +979,9 @@ describe("chatPOST", () => {
             abilities: [],
             registry: {
                 models: {
-                    "shared-text": {}
+                    "shared-text": {
+                        abilities: []
+                    }
                 }
             },
             prototypeCreditTier: "basic",
@@ -1023,6 +1054,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1046,7 +1079,9 @@ describe("chatPOST", () => {
             abilities: [],
             registry: {
                 models: {
-                    "shared-text": {}
+                    "shared-text": {
+                        abilities: []
+                    }
                 }
             },
             prototypeCreditTier: "basic",
@@ -1111,6 +1146,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1204,6 +1241,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1228,7 +1267,8 @@ describe("chatPOST", () => {
             registry: {
                 models: {
                     "grok-4.3": {
-                        abilities: ["reasoning", "vision", "function_calling", "effort_control"]
+                        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+                        supportsDisablingReasoning: true
                     }
                 }
             },
@@ -1302,6 +1342,8 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1326,7 +1368,8 @@ describe("chatPOST", () => {
             registry: {
                 models: {
                     "grok-4.3": {
-                        abilities: ["reasoning", "vision", "function_calling", "effort_control"]
+                        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+                        supportsDisablingReasoning: true
                     }
                 }
             },

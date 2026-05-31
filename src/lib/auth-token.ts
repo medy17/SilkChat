@@ -42,7 +42,11 @@ export const resolveJwtToken = async (
     }
 
     try {
-        const response = await authClient.$fetch<{ token?: string }>("/token")
+        const response = await authClient.convex.token({
+            fetchOptions: {
+                throw: false
+            }
+        })
         const fetchedToken = response.data?.token?.trim()
         if (isJwtToken(fetchedToken)) {
             return fetchedToken

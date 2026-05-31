@@ -1,17 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const {
-    getSessionMock,
-    getUserCreditPlanMock,
-    getConfiguredCreditLimitsMock,
-    setUserCreditPlanMock
-} = vi.hoisted(() => {
+const { fetchAuthQueryMock, fetchAuthMutationMock } = vi.hoisted(() => {
     process.env.VITE_POSTHOG_HOST = "https://ph.example.com"
     return {
-        getSessionMock: vi.fn(),
-        getUserCreditPlanMock: vi.fn(),
-        getConfiguredCreditLimitsMock: vi.fn(),
-        setUserCreditPlanMock: vi.fn()
+        fetchAuthQueryMock: vi.fn(),
+        fetchAuthMutationMock: vi.fn()
     }
 })
 
@@ -19,18 +12,11 @@ vi.mock("@tanstack/react-router", () => ({
     createFileRoute: () => (config: unknown) => config
 }))
 
-vi.mock("@/lib/auth", () => ({
-    auth: {
-        api: {
-            getSession: getSessionMock
-        }
+vi.mock("@/lib/auth-server", () => ({
+    authServer: {
+        fetchAuthQuery: fetchAuthQueryMock,
+        fetchAuthMutation: fetchAuthMutationMock
     }
-}))
-
-vi.mock("@/lib/user-subscription", () => ({
-    getUserCreditPlan: getUserCreditPlanMock,
-    getConfiguredCreditLimits: getConfiguredCreditLimitsMock,
-    setUserCreditPlan: setUserCreditPlanMock
 }))
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
@@ -52,24 +38,34 @@ const posthogProxyHandlers = (PosthogProxyRoute as unknown as RouteHandlers).ser
 
 describe("API routes", () => {
     beforeEach(() => {
-        getSessionMock.mockReset()
-        getUserCreditPlanMock.mockReset()
-        getConfiguredCreditLimitsMock.mockReset()
-        setUserCreditPlanMock.mockReset()
+        fetchAuthQueryMock.mockReset()
+        fetchAuthMutationMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         Reflect.deleteProperty(process.env, "NODE_ENV")
     })
 
     it("returns credit summary for an authenticated user", async () => {
-        getSessionMock.mockResolvedValueOnce({
-            user: {
-                id: "user-1"
+        fetchAuthQueryMock.mockResolvedValueOnce({
+            enabled: true,
+            plan: "pro",
+            periodKey: "2026-05",
+            periodStartsAt: 1,
+            periodEndsAt: 2,
+            basic: {
+                limit: 1500,
+                used: 10,
+                remaining: 1490
+            },
+            pro: {
+                limit: 100,
+                used: 1,
+                remaining: 99
+            },
+            requestCounts: {
+                internal: 11,
+                byok: 0,
+                total: 11
             }
-        })
-        getUserCreditPlanMock.mockResolvedValueOnce("pro")
-        getConfiguredCreditLimitsMock.mockReturnValueOnce({
-            basic: 1500,
-            pro: 100
         })
 
         const response = await creditSummaryHandlers.GET!({
@@ -80,11 +76,23 @@ describe("API routes", () => {
         await expect(response.json()).resolves.toEqual({
             enabled: true,
             plan: "pro",
+            periodKey: "2026-05",
+            periodStartsAt: 1,
+            periodEndsAt: 2,
             basic: {
-                limit: 1500
+                limit: 1500,
+                used: 10,
+                remaining: 1490
             },
             pro: {
-                limit: 100
+                limit: 100,
+                used: 1,
+                remaining: 99
+            },
+            requestCounts: {
+                internal: 11,
+                byok: 0,
+                total: 11
             }
         })
     })
@@ -102,12 +110,7 @@ describe("API routes", () => {
         expect(prodResponse.status).toBe(404)
 
         process.env.NODE_ENV = "development"
-        getSessionMock.mockResolvedValueOnce({
-            user: {
-                id: "user-1"
-            }
-        })
-
+        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
         const invalidPlanResponse = await devCreditPlanHandlers.POST!({
             request: new Request("https://example.com/api/dev/credit-plan", {
                 method: "POST",
@@ -123,12 +126,10 @@ describe("API routes", () => {
 
     it("updates the credit plan in development for authenticated users", async () => {
         process.env.NODE_ENV = "development"
-        getSessionMock.mockResolvedValueOnce({
-            user: {
-                id: "user-1"
-            }
+        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
+        fetchAuthMutationMock.mockResolvedValueOnce({
+            plan: "free"
         })
-        setUserCreditPlanMock.mockResolvedValueOnce("free")
 
         const response = await devCreditPlanHandlers.POST!({
             request: new Request("https://example.com/api/dev/credit-plan", {
@@ -137,11 +138,38 @@ describe("API routes", () => {
             })
         })
 
-        expect(setUserCreditPlanMock).toHaveBeenCalledWith("user-1", "free")
+        expect(fetchAuthMutationMock).toHaveBeenCalledWith(expect.anything(), {
+            plan: "free"
+        })
         expect(response.status).toBe(200)
         await expect(response.json()).resolves.toEqual({
             ok: true,
             plan: "free"
+        })
+    })
+
+    it("returns 401 from auth-dependent routes when the Convex auth user is missing", async () => {
+        fetchAuthQueryMock.mockResolvedValueOnce(null)
+        fetchAuthMutationMock.mockRejectedValueOnce(new Error("Unauthenticated"))
+        process.env.NODE_ENV = "development"
+
+        const creditSummaryResponse = await creditSummaryHandlers.GET!({
+            request: new Request("https://example.com/api/credit-summary")
+        })
+        const devPlanResponse = await devCreditPlanHandlers.POST!({
+            request: new Request("https://example.com/api/dev/credit-plan", {
+                method: "POST",
+                body: JSON.stringify({ plan: "free" })
+            })
+        })
+
+        expect(creditSummaryResponse.status).toBe(401)
+        await expect(creditSummaryResponse.json()).resolves.toEqual({
+            error: "Unauthorized"
+        })
+        expect(devPlanResponse.status).toBe(401)
+        await expect(devPlanResponse.json()).resolves.toEqual({
+            error: "Unauthorized"
         })
     })
 

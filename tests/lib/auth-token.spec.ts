@@ -6,7 +6,9 @@ const { fetchMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth-client", () => ({
     authClient: {
-        $fetch: fetchMock
+        convex: {
+            token: fetchMock
+        }
     }
 }))
 

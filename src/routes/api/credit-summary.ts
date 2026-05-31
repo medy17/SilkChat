@@ -1,32 +1,18 @@
-import { auth } from "@/lib/auth"
-import { getConfiguredCreditLimits, getUserCreditPlan } from "@/lib/user-subscription"
+import { api } from "@/convex/_generated/api.js"
+import { authServer } from "@/lib/auth-server"
 import { createFileRoute } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/api/credit-summary")({
     server: {
         handlers: {
-            GET: async ({ request }) => {
-                const session = await auth.api.getSession({
-                    headers: request.headers
-                })
+            GET: async () => {
+                const summary = await authServer.fetchAuthQuery(api.credits.getMyCreditSummary)
 
-                if (!session?.user?.id) {
+                if (!summary) {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })
                 }
 
-                const plan = await getUserCreditPlan(session.user.id)
-                const limits = getConfiguredCreditLimits(plan)
-
-                return Response.json({
-                    enabled: true,
-                    plan,
-                    basic: {
-                        limit: limits.basic
-                    },
-                    pro: {
-                        limit: limits.pro
-                    }
-                })
+                return Response.json(summary)
             }
         }
     }

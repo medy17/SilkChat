@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { corsRouterMock, httpRouterMock } = vi.hoisted(() => ({
+const { authRegisterRoutesMock, corsRouterMock, httpRouterMock } = vi.hoisted(() => ({
+    authRegisterRoutesMock: vi.fn(),
     corsRouterMock: vi.fn(),
     httpRouterMock: vi.fn()
 }))
@@ -16,6 +17,13 @@ vi.mock("convex-helpers/server/cors", () => ({
 vi.mock("../../convex/attachments", () => ({
     getFile: "getFileHandler",
     uploadFile: "uploadFileHandler"
+}))
+
+vi.mock("../../convex/auth", () => ({
+    authComponent: {
+        registerRoutes: authRegisterRoutesMock
+    },
+    createAuth: "createAuth"
 }))
 
 vi.mock("../../convex/chat_http/get.route", () => ({
@@ -45,6 +53,7 @@ vi.mock("../../convex/speech_to_text", () => ({
 
 describe("convex/http", () => {
     beforeEach(() => {
+        authRegisterRoutesMock.mockReset()
         corsRouterMock.mockReset()
         httpRouterMock.mockReset()
     })
@@ -65,6 +74,7 @@ describe("convex/http", () => {
         const module = await import("../../convex/http")
 
         expect(httpRouterMock).toHaveBeenCalledTimes(1)
+        expect(authRegisterRoutesMock).toHaveBeenCalledWith(http, "createAuth")
         expect(corsRouterMock).toHaveBeenCalledWith(http, {
             allowedOrigins: [
                 "https://app.example.com",

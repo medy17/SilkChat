@@ -13,7 +13,17 @@ const children = []
 let shuttingDown = false
 const localImageOptimizerPort = process.env.LOCAL_IMAGE_OPTIMIZER_PORT || "43177"
 const localTempDir = path.resolve(process.cwd(), "temp", "local-dev")
+const localConvexConfigPath = path.resolve(
+    process.cwd(),
+    ".convex",
+    "local",
+    "default",
+    "config.json"
+)
 const requiredLocalConvexEnvVars = [
+    "BETTER_AUTH_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
     "VITE_BETTER_AUTH_URL",
     "R2_BUCKET",
     "R2_ENDPOINT",
@@ -24,8 +34,45 @@ const requiredLocalConvexEnvVars = [
 
 mkdirSync(localTempDir, { recursive: true })
 
+const readLocalConvexConfig = () => {
+    if (!existsSync(localConvexConfigPath)) {
+        throw new Error(
+            `Missing local Convex config at ${localConvexConfigPath}. Run \`bun run local:convex:configure\` first.`
+        )
+    }
+
+    const parsed = JSON.parse(readFileSync(localConvexConfigPath, "utf8"))
+    const cloudPort = parsed?.ports?.cloud
+    const sitePort = parsed?.ports?.site
+
+    if (
+        typeof cloudPort !== "number" ||
+        !Number.isFinite(cloudPort) ||
+        typeof sitePort !== "number" ||
+        !Number.isFinite(sitePort)
+    ) {
+        throw new Error(`Invalid local Convex config in ${localConvexConfigPath}.`)
+    }
+
+    return {
+        cloudUrl: `http://127.0.0.1:${cloudPort}`,
+        siteUrl: `http://127.0.0.1:${sitePort}`
+    }
+}
+
+const getResolvedLocalEnv = () => {
+    const localConvex = readLocalConvexConfig()
+
+    return {
+        ...process.env,
+        VITE_CONVEX_URL: localConvex.cloudUrl,
+        VITE_CONVEX_API_URL: `${localConvex.cloudUrl}/http`,
+        VITE_CONVEX_SITE_URL: localConvex.siteUrl
+    }
+}
+
 const getSpawnEnv = (overrides = {}) => ({
-    ...process.env,
+    ...getResolvedLocalEnv(),
     LOCAL_DISABLE_PRIVATE_BLUR: "1",
     LOCAL_IMAGE_OPTIMIZER_PORT: localImageOptimizerPort,
     VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED: "1",
@@ -57,8 +104,9 @@ const escapeDotenvValue = (value) =>
 
 const syncRequiredLocalConvexEnvVars = () =>
     new Promise((resolve, reject) => {
+        const resolvedEnv = getResolvedLocalEnv()
         const missingEnvVars = requiredLocalConvexEnvVars.filter(
-            (name) => !process.env[name]?.trim()
+            (name) => !resolvedEnv[name]?.trim()
         )
 
         if (missingEnvVars.length > 0) {
@@ -71,8 +119,8 @@ const syncRequiredLocalConvexEnvVars = () =>
         }
 
         const envFilePath = path.join(localTempDir, "convex-local-required.env")
-        const envFileContents = requiredLocalConvexEnvVars
-            .map((name) => `${name}=${escapeDotenvValue(process.env[name].trim())}`)
+        const envFileContents = [...requiredLocalConvexEnvVars, "VITE_CONVEX_SITE_URL"]
+            .map((name) => `${name}=${escapeDotenvValue(resolvedEnv[name].trim())}`)
             .join("\n")
 
         writeFileSync(envFilePath, `${envFileContents}\n`, "utf8")

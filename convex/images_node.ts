@@ -202,9 +202,6 @@ const buildDevFakeSvg = ({
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const getUserCreditPlan = (user: { creditPlan?: string }) =>
-    user.creditPlan === "pro" ? "pro" : "free"
-
 const enforceImageGenerationPlan = ({
     userCreditPlan,
     availableToPickFor
@@ -239,7 +236,9 @@ export const generateStandaloneImage = action({
 
         const { model } = modelData
         enforceImageGenerationPlan({
-            userCreditPlan: getUserCreditPlan(user as typeof user & { creditPlan?: string }),
+            userCreditPlan: await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
+                userId: user.id
+            }),
             availableToPickFor: modelData.availableToPickFor
         })
         const creditCharge = resolvePrototypeCreditCharge({
@@ -312,7 +311,9 @@ export const generateFakeStandaloneImage = action({
             MODELS_SHARED.find((model) => model.id === args.modelId)?.name ?? args.modelId
         const sharedModel = MODELS_SHARED.find((model) => model.id === args.modelId)
         enforceImageGenerationPlan({
-            userCreditPlan: getUserCreditPlan(user as typeof user & { creditPlan?: string }),
+            userCreditPlan: await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
+                userId: user.id
+            }),
             availableToPickFor: sharedModel?.availableToPickFor
         })
         const aspectRatio = args.aspectRatio || "1:1"

@@ -46,7 +46,11 @@ const runInMinioClient = (label, script) =>
     )
 
 const main = async () => {
-    await run("Starting Docker services (Postgres + MinIO)", "docker", ["compose", "up", "-d"])
+    await run(
+        "Starting Docker services (MinIO, plus Postgres for optional legacy backfill)",
+        "docker",
+        ["compose", "up", "-d"]
+    )
 
     await runInMinioClient(
         "Configuring local MinIO bucket for public asset reads",
@@ -56,8 +60,6 @@ const main = async () => {
             `mc anonymous get ${LOCAL_MINIO_ALIAS}/${LOCAL_R2_BUCKET}`
         ].join(" && ")
     )
-
-    await run("Pushing Better Auth schema to local Postgres", "bun", ["run", "auth:push"])
 
     await run(
         "Configuring Convex local deployment (one-time, interactive)",

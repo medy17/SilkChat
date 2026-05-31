@@ -8,14 +8,13 @@ The app is split across three runtime layers:
 
 1. `Vercel app`
    - serves the TanStack Start app
-   - runs Better Auth
-   - talks to Postgres through Drizzle
+   - proxies `/api/auth/*` to Convex
 2. `Convex`
-   - runs chat, tools, file routes, speech-to-text, search, and model execution
+   - runs Better Auth, chat, tools, file routes, speech-to-text, search, and model execution
 3. `Postgres`
-   - stores Better Auth users, sessions, accounts, verifications, and `jwkss`
+   - stores app-owned legacy data during migration
 
-Convex trusts Better Auth JWTs using the app's `/api/auth/jwks` endpoint.
+Convex issues and validates Better Auth JWTs itself. The app keeps `/api/auth/*` stable by proxying that path to the Convex site URL.
 
 ## Required Local Services
 
@@ -39,10 +38,10 @@ docker compose up -d
 3. Use local Postgres + local Convex URLs:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/intern3_db
 VITE_BETTER_AUTH_URL=http://localhost:3000
 VITE_CONVEX_URL=http://127.0.0.1:3210
 VITE_CONVEX_API_URL=http://127.0.0.1:3210/http
+VITE_CONVEX_SITE_URL=http://127.0.0.1:3211
 ```
 
 4. Keep `CONVEX_DEPLOY_KEY` out of `.env.local` for local development to avoid accidentally targeting cloud deployments.
@@ -52,7 +51,13 @@ VITE_CONVEX_API_URL=http://127.0.0.1:3210/http
 bun run local:setup
 ```
 
-6. Start the local dev loop:
+6. If you need to import existing local Postgres auth users and plans into local Convex, keep `DATABASE_URL` in `.env.local` and run:
+
+```bash
+bun run local:auth:backfill
+```
+
+7. Start the local dev loop:
 
 ```bash
 bun run local:dev
@@ -107,8 +112,8 @@ Use a local app first. Repeated Vercel builds are too slow for auth and provider
 
 Good local loops:
 
-- local app + local Postgres + local Convex dev
-- local app + local Postgres + an existing Convex cloud dev deployment
+- local app + local Convex dev
+- local app + an existing Convex cloud dev deployment
 
 Only switch back to Vercel when you already have a likely fix.
 
@@ -119,6 +124,8 @@ Only switch back to Vercel when you already have a likely fix.
 - `BETTER_AUTH_SECRET`
 - `DATABASE_URL`
 - `VITE_BETTER_AUTH_URL`
+- `VITE_CONVEX_SITE_URL`
+  - local default site port is `3211`, not `3210`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `VITE_CONVEX_URL`
@@ -148,40 +155,21 @@ For Vercel, use a database connection that the runtime can actually reach. If yo
 
 ### Better Auth details that matter in this repo
 
-- `src/lib/auth.ts` trims env values before using them.
-- `reactStartCookies()` must stay enabled.
-- Better Auth JWTs are signed for audience `intern3`.
-- Convex validates them against:
-  - issuer: `VITE_BETTER_AUTH_URL`
-  - JWKS: `${VITE_BETTER_AUTH_URL}/api/auth/jwks`
-
-### JWK failure mode we hit
-
-If `BETTER_AUTH_SECRET` changes while old encrypted `jwkss` rows still exist, Better Auth can fail with:
-
-```text
-Failed to decrypt private private key
-```
-
-Current behavior:
-
-- `src/lib/auth.ts` disables private-key encryption for newly generated JWKs
-- `src/routes/api/auth/$.ts` clears stale `jwkss` rows and retries once on this failure
-
-If you ever rotate `BETTER_AUTH_SECRET`, clear stale JWK rows intentionally instead of waiting for random session failures.
+- the browser still talks to `/api/auth/*` on the app origin
+- the app route proxies those requests to the Convex site URL
+- Convex validates JWTs against its own issuer and JWKS:
+  - issuer: `CONVEX_SITE_URL`
+  - JWKS: `${CONVEX_SITE_URL}/api/auth/convex/jwks`
+  - application ID: `convex`
 
 ### Session mismatch symptom
 
 If the UI briefly looks signed in and then drops back to signed out, inspect:
 
 - `GET /api/auth/get-session`
-- `GET /api/auth/jwks`
+- `GET /api/auth/convex/jwks`
 
 If either one returns `500`, the auth state will look inconsistent even when the OAuth callback itself succeeded.
-
-### Cookie bridge symptom
-
-If auth succeeds but the app cannot keep session state across the TanStack Start response cycle, confirm `reactStartCookies()` is still present in `src/lib/auth.ts`.
 
 ## Google OAuth Notes
 
@@ -209,7 +197,8 @@ Both must be correct.
 
 1. reproduce locally
 2. fix locally
-3. verify `/api/auth/get-session` and `/api/auth/jwks`
+3. verify `/api/auth/get-session` and `/api/auth/convex/jwks`
+   - for local Convex, the direct JWKS check should use `http://127.0.0.1:3211/api/auth/convex/jwks`
 4. deploy Convex if backend code changed
 5. deploy Vercel if app code or app env changed
 

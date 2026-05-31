@@ -587,8 +587,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
-    const userCreditPlan =
-        (user as typeof user & { creditPlan?: string }).creditPlan === "pro" ? "pro" : "free"
+    const userCreditPlan = await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
+        userId: user.id
+    })
 
     const modelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort

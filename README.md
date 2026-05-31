@@ -175,4 +175,4 @@ See [MODEL_PROVIDER_GUIDE.md](./MODEL_PROVIDER_GUIDE.md) for the rules behind th
 
 - Use the local loop first. Do not debug auth or model changes by waiting on repeated Vercel builds unless the bug only reproduces in production.
 - For production on Vercel, prefer a Postgres connection string that is Vercel-safe, for example a Supabase pooler URL. Direct database hosts can fail with DNS or network restrictions.
-- Better Auth and Convex are coupled through `/api/auth/jwks`, so auth changes are never just a UI concern.
+- Better Auth and Convex are coupled through the proxied `/api/auth/*` surface, especially `/api/auth/convex/jwks`, so auth changes are never just a UI concern.

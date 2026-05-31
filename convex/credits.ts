@@ -42,12 +42,34 @@ const getResolvedCreditAccount = (
     }
 }
 
+const getResolvedCreditPlan = (
+    account:
+        | {
+              enabled: boolean
+              plan: "free" | "pro"
+              monthlyBasicCredits: number
+              monthlyProCredits: number
+          }
+        | null
+        | undefined
+) => getResolvedCreditAccount(account).plan
+
 export const getUserCreditAccountInternal = internalQuery({
     args: {
         userId: v.string()
     },
     handler: async (ctx, { userId }) => {
         return await getCreditAccount(ctx, userId)
+    }
+})
+
+export const getUserCreditPlanInternal = internalQuery({
+    args: {
+        userId: v.string()
+    },
+    handler: async (ctx, { userId }) => {
+        const account = await getCreditAccount(ctx, userId)
+        return getResolvedCreditPlan(account)
     }
 })
 
@@ -209,6 +231,48 @@ export const setMyPrototypeCreditPlan = mutation({
         }
 
         return nextAccount
+    }
+})
+
+export const upsertUserCreditPlansInternal = internalMutation({
+    args: {
+        accounts: v.array(
+            v.object({
+                userId: v.string(),
+                plan: v.union(v.literal("free"), v.literal("pro"))
+            })
+        )
+    },
+    handler: async (ctx, args) => {
+        let created = 0
+        let updated = 0
+
+        for (const account of args.accounts) {
+            const existingAccount = await getCreditAccount(ctx, account.userId)
+            const defaults = getConfiguredCreditLimits(account.plan)
+            const nextAccount = {
+                userId: account.userId,
+                enabled: existingAccount?.enabled ?? true,
+                plan: account.plan,
+                monthlyBasicCredits: existingAccount?.monthlyBasicCredits ?? defaults.basic,
+                monthlyProCredits: existingAccount?.monthlyProCredits ?? defaults.pro,
+                updatedAt: Date.now()
+            }
+
+            if (existingAccount?._id) {
+                await ctx.db.patch(existingAccount._id, nextAccount)
+                updated += 1
+                continue
+            }
+
+            await ctx.db.insert("prototypeCreditAccounts", nextAccount)
+            created += 1
+        }
+
+        return {
+            created,
+            updated
+        }
     }
 })
 

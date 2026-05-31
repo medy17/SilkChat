@@ -1,8 +1,8 @@
 import type { Auth, UserIdentity } from "convex/server"
 
 type Identity<T extends boolean> = T extends false
-    ? UserIdentity & { isAnonymous: false; id: string }
-    : UserIdentity & { isAnonymous: boolean; id: string }
+    ? UserIdentity & { isAnonymous: false; id: string; authId: string }
+    : UserIdentity & { isAnonymous: boolean; id: string; authId: string }
 
 export const getUserIdentity = async <T extends boolean>(
     auth: Auth,
@@ -27,7 +27,12 @@ export const getUserIdentity = async <T extends boolean>(
 
     return {
         ...identity,
-        id: identity.subject
+        id:
+            typeof (identity as UserIdentity & { userId?: unknown }).userId === "string" &&
+            (identity as UserIdentity & { userId?: string }).userId
+                ? (identity as UserIdentity & { userId: string }).userId
+                : identity.subject,
+        authId: identity.subject
     } as Identity<T>
 }
 

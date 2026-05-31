@@ -13,7 +13,8 @@ This folder is the application backend, not a stock Convex starter anymore.
 
 ## Key Files
 
-- `auth.config.ts`: Convex trusts Better Auth JWTs from `VITE_BETTER_AUTH_URL`
+- `auth.ts`: Convex-hosted Better Auth setup and current-user query
+- `auth.config.ts`: Convex trusts Better Auth JWTs issued by the Convex site URL
 - `lib/models.ts`: built-in model list and provider adapter mapping
 - `lib/provider_factory.ts`: provider instances, including OpenAI-compatible Google image support and xAI
 - `lib/internal_provider_config.ts`: determines whether an internal provider is actually configured
@@ -51,9 +52,9 @@ npx convex env list
 
 Convex auth depends on Better Auth:
 
-- issuer: `process.env.VITE_BETTER_AUTH_URL`
-- JWKS: `${process.env.VITE_BETTER_AUTH_URL}/api/auth/jwks`
-- application ID: `intern3`
+- issuer: `process.env.CONVEX_SITE_URL`
+- JWKS: `${process.env.CONVEX_SITE_URL}/api/auth/convex/jwks`
+- application ID: `convex`
 
 If Better Auth is broken, Convex auth is broken too.
 

@@ -1,12 +1,15 @@
 import { authClient } from "@/lib/auth-client"
+import { isJwtToken } from "@/lib/auth-token"
 import { createAuthHooks } from "@daveyplate/better-auth-tanstack"
+import type { AnyUseQueryOptions } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo } from "react"
 
 export const authHooks = createAuthHooks(authClient)
 
 export const {
     useSession,
     usePrefetchSession,
-    useToken,
     useListAccounts,
     useListSessions,
     useListDeviceSessions,
@@ -22,3 +25,87 @@ export const {
     useAuthQuery,
     useAuthMutation
 } = authHooks
+
+const decodeJwtPayload = (token: string) => {
+    const decode = (data: string) => {
+        if (typeof Buffer === "undefined") {
+            return atob(data)
+        }
+
+        return Buffer.from(data, "base64").toString()
+    }
+
+    const parts = token.split(".").map((part) => decode(part.replace(/-/g, "+").replace(/_/g, "/")))
+    return JSON.parse(parts[1])
+}
+
+const isTokenExpired = (token: string) => {
+    const payload = decodeJwtPayload(token)
+    return !payload?.exp || payload.exp < Date.now() / 1000
+}
+
+export function useToken(options?: Partial<AnyUseQueryOptions>) {
+    const session = useSession(options)
+    const queryResult = useQuery({
+        queryKey: ["token"],
+        queryFn: async () => {
+            const response = await authClient.convex.token({
+                fetchOptions: {
+                    throw: false
+                }
+            })
+
+            return response.data?.token ? { token: response.data.token } : undefined
+        },
+        ...options,
+        enabled: Boolean(session.data?.session) && (options?.enabled ?? true)
+    })
+
+    const token = queryResult.data?.token
+    const payload = useMemo(
+        () => (token && isJwtToken(token) ? decodeJwtPayload(token) : null),
+        [token]
+    )
+
+    useEffect(() => {
+        if (!token || !isJwtToken(token)) return
+        if (!payload?.exp) return
+
+        const expiresAt = payload.exp * 1000
+        const expiresIn = expiresAt - Date.now()
+        const timeout = setTimeout(
+            () => {
+                void queryResult.refetch()
+            },
+            Math.max(expiresIn, 0)
+        )
+
+        return () => clearTimeout(timeout)
+    }, [payload?.exp, queryResult.refetch, token])
+
+    useEffect(() => {
+        if (!session.data?.user?.id || !payload?.sub) return
+        if (payload.sub !== session.data.user.id) {
+            void queryResult.refetch()
+        }
+    }, [payload?.sub, queryResult.refetch, session.data?.user?.id])
+
+    const tokenData = useMemo(() => {
+        if (!session.data?.user?.id || !token || !isJwtToken(token)) {
+            return undefined
+        }
+
+        if (isTokenExpired(token) || payload?.sub !== session.data.user.id) {
+            return undefined
+        }
+
+        return queryResult.data
+    }, [payload?.sub, queryResult.data, session.data?.user?.id, token])
+
+    return {
+        ...queryResult,
+        data: tokenData,
+        token: tokenData?.token,
+        payload
+    }
+}
