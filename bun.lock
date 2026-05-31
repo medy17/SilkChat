@@ -397,7 +397,7 @@
 
     "@convex-dev/migrations": ["@convex-dev/migrations@0.2.9", "", { "peerDependencies": { "convex": "~1.16.5 || >=1.17.0 <1.35.0" } }, "sha512-HfIv6/F8VbtJ1NVT2bQRTumJGdaqROl/+s5IOnubHm7vvgie0RjcfO6YiB7JoLFWwS19vjDQDKl63ihoA08zOA=="],
 
-    "@convex-dev/r2": ["@convex-dev/r2@github:f1shy-dev/r2#e83fb23", { "dependencies": { "@aws-sdk/client-s3": "^3.726.1", "@aws-sdk/s3-request-presigner": "^3.693.0", "@convex-dev/action-retrier": "^0.1.5", "convex-helpers": "^0.1.67", "file-type": "^20.4.1", "uuid": "^11.1.0" }, "peerDependencies": { "convex": "~1.16.5 || >=1.17.0 <1.35.0", "react": "^18.3.1" } }, "f1shy-dev-r2-e83fb23"],
+    "@convex-dev/r2": ["@convex-dev/r2@github:f1shy-dev/r2#e83fb23", { "dependencies": { "@aws-sdk/client-s3": "^3.726.1", "@aws-sdk/s3-request-presigner": "^3.693.0", "@convex-dev/action-retrier": "^0.1.5", "convex-helpers": "^0.1.67", "file-type": "^20.4.1", "uuid": "^11.1.0" }, "peerDependencies": { "convex": "~1.16.5 || >=1.17.0 <1.35.0", "react": "^18.3.1" } }, "f1shy-dev-r2-e83fb23", "sha512-pkTJzrvlZSVL1xMbsfTdcBGniYlU5dF53eMVHlew2H2yLIOpWW4naprB+ImF6CJjVB6AgI/47ANSRb3at3qoyg=="],
 
     "@convex-dev/react-query": ["@convex-dev/react-query@0.0.0-alpha.8", "", { "peerDependencies": { "@tanstack/react-query": "^5.0.0", "convex": "^1.17.0" } }, "sha512-Rv/q7/CplU75f7ckBd2vh+HoeeQ0tOrjwMl14Hk7D/03e55oUIU0TV5JYYzC79ZQyyAtoj7CmCo5ZxcmtKNv1Q=="],
 

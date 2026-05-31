@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import dotenv from "dotenv"
 
@@ -12,6 +12,28 @@ dotenv.config({
 const children = []
 let shuttingDown = false
 const localImageOptimizerPort = process.env.LOCAL_IMAGE_OPTIMIZER_PORT || "43177"
+const localTempDir = path.resolve(process.cwd(), "temp", "local-dev")
+const requiredLocalConvexEnvVars = [
+    "VITE_BETTER_AUTH_URL",
+    "R2_BUCKET",
+    "R2_ENDPOINT",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_FORCE_PATH_STYLE"
+]
+
+mkdirSync(localTempDir, { recursive: true })
+
+const getSpawnEnv = (overrides = {}) => ({
+    ...process.env,
+    LOCAL_DISABLE_PRIVATE_BLUR: "1",
+    LOCAL_IMAGE_OPTIMIZER_PORT: localImageOptimizerPort,
+    VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED: "1",
+    TMPDIR: localTempDir,
+    TMP: localTempDir,
+    TEMP: localTempDir,
+    ...overrides
+})
 
 const ensureLocalDeploymentSelected = () => {
     const envLocalPath = path.resolve(process.cwd(), ".env.local")
@@ -30,16 +52,61 @@ const ensureLocalDeploymentSelected = () => {
     return false
 }
 
+const escapeDotenvValue = (value) =>
+    `"${value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/"/g, '\\"')}"`
+
+const syncRequiredLocalConvexEnvVars = () =>
+    new Promise((resolve, reject) => {
+        const missingEnvVars = requiredLocalConvexEnvVars.filter(
+            (name) => !process.env[name]?.trim()
+        )
+
+        if (missingEnvVars.length > 0) {
+            reject(
+                new Error(
+                    `Missing required local Convex env vars in .env.local: ${missingEnvVars.join(", ")}`
+                )
+            )
+            return
+        }
+
+        const envFilePath = path.join(localTempDir, "convex-local-required.env")
+        const envFileContents = requiredLocalConvexEnvVars
+            .map((name) => `${name}=${escapeDotenvValue(process.env[name].trim())}`)
+            .join("\n")
+
+        writeFileSync(envFilePath, `${envFileContents}\n`, "utf8")
+        console.log("[local-dev] syncing required Convex env vars to local deployment...")
+
+        const child = spawn(
+            "bunx",
+            ["convex", "env", "set", "--deployment", "local", "--from-file", envFilePath, "--force"],
+            {
+                stdio: "inherit",
+                shell: process.platform === "win32",
+                env: getSpawnEnv()
+            }
+        )
+
+        child.on("exit", (code) => {
+            try {
+                unlinkSync(envFilePath)
+            } catch {}
+
+            if (code === 0) {
+                resolve()
+                return
+            }
+
+            reject(new Error(`Convex env sync failed with exit code ${code}`))
+        })
+    })
+
 const start = (label, command, args) => {
     const child = spawn(command, args, {
         stdio: "inherit",
         shell: process.platform === "win32",
-        env: {
-            ...process.env,
-            LOCAL_DISABLE_PRIVATE_BLUR: "1",
-            LOCAL_IMAGE_OPTIMIZER_PORT: localImageOptimizerPort,
-            VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED: "1"
-        }
+        env: getSpawnEnv()
     })
 
     child.on("exit", (code) => {
@@ -79,10 +146,7 @@ const runConvexBootstrap = () =>
             {
                 stdio: ["pipe", "inherit", "inherit"],
                 shell: process.platform === "win32",
-                env: {
-                    ...process.env,
-                    LOCAL_DISABLE_PRIVATE_BLUR: "1"
-                }
+                env: getSpawnEnv()
             }
         )
 
@@ -118,7 +182,8 @@ if (!ensureLocalDeploymentSelected()) {
     process.exit(1)
 }
 
-runConvexBootstrap()
+syncRequiredLocalConvexEnvVars()
+    .then(() => runConvexBootstrap())
     .then(() => {
         start("Convex local", "bunx", [
             "convex",
