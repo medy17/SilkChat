@@ -118,7 +118,8 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     const chat = useChatIntegration({
         threadId,
-        folderId
+        folderId,
+        isActiveRoute
     })
     const { status, messages, ...chatHelpers } = chat
     const deferredMessages = useDeferredValue(messages)

@@ -1,5 +1,4 @@
-import { authClient } from "@/lib/auth-client"
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
+import { AppConvexAuthProvider } from "@/components/convex-auth-provider"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routerWithQueryClient } from "@tanstack/react-router-with-query"
 import { getConvexQueryClient, queryClient } from "./providers"
@@ -32,12 +31,9 @@ const createAppRouter = () =>
                 typeof window === "undefined" ? (
                     children
                 ) : (
-                    <ConvexBetterAuthProvider
-                        client={getConvexQueryClient()!.convexClient}
-                        authClient={authClient}
-                    >
+                    <AppConvexAuthProvider client={getConvexQueryClient()!.convexClient}>
                         {children}
-                    </ConvexBetterAuthProvider>
+                    </AppConvexAuthProvider>
                 )
         }),
         queryClient

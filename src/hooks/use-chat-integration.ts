@@ -162,12 +162,14 @@ export function useChatIntegration<IsShared extends boolean>({
     threadId,
     sharedThreadId,
     isShared,
-    folderId
+    folderId,
+    isActiveRoute = true
 }: {
     threadId: string | undefined
     sharedThreadId?: string | undefined
     isShared?: IsShared
     folderId?: Id<"projects">
+    isActiveRoute?: boolean
 }) {
     type ChatMessage = UIMessage<{
         modelId?: string
@@ -516,7 +518,7 @@ export function useChatIntegration<IsShared extends boolean>({
     ])
 
     useAutoResume({
-        autoResume: !isShared, // Skip auto resume for shared threads
+        autoResume: !isShared && isActiveRoute && Boolean(tokenData.token),
         thread: thread || undefined,
         threadId,
         experimental_resume: customResume,
