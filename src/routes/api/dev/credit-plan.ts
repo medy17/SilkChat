@@ -13,7 +13,9 @@ export const Route = createFileRoute("/api/dev/credit-plan")({
                     return Response.json({ error: "Not found" }, { status: 404 })
                 }
 
-                const currentUser = await authServer.fetchAuthQuery(api.auth.getCurrentUser)
+                const currentUser = await authServer.api.getSession({
+                    headers: request.headers
+                })
 
                 if (!currentUser?.id) {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })
