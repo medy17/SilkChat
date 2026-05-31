@@ -268,7 +268,10 @@ describe("getModel", () => {
 
     it("prefers gateway adapters for gpt-image-2 before direct OpenAI adapters", async () => {
         createProviderMock.mockResolvedValueOnce({
-            imageModel: vi.fn().mockReturnValue({ provider: "gateway-image" })
+            imageModel: vi.fn().mockReturnValue({
+                provider: "gateway-image",
+                maxImagesPerCall: 1
+            })
         })
 
         const result = await getModel(

@@ -71,7 +71,7 @@ describe("useChatDataProcessor", () => {
         expect(useChatStore.getState().threadId).toBe("thread-1")
         expect(useChatStore.getState().shouldUpdateQuery).toBe(true)
         expect(useChatStore.getState().attachedStreamIds).toEqual({
-            "thread-1": "stream-1"
+            "thread-1": ["stream-1"]
         })
         expect(useChatStore.getState().pendingStreams).toEqual({
             "thread-1": false
@@ -105,7 +105,7 @@ describe("useChatDataProcessor", () => {
         )
 
         expect(useChatStore.getState().attachedStreamIds).toEqual({
-            "thread-9": "stream-9"
+            "thread-9": ["stream-9"]
         })
         expect(useChatStore.getState().pendingStreams).toEqual({
             "thread-9": false

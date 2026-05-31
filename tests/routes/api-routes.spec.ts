@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { fetchAuthQueryMock, fetchAuthMutationMock } = vi.hoisted(() => {
+const { fetchAuthQueryMock, fetchAuthMutationMock, getSessionMock } = vi.hoisted(() => {
     process.env.VITE_POSTHOG_HOST = "https://ph.example.com"
     return {
         fetchAuthQueryMock: vi.fn(),
-        fetchAuthMutationMock: vi.fn()
+        fetchAuthMutationMock: vi.fn(),
+        getSessionMock: vi.fn()
     }
 })
 
@@ -14,6 +15,9 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("@/lib/auth-server", () => ({
     authServer: {
+        api: {
+            getSession: getSessionMock
+        },
         fetchAuthQuery: fetchAuthQueryMock,
         fetchAuthMutation: fetchAuthMutationMock
     }
@@ -40,6 +44,7 @@ describe("API routes", () => {
     beforeEach(() => {
         fetchAuthQueryMock.mockReset()
         fetchAuthMutationMock.mockReset()
+        getSessionMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         Reflect.deleteProperty(process.env, "NODE_ENV")
     })
@@ -110,7 +115,7 @@ describe("API routes", () => {
         expect(prodResponse.status).toBe(404)
 
         process.env.NODE_ENV = "development"
-        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
+        getSessionMock.mockResolvedValueOnce({ id: "user-1" })
         const invalidPlanResponse = await devCreditPlanHandlers.POST!({
             request: new Request("https://example.com/api/dev/credit-plan", {
                 method: "POST",
@@ -126,7 +131,7 @@ describe("API routes", () => {
 
     it("updates the credit plan in development for authenticated users", async () => {
         process.env.NODE_ENV = "development"
-        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
+        getSessionMock.mockResolvedValueOnce({ id: "user-1" })
         fetchAuthMutationMock.mockResolvedValueOnce({
             plan: "free"
         })
@@ -150,6 +155,7 @@ describe("API routes", () => {
 
     it("returns 401 from auth-dependent routes when the Convex auth user is missing", async () => {
         fetchAuthQueryMock.mockResolvedValueOnce(null)
+        getSessionMock.mockResolvedValueOnce(null)
         fetchAuthMutationMock.mockRejectedValueOnce(new Error("Unauthenticated"))
         process.env.NODE_ENV = "development"
 

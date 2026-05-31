@@ -16,7 +16,7 @@ const normalizeOrigin = (value?: string) => {
 
 const http = httpRouter()
 const isPrivateBlurEnabled = process.env.LOCAL_DISABLE_PRIVATE_BLUR !== "1"
-authComponent.registerRoutes(http, createAuth)
+authComponent.registerRoutesLazy(http, createAuth)
 const cors = corsRouter(http, {
     allowedOrigins: [
         normalizeOrigin(process.env.VITE_BETTER_AUTH_URL),
