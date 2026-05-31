@@ -13,10 +13,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useSession } from "@/hooks/auth-hooks"
 import { useFunction } from "@/hooks/use-function"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { authClient } from "@/lib/auth-client"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import {
     isEditableShortcutTarget,
@@ -138,7 +138,7 @@ export function ThreadsSidebar() {
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
     const dialogsRef = useRef<SidebarDialogsHandle>(null)
-    const { data: session } = authClient.useSession()
+    const { data: session } = useSession()
     const navigate = useNavigate()
     const location = useLocation()
     const isLibraryMode = location.pathname.startsWith("/library")

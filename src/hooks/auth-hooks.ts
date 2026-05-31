@@ -47,7 +47,7 @@ const isTokenExpired = (token: string) => {
 export function useToken(options?: Partial<AnyUseQueryOptions>) {
     const session = useSession(options)
     const queryResult = useQuery({
-        queryKey: ["token"],
+        queryKey: ["token", session.data?.user?.id],
         queryFn: async () => {
             const response = await authClient.convex.token({
                 fetchOptions: {
@@ -73,22 +73,15 @@ export function useToken(options?: Partial<AnyUseQueryOptions>) {
 
         const expiresAt = payload.exp * 1000
         const expiresIn = expiresAt - Date.now()
-        const timeout = setTimeout(
-            () => {
-                void queryResult.refetch()
-            },
-            Math.max(expiresIn, 0)
-        )
+        // Refresh token 1 minute before it expires
+        const refreshIn = Math.max(expiresIn - 60000, 5000) // Minimum 5 seconds delay to prevent infinite loop
+
+        const timeout = setTimeout(() => {
+            void queryResult.refetch()
+        }, refreshIn)
 
         return () => clearTimeout(timeout)
     }, [payload?.exp, queryResult.refetch, token])
-
-    useEffect(() => {
-        if (!session.data?.user?.id || !payload?.sub) return
-        if (payload.sub !== session.data.user.id) {
-            void queryResult.refetch()
-        }
-    }, [payload?.sub, queryResult.refetch, session.data?.user?.id])
 
     const tokenData = useMemo(() => {
         if (!session.data?.user?.id || !token || !isJwtToken(token)) {

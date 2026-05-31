@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
 import { queryClient } from "@/providers"
 import { useRouter } from "@tanstack/react-router"
@@ -24,7 +25,7 @@ import {
 } from "lucide-react"
 
 export function UserButton() {
-    const { data: session, isPending } = authClient.useSession()
+    const { data: session, isPending } = useSession()
     const router = useRouter()
 
     if (isPending) {

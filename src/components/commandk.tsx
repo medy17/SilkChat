@@ -14,7 +14,7 @@ import {
     CommandList
 } from "@/components/ui/command"
 import { api } from "@/convex/_generated/api"
-import { authClient } from "@/lib/auth-client"
+import { useSession } from "@/hooks/auth-hooks"
 import { matchesSearchChatsShortcut } from "@/lib/keyboard-shortcuts"
 
 interface Thread {
@@ -34,7 +34,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
     const [internalOpen, setInternalOpen] = useState(false)
     const [query, setQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const { data: session } = authClient.useSession()
+    const { data: session } = useSession()
     const router = useRouter()
     const commandRef = useRef<HTMLDivElement>(null)
 

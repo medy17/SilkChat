@@ -2,8 +2,8 @@ import { Messages } from "@/components/messages"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useSession } from "@/hooks/auth-hooks"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
-import { authClient } from "@/lib/auth-client"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { cn } from "@/lib/utils"
 import { useRouter } from "@tanstack/react-router"
@@ -18,7 +18,7 @@ interface SharedChatProps {
 export function SharedChat({ sharedThreadId }: SharedChatProps) {
     const { chatWidthState } = useChatWidthStore()
     const router = useRouter()
-    const { data: session } = authClient.useSession()
+    const { data: session } = useSession()
     const forkThread = useMutation(api.threads.forkSharedThread)
 
     const { messages, thread } = useChatIntegration({
