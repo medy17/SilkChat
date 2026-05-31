@@ -162,14 +162,12 @@ export function useChatIntegration<IsShared extends boolean>({
     threadId,
     sharedThreadId,
     isShared,
-    folderId,
-    isActiveRoute = true
+    folderId
 }: {
     threadId: string | undefined
     sharedThreadId?: string | undefined
     isShared?: IsShared
     folderId?: Id<"projects">
-    isActiveRoute?: boolean
 }) {
     type ChatMessage = UIMessage<{
         modelId?: string
@@ -275,9 +273,9 @@ export function useChatIntegration<IsShared extends boolean>({
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
                       const { selectedPersona } = useChatStore.getState()
-                      // Reuse a valid JWT so send/reconnect paths do not mint a
-                      // new Convex token on every attempt.
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          forceRefresh: true
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -331,7 +329,9 @@ export function useChatIntegration<IsShared extends boolean>({
                   },
                   async prepareReconnectToStreamRequest({ api, id }) {
                       const currentContext = latestRequestContextRef.current
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          forceRefresh: true
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -518,7 +518,7 @@ export function useChatIntegration<IsShared extends boolean>({
     ])
 
     useAutoResume({
-        autoResume: !isShared && isActiveRoute && Boolean(tokenData.token),
+        autoResume: !isShared, // Skip auto resume for shared threads
         thread: thread || undefined,
         threadId,
         experimental_resume: customResume,

@@ -101,8 +101,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
 
     const chat = useChatIntegration({
         threadId,
-        folderId,
-        isActiveRoute
+        folderId
     })
     const { status, messages } = chat
     const deferredMessages = useDeferredValue(messages)
