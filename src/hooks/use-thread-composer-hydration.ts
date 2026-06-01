@@ -4,6 +4,7 @@ import type { SharedModel } from "@/convex/lib/models"
 import { getLatestAssistantConfig, resolveAssistantConfigOverride } from "@/lib/assistant-config"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
+import { useConvexAuth } from "convex/react"
 import { useEffect, useRef } from "react"
 
 export const useThreadComposerHydration = ({
@@ -25,10 +26,11 @@ export const useThreadComposerHydration = ({
     setSelectedModel: (modelId: string | null) => void
     setReasoningEffort: (effort: ReasoningEffort) => void
 }) => {
+    const auth = useConvexAuth()
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
     const threadMessages = useConvexQuery(
         api.threads.getThreadMessages,
-        threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+        threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
     )
 
     useEffect(() => {

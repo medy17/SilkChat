@@ -203,6 +203,7 @@ export function ThreadsSidebar() {
 
     const hasPrefetchedBackgroundRef = useRef(false)
     useEffect(() => {
+        if (!session?.user?.id || auth.isLoading) return
         if (allThreads.length === 0 || hasPrefetchedBackgroundRef.current) return
         hasPrefetchedBackgroundRef.current = true
 
@@ -229,7 +230,7 @@ export function ThreadsSidebar() {
         return () => {
             cancelled = true
         }
-    }, [allThreads, convex])
+    }, [allThreads, auth.isLoading, convex, session?.user?.id])
 
     const sentinelRef = useInfiniteScroll({
         hasMore: status === "CanLoadMore",

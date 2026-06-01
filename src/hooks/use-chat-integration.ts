@@ -2,7 +2,6 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages"
 import type { SharedThread, Thread } from "@/convex/schema"
-import { useToken } from "@/hooks/auth-hooks"
 import { useAutoResume } from "@/hooks/use-auto-resume"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
@@ -12,6 +11,7 @@ import { extractR2KeyFromUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
+import { useConvexAuth } from "convex/react"
 import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -191,7 +191,7 @@ export function useChatIntegration<IsShared extends boolean>({
     }>
     type StreamRenderPhase = "idle" | "pre-first-paint" | "post-first-paint"
 
-    const tokenData = useToken()
+    const auth = useConvexAuth()
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
     const hasPendingLocalStream = useChatStore((state) =>
         threadId ? state.pendingStreams[threadId] === true : false
@@ -202,20 +202,20 @@ export function useChatIntegration<IsShared extends boolean>({
     const latestRequestContextRef = useRef({
         folderId,
         threadId,
-        token: tokenData.token
+        token: undefined as string | undefined
     })
     const [streamRenderPhase, setStreamRenderPhase] = useState<StreamRenderPhase>("idle")
     const lastLocalMutationAt = useChatStore((state) => state.lastLocalMutationAt)
     latestRequestContextRef.current = {
         folderId,
         threadId,
-        token: tokenData.token
+        token: undefined
     }
 
     // For regular threads, use getThreadMessages
     const threadMessages = useConvexQuery(
         api.threads.getThreadMessages,
-        !isShared && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+        !isShared && threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
     )
 
     // For shared threads, get the shared thread data
@@ -228,7 +228,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
     const thread = useConvexQuery(
         api.threads.getThread,
-        !isShared && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+        !isShared && threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
     )
 
     const initialMessages = useMemo<ChatMessage[]>(() => {

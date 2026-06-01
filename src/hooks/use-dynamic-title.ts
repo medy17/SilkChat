@@ -1,5 +1,6 @@
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useConvexAuth } from "convex/react"
 import { useQuery as useConvexQuery } from "convex/react"
 import { useEffect, useRef } from "react"
 
@@ -9,9 +10,10 @@ interface UseDynamicTitleProps {
 }
 
 export function useDynamicTitle({ threadId, enabled = true }: UseDynamicTitleProps) {
+    const auth = useConvexAuth()
     const thread = useConvexQuery(
         api.threads.getThread,
-        threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+        threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
     )
     const previousActiveThreadIdRef = useRef<string | undefined>(undefined)
 

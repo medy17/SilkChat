@@ -66,7 +66,9 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const { selectedPersona, setSelectedPersona } = useChatStore()
     const thread = useQuery(
         api.threads.getThread,
-        threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+        threadId && session.user?.id && !auth.isLoading
+            ? { threadId: threadId as Id<"threads"> }
+            : "skip"
     )
     const pickerOptions = useQuery(
         api.personas.listPersonaPickerOptions,

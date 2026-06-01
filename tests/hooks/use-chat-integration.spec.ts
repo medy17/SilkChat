@@ -10,6 +10,7 @@ const {
     resolveJwtTokenMock,
     useAutoResumeMock,
     useChatMock,
+    useConvexAuthMock,
     useConvexQueryMock,
     useTokenMock
 } = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ const {
     resolveJwtTokenMock: vi.fn(),
     useAutoResumeMock: vi.fn(),
     useChatMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
     useConvexQueryMock: vi.fn(),
     useTokenMock: vi.fn()
 }))
@@ -105,6 +107,10 @@ vi.mock("convex-helpers/react/cache", () => ({
     useQuery: useConvexQueryMock
 }))
 
+vi.mock("convex/react", () => ({
+    useConvexAuth: useConvexAuthMock
+}))
+
 vi.mock("nanoid", () => ({
     nanoid: nanoidMock
 }))
@@ -159,17 +165,38 @@ describe("useChatIntegration", () => {
         resolveJwtTokenMock.mockReset()
         useAutoResumeMock.mockReset()
         useChatMock.mockReset()
+        useConvexAuthMock.mockReset()
         useConvexQueryMock.mockReset()
         useTokenMock.mockReset()
         vi.spyOn(console, "log").mockImplementation(() => {})
 
         browserEnvMock.mockReturnValue("https://convex.example")
         resolveJwtTokenMock.mockResolvedValue("jwt-1")
+        useConvexAuthMock.mockReturnValue({ isLoading: false, isAuthenticated: true })
         useTokenMock.mockReturnValue({ token: "token-1" })
         backendToUiMessagesMock.mockImplementation((messages: unknown) => messages)
         useAutoResumeMock.mockImplementation((props: AutoResumeInvocation) => {
             latestAutoResumeProps = props
         })
+    })
+
+    it("skips private thread Convex queries while auth is still loading", () => {
+        useConvexAuthMock.mockReturnValue({ isLoading: true, isAuthenticated: false })
+        useChatMock.mockImplementation(() => ({
+            status: "idle",
+            messages: [],
+            setMessages: vi.fn(),
+            resumeStream: vi.fn()
+        }))
+
+        renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(useConvexQueryMock).toHaveBeenCalledWith("getThreadMessages", "skip")
+        expect(useConvexQueryMock).toHaveBeenCalledWith("getThread", "skip")
     })
 
     it("builds send and reconnect requests from the latest thread and model state", async () => {
