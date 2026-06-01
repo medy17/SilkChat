@@ -28,8 +28,14 @@ vi.mock("../../convex/lib/identity", () => ({
 }))
 
 import {
+    commitReservedCreditForMessage,
+    consumeCreditForMessage,
+    consumeReservedToolCall,
     getMyCreditSummary,
     recordCreditEventForMessage,
+    releaseReservedCreditForMessage,
+    reserveCreditForMessage,
+    reserveToolCallBudget,
     setMyPrototypeCreditPlan
 } from "../../convex/credits"
 
@@ -39,18 +45,42 @@ const getMyCreditSummaryHandler = getMyCreditSummary as unknown as {
 const recordCreditEventForMessageHandler = recordCreditEventForMessage as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
+const consumeCreditForMessageHandler = consumeCreditForMessage as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const reserveCreditForMessageHandler = reserveCreditForMessage as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const commitReservedCreditForMessageHandler = commitReservedCreditForMessage as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const releaseReservedCreditForMessageHandler = releaseReservedCreditForMessage as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const reserveToolCallBudgetHandler = reserveToolCallBudget as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const consumeReservedToolCallHandler = consumeReservedToolCall as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
 const setMyPrototypeCreditPlanHandler = setMyPrototypeCreditPlan as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
 type CreditAccount = Record<string, unknown>
 type CreditEvent = Record<string, unknown>
+type UserAccess = Record<string, unknown>
+type CreditReservation = Record<string, unknown>
+type ToolReservation = Record<string, unknown>
 type CreditsCtx = Parameters<typeof getMyCreditSummaryHandler.handler>[0]
 
 const createCtx = (options?: {
     account?: CreditAccount
     events?: CreditEvent[]
     existingEvent?: CreditEvent
+    userAccess?: UserAccess
+    creditReservations?: CreditReservation[]
+    reservations?: ToolReservation[]
 }) =>
     ({
         auth: {},
@@ -64,9 +94,29 @@ const createCtx = (options?: {
                                 ? (options?.account ?? null)
                                 : table === "prototypeCreditEvents"
                                   ? (options?.existingEvent ?? null)
-                                  : null
+                                  : table === "userAccess"
+                                    ? (options?.userAccess ?? null)
+                                    : table === "prototypeCreditReservations"
+                                      ? ((options?.creditReservations?.[0] as
+                                            | CreditReservation
+                                            | undefined) ?? null)
+                                      : table === "prototypeToolCallReservations"
+                                        ? ((options?.reservations?.[0] as
+                                              | ToolReservation
+                                              | undefined) ?? null)
+                                        : null
                         ),
-                    collect: vi.fn().mockResolvedValue(options?.events ?? [])
+                    collect: vi
+                        .fn()
+                        .mockResolvedValue(
+                            table === "prototypeCreditEvents"
+                                ? (options?.events ?? [])
+                                : table === "prototypeCreditReservations"
+                                  ? (options?.creditReservations ?? [])
+                                  : table === "prototypeToolCallReservations"
+                                    ? (options?.reservations ?? [])
+                                    : []
+                        )
                 })
             })),
             patch: vi.fn(),
@@ -99,7 +149,8 @@ describe("credits module", () => {
                     { counted: true, bucket: "basic", units: 3 },
                     { counted: true, bucket: "pro", units: 2 },
                     { counted: false, bucket: "none", units: 0 }
-                ]
+                ],
+                creditReservations: [{ active: true, counted: true, bucket: "pro", units: 1 }]
             }),
             {}
         )
@@ -114,13 +165,68 @@ describe("credits module", () => {
             },
             pro: {
                 limit: 25,
-                used: 2,
-                remaining: 23
+                used: 3,
+                remaining: 22
             },
             requestCounts: {
                 internal: 2,
                 byok: 1,
                 total: 3
+            }
+        })
+    })
+
+    it("uses configured env limits when account overrides are absent", async () => {
+        process.env.MONTHLY_CREDITS_FREE = "200"
+
+        const result = await getMyCreditSummaryHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free"
+                }
+            }),
+            {}
+        )
+
+        expect(result).toMatchObject({
+            enabled: true,
+            plan: "free",
+            basic: {
+                limit: 200,
+                used: 0,
+                remaining: 200
+            },
+            pro: {
+                limit: 0,
+                used: 0,
+                remaining: 0
+            }
+        })
+    })
+
+    it("prefers explicit account overrides over configured env limits", async () => {
+        process.env.MONTHLY_CREDITS_FREE = "200"
+
+        const result = await getMyCreditSummaryHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free",
+                    monthlyBasicCredits: 20,
+                    monthlyProCredits: 0
+                }
+            }),
+            {}
+        )
+
+        expect(result).toMatchObject({
+            basic: {
+                limit: 20,
+                used: 0,
+                remaining: 20
             }
         })
     })
@@ -149,7 +255,7 @@ describe("credits module", () => {
         expect(result).toBe("existing-event-id")
     })
 
-    it("patches an existing account when changing the prototype credit plan", async () => {
+    it("patches an existing account without snapshotting configured limits", async () => {
         const ctx = createCtx({
             account: {
                 _id: "account-id",
@@ -171,13 +277,357 @@ describe("credits module", () => {
                 userId: "user-1",
                 enabled: true,
                 plan: "pro",
-                monthlyBasicCredits: 1500,
-                monthlyProCredits: 100
+                monthlyBasicCredits: 20,
+                monthlyProCredits: 0
             })
         )
         expect(result).toMatchObject({
             userId: "user-1",
             plan: "pro"
         })
+    })
+
+    it("atomically blocks counted usage once the plan bucket is exhausted", async () => {
+        const result = await consumeCreditForMessageHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free"
+                },
+                events: [{ counted: true, bucket: "basic", units: 20 }]
+            }),
+            {
+                userId: "user-1",
+                messageId: "assistant-1",
+                messageKey: "assistant-1:model",
+                modelId: "shared-text",
+                providerSource: "internal",
+                feature: "chat",
+                bucket: "basic",
+                units: 1,
+                counted: true,
+                requiredPlan: "free"
+            }
+        )
+
+        expect(result).toMatchObject({
+            allowed: false,
+            reason: "quota",
+            limit: 20,
+            used: 20,
+            remaining: 0
+        })
+    })
+
+    it("allows bypass users to consume counted usage past the plan bucket limit", async () => {
+        const ctx = createCtx({
+            account: {
+                userId: "user-1",
+                enabled: true,
+                plan: "free"
+            },
+            userAccess: {
+                userId: "user-1",
+                isStaff: true,
+                bypassLimits: true
+            },
+            events: [{ counted: true, bucket: "basic", units: 20 }]
+        })
+
+        const result = await consumeCreditForMessageHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:model",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "chat",
+            bucket: "basic",
+            units: 1,
+            counted: true,
+            requiredPlan: "pro"
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            bypassed: true
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditEvents",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: "assistant-1:model"
+            })
+        )
+    })
+
+    it("includes active reserved tool credits in the reported basic usage", async () => {
+        const result = await getMyCreditSummaryHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free",
+                    monthlyBasicCredits: 20,
+                    monthlyProCredits: 0
+                },
+                events: [{ counted: true, bucket: "basic", units: 4 }],
+                reservations: [
+                    {
+                        active: true,
+                        reservedBasicCredits: 3,
+                        consumedBasicCredits: 1
+                    }
+                ]
+            }),
+            {}
+        )
+
+        expect(result.basic).toMatchObject({
+            used: 6,
+            remaining: 14
+        })
+    })
+
+    it("includes active reserved model credits in the reported usage", async () => {
+        const result = await getMyCreditSummaryHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "pro",
+                    monthlyBasicCredits: 20,
+                    monthlyProCredits: 5
+                },
+                events: [{ counted: true, bucket: "pro", units: 1 }],
+                creditReservations: [{ active: true, counted: true, bucket: "pro", units: 2 }]
+            }),
+            {}
+        )
+
+        expect(result.pro).toMatchObject({
+            used: 3,
+            remaining: 2
+        })
+    })
+
+    it("reserves and later commits a counted model charge without billing early", async () => {
+        const ctx = createCtx({
+            account: {
+                userId: "user-1",
+                enabled: true,
+                plan: "free",
+                monthlyBasicCredits: 20,
+                monthlyProCredits: 0
+            }
+        })
+
+        const reserveResult = await reserveCreditForMessageHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:model",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "chat",
+            bucket: "basic",
+            units: 1,
+            counted: true,
+            requiredPlan: "free"
+        })
+
+        expect(reserveResult).toMatchObject({
+            allowed: true,
+            committed: false
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditReservations",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: "assistant-1:model",
+                bucket: "basic"
+            })
+        )
+
+        const commitCtx = createCtx({
+            creditReservations: [
+                {
+                    _id: "reservation-1",
+                    userId: "user-1",
+                    messageId: "assistant-1",
+                    messageKey: "assistant-1:model",
+                    modelId: "shared-text",
+                    providerSource: "internal",
+                    feature: "chat",
+                    bucket: "basic",
+                    units: 1,
+                    counted: true,
+                    periodKey: "2026-06",
+                    active: true
+                }
+            ]
+        })
+
+        const commitResult = await commitReservedCreditForMessageHandler.handler(commitCtx, {
+            userId: "user-1",
+            messageKey: "assistant-1:model",
+            threadId: "thread-1",
+            messageId: "assistant-original"
+        })
+
+        expect(commitResult).toMatchObject({
+            committed: true,
+            existing: false
+        })
+        expect(commitCtx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditEvents",
+            expect.objectContaining({
+                userId: "user-1",
+                threadId: "thread-1",
+                messageId: "assistant-original",
+                messageKey: "assistant-1:model",
+                bucket: "basic"
+            })
+        )
+        expect(commitCtx.db.patch).toHaveBeenCalledWith(
+            "reservation-1",
+            expect.objectContaining({
+                active: false
+            })
+        )
+    })
+
+    it("releases a reserved model charge without committing a credit event", async () => {
+        const ctx = createCtx({
+            creditReservations: [
+                {
+                    _id: "reservation-1",
+                    userId: "user-1",
+                    messageKey: "assistant-1:model",
+                    active: true
+                }
+            ]
+        })
+
+        await releaseReservedCreditForMessageHandler.handler(ctx, {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "reservation-1",
+            expect.objectContaining({
+                active: false
+            })
+        )
+        expect(ctx.db.insert).not.toHaveBeenCalledWith("prototypeCreditEvents", expect.anything())
+    })
+
+    it("reserves tool-call budget without enforcing limits for bypass users", async () => {
+        const ctx = createCtx({
+            userAccess: {
+                userId: "user-1",
+                isStaff: true,
+                bypassLimits: true
+            }
+        })
+
+        const result = await reserveToolCallBudgetHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool-budget",
+            reservedCalls: 5,
+            reservedBasicCredits: 5
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            bypassed: true,
+            reservedCalls: 5,
+            reservedBasicCredits: 0
+        })
+        expect(ctx.db.insert).not.toHaveBeenCalledWith(
+            "prototypeToolCallReservations",
+            expect.anything()
+        )
+    })
+
+    it("records tool attempts for bypass users without requiring a reservation row", async () => {
+        const ctx = createCtx({
+            userAccess: {
+                userId: "user-1",
+                isStaff: true,
+                bypassLimits: true
+            }
+        })
+
+        const result = await consumeReservedToolCallHandler.handler(ctx, {
+            userId: "user-1",
+            reservationMessageKey: "assistant-1:tool-budget",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool:call-1",
+            toolCallId: "call-1",
+            toolName: "web_search",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "tool",
+            bucket: "basic",
+            units: 1,
+            counted: true
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            bypassed: true
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditEvents",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: "assistant-1:tool:call-1",
+                feature: "tool"
+            })
+        )
+    })
+
+    it("does not reuse finalized tool-call reservations for a new request attempt", async () => {
+        const ctx = createCtx({
+            reservations: [
+                {
+                    _id: "reservation-1",
+                    userId: "user-1",
+                    messageId: "assistant-old",
+                    messageKey: "assistant-old:tool-budget",
+                    reservedCalls: 1,
+                    consumedCalls: 1,
+                    reservedBasicCredits: 1,
+                    consumedBasicCredits: 1,
+                    active: false
+                }
+            ]
+        })
+
+        const result = await reserveToolCallBudgetHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-new",
+            messageKey: "assistant-new:tool-budget",
+            reservedCalls: 3,
+            reservedBasicCredits: 0
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            existing: false,
+            reservedCalls: 3,
+            reservedBasicCredits: 0
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeToolCallReservations",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: "assistant-new:tool-budget",
+                reservedCalls: 3,
+                active: true
+            })
+        )
     })
 })

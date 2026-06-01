@@ -5,6 +5,7 @@ import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
 import type { ImageModelV3 } from "@ai-sdk/provider"
 import { v } from "convex/values"
+import { nanoid } from "nanoid"
 import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
@@ -235,10 +236,8 @@ export const generateStandaloneImage = action({
         if (modelData instanceof ChatError) throw new Error(modelData.message)
 
         const { model } = modelData
-        enforceImageGenerationPlan({
-            userCreditPlan: await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
-                userId: user.id
-            }),
+        const requiredPlan = resolveRequiredPlanForModelAccess({
+            reasoningEffort: "off",
             availableToPickFor: modelData.availableToPickFor
         })
         const creditCharge = resolvePrototypeCreditCharge({
@@ -249,47 +248,68 @@ export const generateStandaloneImage = action({
             prototypeCreditTier: modelData.prototypeCreditTier,
             prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
         })
-
-        const result = await generateAndStoreImage({
-            prompt: args.prompt,
-            imageSize: (args.aspectRatio || "1:1") as ImageSize,
-            imageResolution: args.resolution as ImageResolution | undefined,
-            imageModel: model as ImageModelV3,
-            modelId: args.modelId,
+        const creditEventKey = `standalone-image:${nanoid()}`
+        const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
             userId: user.id,
-            actionCtx: ctx,
-            referenceImageKeys: args.referenceImageIds,
-            maxAssets: 1,
-            runtimeApiKey: modelData.runtimeApiKey
+            messageId: creditEventKey,
+            messageKey: creditEventKey,
+            modelId: args.modelId,
+            providerSource: modelData.providerSource,
+            feature: creditCharge.feature,
+            bucket: creditCharge.bucket,
+            units: creditCharge.units,
+            counted: creditCharge.counted,
+            requiredPlan
         })
 
-        const insertedIds: string[] = []
-        for (const asset of result.assets) {
-            const id = await ctx.runMutation(internal.images.insertGeneratedImage, {
-                userId: user.id,
-                storageKey: asset.imageUrl,
-                prompt: args.prompt,
-                modelId: args.modelId,
-                aspectRatio: asset.imageSize,
-                resolution: args.resolution
-            })
-            insertedIds.push(id)
+        if (!creditReservation.allowed) {
+            if (creditReservation.reason === "plan") {
+                throw new Error("Pro plan required for image generation.")
+            }
 
-            const creditEventKey = `standalone-image:${id}`
-            await ctx.runMutation(internal.credits.recordCreditEventForMessage, {
-                userId: user.id,
-                messageId: creditEventKey,
-                messageKey: creditEventKey,
-                modelId: args.modelId,
-                providerSource: modelData.providerSource,
-                feature: creditCharge.feature,
-                bucket: creditCharge.bucket,
-                units: creditCharge.units,
-                counted: creditCharge.counted
-            })
+            throw new Error("Monthly plan limit reached for image generation.")
         }
 
-        return insertedIds
+        try {
+            const result = await generateAndStoreImage({
+                prompt: args.prompt,
+                imageSize: (args.aspectRatio || "1:1") as ImageSize,
+                imageResolution: args.resolution as ImageResolution | undefined,
+                imageModel: model as ImageModelV3,
+                modelId: args.modelId,
+                userId: user.id,
+                actionCtx: ctx,
+                referenceImageKeys: args.referenceImageIds,
+                maxAssets: 1,
+                runtimeApiKey: modelData.runtimeApiKey
+            })
+
+            const insertedIds: string[] = []
+            for (const asset of result.assets) {
+                const id = await ctx.runMutation(internal.images.insertGeneratedImage, {
+                    userId: user.id,
+                    storageKey: asset.imageUrl,
+                    prompt: args.prompt,
+                    modelId: args.modelId,
+                    aspectRatio: asset.imageSize,
+                    resolution: args.resolution
+                })
+                insertedIds.push(id)
+            }
+
+            await ctx.runMutation(internal.credits.commitReservedCreditForMessage, {
+                userId: user.id,
+                messageKey: creditEventKey
+            })
+
+            return insertedIds
+        } catch (error) {
+            await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                userId: user.id,
+                messageKey: creditEventKey
+            })
+            throw error
+        }
     }
 })
 

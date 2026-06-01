@@ -9,8 +9,9 @@ const { generateAndStoreImageMock, getModelMock, getUserIdentityMock } = vi.hois
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         credits: {
-            getUserCreditPlanInternal: "getUserCreditPlanInternal",
-            recordCreditEventForMessage: "recordCreditEventForMessage"
+            reserveCreditForMessage: "reserveCreditForMessage",
+            commitReservedCreditForMessage: "commitReservedCreditForMessage",
+            releaseReservedCreditForMessage: "releaseReservedCreditForMessage"
         },
         images: {
             insertGeneratedImage: "insertGeneratedImage"
@@ -58,8 +59,14 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
 const createCtx = (): GenerateStandaloneImageCtx =>
     ({
         auth: {},
-        runMutation: vi.fn().mockResolvedValue("generated-image-1"),
-        runQuery: vi.fn().mockResolvedValue("pro")
+        runMutation: vi.fn().mockImplementation(async (name: string) => {
+            if (name === "reserveCreditForMessage") {
+                return { allowed: true, bypassed: false, existing: false, committed: false }
+            }
+
+            return "generated-image-1"
+        }),
+        runQuery: vi.fn()
     }) as GenerateStandaloneImageCtx
 
 const createImageModelData = (
@@ -100,7 +107,10 @@ describe("images_node", () => {
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
         const ctx = createCtx()
-        ctx.runQuery.mockResolvedValueOnce("free")
+        ctx.runMutation.mockImplementationOnce(async () => ({
+            allowed: false,
+            reason: "plan"
+        }))
 
         await expect(
             generateStandaloneImageHandler(ctx, {
@@ -111,7 +121,34 @@ describe("images_node", () => {
         ).rejects.toThrow("Pro plan required for image generation.")
 
         expect(generateAndStoreImageMock).not.toHaveBeenCalled()
-        expect(ctx.runMutation).not.toHaveBeenCalled()
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                modelId: "image-model",
+                requiredPlan: "pro"
+            })
+        )
+    })
+
+    it("rejects non-bypass users once the monthly image bucket is exhausted", async () => {
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementationOnce(async () => ({
+            allowed: false,
+            reason: "quota"
+        }))
+
+        await expect(
+            generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: "image-model",
+                aspectRatio: "1:1"
+            })
+        ).rejects.toThrow("Monthly plan limit reached for image generation.")
+
+        expect(generateAndStoreImageMock).not.toHaveBeenCalled()
     })
 
     it("allows pro users to run standalone pro image generation", async () => {
@@ -142,19 +179,70 @@ describe("images_node", () => {
             aspectRatio: "1:1",
             resolution: undefined
         })
-        expect(ctx.runMutation).toHaveBeenCalledWith("recordCreditEventForMessage", {
-            userId: "user-1",
-            messageId: "standalone-image:generated-image-1",
-            messageKey: "standalone-image:generated-image-1",
-            modelId: "image-model",
-            providerSource: "internal",
-            feature: "image",
-            bucket: "pro",
-            units: 1,
-            counted: true
-        })
-        expect(ctx.runQuery).toHaveBeenCalledWith("getUserCreditPlanInternal", {
-            userId: "user-1"
-        })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                modelId: "image-model",
+                providerSource: "internal",
+                feature: "image",
+                bucket: "pro",
+                units: 1,
+                counted: true,
+                requiredPlan: "pro"
+            })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "commitReservedCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: expect.stringContaining("standalone-image:")
+            })
+        )
+    })
+
+    it("allows bypass users to run standalone pro image generation", async () => {
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementationOnce(async () => ({
+            allowed: true,
+            bypassed: true,
+            existing: false,
+            committed: false
+        }))
+
+        await expect(
+            generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: "image-model",
+                aspectRatio: "1:1"
+            })
+        ).resolves.toEqual(["generated-image-1"])
+
+        expect(generateAndStoreImageMock).toHaveBeenCalled()
+    })
+
+    it("releases the reserved credit when generation fails after reservation", async () => {
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce(createImageModelData("pro"))
+        generateAndStoreImageMock.mockRejectedValueOnce(new Error("provider failure"))
+        const ctx = createCtx()
+
+        await expect(
+            generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: "image-model",
+                aspectRatio: "1:1"
+            })
+        ).rejects.toThrow("provider failure")
+
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "releaseReservedCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: expect.stringContaining("standalone-image:")
+            })
+        )
     })
 })

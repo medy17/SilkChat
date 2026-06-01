@@ -60,8 +60,15 @@ import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { appendQuotedSelection } from "@/lib/quote-selection"
 import { useSharedModels } from "@/lib/shared-models"
 import type { AbilityId } from "@/lib/tool-abilities"
+import {
+    DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
+    MAX_TOOL_CALL_LIMIT_PER_TURN,
+    MIN_TOOL_CALL_LIMIT_PER_TURN,
+    clampToolCallLimitPerTurn
+} from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import type { useChat } from "@ai-sdk/react"
+import { useConvexMutation } from "@convex-dev/react-query"
 import { useConvexAuth } from "convex/react"
 import {
     ArrowUp,
@@ -75,8 +82,10 @@ import {
     Image as ImageIcon,
     Loader2,
     Mic,
+    Minus,
     MoreHorizontal,
     Paperclip,
+    Plus,
     Square,
     X
 } from "lucide-react"
@@ -443,6 +452,9 @@ function MobileOverflowMenu({
     hasSupermemory,
     mcpServers,
     currentMcpOverrides,
+    toolCallLimitPerTurn,
+    toolLimitInteractive,
+    onSetToolCallLimit,
     onToggleTool,
     onToggleMcpServer,
     onAttachClick
@@ -462,6 +474,9 @@ function MobileOverflowMenu({
     hasSupermemory: boolean
     mcpServers: Array<{ name: string }>
     currentMcpOverrides: Record<string, boolean>
+    toolCallLimitPerTurn: number
+    toolLimitInteractive: boolean
+    onSetToolCallLimit: (nextLimit: number) => void
     onToggleTool: (tool: AbilityId) => void
     onToggleMcpServer: (serverName: string) => void
     onAttachClick: () => void
@@ -503,7 +518,7 @@ function MobileOverflowMenu({
                 align="end"
                 side="top"
                 sideOffset={8}
-                className="w-[min(14rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-popover p-1.5 shadow-lg"
+                className="w-[min(16rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-popover p-1.5 shadow-lg"
             >
                 <div className="space-y-1">
                     {(modelSupportsImageSizing || modelSupportsImageResolution) && (
@@ -701,6 +716,65 @@ function MobileOverflowMenu({
                             </div>
                         </div>
                     )}
+
+                    {!isImageModel && (
+                        <div className="border-border/60 border-t pt-2">
+                            <p className="px-2.5 pb-1 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-[0.16em]">
+                                Limits
+                            </p>
+                            <div
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60",
+                                    !toolLimitInteractive && "cursor-not-allowed opacity-50"
+                                )}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="truncate">Tool Calls</div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        disabled={
+                                            !toolLimitInteractive ||
+                                            toolCallLimitPerTurn <= MIN_TOOL_CALL_LIMIT_PER_TURN
+                                        }
+                                        onClick={() =>
+                                            onSetToolCallLimit(
+                                                Math.max(
+                                                    MIN_TOOL_CALL_LIMIT_PER_TURN,
+                                                    toolCallLimitPerTurn - 1
+                                                )
+                                            )
+                                        }
+                                    >
+                                        <Minus className="h-3 w-3" />
+                                    </button>
+                                    <span className="min-w-8 text-center font-medium text-foreground text-xs">
+                                        {toolCallLimitPerTurn || DEFAULT_TOOL_CALL_LIMIT_PER_TURN}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        disabled={
+                                            !toolLimitInteractive ||
+                                            toolCallLimitPerTurn >= MAX_TOOL_CALL_LIMIT_PER_TURN
+                                        }
+                                        onClick={() =>
+                                            onSetToolCallLimit(
+                                                Math.min(
+                                                    MAX_TOOL_CALL_LIMIT_PER_TURN,
+                                                    toolCallLimitPerTurn + 1
+                                                )
+                                            )
+                                        }
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PopoverContent>
         </Popover>
@@ -757,6 +831,9 @@ export const MultimodalInput = forwardRef<
     } | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
     const [extendedFiles, setExtendedFiles] = useState<ExtendedUploadedFile[]>([])
+    const [pendingToolCallLimitPerTurn, setPendingToolCallLimitPerTurn] = useState<number | null>(
+        null
+    )
 
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
@@ -776,6 +853,7 @@ export const MultimodalInput = forwardRef<
         },
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
+    const updateUserSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
 
     const {
         state: voiceState,
@@ -868,6 +946,18 @@ export const MultimodalInput = forwardRef<
     const currentMcpOverrides = threadId
         ? { ...defaultMcpOverrides, ...(mcpOverrides[threadId] || {}) }
         : { ...defaultMcpOverrides }
+    const activeToolCount = [
+        webSearchAvailable && enabledTools.includes("web_search"),
+        hasSupermemory && enabledTools.includes("supermemory"),
+        hasMcpServers && mcpServers.some((server) => currentMcpOverrides[server.name] !== false)
+    ].filter(Boolean).length
+    const toolLimitInteractive = activeToolCount > 0
+    const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(
+        userSettings.toolCallLimitPerTurn,
+        { hasEnabledTools: toolLimitInteractive }
+    )
+    const displayedToolCallLimitPerTurn =
+        pendingToolCallLimitPerTurn ?? effectiveToolCallLimitPerTurn
 
     const handleToolToggle = (tool: AbilityId) => {
         if (tool === "web_search" && (!modelSupportsFunctionCalling || !webSearchAvailable)) return
@@ -891,6 +981,37 @@ export const MultimodalInput = forwardRef<
 
         setDefaultMcpOverride(serverName, !isEnabled)
     }
+
+    useEffect(() => {
+        if (
+            pendingToolCallLimitPerTurn !== null &&
+            pendingToolCallLimitPerTurn === effectiveToolCallLimitPerTurn
+        ) {
+            setPendingToolCallLimitPerTurn(null)
+        }
+    }, [effectiveToolCallLimitPerTurn, pendingToolCallLimitPerTurn])
+
+    useEffect(() => {
+        if (pendingToolCallLimitPerTurn === null) {
+            return
+        }
+
+        const timeout = window.setTimeout(() => {
+            void updateUserSettings({
+                toolCallLimitPerTurn: pendingToolCallLimitPerTurn
+            }).catch((error) => {
+                setPendingToolCallLimitPerTurn(null)
+                toast.error("Failed to update tool call limit")
+                console.error(error)
+            })
+        }, 200)
+
+        return () => window.clearTimeout(timeout)
+    }, [pendingToolCallLimitPerTurn, updateUserSettings])
+
+    const handleToolCallLimitUpdate = useCallback((nextLimit: number) => {
+        setPendingToolCallLimitPerTurn(nextLimit)
+    }, [])
 
     const handleSubmit = async () => {
         const inputValue = promptInputRef.current?.getValue() || ""
@@ -1740,6 +1861,9 @@ export const MultimodalInput = forwardRef<
                                     hasSupermemory={hasSupermemory}
                                     mcpServers={mcpServers}
                                     currentMcpOverrides={currentMcpOverrides}
+                                    toolCallLimitPerTurn={displayedToolCallLimitPerTurn}
+                                    toolLimitInteractive={toolLimitInteractive}
+                                    onSetToolCallLimit={handleToolCallLimitUpdate}
                                     onToggleTool={handleToolToggle}
                                     onToggleMcpServer={handleMcpServerToggle}
                                     onAttachClick={() => uploadInputRef.current?.click()}

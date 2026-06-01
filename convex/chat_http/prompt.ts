@@ -5,6 +5,7 @@ import type { UserSettings } from "../schema/settings"
 
 type BuildPromptOptions = {
     enabledTools: AbilityId[]
+    toolCallLimitPerTurn?: number
     userTimezone?: string // e.g., "Asia/Kuala_Lumpur"
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
@@ -13,6 +14,7 @@ type BuildPromptOptions = {
 
 export const buildPrompt = ({
     enabledTools,
+    toolCallLimitPerTurn,
     userTimezone,
     clientTimestampMs,
     userSettings,
@@ -160,6 +162,16 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
 - These tools provide additional capabilities based on the connected MCP servers
 - Use them as needed based on their descriptions and the user's request`
         )
+
+    if (enabledTools.length > 0 && toolCallLimitPerTurn && toolCallLimitPerTurn > 0) {
+        layers.push(
+            dedent`
+## Tool Budget
+This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.
+- Use tools only when they are necessary to answer well.
+- If a tool budget error appears, continue the turn and answer with the information you already have.`
+        )
+    }
 
     if (personaPrompt?.trim()) {
         layers.push(personaPrompt.trim())

@@ -35,6 +35,7 @@ vi.mock("@/lib/default-user-settings", () => ({
         customAIProviders: {},
         customModels: {},
         titleGenerationModel: "gemini-3.1-flash-lite-preview",
+        toolCallLimitPerTurn: 3,
         customThemes: [],
         mcpServers: [],
         invertSendNewlineBehavior: false,
@@ -348,6 +349,7 @@ describe("settings", () => {
                 customModels: {},
                 customThemes: [],
                 titleGenerationModel: "shared-text",
+                toolCallLimitPerTurn: 3,
                 mcpServers: [],
                 customization: undefined,
                 onboardingCompleted: true
@@ -424,6 +426,7 @@ describe("settings", () => {
                     customModels: {},
                     customThemes: [],
                     titleGenerationModel: "shared-text",
+                    toolCallLimitPerTurn: 3,
                     mcpServers: [],
                     customization: undefined,
                     onboardingCompleted: false
@@ -444,6 +447,7 @@ describe("settings", () => {
             customAIProviders: {},
             customModels: {},
             titleGenerationModel: "shared-text",
+            toolCallLimitPerTurn: 3,
             customThemes: [],
             mcpServers: [],
             invertSendNewlineBehavior: false,
@@ -466,6 +470,43 @@ describe("settings", () => {
             "settings-id",
             expect.objectContaining({
                 invertSendNewlineBehavior: true
+            })
+        )
+    })
+
+    it("persists tool call limits through partial settings updates", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            searchProvider: "firecrawl",
+            searchIncludeSourcesByDefault: false,
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            toolCallLimitPerTurn: 3,
+            customThemes: [],
+            mcpServers: [],
+            invertSendNewlineBehavior: false,
+            generalProviders: {
+                supermemory: undefined,
+                firecrawl: undefined,
+                tavily: undefined,
+                brave: undefined,
+                serper: undefined
+            },
+            customization: undefined,
+            onboardingCompleted: false
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            toolCallLimitPerTurn: 7
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                toolCallLimitPerTurn: 7
             })
         )
     })

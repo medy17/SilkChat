@@ -67,8 +67,12 @@ vi.mock("../../convex/_generated/server", () => ({
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         credits: {
-            getUserCreditPlanInternal: "getUserCreditPlanInternal",
-            recordCreditEventForMessage: "recordCreditEventForMessage"
+            reserveCreditForMessage: "reserveCreditForMessage",
+            commitReservedCreditForMessage: "commitReservedCreditForMessage",
+            releaseReservedCreditForMessage: "releaseReservedCreditForMessage",
+            reserveToolCallBudget: "reserveToolCallBudget",
+            consumeReservedToolCall: "consumeReservedToolCall",
+            finalizeToolCallBudget: "finalizeToolCallBudget"
         },
         messages: {
             getMessagesByThreadId: "getMessagesByThreadId",
@@ -223,13 +227,7 @@ const createCtx = () =>
     ({
         auth: {},
         runMutation: vi.fn(),
-        runQuery: vi.fn().mockImplementation(async (name: string) => {
-            if (name === "getUserCreditPlanInternal") {
-                return "pro"
-            }
-
-            return null
-        })
+        runQuery: vi.fn().mockResolvedValue(null)
     }) as ChatPostCtx
 
 describe("chatPOST", () => {
@@ -494,12 +492,31 @@ describe("chatPOST", () => {
         })
 
         const ctx = createCtx()
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            if (name === "getUserCreditPlanInternal") {
-                return "free"
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: false,
+                        reason: "plan"
+                    }
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
             }
-
-            return null
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
         })
 
         const response = await chatPOSTHandler(
@@ -521,11 +538,266 @@ describe("chatPOST", () => {
             code: "forbidden:chat",
             cause: "Pro plan required for the selected model."
         })
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "createThreadOrInsertMessages",
+            expect.anything()
+        )
+    })
+
+    it("returns rate_limit when the monthly bucket is exhausted", async () => {
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelName: "Shared Text",
+            providerSource: "internal",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: []
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: false,
+                        reason: "quota"
+                    }
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(429)
+        await expect(response.json()).resolves.toMatchObject({
+            code: "rate_limit:chat",
+            cause: "Monthly plan limit reached for the selected request."
+        })
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "createThreadOrInsertMessages",
+            expect.anything()
+        )
+    })
+
+    it("releases the reserved model charge when tool budget reservation fails", async () => {
+        process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelName: "Shared Text",
+            providerSource: "internal",
+            abilities: ["function_calling"],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: ["function_calling"]
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "reserveToolCallBudget":
+                    return {
+                        allowed: false,
+                        reason: "quota"
+                    }
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: ["web_search"],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(429)
+        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "createThreadOrInsertMessages",
+            expect.anything()
+        )
+    })
+
+    it("releases the reserved model charge and returns bad_request when reserving tool budget throws", async () => {
+        process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelName: "Shared Text",
+            providerSource: "internal",
+            abilities: ["function_calling"],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: ["function_calling"]
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "reserveToolCallBudget":
+                    throw new Error("tool budget failure")
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: ["web_search"],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(400)
+        await expect(response.json()).resolves.toMatchObject({
+            code: "bad_request:chat"
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "createThreadOrInsertMessages",
+            expect.anything()
+        )
     })
 
     it("returns bad_request when message creation fails before streaming begins", async () => {
         const ctx = createCtx()
-        ctx.runMutation.mockRejectedValueOnce(new Error("db failure"))
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "createThreadOrInsertMessages":
+                    throw new Error("db failure")
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
@@ -542,6 +814,21 @@ describe("chatPOST", () => {
             },
             prototypeCreditTier: "basic",
             prototypeCreditTierWithReasoning: undefined
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
         })
 
         const response = await chatPOSTHandler(
@@ -561,6 +848,10 @@ describe("chatPOST", () => {
         await expect(response.json()).resolves.toMatchObject({
             code: "bad_request:chat"
         })
+        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
     })
 
     it("streams a text response, patches the assistant message, and records credits on the happy path", async () => {
@@ -576,9 +867,28 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "reserveToolCallBudget":
+                    return {
+                        allowed: true,
+                        existing: false,
+                        bypassed: false,
+                        reservedCalls: 3,
+                        reservedBasicCredits: 3
+                    }
+                case "commitReservedCreditForMessage":
+                    return {
+                        committed: true
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "finalizeToolCallBudget":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -586,8 +896,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -595,6 +903,7 @@ describe("chatPOST", () => {
                         userId: "user-1",
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
                         generalProviders: {},
                         mcpServers: []
                     }
@@ -645,9 +954,11 @@ describe("chatPOST", () => {
                 },
                 options?: {
                     onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
+                    onFirstVisible?: () => void
                 }
             ) => {
                 options?.onToolCall?.({ toolCallId: "call-1", toolName: "web_search" })
+                options?.onFirstVisible?.()
                 parts.push({
                     type: "text",
                     text: "Hello world"
@@ -707,6 +1018,7 @@ describe("chatPOST", () => {
         expect(buildPromptMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 enabledTools: ["web_search"],
+                toolCallLimitPerTurn: 3,
                 userSettings: expect.objectContaining({
                     mcpServers: []
                 }),
@@ -718,7 +1030,8 @@ describe("chatPOST", () => {
             ["web_search"],
             expect.objectContaining({
                 mcpServers: []
-            })
+            }),
+            expect.any(Object)
         )
         expect(stepCountIsMock).toHaveBeenCalledWith(100)
         expect(smoothStreamMock).toHaveBeenCalledTimes(1)
@@ -782,34 +1095,343 @@ describe("chatPOST", () => {
         expect(responseText).toContain('"totalTokens":46')
         expect(responseText).toContain('"estimatedCostUsd":0.001552')
         expect(responseText).toMatch(/"timeToFirstVisibleMs":\d+/)
-        expect(ctx.runMutation).toHaveBeenCalledWith("recordCreditEventForMessage", {
+        expect(ctx.runMutation).toHaveBeenCalledWith("reserveCreditForMessage", {
             userId: "user-1",
-            threadId: "thread-1",
+            threadId: undefined,
             messageId: "assistant-1",
-            messageKey: "42:model",
+            messageKey: "assistant-1:model",
             modelId: "shared-text",
             providerSource: "internal",
             feature: "chat",
             bucket: "pro",
             units: 1,
-            counted: true
+            counted: true,
+            requiredPlan: "pro"
         })
-        expect(ctx.runMutation).toHaveBeenCalledWith("recordCreditEventForMessage", {
+        expect(ctx.runMutation).toHaveBeenCalledWith("commitReservedCreditForMessage", {
             userId: "user-1",
+            messageKey: "assistant-1:model",
             threadId: "thread-1",
+            messageId: "assistant-1"
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("reserveToolCallBudget", {
+            userId: "user-1",
+            threadId: undefined,
             messageId: "assistant-1",
-            messageKey: "42:tool:call-1",
-            modelId: "shared-text",
-            providerSource: "internal",
-            feature: "tool",
-            bucket: "basic",
-            units: 1,
-            counted: true
+            messageKey: "assistant-1:tool-budget",
+            reservedCalls: 3,
+            reservedBasicCredits: 3
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("finalizeToolCallBudget", {
+            userId: "user-1",
+            messageKey: "assistant-1:tool-budget"
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
             threadId: "thread-1",
             isLive: false,
             currentStreamId: undefined
+        })
+    })
+
+    it("commits retry charges against the persisted assistant id while keeping the attempt-scoped message key", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-original",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "commitReservedCreditForMessage":
+                    return {
+                        committed: true
+                    }
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "shared-text",
+            modelName: "Shared Text",
+            runtimeProvider: "openai",
+            providerSource: "internal",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: [],
+                        maxTokens: 2048
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+        manualStreamTransformMock.mockImplementationOnce(
+            (
+                parts: Array<{ type: string; text?: string }>,
+                _totalTokenUsage: unknown,
+                _uploadPromises: Promise<void>[],
+                _userId: string,
+                _ctx: unknown,
+                streamMetrics?: {
+                    firstVisibleAtMs?: number
+                },
+                options?: {
+                    onFirstVisible?: () => void
+                    onPartsChanged?: () => void
+                }
+            ) =>
+                new TransformStream({
+                    transform(
+                        chunk: {
+                            type: string
+                            text?: string
+                        },
+                        controller
+                    ) {
+                        if (chunk.type === "text-delta" && chunk.text) {
+                            options?.onFirstVisible?.()
+                            parts.push({
+                                type: "text",
+                                text: chunk.text
+                            })
+                            options?.onPartsChanged?.()
+                            if (streamMetrics) {
+                                streamMetrics.firstVisibleAtMs = Date.now()
+                            }
+                        }
+
+                        controller.enqueue(chunk)
+                    }
+                })
+        )
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([
+                { type: "text-start", id: "text-1" },
+                { type: "text-delta", id: "text-1", text: "retry response" },
+                {
+                    type: "finish-step",
+                    usage: {
+                        inputTokens: 1,
+                        outputTokens: 1,
+                        totalTokens: 2
+                    }
+                },
+                { type: "text-end", id: "text-1" }
+            ]),
+            finishReason: Promise.resolve("stop")
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                id: "thread-1",
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-attempt",
+                targetFromMessageId: "user-msg-1",
+                targetMode: "retry",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello again" }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await response.text()
+
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                threadId: "thread-1",
+                messageId: "assistant-attempt",
+                messageKey: "assistant-attempt:model",
+                modelId: "shared-text"
+            })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "commitReservedCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: "assistant-attempt:model",
+                threadId: "thread-1",
+                messageId: "assistant-original"
+            })
+        )
+    })
+
+    it("commits the model charge when visible output is followed by a fatal stream error", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "commitReservedCreditForMessage":
+                    return {
+                        committed: true
+                    }
+                case "updateThreadStreamingState":
+                    return null
+                case "releaseReservedCreditForMessage":
+                case "finalizeToolCallBudget":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "shared-text",
+            modelName: "Shared Text",
+            runtimeProvider: "openai",
+            providerSource: "internal",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: [],
+                        maxTokens: 2048
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+        manualStreamTransformMock.mockImplementationOnce(
+            (
+                parts: Array<{ type: string; text?: string }>,
+                _totalTokenUsage: unknown,
+                _uploadPromises: Promise<void>[],
+                _userId: string,
+                _ctx: unknown,
+                streamMetrics?: {
+                    firstVisibleAtMs?: number
+                },
+                options?: {
+                    onFirstVisible?: () => void
+                }
+            ) => {
+                options?.onFirstVisible?.()
+                parts.push({
+                    type: "text",
+                    text: "hello before failure"
+                })
+                if (streamMetrics) {
+                    streamMetrics.firstVisibleAtMs = Date.now()
+                }
+
+                return new TransformStream()
+            }
+        )
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([
+                { type: "text-start", id: "text-1" },
+                { type: "text-delta", id: "text-1", text: "hello before failure" },
+                { type: "text-end", id: "text-1" }
+            ]),
+            finishReason: Promise.reject(new Error("finish failed"))
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "hello" }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await response.text()
+        await Promise.resolve()
+
+        expect(ctx.runMutation).toHaveBeenCalledWith("commitReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model",
+            threadId: "thread-1",
+            messageId: "assistant-1"
+        })
+        expect(ctx.runMutation).not.toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
         })
     })
 
@@ -825,9 +1447,18 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -835,8 +1466,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -944,9 +1573,18 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -954,8 +1592,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1048,14 +1684,23 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "updateThreadStreamingState":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
+                    return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1136,9 +1781,18 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -1146,8 +1800,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1231,9 +1883,18 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -1241,8 +1902,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
@@ -1332,9 +1991,18 @@ describe("chatPOST", () => {
                     }
                 case "appendStreamId":
                     return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
                 case "updateThreadStreamingState":
                 case "patchMessage":
-                case "recordCreditEventForMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -1342,8 +2010,6 @@ describe("chatPOST", () => {
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
-                case "getUserCreditPlanInternal":
-                    return "pro"
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":

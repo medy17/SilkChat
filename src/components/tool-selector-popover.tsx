@@ -15,7 +15,6 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
@@ -23,10 +22,17 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useModelStore } from "@/lib/model-store"
 import { SEARCH_PROVIDERS } from "@/lib/models-providers-shared"
 import type { AbilityId } from "@/lib/tool-abilities"
+import {
+    DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
+    MAX_TOOL_CALL_LIMIT_PER_TURN,
+    MIN_TOOL_CALL_LIMIT_PER_TURN,
+    clampToolCallLimitPerTurn
+} from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
+import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { CircleHelp, ExternalLink, Globe, Settings2 } from "lucide-react"
 import { memo, useState } from "react"
+import { toast } from "sonner"
 
 type ToolSelectorPopoverProps = {
     threadId?: string
@@ -161,6 +167,45 @@ function WebSearchInfoButton({
     )
 }
 
+function ToolCallLimitInfoButton({ isMobile }: { isMobile: boolean }) {
+    const content = (
+        <div className="p-3 text-sm">
+            <div className="font-medium text-foreground">Tool Calls</div>
+            <p className="mt-1 text-muted-foreground text-xs">
+                Global per-turn limit across all tools.
+            </p>
+        </div>
+    )
+
+    if (isMobile) {
+        return null
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120}>
+            <HoverCardTrigger asChild>
+                <button
+                    type="button"
+                    aria-label="Show tool call limit details"
+                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onPointerDown={(event) => {
+                        event.stopPropagation()
+                    }}
+                    onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }}
+                >
+                    <CircleHelp className="size-3.5" />
+                </button>
+            </HoverCardTrigger>
+            <HoverCardContent align="start" side="right" sideOffset={12} className="w-64 p-0">
+                {content}
+            </HoverCardContent>
+        </HoverCard>
+    )
+}
+
 export const ToolSelectorPopover = memo(
     ({
         threadId,
@@ -180,6 +225,7 @@ export const ToolSelectorPopover = memo(
             api.settings.getUserSettings,
             session.user?.id ? {} : "skip"
         )
+        const updateSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
         const toolAvailability = useConvexQuery(
             api.settings.getToolAvailability,
             session.user?.id ? {} : "skip"
@@ -223,6 +269,20 @@ export const ToolSelectorPopover = memo(
                 : toolAvailability?.web_search.fundingSource === "deployment"
                   ? "server"
                   : "not configured"
+        const updateToolCallLimit = async (nextLimit: number, isInteractive: boolean) => {
+            if (!isInteractive) {
+                return
+            }
+
+            try {
+                await updateSettings({
+                    toolCallLimitPerTurn: nextLimit
+                })
+            } catch (error) {
+                toast.error("Failed to update tool call limit")
+                console.error(error)
+            }
+        }
         const webSearchButton = (
             <Button
                 type="button"
@@ -305,6 +365,10 @@ export const ToolSelectorPopover = memo(
         }
 
         const activeCount = getActiveToolsCount()
+        const effectiveToolCallLimit = clampToolCallLimitPerTurn(
+            userSettings.toolCallLimitPerTurn,
+            { hasEnabledTools: activeCount > 0 }
+        )
 
         return (
             <ResponsivePopover open={open} onOpenChange={setOpen}>
@@ -340,7 +404,7 @@ export const ToolSelectorPopover = memo(
                         )}
                         <CommandList>
                             <CommandEmpty>No tools found.</CommandEmpty>
-                            <ScrollArea className="h-fit">
+                            <div>
                                 <CommandGroup heading="Tools">
                                     <CommandItem className="flex items-center justify-between p-3">
                                         <div className="flex min-w-0 items-center gap-3">
@@ -438,12 +502,72 @@ export const ToolSelectorPopover = memo(
                                     )}
                                 </CommandGroup>
 
+                                <CommandGroup heading="Limits">
+                                    <CommandItem
+                                        className={cn(
+                                            "flex items-center justify-between gap-3 p-3",
+                                            activeCount === 0 && "cursor-not-allowed opacity-50"
+                                        )}
+                                    >
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <span className="text-sm">Tool Calls</span>
+                                            <ToolCallLimitInfoButton isMobile={isMobile} />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                disabled={
+                                                    activeCount === 0 ||
+                                                    effectiveToolCallLimit <=
+                                                        MIN_TOOL_CALL_LIMIT_PER_TURN
+                                                }
+                                                onClick={() => {
+                                                    void updateToolCallLimit(
+                                                        Math.max(
+                                                            MIN_TOOL_CALL_LIMIT_PER_TURN,
+                                                            effectiveToolCallLimit - 1
+                                                        ),
+                                                        activeCount > 0
+                                                    )
+                                                }}
+                                            >
+                                                -
+                                            </button>
+                                            <div className="min-w-7 text-center text-sm tabular-nums">
+                                                {effectiveToolCallLimit ||
+                                                    DEFAULT_TOOL_CALL_LIMIT_PER_TURN}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                disabled={
+                                                    activeCount === 0 ||
+                                                    effectiveToolCallLimit >=
+                                                        MAX_TOOL_CALL_LIMIT_PER_TURN
+                                                }
+                                                onClick={() => {
+                                                    void updateToolCallLimit(
+                                                        Math.min(
+                                                            MAX_TOOL_CALL_LIMIT_PER_TURN,
+                                                            effectiveToolCallLimit + 1
+                                                        ),
+                                                        activeCount > 0
+                                                    )
+                                                }}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </CommandItem>
+                                </CommandGroup>
+
                                 {!modelSupportsFunctionCalling && (
                                     <div className="px-4 py-3 text-center text-muted-foreground text-sm">
                                         Current model doesn't support function calling
                                     </div>
                                 )}
-                            </ScrollArea>
+                            </div>
                         </CommandList>
                     </Command>
                 </ResponsivePopoverContent>

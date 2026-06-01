@@ -12,6 +12,7 @@ import { nanoid } from "nanoid"
 
 import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
+import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic"
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google"
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
@@ -587,9 +588,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
-    const userCreditPlan = await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
-        userId: user.id
-    })
 
     const modelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort
@@ -623,13 +621,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
         availableToPickForReasoningEfforts: modelData.availableToPickForReasoningEfforts
     })
 
-    if (requiredPlanForModel === "pro" && userCreditPlan !== "pro") {
-        return new ChatError(
-            "forbidden:chat",
-            "Pro plan required for the selected model."
-        ).toResponse()
-    }
-
     const modelCreditCharge = resolvePrototypeCreditCharge({
         providerSource: modelData.providerSource,
         modelMode: model.modelType,
@@ -645,6 +636,130 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     if (personaSnapshot instanceof ChatError) {
         return personaSnapshot.toResponse()
+    }
+
+    const assistantRequestMessageId = body.proposedNewAssistantId
+    const modelCreditMessageKey = `${assistantRequestMessageId}:model`
+    const toolBudgetMessageKey = `${assistantRequestMessageId}:tool-budget`
+    const toolCallMessageKeyPrefix = `${assistantRequestMessageId}:tool`
+    const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
+        userId: user.id
+    })
+    const filteredSettings = {
+        ...settings,
+        mcpServers: settings.mcpServers?.filter((server: { name: string; enabled?: boolean }) => {
+            if (server.enabled === false) return false
+            const overrideValue = body.mcpOverrides?.[server.name]
+            return overrideValue !== false
+        })
+    }
+    const requestedEnabledTools = Array.from(new Set(body.enabledTools))
+    if ((filteredSettings.mcpServers ?? []).length > 0) {
+        requestedEnabledTools.push("mcp")
+    }
+    const toolAvailability = resolveToolAvailability(filteredSettings)
+    const resolvedEnabledTools = sanitizeEnabledTools(requestedEnabledTools, toolAvailability)
+    const getToolFundingSource = (toolName: string): ToolFundingSource => {
+        if (toolName === "web_search") return toolAvailability.web_search.fundingSource
+        return "byok"
+    }
+    const hasCallableTools =
+        modelData.abilities.includes("function_calling") && resolvedEnabledTools.length > 0
+    const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
+        hasEnabledTools: hasCallableTools
+    })
+    const reservedToolBasicCredits =
+        hasCallableTools &&
+        resolvedEnabledTools.includes("web_search") &&
+        toolAvailability.web_search.fundingSource === "deployment"
+            ? effectiveToolCallLimitPerTurn
+            : 0
+    const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
+        userId: user.id,
+        threadId: body.id as Id<"threads"> | undefined,
+        messageId: assistantRequestMessageId,
+        messageKey: modelCreditMessageKey,
+        modelId: body.model,
+        providerSource: modelData.providerSource,
+        feature: modelCreditCharge.feature,
+        bucket: modelCreditCharge.bucket,
+        units: modelCreditCharge.units,
+        counted: modelCreditCharge.counted,
+        requiredPlan: requiredPlanForModel
+    })
+
+    if (!creditReservation.allowed) {
+        if (creditReservation.reason === "plan") {
+            return new ChatError(
+                "forbidden:chat",
+                "Pro plan required for the selected model."
+            ).toResponse()
+        }
+
+        return new ChatError(
+            "rate_limit:chat",
+            "Monthly plan limit reached for the selected request."
+        ).toResponse()
+    }
+
+    let toolBudgetReservation: {
+        allowed: boolean
+        bypassed?: boolean
+        existing?: boolean
+        reservedCalls?: number
+        reservedBasicCredits?: number
+    } | null = null
+    if (hasCallableTools && effectiveToolCallLimitPerTurn > 0) {
+        try {
+            toolBudgetReservation = await ctx.runMutation(internal.credits.reserveToolCallBudget, {
+                userId: user.id,
+                threadId: body.id as Id<"threads"> | undefined,
+                messageId: assistantRequestMessageId,
+                messageKey: toolBudgetMessageKey,
+                reservedCalls: effectiveToolCallLimitPerTurn,
+                reservedBasicCredits: reservedToolBasicCredits
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to reserve tool budget", error)
+            await ctx
+                .runMutation(internal.credits.releaseReservedCreditForMessage, {
+                    userId: user.id,
+                    messageKey: modelCreditMessageKey
+                })
+                .catch((releaseError) =>
+                    console.error(
+                        "Failed to release model reservation after tool budget error:",
+                        releaseError
+                    )
+                )
+            return new ChatError("bad_request:chat").toResponse()
+        }
+    }
+
+    if (toolBudgetReservation && !toolBudgetReservation.allowed) {
+        await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+            userId: user.id,
+            messageKey: modelCreditMessageKey
+        })
+        return new ChatError(
+            "rate_limit:chat",
+            "Monthly plan limit reached for the selected request."
+        ).toResponse()
+    }
+
+    const releaseSetupReservations = async () => {
+        await Promise.allSettled([
+            ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                userId: user.id,
+                messageKey: modelCreditMessageKey
+            }),
+            toolBudgetReservation
+                ? ctx.runMutation(internal.credits.finalizeToolCallBudget, {
+                      userId: user.id,
+                      messageKey: toolBudgetMessageKey
+                  })
+                : Promise.resolve(null)
+        ])
     }
 
     const mutationResult = await (async () => {
@@ -665,18 +780,50 @@ export const chatPOST = httpAction(async (ctx, req) => {
         }
     })()
 
-    if (mutationResult instanceof ChatError) return mutationResult.toResponse()
-    if (!mutationResult) return new ChatError("bad_request:chat").toResponse()
-    const dbMessages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
-        threadId: mutationResult.threadId
-    })
-    const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
-        threadId: mutationResult.threadId
-    })
+    if (mutationResult instanceof ChatError) {
+        await releaseSetupReservations()
+        return mutationResult.toResponse()
+    }
+    if (!mutationResult) {
+        await releaseSetupReservations()
+        return new ChatError("bad_request:chat").toResponse()
+    }
 
-    const mapped_messages = await dbMessagesToCore(dbMessages, modelData.abilities, {
-        publicAssetBaseUrl: new URL(req.url).origin
-    })
+    const promptToolCallLimitPerTurn =
+        toolBudgetReservation?.bypassed === true ? undefined : effectiveToolCallLimitPerTurn
+    const streamSetup = await (async () => {
+        try {
+            const persistedPersonaSnapshot =
+                personaSnapshot ??
+                (await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
+                    threadId: mutationResult.threadId
+                }))
+            const dbMessages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
+                threadId: mutationResult.threadId
+            })
+            const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
+                threadId: mutationResult.threadId
+            })
+            const mapped_messages = await dbMessagesToCore(dbMessages, modelData.abilities, {
+                publicAssetBaseUrl: new URL(req.url).origin
+            })
+
+            return {
+                persistedPersonaSnapshot,
+                streamId,
+                mapped_messages
+            }
+        } catch (error) {
+            console.error("[cvx][chat] Failed to prepare stream context", error)
+            return new ChatError("bad_request:chat")
+        }
+    })()
+
+    if (streamSetup instanceof ChatError) {
+        await releaseSetupReservations()
+        return streamSetup.toResponse()
+    }
+    const { persistedPersonaSnapshot, streamId, mapped_messages } = streamSetup
 
     const streamStartTime = Date.now()
 
@@ -708,33 +855,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
     > = []
 
     const uploadPromises: Promise<void>[] = []
-    const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
-        userId: user.id
-    })
-    const filteredSettings = {
-        ...settings,
-        mcpServers: settings.mcpServers?.filter((server: { name: string; enabled?: boolean }) => {
-            if (server.enabled === false) return false
-            const overrideValue = body.mcpOverrides?.[server.name]
-            return overrideValue !== false
-        })
-    }
-    const requestedEnabledTools = Array.from(new Set(body.enabledTools))
-    if ((filteredSettings.mcpServers ?? []).length > 0) {
-        requestedEnabledTools.push("mcp")
-    }
-    const toolAvailability = resolveToolAvailability(filteredSettings)
-    const resolvedEnabledTools = sanitizeEnabledTools(requestedEnabledTools, toolAvailability)
-    const toolCalls = new Map<string, { toolCallId: string; toolName: string }>()
-    const getToolFundingSource = (toolName: string): ToolFundingSource => {
-        if (toolName === "web_search") return toolAvailability.web_search.fundingSource
-        return "byok"
-    }
-    const persistedPersonaSnapshot =
-        personaSnapshot ??
-        (await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
-            threadId: mutationResult.threadId
-        }))
 
     // Track token usage
     const totalTokenUsage = {
@@ -753,9 +873,57 @@ export const chatPOST = httpAction(async (ctx, req) => {
         streamMetrics.firstVisibleAtMs !== undefined
             ? Math.max(0, streamMetrics.firstVisibleAtMs - streamStartTime)
             : undefined
+    let modelCreditCommitted = false
+    let shouldChargeModelReservation = false
     const markFirstVisible = () => {
         if (streamMetrics.firstVisibleAtMs !== undefined) return
         streamMetrics.firstVisibleAtMs = Date.now()
+    }
+    const commitModelCreditReservation = async () => {
+        const result = await ctx.runMutation(internal.credits.commitReservedCreditForMessage, {
+            userId: user.id,
+            messageKey: modelCreditMessageKey,
+            threadId: mutationResult.threadId,
+            messageId: mutationResult.assistantMessageId
+        })
+        modelCreditCommitted = modelCreditCommitted || result.committed
+    }
+    const settleModelCreditReservation = async () => {
+        if (shouldChargeModelReservation) {
+            try {
+                await commitModelCreditReservation()
+                return
+            } catch (error) {
+                console.error("Failed to commit model credit reservation:", error)
+            }
+        }
+
+        if (modelCreditCommitted) {
+            return
+        }
+
+        try {
+            await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                userId: user.id,
+                messageKey: modelCreditMessageKey
+            })
+        } catch (error) {
+            console.error("Failed to release model credit reservation:", error)
+        }
+    }
+    const finalizeToolBudgetReservation = async () => {
+        if (!toolBudgetReservation) {
+            return
+        }
+
+        try {
+            await ctx.runMutation(internal.credits.finalizeToolCallBudget, {
+                userId: user.id,
+                messageKey: toolBudgetMessageKey
+            })
+        } catch (error) {
+            console.error("Failed to finalize tool budget:", error)
+        }
     }
     const cloneStreamParts = () =>
         (typeof structuredClone === "function"
@@ -985,6 +1153,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             runtimeApiKey: modelData.runtimeApiKey
                         })
 
+                        shouldChargeModelReservation = true
+                        await commitModelCreditReservation()
+
                         // Send tool result
                         markFirstVisible()
                         writer.write({
@@ -1076,8 +1247,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             {
                                 allowReasoning: effectiveReasoningEffort !== "off",
                                 onPartsChanged: scheduleLiveAssistantPersist,
-                                onToolCall: (toolCall) => {
-                                    toolCalls.set(toolCall.toolCallId, toolCall)
+                                onFirstVisible: () => {
+                                    shouldChargeModelReservation = true
                                 }
                             }
                         )
@@ -1122,8 +1293,33 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         experimental_transform: shouldDisableSmoothTransform
                             ? undefined
                             : smoothStream(),
-                        tools: modelData.abilities.includes("function_calling")
-                            ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings)
+                        tools: hasCallableTools
+                            ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
+                                  consumeToolCall: async ({ toolName, toolCallId }) => {
+                                      const toolCreditCharge = resolvePrototypeToolCreditCharge({
+                                          fundingSource: getToolFundingSource(toolName)
+                                      })
+
+                                      return await ctx.runMutation(
+                                          internal.credits.consumeReservedToolCall,
+                                          {
+                                              userId: user.id,
+                                              threadId: mutationResult.threadId,
+                                              reservationMessageKey: toolBudgetMessageKey,
+                                              messageId: mutationResult.assistantMessageId,
+                                              messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                              toolCallId,
+                                              toolName,
+                                              modelId: body.model,
+                                              providerSource: toolCreditCharge.providerSource,
+                                              feature: toolCreditCharge.feature,
+                                              bucket: toolCreditCharge.bucket,
+                                              units: toolCreditCharge.units,
+                                              counted: toolCreditCharge.counted
+                                          }
+                                      )
+                                  }
+                              })
                             : undefined,
                         messages: [
                             ...(modelData.modelId !== "gemini-2.0-flash-image-generation"
@@ -1132,6 +1328,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                           role: "system",
                                           content: buildPrompt({
                                               enabledTools: resolvedEnabledTools,
+                                              toolCallLimitPerTurn: promptToolCallLimitPerTurn,
                                               userSettings: settings,
                                               personaPrompt:
                                                   persistedPersonaSnapshot?.compiledPrompt
@@ -1185,8 +1382,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             {
                                 allowReasoning: effectiveReasoningEffort !== "off",
                                 onPartsChanged: scheduleLiveAssistantPersist,
-                                onToolCall: (toolCall) => {
-                                    toolCalls.set(toolCall.toolCallId, toolCall)
+                                onFirstVisible: () => {
+                                    shouldChargeModelReservation = true
                                 }
                             }
                         )
@@ -1268,36 +1465,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     timeToFirstVisibleMs: getTimeToFirstVisibleMs()
                 }
             })
-            await ctx.runMutation(internal.credits.recordCreditEventForMessage, {
-                userId: user.id,
-                threadId: mutationResult.threadId,
-                messageId: mutationResult.assistantMessageId,
-                messageKey: `${String(mutationResult.assistantMessageConvexId)}:model`,
-                modelId: body.model,
-                providerSource: modelData.providerSource,
-                feature: modelCreditCharge.feature,
-                bucket: modelCreditCharge.bucket,
-                units: modelCreditCharge.units,
-                counted: modelCreditCharge.counted
-            })
 
-            for (const toolCall of toolCalls.values()) {
-                const toolCreditCharge = resolvePrototypeToolCreditCharge({
-                    fundingSource: getToolFundingSource(toolCall.toolName)
-                })
-                await ctx.runMutation(internal.credits.recordCreditEventForMessage, {
-                    userId: user.id,
-                    threadId: mutationResult.threadId,
-                    messageId: mutationResult.assistantMessageId,
-                    messageKey: `${String(mutationResult.assistantMessageConvexId)}:tool:${toolCall.toolCallId}`,
-                    modelId: body.model,
-                    providerSource: toolCreditCharge.providerSource,
-                    feature: toolCreditCharge.feature,
-                    bucket: toolCreditCharge.bucket,
-                    units: toolCreditCharge.units,
-                    counted: toolCreditCharge.counted
-                })
-            }
+            await finalizeToolBudgetReservation()
+            await settleModelCreditReservation()
 
             if (model.modelType === "image") {
                 writer.write({
@@ -1343,6 +1513,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         onError: (error) => {
             req.signal.removeEventListener("abort", abortRemoteGeneration)
             console.error("[cvx][chat][stream] Fatal error:", error)
+            void settleModelCreditReservation()
+            void finalizeToolBudgetReservation()
             // Mark thread as not live on error
             ctx.runMutation(internal.threads.updateThreadStreamingState, {
                 threadId: mutationResult.threadId,

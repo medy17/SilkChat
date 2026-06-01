@@ -1,6 +1,12 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
-import { PrototypeCreditAccount, PrototypeCreditEvent } from "./schema/credits"
+import { UserAccess } from "./schema/access"
+import { PrototypeCreditReservation } from "./schema/credit_reservations"
+import {
+    PrototypeCreditAccount,
+    PrototypeCreditEvent,
+    PrototypeToolCallReservation
+} from "./schema/credits"
 import { Project } from "./schema/folders"
 import { GeneratedImage } from "./schema/generated_image"
 import { GeneratedImageFacets } from "./schema/generated_image_facets"
@@ -18,7 +24,9 @@ export {
     SharedThread,
     UsageEvent,
     PrototypeCreditAccount,
+    PrototypeCreditReservation,
     PrototypeCreditEvent,
+    PrototypeToolCallReservation,
     UserSettings,
     Project,
     UserPersona,
@@ -27,7 +35,8 @@ export {
     ImportJobSource,
     ImportJobThread,
     GeneratedImage,
-    GeneratedImageFacets
+    GeneratedImageFacets,
+    UserAccess
 }
 
 export default defineSchema({
@@ -154,10 +163,17 @@ export default defineSchema({
     //     .index("byUser", ["userId"])
     //     .index("byUserProvider", ["userId", "provider"]),
     settings: defineTable(UserSettings).index("byUser", ["userId"]),
+    userAccess: defineTable(UserAccess).index("byUser", ["userId"]),
 
     usageEvents: defineTable(UsageEvent).index("byUserDay", ["userId", "daysSinceEpoch"]),
     prototypeCreditAccounts: defineTable(PrototypeCreditAccount).index("byUser", ["userId"]),
+    prototypeCreditReservations: defineTable(PrototypeCreditReservation)
+        .index("byUserPeriod", ["userId", "periodKey"])
+        .index("byUserMessageKey", ["userId", "messageKey"]),
     prototypeCreditEvents: defineTable(PrototypeCreditEvent)
+        .index("byUserPeriod", ["userId", "periodKey"])
+        .index("byUserMessageKey", ["userId", "messageKey"]),
+    prototypeToolCallReservations: defineTable(PrototypeToolCallReservation)
         .index("byUserPeriod", ["userId", "periodKey"])
         .index("byUserMessageKey", ["userId", "messageKey"]),
 

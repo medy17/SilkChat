@@ -22,6 +22,7 @@ describe("buildPrompt", () => {
                 customAIProviders: {},
                 customModels: {},
                 titleGenerationModel: "gemini-3.1-flash-lite-preview",
+                toolCallLimitPerTurn: 3,
                 customThemes: [],
                 mcpServers: [],
                 generalProviders: {
@@ -44,5 +45,15 @@ describe("buildPrompt", () => {
         expect(prompt).toContain('- Address the user as "Ahmed"')
         expect(prompt).toContain("- Personality traits: Use paragraph replies.")
         expect(prompt).toContain("- Additional context about the user: I write TypeScript.")
+    })
+
+    it("includes the effective per-turn tool budget when tools are enabled", () => {
+        const prompt = buildPrompt({
+            enabledTools: ["web_search", "supermemory"],
+            toolCallLimitPerTurn: 5
+        })
+
+        expect(prompt).toContain("## Tool Budget")
+        expect(prompt).toContain("This turn has 5 allocated tool calls maximum.")
     })
 })

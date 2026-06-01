@@ -23,8 +23,8 @@ export const PrototypeCreditAccount = v.object({
     userId: v.string(),
     enabled: v.boolean(),
     plan: PrototypeCreditPlan,
-    monthlyBasicCredits: v.number(),
-    monthlyProCredits: v.number(),
+    monthlyBasicCredits: v.optional(v.number()),
+    monthlyProCredits: v.optional(v.number()),
     updatedAt: v.number()
 })
 
@@ -41,4 +41,20 @@ export const PrototypeCreditEvent = v.object({
     counted: v.boolean(),
     periodKey: v.string(),
     createdAt: v.number()
+})
+
+export const PrototypeToolCallReservation = v.object({
+    userId: v.string(),
+    threadId: v.optional(v.id("threads")),
+    messageId: v.string(),
+    messageKey: v.string(),
+    reservedCalls: v.number(),
+    consumedCalls: v.number(),
+    reservedBasicCredits: v.number(),
+    consumedBasicCredits: v.number(),
+    periodKey: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    finalizedAt: v.optional(v.number())
 })

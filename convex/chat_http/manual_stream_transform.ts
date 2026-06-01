@@ -60,6 +60,7 @@ export const manualStreamTransform = (
     options?: {
         allowReasoning?: boolean
         onPartsChanged?: () => void
+        onFirstVisible?: () => void
         onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
     }
 ) => {
@@ -108,6 +109,7 @@ export const manualStreamTransform = (
         if (streamMetrics) {
             streamMetrics.firstVisibleAtMs = Date.now()
         }
+        options?.onFirstVisible?.()
     }
 
     const controllerSafeNotice = () => {

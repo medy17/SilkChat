@@ -25,10 +25,66 @@ export type ConditionalToolParams = {
     toolAvailability: ResolvedToolAvailabilityMap
 }
 
+export type ToolCallBudgetController = {
+    consumeToolCall: (params: {
+        toolName: string
+        toolCallId: string
+    }) => Promise<{ allowed: boolean; remainingCalls?: number | null }>
+}
+
+const toToolExecutionError = (error: unknown) =>
+    error instanceof Error ? error.message : "Unknown error"
+
+export const wrapToolsWithExecutionLimits = (
+    tools: Record<string, Tool>,
+    controller?: ToolCallBudgetController
+): Record<string, Tool> => {
+    if (!controller) {
+        return tools
+    }
+
+    return Object.fromEntries(
+        Object.entries(tools).map(([toolName, toolDefinition]) => [
+            toolName,
+            {
+                ...toolDefinition,
+                execute: async (input: unknown, options: { toolCallId?: string } = {}) => {
+                    const toolCallId =
+                        typeof options.toolCallId === "string" ? options.toolCallId : toolName
+                    const reservation = await controller.consumeToolCall({
+                        toolName,
+                        toolCallId
+                    })
+
+                    if (!reservation.allowed) {
+                        return {
+                            success: false,
+                            code: "tool_budget_exhausted",
+                            error: "No remaining tool calls for this turn.",
+                            remainingToolCalls: 0
+                        }
+                    }
+
+                    try {
+                        return await toolDefinition.execute?.(input, options as never)
+                    } catch (error) {
+                        return {
+                            success: false,
+                            code: "tool_execution_failed",
+                            error: toToolExecutionError(error)
+                        }
+                    }
+                }
+            } satisfies Tool
+        ])
+    )
+}
+
 export const getToolkit = async (
     ctx: GenericActionCtx<DataModel>,
     enabledTools: AbilityId[],
-    userSettings: Infer<typeof UserSettings>
+    userSettings: Infer<typeof UserSettings>,
+    controller?: ToolCallBudgetController
 ): Promise<Record<string, Tool>> => {
     const toolAvailability = resolveToolAvailability(userSettings)
     const sanitizedEnabledTools = sanitizeEnabledTools(enabledTools, toolAvailability)
@@ -53,7 +109,7 @@ export const getToolkit = async (
     }
 
     console.log("tools", Object.keys(tools))
-    return tools
+    return wrapToolsWithExecutionLimits(tools, controller)
 }
 
 export { resolveToolAvailability, sanitizeEnabledTools }

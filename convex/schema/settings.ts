@@ -75,6 +75,7 @@ export const NonSensitiveUserSettings = v.object({
     searchIncludeSourcesByDefault: v.boolean(),
     customModels: v.record(v.string(), CustomModel),
     titleGenerationModel: v.string(),
+    toolCallLimitPerTurn: v.optional(v.number()),
     customThemes: v.optional(v.array(v.string())),
     mcpServers: v.optional(v.array(MCPServerConfig)),
     invertSendNewlineBehavior: v.optional(v.boolean()),

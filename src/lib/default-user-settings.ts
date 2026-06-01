@@ -6,6 +6,7 @@ export const DefaultSettings = (userId: string) => ({
     customAIProviders: {},
     customModels: {},
     titleGenerationModel: "gemini-3.1-flash-lite-preview",
+    toolCallLimitPerTurn: 3,
     customThemes: [],
     mcpServers: [],
     invertSendNewlineBehavior: false,

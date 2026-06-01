@@ -537,6 +537,7 @@ export const updateUserSettingsPartial = mutation({
         ),
         searchIncludeSourcesByDefault: v.optional(v.boolean()),
         titleGenerationModel: v.optional(v.string()),
+        toolCallLimitPerTurn: v.optional(v.number()),
         invertSendNewlineBehavior: v.optional(v.boolean()),
         customization: v.optional(
             v.object({
@@ -653,6 +654,9 @@ export const updateUserSettingsPartial = mutation({
         }
         if (args.titleGenerationModel !== undefined) {
             newSettings.titleGenerationModel = args.titleGenerationModel
+        }
+        if (args.toolCallLimitPerTurn !== undefined) {
+            newSettings.toolCallLimitPerTurn = args.toolCallLimitPerTurn
         }
         if (args.invertSendNewlineBehavior !== undefined) {
             newSettings.invertSendNewlineBehavior = args.invertSendNewlineBehavior
