@@ -6,7 +6,8 @@ const COALESCED_AUTH_GET_PATHS = new Set([
     "/api/auth/convex/token",
     "/api/auth/convex/jwks"
 ])
-const COALESCED_AUTH_GET_TTL_MS = 300
+const COALESCED_AUTH_GET_TTL_MS = 1500
+const COALESCED_AUTH_JWKS_TTL_MS = 10000
 
 type ResponseSnapshot = {
     body: ArrayBuffer
@@ -66,9 +67,19 @@ const shouldCoalesceAuthGet = (request: Request) => {
 
 const getAuthGetCoalescingKey = (request: Request) => {
     const requestUrl = new URL(request.url)
+    if (requestUrl.pathname === "/api/auth/convex/jwks") {
+        return `${requestUrl.origin}${requestUrl.pathname}${requestUrl.search}`
+    }
     const cookie = request.headers.get("cookie") ?? ""
     const authorization = request.headers.get("authorization") ?? ""
     return `${requestUrl.origin}${requestUrl.pathname}${requestUrl.search}|${cookie}|${authorization}`
+}
+
+const getAuthGetCoalescingTtlMs = (request: Request) => {
+    const requestUrl = new URL(request.url)
+    return requestUrl.pathname === "/api/auth/convex/jwks"
+        ? COALESCED_AUTH_JWKS_TTL_MS
+        : COALESCED_AUTH_GET_TTL_MS
 }
 
 const createResponseSnapshot = async (response: Response): Promise<ResponseSnapshot> => ({
@@ -91,13 +102,14 @@ const coalesceAuthGet = async (request: Request) => {
     const cacheKey = getAuthGetCoalescingKey(request)
     const now = Date.now()
     const existing = authGetSnapshotCache.get(cacheKey)
+    const ttlMs = getAuthGetCoalescingTtlMs(request)
 
     if (existing && existing.expiresAt > now) {
         return responseFromSnapshot(await existing.snapshotPromise)
     }
 
     const snapshotPromise = (async () => createResponseSnapshot(await proxyAuthGet(request)))()
-    const expiresAt = now + COALESCED_AUTH_GET_TTL_MS
+    const expiresAt = now + ttlMs
     authGetSnapshotCache.set(cacheKey, { expiresAt, snapshotPromise })
 
     try {

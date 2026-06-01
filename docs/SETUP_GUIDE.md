@@ -69,6 +69,14 @@ Preferred (cross-platform):
 bun run cloud:dev:push
 ```
 
+This only pushes code to the existing Convex deployment. It does not require an
+extra auth step on every run.
+
+`JWKS` is deployment-instance state. You only need to set or refresh it when:
+
+- you create a brand new Convex deployment instance
+- you intentionally rotate Better Auth keys for an existing deployment
+
 Manual shell-specific variants:
 
 ```powershell
@@ -128,6 +136,7 @@ Only switch back to Vercel when you already have a likely fix.
 - search provider secrets
 - encryption key
 - storage credentials
+- optional static `JWKS` for Better Auth / Convex JWT validation
 
 Use:
 
@@ -147,6 +156,30 @@ vercel --prod
   - issuer: `CONVEX_SITE_URL`
   - JWKS: `${CONVEX_SITE_URL}/api/auth/convex/jwks`
   - application ID: `convex`
+- this repo can optionally use static JWKS from the Convex env var `JWKS`
+  instead of the live `/api/auth/convex/jwks` endpoint
+
+### Static JWKS workflow
+
+For a brand new Convex deployment instance, or after an intentional auth key
+rotation, run:
+
+```bash
+bunx convex run auth:rotateKeys | bunx convex env set JWKS
+```
+
+Examples:
+
+```bash
+CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex run auth:rotateKeys | bunx convex env set JWKS
+```
+
+```bash
+bunx convex run auth:rotateKeys | bunx convex env set JWKS
+```
+
+The first example targets a specific cloud deployment. The second uses whatever
+deployment your local Convex CLI is currently pointed at.
 
 ### Session mismatch symptom
 

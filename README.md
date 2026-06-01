@@ -68,6 +68,10 @@ bun run cloud:dev:push
 This script is cross-platform (Windows/macOS/Linux).
 It also restores your original `.env.local` after the push so local mode is not overwritten.
 
+`cloud:dev:push` only pushes code. It does not need any extra auth step on every run.
+The only time you need to refresh `JWKS` is when you create a brand new Convex
+deployment instance or intentionally rotate Better Auth keys for an existing one.
+
 Manual overrides:
 
 ```powershell
@@ -122,6 +126,8 @@ These variables are read by Convex actions and HTTP routes:
 - search provider keys
 - storage keys
 - `ENCRYPTION_KEY`
+- `JWKS` optional but recommended; when set, Convex auth uses static JWKS instead
+  of fetching `/api/auth/convex/jwks` on every deployment
 
 If a feature looks configured in Vercel but still fails at runtime, check whether the actual key belongs in Convex instead.
 
@@ -173,3 +179,9 @@ See [MODEL_PROVIDER_GUIDE.md](./MODEL_PROVIDER_GUIDE.md) for the rules behind th
 
 - Use the local loop first. Do not debug auth or model changes by waiting on repeated Vercel builds unless the bug only reproduces in production.
 - Better Auth and Convex are coupled through the proxied `/api/auth/*` surface, especially `/api/auth/convex/jwks`, so auth changes are never just a UI concern.
+- `JWKS` is deployment-instance state, not per-push state. For the current cloud
+  dev deployment (`dev:knowing-falcon-519`), normal pushes remain just:
+
+```bash
+bun run cloud:dev:push
+```

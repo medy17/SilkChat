@@ -3,7 +3,7 @@ import type { ComponentApi as BetterAuthComponentApi } from "@convex-dev/better-
 import { convex } from "@convex-dev/better-auth/plugins"
 import { betterAuth } from "better-auth"
 import { components } from "./_generated/api.js"
-import { query } from "./_generated/server"
+import { internalAction, query } from "./_generated/server"
 import authConfig from "./auth.config"
 
 const betterAuthComponent = (
@@ -33,6 +33,7 @@ const betterAuthSecret = getEnv("BETTER_AUTH_SECRET")
 const googleClientId = getEnv("GOOGLE_CLIENT_ID")
 const googleClientSecret = getEnv("GOOGLE_CLIENT_SECRET")
 const convexSiteUrl = getEnv("VITE_CONVEX_SITE_URL")
+const staticJwks = getEnv("JWKS")
 const isLocalAuthRuntime =
     baseURL.includes("localhost") ||
     baseURL.includes("127.0.0.1") ||
@@ -79,6 +80,7 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         plugins: [
             convex({
                 authConfig,
+                jwks: staticJwks,
                 options: {
                     basePath: "/api/auth"
                 }
@@ -104,5 +106,13 @@ export const getCurrentUser = query({
                     : user._id,
             authId: user._id
         }
+    }
+})
+
+export const rotateKeys = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const auth = createAuth(ctx as Parameters<typeof createAuth>[0])
+        return await auth.api.rotateKeys()
     }
 })

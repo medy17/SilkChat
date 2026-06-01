@@ -58,6 +58,24 @@ Convex auth depends on Better Auth:
 
 If Better Auth is broken, Convex auth is broken too.
 
+### Static JWKS
+
+This repo supports optional static JWKS via the `JWKS` Convex environment variable.
+`JWKS` is per Convex deployment instance, not per code push.
+
+Generate and store it with:
+
+```bash
+bunx convex run auth:rotateKeys | bunx convex env set JWKS
+```
+
+Do this when:
+
+- setting up a brand new Convex deployment instance
+- intentionally rotating Better Auth keys for an existing deployment
+
+When `JWKS` is set, Convex auth verification and the Better Auth Convex plugin use it directly instead of fetching `/api/auth/convex/jwks`.
+
 ## Internal Provider Notes
 
 Internal providers are controlled in two places:

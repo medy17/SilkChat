@@ -105,4 +105,29 @@ describe("api auth route", () => {
         expect(await firstResponse.json()).toEqual({ session: { id: "session-1" } })
         expect(await secondResponse.json()).toEqual({ session: { id: "session-1" } })
     })
+
+    it("reuses a fresh jwks GET response across auth headers", async () => {
+        authHandlerMock.mockResolvedValueOnce(
+            new Response(JSON.stringify({ keys: [{ kid: "jwks-1" }] }), { status: 200 })
+        )
+
+        const firstResponse = await routeHandlers.GET({
+            request: new Request("https://example.com/api/auth/convex/jwks", {
+                headers: {
+                    cookie: "better-auth.session_token=session-a"
+                }
+            })
+        })
+        const secondResponse = await routeHandlers.GET({
+            request: new Request("https://example.com/api/auth/convex/jwks", {
+                headers: {
+                    cookie: "better-auth.session_token=session-b"
+                }
+            })
+        })
+
+        expect(authHandlerMock).toHaveBeenCalledTimes(1)
+        expect(await firstResponse.json()).toEqual({ keys: [{ kid: "jwks-1" }] })
+        expect(await secondResponse.json()).toEqual({ keys: [{ kid: "jwks-1" }] })
+    })
 })
