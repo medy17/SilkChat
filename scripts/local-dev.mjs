@@ -25,6 +25,7 @@ const requiredLocalConvexEnvVars = [
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "VITE_BETTER_AUTH_URL",
+    "R2_PUBLIC_BASE_URL",
     "R2_BUCKET",
     "R2_ENDPOINT",
     "R2_ACCESS_KEY_ID",
@@ -67,7 +68,9 @@ const getResolvedLocalEnv = () => {
         ...process.env,
         VITE_CONVEX_URL: localConvex.cloudUrl,
         VITE_CONVEX_API_URL: `${localConvex.cloudUrl}/http`,
-        VITE_CONVEX_SITE_URL: localConvex.siteUrl
+        VITE_CONVEX_SITE_URL: localConvex.siteUrl,
+        R2_PUBLIC_BASE_URL:
+            process.env.R2_PUBLIC_BASE_URL || process.env.VITE_R2_PUBLIC_BASE_URL || ""
     }
 }
 

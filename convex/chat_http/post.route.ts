@@ -805,7 +805,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 threadId: mutationResult.threadId
             })
             const mapped_messages = await dbMessagesToCore(dbMessages, modelData.abilities, {
-                publicAssetBaseUrl: new URL(req.url).origin
+                publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
             })
 
             return {

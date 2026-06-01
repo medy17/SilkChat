@@ -25,10 +25,47 @@ const isExternalFileReference = (value: string) =>
     value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "")
+const trimLeadingSlash = (value: string) => value.replace(/^\/+/, "")
 
-const buildInternalFileProxyUrl = (key: string, publicAssetBaseUrl?: string) => {
-    if (!publicAssetBaseUrl) return undefined
-    return `${trimTrailingSlash(publicAssetBaseUrl)}/r2?key=${encodeURIComponent(key)}`
+const encodeKeyPath = (key: string) =>
+    trimLeadingSlash(key)
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")
+
+const buildDirectPublicAssetUrl = (key: string, publicAssetBaseUrl?: string) => {
+    if (!publicAssetBaseUrl) {
+        throw new Error(
+            `R2_PUBLIC_BASE_URL is required to resolve model-facing attachment URLs for ${key}`
+        )
+    }
+
+    return `${trimTrailingSlash(publicAssetBaseUrl)}/${encodeKeyPath(key)}`
+}
+
+const MODEL_FACING_STORAGE_KEY_PREFIXES = ["attachments/", "generations/"]
+
+const isModelFacingStorageKey = (value: string) =>
+    MODEL_FACING_STORAGE_KEY_PREFIXES.some((prefix) => value.startsWith(prefix))
+
+const extractProxyKeyFromUrl = (value: string) => {
+    if (!value.startsWith("http://") && !value.startsWith("https://")) {
+        return null
+    }
+
+    try {
+        const parsed = new URL(value)
+        const key = parsed.searchParams.get("key")
+        const isLegacyProxyPath = parsed.pathname === "/r2" || parsed.pathname.endsWith("/r2")
+
+        if (!isLegacyProxyPath || !key || !isModelFacingStorageKey(key)) {
+            return null
+        }
+
+        return key
+    } catch {
+        return null
+    }
 }
 
 export const dbMessagesToCore = async (
@@ -63,10 +100,14 @@ export const dbMessagesToCore = async (
 
                     const filename = p.filename || extractedFileName
                     const fileTypeInfo = getFileTypeInfo(filename, p.mimeType)
-                    const fileUrl = isExternalFileReference(p.data)
-                        ? p.data
-                        : buildInternalFileProxyUrl(p.data, options?.publicAssetBaseUrl) ||
-                          (await r2.getUrl(p.data))
+                    const proxiedKey = isExternalFileReference(p.data)
+                        ? extractProxyKeyFromUrl(p.data)
+                        : null
+                    const fileUrl = proxiedKey
+                        ? buildDirectPublicAssetUrl(proxiedKey, options?.publicAssetBaseUrl)
+                        : isExternalFileReference(p.data)
+                          ? p.data
+                          : buildDirectPublicAssetUrl(p.data, options?.publicAssetBaseUrl)
 
                     if (fileTypeInfo.isVisionImage && !fileTypeInfo.isSvg) {
                         try {

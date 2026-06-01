@@ -26,12 +26,7 @@ export const getR2ProxyUrl = (key: string) => {
 }
 
 export const getPublicR2AssetUrl = (key: string) => {
-    const publicBaseUrl = getPublicR2BaseUrl()
-    if (!publicBaseUrl) {
-        return getR2ProxyUrl(key)
-    }
-
-    return `${publicBaseUrl}/${encodeKeyPath(key)}`
+    return getRequiredPublicR2AssetUrl(key)
 }
 
 export const extractR2KeyFromUrl = (url: string) => {

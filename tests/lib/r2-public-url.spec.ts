@@ -79,14 +79,25 @@ describe("r2-public-url", () => {
         )
     })
 
-    it("falls back to proxy URLs when no public base URL is configured", () => {
+    it("fails loudly when no public base URL is configured", () => {
         optionalBrowserEnvMock.mockReturnValue(undefined)
+        browserEnvMock.mockImplementation((key: string) => {
+            if (key === "VITE_R2_PUBLIC_BASE_URL") {
+                throw new Error("Missing environment variable(browser): VITE_R2_PUBLIC_BASE_URL")
+            }
 
-        expect(getPublicR2AssetUrl("attachments/user-1/notes.txt")).toBe(
-            "https://api.example.com/r2?key=attachments%2Fuser-1%2Fnotes.txt"
+            if (key === "VITE_CONVEX_API_URL") {
+                return "https://api.example.com/"
+            }
+
+            return "https://unused.example.com"
+        })
+
+        expect(() => getPublicR2AssetUrl("attachments/user-1/notes.txt")).toThrow(
+            "Missing environment variable(browser): VITE_R2_PUBLIC_BASE_URL"
         )
-        expect(resolvePublicFileUrl("/r2?key=attachments%2Fuser-1%2Fnotes.txt")).toBe(
-            "https://api.example.com/r2?key=attachments%2Fuser-1%2Fnotes.txt"
+        expect(() => resolvePublicFileUrl("/r2?key=attachments%2Fuser-1%2Fnotes.txt")).toThrow(
+            "Missing environment variable(browser): VITE_R2_PUBLIC_BASE_URL"
         )
     })
 })

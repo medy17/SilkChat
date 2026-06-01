@@ -39,7 +39,7 @@ bun run local:dev
 - the Vite app
 - a local Sharp-backed image optimizer that serves mocked `/cdn-cgi/image/...` URLs and caches outputs in `/.optimised-image-cache`
 
-Before running it, set `VITE_R2_PUBLIC_BASE_URL` to a publicly readable asset base.
+Before running it, set `VITE_R2_PUBLIC_BASE_URL` and `R2_PUBLIC_BASE_URL` to a publicly readable asset base.
 The optimized Library image path now fetches directly from that public asset origin instead of the Convex `/r2` proxy.
 `bun run local:setup` now makes the default local MinIO bucket publicly readable for that purpose.
 
@@ -126,6 +126,7 @@ These variables are read by Convex actions and HTTP routes:
 - search provider keys
 - storage keys
 - `ENCRYPTION_KEY`
+- `R2_PUBLIC_BASE_URL` for model-facing attachment URLs
 - `JWKS` optional but recommended; when set, Convex auth uses static JWKS instead
   of fetching `/api/auth/convex/jwks` on every deployment
 

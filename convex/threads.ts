@@ -862,7 +862,7 @@ export const regenerateThreadTitle = action({
             userId: user.id
         })
         const titleMessages = await dbMessagesToCore(dbMessages, [], {
-            publicAssetBaseUrl: process.env.VITE_CONVEX_API_URL
+            publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
         })
 
         const title = await generateThreadName(ctx, threadId, titleMessages, user.id, settings)

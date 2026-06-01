@@ -267,7 +267,7 @@ describe("useChatIntegration", () => {
                     parts: [
                         {
                             type: "file",
-                            url: "https://convex.example/r2?key=file-1",
+                            url: "https://r2.silkchat.dev/file-1",
                             mediaType: "text/plain",
                             filename: "notes.txt"
                         },
@@ -294,7 +294,7 @@ describe("useChatIntegration", () => {
                     parts: [
                         {
                             type: "file",
-                            data: "file-1",
+                            data: "https://r2.silkchat.dev/file-1",
                             filename: "notes.txt",
                             mimeType: "text/plain"
                         },

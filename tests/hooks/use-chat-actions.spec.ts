@@ -30,7 +30,9 @@ vi.mock("@/convex/_generated/api", () => ({
 
 vi.mock("@/lib/browser-env", () => ({
     browserEnv: browserEnvMock,
-    optionalBrowserEnv: vi.fn(() => undefined)
+    optionalBrowserEnv: vi.fn((key: string) =>
+        key === "VITE_R2_PUBLIC_BASE_URL" ? "https://r2.silkchat.dev" : undefined
+    )
 }))
 
 import { useChatActions } from "@/hooks/use-chat-actions"
@@ -79,7 +81,14 @@ describe("useChatActions", () => {
         vi.spyOn(console, "error").mockImplementation(() => {})
         vi.spyOn(console, "log").mockImplementation(() => {})
 
-        browserEnvMock.mockReturnValue("https://convex.example")
+        browserEnvMock.mockImplementation((key: string) => {
+            switch (key) {
+                case "VITE_R2_PUBLIC_BASE_URL":
+                    return "https://r2.silkchat.dev"
+                default:
+                    return "https://convex.example"
+            }
+        })
         nanoidMock.mockReturnValue("generated-message-id")
         useMutationMock.mockReturnValue(deleteFileMutationMock)
         deleteFileMutationMock.mockResolvedValue(undefined)
@@ -152,7 +161,7 @@ describe("useChatActions", () => {
             parts: [
                 {
                     type: "file",
-                    url: "https://convex.example/r2?key=file-1",
+                    url: "https://r2.silkchat.dev/file-1",
                     mediaType: "text/plain",
                     filename: "notes.txt"
                 },
@@ -348,7 +357,7 @@ describe("useChatActions", () => {
                 parts: [
                     {
                         type: "file",
-                        url: "https://convex.example/r2?key=file-1",
+                        url: "https://r2.silkchat.dev/file-1",
                         mediaType: "text/plain",
                         filename: "notes.txt"
                     },
@@ -361,7 +370,7 @@ describe("useChatActions", () => {
         const remainingFileParts: FileUIPart[] = [
             {
                 type: "file",
-                url: "https://convex.example/r2?key=file-2",
+                url: "https://r2.silkchat.dev/file-2",
                 mediaType: "text/plain",
                 filename: "kept.txt"
             }
@@ -385,7 +394,7 @@ describe("useChatActions", () => {
         )
 
         result.current.handleEditAndRetry("m2", "after edit", remainingFileParts, [
-            "https://convex.example/r2?key=file-1",
+            "https://r2.silkchat.dev/file-1",
             "not-a-url"
         ])
 

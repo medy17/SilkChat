@@ -7,7 +7,7 @@ import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useChatStore } from "@/lib/chat-store"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
-import { extractR2KeyFromUrl } from "@/lib/r2-public-url"
+import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
@@ -20,10 +20,10 @@ type BackendMessagePart =
     | { type: "text"; text: string }
     | { type: "file"; data: string; filename?: string; mimeType?: string }
 
-const extractAttachmentData = (url: string) => {
+const normalizeAttachmentData = (url: string) => {
     if (url.startsWith("data:")) return url
 
-    return extractR2KeyFromUrl(url) || url
+    return resolvePublicFileUrl(url)
 }
 
 const normalizeUserMessageParts = (
@@ -40,7 +40,7 @@ const normalizeUserMessageParts = (
         if (part.type === "file") {
             normalizedParts.push({
                 type: "file",
-                data: extractAttachmentData(part.url),
+                data: normalizeAttachmentData(part.url),
                 filename: part.filename,
                 mimeType: part.mediaType
             })
