@@ -1,2 +1,5 @@
+User-agent: Google-CloudVertexBot
+Allow: /attachments/
+
 User-agent: *
-Disallow:
+Allow: /
