@@ -116,17 +116,22 @@ function RetryMenuDisabledReason({
     reason: string
 }) {
     const isMobile = useIsMobile()
+    const [open, setOpen] = React.useState(false)
 
     const trigger = (
         <button
             type="button"
             aria-label={reason}
-            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground"
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             onPointerDown={(event) => {
                 event.stopPropagation()
             }}
             onClick={(event) => {
+                event.preventDefault()
                 event.stopPropagation()
+                if (isMobile) {
+                    setOpen(true)
+                }
             }}
         >
             <CircleHelp className="size-3" />
@@ -135,11 +140,11 @@ function RetryMenuDisabledReason({
 
     if (isMobile) {
         return (
-            <ResponsivePopover modal={false}>
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[71] mx-auto w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
-                    overlayClassName="z-[71]"
+                    className="z-[91] mx-auto w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
+                    overlayClassName="z-[90]"
                     title="Why this model is unavailable"
                 >
                     <p className="px-4 pb-4 text-muted-foreground text-sm">{reason}</p>
@@ -151,8 +156,13 @@ function RetryMenuDisabledReason({
     return (
         <Tooltip delayDuration={150}>
             <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-            <TooltipContent className="z-[71]">
-                <p>{reason}</p>
+            <TooltipContent className="z-[71] max-w-[min(22rem,calc(100vw-2rem))]">
+                <div className="space-y-1.5 p-1">
+                    <p className="font-medium text-foreground leading-none">
+                        Why this model is unavailable
+                    </p>
+                    <p className="text-muted-foreground">{reason}</p>
+                </div>
             </TooltipContent>
         </Tooltip>
     )
