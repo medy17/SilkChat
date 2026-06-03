@@ -20,7 +20,7 @@ import {
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { Archive, Crown, RotateCcw } from "lucide-react"
+import { Archive, CircleHelp, Crown, RotateCcw } from "lucide-react"
 import * as React from "react"
 import { getProviderSectionIcon } from "./model-selector"
 import { Badge } from "./ui/badge"
@@ -241,6 +241,21 @@ export function RetryMenu({
             })
     }, [availableModels, currentProviders])
 
+    const getDisabledReason = React.useCallback(
+        (isModelLocked: boolean, isNativePdfBlocked: boolean) => {
+            if (isNativePdfBlocked) {
+                return "This thread requires native PDF support."
+            }
+
+            if (isModelLocked) {
+                return "Requires Pro plan."
+            }
+
+            return null
+        },
+        []
+    )
+
     return (
         <DropdownMenu
             onOpenChange={(open) => {
@@ -331,6 +346,10 @@ export function RetryMenu({
                                                 model,
                                                 defaultRetryEffort ?? "off"
                                             ) === "pro"
+                                        const disabledReason = getDisabledReason(
+                                            isModelLocked,
+                                            isNativePdfBlocked
+                                        )
 
                                         const handleSelect = (effort?: ReasoningEffort) => {
                                             if (isModelLocked || isNativePdfBlocked) {
@@ -351,18 +370,26 @@ export function RetryMenu({
                                                     className="flex items-center gap-0.5"
                                                 >
                                                     <DropdownMenuItem
-                                                        disabled={
-                                                            isModelLocked || isNativePdfBlocked
-                                                        }
-                                                        onClick={() =>
-                                                            defaultRetryEffort !== null
-                                                                ? handleSelect(
-                                                                      defaultRetryEffort ??
-                                                                          undefined
-                                                                  )
-                                                                : undefined
-                                                        }
-                                                        className="flex-1 cursor-pointer pr-2"
+                                                        onSelect={(event) => {
+                                                            if (
+                                                                isModelLocked ||
+                                                                isNativePdfBlocked
+                                                            ) {
+                                                                event.preventDefault()
+                                                                return
+                                                            }
+
+                                                            if (defaultRetryEffort !== null) {
+                                                                handleSelect(
+                                                                    defaultRetryEffort ?? undefined
+                                                                )
+                                                            }
+                                                        }}
+                                                        className={cn(
+                                                            "flex-1 pr-2",
+                                                            (isModelLocked || isNativePdfBlocked) &&
+                                                                "cursor-not-allowed opacity-50"
+                                                        )}
                                                     >
                                                         <div className="flex min-w-0 flex-1 items-center gap-2">
                                                             {usesProCredits && (
@@ -374,14 +401,6 @@ export function RetryMenu({
                                                             <span className="truncate font-medium text-sm">
                                                                 {model.name}
                                                             </span>
-                                                            {isNativePdfBlocked && (
-                                                                <Badge
-                                                                    variant="warning"
-                                                                    className="text-[0.625rem] uppercase tracking-wide"
-                                                                >
-                                                                    PDF Required
-                                                                </Badge>
-                                                            )}
                                                             {isModelLocked && (
                                                                 <Badge
                                                                     variant="secondary"
@@ -389,6 +408,18 @@ export function RetryMenu({
                                                                 >
                                                                     Pro
                                                                 </Badge>
+                                                            )}
+                                                            {disabledReason && (
+                                                                <Tooltip delayDuration={150}>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground">
+                                                                            <CircleHelp className="size-3" />
+                                                                        </span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>{disabledReason}</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
                                                             )}
                                                         </div>
                                                     </DropdownMenuItem>
@@ -524,9 +555,18 @@ export function RetryMenu({
                                         return (
                                             <DropdownMenuItem
                                                 key={model.id}
-                                                disabled={isModelLocked || isNativePdfBlocked}
-                                                onClick={() => handleSelect()}
-                                                className="cursor-pointer"
+                                                onSelect={(event) => {
+                                                    if (isModelLocked || isNativePdfBlocked) {
+                                                        event.preventDefault()
+                                                        return
+                                                    }
+
+                                                    handleSelect()
+                                                }}
+                                                className={cn(
+                                                    (isModelLocked || isNativePdfBlocked) &&
+                                                        "cursor-not-allowed opacity-50"
+                                                )}
                                             >
                                                 <div className="flex min-w-0 items-center gap-2">
                                                     {usesProCredits && (
@@ -538,14 +578,6 @@ export function RetryMenu({
                                                     <span className="truncate font-medium text-sm">
                                                         {model.name}
                                                     </span>
-                                                    {isNativePdfBlocked && (
-                                                        <Badge
-                                                            variant="warning"
-                                                            className="text-[0.625rem] uppercase tracking-wide"
-                                                        >
-                                                            PDF Required
-                                                        </Badge>
-                                                    )}
                                                     {isModelLocked && (
                                                         <Badge
                                                             variant="secondary"
@@ -553,6 +585,18 @@ export function RetryMenu({
                                                         >
                                                             Pro
                                                         </Badge>
+                                                    )}
+                                                    {disabledReason && (
+                                                        <Tooltip delayDuration={150}>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground">
+                                                                    <CircleHelp className="size-3" />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>{disabledReason}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     )}
                                                 </div>
                                             </DropdownMenuItem>
