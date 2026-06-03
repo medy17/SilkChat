@@ -131,7 +131,16 @@ const syncRequiredLocalConvexEnvVars = () =>
 
         const child = spawn(
             "bunx",
-            ["convex", "env", "set", "--deployment", "local", "--from-file", envFilePath, "--force"],
+            [
+                "convex",
+                "env",
+                "set",
+                "--deployment",
+                "local",
+                "--from-file",
+                envFilePath,
+                "--force"
+            ],
             {
                 stdio: "inherit",
                 shell: process.platform === "win32",

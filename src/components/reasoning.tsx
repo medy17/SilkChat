@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { Brain, ChevronDownIcon } from "lucide-react"
+import { Brain, ChevronDownIcon, Loader2 } from "lucide-react"
 import type React from "react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -9,6 +9,7 @@ import { MemoizedMarkdown } from "./memoized-markdown"
 type ReasoningContextType = {
     isOpen: boolean
     onOpenChange: (open: boolean) => void
+    isStreaming?: boolean
 }
 
 const ReasoningContext = createContext<ReasoningContextType | undefined>(undefined)
@@ -58,7 +59,8 @@ function Reasoning({ children, className, open, onOpenChange, isStreaming }: Rea
         <ReasoningContext.Provider
             value={{
                 isOpen,
-                onOpenChange: handleOpenChange
+                onOpenChange: handleOpenChange,
+                isStreaming
             }}
         >
             <div className={className}>{children}</div>
@@ -72,7 +74,7 @@ export type ReasoningTriggerProps = {
 } & React.HTMLAttributes<HTMLButtonElement>
 
 function ReasoningTrigger({ children, className, ...props }: ReasoningTriggerProps) {
-    const { isOpen, onOpenChange } = useReasoningContext()
+    const { isOpen, onOpenChange, isStreaming } = useReasoningContext()
 
     return (
         <button
@@ -82,6 +84,7 @@ function ReasoningTrigger({ children, className, ...props }: ReasoningTriggerPro
         >
             <Brain className="size-4 text-primary" />
             <span className="text-primary">{children}</span>
+            {isStreaming && <Loader2 className="size-3.5 animate-spin text-primary" />}
             <div
                 className={cn(
                     "ml-auto transform transition-all duration-200",

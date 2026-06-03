@@ -29,28 +29,20 @@ const run = (label, command, args, { allowFailure = false } = {}) =>
     })
 
 const runInMinioClient = (label, script) =>
-    run(
-        label,
-        "docker",
-        [
-            "run",
-            "--rm",
-            "--entrypoint",
-            "/bin/sh",
-            "--network",
-            "host",
-            "minio/mc",
-            "-lc",
-            script
-        ]
-    )
+    run(label, "docker", [
+        "run",
+        "--rm",
+        "--entrypoint",
+        "/bin/sh",
+        "--network",
+        "host",
+        "minio/mc",
+        "-lc",
+        script
+    ])
 
 const main = async () => {
-    await run(
-        "Starting Docker services (MinIO)",
-        "docker",
-        ["compose", "up", "-d"]
-    )
+    await run("Starting Docker services (MinIO)", "docker", ["compose", "up", "-d"])
 
     await runInMinioClient(
         "Configuring local MinIO bucket for public asset reads",
