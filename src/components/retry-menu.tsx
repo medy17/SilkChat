@@ -416,7 +416,7 @@ export function RetryMenu({
                                                                             <CircleHelp className="size-3" />
                                                                         </span>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>
+                                                                    <TooltipContent className="z-[71]">
                                                                         <p>{disabledReason}</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
@@ -593,7 +593,7 @@ export function RetryMenu({
                                                                     <CircleHelp className="size-3" />
                                                                 </span>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>
+                                                            <TooltipContent className="z-[71]">
                                                                 <p>{disabledReason}</p>
                                                             </TooltipContent>
                                                         </Tooltip>
