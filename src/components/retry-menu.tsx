@@ -135,7 +135,7 @@ function RetryMenuDisabledReason({
 
     if (isMobile) {
         return (
-            <ResponsivePopover modal={false} nested>
+            <ResponsivePopover modal={false}>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
                     className="z-[71] mx-auto w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
