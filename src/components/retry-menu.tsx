@@ -123,11 +123,9 @@ function RetryMenuDisabledReason({
             aria-label={reason}
             className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground"
             onPointerDown={(event) => {
-                event.preventDefault()
                 event.stopPropagation()
             }}
             onClick={(event) => {
-                event.preventDefault()
                 event.stopPropagation()
             }}
         >
