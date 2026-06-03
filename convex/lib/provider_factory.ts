@@ -17,6 +17,7 @@ import {
     getGoogleVertexConfig
 } from "./google_provider"
 import type { CoreProvider } from "./models"
+import { getOpenRouterAttribution } from "./openrouter_attribution"
 
 export const createGoogleOpenAICompatibleProvider = (
     apiKey: string | "internal",
@@ -127,7 +128,8 @@ const createProviderInternal = async (
 
             return createOpenRouter({
                 apiKey: resolvedApiKey,
-                compatibility: "strict"
+                compatibility: "strict",
+                ...getOpenRouterAttribution()
             }) as unknown as ProviderV3
         }
         case "fal":

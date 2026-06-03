@@ -144,6 +144,24 @@ describe("provider_factory", () => {
         )
     })
 
+    it("adds OpenRouter attribution headers and app metadata", async () => {
+        vi.stubEnv("VITE_BETTER_AUTH_URL", "https://silkchat.dev")
+        createOpenRouterMock.mockReturnValueOnce({ provider: "openrouter" })
+
+        const provider = await createProvider("openrouter", "openrouter-key")
+
+        expect(createOpenRouterMock).toHaveBeenCalledWith({
+            apiKey: "openrouter-key",
+            compatibility: "strict",
+            appName: "SilkChat",
+            appUrl: "https://silkchat.dev",
+            headers: {
+                "X-OpenRouter-Categories": "general-chat"
+            }
+        })
+        expect(provider).toEqual({ provider: "openrouter" })
+    })
+
     it("creates the gateway provider with a user API key", async () => {
         createGatewayMock.mockReturnValueOnce({ provider: "gateway" })
 

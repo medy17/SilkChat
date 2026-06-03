@@ -288,7 +288,8 @@ function PrivacyPolicyPage() {
                             </PolicyItem>
                             <PolicyItem>
                                 <strong>Convex</strong>: Used as core backend infrastructure for app
-                                data, queries, mutations, and related application services.
+                                data, queries, mutations, authentication-related data, and related
+                                application services.
                             </PolicyItem>
                             <PolicyItem>
                                 <strong>Cloudflare R2</strong>: Used for object storage of
@@ -296,11 +297,6 @@ function PrivacyPolicyPage() {
                                 <ExternalLink href="https://www.cloudflare.com/privacypolicy/">
                                     www.cloudflare.com/privacypolicy/
                                 </ExternalLink>
-                            </PolicyItem>
-                            <PolicyItem>
-                                <strong>PostgreSQL</strong>: Used for authentication-related data
-                                and other relational storage needs. The exact managed database
-                                vendor in production is <strong>TO-DO</strong> if not yet finalized.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -333,11 +329,10 @@ function PrivacyPolicyPage() {
                                 </ExternalLink>
                             </PolicyItem>
                             <PolicyItem>
-                                <strong>Email delivery provider</strong>: OTP, verification, or
-                                reset emails may be sent using Resend or AWS SES depending on
-                                environment configuration. The exact production email provider
-                                should be treated as <strong>TO-DO</strong> unless documented
-                                elsewhere.
+                                <strong>Email delivery provider</strong>: Marketing, OTP,
+                                verification, or reset emails are sent using Resend. For certain
+                                organization email aliases, we proxy via Cloudflare's email routing
+                                services.
                             </PolicyItem>
                             <PolicyItem>
                                 <strong>Payment processor</strong>: <strong>LemonSqueezy</strong>,
