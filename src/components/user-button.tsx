@@ -18,9 +18,10 @@ import {
     Instagram,
     Loader2,
     LogOutIcon,
+    ScrollText,
     SettingsIcon,
+    Shield,
     UserIcon,
-    UserLock,
     Users
 } from "lucide-react"
 
@@ -124,11 +125,11 @@ export function UserButton() {
 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.navigate({ to: "/privacy-policy" })}>
-                    <UserLock className="h-4 w-4" />
+                    <Shield className="h-4 w-4" />
                     <span>Privacy Policy</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.navigate({ to: "/terms-of-service" })}>
-                    <UserLock className="h-4 w-4" />
+                    <ScrollText className="h-4 w-4" />
                     <span>Terms of Service</span>
                 </DropdownMenuItem>
 
