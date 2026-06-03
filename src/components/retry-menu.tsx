@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import { modelSupportsNativePdf } from "@/lib/attachment-support"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
@@ -36,6 +37,11 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger
 } from "./ui/dropdown-menu"
+import {
+    ResponsivePopover,
+    ResponsivePopoverContent,
+    ResponsivePopoverTrigger
+} from "./ui/responsive-popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
@@ -102,6 +108,59 @@ const getProviderSectionLabel = (
         default:
             return getProviderDisplayName(providerId, currentProviders)
     }
+}
+
+function RetryMenuDisabledReason({
+    reason
+}: {
+    reason: string
+}) {
+    const isMobile = useIsMobile()
+    const [open, setOpen] = React.useState(false)
+
+    const trigger = (
+        <button
+            type="button"
+            aria-label={reason}
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground"
+            onPointerDown={(event) => {
+                event.stopPropagation()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) {
+                    setOpen(true)
+                }
+            }}
+        >
+            <CircleHelp className="size-3" />
+        </button>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen} modal={false} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[71] w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
+                    overlayClassName="z-[71]"
+                    title="Why this model is unavailable"
+                >
+                    <p className="px-4 pb-4 text-muted-foreground text-sm">{reason}</p>
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent className="z-[71]">
+                <p>{reason}</p>
+            </TooltipContent>
+        </Tooltip>
+    )
 }
 
 export function RetryMenu({
@@ -410,16 +469,9 @@ export function RetryMenu({
                                                                 </Badge>
                                                             )}
                                                             {disabledReason && (
-                                                                <Tooltip delayDuration={150}>
-                                                                    <TooltipTrigger asChild>
-                                                                        <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground">
-                                                                            <CircleHelp className="size-3" />
-                                                                        </span>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent className="z-[71]">
-                                                                        <p>{disabledReason}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
+                                                                <RetryMenuDisabledReason
+                                                                    reason={disabledReason}
+                                                                />
                                                             )}
                                                         </div>
                                                     </DropdownMenuItem>
@@ -587,16 +639,9 @@ export function RetryMenu({
                                                         </Badge>
                                                     )}
                                                     {disabledReason && (
-                                                        <Tooltip delayDuration={150}>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground">
-                                                                    <CircleHelp className="size-3" />
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="z-[71]">
-                                                                <p>{disabledReason}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                        <RetryMenuDisabledReason
+                                                            reason={disabledReason}
+                                                        />
                                                     )}
                                                 </div>
                                             </DropdownMenuItem>
