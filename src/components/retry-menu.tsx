@@ -116,7 +116,6 @@ function RetryMenuDisabledReason({
     reason: string
 }) {
     const isMobile = useIsMobile()
-    const [open, setOpen] = React.useState(false)
 
     const trigger = (
         <button
@@ -124,14 +123,12 @@ function RetryMenuDisabledReason({
             aria-label={reason}
             className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground"
             onPointerDown={(event) => {
+                event.preventDefault()
                 event.stopPropagation()
             }}
             onClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
-                if (isMobile) {
-                    setOpen(true)
-                }
             }}
         >
             <CircleHelp className="size-3" />
@@ -140,7 +137,7 @@ function RetryMenuDisabledReason({
 
     if (isMobile) {
         return (
-            <ResponsivePopover open={open} onOpenChange={setOpen} modal={false} nested>
+            <ResponsivePopover modal={false} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
                     className="z-[71] w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
@@ -620,7 +617,7 @@ export function RetryMenu({
                                                         "cursor-not-allowed opacity-50"
                                                 )}
                                             >
-                                                <div className="flex min-w-0 items-center gap-2">
+                                                <div className="flex min-w-0 flex-1 items-center gap-2">
                                                     {usesProCredits && (
                                                         <Crown
                                                             className="size-3.5 shrink-0"
@@ -633,15 +630,17 @@ export function RetryMenu({
                                                     {isModelLocked && (
                                                         <Badge
                                                             variant="secondary"
-                                                            className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
+                                                            className="ml-auto border border-border/70 text-[0.625rem] uppercase tracking-wide"
                                                         >
                                                             Pro
                                                         </Badge>
                                                     )}
                                                     {disabledReason && (
-                                                        <RetryMenuDisabledReason
-                                                            reason={disabledReason}
-                                                        />
+                                                        <div className="ml-auto">
+                                                            <RetryMenuDisabledReason
+                                                                reason={disabledReason}
+                                                            />
+                                                        </div>
                                                     )}
                                                 </div>
                                             </DropdownMenuItem>
