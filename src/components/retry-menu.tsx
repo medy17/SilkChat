@@ -37,7 +37,11 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger
 } from "./ui/dropdown-menu"
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
+import {
+    ResponsivePopover,
+    ResponsivePopoverContent,
+    ResponsivePopoverTrigger
+} from "./ui/responsive-popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
@@ -123,45 +127,32 @@ function RetryMenuDisabledReason({
             }}
             onClick={(event) => {
                 event.stopPropagation()
-                event.preventDefault()
             }}
         >
             <CircleHelp className="size-3" />
         </button>
     )
 
-    const content = (
-        <div className="space-y-1.5 p-1">
-            <p className="font-medium text-foreground leading-none">
-                Why this model is unavailable
-            </p>
-            <p className="text-muted-foreground">{reason}</p>
-        </div>
-    )
-
     if (isMobile) {
         return (
-            <Popover>
-                <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-                <PopoverContent
-                    side="bottom"
-                    align="center"
-                    className="z-[71] w-[min(22rem,calc(100vw-2rem))]"
-                    onPointerDownOutside={(e) => {
-                        // Let it close naturally, but don't close the parent DropdownMenu
-                    }}
+            <ResponsivePopover modal={false} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[71] mx-auto w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
+                    overlayClassName="z-[71]"
+                    title="Why this model is unavailable"
                 >
-                    {content}
-                </PopoverContent>
-            </Popover>
+                    <p className="px-4 pb-4 text-muted-foreground text-sm">{reason}</p>
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
         )
     }
 
     return (
         <Tooltip delayDuration={150}>
             <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-            <TooltipContent className="z-[71] max-w-[min(22rem,calc(100vw-2rem))]">
-                {content}
+            <TooltipContent className="z-[71]">
+                <p>{reason}</p>
             </TooltipContent>
         </Tooltip>
     )
