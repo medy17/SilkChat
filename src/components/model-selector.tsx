@@ -880,6 +880,7 @@ const ModelCard = React.memo(function ModelCard({
     disabled,
     disabledReason,
     badgeLabel,
+    badgeVariant = "secondary",
     usesProCredits
 }: {
     model: DisplayModel
@@ -890,6 +891,7 @@ const ModelCard = React.memo(function ModelCard({
     disabled?: boolean
     disabledReason?: string
     badgeLabel?: string
+    badgeVariant?: "secondary" | "warning"
     usesProCredits?: boolean
 }) {
     const isSelected = model.id === selectedModel
@@ -937,8 +939,8 @@ const ModelCard = React.memo(function ModelCard({
                                     </span>
                                     {badgeLabel && (
                                         <Badge
-                                            variant="secondary"
-                                            className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
+                                            variant={badgeVariant}
+                                            className="text-[0.625rem] uppercase tracking-wide"
                                         >
                                             {badgeLabel}
                                         </Badge>
@@ -1419,11 +1421,16 @@ export function ModelSelector({
                     disabledReason={getModelDisabledReason(model)}
                     badgeLabel={
                         requiresNativePdf && !modelSupportsNativePdf(model)
-                            ? "PDF"
+                            ? "PDF Required"
                             : creditPlan === "free" &&
                                 getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
                               ? "Pro"
                               : undefined
+                    }
+                    badgeVariant={
+                        requiresNativePdf && !modelSupportsNativePdf(model)
+                            ? "warning"
+                            : "secondary"
                     }
                     usesProCredits={
                         creditPlan === "pro" &&

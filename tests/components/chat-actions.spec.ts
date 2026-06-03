@@ -4,13 +4,15 @@ import { act, render, screen } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+const retryMenuMock = vi.fn(() => null)
+
 vi.mock("@/lib/browser-env", () => ({
     browserEnv: vi.fn(() => "https://convex.example"),
     optionalBrowserEnv: vi.fn(() => undefined)
 }))
 
 vi.mock("@/components/retry-menu", () => ({
-    RetryMenu: () => null
+    RetryMenu: (props: unknown) => retryMenuMock(props)
 }))
 
 import { ChatActions } from "@/components/chat-actions"
@@ -28,6 +30,7 @@ const createAssistantMessage = (metadata?: Record<string, unknown>) =>
 describe("ChatActions", () => {
     beforeEach(() => {
         useMessageFooterStore.setState({ footerMode: "simple", footerMetadataByMessageId: {} })
+        retryMenuMock.mockClear()
     })
 
     it("renders only the model name in simple mode", () => {
@@ -144,5 +147,22 @@ describe("ChatActions", () => {
         expect(screen.getByText("GPT 5.4 Mini (Medium)")).toBeTruthy()
         expect(screen.getByText("79.50 tok/sec")).toBeTruthy()
         expect(screen.getByText("916 tokens (757 in, 159 out)")).toBeTruthy()
+    })
+
+    it("passes native pdf gating through to the retry menu", () => {
+        render(
+            React.createElement(ChatActions, {
+                role: "user",
+                message: createAssistantMessage(),
+                onRetry: vi.fn(),
+                requiresNativePdfForModelSelection: true
+            })
+        )
+
+        expect(retryMenuMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                requiresNativePdf: true
+            })
+        )
     })
 })

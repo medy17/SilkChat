@@ -308,10 +308,22 @@ const buildOpenRouterProviderOptions = (
     supportsReasoning = false
 ): OpenRouterProviderOptions => {
     const options: OpenRouterRequestProviderOptions = {}
+    const isGoogleModel = modelId.startsWith("gemini-")
     const isXaiPinnedReasoningModel = modelId === "grok-4.3"
     const shouldForceReasoningForVariant =
         modelId.endsWith("-reasoning") || modelId.endsWith("-thinking")
     const isAlwaysOnReasoningModel = supportsReasoning && !supportsReasoningToggle
+
+    if (isGoogleModel) {
+        options.plugins = [
+            {
+                id: "file-parser",
+                pdf: {
+                    engine: "native"
+                }
+            }
+        ]
+    }
 
     const baseProviderConfig = isXaiPinnedReasoningModel
         ? {

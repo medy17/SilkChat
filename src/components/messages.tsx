@@ -661,6 +661,9 @@ const MessageRowComponent = ({
                                 message={message}
                                 onRetry={onRetry}
                                 onEdit={onEdit}
+                                requiresNativePdfForModelSelection={
+                                    requiresNativePdfForModelSelection
+                                }
                             />
                         ) : !hasActiveTarget && message.role === "assistant" ? (
                             <ChatActions

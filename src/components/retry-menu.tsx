@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
+import { modelSupportsNativePdf } from "@/lib/attachment-support"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
@@ -104,9 +105,11 @@ const getProviderSectionLabel = (
 }
 
 export function RetryMenu({
-    onRetry
+    onRetry,
+    requiresNativePdf = false
 }: {
     onRetry: (configOverride?: AssistantConfigOverride) => void
+    requiresNativePdf?: boolean
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -320,6 +323,8 @@ export function RetryMenu({
                                                 ? defaultRetryEffort === null
                                                 : getRequiredPlanToPickModel(model, "off") ===
                                                   "pro")
+                                        const isNativePdfBlocked =
+                                            requiresNativePdf && !modelSupportsNativePdf(model)
                                         const usesProCredits =
                                             creditPlan === "pro" &&
                                             getPrototypeCreditTierForModel(
@@ -328,7 +333,7 @@ export function RetryMenu({
                                             ) === "pro"
 
                                         const handleSelect = (effort?: ReasoningEffort) => {
-                                            if (isModelLocked) {
+                                            if (isModelLocked || isNativePdfBlocked) {
                                                 return
                                             }
                                             onRetry({
@@ -346,7 +351,9 @@ export function RetryMenu({
                                                     className="flex items-center gap-0.5"
                                                 >
                                                     <DropdownMenuItem
-                                                        disabled={isModelLocked}
+                                                        disabled={
+                                                            isModelLocked || isNativePdfBlocked
+                                                        }
                                                         onClick={() =>
                                                             defaultRetryEffort !== null
                                                                 ? handleSelect(
@@ -367,6 +374,14 @@ export function RetryMenu({
                                                             <span className="truncate font-medium text-sm">
                                                                 {model.name}
                                                             </span>
+                                                            {isNativePdfBlocked && (
+                                                                <Badge
+                                                                    variant="warning"
+                                                                    className="text-[0.625rem] uppercase tracking-wide"
+                                                                >
+                                                                    PDF Required
+                                                                </Badge>
+                                                            )}
                                                             {isModelLocked && (
                                                                 <Badge
                                                                     variant="secondary"
@@ -379,10 +394,13 @@ export function RetryMenu({
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSub>
                                                         <DropdownMenuSubTrigger
-                                                            disabled={isModelLocked}
+                                                            disabled={
+                                                                isModelLocked || isNativePdfBlocked
+                                                            }
                                                             className={cn(
                                                                 "h-9 cursor-pointer px-2",
-                                                                isModelLocked &&
+                                                                (isModelLocked ||
+                                                                    isNativePdfBlocked) &&
                                                                     "text-muted-foreground/40"
                                                             )}
                                                         >
@@ -506,7 +524,7 @@ export function RetryMenu({
                                         return (
                                             <DropdownMenuItem
                                                 key={model.id}
-                                                disabled={isModelLocked}
+                                                disabled={isModelLocked || isNativePdfBlocked}
                                                 onClick={() => handleSelect()}
                                                 className="cursor-pointer"
                                             >
@@ -520,6 +538,14 @@ export function RetryMenu({
                                                     <span className="truncate font-medium text-sm">
                                                         {model.name}
                                                     </span>
+                                                    {isNativePdfBlocked && (
+                                                        <Badge
+                                                            variant="warning"
+                                                            className="text-[0.625rem] uppercase tracking-wide"
+                                                        >
+                                                            PDF Required
+                                                        </Badge>
+                                                    )}
                                                     {isModelLocked && (
                                                         <Badge
                                                             variant="secondary"

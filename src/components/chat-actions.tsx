@@ -134,12 +134,14 @@ export const ChatActions = memo(
         role,
         message,
         onRetry,
-        onEdit
+        onEdit,
+        requiresNativePdfForModelSelection = false
     }: {
         role: UIMessage["role"]
         message: UIMessage
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
         onEdit?: (message: UIMessage) => void
+        requiresNativePdfForModelSelection?: boolean
     }) => {
         const [copied, setCopied] = useState(false)
         const footerMode = useMessageFooterStore((state) => state.footerMode)
@@ -316,7 +318,10 @@ export const ChatActions = memo(
                 )}
             >
                 {onRetry && (
-                    <RetryMenu onRetry={(configOverride) => onRetry(message, configOverride)} />
+                    <RetryMenu
+                        onRetry={(configOverride) => onRetry(message, configOverride)}
+                        requiresNativePdf={requiresNativePdfForModelSelection}
+                    />
                 )}
 
                 {onEdit && (

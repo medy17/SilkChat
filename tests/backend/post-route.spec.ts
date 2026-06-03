@@ -1979,6 +1979,155 @@ describe("chatPOST", () => {
         )
     })
 
+    it("uses OpenRouter native PDF parsing for Gemini models", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                case "reserveToolCallBudget":
+                case "finalizeToolCallBudget":
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+        getModelMock.mockResolvedValueOnce({
+            model: { provider: "runtime-openrouter", modelType: "text" },
+            modelId: "gemini-3.1-pro-preview",
+            modelName: "Gemini 3.1 Pro",
+            runtimeProvider: "openrouter",
+            providerSource: "openrouter",
+            abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+            registry: {
+                models: {
+                    "gemini-3.1-pro-preview": {
+                        abilities: [
+                            "reasoning",
+                            "vision",
+                            "function_calling",
+                            "native_pdf",
+                            "effort_control"
+                        ],
+                        reasoningEfforts: ["minimal", "low", "medium", "high"]
+                    }
+                }
+            },
+            prototypeCreditTier: "pro",
+            prototypeCreditTierWithReasoning: undefined
+        })
+        dbMessagesToCoreMock.mockResolvedValueOnce([
+            {
+                role: "user",
+                messageId: "message-1",
+                content: [
+                    {
+                        type: "text",
+                        text: "Review this PDF"
+                    },
+                    {
+                        type: "file",
+                        mediaType: "application/pdf",
+                        filename: "paper.pdf",
+                        data: "https://r2.example.com/attachments/user-1/paper.pdf"
+                    }
+                ]
+            }
+        ])
+        manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([]),
+            finishReason: Promise.resolve("stop")
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "gemini-3.1-pro-preview",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [
+                        { type: "text", text: "Review this PDF" },
+                        {
+                            type: "file",
+                            data: "https://r2.example.com/attachments/user-1/paper.pdf",
+                            filename: "paper.pdf",
+                            mimeType: "application/pdf"
+                        }
+                    ]
+                },
+                enabledTools: [],
+                reasoningEffort: "minimal"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await response.text()
+
+        expect(streamTextMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                messages: expect.arrayContaining([
+                    expect.objectContaining({
+                        role: "user",
+                        content: expect.arrayContaining([
+                            expect.objectContaining({
+                                type: "file",
+                                mediaType: "application/pdf",
+                                filename: "paper.pdf",
+                                data: "https://r2.example.com/attachments/user-1/paper.pdf"
+                            })
+                        ])
+                    })
+                ]),
+                providerOptions: expect.objectContaining({
+                    openrouter: expect.objectContaining({
+                        plugins: [
+                            {
+                                id: "file-parser",
+                                pdf: {
+                                    engine: "native"
+                                }
+                            }
+                        ]
+                    })
+                })
+            })
+        )
+    })
+
     it("falls back to medium reasoning for Grok 4.3 outside OpenRouter", async () => {
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
