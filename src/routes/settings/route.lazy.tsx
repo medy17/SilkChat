@@ -1,5 +1,5 @@
+import { SettingsBackButton } from "@/components/settings/settings-back-button"
 import { SettingsLayout } from "@/components/settings/settings-layout"
-import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
@@ -12,10 +12,8 @@ import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
-import { Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
-import { Link } from "@tanstack/react-router"
+import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
 import {
-    ArrowLeft,
     BarChart3,
     Bot,
     PaintBucket,
@@ -154,16 +152,7 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
                 {/* Header */}
                 <div className="mb-5 max-md:px-2 lg:mb-8">
                     <div className="mb-4 flex items-center gap-4 lg:mb-6">
-                        <Link to="/">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2 text-muted-foreground hover:text-foreground"
-                            >
-                                <ArrowLeft className="h-4 w-4" />
-                                Back
-                            </Button>
-                        </Link>
+                        <SettingsBackButton />
                     </div>
 
                     <div className="mb-5 lg:hidden">

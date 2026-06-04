@@ -765,11 +765,28 @@ export function ThreadsSidebar() {
                     projects={resolvedProjects}
                     currentFolderId={params.folderId}
                     isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
+                    activeThreadId={params.threadId}
                     enableContextMenu={!isMobile}
                     enableLongPressSelection={isMobile}
+                    nestedThreadSelectionMode={isThreadSelectionMode || isDesktopSelectionPreview}
+                    selectedThreadIds={
+                        isThreadSelectionMode || isDesktopSelectionPreview ? selectedThreadIds : []
+                    }
+                    canBulkTogglePin={canBulkTogglePin}
+                    areAllSelectedPinned={areAllSelectedPinned}
                     getFolderSelectionState={getFolderSelectionState}
                     onToggleFolderSelection={handleToggleFolderSelection}
                     onStartFolderSelection={handleStartFolderSelection}
+                    onOpenRenameThreadDialog={handleOpenRenameDialog}
+                    onOpenMoveThreadDialog={handleOpenMoveDialog}
+                    onOpenDeleteThreadDialog={handleOpenDeleteDialog}
+                    onExportThread={handleExportThread}
+                    onExportSelected={handleExportSelectedThreads}
+                    onToggleThreadSelection={handleToggleSelection}
+                    onStartThreadSelection={handleStartSelection}
+                    onBulkTogglePin={handleBulkTogglePin}
+                    onOpenBulkMoveDialog={handleOpenBulkMoveDialog}
+                    onOpenBulkDeleteDialog={() => setShowBulkDeleteDialog(true)}
                 />
                 {allThreads.length > 0 && (
                     <ThreadSections

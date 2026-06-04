@@ -133,7 +133,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         chat
     })
 
-    useChatDataProcessor({ messages, status })
+    useChatDataProcessor({ messages, status, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)

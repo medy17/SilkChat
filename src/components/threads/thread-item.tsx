@@ -33,12 +33,14 @@ import type { Thread } from "./types"
 interface ThreadItemProps {
     thread: Thread
     isInFolder?: boolean
+    folderId?: Id<"projects">
     isActive?: boolean
     isSelectionMode?: boolean
     isSelected?: boolean
     selectedThreadCount?: number
     enableContextMenu?: boolean
     enableLongPressSelection?: boolean
+    enableHoverPrefetch?: boolean
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
     onOpenRenameDialog?: (thread: Thread) => void
@@ -57,12 +59,14 @@ export const ThreadItem = memo(
     ({
         thread,
         isInFolder = false,
+        folderId,
         isActive = false,
         isSelectionMode = false,
         isSelected = false,
         selectedThreadCount = 0,
         enableContextMenu = true,
         enableLongPressSelection = false,
+        enableHoverPrefetch = true,
         canBulkTogglePin = true,
         areAllSelectedPinned = false,
         onOpenRenameDialog,
@@ -91,6 +95,20 @@ export const ThreadItem = memo(
         const togglePinMutation = useMutation(api.threads.togglePinThread)
         const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
         const showPersonaAvatar = Boolean(thread.personaSource)
+        const threadLinkProps = folderId
+            ? {
+                  to: "/folder/$folderId/thread/$threadId" as const,
+                  params: {
+                      folderId,
+                      threadId: thread._id
+                  }
+              }
+            : {
+                  to: "/thread/$threadId" as const,
+                  params: {
+                      threadId: thread._id
+                  }
+              }
 
         const clearLongPressTimer = () => {
             if (longPressTimeoutRef.current !== null) {
@@ -211,7 +229,7 @@ export const ThreadItem = memo(
         }
 
         const handleMouseEnter = () => {
-            if (isMobile || hasPrefetchedRef.current) return
+            if (isMobile || hasPrefetchedRef.current || !enableHoverPrefetch) return
             hasPrefetchedRef.current = true
 
             // Prefetch thread data seamlessly on hover
@@ -244,6 +262,14 @@ export const ThreadItem = memo(
             const doNavigate = () => {
                 if (didNavigate) return
                 didNavigate = true
+                if (folderId) {
+                    void navigate({
+                        to: "/folder/$folderId/thread/$threadId",
+                        params: { folderId, threadId: thread._id }
+                    })
+                    return
+                }
+
                 void navigate({
                     to: "/thread/$threadId",
                     params: { threadId: thread._id }
@@ -408,8 +434,7 @@ export const ThreadItem = memo(
                             </button>
                         ) : (
                             <Link
-                                to="/thread/$threadId"
-                                params={{ threadId: thread._id }}
+                                {...threadLinkProps}
                                 className="flex h-full w-full min-w-0 items-center"
                                 onClick={handleLinkClick}
                                 onContextMenu={handleContextMenu}
@@ -532,12 +557,14 @@ export const ThreadItem = memo(
             prevProps.thread.personaAvatarKind === nextProps.thread.personaAvatarKind &&
             prevProps.thread.personaAvatarValue === nextProps.thread.personaAvatarValue &&
             prevProps.isInFolder === nextProps.isInFolder &&
+            prevProps.folderId === nextProps.folderId &&
             prevProps.isActive === nextProps.isActive &&
             prevProps.isSelectionMode === nextProps.isSelectionMode &&
             prevProps.isSelected === nextProps.isSelected &&
             prevProps.selectedThreadCount === nextProps.selectedThreadCount &&
             prevProps.enableContextMenu === nextProps.enableContextMenu &&
             prevProps.enableLongPressSelection === nextProps.enableLongPressSelection &&
+            prevProps.enableHoverPrefetch === nextProps.enableHoverPrefetch &&
             prevProps.canBulkTogglePin === nextProps.canBulkTogglePin &&
             prevProps.areAllSelectedPinned === nextProps.areAllSelectedPinned &&
             prevProps.onOpenRenameDialog === nextProps.onOpenRenameDialog &&

@@ -19,6 +19,7 @@ import { CircularLoader } from "@/components/ui/loader"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
 import {
     isRestorableChatPath,
     peekLastChatRoute,
@@ -315,6 +316,16 @@ function ChatLayout() {
         previousChatTargetKeyRef.current = nextKey
 
         if (!nextKey || !previousKey || nextKey === previousKey) {
+            setDisplayedChatTarget((previous) =>
+                areCachedChatTargetsEqual(previous, currentChatTarget)
+                    ? previous
+                    : currentChatTarget
+            )
+            return
+        }
+
+        if (consumeSuppressedChatTransitionForPath(location.pathname)) {
+            setIsChatTransitionOverlayVisible(false)
             setDisplayedChatTarget((previous) =>
                 areCachedChatTargetsEqual(previous, currentChatTarget)
                     ? previous

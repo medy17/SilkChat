@@ -64,7 +64,8 @@ describe("useChatDataProcessor", () => {
                             streamId: "stream-1"
                         }
                     }
-                ] as ProcessorMessages
+                ] as ProcessorMessages,
+                folderId: undefined
             })
         )
 
@@ -79,48 +80,14 @@ describe("useChatDataProcessor", () => {
         expect(navigate).not.toHaveBeenCalled()
     })
 
-    it("uses the existing store thread id when only stream metadata arrives", () => {
-        const navigate = vi.fn()
-        useNavigateMock.mockReturnValue(navigate)
-        useChatStore.setState({
-            threadId: "thread-9",
-            pendingStreams: {
-                "thread-9": true
-            }
-        })
-
-        renderHook(() =>
-            useChatDataProcessor({
-                status: "ready",
-                messages: [
-                    {
-                        id: "assistant-1",
-                        role: "assistant",
-                        metadata: {
-                            streamId: "stream-9"
-                        }
-                    }
-                ] as ProcessorMessages
-            })
-        )
-
-        expect(useChatStore.getState().attachedStreamIds).toEqual({
-            "thread-9": ["stream-9"]
-        })
-        expect(useChatStore.getState().pendingStreams).toEqual({
-            "thread-9": false
-        })
-        expect(navigate).not.toHaveBeenCalled()
-    })
-
-    it("navigates only when ready metadata arrives off-thread, not while streaming", () => {
+    it("canonicalizes a root new chat only after the initial response settles", () => {
         const navigate = vi.fn()
         useNavigateMock.mockReturnValue(navigate)
 
         Object.defineProperty(window, "location", {
             configurable: true,
             value: {
-                pathname: "/library"
+                pathname: "/"
             }
         })
 
@@ -136,7 +103,8 @@ describe("useChatDataProcessor", () => {
                                 threadId: "thread-2"
                             }
                         }
-                    ] as ProcessorMessages
+                    ] as ProcessorMessages,
+                    folderId: undefined
                 }),
             {
                 initialProps: "streaming"
@@ -150,6 +118,48 @@ describe("useChatDataProcessor", () => {
         expect(navigate).toHaveBeenCalledWith({
             to: "/thread/$threadId",
             params: { threadId: "thread-2" },
+            replace: true
+        })
+    })
+
+    it("canonicalizes a folder new chat to the folder thread route after settling", () => {
+        const navigate = vi.fn()
+        useNavigateMock.mockReturnValue(navigate)
+
+        Object.defineProperty(window, "location", {
+            configurable: true,
+            value: {
+                pathname: "/folder/folder-1"
+            }
+        })
+
+        const { rerender } = renderHook(
+            (status: string) =>
+                useChatDataProcessor({
+                    status,
+                    messages: [
+                        {
+                            id: "assistant-1",
+                            role: "assistant",
+                            metadata: {
+                                threadId: "thread-2"
+                            }
+                        }
+                    ] as ProcessorMessages,
+                    folderId: "folder-1"
+                }),
+            {
+                initialProps: "streaming"
+            }
+        )
+
+        expect(navigate).not.toHaveBeenCalled()
+
+        rerender("ready")
+
+        expect(navigate).toHaveBeenCalledWith({
+            to: "/folder/$folderId/thread/$threadId",
+            params: { folderId: "folder-1", threadId: "thread-2" },
             replace: true
         })
     })

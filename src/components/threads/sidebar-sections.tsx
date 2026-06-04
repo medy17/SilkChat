@@ -177,22 +177,52 @@ function LibraryLink() {
 
 export type FolderGroupActions = {
     isSelectionMode?: boolean
+    activeThreadId?: string
     enableContextMenu?: boolean
     enableLongPressSelection?: boolean
+    nestedThreadSelectionMode?: boolean
+    selectedThreadIds?: string[]
+    canBulkTogglePin?: boolean
+    areAllSelectedPinned?: boolean
     getFolderSelectionState?: (project: Project, threadCount: number) => "none" | "some" | "all"
     onToggleFolderSelection?: (project: Project) => void | Promise<void>
     onStartFolderSelection?: (project: Project) => void | Promise<void>
+    onOpenRenameThreadDialog?: (thread: Thread) => void
+    onOpenMoveThreadDialog?: (thread: Thread) => void
+    onOpenDeleteThreadDialog?: (thread: Thread) => void
+    onExportThread?: (thread: Thread) => Promise<void> | void
+    onExportSelected?: () => Promise<void> | void
+    onToggleThreadSelection?: (thread: Thread) => void
+    onStartThreadSelection?: (thread: Thread) => void
+    onBulkTogglePin?: () => Promise<void> | void
+    onOpenBulkMoveDialog?: () => void
+    onOpenBulkDeleteDialog?: () => void
 }
 
 export function FoldersSection({
     projects,
     currentFolderId,
     isSelectionMode,
+    activeThreadId,
     enableContextMenu,
     enableLongPressSelection,
+    nestedThreadSelectionMode,
+    selectedThreadIds,
+    canBulkTogglePin,
+    areAllSelectedPinned,
     getFolderSelectionState,
     onToggleFolderSelection,
-    onStartFolderSelection
+    onStartFolderSelection,
+    onOpenRenameThreadDialog,
+    onOpenMoveThreadDialog,
+    onOpenDeleteThreadDialog,
+    onExportThread,
+    onExportSelected,
+    onToggleThreadSelection,
+    onStartThreadSelection,
+    onBulkTogglePin,
+    onOpenBulkMoveDialog,
+    onOpenBulkDeleteDialog
 }: {
     projects: SidebarProject[]
     currentFolderId?: string
@@ -236,14 +266,29 @@ export function FoldersSection({
                                         numThreads={project.threadCount}
                                         isCurrentFolder={currentFolderId === project._id}
                                         isSelectionMode={isSelectionMode}
+                                        activeThreadId={activeThreadId}
                                         selectionState={getFolderSelectionState?.(
                                             project,
                                             project.threadCount
                                         )}
                                         enableContextMenu={enableContextMenu}
                                         enableLongPressSelection={enableLongPressSelection}
+                                        nestedThreadSelectionMode={nestedThreadSelectionMode}
+                                        selectedThreadIds={selectedThreadIds}
+                                        canBulkTogglePin={canBulkTogglePin}
+                                        areAllSelectedPinned={areAllSelectedPinned}
                                         onToggleSelection={onToggleFolderSelection}
                                         onStartSelection={onStartFolderSelection}
+                                        onOpenRenameThreadDialog={onOpenRenameThreadDialog}
+                                        onOpenMoveThreadDialog={onOpenMoveThreadDialog}
+                                        onOpenDeleteThreadDialog={onOpenDeleteThreadDialog}
+                                        onExportThread={onExportThread}
+                                        onExportSelected={onExportSelected}
+                                        onToggleThreadSelection={onToggleThreadSelection}
+                                        onStartThreadSelection={onStartThreadSelection}
+                                        onBulkTogglePin={onBulkTogglePin}
+                                        onOpenBulkMoveDialog={onOpenBulkMoveDialog}
+                                        onOpenBulkDeleteDialog={onOpenBulkDeleteDialog}
                                     />
                                 ))}
                             </SidebarMenu>

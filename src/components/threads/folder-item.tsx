@@ -9,6 +9,7 @@ import {
     AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -31,9 +32,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
+import {
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar
+} from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
     DEFAULT_PROJECT_ICON,
     PROJECT_COLORS,
@@ -41,13 +49,22 @@ import {
     getProjectColorClasses
 } from "@/lib/project-constants"
 import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
-import { useNavigate } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { Check, CheckSquare2, Edit3, Loader2, Minus, MoreHorizontal, Trash2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useConvex, useMutation } from "convex/react"
+import {
+    Check,
+    CheckSquare2,
+    ChevronRight,
+    Edit3,
+    Loader2,
+    Minus,
+    MoreHorizontal,
+    Trash2
+} from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import type { Project } from "./types"
+import { ThreadItem } from "./thread-item"
+import type { Project, Thread } from "./types"
 
 type FolderSelectionState = "none" | "some" | "all"
 
@@ -56,11 +73,26 @@ interface FolderItemProps {
     numThreads: number
     isCurrentFolder?: boolean
     isSelectionMode?: boolean
+    activeThreadId?: string
     selectionState?: FolderSelectionState
     enableContextMenu?: boolean
     enableLongPressSelection?: boolean
+    nestedThreadSelectionMode?: boolean
+    selectedThreadIds?: string[]
+    canBulkTogglePin?: boolean
+    areAllSelectedPinned?: boolean
     onStartSelection?: (project: Project) => void | Promise<void>
     onToggleSelection?: (project: Project) => void | Promise<void>
+    onOpenRenameThreadDialog?: (thread: Thread) => void
+    onOpenMoveThreadDialog?: (thread: Thread) => void
+    onOpenDeleteThreadDialog?: (thread: Thread) => void
+    onExportThread?: (thread: Thread) => Promise<void> | void
+    onExportSelected?: () => Promise<void> | void
+    onToggleThreadSelection?: (thread: Thread) => void
+    onStartThreadSelection?: (thread: Thread) => void
+    onBulkTogglePin?: () => Promise<void> | void
+    onOpenBulkMoveDialog?: () => void
+    onOpenBulkDeleteDialog?: () => void
 }
 
 export function FolderItem({
@@ -68,11 +100,26 @@ export function FolderItem({
     numThreads,
     isCurrentFolder = false,
     isSelectionMode = false,
+    activeThreadId,
     selectionState = "none",
     enableContextMenu = true,
     enableLongPressSelection = false,
+    nestedThreadSelectionMode = false,
+    selectedThreadIds = [],
+    canBulkTogglePin = true,
+    areAllSelectedPinned = false,
     onStartSelection,
-    onToggleSelection
+    onToggleSelection,
+    onOpenRenameThreadDialog,
+    onOpenMoveThreadDialog,
+    onOpenDeleteThreadDialog,
+    onExportThread,
+    onExportSelected,
+    onToggleThreadSelection,
+    onStartThreadSelection,
+    onBulkTogglePin,
+    onOpenBulkMoveDialog,
+    onOpenBulkDeleteDialog
 }: FolderItemProps) {
     const [showEditDialog, setShowEditDialog] = useState(false)
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -83,15 +130,116 @@ export function FolderItem({
     const [editColor, setEditColor] = useState<string>("blue")
     const [isEditing, setIsEditing] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [staleProjectThreads, setStaleProjectThreads] = useState<Thread[]>([])
+    const [isExpanded, setIsExpanded] = useState(() => {
+        if (typeof window === "undefined") {
+            return isCurrentFolder
+        }
+
+        const saved = localStorage.getItem(`folder-expanded:${project._id}`)
+        return saved === null ? isCurrentFolder : saved === "true"
+    })
     const longPressTimeoutRef = useRef<number | null>(null)
     const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
     const longPressTriggeredRef = useRef(false)
+    const prefetchedFolderThreadsRef = useRef(false)
 
     const colorClasses = getProjectColorClasses(project.color as ProjectColorId)
     const updateProjectMutation = useMutation(api.folders.updateProject)
     const deleteProjectMutation = useMutation(api.folders.deleteProject)
     const navigate = useNavigate()
     const isMobile = useIsMobile()
+    const convex = useConvex()
+    const { setOpenMobile } = useSidebar()
+    const hasThreads = numThreads > 0
+    const isFullySelected = selectionState === "all"
+    const isPartiallySelected = selectionState === "some"
+    const isTileHighlighted =
+        isMenuOpen || isContextMenuOpen || isCurrentFolder || isFullySelected || isPartiallySelected
+
+    const {
+        results: projectThreadsResults,
+        status: projectThreadsStatus,
+        loadMore: loadMoreProjectThreads
+    } = useDiskCachedPaginatedQuery(
+        api.threads.getThreadsByProject,
+        {
+            key: `threads-folder-sidebar-${project._id}`,
+            maxItems: 25
+        },
+        isExpanded && hasThreads
+            ? {
+                  projectId: project._id
+              }
+            : "skip",
+        {
+            initialNumItems: 25
+        }
+    )
+
+    const projectThreads = useMemo(
+        () =>
+            [...projectThreadsResults].sort((left, right) => {
+                if (Boolean(left.pinned) !== Boolean(right.pinned)) {
+                    return left.pinned ? -1 : 1
+                }
+
+                return (right.updatedAt ?? right.createdAt) - (left.updatedAt ?? left.createdAt)
+            }),
+        [projectThreadsResults]
+    )
+    const renderedProjectThreads = projectThreads.length > 0 ? projectThreads : staleProjectThreads
+
+    useEffect(() => {
+        return () => {
+            if (longPressTimeoutRef.current !== null) {
+                window.clearTimeout(longPressTimeoutRef.current)
+            }
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!hasThreads) {
+            setIsExpanded(false)
+            return
+        }
+
+        if (isCurrentFolder) {
+            setIsExpanded(true)
+        }
+    }, [hasThreads, isCurrentFolder])
+
+    useEffect(() => {
+        localStorage.setItem(`folder-expanded:${project._id}`, String(isExpanded))
+    }, [isExpanded, project._id])
+
+    useEffect(() => {
+        if (projectThreads.length > 0) {
+            setStaleProjectThreads(projectThreads)
+            return
+        }
+
+        if (!hasThreads) {
+            setStaleProjectThreads([])
+        }
+    }, [hasThreads, projectThreads])
+
+    useEffect(() => {
+        if (
+            !isExpanded ||
+            prefetchedFolderThreadsRef.current ||
+            renderedProjectThreads.length === 0
+        ) {
+            return
+        }
+
+        prefetchedFolderThreadsRef.current = true
+        renderedProjectThreads.slice(0, 3).forEach((thread) => {
+            const threadId = thread._id as Id<"threads">
+            convex.query(api.threads.getThreadMessages, { threadId }).catch(() => {})
+            convex.query(api.threads.getThread, { threadId }).catch(() => {})
+        })
+    }, [convex, isExpanded, renderedProjectThreads])
 
     const handleEdit = async () => {
         const trimmedName = editName.trim()
@@ -129,7 +277,6 @@ export function FolderItem({
     const handleDelete = async () => {
         setIsDeleting(true)
         try {
-            // Navigate away if currently viewing this folder
             if (isCurrentFolder) {
                 navigate({ to: "/", replace: true })
             }
@@ -161,21 +308,6 @@ export function FolderItem({
         setShowEditDialog(true)
     }
 
-    const { setOpenMobile } = useSidebar()
-    const hasThreads = numThreads > 0
-    const isFullySelected = selectionState === "all"
-    const isPartiallySelected = selectionState === "some"
-    const isTileHighlighted =
-        isMenuOpen || isContextMenuOpen || isCurrentFolder || isFullySelected || isPartiallySelected
-
-    useEffect(() => {
-        return () => {
-            if (longPressTimeoutRef.current !== null) {
-                window.clearTimeout(longPressTimeoutRef.current)
-            }
-        }
-    }, [])
-
     const clearLongPressTimer = () => {
         if (longPressTimeoutRef.current !== null) {
             window.clearTimeout(longPressTimeoutRef.current)
@@ -191,6 +323,14 @@ export function FolderItem({
     const handleToggleSelection = () => {
         if (!hasThreads) return
         void onToggleSelection?.(project)
+    }
+
+    const handleToggleExpanded = () => {
+        if (!hasThreads || isSelectionMode) {
+            return
+        }
+
+        setIsExpanded((current) => !current)
     }
 
     const handlePointerDown = (event: React.PointerEvent<HTMLAnchorElement>) => {
@@ -306,6 +446,21 @@ export function FolderItem({
                     isTileHighlighted && "bg-sidebar-accent"
                 )}
             >
+                <button
+                    type="button"
+                    onClick={handleToggleExpanded}
+                    disabled={!hasThreads || isSelectionMode}
+                    aria-label={isExpanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
+                    className={cn(
+                        "ml-1 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground",
+                        (!hasThreads || isSelectionMode) && "cursor-default opacity-50"
+                    )}
+                >
+                    <ChevronRight
+                        className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-90")}
+                    />
+                </button>
+
                 <SidebarMenuButton
                     asChild={!isSelectionMode}
                     className={cn(
@@ -435,140 +590,196 @@ export function FolderItem({
     )
 
     return (
-        <>
-            {enableContextMenu ? (
-                <ContextMenu onOpenChange={setIsContextMenuOpen}>
-                    <ContextMenuTrigger asChild>{folderContent}</ContextMenuTrigger>
-                    <ContextMenuContent>{folderMenuItems}</ContextMenuContent>
-                </ContextMenu>
-            ) : (
-                folderContent
-            )}
+        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <>
+                {enableContextMenu ? (
+                    <ContextMenu onOpenChange={setIsContextMenuOpen}>
+                        <ContextMenuTrigger asChild>{folderContent}</ContextMenuTrigger>
+                        <ContextMenuContent>{folderMenuItems}</ContextMenuContent>
+                    </ContextMenu>
+                ) : (
+                    folderContent
+                )}
 
-            {/* Edit Dialog */}
-            <Dialog
-                open={showEditDialog}
-                onOpenChange={(open) => {
-                    if (!isEditing) {
-                        setShowEditDialog(open)
-                    }
-                }}
-            >
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Edit Folder</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-folder-name">Name</Label>
-                            <Input
-                                id="edit-folder-name"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="max-w-[50%]"
-                                placeholder="Enter folder name"
-                                disabled={isEditing}
-                            />
-                        </div>
+                {!isSelectionMode && (
+                    <CollapsibleContent>
+                        <div className="mt-1 pl-4">
+                            {projectThreadsStatus === "LoadingFirstPage" &&
+                                renderedProjectThreads.length === 0 && (
+                                    <div className="ml-8 flex items-center gap-2 px-2 py-2 text-muted-foreground text-xs">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        Loading threads...
+                                    </div>
+                                )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-folder-description">Description (optional)</Label>
-                            <Input
-                                id="edit-folder-description"
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
-                                placeholder="Enter folder description"
-                                disabled={isEditing}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Color</Label>
-                            <div className="flex gap-2">
-                                {PROJECT_COLORS.map((color) => (
-                                    <button
-                                        key={color.id}
-                                        type="button"
-                                        onClick={() => setEditColor(color.id)}
-                                        disabled={isEditing}
-                                        className={cn(
-                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
-                                            color.class.split(" ").slice(1).join(" "),
-                                            editColor === color.id
-                                                ? "scale-110 border-foreground"
-                                                : "border-transparent hover:scale-105"
-                                        )}
-                                    >
-                                        {editColor === color.id && (
-                                            <Check className="h-4 w-4 text-white drop-shadow-sm" />
-                                        )}
-                                    </button>
+                            <SidebarMenu>
+                                {renderedProjectThreads.map((thread) => (
+                                    <ThreadItem
+                                        key={thread._id}
+                                        thread={thread}
+                                        folderId={project._id}
+                                        isInFolder
+                                        isActive={activeThreadId === thread._id}
+                                        isSelectionMode={nestedThreadSelectionMode}
+                                        isSelected={selectedThreadIds.includes(thread._id)}
+                                        selectedThreadCount={selectedThreadIds.length}
+                                        enableContextMenu={enableContextMenu}
+                                        enableLongPressSelection={enableLongPressSelection}
+                                        enableHoverPrefetch={false}
+                                        canBulkTogglePin={canBulkTogglePin}
+                                        areAllSelectedPinned={areAllSelectedPinned}
+                                        onOpenRenameDialog={onOpenRenameThreadDialog}
+                                        onOpenMoveDialog={onOpenMoveThreadDialog}
+                                        onOpenDeleteDialog={onOpenDeleteThreadDialog}
+                                        onExportThread={onExportThread}
+                                        onExportSelected={onExportSelected}
+                                        onToggleSelection={onToggleThreadSelection}
+                                        onStartSelection={onStartThreadSelection}
+                                        onBulkTogglePin={onBulkTogglePin}
+                                        onOpenBulkMoveDialog={onOpenBulkMoveDialog}
+                                        onOpenBulkDeleteDialog={onOpenBulkDeleteDialog}
+                                    />
                                 ))}
+                            </SidebarMenu>
+
+                            {projectThreadsStatus === "CanLoadMore" && (
+                                <button
+                                    type="button"
+                                    onClick={() => loadMoreProjectThreads(25)}
+                                    className="mt-1 ml-8 rounded-md px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                                >
+                                    Load more
+                                </button>
+                            )}
+                        </div>
+                    </CollapsibleContent>
+                )}
+
+                <Dialog
+                    open={showEditDialog}
+                    onOpenChange={(open) => {
+                        if (!isEditing) {
+                            setShowEditDialog(open)
+                        }
+                    }}
+                >
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit Folder</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-folder-name">Name</Label>
+                                <Input
+                                    id="edit-folder-name"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="max-w-[50%]"
+                                    placeholder="Enter folder name"
+                                    disabled={isEditing}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-folder-description">
+                                    Description (optional)
+                                </Label>
+                                <Input
+                                    id="edit-folder-description"
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="Enter folder description"
+                                    disabled={isEditing}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Color</Label>
+                                <div className="flex gap-2">
+                                    {PROJECT_COLORS.map((color) => (
+                                        <button
+                                            key={color.id}
+                                            type="button"
+                                            onClick={() => setEditColor(color.id)}
+                                            disabled={isEditing}
+                                            className={cn(
+                                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                                                color.class.split(" ").slice(1).join(" "),
+                                                editColor === color.id
+                                                    ? "scale-110 border-foreground"
+                                                    : "border-transparent hover:scale-105"
+                                            )}
+                                        >
+                                            {editColor === color.id && (
+                                                <Check className="h-4 w-4 text-white drop-shadow-sm" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowEditDialog(false)}
-                            disabled={isEditing}
-                        >
-                            Cancel
-                        </Button>
-                        <Button onClick={handleEdit} disabled={isEditing || !editName.trim()}>
-                            {isEditing ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Saving...
-                                </>
-                            ) : (
-                                "Save"
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowEditDialog(false)}
+                                disabled={isEditing}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleEdit} disabled={isEditing || !editName.trim()}>
+                                {isEditing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    "Save"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-            {/* Delete Dialog */}
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Folder</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete{" "}
-                            <span className="font-bold">{project.name}</span>?
-                            {numThreads > 0 && (
-                                <>
-                                    <br />
-                                    <br />
-                                    This folder contains {numThreads} thread
-                                    {numThreads !== 1 ? "s" : ""}. The folder will be archived
-                                    instead of deleted.
-                                </>
-                            )}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isDeleting ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    {numThreads > 0 ? "Archiving..." : "Deleting..."}
-                                </>
-                            ) : numThreads > 0 ? (
-                                "Archive"
-                            ) : (
-                                "Delete"
-                            )}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+                <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete{" "}
+                                <span className="font-bold">{project.name}</span>?
+                                {numThreads > 0 && (
+                                    <>
+                                        <br />
+                                        <br />
+                                        This folder contains {numThreads} thread
+                                        {numThreads !== 1 ? "s" : ""}. The folder will be archived
+                                        instead of deleted.
+                                    </>
+                                )}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        {numThreads > 0 ? "Archiving..." : "Deleting..."}
+                                    </>
+                                ) : numThreads > 0 ? (
+                                    "Archive"
+                                ) : (
+                                    "Delete"
+                                )}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </>
+        </Collapsible>
     )
 }

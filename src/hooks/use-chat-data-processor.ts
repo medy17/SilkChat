@@ -1,4 +1,6 @@
+import { getCanonicalChatRouteTarget } from "@/lib/canonical-chat-route"
 import { useChatStore } from "@/lib/chat-store"
+import { suppressNextChatTransitionForPath } from "@/lib/chat-transition-override"
 import { useNavigate } from "@tanstack/react-router"
 import type { UIMessage } from "ai"
 import { useEffect } from "react"
@@ -9,9 +11,10 @@ interface UseChatDataProcessorProps {
         streamId?: string
     }>[]
     status: "submitted" | "streaming" | "ready" | "error" | string
+    folderId?: string
 }
 
-export function useChatDataProcessor({ messages, status }: UseChatDataProcessorProps) {
+export function useChatDataProcessor({ messages, status, folderId }: UseChatDataProcessorProps) {
     const {
         setThreadId,
         setShouldUpdateQuery,
@@ -34,16 +37,20 @@ export function useChatDataProcessor({ messages, status }: UseChatDataProcessorP
             if (threadId !== latestAssistant.metadata.threadId) {
                 setThreadId(latestAssistant.metadata.threadId)
             }
-            if (
-                status !== "submitted" &&
-                status !== "streaming" &&
-                typeof window !== "undefined" &&
-                window.location.pathname !== "/" &&
-                window.location.pathname !== `/thread/${latestAssistant.metadata.threadId}`
-            ) {
+            const canonicalRouteTarget =
+                typeof window === "undefined"
+                    ? null
+                    : getCanonicalChatRouteTarget({
+                          pathname: window.location.pathname,
+                          threadId: latestAssistant.metadata.threadId,
+                          folderId
+                      })
+
+            if (status !== "submitted" && status !== "streaming" && canonicalRouteTarget) {
+                suppressNextChatTransitionForPath(canonicalRouteTarget.pathname)
                 void navigate({
-                    to: "/thread/$threadId",
-                    params: { threadId: latestAssistant.metadata.threadId },
+                    to: canonicalRouteTarget.to,
+                    params: canonicalRouteTarget.params,
                     replace: true
                 })
             }
@@ -100,6 +107,7 @@ export function useChatDataProcessor({ messages, status }: UseChatDataProcessorP
         attachedStreamIds,
         pendingStreams,
         status,
-        navigate
+        navigate,
+        folderId
     ])
 }

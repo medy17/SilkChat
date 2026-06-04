@@ -115,7 +115,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         chat
     })
 
-    useChatDataProcessor({ messages, status })
+    useChatDataProcessor({ messages, status, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)
@@ -173,6 +173,10 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         }, [recentThreads.loadMore, recentThreads.status])
 
         const threads = (recentThreads?.results || []).slice().sort((a, b) => {
+            if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+                return a.pinned ? -1 : 1
+            }
+
             return getThreadActivityTime(b) - getThreadActivityTime(a)
         })
 
@@ -222,8 +226,8 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         return (
                             <motion.div key={thread._id} {...threadAnimProps}>
                                 <Link
-                                    to="/thread/$threadId"
-                                    params={{ threadId: thread._id }}
+                                    to="/folder/$folderId/thread/$threadId"
+                                    params={{ folderId, threadId: thread._id }}
                                     className="flex items-center gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-accent/50"
                                 >
                                     <div className="min-w-0 flex-1">
