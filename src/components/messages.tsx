@@ -453,24 +453,30 @@ const EditableMessage = memo(
             }
         }
 
+        const totalAttachmentCount = fileParts.length + addedFiles.length
+
         return (
-            <div className="rounded-2xl bg-primary">
+            <div
+                className="border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
+                style={{ borderRadius: "var(--radius-lg)" }}
+            >
                 <Textarea
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className=" my-12 w-full resize-none border-none bg-transparent p-4 pb-2 text-primary-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
 
-                {fileParts.length > 0 && (
-                    <div className="flex flex-wrap gap-2 px-4 pb-2">
+                {totalAttachmentCount > 0 && (
+                    <div className="flex flex-wrap gap-2 pb-3">
                         {fileParts.map((part, index) => {
                             const { isImage } = getFileTypeInfo(
                                 part.filename || extractFileName(part.url),
                                 part.mediaType
                             )
                             const isRemoved = deletedUrls.includes(part.url)
-                            const isMultiFile = fileParts.length > 1
+                            const isCompact = totalAttachmentCount > 1
+                            const filename = part.filename || extractFileName(part.url)
 
                             const handleToggleRemove = () => {
                                 setDeletedUrls((prev) =>
@@ -484,32 +490,36 @@ const EditableMessage = memo(
                                 <div
                                     key={index}
                                     className={cn(
-                                        "group relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary-foreground/20 bg-primary-foreground/10",
-                                        isMultiFile || !isImage
-                                            ? "h-14 w-auto min-w-14 pr-3"
+                                        "group relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-all hover:bg-secondary/80",
+                                        isCompact || !isImage
+                                            ? "h-12 w-auto min-w-12 max-w-52"
                                             : "h-auto max-h-64 w-auto max-w-full",
-                                        !isImage && !isMultiFile && "w-auto px-3",
-                                        isImage && isMultiFile && "w-16 pr-0",
+                                        isImage && isCompact ? "w-12 p-0" : "px-3",
                                         isRemoved && "opacity-50 grayscale-[50%]"
                                     )}
+                                    style={{ borderRadius: "var(--radius)" }}
                                 >
                                     {isImage ? (
                                         <img
                                             src={resolvePublicFileUrl(part.url)}
-                                            alt="Attachment"
+                                            alt={filename}
                                             className={cn(
                                                 "object-cover",
-                                                isMultiFile
+                                                isCompact
                                                     ? "h-full w-full"
                                                     : "h-auto max-h-64 w-auto"
                                             )}
+                                            style={{ borderRadius: "calc(var(--radius) - 2px)" }}
                                         />
                                     ) : (
-                                        <div className="flex items-center gap-2 pl-2 text-primary-foreground">
+                                        <div className="flex min-w-0 items-center gap-2 text-foreground">
                                             {getFileIcon(part)}
                                             <div className="flex min-w-0 flex-col">
-                                                <span className="max-w-[6.25rem] truncate font-medium text-xs">
-                                                    {extractFileName(part.url)}
+                                                <span className="max-w-[8.5rem] truncate font-medium text-xs">
+                                                    {filename}
+                                                </span>
+                                                <span className="text-muted-foreground text-xs">
+                                                    Existing
                                                 </span>
                                             </div>
                                         </div>
@@ -517,7 +527,7 @@ const EditableMessage = memo(
 
                                     {isRemoved && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
-                                            <Trash2 className="size-6 text-destructive drop-shadow-md" />
+                                            <Trash2 className="size-5 text-destructive drop-shadow-md" />
                                         </div>
                                     )}
 
@@ -532,15 +542,16 @@ const EditableMessage = memo(
                                                 : "Remove attachment from message"
                                         }
                                         className={cn(
-                                            "absolute h-6 w-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100",
+                                            "absolute h-6 w-6 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
                                             isRemoved
                                                 ? "top-1 right-1 bg-background/80 text-foreground"
                                                 : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
                                             !isRemoved &&
-                                                (!isMultiFile && !isImage
+                                                (!isCompact && !isImage
                                                     ? "-translate-y-1/2 top-1/2 right-2"
                                                     : "top-1 right-1")
                                         )}
+                                        style={{ borderRadius: "var(--radius-xl)" }}
                                     >
                                         {isRemoved ? (
                                             <RotateCcw className="size-3.5" />
@@ -551,23 +562,26 @@ const EditableMessage = memo(
                                 </div>
                             )
                         })}
-                    </div>
-                )}
 
-                {addedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 px-4 pb-2">
                         {addedFiles.map((file) => {
                             const isImage = isImageMimeType(file.fileType)
 
                             return (
                                 <div
                                     key={file.key}
-                                    className="group relative flex h-14 min-w-14 max-w-48 shrink-0 items-center justify-center overflow-hidden border border-primary-foreground/20 bg-primary-foreground/10 pr-3"
-                                    style={{ borderRadius: "var(--radius-md)" }}
+                                    className="group relative flex h-12 min-w-12 max-w-52 shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 px-3 transition-all hover:bg-secondary/80"
+                                    style={{ borderRadius: "var(--radius)" }}
                                 >
-                                    <div className="flex min-w-0 items-center gap-2 pl-2 text-primary-foreground">
+                                    <div className="flex min-w-0 items-center gap-2 text-foreground">
                                         {isImage ? (
-                                            <ImageIcon className="size-4 text-blue-200" />
+                                            <img
+                                                src={getPublicR2AssetUrl(file.key)}
+                                                alt={file.fileName}
+                                                className="size-8 object-cover"
+                                                style={{
+                                                    borderRadius: "calc(var(--radius) - 2px)"
+                                                }}
+                                            />
                                         ) : (
                                             getFileIcon({
                                                 url: getPublicR2AssetUrl(file.key),
@@ -576,10 +590,10 @@ const EditableMessage = memo(
                                             })
                                         )}
                                         <div className="flex min-w-0 flex-col">
-                                            <span className="max-w-[6.25rem] truncate font-medium text-xs">
+                                            <span className="max-w-[8.5rem] truncate font-medium text-xs">
                                                 {file.fileName}
                                             </span>
-                                            <span className="text-primary-foreground/70 text-xs">
+                                            <span className="text-muted-foreground text-xs">
                                                 New
                                             </span>
                                         </div>
@@ -591,8 +605,8 @@ const EditableMessage = memo(
                                         size="icon"
                                         onClick={() => removeAddedFile(file)}
                                         title="Remove attachment from message"
-                                        className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-                                        style={{ borderRadius: "var(--radius-md)" }}
+                                        className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                                        style={{ borderRadius: "var(--radius-xl)" }}
                                     >
                                         <X className="size-3.5" />
                                     </Button>
@@ -602,15 +616,14 @@ const EditableMessage = memo(
                     </div>
                 )}
 
-                <div className="flex items-center justify-between px-4 pb-3">
-                    <div className="flex flex-wrap items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
+                <div className="flex items-center justify-between gap-2 border-border/70 border-t pt-3">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                         {selectedModel && (
                             <ModelSelector
                                 selectedModel={selectedModel}
                                 onModelChange={setSelectedModel}
                                 side="top"
-                                tone="on-primary"
-                                className="border-none bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                                className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
                                 requiresNativePdf={requiresNativePdfForModelSelection}
                             />
                         )}
@@ -631,7 +644,8 @@ const EditableMessage = memo(
                                     size="icon"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                                    className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                    style={{ borderRadius: "var(--radius-md)" }}
                                     title="Attach files"
                                 >
                                     {uploading ? (
@@ -653,12 +667,8 @@ const EditableMessage = memo(
                                     enabledTools={enabledTools}
                                     onEnabledToolsChange={setEnabledTools}
                                     modelSupportsFunctionCalling={modelSupportsFunctionCalling}
-                                    tone="on-primary"
                                 />
-                                <ReasoningEffortSelector
-                                    selectedModel={selectedModel}
-                                    tone="on-primary"
-                                />
+                                <ReasoningEffortSelector selectedModel={selectedModel} />
                             </>
                         )}
                     </div>
@@ -669,7 +679,8 @@ const EditableMessage = memo(
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                                    className="size-8 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                    style={{ borderRadius: "var(--radius-md)" }}
                                     title="More options"
                                 >
                                     <MoreHorizontal className="size-4" />
@@ -687,7 +698,8 @@ const EditableMessage = memo(
 
                         <Button
                             size="icon"
-                            className="size-8 shrink-0 rounded-md bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                            className="size-8 shrink-0"
+                            style={{ borderRadius: "var(--radius-md)" }}
                             onClick={handleSave}
                             disabled={uploading}
                             title="Send"

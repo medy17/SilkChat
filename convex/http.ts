@@ -5,6 +5,7 @@ import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { uploadImportSource } from "./import_jobs_http"
+import { UPLOAD_POLICY_HEADER } from "./lib/file_constants"
 import { uploadPersonaAvatar, uploadPersonaDoc } from "./persona_uploads"
 import { getPrivateBlur } from "./private_blur"
 import { transcribeAudio } from "./speech_to_text"
@@ -24,7 +25,8 @@ const cors = corsRouter(http, {
         "http://localhost:3000",
         "https://localhost:3000"
     ].filter(Boolean) as string[],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", UPLOAD_POLICY_HEADER],
+    exposedHeaders: [UPLOAD_POLICY_HEADER],
     allowCredentials: true
 })
 

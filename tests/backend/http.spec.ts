@@ -82,7 +82,8 @@ describe("convex/http", () => {
                 "http://localhost:3000",
                 "https://localhost:3000"
             ],
-            allowedHeaders: ["Content-Type", "Authorization"],
+            allowedHeaders: ["Content-Type", "Authorization", "X-Upload-Policy-Version"],
+            exposedHeaders: ["X-Upload-Policy-Version"],
             allowCredentials: true
         })
 
