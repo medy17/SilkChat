@@ -24,6 +24,7 @@ import { api } from "@/convex/_generated/api"
 import type { ImageResolution, ImageSize, SharedModel } from "@/convex/lib/models"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import {
     getAttachmentValidationError,
@@ -31,20 +32,22 @@ import {
 } from "@/lib/attachment-support"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
+import {
+    type UploadedFileWithSource,
+    prepareChatAttachmentForUpload,
+    readChatAttachmentContent,
+    uploadChatAttachment
+} from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import {
-    MAX_FILE_SIZE,
-    MAX_TOKENS_PER_FILE,
-    estimateTokenCount,
     getFileAcceptAttribute,
     getFileTypeInfo,
     isImageMimeType,
     isSvgExtension,
-    isSvgMimeType,
-    isTextMimeType
+    isSvgMimeType
 } from "@/lib/file_constants"
 import { useModelStore } from "@/lib/model-store"
 import {
@@ -101,9 +104,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
-interface ExtendedUploadedFile extends UploadedFile {
-    file?: File
-}
+type ExtendedUploadedFile = UploadedFileWithSource
 
 interface LocalUploadingFile {
     id: string
@@ -113,14 +114,6 @@ interface LocalUploadingFile {
     previewUrl?: string
     error?: string
 }
-
-const IMAGE_COMPRESSION_CUTOFF_BYTES = 25 * 1024 * 1024
-const IMAGE_COMPRESSION_STEPS = [
-    { quality: 0.86, maxDimension: 4096 },
-    { quality: 0.78, maxDimension: 3072 },
-    { quality: 0.68, maxDimension: 2560 },
-    { quality: 0.56, maxDimension: 2048 }
-] as const
 
 export const AspectRatioSelector = ({
     selectedModel
@@ -797,6 +790,7 @@ export const MultimodalInput = forwardRef<
     const { token } = useToken()
     const session = useSession()
     const auth = useConvexAuth()
+    const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
     const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
     const creditPlan = usePrototypeCreditPlan()
@@ -1038,7 +1032,8 @@ export const MultimodalInput = forwardRef<
                     {
                         supportsVision: modelSupportsVision,
                         supportsNativePdf: modelSupportsNativePdf
-                    }
+                    },
+                    uploadPolicy
                 )
             )
             .filter((error): error is string => Boolean(error))
@@ -1083,92 +1078,6 @@ export const MultimodalInput = forwardRef<
         }
     }
 
-    const readFileContent = useCallback(async (file: File): Promise<string> => {
-        return new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => {
-                const result = e.target?.result as string
-                resolve(result)
-            }
-            reader.onerror = () => resolve("Error reading file")
-
-            if (isSvgMimeType(file.type) || isSvgExtension(file.name)) {
-                reader.readAsText(file)
-            } else if (isImageMimeType(file.type)) {
-                reader.readAsDataURL(file)
-            } else if (isTextMimeType(file.type) || getFileTypeInfo(file.name, file.type).isText) {
-                reader.readAsText(file)
-            } else {
-                resolve(`Binary file: ${file.name}`)
-            }
-        })
-    }, [])
-
-    const compressImageIfNeeded = useCallback(async (file: File): Promise<File> => {
-        const isSvg = isSvgMimeType(file.type) || isSvgExtension(file.name)
-        const isRasterImage = isImageMimeType(file.type) && !isSvg
-
-        if (!isRasterImage || file.size <= MAX_FILE_SIZE) {
-            return file
-        }
-
-        if (file.size > IMAGE_COMPRESSION_CUTOFF_BYTES) {
-            throw new Error(`${file.name}: Image exceeds 25MB limit`)
-        }
-
-        const objectUrl = URL.createObjectURL(file)
-
-        try {
-            const sourceImage = await new Promise<HTMLImageElement>((resolve, reject) => {
-                const image = new Image()
-                image.onload = () => resolve(image)
-                image.onerror = () => reject(new Error("Failed to decode image"))
-                image.src = objectUrl
-            })
-
-            for (const step of IMAGE_COMPRESSION_STEPS) {
-                const largestSide = Math.max(sourceImage.width, sourceImage.height)
-                const scale = Math.min(1, step.maxDimension / largestSide)
-                const targetWidth = Math.max(1, Math.floor(sourceImage.width * scale))
-                const targetHeight = Math.max(1, Math.floor(sourceImage.height * scale))
-
-                const canvas = document.createElement("canvas")
-                canvas.width = targetWidth
-                canvas.height = targetHeight
-
-                const context = canvas.getContext("2d")
-                if (!context) {
-                    throw new Error("Image compression unavailable in this browser")
-                }
-
-                context.clearRect(0, 0, targetWidth, targetHeight)
-                context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight)
-
-                const compressedBlob = await new Promise<Blob | null>((resolve) => {
-                    canvas.toBlob((blob) => resolve(blob), "image/webp", step.quality)
-                })
-
-                if (!compressedBlob) {
-                    continue
-                }
-
-                const compressedName = file.name.replace(/\.[^.]+$/, "") || file.name
-                const compressedFile = new File([compressedBlob], `${compressedName}.webp`, {
-                    type: "image/webp",
-                    lastModified: file.lastModified
-                })
-
-                if (compressedFile.size < MAX_FILE_SIZE) {
-                    return compressedFile
-                }
-            }
-
-            throw new Error(`${file.name}: Could not compress image below 5MB after 4 attempts`)
-        } finally {
-            URL.revokeObjectURL(objectUrl)
-        }
-    }, [])
-
     const uploadFileWithProgress = useCallback(
         async (
             file: File,
@@ -1179,51 +1088,16 @@ export const MultimodalInput = forwardRef<
                 throw new Error("Authentication token unavailable")
             }
 
-            const formData = new FormData()
-            formData.append("file", file)
-            formData.append("fileName", file.name)
-
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest()
-                xhr.open("POST", `${browserEnv("VITE_CONVEX_API_URL")}/upload`)
-                xhr.setRequestHeader("Authorization", `Bearer ${jwt}`)
-
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const progress = Math.round((event.loaded / event.total) * 100)
-                        onProgress(progress)
-                    }
-                }
-
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const result = JSON.parse(xhr.responseText)
-                            resolve({
-                                ...result,
-                                file
-                            })
-                        } catch (error) {
-                            reject(new Error("Invalid response from server"))
-                        }
-                    } else {
-                        try {
-                            const errorData = JSON.parse(xhr.responseText)
-                            reject(new Error(errorData.error || "Upload failed"))
-                        } catch (error) {
-                            reject(new Error("Upload failed"))
-                        }
-                    }
-                }
-
-                xhr.onerror = () => {
-                    reject(new Error("Upload failed due to a network error"))
-                }
-
-                xhr.send(formData)
+            return uploadChatAttachment({
+                file,
+                jwt,
+                uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+                policyVersion,
+                onPolicyVersionMismatch: invalidateUploadPolicy,
+                onProgress
             })
         },
-        [token]
+        [invalidateUploadPolicy, policyVersion, token]
     )
 
     const handleFileUpload = useCallback(
@@ -1243,7 +1117,8 @@ export const MultimodalInput = forwardRef<
                     {
                         supportsVision: modelSupportsVision,
                         supportsNativePdf: modelSupportsNativePdf
-                    }
+                    },
+                    uploadPolicy
                 )
 
                 if (validationError) {
@@ -1285,40 +1160,11 @@ export const MultimodalInput = forwardRef<
             setUploading(true)
 
             newLocalFiles.forEach(async (localFile) => {
-                let fileToUpload = localFile.file
-                const fileTypeInfo = getFileTypeInfo(fileToUpload.name, fileToUpload.type)
-
                 try {
-                    if (fileTypeInfo.isVisionImage && fileToUpload.size > MAX_FILE_SIZE) {
-                        try {
-                            fileToUpload = await compressImageIfNeeded(fileToUpload)
-                        } catch (error) {
-                            throw new Error(
-                                error instanceof Error
-                                    ? error.message
-                                    : `${fileToUpload.name}: Failed to compress image`
-                            )
-                        }
-                    }
-
-                    if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {
-                        try {
-                            const content = await readFileContent(fileToUpload)
-                            const tokenCount = estimateTokenCount(content)
-                            if (tokenCount > MAX_TOKENS_PER_FILE) {
-                                throw new Error(
-                                    `${
-                                        fileToUpload.name
-                                    }: File exceeds ${MAX_TOKENS_PER_FILE.toLocaleString()} token limit`
-                                )
-                            }
-                        } catch (error) {
-                            if (error instanceof Error && error.message.includes("exceeds")) {
-                                throw error
-                            }
-                            throw new Error(`${fileToUpload.name}: Error reading file content`)
-                        }
-                    }
+                    const fileToUpload = await prepareChatAttachmentForUpload(
+                        localFile.file,
+                        uploadPolicy
+                    )
 
                     const result = await uploadFileWithProgress(fileToUpload, (progress) => {
                         setLocalUploadingFiles((prev) =>
@@ -1331,7 +1177,7 @@ export const MultimodalInput = forwardRef<
                     )
 
                     if (result.file) {
-                        const content = await readFileContent(result.file)
+                        const content = await readChatAttachmentContent(result.file)
                         setFileContents((prev) => ({
                             ...prev,
                             [result.key]: content
@@ -1394,10 +1240,9 @@ export const MultimodalInput = forwardRef<
             uploadFileWithProgress,
             addUploadedFile,
             setUploading,
-            readFileContent,
             modelSupportsVision,
             modelSupportsNativePdf,
-            compressImageIfNeeded
+            uploadPolicy
         ]
     )
 

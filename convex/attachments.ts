@@ -4,9 +4,13 @@ import { v } from "convex/values"
 import { components } from "./_generated/api"
 import { httpAction, mutation, query } from "./_generated/server"
 import {
+    DEFAULT_UPLOAD_POLICY,
+    DEFAULT_UPLOAD_POLICY_VERSION,
     MAX_FILE_SIZE,
     MAX_TOKENS_PER_FILE,
+    UPLOAD_POLICY_HEADER,
     estimateTokenCount,
+    formatFileSizeLimit,
     getCorrectMimeType,
     getFileTypeInfo,
     isSupportedFile
@@ -58,14 +62,28 @@ const LONG_LIVED_TRANSFORM_SOURCE_CACHE_CONTROL =
 
 const shouldUseLongLivedTransformSourceCache = (key: string) =>
     LONG_LIVED_TRANSFORM_SOURCE_PREFIXES.some((prefix) => key.startsWith(prefix))
-// Direct file upload HTTP action for files under 5MB
+
+const uploadPolicyHeaders = (headers?: HeadersInit) => ({
+    ...headers,
+    [UPLOAD_POLICY_HEADER]: DEFAULT_UPLOAD_POLICY_VERSION
+})
+
+export const getUploadPolicy = query({
+    args: {},
+    handler: async () => ({
+        ...DEFAULT_UPLOAD_POLICY,
+        version: DEFAULT_UPLOAD_POLICY_VERSION
+    })
+})
+
+// Direct file upload HTTP action for prepared attachment files
 export const uploadFile = httpAction(async (ctx, request) => {
     try {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
                 status: 401,
-                headers: { "Content-Type": "application/json" }
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             })
         }
         const formData = await request.formData()
@@ -76,7 +94,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
         if (!file) {
             return new Response(JSON.stringify({ error: "No file provided" }), {
                 status: 400,
-                headers: { "Content-Type": "application/json" }
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             })
         }
 
@@ -84,11 +102,11 @@ export const uploadFile = httpAction(async (ctx, request) => {
         if (file.size > MAX_FILE_SIZE) {
             return new Response(
                 JSON.stringify({
-                    error: `File size exceeds 5MB limit. Current size: ${file.size} bytes`
+                    error: `File size exceeds ${formatFileSizeLimit(MAX_FILE_SIZE)} limit. Current size: ${file.size} bytes`
                 }),
                 {
                     status: 400,
-                    headers: { "Content-Type": "application/json" }
+                    headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
                 }
             )
         }
@@ -101,7 +119,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
                 }),
                 {
                     status: 400,
-                    headers: { "Content-Type": "application/json" }
+                    headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
                 }
             )
         }
@@ -126,7 +144,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
                         }),
                         {
                             status: 400,
-                            headers: { "Content-Type": "application/json" }
+                            headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
                         }
                     )
                 }
@@ -138,7 +156,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
                     }),
                     {
                         status: 400,
-                        headers: { "Content-Type": "application/json" }
+                        headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
                     }
                 )
             }
@@ -210,7 +228,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
             }),
             {
                 status: 200,
-                headers: { "Content-Type": "application/json" }
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             }
         )
     } catch (error) {
@@ -221,7 +239,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
             }),
             {
                 status: 500,
-                headers: { "Content-Type": "application/json" }
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             }
         )
     }

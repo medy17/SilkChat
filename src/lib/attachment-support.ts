@@ -1,4 +1,10 @@
-import { MAX_FILE_SIZE, getFileTypeInfo, isSupportedFile } from "@/lib/file_constants"
+import {
+    DEFAULT_UPLOAD_POLICY,
+    type UploadPolicy,
+    formatFileSizeLimit,
+    getFileTypeInfo,
+    isSupportedFile
+} from "@/lib/file_constants"
 
 export type AttachmentCandidate = {
     name: string
@@ -74,7 +80,8 @@ export const hasPdfAttachmentInMessages = (messages: readonly MessageWithParts[]
 
 export const getAttachmentValidationError = (
     file: AttachmentCandidate,
-    modelSupport: AttachmentModelSupport
+    modelSupport: AttachmentModelSupport,
+    policy: UploadPolicy = DEFAULT_UPLOAD_POLICY
 ) => {
     if (!isSupportedFile(file.name, file.mimeType)) {
         return `${file.name}: Unsupported file type`
@@ -90,8 +97,12 @@ export const getAttachmentValidationError = (
         return `${file.name}: Current model doesn't support PDF files`
     }
 
-    if (!fileTypeInfo.isVisionImage && typeof file.size === "number" && file.size > MAX_FILE_SIZE) {
-        return `${file.name}: File size exceeds 5MB limit`
+    if (
+        !fileTypeInfo.isVisionImage &&
+        typeof file.size === "number" &&
+        file.size > policy.maxFileSize
+    ) {
+        return `${file.name}: File size exceeds ${formatFileSizeLimit(policy.maxFileSize)} limit`
     }
 
     return null

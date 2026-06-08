@@ -6,6 +6,7 @@ import {
     hasPdfAttachmentInUploadedFiles,
     modelSupportsNativePdf
 } from "@/lib/attachment-support"
+import { MAX_ATTACHMENTS_PER_THREAD, MAX_FILE_SIZE, isSupportedFile } from "@/lib/file_constants"
 
 describe("getAttachmentValidationError", () => {
     it("rejects pdf files when the model lacks native pdf support", () => {
@@ -54,6 +55,28 @@ describe("getAttachmentValidationError", () => {
                 }
             )
         ).toBe("diagram.png: Current model doesn't support image files")
+    })
+
+    it("allows AVIF images for vision models", () => {
+        expect(isSupportedFile("diagram.avif", "image/avif")).toBe(true)
+        expect(
+            getAttachmentValidationError(
+                {
+                    name: "diagram.avif",
+                    mimeType: "image/avif",
+                    size: 1024
+                },
+                {
+                    supportsVision: true,
+                    supportsNativePdf: true
+                }
+            )
+        ).toBeNull()
+    })
+
+    it("uses the configured attachment limits", () => {
+        expect(MAX_FILE_SIZE).toBe(15 * 1024 * 1024)
+        expect(MAX_ATTACHMENTS_PER_THREAD).toBe(100)
     })
 
     it("detects pdf uploads in draft attachments", () => {

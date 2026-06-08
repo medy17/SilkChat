@@ -5,6 +5,7 @@ export const SUPPORTED_RASTER_IMAGE_EXTENSIONS = [
     ".jpeg",
     ".gif",
     ".webp",
+    ".avif",
     ".bmp",
     ".ico"
 ] as const
@@ -62,6 +63,7 @@ export const SUPPORTED_RASTER_IMAGE_MIME_TYPES = [
     "image/jpeg",
     "image/gif",
     "image/webp",
+    "image/avif",
     "image/bmp",
     "image/x-icon"
 ] as const
@@ -97,9 +99,82 @@ export const ALL_SUPPORTED_EXTENSIONS = [
 ] as const
 
 // File size limits
-export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+export const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB
 export const MAX_TOKENS_PER_FILE = 32000 // 32k tokens
-export const MAX_ATTACHMENTS_PER_THREAD = 20
+export const MAX_ATTACHMENTS_PER_THREAD = 100
+export const formatFileSizeLimit = (bytes: number) => `${bytes / 1024 / 1024}MB`
+
+export const MAX_COMPRESSIBLE_IMAGE_SIZE = 25 * 1024 * 1024 // 25MB
+export const IMAGE_COMPRESSION_STEPS = [
+    { quality: 0.86, maxDimension: 4096 },
+    { quality: 0.78, maxDimension: 3072 },
+    { quality: 0.68, maxDimension: 2560 },
+    { quality: 0.56, maxDimension: 2048 }
+] as const
+
+export const UPLOAD_POLICY_HEADER = "X-Upload-Policy-Version"
+
+export type UploadPolicy = {
+    maxFileSize: number
+    maxTokensPerFile: number
+    maxAttachmentsPerThread: number
+    maxCompressibleImageSize: number
+    supportedRasterImageExtensions: readonly string[]
+    supportedVectorImageExtensions: readonly string[]
+    supportedCodeExtensions: readonly string[]
+    supportedPlainTextExtensions: readonly string[]
+    supportedRasterImageMimeTypes: readonly string[]
+    supportedVectorImageMimeTypes: readonly string[]
+    supportedTextMimeTypes: readonly string[]
+    imageCompressionSteps: readonly {
+        quality: number
+        maxDimension: number
+    }[]
+}
+
+export const DEFAULT_UPLOAD_POLICY = {
+    maxFileSize: MAX_FILE_SIZE,
+    maxTokensPerFile: MAX_TOKENS_PER_FILE,
+    maxAttachmentsPerThread: MAX_ATTACHMENTS_PER_THREAD,
+    maxCompressibleImageSize: MAX_COMPRESSIBLE_IMAGE_SIZE,
+    supportedRasterImageExtensions: SUPPORTED_RASTER_IMAGE_EXTENSIONS,
+    supportedVectorImageExtensions: SUPPORTED_VECTOR_IMAGE_EXTENSIONS,
+    supportedCodeExtensions: SUPPORTED_CODE_EXTENSIONS,
+    supportedPlainTextExtensions: SUPPORTED_PLAIN_TEXT_EXTENSIONS,
+    supportedRasterImageMimeTypes: SUPPORTED_RASTER_IMAGE_MIME_TYPES,
+    supportedVectorImageMimeTypes: SUPPORTED_VECTOR_IMAGE_MIME_TYPES,
+    supportedTextMimeTypes: SUPPORTED_TEXT_MIME_TYPES,
+    imageCompressionSteps: IMAGE_COMPRESSION_STEPS
+} as const satisfies UploadPolicy
+
+const stableStringify = (value: unknown): string => {
+    if (Array.isArray(value)) {
+        return `[${value.map(stableStringify).join(",")}]`
+    }
+
+    if (value && typeof value === "object") {
+        return `{${Object.entries(value)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+            .join(",")}}`
+    }
+
+    return JSON.stringify(value)
+}
+
+export const getUploadPolicyVersion = (policy: UploadPolicy = DEFAULT_UPLOAD_POLICY) => {
+    const input = stableStringify(policy)
+    let hash = 0x811c9dc5
+
+    for (let index = 0; index < input.length; index += 1) {
+        hash ^= input.charCodeAt(index)
+        hash = Math.imul(hash, 0x01000193)
+    }
+
+    return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+export const DEFAULT_UPLOAD_POLICY_VERSION = getUploadPolicyVersion(DEFAULT_UPLOAD_POLICY)
 
 // PDF-specific limits
 export const MAX_PDF_PAGES = 100

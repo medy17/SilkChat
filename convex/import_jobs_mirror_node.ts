@@ -1,9 +1,12 @@
 "use node"
 
 import {
+    IMAGE_COMPRESSION_STEPS,
+    MAX_COMPRESSIBLE_IMAGE_SIZE,
     MAX_FILE_SIZE,
     MAX_TOKENS_PER_FILE,
     estimateTokenCount,
+    formatFileSizeLimit,
     getCorrectMimeType,
     getFileTypeInfo,
     isImageMimeType,
@@ -24,14 +27,6 @@ const sanitizeKeySegment = (name: string) =>
         .replace(/-{2,}/g, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 120) || "file"
-
-const IMAGE_COMPRESSION_CUTOFF_BYTES = 25 * 1024 * 1024
-const IMAGE_COMPRESSION_STEPS = [
-    { quality: 86, maxDimension: 4096 },
-    { quality: 78, maxDimension: 3072 },
-    { quality: 68, maxDimension: 2560 },
-    { quality: 56, maxDimension: 2048 }
-] as const
 
 let sharpPromise: Promise<typeof import("sharp")> | null = null
 
@@ -79,7 +74,7 @@ const compressImageToLimit = async ({
         const compressed = await sharp(bytes, { failOn: "none" })
             .rotate()
             .resize(resize)
-            .webp({ quality: step.quality })
+            .webp({ quality: Math.round(step.quality * 100) })
             .toBuffer()
 
         if (compressed.byteLength <= MAX_FILE_SIZE) {
@@ -92,7 +87,7 @@ const compressImageToLimit = async ({
         }
     }
 
-    throw new Error("Could not compress image below 5MB")
+    throw new Error(`Could not compress image below ${formatFileSizeLimit(MAX_FILE_SIZE)}`)
 }
 
 const prepareImportedAttachmentForUpload = async ({
@@ -114,8 +109,10 @@ const prepareImportedAttachmentForUpload = async ({
     let preparedMimeType = getCorrectMimeType(fileName, mimeType)
 
     if (fileTypeInfo.isVisionImage && preparedBytes.byteLength > MAX_FILE_SIZE) {
-        if (preparedBytes.byteLength > IMAGE_COMPRESSION_CUTOFF_BYTES) {
-            throw new Error(`${fileName}: Image exceeds 25MB limit`)
+        if (preparedBytes.byteLength > MAX_COMPRESSIBLE_IMAGE_SIZE) {
+            throw new Error(
+                `${fileName}: Image exceeds ${formatFileSizeLimit(MAX_COMPRESSIBLE_IMAGE_SIZE)} limit`
+            )
         }
 
         if (!mimeType || !isImageMimeType(mimeType)) {
@@ -132,7 +129,9 @@ const prepareImportedAttachmentForUpload = async ({
     }
 
     if (preparedBytes.byteLength > MAX_FILE_SIZE) {
-        throw new Error(`${preparedFileName}: File size exceeds 5MB limit`)
+        throw new Error(
+            `${preparedFileName}: File size exceeds ${formatFileSizeLimit(MAX_FILE_SIZE)} limit`
+        )
     }
 
     if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {

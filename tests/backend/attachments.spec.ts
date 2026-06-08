@@ -33,12 +33,24 @@ vi.mock("../../convex/lib/identity", () => ({
     getUserIdentity: getUserIdentityMock
 }))
 
-import { deleteFile, getFile, listGeneratedFiles, r2, uploadFile } from "../../convex/attachments"
+import {
+    deleteFile,
+    getFile,
+    getUploadPolicy,
+    listGeneratedFiles,
+    r2,
+    uploadFile
+} from "../../convex/attachments"
+import { DEFAULT_UPLOAD_POLICY_VERSION, UPLOAD_POLICY_HEADER } from "../../src/lib/file_constants"
 
 const uploadFileHandler = uploadFile as unknown as (
     ctx: Record<string, unknown>,
     request: Request
 ) => Promise<Response>
+const getUploadPolicyHandler = getUploadPolicy as unknown as (
+    ctx: Record<string, unknown>,
+    args: Record<string, never>
+) => Promise<unknown>
 const deleteFileHandler = deleteFile as unknown as (
     ctx: Record<string, unknown>,
     args: { key: string }
@@ -98,12 +110,21 @@ describe("attachments", () => {
         r2.getUrl = vi.fn()
     })
 
+    it("exposes upload policy with a deterministic version", async () => {
+        await expect(getUploadPolicyHandler(createQueryCtx(), {})).resolves.toMatchObject({
+            version: DEFAULT_UPLOAD_POLICY_VERSION,
+            maxFileSize: 15 * 1024 * 1024,
+            maxAttachmentsPerThread: 100
+        })
+    })
+
     it("rejects unauthorized uploads", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ error: "Unauthorized" })
 
         const response = await uploadFileHandler(createHttpCtx(), createFileRequest())
 
         expect(response.status).toBe(401)
+        expect(response.headers.get(UPLOAD_POLICY_HEADER)).toBe(DEFAULT_UPLOAD_POLICY_VERSION)
         await expect(response.json()).resolves.toMatchObject({
             error: "Unauthorized"
         })
@@ -118,6 +139,7 @@ describe("attachments", () => {
         )
 
         expect(response.status).toBe(400)
+        expect(response.headers.get(UPLOAD_POLICY_HEADER)).toBe(DEFAULT_UPLOAD_POLICY_VERSION)
         await expect(response.json()).resolves.toMatchObject({
             error: "No file provided"
         })
@@ -170,6 +192,7 @@ describe("attachments", () => {
         )
 
         expect(response.status).toBe(200)
+        expect(response.headers.get(UPLOAD_POLICY_HEADER)).toBe(DEFAULT_UPLOAD_POLICY_VERSION)
         expect(r2.store).toHaveBeenCalledWith(
             expect.anything(),
             expect.any(Uint8Array),
@@ -202,6 +225,7 @@ describe("attachments", () => {
         )
 
         expect(response.status).toBe(500)
+        expect(response.headers.get(UPLOAD_POLICY_HEADER)).toBe(DEFAULT_UPLOAD_POLICY_VERSION)
         await expect(response.json()).resolves.toMatchObject({
             error: "Failed to upload file: R2 is not configured"
         })

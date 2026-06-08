@@ -1,10 +1,16 @@
+import { api } from "@/convex/_generated/api"
+import { useToken } from "@/hooks/auth-hooks"
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
+import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
-import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
-import { useChatStore } from "@/lib/chat-store"
+import { getAttachmentValidationError, hasPdfAttachmentInMessages } from "@/lib/attachment-support"
+import { resolveJwtToken } from "@/lib/auth-token"
+import { browserEnv } from "@/lib/browser-env"
+import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
+import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
-import { getFileTypeInfo } from "@/lib/file_constants"
+import { getFileAcceptAttribute, getFileTypeInfo, isImageMimeType } from "@/lib/file_constants"
 import {
     matchesCancelMessageEditShortcut,
     matchesSaveMessageEditShortcut
@@ -18,17 +24,20 @@ import {
 } from "@/lib/message-render-fingerprint"
 import { useModelStore } from "@/lib/model-store"
 import { formatQuotedSelection } from "@/lib/quote-selection"
-import { resolvePublicFileUrl } from "@/lib/r2-public-url"
+import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
+import { useMutation } from "convex/react"
 import {
     Code,
     ExternalLink,
     FileType,
     FileType2,
     Image as ImageIcon,
+    Loader2,
+    Paperclip,
     Quote,
     RotateCcw,
     Trash2,
@@ -46,6 +55,7 @@ import {
     useRef,
     useState
 } from "react"
+import { toast } from "sonner"
 import { Virtualizer, type VirtualizerHandle } from "virtua"
 import { ChatActions } from "./chat-actions"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -297,6 +307,10 @@ const EditableMessage = memo(
         requiresNativePdfForModelSelection?: boolean
     }) => {
         const location = useLocation()
+        const { token } = useToken()
+        const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
+        const deleteFileMutation = useMutation(api.attachments.deleteFile)
+        const fileInputRef = useRef<HTMLInputElement>(null)
         const threadId = location.pathname.includes("/thread/")
             ? location.pathname.split("/thread/")[1]?.split("/")[0]
             : undefined
@@ -305,14 +319,18 @@ const EditableMessage = memo(
         const { models: sharedModels } = useSharedModels()
 
         const [
+            modelSupportsVision,
+            modelSupportsNativePdf,
             modelSupportsFunctionCalling,
             isImageModel,
             modelSupportsImageSizing,
             modelSupportsImageResolution
         ] = useMemo(() => {
-            if (!selectedModel) return [false, false, false, false]
+            if (!selectedModel) return [false, false, false, false, false, false]
             const model = sharedModels.find((m) => m.id === selectedModel)
             return [
+                model?.abilities.includes("vision") ?? false,
+                model?.abilities.includes("native_pdf") ?? false,
                 model?.abilities.includes("function_calling") ?? false,
                 model?.mode === "image",
                 (model?.supportedImageSizes?.length ?? 0) > 0,
@@ -329,12 +347,98 @@ const EditableMessage = memo(
 
         const [editedContent, setEditedContent] = useState(textContent)
         const [deletedUrls, setDeletedUrls] = useState<string[]>([])
+        const [addedFiles, setAddedFiles] = useState<UploadedFile[]>([])
+        const [uploading, setUploading] = useState(false)
+
+        const uploadFile = useCallback(
+            async (file: File): Promise<UploadedFile> => {
+                const jwt = await resolveJwtToken(token)
+                if (!jwt) {
+                    throw new Error("Authentication token unavailable")
+                }
+
+                return uploadChatAttachment({
+                    file,
+                    jwt,
+                    uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+                    policyVersion,
+                    onPolicyVersionMismatch: invalidateUploadPolicy
+                })
+            },
+            [invalidateUploadPolicy, policyVersion, token]
+        )
+
+        const handleAddFiles = useCallback(
+            async (files: File[]) => {
+                if (files.length === 0) return
+
+                const validationErrors = files
+                    .map((file) =>
+                        getAttachmentValidationError(
+                            {
+                                name: file.name,
+                                mimeType: file.type,
+                                size: file.size
+                            },
+                            {
+                                supportsVision: modelSupportsVision,
+                                supportsNativePdf: modelSupportsNativePdf
+                            },
+                            uploadPolicy
+                        )
+                    )
+                    .filter((error): error is string => Boolean(error))
+
+                if (validationErrors.length > 0) {
+                    toast.error(`File validation failed:\n${validationErrors.join("\n")}`)
+                    return
+                }
+
+                setUploading(true)
+                try {
+                    const uploadableFiles = await Promise.all(
+                        files.map((file) => prepareChatAttachmentForUpload(file, uploadPolicy))
+                    )
+                    const uploaded = await Promise.all(uploadableFiles.map(uploadFile))
+                    setAddedFiles((current) => [...current, ...uploaded])
+                } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Upload failed")
+                } finally {
+                    setUploading(false)
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = ""
+                    }
+                }
+            },
+            [modelSupportsNativePdf, modelSupportsVision, uploadFile, uploadPolicy]
+        )
+
+        const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+            if (event.target.files) {
+                void handleAddFiles(Array.from(event.target.files))
+            }
+        }
+
+        const removeAddedFile = (file: UploadedFile) => {
+            setAddedFiles((current) => current.filter((addedFile) => addedFile.key !== file.key))
+            deleteFileMutation({ key: file.key }).catch(console.error)
+        }
 
         const handleSave = () => {
             const remainingFileParts = fileParts.filter((p) => !deletedUrls.includes(p.url))
+            const addedFileParts = addedFiles.map(
+                (file) =>
+                    ({
+                        type: "file",
+                        url: getPublicR2AssetUrl(file.key),
+                        mediaType: file.fileType,
+                        filename: file.fileName
+                    }) satisfies FileUIPart
+            )
+            const nextFileParts = [...remainingFileParts, ...addedFileParts]
             onSave(
                 editedContent,
-                remainingFileParts.length > 0 ? remainingFileParts : undefined,
+                nextFileParts.length > 0 ? nextFileParts : undefined,
                 deletedUrls.length > 0 ? deletedUrls : undefined
             )
         }
@@ -450,6 +554,54 @@ const EditableMessage = memo(
                     </div>
                 )}
 
+                {addedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-4 pb-2">
+                        {addedFiles.map((file) => {
+                            const isImage = isImageMimeType(file.fileType)
+
+                            return (
+                                <div
+                                    key={file.key}
+                                    className="group relative flex h-14 min-w-14 max-w-48 shrink-0 items-center justify-center overflow-hidden border border-primary-foreground/20 bg-primary-foreground/10 pr-3"
+                                    style={{ borderRadius: "var(--radius-md)" }}
+                                >
+                                    <div className="flex min-w-0 items-center gap-2 pl-2 text-primary-foreground">
+                                        {isImage ? (
+                                            <ImageIcon className="size-4 text-blue-200" />
+                                        ) : (
+                                            getFileIcon({
+                                                url: getPublicR2AssetUrl(file.key),
+                                                filename: file.fileName,
+                                                mediaType: file.fileType
+                                            })
+                                        )}
+                                        <div className="flex min-w-0 flex-col">
+                                            <span className="max-w-[6.25rem] truncate font-medium text-xs">
+                                                {file.fileName}
+                                            </span>
+                                            <span className="text-primary-foreground/70 text-xs">
+                                                New
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="icon"
+                                        onClick={() => removeAddedFile(file)}
+                                        title="Remove attachment from message"
+                                        className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                                        style={{ borderRadius: "var(--radius-md)" }}
+                                    >
+                                        <X className="size-3.5" />
+                                    </Button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between px-4 pb-3">
                     <div className="flex flex-wrap items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
                         {selectedModel && (
@@ -473,6 +625,29 @@ const EditableMessage = memo(
 
                         {!isImageModel && (
                             <>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                                    title="Attach files"
+                                >
+                                    {uploading ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                        <Paperclip className="-rotate-45 size-4" />
+                                    )}
+                                </Button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                    accept={getFileAcceptAttribute(modelSupportsVision)}
+                                />
                                 <ToolSelectorPopover
                                     threadId={threadId}
                                     enabledTools={enabledTools}
@@ -514,6 +689,7 @@ const EditableMessage = memo(
                             size="icon"
                             className="size-8 shrink-0 rounded-md bg-primary-foreground text-primary hover:bg-primary-foreground/90"
                             onClick={handleSave}
+                            disabled={uploading}
                             title="Send"
                         >
                             <ArrowUp className="size-5" />

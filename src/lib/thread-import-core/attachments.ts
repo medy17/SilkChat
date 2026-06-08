@@ -1,20 +1,15 @@
 import {
+    IMAGE_COMPRESSION_STEPS,
+    MAX_COMPRESSIBLE_IMAGE_SIZE,
     MAX_FILE_SIZE,
     MAX_TOKENS_PER_FILE,
     estimateTokenCount,
+    formatFileSizeLimit,
     getFileTypeInfo,
     isImageMimeType,
     isSupportedFile
 } from "@/lib/file_constants"
 import { ensureAttachmentFilename } from "./shared"
-
-const IMAGE_COMPRESSION_CUTOFF_BYTES = 25 * 1024 * 1024
-const IMAGE_COMPRESSION_STEPS = [
-    { quality: 0.86, maxDimension: 4096 },
-    { quality: 0.78, maxDimension: 3072 },
-    { quality: 0.68, maxDimension: 2560 },
-    { quality: 0.56, maxDimension: 2048 }
-] as const
 
 export const fetchRemoteAttachmentAsFile = async ({
     url,
@@ -88,7 +83,7 @@ const compressImageToLimit = async (file: File) => {
             }
         }
 
-        throw new Error("Could not compress image below 5MB")
+        throw new Error(`Could not compress image below ${formatFileSizeLimit(MAX_FILE_SIZE)}`)
     } finally {
         URL.revokeObjectURL(objectUrl)
     }
@@ -103,8 +98,10 @@ export const prepareImportedAttachmentFile = async (inputFile: File) => {
     let file = inputFile
 
     if (fileTypeInfo.isVisionImage && file.size > MAX_FILE_SIZE) {
-        if (file.size > IMAGE_COMPRESSION_CUTOFF_BYTES) {
-            throw new Error(`${file.name}: Image exceeds 25MB limit`)
+        if (file.size > MAX_COMPRESSIBLE_IMAGE_SIZE) {
+            throw new Error(
+                `${file.name}: Image exceeds ${formatFileSizeLimit(MAX_COMPRESSIBLE_IMAGE_SIZE)} limit`
+            )
         }
 
         if (!isImageMimeType(file.type)) {
@@ -115,7 +112,9 @@ export const prepareImportedAttachmentFile = async (inputFile: File) => {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-        throw new Error(`${file.name}: File size exceeds 5MB limit`)
+        throw new Error(
+            `${file.name}: File size exceeds ${formatFileSizeLimit(MAX_FILE_SIZE)} limit`
+        )
     }
 
     if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {
