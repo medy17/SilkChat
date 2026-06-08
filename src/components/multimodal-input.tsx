@@ -72,7 +72,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useMutation } from "convex/react"
 import {
     ArrowUp,
     Check,
@@ -790,6 +790,7 @@ export const MultimodalInput = forwardRef<
     const { token } = useToken()
     const session = useSession()
     const auth = useConvexAuth()
+    const deleteFileMutation = useMutation(api.attachments.deleteFile)
     const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
     const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
@@ -1286,6 +1287,15 @@ export const MultimodalInput = forwardRef<
             delete newContents[key]
             return newContents
         })
+        deleteFileMutation({ key })
+            .then((result) => {
+                if (!result.success) {
+                    toast.error(result.error || "Failed to delete attachment")
+                }
+            })
+            .catch((error) => {
+                toast.error(error instanceof Error ? error.message : "Failed to delete attachment")
+            })
     }
 
     const handlePaste = useCallback(
