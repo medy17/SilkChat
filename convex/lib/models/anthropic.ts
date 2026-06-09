@@ -8,6 +8,25 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => [
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {
+        id: "claude-fable-5",
+        name: "Claude Fable 5",
+        shortName: "Fable 5",
+        shortDescription:
+            "Mythos-class Claude model for long-running autonomous coding and knowledge work",
+        description:
+            "Anthropic's Mythos-class model for autonomous knowledge work and coding. Designed for long-running, complex, asynchronous tasks that benefit from strong verification and self-correction loops.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm"
+        },
+        releaseOrder: 20260609,
+        adapters: anthropicTextAdapters("claude-fable-5"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
+    },
+    {
         id: "claude-sonnet-4.6",
         name: "Claude Sonnet 4.6",
         shortName: "Sonnet 4.6",
