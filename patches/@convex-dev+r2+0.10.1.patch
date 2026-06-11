@@ -1,0 +1,612 @@
+diff --git a/node_modules/@convex-dev/r2/dist/client/index.d.ts b/node_modules/@convex-dev/r2/dist/client/index.d.ts
+index 97c05f0..95b54f5 100644
+--- a/node_modules/@convex-dev/r2/dist/client/index.d.ts
++++ b/node_modules/@convex-dev/r2/dist/client/index.d.ts
+@@ -14,6 +14,25 @@ export declare const DEFAULT_BATCH_SIZE = 10;
+ export type ClientApi = ApiFromModules<{
+     client: ReturnType<R2["clientApi"]>;
+ }>["client"];
++export type R2Metadata = {
++    authorId?: string;
++    bucket: string;
++    bucketLink: string;
++    contentType?: string;
++    key: string;
++    lastModified: string;
++    link: string;
++    sha256?: string;
++    size?: number;
++    url: string;
++};
++export type R2MetadataPage = {
++    continueCursor: string;
++    isDone: boolean;
++    page: R2Metadata[];
++    pageStatus?: null | "SplitRecommended" | "SplitRequired";
++    splitCursor?: null | string;
++};
+ type RunQueryCtx = {
+     runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
+ };
+@@ -41,6 +60,8 @@ export declare class R2 {
+         R2_ACCESS_KEY_ID?: string;
+         /** @deprecated Use `secretAccessKey` instead. */
+         R2_SECRET_ACCESS_KEY?: string;
++        forcePathStyle?: boolean;
++        R2_FORCE_PATH_STYLE?: boolean;
+         defaultBatchSize?: number;
+     };
+     readonly config: Infer<typeof r2ConfigValidator>;
+@@ -90,6 +111,8 @@ export declare class R2 {
+         R2_ACCESS_KEY_ID?: string;
+         /** @deprecated Use `secretAccessKey` instead. */
+         R2_SECRET_ACCESS_KEY?: string;
++        forcePathStyle?: boolean;
++        R2_FORCE_PATH_STYLE?: boolean;
+         defaultBatchSize?: number;
+     });
+     /**
+@@ -132,6 +155,7 @@ export declare class R2 {
+         type?: string;
+         disposition?: string;
+         cacheControl?: string;
++        authorId?: string;
+     }): Promise<string>;
+     /**
+      * Retrieve R2 object metadata and store in Convex.
+@@ -148,17 +172,7 @@ export declare class R2 {
+      * @param key - The R2 object key.
+      * @returns A promise that resolves to the metadata for the object.
+      */
+-    getMetadata(ctx: RunQueryCtx, key: string): Promise<{
+-        bucket: string;
+-        bucketLink: string;
+-        contentType?: string;
+-        key: string;
+-        lastModified: string;
+-        link: string;
+-        sha256?: string;
+-        size?: number;
+-        url: string;
+-    } | null>;
++    getMetadata(ctx: RunQueryCtx, key: string): Promise<R2Metadata | null>;
+     /**
+      * Retrieve all metadata from Convex for a given bucket.
+      *
+@@ -166,23 +180,8 @@ export declare class R2 {
+      * @param limit (optional) - The maximum number of documents to return.
+      * @returns A promise that resolves to an array of metadata documents.
+      */
+-    listMetadata(ctx: RunQueryCtx, limit?: number, cursor?: string | null): Promise<{
+-        continueCursor: string;
+-        isDone: boolean;
+-        page: Array<{
+-            bucket: string;
+-            bucketLink: string;
+-            contentType?: string;
+-            key: string;
+-            lastModified: string;
+-            link: string;
+-            sha256?: string;
+-            size?: number;
+-            url: string;
+-        }>;
+-        pageStatus?: null | "SplitRecommended" | "SplitRequired";
+-        splitCursor?: null | string;
+-    }>;
++    listMetadata(ctx: RunQueryCtx, limit?: number, cursor?: string | null): Promise<R2MetadataPage>;
++    listMetadata(ctx: RunQueryCtx, authorId?: string, limit?: number, cursor?: string | null, keyPrefix?: string): Promise<R2MetadataPage>;
+     /**
+      * Delete an object from R2.
+      *
+@@ -257,17 +256,7 @@ export declare class R2 {
+          */
+         getMetadata: import("convex/server").RegisteredQuery<"public", {
+             key: string;
+-        }, Promise<{
+-            bucket: string;
+-            bucketLink: string;
+-            contentType?: string;
+-            key: string;
+-            lastModified: string;
+-            link: string;
+-            sha256?: string;
+-            size?: number;
+-            url: string;
+-        } | null>>;
++        }, Promise<R2Metadata | null>>;
+         /**
+          * Retrieve all metadata for a given bucket from Convex.
+          */
+@@ -280,23 +269,7 @@ export declare class R2 {
+                 numItems: number;
+                 cursor: string | null;
+             };
+-        }, Promise<{
+-            continueCursor: string;
+-            isDone: boolean;
+-            page: Array<{
+-                bucket: string;
+-                bucketLink: string;
+-                contentType?: string;
+-                key: string;
+-                lastModified: string;
+-                link: string;
+-                sha256?: string;
+-                size?: number;
+-                url: string;
+-            }>;
+-            pageStatus?: null | "SplitRecommended" | "SplitRequired";
+-            splitCursor?: null | string;
+-        }>>;
++        }, Promise<R2MetadataPage>>;
+         /**
+          * Delete an object from R2 and remove its metadata from Convex.
+          */
+diff --git a/node_modules/@convex-dev/r2/dist/client/index.js b/node_modules/@convex-dev/r2/dist/client/index.js
+index eb0dd22..14de838 100644
+--- a/node_modules/@convex-dev/r2/dist/client/index.js
++++ b/node_modules/@convex-dev/r2/dist/client/index.js
+@@ -13,11 +13,18 @@ const parseConfig = (config) => {
+         endpoint: "R2_ENDPOINT",
+         accessKeyId: "R2_ACCESS_KEY_ID",
+         secretAccessKey: "R2_SECRET_ACCESS_KEY",
++        forcePathStyle: "R2_FORCE_PATH_STYLE",
+     };
+-    const missingFields = Object.keys(envVarNames).filter((key) => !config[key]);
++    const requiredEnvVarNames = {
++        bucket: envVarNames.bucket,
++        endpoint: envVarNames.endpoint,
++        accessKeyId: envVarNames.accessKeyId,
++        secretAccessKey: envVarNames.secretAccessKey,
++    };
++    const missingFields = Object.keys(requiredEnvVarNames).filter((key) => !config[key]);
+     if (missingFields.length > 0) {
+         throw new Error(`R2 configuration is missing required fields: ${missingFields.join(", ")}\n` +
+-            `Set them via environment variables (${missingFields.map((key) => envVarNames[key]).join(", ")}) ` +
++            `Set them via environment variables (${missingFields.map((key) => requiredEnvVarNames[key]).join(", ")}) ` +
+             `or pass them as options to the R2 constructor.`);
+     }
+     return config;
+@@ -96,6 +103,9 @@ export class R2 {
+             secretAccessKey: options?.secretAccessKey ??
+                 options?.R2_SECRET_ACCESS_KEY ??
+                 process.env.R2_SECRET_ACCESS_KEY,
++            forcePathStyle: options?.forcePathStyle ??
++                options?.R2_FORCE_PATH_STYLE ??
++                process.env.R2_FORCE_PATH_STYLE === "true",
+         };
+     }
+     /**
+@@ -162,6 +172,7 @@ export class R2 {
+         await this.client.send(command);
+         await ctx.runAction(this.component.lib.syncMetadata, {
+             key: key,
++            authorId: opts.authorId,
+             ...this.config,
+         });
+         return key;
+@@ -192,18 +203,22 @@ export class R2 {
+             ...this.config,
+         });
+     }
+-    /**
+-     * Retrieve all metadata from Convex for a given bucket.
+-     *
+-     * @param ctx - A Convex query context.
+-     * @param limit (optional) - The maximum number of documents to return.
+-     * @returns A promise that resolves to an array of metadata documents.
+-     */
+-    async listMetadata(ctx, limit, cursor) {
++    async listMetadata(ctx, authorIdOrLimit, limitOrCursor, cursorOrKeyPrefix, keyPrefix) {
++        const legacySignature = typeof authorIdOrLimit === "string";
++        const authorId = legacySignature ? authorIdOrLimit : undefined;
++        const limit = legacySignature
++            ? limitOrCursor
++            : authorIdOrLimit;
++        const cursor = legacySignature
++            ? cursorOrKeyPrefix
++            : limitOrCursor;
++        const resolvedKeyPrefix = legacySignature ? keyPrefix : undefined;
+         return ctx.runQuery(this.component.lib.listMetadata, {
+             ...this.config,
++            authorId,
+             limit: limit,
+             cursor: cursor ?? undefined,
++            keyPrefix: resolvedKeyPrefix,
+         });
+     }
+     /**
+diff --git a/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts b/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
+index b6a5900..53268f2 100644
+--- a/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
++++ b/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
+@@ -25,6 +25,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             key: string;
+         }, null, Name>;
+         deleteObject: FunctionReference<"mutation", "internal", {
++            forcePathStyle?: boolean;
+             accessKeyId: string;
+             bucket: string;
+             endpoint: string;
+@@ -32,6 +33,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             secretAccessKey: string;
+         }, null, Name>;
+         deleteR2Object: FunctionReference<"action", "internal", {
++            forcePathStyle?: boolean;
+             accessKeyId: string;
+             bucket: string;
+             endpoint: string;
+@@ -39,6 +41,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             secretAccessKey: string;
+         }, null, Name>;
+         getMetadata: FunctionReference<"query", "internal", {
++            forcePathStyle?: boolean;
+             accessKeyId: string;
+             bucket: string;
+             endpoint: string;
+@@ -48,6 +51,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             bucket: string;
+             bucketLink: string;
+             contentType?: string;
++            authorId?: string;
+             key: string;
+             lastModified: string;
+             link: string;
+@@ -56,6 +60,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             url: string;
+         } | null, Name>;
+         listMetadata: FunctionReference<"query", "internal", {
++            forcePathStyle?: boolean;
++            authorId?: string;
++            keyPrefix?: string;
+             accessKeyId: string;
+             bucket: string;
+             cursor?: string;
+@@ -69,6 +76,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+                 bucket: string;
+                 bucketLink: string;
+                 contentType?: string;
++                authorId?: string;
+                 key: string;
+                 lastModified: string;
+                 link: string;
+@@ -80,6 +88,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             splitCursor?: null | string;
+         }, Name>;
+         store: FunctionReference<"action", "internal", {
++            forcePathStyle?: boolean;
+             accessKeyId: string;
+             bucket: string;
+             endpoint: string;
+@@ -87,6 +96,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+             url: string;
+         }, any, Name>;
+         syncMetadata: FunctionReference<"action", "internal", {
++            forcePathStyle?: boolean;
++            authorId?: string;
+             accessKeyId: string;
+             bucket: string;
+             endpoint: string;
+@@ -97,6 +108,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+         upsertMetadata: FunctionReference<"mutation", "internal", {
+             bucket: string;
+             contentType?: string;
++            authorId?: string;
+             key: string;
+             lastModified: string;
+             link: string;
+diff --git a/node_modules/@convex-dev/r2/dist/component/lib.d.ts b/node_modules/@convex-dev/r2/dist/component/lib.d.ts
+index 2eae702..bf11c8f 100644
+--- a/node_modules/@convex-dev/r2/dist/component/lib.d.ts
++++ b/node_modules/@convex-dev/r2/dist/component/lib.d.ts
+@@ -1,5 +1,6 @@
+ import type { Doc, TableNames } from "./_generated/dataModel.js";
+ export declare const store: import("convex/server").RegisteredAction<"public", {
++    forcePathStyle?: boolean | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+@@ -7,6 +8,7 @@ export declare const store: import("convex/server").RegisteredAction<"public", {
+     url: string;
+ }, Promise<`${string}-${string}-${string}-${string}-${string}`>>;
+ export declare const getMetadata: import("convex/server").RegisteredQuery<"public", {
++    forcePathStyle?: boolean | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+@@ -18,14 +20,18 @@ export declare const getMetadata: import("convex/server").RegisteredQuery<"publi
+     bucket: string;
+     sha256?: string | undefined;
+     key: string;
+-    contentType?: string | undefined;
+-    lastModified: string;
+     link: string;
++    authorId?: string | undefined;
++    contentType?: string | undefined;
+     size?: number | undefined;
++    lastModified: string;
+ } | null>>;
+ export declare const listMetadata: import("convex/server").RegisteredQuery<"public", {
++    forcePathStyle?: boolean | undefined;
++    authorId?: string | undefined;
+     cursor?: string | undefined;
+     limit?: number | undefined;
++    keyPrefix?: string | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+@@ -37,10 +43,11 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
+         bucket: string;
+         sha256?: string | undefined;
+         key: string;
+-        contentType?: string | undefined;
+-        lastModified: string;
+         link: string;
++        authorId?: string | undefined;
++        contentType?: string | undefined;
+         size?: number | undefined;
++        lastModified: string;
+     }[];
+     isDone: boolean;
+     continueCursor: import("convex/server").Cursor;
+@@ -49,16 +56,19 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
+ }>>;
+ export declare const upsertMetadata: import("convex/server").RegisteredMutation<"public", {
+     sha256?: string | undefined;
++    authorId?: string | undefined;
+     contentType?: string | undefined;
+     size?: number | undefined;
+     bucket: string;
+     key: string;
+-    lastModified: string;
+     link: string;
++    lastModified: string;
+ }, Promise<{
+     isNew: boolean;
+ }>>;
+ export declare const syncMetadata: import("convex/server").RegisteredAction<"public", {
++    forcePathStyle?: boolean | undefined;
++    authorId?: string | undefined;
+     onComplete?: string | undefined;
+     bucket: string;
+     endpoint: string;
+@@ -71,13 +81,15 @@ export declare const deleteMetadata: import("convex/server").RegisteredMutation<
+     key: string;
+ }, Promise<void>>;
+ export declare const deleteR2Object: import("convex/server").RegisteredAction<"public", {
++    forcePathStyle?: boolean | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+     secretAccessKey: string;
+     key: string;
+-}, Promise<void>>;
++}, Promise<null | undefined>>;
+ export declare const deleteObject: import("convex/server").RegisteredMutation<"public", {
++    forcePathStyle?: boolean | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+diff --git a/node_modules/@convex-dev/r2/dist/component/lib.js b/node_modules/@convex-dev/r2/dist/component/lib.js
+index d80d0ad..ca6d5f4 100644
+--- a/node_modules/@convex-dev/r2/dist/component/lib.js
++++ b/node_modules/@convex-dev/r2/dist/component/lib.js
+@@ -10,6 +10,12 @@ import { paginator } from "convex-helpers/server/pagination";
+ import { ActionRetrier } from "@convex-dev/action-retrier";
+ const DEFAULT_LIST_LIMIT = 100;
+ const retrier = new ActionRetrier(components.actionRetrier);
++const isNoSuchKeyError = (error) => typeof error === "object" &&
++    error !== null &&
++    ("name" in error || "Code" in error || "code" in error) &&
++    (error.name === "NoSuchKey" ||
++        error.Code === "NoSuchKey" ||
++        error.code === "NoSuchKey");
+ const getUrl = async (r2, bucket, key) => {
+     return await getSignedUrl(r2, new GetObjectCommand({ Bucket: bucket, Key: key }));
+ };
+@@ -64,6 +70,8 @@ export const listMetadata = query({
+     args: {
+         limit: v.optional(v.number()),
+         cursor: v.optional(v.string()),
++        authorId: v.optional(v.string()),
++        keyPrefix: v.optional(v.string()),
+         ...r2ConfigValidator.fields,
+     },
+     returns: paginationReturnValidator(v.object({
+@@ -72,15 +80,44 @@ export const listMetadata = query({
+         bucketLink: v.string(),
+     })),
+     handler: async (ctx, args) => {
+-        const { limit, cursor, ...r2Config } = args;
++        const { limit, cursor, authorId, keyPrefix, ...r2Config } = args;
+         const r2 = createR2Client(r2Config);
+-        const results = await paginator(ctx.db, schema)
+-            .query("metadata")
+-            .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
+-            .paginate({
+-            numItems: limit ?? DEFAULT_LIST_LIMIT,
+-            cursor: cursor ?? null,
+-        });
++        const base = paginator(ctx.db, schema).query("metadata");
++        const keyPrefixUpperBound = keyPrefix ? `${keyPrefix}\uffff` : undefined;
++        const results = authorId && keyPrefix
++            ? await base
++                .withIndex("bucket_author_key", (q) => q
++                .eq("bucket", r2Config.bucket)
++                .eq("authorId", authorId)
++                .gte("key", keyPrefix)
++                .lt("key", keyPrefixUpperBound))
++                .paginate({
++                numItems: limit ?? DEFAULT_LIST_LIMIT,
++                cursor: cursor ?? null,
++            })
++            : authorId
++                ? await base
++                    .withIndex("bucket_author_key", (q) => q.eq("bucket", r2Config.bucket).eq("authorId", authorId))
++                    .paginate({
++                    numItems: limit ?? DEFAULT_LIST_LIMIT,
++                    cursor: cursor ?? null,
++                })
++                : keyPrefix
++                    ? await base
++                        .withIndex("bucket_key", (q) => q
++                        .eq("bucket", r2Config.bucket)
++                        .gte("key", keyPrefix)
++                        .lt("key", keyPrefixUpperBound))
++                        .paginate({
++                        numItems: limit ?? DEFAULT_LIST_LIMIT,
++                        cursor: cursor ?? null,
++                    })
++                    : await base
++                        .withIndex("bucket", (q) => q.eq("bucket", r2Config.bucket))
++                        .paginate({
++                        numItems: limit ?? DEFAULT_LIST_LIMIT,
++                        cursor: cursor ?? null,
++                    });
+         return {
+             ...results,
+             page: await asyncMap(results.page, async (doc) => ({
+@@ -103,6 +140,7 @@ export const upsertMetadata = mutation({
+             .unique();
+         if (existingMetadata) {
+             await ctx.db.patch(existingMetadata._id, {
++                authorId: args.authorId,
+                 contentType: args.contentType,
+                 size: args.size,
+                 sha256: args.sha256,
+@@ -112,6 +150,7 @@ export const upsertMetadata = mutation({
+             return { isNew: false };
+         }
+         await ctx.db.insert("metadata", {
++            authorId: args.authorId,
+             key: args.key,
+             contentType: args.contentType,
+             size: args.size,
+@@ -127,6 +166,7 @@ export const syncMetadata = action({
+     args: {
+         key: v.string(),
+         onComplete: v.optional(v.string()),
++        authorId: v.optional(v.string()),
+         ...r2ConfigValidator.fields,
+     },
+     returns: v.null(),
+@@ -148,6 +188,7 @@ export const syncMetadata = action({
+             sha256: response.ChecksumSHA256,
+             bucket: r2Config.bucket,
+             link,
++            authorId: args.authorId,
+         });
+         const onComplete = args.onComplete;
+         if (onComplete) {
+@@ -184,7 +225,15 @@ export const deleteR2Object = action({
+     handler: async (ctx, args) => {
+         const { key, ...r2Config } = args;
+         const r2 = createR2Client(r2Config);
+-        await r2.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }));
++        try {
++            await r2.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }));
++        }
++        catch (error) {
++            if (isNoSuchKeyError(error)) {
++                return null;
++            }
++            throw error;
++        }
+     },
+ });
+ export const deleteObject = mutation({
+diff --git a/node_modules/@convex-dev/r2/dist/component/schema.d.ts b/node_modules/@convex-dev/r2/dist/component/schema.d.ts
+index 40917da..9f17bde 100644
+--- a/node_modules/@convex-dev/r2/dist/component/schema.d.ts
++++ b/node_modules/@convex-dev/r2/dist/component/schema.d.ts
+@@ -3,11 +3,13 @@ declare const _default: import("convex/server").SchemaDefinition<{
+         sha256?: string | undefined;
+         contentType?: string | undefined;
+         size?: number | undefined;
++        authorId?: string | undefined;
+         bucket: string;
+         key: string;
+         lastModified: string;
+         link: string;
+     }, {
++        authorId: import("convex/values").VString<string | undefined, "optional">;
+         key: import("convex/values").VString<string, "required">;
+         sha256: import("convex/values").VString<string | undefined, "optional">;
+         contentType: import("convex/values").VString<string | undefined, "optional">;
+@@ -15,8 +17,10 @@ declare const _default: import("convex/server").SchemaDefinition<{
+         bucket: import("convex/values").VString<string, "required">;
+         lastModified: import("convex/values").VString<string, "required">;
+         link: import("convex/values").VString<string, "required">;
+-    }, "required", "bucket" | "sha256" | "key" | "contentType" | "lastModified" | "link" | "size">, {
++    }, "required", "bucket" | "sha256" | "key" | "contentType" | "lastModified" | "link" | "size" | "authorId">, {
+         bucket: ["bucket", "_creationTime"];
++        bucket_author: ["bucket", "authorId", "_creationTime"];
++        bucket_author_key: ["bucket", "authorId", "key", "_creationTime"];
+         bucket_key: ["bucket", "key", "_creationTime"];
+     }, {}, {}>;
+ }, true>;
+diff --git a/node_modules/@convex-dev/r2/dist/component/schema.js b/node_modules/@convex-dev/r2/dist/component/schema.js
+index d065b83..d96f9cc 100644
+--- a/node_modules/@convex-dev/r2/dist/component/schema.js
++++ b/node_modules/@convex-dev/r2/dist/component/schema.js
+@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
+ import { v } from "convex/values";
+ export default defineSchema({
+     metadata: defineTable({
++        authorId: v.optional(v.string()),
+         key: v.string(),
+         sha256: v.optional(v.string()),
+         contentType: v.optional(v.string()),
+@@ -11,6 +12,8 @@ export default defineSchema({
+         link: v.string(),
+     })
+         .index("bucket", ["bucket"])
++        .index("bucket_author", ["bucket", "authorId"])
++        .index("bucket_author_key", ["bucket", "authorId", "key"])
+         .index("bucket_key", ["bucket", "key"]),
+ });
+ //# sourceMappingURL=schema.js.map
+\ No newline at end of file
+diff --git a/node_modules/@convex-dev/r2/dist/shared.d.ts b/node_modules/@convex-dev/r2/dist/shared.d.ts
+index c5c62dc..b292c22 100644
+--- a/node_modules/@convex-dev/r2/dist/shared.d.ts
++++ b/node_modules/@convex-dev/r2/dist/shared.d.ts
+@@ -1,6 +1,7 @@
+ import { type GenericValidator, type Infer } from "convex/values";
+ import { S3Client } from "@aws-sdk/client-s3";
+ export declare const r2ConfigValidator: import("convex/values").VObject<{
++    forcePathStyle?: boolean | undefined;
+     bucket: string;
+     endpoint: string;
+     accessKeyId: string;
+@@ -10,7 +11,8 @@ export declare const r2ConfigValidator: import("convex/values").VObject<{
+     endpoint: import("convex/values").VString<string, "required">;
+     accessKeyId: import("convex/values").VString<string, "required">;
+     secretAccessKey: import("convex/values").VString<string, "required">;
+-}, "required", "bucket" | "endpoint" | "accessKeyId" | "secretAccessKey">;
++    forcePathStyle: import("convex/values").VBoolean<boolean | undefined, "optional">;
++}, "required", "bucket" | "endpoint" | "accessKeyId" | "secretAccessKey" | "forcePathStyle">;
+ export declare const createR2Client: (args: Infer<typeof r2ConfigValidator>) => S3Client;
+ export declare const paginationReturnValidator: (docValidator: GenericValidator) => import("convex/values").VObject<{
+     splitCursor?: string | null | undefined;
+diff --git a/node_modules/@convex-dev/r2/dist/shared.js b/node_modules/@convex-dev/r2/dist/shared.js
+index 1c7516e..a04773e 100644
+--- a/node_modules/@convex-dev/r2/dist/shared.js
++++ b/node_modules/@convex-dev/r2/dist/shared.js
+@@ -5,6 +5,7 @@ export const r2ConfigValidator = v.object({
+     endpoint: v.string(),
+     accessKeyId: v.string(),
+     secretAccessKey: v.string(),
++    forcePathStyle: v.optional(v.boolean()),
+ });
+ export const createR2Client = (args) => {
+     return new S3Client({
+@@ -14,6 +15,7 @@ export const createR2Client = (args) => {
+             accessKeyId: args.accessKeyId,
+             secretAccessKey: args.secretAccessKey,
+         },
++        forcePathStyle: args.forcePathStyle,
+         // Blob bodies crash the auto-checksum path in non-Node runtimes.
+         // Workaround per aws/aws-sdk-js-v3#6834.
+         requestChecksumCalculation: "WHEN_REQUIRED",
