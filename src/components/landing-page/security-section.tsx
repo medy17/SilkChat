@@ -59,9 +59,9 @@ export function SecuritySection() {
                         </div>
                         <h3 className="mb-4 font-bold text-3xl">Secure & Transparent</h3>
                         <p className="mb-6 text-muted-foreground">
-                            When you use BYOK, your API requests go directly to the provider. We
-                            don't act as a man-in-the-middle, meaning your sensitive conversations
-                            are never logged by us.
+                            When you use BYOK, you get to audit and configure your own provider
+                            level retention policies. <br />
+                            View our source code and see how we manage your data.
                         </p>
                         <a
                             href="https://github.com/medy17/silkchat"
@@ -78,9 +78,9 @@ export function SecuritySection() {
                         <div className="flex items-start gap-4 rounded-lg border border-border/50 bg-background p-4 shadow-sm">
                             <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                             <div>
-                                <p className="font-semibold">Local API Keys</p>
+                                <p className="font-semibold">Encrypted API Keys</p>
                                 <p className="text-muted-foreground text-sm">
-                                    Keys are stored securely in your browser.
+                                    Keys are stored securely.
                                 </p>
                             </div>
                         </div>

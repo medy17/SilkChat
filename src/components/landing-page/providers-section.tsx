@@ -136,9 +136,7 @@ export function ProvidersSection() {
                             <div className="mb-3 flex items-center justify-between">
                                 <div>
                                     <h3 className="font-medium text-base">OpenAI</h3>
-                                    <p className="text-muted-foreground text-sm">
-                                        Latest models available
-                                    </p>
+                                    <p className="text-muted-foreground text-sm"></p>
                                 </div>
                             </div>
 
@@ -148,7 +146,7 @@ export function ProvidersSection() {
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <span className="truncate font-medium text-base">
-                                                    GPT-5.4
+                                                    GPT-5.5
                                                 </span>
                                                 <Check className="size-4 shrink-0 text-primary" />
                                             </div>

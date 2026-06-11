@@ -1,13 +1,117 @@
 "use client"
 
+import { MobileSnapCarousel } from "@/components/landing-page/mobile-snap-carousel"
 import { MagicCard } from "@/components/magic-cards"
+import { cn } from "@/lib/utils"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { BrainCircuit, FileText, FileUp, Globe, Image as ImageIcon, Users } from "lucide-react"
+import type { ComponentType } from "react"
 import { useRef } from "react"
 
 gsap.registerPlugin(ScrollTrigger)
+
+type Feature = {
+    title: string
+    description: string
+    Icon: ComponentType<{ className?: string }>
+    gradientFrom: string
+    gradientTo: string
+    iconClassName: string
+    badge?: string
+}
+
+const features: Feature[] = [
+    {
+        title: "Multi-Model Mastery",
+        description:
+            "Switch between GPT-5.4, Claude 4.6, Gemini 3.1 Pro, and dozens more instantly.",
+        Icon: BrainCircuit,
+        gradientFrom: "rgba(59, 130, 246, 0.2)",
+        gradientTo: "rgba(37, 99, 235, 0.1)",
+        iconClassName: "bg-blue-500/10 text-blue-500"
+    },
+    {
+        title: "Real-time Web Search",
+        description:
+            "Ground your chats with the latest information from the web for accurate, up-to-date answers.",
+        Icon: Globe,
+        gradientFrom: "rgba(16, 185, 129, 0.2)",
+        gradientTo: "rgba(5, 150, 105, 0.1)",
+        iconClassName: "bg-emerald-500/10 text-emerald-500"
+    },
+    {
+        title: "Stunning Image Gen",
+        description:
+            "Create and manage your images in our innovative Library View using Nano Banana, Seedream, FLUX, and more.",
+        Icon: ImageIcon,
+        gradientFrom: "rgba(249, 115, 22, 0.2)",
+        gradientTo: "rgba(234, 88, 12, 0.1)",
+        iconClassName: "bg-orange-500/10 text-orange-500"
+    },
+    {
+        title: "Smart Artifacts",
+        description: "Preview your code and documents on the fly without switching tabs.",
+        Icon: FileText,
+        gradientFrom: "rgba(139, 92, 246, 0.2)",
+        gradientTo: "rgba(124, 58, 237, 0.1)",
+        iconClassName: "bg-purple-500/10 text-purple-500"
+    },
+    {
+        title: "Universal Import",
+        description:
+            "Migrate your existing conversations from ChatGPT, Claude, and other platforms effortlessly with a single click.",
+        Icon: FileUp,
+        gradientFrom: "rgba(236, 72, 153, 0.2)",
+        gradientTo: "rgba(219, 39, 119, 0.1)",
+        iconClassName: "bg-pink-500/10 text-pink-500",
+        badge: "New Feature"
+    },
+    {
+        title: "Custom Personas",
+        description:
+            "Craft tailored AI personalities with unique system prompts and context to suit your specific workflows and tasks.",
+        Icon: Users,
+        gradientFrom: "rgba(6, 182, 212, 0.2)",
+        gradientTo: "rgba(8, 145, 178, 0.1)",
+        iconClassName: "bg-cyan-500/10 text-cyan-500",
+        badge: "New Feature"
+    }
+]
+
+function FeatureCard({ feature, className }: { feature: Feature; className?: string }) {
+    const { Icon } = feature
+
+    return (
+        <MagicCard
+            gradientFrom={feature.gradientFrom}
+            gradientTo={feature.gradientTo}
+            className={cn(
+                "feature-card h-full rounded-xl p-8",
+                feature.badge && "relative overflow-hidden",
+                className
+            )}
+            style={{ willChange: "transform, opacity" }}
+        >
+            {feature.badge ? (
+                <div className="absolute top-0 right-0 rounded-bl-xl bg-primary/10 px-3 py-1 font-bold text-[10px] text-primary uppercase tracking-wider shadow-sm backdrop-blur-md">
+                    {feature.badge}
+                </div>
+            ) : null}
+            <div
+                className={cn(
+                    "mb-4 flex h-12 w-12 items-center justify-center rounded-lg",
+                    feature.iconClassName
+                )}
+            >
+                <Icon className="h-6 w-6" />
+            </div>
+            <h3 className="mb-2 font-bold text-xl">{feature.title}</h3>
+            <p className="text-muted-foreground">{feature.description}</p>
+        </MagicCard>
+    )
+}
 
 export function FeaturesSection() {
     const sectionRef = useRef<HTMLElement>(null)
@@ -63,7 +167,7 @@ export function FeaturesSection() {
         >
             <div className="container mx-auto">
                 <div
-                    className="feature-header mb-16 text-center"
+                    className="feature-header mb-8 px-6 text-center md:mb-16 md:px-0"
                     style={{ willChange: "transform, opacity, filter" }}
                 >
                     <h2 className="mb-4 font-bold text-3xl md:text-5xl">Everything you need</h2>
@@ -73,107 +177,16 @@ export function FeaturesSection() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    <MagicCard
-                        gradientFrom="rgba(59, 130, 246, 0.2)"
-                        gradientTo="rgba(37, 99, 235, 0.1)"
-                        className="feature-card rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-                            <BrainCircuit className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Multi-Model Mastery</h3>
-                        <p className="text-muted-foreground">
-                            Switch between GPT-5.4, Claude 4.6, Gemini 3.1 Pro, and dozens more
-                            instantly.
-                        </p>
-                    </MagicCard>
+                <MobileSnapCarousel
+                    items={features}
+                    getKey={(feature) => feature.title}
+                    renderItem={(feature) => <FeatureCard feature={feature} />}
+                />
 
-                    <MagicCard
-                        gradientFrom="rgba(16, 185, 129, 0.2)"
-                        gradientTo="rgba(5, 150, 105, 0.1)"
-                        className="feature-card rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
-                            <Globe className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Real-time Web Search</h3>
-                        <p className="text-muted-foreground">
-                            Ground your chats with the latest information from the web for accurate,
-                            up-to-date answers.
-                        </p>
-                    </MagicCard>
-
-                    <MagicCard
-                        gradientFrom="rgba(249, 115, 22, 0.2)"
-                        gradientTo="rgba(234, 88, 12, 0.1)"
-                        className="feature-card rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500">
-                            <ImageIcon className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Stunning Image Gen</h3>
-                        <p className="text-muted-foreground">
-                            Create and manage your images in our innovative Library View using Nano
-                            Banana, Seedream, FLUX, and more.
-                        </p>
-                    </MagicCard>
-
-                    <MagicCard
-                        gradientFrom="rgba(139, 92, 246, 0.2)"
-                        gradientTo="rgba(124, 58, 237, 0.1)"
-                        className="feature-card rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
-                            <FileText className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Smart Artifacts</h3>
-                        <p className="text-muted-foreground">
-                            Preview your code and documents on the fly without switching tabs.
-                        </p>
-                    </MagicCard>
-
-                    <MagicCard
-                        gradientFrom="rgba(236, 72, 153, 0.2)"
-                        gradientTo="rgba(219, 39, 119, 0.1)"
-                        className="feature-card relative overflow-hidden rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="absolute top-0 right-0 rounded-bl-xl bg-pink-500/20 px-3 py-1 font-bold text-[10px] text-pink-600 uppercase tracking-wider shadow-sm backdrop-blur-md">
-                            New Feature
-                        </div>
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-pink-500/10 text-pink-500">
-                            <FileUp className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Universal Import</h3>
-                        <p className="text-muted-foreground">
-                            Migrate your existing conversations from ChatGPT, Claude, and other
-                            platforms effortlessly with a single click.
-                        </p>
-                    </MagicCard>
-
-                    <MagicCard
-                        gradientFrom="rgba(6, 182, 212, 0.2)"
-                        gradientTo="rgba(8, 145, 178, 0.1)"
-                        className="feature-card relative overflow-hidden rounded-xl p-8"
-                        style={{ willChange: "transform, opacity" }}
-                    >
-                        <div className="absolute top-0 right-0 rounded-bl-xl bg-cyan-500/20 px-3 py-1 font-bold text-[10px] text-cyan-600 uppercase tracking-wider shadow-sm backdrop-blur-md">
-                            New Feature
-                        </div>
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-500">
-                            <Users className="h-6 w-6" />
-                        </div>
-                        <h3 className="mb-2 font-bold text-xl">Custom Personas</h3>
-                        <p className="text-muted-foreground">
-                            Craft tailored AI personalities with unique system prompts and context
-                            to suit your specific workflows and tasks.
-                        </p>
-                    </MagicCard>
+                <div className="hidden grid-cols-1 gap-6 md:grid md:grid-cols-2 lg:grid-cols-3">
+                    {features.map((feature) => (
+                        <FeatureCard key={feature.title} feature={feature} />
+                    ))}
                 </div>
             </div>
         </section>

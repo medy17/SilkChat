@@ -97,7 +97,8 @@ export function FaqSection() {
                         </AccordionTrigger>
                         <AccordionContent className="pb-6 text-base text-muted-foreground leading-relaxed">
                             Absolutely. Our Universal Import feature lets you upload exports from
-                            ChatGPT, Claude, and other platforms.
+                            ChatGPT, T3, and other platforms. If you need help, reach out so we can
+                            help migrate your data.
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion>

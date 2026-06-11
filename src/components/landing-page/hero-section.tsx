@@ -4,7 +4,7 @@ import { useGSAP } from "@gsap/react"
 import { Link } from "@tanstack/react-router"
 import gsap from "gsap"
 import { ArrowRight, Github } from "lucide-react"
-import { useEffect, useRef } from "react"
+import { useRef } from "react"
 
 import {
     ClaudeIcon,
@@ -14,38 +14,29 @@ import {
     XAIIcon,
     ZAIIcon
 } from "@/components/brand-icons"
+import { LogoMark } from "@/components/logo"
 import { MagneticButton } from "@/components/magnetic-button"
-import SwarmFlakesDemo, { type SwarmFlakesRef } from "@/components/swarm-flakes"
+import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
     const heroRef = useRef<HTMLDivElement>(null)
-    const headlineRef = useRef<HTMLHeadingElement>(null)
     const subtitleRef = useRef<HTMLParagraphElement>(null)
     const ctaRef = useRef<HTMLDivElement>(null)
     const logosRef = useRef<HTMLDivElement>(null)
-    const swarmRef = useRef<SwarmFlakesRef>(null)
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            swarmRef.current?.triggerRipple()
-        }, 5000)
-        return () => clearInterval(interval)
-    }, [])
 
     useGSAP(
         () => {
             const tl = gsap.timeline()
             tl.fromTo(
-                ".hero-word",
-                { y: 120, rotationX: -80, opacity: 0, scale: 0.8 },
+                ".hero-logo",
+                { y: 80, opacity: 0, scale: 0.9, filter: "blur(12px)" },
                 {
                     y: 0,
-                    rotationX: 0,
                     opacity: 1,
                     scale: 1,
-                    duration: 1.4,
-                    stagger: 0.05,
+                    filter: "blur(0px)",
+                    duration: 1.2,
                     ease: "power4.out",
                     delay: 0.1,
                     clearProps: "willChange"
@@ -102,33 +93,24 @@ export function HeroSection() {
             className="relative flex min-h-screen snap-start flex-col items-center justify-center overflow-hidden px-6 pt-24 text-center"
         >
             <div className="pointer-events-none absolute inset-0 z-10">
-                <SwarmFlakesDemo
-                    ref={swarmRef}
-                    className="h-full w-full opacity-40 dark:opacity-60"
+                <Silk
+                    className="h-full w-full opacity-70 dark:opacity-55"
+                    color="#7B7481"
+                    noiseIntensity={1.5}
+                    rotation={0}
+                    scale={1}
+                    speed={5}
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="absolute h-[500px] w-[500px] rounded-full bg-chart-5 opacity-20 blur-[100px] lg:h-[800px] lg:w-[800px]" />
-                    <div className="-translate-y-20 absolute h-[300px] w-[300px] translate-x-20 rounded-full bg-chart-1 opacity-15 blur-[80px]" />
-                    <div className="-translate-x-20 absolute h-[400px] w-[400px] translate-y-20 rounded-full bg-chart-2 opacity-10 blur-[90px]" />
-                </div>
+                <div className="absolute inset-0 bg-background/65 dark:bg-background/35" />
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center">
                 <h1
-                    ref={headlineRef}
-                    className="mx-auto mb-8 flex max-w-4xl flex-wrap justify-center gap-x-4 gap-y-6 font-bold text-5xl leading-[1.3] tracking-normal md:text-7xl lg:text-8xl"
-                    style={{ perspective: "1000px" }}
+                    className="hero-logo mx-auto mb-8 flex w-full max-w-[min(88vw,44rem)] items-center justify-center text-foreground"
+                    style={{ willChange: "transform, opacity" }}
                 >
-                    {"The intelligent way to chat with any AI.".split(" ").map((word, i) => (
-                        <span key={i} className="-mb-2 lh inline-flex overflow-hidden pb-2">
-                            <span
-                                className="hero-word inline-block origin-bottom bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-transparent"
-                                style={{ willChange: "transform, opacity" }}
-                            >
-                                {word}
-                            </span>
-                        </span>
-                    ))}
+                    <span className="sr-only">SilkChat</span>
+                    <LogoMark className="h-auto w-full" />
                 </h1>
 
                 <p

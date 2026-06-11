@@ -67,21 +67,21 @@ export function ComparisonSection() {
                         </thead>
                         <tbody className="divide-y divide-border/50">
                             <tr className="transition-colors hover:bg-muted/20">
-                                <td className="p-4 text-muted-foreground">Models Available</td>
+                                <td className="p-4 text-muted-foreground">Models</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
-                                    All Providers (OpenAI, Anthropic, Google, etc.)
+                                    All major models and providers
                                 </td>
                                 <td className="border-border/50 border-l p-4 text-muted-foreground">
                                     Locked to a single provider
                                 </td>
                             </tr>
                             <tr className="transition-colors hover:bg-muted/20">
-                                <td className="p-4 text-muted-foreground">Pricing Model</td>
+                                <td className="p-4 text-muted-foreground">Pricing</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
-                                    Credit based usage from only $8.99
+                                    From only $8.99/mo
                                 </td>
                                 <td className="border-border/50 border-l p-4 text-muted-foreground">
-                                    Rigid $20/month subscription
+                                    From $20+/mo
                                 </td>
                             </tr>
                             <tr className="transition-colors hover:bg-muted/20">
@@ -100,20 +100,20 @@ export function ComparisonSection() {
                                 </td>
                             </tr>
                             <tr className="transition-colors hover:bg-muted/20">
-                                <td className="p-4 text-muted-foreground">Data Control</td>
+                                <td className="p-4 text-muted-foreground">Privacy</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
-                                    You own your API keys and data
+                                    Use your own keys or ours. The choice is yours.
                                 </td>
                                 <td className="border-border/50 border-l p-4 text-muted-foreground">
                                     Data used for training (often by default)
                                 </td>
                             </tr>
                             <tr className="transition-colors hover:bg-muted/20">
-                                <td className="p-4 text-muted-foreground">Import History</td>
+                                <td className="p-4 text-muted-foreground">Portability</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     <div className="flex items-center gap-2">
                                         <Check className="h-4 w-4 text-emerald-500" />
-                                        <span>Import from ChatGPT, Claude, and more</span>
+                                        <span>Import from ChatGPT, T3, etc</span>
                                     </div>
                                 </td>
                                 <td className="border-border/50 border-l p-4 text-muted-foreground">

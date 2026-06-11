@@ -11,7 +11,6 @@ import { HeroSection } from "./landing-page/hero-section"
 import { PricingSection } from "./landing-page/pricing-section"
 import { ProvidersSection } from "./landing-page/providers-section"
 import { SecuritySection } from "./landing-page/security-section"
-import { ShowcaseSection } from "./landing-page/showcase-section"
 import { SocialProofSection } from "./landing-page/social-proof-section"
 import { StickyNav } from "./landing-page/sticky-nav"
 import { UseCasesSection } from "./landing-page/use-cases-section"
@@ -28,7 +27,6 @@ export function LandingPage() {
 
             <main className="w-full">
                 <HeroSection />
-                <ShowcaseSection />
                 <FeaturesSection />
                 <UseCasesSection />
                 <ArtifactsSection />

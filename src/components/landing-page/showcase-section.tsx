@@ -1,5 +1,6 @@
 "use client"
 
+import { Masonry } from "@/components/react-bits/masonry"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useGSAP } from "@gsap/react"
@@ -35,7 +36,7 @@ const showcaseGalleries: ShowcaseGallery[] = [
                 id: "chat-main",
                 label: "Conversation Workspace",
                 desktopFrameClassName: "md:aspect-[2879/1619]",
-                mobileFrameClassName: "aspect-[608/1356]",
+                mobileFrameClassName: "aspect-[650/1406]",
                 desktopLightSrc: "/screenshots/desktop/chat/chat-desktop-light.png",
                 desktopDarkSrc: "/screenshots/desktop/chat/chat-desktop-dark.png",
                 mobileLightSrc: "/screenshots/mobile/chat/chat-mobile-light.png",
@@ -44,7 +45,7 @@ const showcaseGalleries: ShowcaseGallery[] = [
             {
                 id: "model-selector",
                 label: "Model Selector",
-                desktopFrameClassName: "md:aspect-[2879/1619]",
+                desktopFrameClassName: "md:aspect-[1400/989]",
                 mobileFrameClassName: "aspect-[650/1406]",
                 desktopLightSrc: "/screenshots/desktop/chat/model-selector-desktop-light.png",
                 desktopDarkSrc: "/screenshots/desktop/chat/model-selector-desktop-dark.png",
@@ -69,6 +70,26 @@ const showcaseGalleries: ShowcaseGallery[] = [
         ]
     }
 ]
+
+const showcaseMasonryItems = showcaseGalleries.flatMap((gallery) =>
+    gallery.screens.flatMap((screen) => [
+        {
+            id: `${screen.id}-desktop`,
+            img: screen.desktopLightSrc,
+            url: screen.desktopLightSrc,
+            width: screen.id === "model-selector" ? 1400 : 2879,
+            height: screen.id === "model-selector" ? 989 : 1619,
+            columns: 2
+        },
+        {
+            id: `${screen.id}-mobile`,
+            img: screen.mobileLightSrc,
+            url: screen.mobileLightSrc,
+            width: screen.id === "library-main" ? 659 : 650,
+            height: screen.id === "library-main" ? 1469 : 1406
+        }
+    ])
+)
 
 const getSlideOffset = (index: number, activeIndex: number, total: number) => {
     let offset = index - activeIndex
@@ -103,11 +124,11 @@ function ShowcaseGalleryCard({ title, screens }: ShowcaseGallery) {
 
     return (
         <div
-            className="showcase-item flex snap-center flex-col gap-5 md:snap-align-none"
+            className="showcase-item flex flex-col gap-4 md:gap-5"
             style={{ willChange: "transform, opacity" }}
         >
             <div className="flex items-center justify-between gap-4 px-2">
-                <h3 className="font-semibold text-2xl">{title}</h3>
+                <h3 className="font-semibold text-xl md:text-2xl">{title}</h3>
                 {hasMultipleScreens ? (
                     <p className="min-w-24 text-right text-muted-foreground text-sm">
                         {activeScreen.label}
@@ -116,7 +137,7 @@ function ShowcaseGalleryCard({ title, screens }: ShowcaseGallery) {
             </div>
 
             <div
-                className="group relative aspect-[9/14] w-full overflow-hidden rounded-xl border border-border/50 bg-muted/30 shadow-2xl md:aspect-[4/3]"
+                className="group relative h-[min(54dvh,31rem)] w-full overflow-hidden rounded-xl border border-border/50 bg-muted/30 shadow-2xl md:aspect-[4/3] md:h-auto"
                 onMouseEnter={() => setExpanded(true)}
                 onMouseLeave={() => setExpanded(false)}
                 onFocusCapture={() => setExpanded(true)}
@@ -317,11 +338,11 @@ export function ShowcaseSection() {
         <section
             id="showcase"
             ref={sectionRef}
-            className="flex min-h-[150vh] snap-start flex-col items-center justify-center bg-muted/10 px-4 py-20 md:min-h-screen md:px-8 lg:min-h-[120vh]"
+            className="flex min-h-screen snap-start flex-col items-center justify-start bg-muted/10 px-4 pt-20 pb-10 md:min-h-screen md:justify-center md:px-8 md:py-20 lg:min-h-[120vh]"
         >
             <div className="mx-auto w-full max-w-[1400px]">
                 <div
-                    className="showcase-header mb-12 text-center"
+                    className="showcase-header mb-8 text-center md:mb-12"
                     style={{ willChange: "transform, opacity, filter" }}
                 >
                     <h2 className="mb-4 font-bold text-3xl md:text-5xl">
@@ -332,10 +353,32 @@ export function ShowcaseSection() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-16 pb-10 lg:grid-cols-2 lg:gap-12">
+                <div className="-mx-[50vw] relative right-1/2 left-1/2 flex w-screen snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-10 [scroll-padding-inline:1rem] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
                     {showcaseGalleries.map((gallery) => (
-                        <ShowcaseGalleryCard key={gallery.title} {...gallery} />
+                        <div
+                            key={gallery.title}
+                            className="w-[calc(100vw-2rem)] shrink-0 snap-start"
+                        >
+                            <ShowcaseGalleryCard {...gallery} />
+                        </div>
                     ))}
+                </div>
+
+                <div
+                    className="showcase-item hidden h-[58rem] pb-10 md:block"
+                    style={{ willChange: "transform, opacity" }}
+                >
+                    <Masonry
+                        items={showcaseMasonryItems}
+                        animateFrom="bottom"
+                        blurToFocus={true}
+                        colorShiftOnHover={false}
+                        duration={0.6}
+                        ease="power3.out"
+                        hoverScale={0.97}
+                        scaleOnHover={true}
+                        stagger={0.05}
+                    />
                 </div>
             </div>
         </section>
