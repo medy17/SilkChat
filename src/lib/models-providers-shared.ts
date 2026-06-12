@@ -348,6 +348,9 @@ export const getRequiredPlanToPickModel = (
     return sharedModel.availableToPickForReasoningEfforts?.[reasoningEffort] ?? basePlan
 }
 
+export const isAdminOnlyModel = (model: DisplayModel) =>
+    !("isCustom" in model && model.isCustom) && (model as SharedModel).requiredRole === "admin"
+
 export const getAllowedReasoningEffortsForModel = (
     model: SharedModel | null | undefined
 ): ReasoningEffort[] => getSharedAllowedReasoningEffortsForModel(model)

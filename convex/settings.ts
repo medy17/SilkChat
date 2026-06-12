@@ -28,6 +28,28 @@ const CoreProviderUpdate = v.object({
 
 const hasInternalOpenRouterConfig = () => Boolean(process.env.OPENROUTER_API_KEY?.trim())
 
+const userHasAdminModelAccess = async (ctx: QueryCtx, userId: string) => {
+    const access = await ctx.db
+        .query("userAccess")
+        .withIndex("byUser", (q) => q.eq("userId", userId))
+        .first()
+
+    return access?.isStaff ?? false
+}
+
+const userCanAccessSharedModel = (model: SharedModel, hasAdminModelAccess: boolean) =>
+    model.requiredRole !== "admin" || hasAdminModelAccess
+
+const getSharedModelsForUser = (hasAdminModelAccess: boolean) =>
+    MODELS_SHARED.filter((model) => userCanAccessSharedModel(model, hasAdminModelAccess))
+
+const resolveCurrentUserAdminModelAccess = async (ctx: QueryCtx) => {
+    const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+    if ("error" in user) return false
+
+    return await userHasAdminModelAccess(ctx, user.id)
+}
+
 const normalizeSettingsCustomModels = <
     TSettings extends {
         customModels?: Record<string, { abilities: readonly string[] }>
@@ -143,10 +165,12 @@ export const getSearchProviderAvailability = query({
 
 export const getSharedModels = query({
     args: {},
-    handler: async () => {
+    handler: async (ctx) => {
+        const hasAdminModelAccess = await resolveCurrentUserAdminModelAccess(ctx)
+
         return {
             version: SHARED_MODELS_VERSION,
-            models: MODELS_SHARED
+            models: getSharedModelsForUser(hasAdminModelAccess)
         }
     }
 })
@@ -157,6 +181,7 @@ export const getUserRegistryInternal = internalQuery({
     },
     handler: async (ctx, args) => {
         const settings = await getSettings(ctx, args.userId)
+        const hasAdminModelAccess = await userHasAdminModelAccess(ctx, args.userId)
 
         const providers: Record<
             string,
@@ -188,6 +213,7 @@ export const getUserRegistryInternal = internalQuery({
         const models: Record<string, SharedModel & { customProviderId?: string }> = {}
         for (const model of MODELS_SHARED) {
             if (isModelSunset(model)) continue
+            if (!userCanAccessSharedModel(model, hasAdminModelAccess)) continue
 
             const available_adapters: RegistryKey[] = []
             for (const adapter of model.adapters) {
@@ -218,6 +244,7 @@ export const getUserRegistryInternal = internalQuery({
                 supportedImageResolutions: model.supportedImageResolutions,
                 availableToPickFor: model.availableToPickFor,
                 availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts,
+                requiredRole: model.requiredRole,
                 prototypeCreditTier: model.prototypeCreditTier,
                 prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
             }

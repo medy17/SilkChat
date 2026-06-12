@@ -15,6 +15,7 @@ import {
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
     getRequiredPlanToPickModel,
+    isAdminOnlyModel,
     isImageGenerationCapableModel,
     useAvailableModels
 } from "@/lib/models-providers-shared"
@@ -167,6 +168,15 @@ function RetryMenuDisabledReason({
         </Tooltip>
     )
 }
+
+const AdminOnlyModelBadge = () => (
+    <Badge
+        variant="secondary"
+        className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
+    >
+        Admin
+    </Badge>
+)
 
 export function RetryMenu({
     onRetry,
@@ -473,6 +483,9 @@ export function RetryMenu({
                                                                     Pro
                                                                 </Badge>
                                                             )}
+                                                            {isAdminOnlyModel(model) && (
+                                                                <AdminOnlyModelBadge />
+                                                            )}
                                                             {disabledReason && (
                                                                 <RetryMenuDisabledReason
                                                                     reason={disabledReason}
@@ -642,6 +655,9 @@ export function RetryMenu({
                                                         >
                                                             Pro
                                                         </Badge>
+                                                    )}
+                                                    {isAdminOnlyModel(model) && (
+                                                        <AdminOnlyModelBadge />
                                                     )}
                                                     {disabledReason && (
                                                         <div className="ml-auto">

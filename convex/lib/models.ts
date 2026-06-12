@@ -57,6 +57,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.defaultReasoningEffort,
         model.availableToPickFor,
         model.availableToPickForReasoningEfforts,
+        model.requiredRole,
         model.prototypeCreditTier,
         model.prototypeCreditTierWithReasoning,
         model.legacy,

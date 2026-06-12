@@ -24,6 +24,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         supportsDisablingReasoning: true,
+        requiredRole: "admin",
         prototypeCreditTier: "pro"
     },
     {

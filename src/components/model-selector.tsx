@@ -56,6 +56,7 @@ import {
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getRequiredPlanToPickModel,
+    isAdminOnlyModel,
     isImageGenerationCapableModel,
     useAvailableModels
 } from "@/lib/models-providers-shared"
@@ -485,6 +486,15 @@ const FeatureBadge = ({ ability }: { ability: string }) => (
         {renderAbilityIcon(ability, "size-4")}
         <span>{getAbilityTooltip(ability)}</span>
     </div>
+)
+
+const AdminOnlyModelBadge = ({ className }: { className?: string }) => (
+    <Badge
+        variant="secondary"
+        className={cn("border border-border/70 text-[0.625rem] uppercase tracking-wide", className)}
+    >
+        Admin
+    </Badge>
 )
 
 const BenchmarkProgress = ({ value, label }: { value: number; label: string }) => {
@@ -945,6 +955,7 @@ const ModelCard = React.memo(function ModelCard({
                                             {badgeLabel}
                                         </Badge>
                                     )}
+                                    {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
                                     {isSelected && (
                                         <Check className="size-4 shrink-0 text-primary" />
                                     )}

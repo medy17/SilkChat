@@ -79,6 +79,14 @@ vi.mock("../../convex/lib/models", () => ({
             supportedImageResolutions: ["1K"],
             prototypeCreditTier: "basic",
             prototypeCreditTierWithReasoning: "pro"
+        },
+        {
+            id: "admin-text",
+            name: "Admin Text",
+            abilities: ["reasoning"],
+            mode: "text",
+            adapters: ["i3-openai:admin-text"],
+            requiredRole: "admin"
         }
     ],
     SHARED_MODELS_VERSION: "test-version",
@@ -98,12 +106,16 @@ vi.mock("../../convex/schema/settings", () => ({
 import { ChatError } from "@/lib/errors"
 import {
     getSearchProviderAvailability,
+    getSharedModels,
     getUserRegistryInternal,
     updateUserSettings,
     updateUserSettingsPartial
 } from "../../convex/settings"
 
 const getUserRegistryInternalHandler = getUserRegistryInternal as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const getSharedModelsHandler = getSharedModels as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const getSearchProviderAvailabilityHandler = getSearchProviderAvailability as unknown as {
@@ -118,15 +130,22 @@ const updateUserSettingsPartialHandler = updateUserSettingsPartial as unknown as
 
 type SettingsCtx = Parameters<typeof getUserRegistryInternalHandler.handler>[0]
 
-const createCtx = (settings: Record<string, unknown> | null) =>
+const createCtx = (
+    settings: Record<string, unknown> | null,
+    options: { userAccess?: Record<string, unknown> | null } = {}
+) =>
     ({
         auth: {},
         db: {
-            query: vi.fn().mockReturnValue({
+            query: vi.fn((tableName: string) => ({
                 withIndex: vi.fn().mockReturnValue({
-                    first: vi.fn().mockResolvedValue(settings)
+                    first: vi
+                        .fn()
+                        .mockResolvedValue(
+                            tableName === "userAccess" ? (options.userAccess ?? null) : settings
+                        )
                 })
-            }),
+            })),
             patch: vi.fn(),
             insert: vi.fn()
         }
@@ -211,12 +230,67 @@ describe("settings", () => {
             "openrouter:or-shared",
             "openai:shared-text"
         ])
+        expect(result.models["admin-text"]).toBeUndefined()
         expect(result.models["custom-model"]).toMatchObject({
             id: "custom-model-id",
             name: "Custom Model",
             adapters: ["customprov:custom-model-id"],
             customProviderId: "customprov"
         })
+    })
+
+    it("includes admin-only shared models in the registry for staff users", async () => {
+        isInternalProviderConfiguredMock.mockImplementation((providerId: string) => {
+            return providerId === "openai"
+        })
+
+        const result = await getUserRegistryInternalHandler.handler(
+            createCtx(
+                {
+                    userId: "user-1",
+                    coreAIProviders: {},
+                    customAIProviders: {},
+                    customModels: {},
+                    generalProviders: {}
+                },
+                {
+                    userAccess: {
+                        userId: "user-1",
+                        isStaff: true,
+                        bypassLimits: false
+                    }
+                }
+            ),
+            { userId: "user-1" }
+        )
+
+        expect(result.models["admin-text"]).toMatchObject({
+            id: "admin-text",
+            requiredRole: "admin",
+            adapters: ["i3-openai:admin-text"]
+        })
+    })
+
+    it("filters shared admin-only models unless the current user is staff", async () => {
+        const nonStaffResult = await getSharedModelsHandler.handler(createCtx(null), {})
+        expect(nonStaffResult.models.map((model: { id: string }) => model.id)).toEqual([
+            "shared-text"
+        ])
+
+        const staffResult = await getSharedModelsHandler.handler(
+            createCtx(null, {
+                userAccess: {
+                    userId: "user-1",
+                    isStaff: true,
+                    bypassLimits: false
+                }
+            }),
+            {}
+        )
+        expect(staffResult.models.map((model: { id: string }) => model.id)).toEqual([
+            "shared-text",
+            "admin-text"
+        ])
     })
 
     it("normalizes legacy custom-model pdf abilities to native_pdf in the registry", async () => {

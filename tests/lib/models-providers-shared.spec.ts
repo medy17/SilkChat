@@ -12,6 +12,7 @@ import {
     getRequiredPlanToPickModel,
     getSelectableReasoningEffortsForPlan,
     hasBuiltInOpenRouterProvider,
+    isAdminOnlyModel,
     isOpenRouterModelEnabledInBrowser,
     isOpenRouterOnlySharedModel
 } from "@/lib/models-providers-shared"
@@ -206,6 +207,20 @@ describe("models-providers-shared OpenRouter visibility", () => {
         expect(getRequiredPlanToPickModel(freeWithoutReasoningModel, "low")).toBe("pro")
         expect(getRequiredPlanToPickModel(freeUpToLowReasoningModel, "low")).toBe("free")
         expect(getRequiredPlanToPickModel(freeUpToLowReasoningModel, "medium")).toBe("pro")
+    })
+
+    it("detects admin-only shared models", () => {
+        expect(isAdminOnlyModel(createModel({ requiredRole: "admin" }))).toBe(true)
+        expect(isAdminOnlyModel(createModel({}))).toBe(false)
+        expect(
+            isAdminOnlyModel({
+                id: "custom",
+                name: "Custom",
+                abilities: [],
+                isCustom: true,
+                providerId: "openai"
+            })
+        ).toBe(false)
     })
 
     it("limits selectable reasoning efforts by plan without hiding pro-only choices globally", () => {
