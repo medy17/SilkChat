@@ -136,7 +136,7 @@ export function ProvidersSection() {
                             <div className="mb-3 flex items-center justify-between">
                                 <div>
                                     <h3 className="font-medium text-base">OpenAI</h3>
-                                    <p className="text-muted-foreground text-sm"></p>
+                                    <p className="text-muted-foreground text-sm" />
                                 </div>
                             </div>
 

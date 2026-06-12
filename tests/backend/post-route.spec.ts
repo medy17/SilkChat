@@ -1968,7 +1968,7 @@ describe("chatPOST", () => {
                         extraBody: expect.objectContaining({
                             provider: expect.objectContaining({
                                 only: ["x-ai"],
-                                allow_fallbacks: false,
+                                allow_fallbacks: true,
                                 require_parameters: true
                             }),
                             include_reasoning: true
