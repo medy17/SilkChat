@@ -9,6 +9,7 @@ type SilkProps = {
     speed?: number
     scale?: number
     color?: string
+    contrast?: number
     noiseIntensity?: number
     rotation?: number
     className?: string
@@ -19,19 +20,23 @@ type SilkUniforms = {
     uScale: { value: number }
     uNoiseIntensity: { value: number }
     uColor: { value: Color }
+    uContrast: { value: number }
     uRotation: { value: number }
     uTime: { value: number }
 }
 
 type SilkMesh = Mesh<PlaneGeometry, ShaderMaterial>
 
-const hexToNormalizedRGB = (hex: string) => {
-    const normalizedHex = hex.replace("#", "")
-    return [
-        Number.parseInt(normalizedHex.slice(0, 2), 16) / 255,
-        Number.parseInt(normalizedHex.slice(2, 4), 16) / 255,
-        Number.parseInt(normalizedHex.slice(4, 6), 16) / 255
-    ] as const
+const resolveColorInput = (input: string) => {
+    if (typeof document === "undefined") return input
+
+    const probe = document.createElement("div")
+    probe.style.color = input
+    document.body.appendChild(probe)
+    const resolved = getComputedStyle(probe).color
+    document.body.removeChild(probe)
+
+    return resolved || input
 }
 
 const vertexShader = `
@@ -55,6 +60,7 @@ uniform float uSpeed;
 uniform float uScale;
 uniform float uRotation;
 uniform float uNoiseIntensity;
+uniform float uContrast;
 
 const float e = 2.71828182845904523536;
 
@@ -86,6 +92,8 @@ void main() {
                            sin(20.0 * (tex.x + tex.y - 0.1 * tOffset)));
 
   vec4 col = vec4(uColor, 1.0) * vec4(pattern) - rnd / 15.0 * uNoiseIntensity;
+  col.rgb = ((col.rgb - 0.5) * uContrast) + 0.5;
+  col.rgb = clamp(col.rgb, 0.0, 1.0);
   col.a = 1.0;
   gl_FragColor = col;
 }
@@ -126,6 +134,7 @@ export function Silk({
     speed = 5,
     scale = 1,
     color = "#7B7481",
+    contrast = 1,
     noiseIntensity = 1.5,
     rotation = 0,
     className
@@ -137,12 +146,22 @@ export function Silk({
             uSpeed: { value: speed },
             uScale: { value: scale },
             uNoiseIntensity: { value: noiseIntensity },
-            uColor: { value: new Color(...hexToNormalizedRGB(color)) },
+            uColor: { value: new Color(resolveColorInput(color)) },
+            uContrast: { value: contrast },
             uRotation: { value: rotation },
             uTime: { value: 0 }
         }),
-        [speed, scale, noiseIntensity, color, rotation]
+        []
     )
+
+    useLayoutEffect(() => {
+        uniforms.uSpeed.value = speed
+        uniforms.uScale.value = scale
+        uniforms.uNoiseIntensity.value = noiseIntensity
+        uniforms.uColor.value.set(resolveColorInput(color))
+        uniforms.uContrast.value = contrast
+        uniforms.uRotation.value = rotation
+    }, [uniforms, speed, scale, noiseIntensity, color, contrast, rotation])
 
     return (
         <Canvas className={className} dpr={[1, 2]} frameloop="always">

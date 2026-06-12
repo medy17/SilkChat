@@ -18,12 +18,45 @@ import { LogoMark } from "@/components/logo"
 import { MagneticButton } from "@/components/magnetic-button"
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { useThemeStore } from "@/lib/theme-store"
+
+type SilkControls = {
+    colorOverride?: string
+    contrast: number
+    noiseIntensity: number
+    speed: number
+    scale: number
+    overlayClassName: string
+}
 
 export function HeroSection() {
+    const { themeState } = useThemeStore()
     const heroRef = useRef<HTMLDivElement>(null)
     const subtitleRef = useRef<HTMLParagraphElement>(null)
     const ctaRef = useRef<HTMLDivElement>(null)
     const logosRef = useRef<HTMLDivElement>(null)
+    const isDarkMode = themeState.currentMode === "dark"
+    const themeSilkColor =
+        themeState.cssVars[themeState.currentMode]["muted-foreground"] || "#7B7481"
+
+    const silkControls: SilkControls = isDarkMode
+        ? {
+              colorOverride: "#9b969e",
+              contrast: 1,
+              noiseIntensity: 1.5,
+              speed: 5,
+              scale: 1,
+              overlayClassName: "bg-background/35"
+          }
+        : {
+              colorOverride: undefined,
+              contrast: 1.06,
+              noiseIntensity: 0.35,
+              speed: 3.4,
+              scale: 0.92,
+              overlayClassName: "bg-background/35"
+          }
+    const silkColor = silkControls.colorOverride ?? themeSilkColor
 
     useGSAP(
         () => {
@@ -95,13 +128,14 @@ export function HeroSection() {
             <div className="pointer-events-none absolute inset-0 z-10">
                 <Silk
                     className="h-full w-full opacity-70 dark:opacity-55"
-                    color="#7B7481"
-                    noiseIntensity={1.5}
+                    color={silkColor}
+                    contrast={silkControls.contrast}
+                    noiseIntensity={silkControls.noiseIntensity}
                     rotation={0}
-                    scale={1}
-                    speed={5}
+                    scale={silkControls.scale}
+                    speed={silkControls.speed}
                 />
-                <div className="absolute inset-0 bg-background/65 dark:bg-background/35" />
+                <div className={`absolute inset-0 ${silkControls.overlayClassName}`} />
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center">

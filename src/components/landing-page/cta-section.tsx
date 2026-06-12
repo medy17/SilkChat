@@ -1,90 +1,39 @@
 "use client"
 
-import { MagneticButton } from "@/components/magnetic-button"
-import { Button } from "@/components/ui/button"
-import { useGSAP } from "@gsap/react"
-import { Link } from "@tanstack/react-router"
-import gsap from "gsap"
-import { ScrollTrigger } from "gsap/ScrollTrigger"
-import { ArrowRight } from "lucide-react"
-import { useRef } from "react"
+import { ArrowRight, Github } from "lucide-react"
 
-gsap.registerPlugin(ScrollTrigger)
+import { SignInButton } from "@/components/landing-page/shared"
+import { Button } from "@/components/ui/button"
 
 export function CtaSection() {
-    const sectionRef = useRef<HTMLElement>(null)
-
-    useGSAP(
-        () => {
-            const scroller = document.querySelector("main")?.parentElement
-
-            gsap.fromTo(
-                ".cta-header",
-                { y: 30, opacity: 0, scale: 0.9 },
-                {
-                    y: 0,
-                    opacity: 1,
-                    scale: 1,
-                    duration: 1,
-                    ease: "power3.out",
-                    scrollTrigger: {
-                        trigger: sectionRef.current,
-                        scroller: scroller || undefined,
-                        start: "top 80%"
-                    },
-                    clearProps: "willChange"
-                }
-            )
-            gsap.fromTo(
-                ".cta-button",
-                { y: 40, opacity: 0, scale: 0.8 },
-                {
-                    y: 0,
-                    opacity: 1,
-                    scale: 1,
-                    duration: 1.5,
-                    ease: "elastic.out(1, 0.4)",
-                    scrollTrigger: {
-                        trigger: sectionRef.current,
-                        scroller: scroller || undefined,
-                        start: "top 70%"
-                    },
-                    clearProps: "willChange"
-                }
-            )
-        },
-        { scope: sectionRef }
-    )
-
     return (
         <section
-            id="cta"
-            ref={sectionRef}
-            className="flex min-h-screen snap-start flex-col items-center justify-center bg-primary px-6 py-20 text-center text-primary-foreground"
+            id="start"
+            className="border-t py-28 text-center [border-color:var(--landing-border)]"
         >
-            <div>
-                <div className="cta-header" style={{ willChange: "transform, opacity" }}>
-                    <h2 className="mb-6 font-bold text-4xl leading-tight tracking-tight md:text-6xl">
-                        Ready to join the future of chat?
-                    </h2>
-                    <p className="mx-auto mb-10 max-w-2xl text-lg opacity-90 md:text-xl">
-                        Join thousands of users who are already exploring the frontiers of AI with
-                        SilkChat. Free to start, forever powerful.
-                    </p>
-                </div>
-                <div className="cta-button" style={{ willChange: "transform, opacity" }}>
-                    <MagneticButton>
-                        <Link to="/auth/$pathname" params={{ pathname: "login" }}>
-                            <Button
-                                size="lg"
-                                variant="secondary"
-                                className="h-16 px-10 font-bold text-xl shadow-2xl transition-all hover:scale-105 active:scale-95"
-                            >
-                                Get Started for Free
-                                <ArrowRight className="ml-2 h-6 w-6" />
-                            </Button>
-                        </Link>
-                    </MagneticButton>
+            <div className="mx-auto max-w-4xl px-5">
+                <h2 className="mx-auto mb-5 max-w-3xl text-balance font-medium text-4xl leading-[1.05] tracking-normal [color:var(--landing-fg)] md:text-6xl">
+                    One interface for every model you trust.
+                </h2>
+                <p className="mx-auto mb-9 max-w-2xl text-lg [color:var(--landing-muted)]">
+                    Start free, connect the providers you already use, and keep chats, artifacts,
+                    search, images, imports, and personas in one place.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                    <SignInButton className="gap-2">
+                        Get started free
+                        <ArrowRight className="size-4" />
+                    </SignInButton>
+                    <a href="https://github.com/medy17/silkchat" target="_blank" rel="noreferrer">
+                        <Button
+                            size="lg"
+                            variant="outline"
+                            className="h-12 rounded-[var(--radius-lg)] border bg-transparent px-5 [border-color:var(--landing-border)] [color:var(--landing-fg)] hover:[background:var(--landing-surface-strong)] hover:[color:var(--landing-fg)]"
+                        >
+                            <Github className="mr-2 size-4" />
+                            Star on GitHub
+                        </Button>
+                    </a>
                 </div>
             </div>
         </section>

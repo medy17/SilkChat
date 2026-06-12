@@ -1,34 +1,36 @@
 "use client"
 
+import { Link } from "@tanstack/react-router"
+import type { RefObject } from "react"
+import { useEffect, useRef, useState } from "react"
+
 import { LogoMark } from "@/components/logo"
 import { ThemeSwitcher } from "@/components/themes/theme-switcher"
 import { Button } from "@/components/ui/button"
-import { Link } from "@tanstack/react-router"
-import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
 
 interface StickyNavProps {
-    containerRef: React.RefObject<HTMLDivElement | null>
+    containerRef: RefObject<HTMLDivElement | null>
 }
+
+const navSections = [
+    { id: "hero", label: "Hero" },
+    { id: "providers", label: "Models" },
+    { id: "features", label: "Features" },
+    { id: "artifacts", label: "Artifacts" },
+    { id: "model-selector", label: "Selector" },
+    { id: "testimonials", label: "Testimonials" },
+    { id: "workflows", label: "Workflows" },
+    { id: "byok", label: "Access" },
+    { id: "privacy", label: "Privacy" },
+    { id: "start", label: "Get Started" }
+]
 
 export function StickyNav({ containerRef }: StickyNavProps) {
     const [activeSection, setActiveSection] = useState(0)
     const [isNavVisible, setIsNavVisible] = useState(true)
     const lastScrollY = useRef(0)
-
-    const sections = [
-        { id: "hero", label: "Hero" },
-        { id: "features", label: "Features" },
-        { id: "use-cases", label: "Use Cases" },
-        { id: "artifacts", label: "Artifacts" },
-        { id: "comparison", label: "Comparison" },
-        { id: "social-proof", label: "Testimonials" },
-        { id: "providers", label: "Models" },
-        { id: "byok", label: "Pricing" },
-        { id: "security", label: "Security" },
-        { id: "faq", label: "FAQ" },
-        { id: "cta", label: "Get Started" }
-    ]
+    const isHeroSection = navSections[activeSection]?.id === "hero"
 
     useEffect(() => {
         const container = containerRef.current
@@ -37,39 +39,34 @@ export function StickyNav({ containerRef }: StickyNavProps) {
         let ticking = false
 
         const handleScroll = () => {
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    const currentScrollY = container.scrollTop
+            if (ticking) return
 
-                    if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-                        setIsNavVisible(false)
-                    } else {
-                        setIsNavVisible(true)
-                    }
-                    lastScrollY.current = currentScrollY
+            window.requestAnimationFrame(() => {
+                const currentScrollY = container.scrollTop
+                setIsNavVisible(currentScrollY <= lastScrollY.current || currentScrollY <= 100)
+                lastScrollY.current = currentScrollY
 
-                    const sectionElements = container.querySelectorAll("section")
-                    const scrollPosition = currentScrollY + container.clientHeight / 2
+                const scrollPosition = currentScrollY + container.clientHeight / 2
+                const nextActiveIndex = navSections.findIndex((section) => {
+                    const element = document.getElementById(section.id)
+                    if (!element) return false
 
-                    sectionElements.forEach((section, index) => {
-                        const sectionTop = (section as HTMLElement).offsetTop
-                        const sectionHeight = (section as HTMLElement).offsetHeight
-
-                        if (
-                            scrollPosition >= sectionTop &&
-                            scrollPosition < sectionTop + sectionHeight
-                        ) {
-                            setActiveSection(index)
-                        }
-                    })
-                    ticking = false
+                    return (
+                        scrollPosition >= element.offsetTop &&
+                        scrollPosition < element.offsetTop + element.offsetHeight
+                    )
                 })
-                ticking = true
-            }
+
+                if (nextActiveIndex >= 0) {
+                    setActiveSection(nextActiveIndex)
+                }
+
+                ticking = false
+            })
+            ticking = true
         }
 
         container.addEventListener("scroll", handleScroll, { passive: true })
-        // Initial check
         handleScroll()
 
         return () => container.removeEventListener("scroll", handleScroll)
@@ -78,17 +75,26 @@ export function StickyNav({ containerRef }: StickyNavProps) {
     return (
         <>
             <nav
-                className={`fixed top-0 z-50 flex w-full items-center justify-between bg-background/40 px-4 py-2 backdrop-blur-md transition-transform duration-500 ease-in-out md:px-6 ${
-                    isNavVisible && sections[activeSection]?.id !== "showcase"
-                        ? "translate-y-0"
-                        : "-translate-y-full"
-                }`}
+                className={cn(
+                    "fixed top-0 z-50 flex w-full items-center justify-between px-4 py-2 transition-[transform,background-color,backdrop-filter] duration-500 ease-in-out md:px-6",
+                    isHeroSection
+                        ? "bg-transparent backdrop-blur-none"
+                        : "bg-background/40 backdrop-blur-md",
+                    isNavVisible ? "translate-y-0" : "-translate-y-full"
+                )}
             >
                 <div className="flex items-center gap-2">
                     <LogoMark className="h-auto w-24 md:w-32" />
                 </div>
 
-                <div className="pointer-events-auto flex items-center space-x-1 rounded-xl bg-background/10 p-1 backdrop-blur-sm md:space-x-2 md:p-2">
+                <div
+                    className={cn(
+                        "pointer-events-auto flex items-center space-x-1 rounded-[var(--radius-xl)] p-1 transition-[background-color,backdrop-filter] duration-500 md:space-x-2 md:p-2",
+                        isHeroSection
+                            ? "bg-transparent backdrop-blur-none"
+                            : "bg-background/10 backdrop-blur-sm"
+                    )}
+                >
                     <ThemeSwitcher />
                     <div className="h-4 w-px bg-border" />
                     <Link to="/about" className="hidden sm:block">
@@ -105,32 +111,34 @@ export function StickyNav({ containerRef }: StickyNavProps) {
             </nav>
 
             <div className="-translate-y-1/2 fixed top-1/2 right-6 z-50 hidden flex-col gap-4 md:flex">
-                {sections.map((section, index) => (
+                {navSections.map((section, index) => (
                     <button
                         key={section.id}
                         type="button"
                         onClick={() => {
-                            const el = document.getElementById(section.id)
-                            if (el && containerRef.current) {
-                                // Calculate position relative to container
-                                containerRef.current.scrollTo({
-                                    top: el.offsetTop,
-                                    behavior: "smooth"
-                                })
-                            }
+                            const element = document.getElementById(section.id)
+                            const container = containerRef.current
+
+                            if (!element || !container) return
+
+                            container.scrollTo({
+                                top: element.offsetTop,
+                                behavior: "smooth"
+                            })
                         }}
                         className="group relative flex items-center justify-end"
                         aria-label={`Go to ${section.label}`}
                     >
-                        <span className="absolute right-6 rounded-md bg-background/80 px-2 py-1 font-medium text-xs opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                        <span className="absolute right-6 rounded-[var(--radius-md)] bg-background/80 px-2 py-1 font-medium text-xs opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
                             {section.label}
                         </span>
                         <div
-                            className={`h-2 w-2 rounded-full transition-all duration-300 ${
+                            className={cn(
+                                "h-2 w-2 rounded-full transition-all duration-300",
                                 activeSection === index
                                     ? "h-8 bg-primary shadow-lg shadow-primary/50"
                                     : "bg-muted-foreground/30 shadow-sm hover:bg-muted-foreground/60"
-                            }`}
+                            )}
                         />
                     </button>
                 ))}

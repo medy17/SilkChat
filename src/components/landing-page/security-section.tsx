@@ -1,99 +1,94 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { useGSAP } from "@gsap/react"
-import gsap from "gsap"
-import { ScrollTrigger } from "gsap/ScrollTrigger"
-import { Check, Github, ShieldCheck } from "lucide-react"
-import { useRef } from "react"
+import { FileUp, Github, LockKeyhole, ShieldCheck } from "lucide-react"
+import type { ComponentType } from "react"
 
-gsap.registerPlugin(ScrollTrigger)
+import { SectionHead, Tile } from "@/components/landing-page/shared"
+import { Button } from "@/components/ui/button"
 
 export function SecuritySection() {
-    const sectionRef = useRef<HTMLElement>(null)
-
-    useGSAP(
-        () => {
-            const scroller = document.querySelector("main")?.parentElement
-
-            gsap.fromTo(
-                ".security-content",
-                { y: 40, opacity: 0 },
-                {
-                    y: 0,
-                    opacity: 1,
-                    duration: 1,
-                    ease: "power3.out",
-                    scrollTrigger: {
-                        trigger: sectionRef.current,
-                        scroller: scroller || undefined,
-                        start: "top 75%"
-                    },
-                    clearProps: "willChange"
-                }
-            )
-        },
-        { scope: sectionRef }
-    )
-
     return (
-        <section
-            id="security"
-            ref={sectionRef}
-            className="flex min-h-screen snap-start flex-col items-center justify-center bg-background px-6 py-20"
-        >
-            <div
-                className="security-content container mx-auto max-w-4xl"
-                style={{ willChange: "transform, opacity" }}
-            >
-                <div className="mb-12 text-center">
-                    <h2 className="mb-4 font-bold text-3xl md:text-5xl">Built for Privacy</h2>
-                    <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-                        Your data and infrastructure are entirely in your control.
-                    </p>
+        <section id="privacy" className="border-t py-24 [border-color:var(--landing-border)]">
+            <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
+                <SectionHead centered eyebrow="Open source" title="Audit it. Host it. Fork it.">
+                    SilkChat is built for privacy and transparency. Use your own keys, review the
+                    source, and keep provider-level retention under your control.
+                </SectionHead>
+
+                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                    <Tile className="p-0">
+                        <div className="flex items-center gap-2 border-b px-4 py-3 [background:var(--landing-surface-stronger)] [border-color:var(--landing-border)]">
+                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
+                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
+                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
+                            <span className="ml-3 font-mono text-xs [color:var(--landing-muted-faint)]">
+                                ~/silkchat
+                            </span>
+                        </div>
+                        <div className="space-y-1 p-6 font-mono text-sm leading-7">
+                            <div className="[color:var(--landing-muted-soft)]">
+                                <span className="[color:var(--landing-fg)]">$</span> gh repo clone
+                                medy17/silkchat
+                            </div>
+                            <div className="[color:var(--landing-muted-faint)]">
+                                Cloned SilkChat into ./silkchat
+                            </div>
+                            <div className="[color:var(--landing-muted-soft)]">
+                                <span className="[color:var(--landing-fg)]">$</span> bun install
+                            </div>
+                            <div className="[color:var(--landing-muted-faint)]">
+                                Dependencies installed
+                            </div>
+                            <div className="[color:var(--landing-muted-soft)]">
+                                <span className="[color:var(--landing-fg)]">$</span> bun run dev
+                            </div>
+                            <div className="[color:var(--landing-muted-faint)]">
+                                SilkChat dev server{" "}
+                                <span className="[color:var(--landing-fg)]">
+                                    http://localhost:3000
+                                </span>
+                            </div>
+                        </div>
+                    </Tile>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {[
+                            ["Encrypted keys", "Keys are stored securely.", LockKeyhole],
+                            ["Open source", "Audit the code and host it yourself.", Github],
+                            [
+                                "BYOK controls",
+                                "Use provider-level retention policies.",
+                                ShieldCheck
+                            ],
+                            ["Portable chats", "Import conversations from other tools.", FileUp]
+                        ].map(([title, description, Icon]) => {
+                            const IconComponent = Icon as ComponentType<{ className?: string }>
+
+                            return (
+                                <Tile key={title as string} className="p-5">
+                                    <IconComponent className="mb-5 size-6 [color:var(--landing-fg)]" />
+                                    <div className="font-medium [color:var(--landing-fg)]">
+                                        {title as string}
+                                    </div>
+                                    <p className="mt-2 text-sm [color:var(--landing-muted-faint)]">
+                                        {description as string}
+                                    </p>
+                                </Tile>
+                            )
+                        })}
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 items-center gap-8 rounded-xl border border-border/50 bg-muted/30 p-8 md:grid-cols-2 md:p-12">
-                    <div>
-                        <div className="mb-6 inline-flex items-center justify-center rounded-lg bg-emerald-500/10 p-3 text-emerald-500">
-                            <ShieldCheck className="h-8 w-8" />
-                        </div>
-                        <h3 className="mb-4 font-bold text-3xl">Secure & Transparent</h3>
-                        <p className="mb-6 text-muted-foreground">
-                            When you use BYOK, you get to audit and configure your own provider
-                            level retention policies. <br />
-                            View our source code and see how we manage your data.
-                        </p>
-                        <a
-                            href="https://github.com/medy17/silkchat"
-                            target="_blank"
-                            rel="noreferrer"
+
+                <div className="mt-8 flex justify-center">
+                    <a href="https://github.com/medy17/silkchat" target="_blank" rel="noreferrer">
+                        <Button
+                            variant="outline"
+                            className="h-11 rounded-[var(--radius-lg)] border bg-transparent [border-color:var(--landing-border)] [color:var(--landing-fg)] hover:[background:var(--landing-surface-strong)] hover:[color:var(--landing-fg)]"
                         >
-                            <Button variant="outline" className="gap-2">
-                                <Github className="h-4 w-4" />
-                                View Source Code
-                            </Button>
-                        </a>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4 rounded-lg border border-border/50 bg-background p-4 shadow-sm">
-                            <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-                            <div>
-                                <p className="font-semibold">Encrypted API Keys</p>
-                                <p className="text-muted-foreground text-sm">
-                                    Keys are stored securely.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-4 rounded-lg border border-border/50 bg-background p-4 shadow-sm">
-                            <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-                            <div>
-                                <p className="font-semibold">Open Source</p>
-                                <p className="text-muted-foreground text-sm">
-                                    Audit our code. Host it yourself if you prefer.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                            <Github className="mr-2 size-4" />
+                            View source code
+                        </Button>
+                    </a>
                 </div>
             </div>
         </section>
