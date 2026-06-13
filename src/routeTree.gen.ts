@@ -20,6 +20,7 @@ import { Route as SettingsPersonasRouteImport } from './routes/settings/personas
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
 import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
+import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
@@ -124,6 +125,11 @@ const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
   path: '/customization',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsBehaviorRoute = SettingsBehaviorRouteImport.update({
   id: '/behavior',
   path: '/behavior',
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/models': typeof SettingsModelsRoute
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/attachments'
     | '/settings/behavior'
+    | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/models'
@@ -352,6 +362,7 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/attachments'
     | '/settings/behavior'
+    | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/models'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/attachments'
     | '/settings/behavior'
+    | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/models'
@@ -514,6 +526,13 @@ declare module '@tanstack/react-router' {
       path: '/customization'
       fullPath: '/settings/customization'
       preLoaderRoute: typeof SettingsCustomizationRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
     '/settings/behavior': {
@@ -671,6 +690,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
   SettingsBehaviorRoute: typeof SettingsBehaviorRoute
+  SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsCustomizationRoute: typeof SettingsCustomizationRoute
   SettingsFilesRoute: typeof SettingsFilesRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
@@ -687,6 +707,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
   SettingsBehaviorRoute: SettingsBehaviorRoute,
+  SettingsBillingRoute: SettingsBillingRoute,
   SettingsCustomizationRoute: SettingsCustomizationRoute,
   SettingsFilesRoute: SettingsFilesRoute,
   SettingsModelsRoute: SettingsModelsRoute,

@@ -38,6 +38,10 @@ vi.mock("../../convex/import_jobs_http", () => ({
     uploadImportSource: "uploadImportHandler"
 }))
 
+vi.mock("../../convex/lemon_squeezy_http", () => ({
+    lemonSqueezyWebhook: "lemonSqueezyWebhookHandler"
+}))
+
 vi.mock("../../convex/persona_uploads", () => ({
     uploadPersonaAvatar: "uploadPersonaAvatarHandler",
     uploadPersonaDoc: "uploadPersonaDocHandler"
@@ -111,7 +115,11 @@ describe("convex/http", () => {
                 { path: "/private-blur", method: "GET", handler: "getPrivateBlurHandler" }
             ])
         )
-        expect(httpRoute).not.toHaveBeenCalled()
+        expect(httpRoute).toHaveBeenCalledWith({
+            path: "/webhooks/lemon-squeezy",
+            method: "POST",
+            handler: "lemonSqueezyWebhookHandler"
+        })
         expect(module.default).toBe(http)
     })
 })

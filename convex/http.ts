@@ -5,6 +5,7 @@ import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { uploadImportSource } from "./import_jobs_http"
+import { lemonSqueezyWebhook } from "./lemon_squeezy_http"
 import { UPLOAD_POLICY_HEADER } from "./lib/file_constants"
 import { uploadPersonaAvatar, uploadPersonaDoc } from "./persona_uploads"
 import { getPrivateBlur } from "./private_blur"
@@ -28,6 +29,12 @@ const cors = corsRouter(http, {
     allowedHeaders: ["Content-Type", "Authorization", UPLOAD_POLICY_HEADER],
     exposedHeaders: [UPLOAD_POLICY_HEADER],
     allowCredentials: true
+})
+
+http.route({
+    path: "/webhooks/lemon-squeezy",
+    method: "POST",
+    handler: lemonSqueezyWebhook
 })
 
 cors.route({

@@ -9,6 +9,8 @@ type Env = {
     VITE_ENABLE_VOICE_INPUT?: string
     VITE_ENABLED_INTERNAL_PROVIDERS?: string
     VITE_ENABLE_LEGACY_DIRECT_INFERENCE_PROVIDERS?: string
+    VITE_LEMONSQUEEZY_PRO_CHECKOUT_URL?: string
+    VITE_LEMONSQUEEZY_CUSTOMER_PORTAL_URL?: string
 }
 
 export const browserEnv = (key: keyof Env) => {

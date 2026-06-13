@@ -21,7 +21,7 @@ const navSections = [
     { id: "model-selector", label: "Selector" },
     { id: "testimonials", label: "Testimonials" },
     { id: "workflows", label: "Workflows" },
-    { id: "byok", label: "Access" },
+    { id: "pricing", label: "Pricing" },
     { id: "privacy", label: "Privacy" },
     { id: "start", label: "Get Started" }
 ]

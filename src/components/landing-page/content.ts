@@ -129,23 +129,31 @@ export const proofItems = [
 
 export const pricingOptions = [
     {
-        title: "Internal credits",
-        description: "Start without managing keys.",
+        title: "Free",
+        price: "$0",
+        cadence: "forever",
+        cta: "Start free",
+        featured: false,
+        description: "Try the workspace with starter credits and your own provider keys.",
         items: [
-            "Access premium models",
-            "Shared credit pool",
-            "Pay only for what you use",
-            "No configuration required"
+            "200 Basic Credits each month",
+            "Bring your own provider keys",
+            "Chat, files, imports, and personas",
+            "Upgrade when you need Pro models"
         ]
     },
     {
-        title: "Bring your own key",
-        description: "Keep direct control over data and costs.",
+        title: "Pro",
+        price: "$8.99",
+        cadence: "per month",
+        cta: "Get Pro",
+        featured: true,
+        description: "Use managed credits for premium models without provider setup.",
         items: [
-            "Connect OpenAI, Anthropic, Google",
-            "Zero platform markup",
-            "Your own usage limits",
-            "Direct provider billing"
+            "1,500 Basic Credits each month",
+            "100 Pro Credits each month",
+            "Premium image generation",
+            "Keep BYOK for direct provider billing"
         ]
     }
 ]

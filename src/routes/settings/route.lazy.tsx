@@ -16,6 +16,7 @@ import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@ta
 import {
     BarChart3,
     Bot,
+    CreditCard,
     PaintBucket,
     Paperclip,
     SlidersHorizontal,
@@ -65,6 +66,11 @@ const settingsNavItems = [
         title: "Usage",
         href: "/settings/usage",
         icon: BarChart3
+    },
+    {
+        title: "Billing",
+        href: "/settings/billing",
+        icon: CreditCard
     }
 ]
 

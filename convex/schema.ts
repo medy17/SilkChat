@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
 import { UserAccess } from "./schema/access"
+import { LemonSqueezySubscription, LemonSqueezyWebhookEvent } from "./schema/billing"
 import { PrototypeCreditReservation } from "./schema/credit_reservations"
 import {
     PrototypeCreditAccount,
@@ -36,7 +37,9 @@ export {
     ImportJobThread,
     GeneratedImage,
     GeneratedImageFacets,
-    UserAccess
+    UserAccess,
+    LemonSqueezySubscription,
+    LemonSqueezyWebhookEvent
 }
 
 export default defineSchema({
@@ -176,6 +179,12 @@ export default defineSchema({
     prototypeToolCallReservations: defineTable(PrototypeToolCallReservation)
         .index("byUserPeriod", ["userId", "periodKey"])
         .index("byUserMessageKey", ["userId", "messageKey"]),
+    lemonSqueezySubscriptions: defineTable(LemonSqueezySubscription)
+        .index("byUser", ["userId"])
+        .index("bySubscriptionId", ["lemonSqueezySubscriptionId"]),
+    lemonSqueezyWebhookEvents: defineTable(LemonSqueezyWebhookEvent).index("byEventId", [
+        "eventId"
+    ]),
 
     projects: defineTable(Project)
         .index("byAuthor", ["authorId"])
