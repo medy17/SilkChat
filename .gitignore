@@ -8,6 +8,7 @@ node_modules
 # Build
 .vinxi
 .output
+convex/_generated/
 
 # Environment Variables
 .env.*

@@ -11,6 +11,7 @@
 import type * as aggregates from "../aggregates.js";
 import type * as analytics from "../analytics.js";
 import type * as attachments from "../attachments.js";
+import type * as auth from "../auth.js";
 import type * as chat_http_generate_thread_name from "../chat_http/generate_thread_name.js";
 import type * as chat_http_get_model from "../chat_http/get_model.js";
 import type * as chat_http_image_generation from "../chat_http/image_generation.js";
@@ -54,6 +55,7 @@ import type * as lib_models_types from "../lib/models/types.js";
 import type * as lib_models_xai from "../lib/models/xai.js";
 import type * as lib_models_xiaomi from "../lib/models/xiaomi.js";
 import type * as lib_models_zai from "../lib/models/zai.js";
+import type * as lib_openrouter_attribution from "../lib/openrouter_attribution.js";
 import type * as lib_personas from "../lib/personas.js";
 import type * as lib_provider_factory from "../lib/provider_factory.js";
 import type * as lib_resumable_stream_context from "../lib/resumable_stream_context.js";
@@ -76,6 +78,8 @@ import type * as persona_uploads from "../persona_uploads.js";
 import type * as personas from "../personas.js";
 import type * as private_blur from "../private_blur.js";
 import type * as private_blur_node from "../private_blur_node.js";
+import type * as schema_access from "../schema/access.js";
+import type * as schema_credit_reservations from "../schema/credit_reservations.js";
 import type * as schema_credits from "../schema/credits.js";
 import type * as schema_folders from "../schema/folders.js";
 import type * as schema_generated_image from "../schema/generated_image.js";
@@ -103,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   aggregates: typeof aggregates;
   analytics: typeof analytics;
   attachments: typeof attachments;
+  auth: typeof auth;
   "chat_http/generate_thread_name": typeof chat_http_generate_thread_name;
   "chat_http/get_model": typeof chat_http_get_model;
   "chat_http/image_generation": typeof chat_http_image_generation;
@@ -146,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "lib/models/xai": typeof lib_models_xai;
   "lib/models/xiaomi": typeof lib_models_xiaomi;
   "lib/models/zai": typeof lib_models_zai;
+  "lib/openrouter_attribution": typeof lib_openrouter_attribution;
   "lib/personas": typeof lib_personas;
   "lib/provider_factory": typeof lib_provider_factory;
   "lib/resumable_stream_context": typeof lib_resumable_stream_context;
@@ -168,6 +174,8 @@ declare const fullApi: ApiFromModules<{
   personas: typeof personas;
   private_blur: typeof private_blur;
   private_blur_node: typeof private_blur_node;
+  "schema/access": typeof schema_access;
+  "schema/credit_reservations": typeof schema_credit_reservations;
   "schema/credits": typeof schema_credits;
   "schema/folders": typeof schema_folders;
   "schema/generated_image": typeof schema_generated_image;
@@ -216,4 +224,5 @@ export declare const components: {
   r2: import("@convex-dev/r2/_generated/component.js").ComponentApi<"r2">;
   aggregateFolderThreads: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"aggregateFolderThreads">;
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
 };
