@@ -23,7 +23,15 @@ import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-sh
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import {
+    useCallback,
+    useDeferredValue,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react"
 import { FullPageDropOverlay } from "./full-page-drop-overlay"
 import { Logo } from "./logo"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
@@ -125,13 +133,39 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
     const setMessagesRef = useRef(chatHelpers.setMessages)
 
-    const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
+    const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
         threadId,
+        folderId,
         sharedModels,
         availableModels,
         fallbackModelId: defaultModelId,
         chat
     })
+
+    const pendingBranchRetry = useChatStore((state) => state.pendingBranchRetry)
+    const setPendingBranchRetry = useChatStore((state) => state.setPendingBranchRetry)
+    const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
+    const setPendingBranchHydration = useChatStore((state) => state.setPendingBranchHydration)
+
+    useLayoutEffect(() => {
+        if (!pendingBranchHydration || pendingBranchHydration.threadId !== threadId) return
+
+        chatHelpers.setMessages(pendingBranchHydration.messages)
+        setPendingBranchHydration(undefined)
+    }, [chatHelpers.setMessages, pendingBranchHydration, setPendingBranchHydration, threadId])
+
+    useEffect(() => {
+        if (!pendingBranchRetry || pendingBranchRetry.threadId !== threadId) return
+        if (status !== "ready") return
+
+        const targetMessage = messages.find(
+            (message) => message.id === pendingBranchRetry.messageId && message.role === "user"
+        )
+        if (!targetMessage) return
+
+        setPendingBranchRetry(undefined)
+        handleRetry(targetMessage)
+    }, [handleRetry, messages, pendingBranchRetry, setPendingBranchRetry, status, threadId])
 
     useChatDataProcessor({ messages, status, folderId })
 
@@ -220,6 +254,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 ref={messagesRef}
                 messages={deferredMessages}
                 onRetry={handleRetry}
+                onBranch={handleBranch}
                 onEditAndRetry={handleEditAndRetry}
                 onQuoteSelection={handleQuoteSelection}
                 status={status}

@@ -4,7 +4,7 @@ import { act, render, screen } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const retryMenuMock = vi.fn(() => null)
+const retryMenuMock = vi.fn((_props: unknown) => null)
 
 vi.mock("@/lib/browser-env", () => ({
     browserEnv: vi.fn(() => "https://convex.example"),
@@ -164,5 +164,25 @@ describe("ChatActions", () => {
                 requiresNativePdf: true
             })
         )
+    })
+
+    it("renders a branch action between retry and edit controls", () => {
+        const onBranch = vi.fn()
+        const message = createAssistantMessage()
+
+        render(
+            React.createElement(ChatActions, {
+                role: "user",
+                message,
+                onRetry: vi.fn(),
+                onBranch,
+                onEdit: vi.fn()
+            })
+        )
+
+        screen.getByRole("button", { name: "Branch chat" }).click()
+
+        expect(retryMenuMock).toHaveBeenCalled()
+        expect(onBranch).toHaveBeenCalledWith(message)
     })
 })

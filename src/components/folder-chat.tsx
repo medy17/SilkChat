@@ -1,3 +1,4 @@
+import { BranchIcon } from "@/components/brand-icons"
 import { FolderHero } from "@/components/folder-hero"
 import { Messages, type MessagesHandle } from "@/components/messages"
 import { MultimodalInput } from "@/components/multimodal-input"
@@ -14,7 +15,7 @@ import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
-import type { UploadedFile } from "@/lib/chat-store"
+import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -27,7 +28,7 @@ import { Link, useLocation } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Clock, Pin } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 interface FolderChatProps {
     folderId: Id<"projects">
@@ -107,13 +108,39 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const deferredMessages = useDeferredValue(messages)
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
-    const { handleInputSubmit, handleRetry, handleEditAndRetry } = useChatActions({
+    const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
         threadId,
+        folderId,
         sharedModels,
         availableModels,
         fallbackModelId: defaultModelId,
         chat
     })
+
+    const pendingBranchRetry = useChatStore((state) => state.pendingBranchRetry)
+    const setPendingBranchRetry = useChatStore((state) => state.setPendingBranchRetry)
+    const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
+    const setPendingBranchHydration = useChatStore((state) => state.setPendingBranchHydration)
+
+    useLayoutEffect(() => {
+        if (!pendingBranchHydration || pendingBranchHydration.threadId !== threadId) return
+
+        chat.setMessages(pendingBranchHydration.messages)
+        setPendingBranchHydration(undefined)
+    }, [chat.setMessages, pendingBranchHydration, setPendingBranchHydration, threadId])
+
+    useEffect(() => {
+        if (!pendingBranchRetry || pendingBranchRetry.threadId !== threadId) return
+        if (status !== "ready") return
+
+        const targetMessage = messages.find(
+            (message) => message.id === pendingBranchRetry.messageId && message.role === "user"
+        )
+        if (!targetMessage) return
+
+        setPendingBranchRetry(undefined)
+        handleRetry(targetMessage)
+    }, [handleRetry, messages, pendingBranchRetry, setPendingBranchRetry, status, threadId])
 
     useChatDataProcessor({ messages, status, folderId })
 
@@ -231,8 +258,11 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                     className="flex items-center gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-accent/50"
                                 >
                                     <div className="min-w-0 flex-1">
-                                        <div className="truncate font-medium text-sm">
-                                            {thread.title}
+                                        <div className="flex min-w-0 items-center gap-2 font-medium text-sm">
+                                            {thread.isBranched && (
+                                                <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
+                                            )}
+                                            <span className="truncate">{thread.title}</span>
                                         </div>
                                         <div className="text-muted-foreground text-xs">
                                             {format(getThreadActivityTime(thread), "MMM d, yyyy")}
@@ -268,6 +298,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 ref={messagesRef}
                 messages={deferredMessages}
                 onRetry={handleRetry}
+                onBranch={handleBranch}
                 onEditAndRetry={handleEditAndRetry}
                 status={status}
                 onBottomStateChange={setIsAtBottom}

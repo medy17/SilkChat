@@ -45,6 +45,11 @@ const getInitialThreadTitle = (userMessage: Infer<typeof HTTPAIMessage>) => {
     return normalizeThreadTitle(normalized.split(" ").slice(0, 6).join(" "))
 }
 
+const compareMessagesChronologically = (
+    left: { createdAt: number; _creationTime?: number },
+    right: { createdAt: number; _creationTime?: number }
+) => (left.createdAt || left._creationTime || 0) - (right.createdAt || right._creationTime || 0)
+
 const countMirroredAttachmentsInMessages = (
     messages: Array<{
         parts: Array<Infer<typeof MessagePart>>
@@ -559,7 +564,7 @@ export const getThreadMessages = query({
             .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
             .collect()
 
-        return messages
+        return messages.sort(compareMessagesChronologically)
     }
 })
 
@@ -907,6 +912,100 @@ export const forkSharedThread = mutation({
         }
 
         return { threadId: newThreadId }
+    }
+})
+
+export const branchThread = mutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string()
+    },
+    handler: async (ctx, { threadId, messageId }) => {
+        const user = await getUserIdentity(ctx.auth, {
+            allowAnons: false
+        })
+
+        if ("error" in user) return { error: user.error }
+
+        const thread = await ctx.db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+
+        const messages = (
+            await ctx.db
+                .query("messages")
+                .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
+                .collect()
+        ).sort(compareMessagesChronologically)
+        const targetMessageIndex = messages.findIndex((message) => message.messageId === messageId)
+
+        if (targetMessageIndex === -1) return { error: "Message not found" }
+
+        const now = Date.now()
+        const branchedMessages = messages.slice(0, targetMessageIndex + 1)
+        const newThreadId = await ctx.db.insert("threads", {
+            authorId: user.id,
+            title: thread.title,
+            createdAt: now,
+            updatedAt: now,
+            projectId: thread.projectId,
+            isBranched: true,
+            branchedFromThreadId: threadId,
+            branchedFromMessageId: messageId,
+            personaSource: thread.personaSource,
+            personaSourceId: thread.personaSourceId,
+            personaName: thread.personaName,
+            personaAvatarKind: thread.personaAvatarKind,
+            personaAvatarValue: thread.personaAvatarValue,
+            personaAvatarMimeType: thread.personaAvatarMimeType
+        })
+        const newThread = await ctx.db.get(newThreadId)
+        await aggregrateThreadsByFolder.insert(ctx, newThread!)
+
+        let nextMessageCreatedAt = now
+        for (const message of branchedMessages) {
+            nextMessageCreatedAt += 1
+            await ctx.db.insert("messages", {
+                threadId: newThreadId,
+                messageId: message.messageId,
+                role: message.role,
+                parts: message.parts,
+                createdAt: nextMessageCreatedAt,
+                updatedAt: nextMessageCreatedAt,
+                metadata: message.metadata
+            })
+        }
+
+        const personaSnapshot = await ctx.db
+            .query("threadPersonaSnapshots")
+            .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
+            .first()
+
+        if (personaSnapshot) {
+            await ctx.db.insert("threadPersonaSnapshots", {
+                threadId: newThreadId,
+                source: personaSnapshot.source,
+                sourceId: personaSnapshot.sourceId,
+                name: personaSnapshot.name,
+                shortName: personaSnapshot.shortName,
+                description: personaSnapshot.description,
+                instructions: personaSnapshot.instructions,
+                defaultModelId: personaSnapshot.defaultModelId,
+                conversationStarters: personaSnapshot.conversationStarters,
+                avatarKind: personaSnapshot.avatarKind,
+                avatarValue: personaSnapshot.avatarValue,
+                avatarMimeType: personaSnapshot.avatarMimeType,
+                knowledgeDocs: personaSnapshot.knowledgeDocs,
+                compiledPrompt: personaSnapshot.compiledPrompt,
+                promptTokenEstimate: personaSnapshot.promptTokenEstimate,
+                createdAt: now
+            })
+        }
+
+        return {
+            threadId: newThreadId,
+            projectId: thread.projectId,
+            targetRole: branchedMessages[branchedMessages.length - 1]?.role
+        }
     }
 })
 

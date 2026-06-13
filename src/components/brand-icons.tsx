@@ -229,6 +229,25 @@ export function ReasoningLowIcon({ className, ...rest }: React.SVGProps<SVGSVGEl
     )
 }
 
+export function BranchIcon({ className, ...rest }: React.SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+            {...rest}
+            className={cn("line-height-1 size-4 flex-none", className)}
+        >
+            <path d="M6.02 21.09V2.64m0 3.14c0 1.61 1.21 3.11 3.2 3.94l4.58 1.92c1.98.83 3.2 2.32 3.2 3.94v3.84" />
+            <path d="m20.53 17.59-3.41 3.66-3.66-3.41" />
+        </svg>
+    )
+}
+
 export function ReasoningMediumIcon({ className, ...rest }: React.SVGProps<SVGSVGElement>) {
     return (
         <svg

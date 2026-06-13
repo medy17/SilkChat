@@ -8,6 +8,9 @@ export interface Thread {
     authorId: string
     pinned?: boolean
     projectId?: Id<"projects">
+    isBranched?: boolean
+    branchedFromThreadId?: Id<"threads">
+    branchedFromMessageId?: string
     personaSource?: "builtin" | "user"
     personaSourceId?: string
     personaName?: string

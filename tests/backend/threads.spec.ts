@@ -70,7 +70,12 @@ vi.mock("../../convex/schema/parts", () => ({
 }))
 
 import { ChatError } from "@/lib/errors"
-import { createThreadOrInsertMessages, importPreparedThread } from "../../convex/threads"
+import { getUserIdentity } from "../../convex/lib/identity"
+import {
+    branchThread,
+    createThreadOrInsertMessages,
+    importPreparedThread
+} from "../../convex/threads"
 
 type ThreadDoc = Record<string, unknown>
 type MessageDoc = Record<string, unknown>
@@ -78,6 +83,9 @@ const createThreadOrInsertMessagesHandler = createThreadOrInsertMessages as unkn
     handler: (ctx: any, args: any) => Promise<any>
 }
 const importPreparedThreadHandler = importPreparedThread as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const branchThreadHandler = branchThread as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 type ThreadsCtx = Parameters<typeof createThreadOrInsertMessagesHandler.handler>[0]
@@ -404,6 +412,104 @@ describe("createThreadOrInsertMessages", () => {
         })
 
         expect(result).toBeUndefined()
+    })
+})
+
+describe("branchThread", () => {
+    beforeEach(() => {
+        aggregateInsertMock.mockReset().mockResolvedValue(undefined)
+        vi.mocked(getUserIdentity).mockReset().mockResolvedValue({ id: "user-1" })
+    })
+
+    it("copies the branch prefix in chronological order even when the query returns newest first", async () => {
+        const sourceThread = {
+            _id: "thread-1",
+            authorId: "user-1",
+            title: "Source thread",
+            projectId: "folder-1"
+        }
+        const newThread = {
+            _id: "branch-thread-1",
+            authorId: "user-1",
+            title: "Source thread",
+            projectId: "folder-1",
+            isBranched: true
+        }
+        const sourceMessages = [
+            {
+                _id: "assistant-doc",
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Hello" }],
+                metadata: {},
+                createdAt: 2000,
+                updatedAt: 2000
+            },
+            {
+                _id: "user-doc",
+                threadId: "thread-1",
+                messageId: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "Hi" }],
+                metadata: {},
+                createdAt: 1000,
+                updatedAt: 1000
+            }
+        ]
+        const messageQuery = createMessageQuery(sourceMessages)
+        const personaSnapshotQuery = {
+            withIndex: vi.fn().mockReturnValue({
+                first: vi.fn().mockResolvedValue(null)
+            })
+        }
+        const ctx = {
+            auth: {},
+            db: {
+                insert: vi.fn().mockImplementation(async (table: string) => {
+                    if (table === "threads") return "branch-thread-1"
+                    return `${table}-inserted`
+                }),
+                get: vi
+                    .fn()
+                    .mockImplementation(async (id: string) =>
+                        id === "branch-thread-1" ? newThread : sourceThread
+                    ),
+                query: vi
+                    .fn()
+                    .mockImplementationOnce(() => messageQuery)
+                    .mockImplementationOnce(() => personaSnapshotQuery)
+            }
+        }
+
+        const result = await branchThreadHandler.handler(ctx, {
+            threadId: "thread-1",
+            messageId: "assistant-1"
+        })
+
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            2,
+            "messages",
+            expect.objectContaining({
+                threadId: "branch-thread-1",
+                messageId: "user-1",
+                role: "user"
+            })
+        )
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            3,
+            "messages",
+            expect.objectContaining({
+                threadId: "branch-thread-1",
+                messageId: "assistant-1",
+                role: "assistant"
+            })
+        )
+        expect(result).toEqual({
+            threadId: "branch-thread-1",
+            projectId: "folder-1",
+            targetRole: "assistant"
+        })
     })
 })
 

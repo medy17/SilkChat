@@ -193,6 +193,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
     const auth = useConvexAuth()
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
+    const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
     const hasPendingLocalStream = useChatStore((state) =>
         threadId ? state.pendingStreams[threadId] === true : false
     )
@@ -232,6 +233,15 @@ export function useChatIntegration<IsShared extends boolean>({
     )
 
     const initialMessages = useMemo<ChatMessage[]>(() => {
+        if (
+            !isShared &&
+            threadId &&
+            pendingBranchHydration?.threadId === threadId &&
+            pendingBranchHydration.messages.length > 0
+        ) {
+            return pendingBranchHydration.messages as ChatMessage[]
+        }
+
         if (isShared) {
             if (!sharedThread?.messages) return []
             // Shared thread messages need threadId for compatibility
@@ -245,7 +255,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
         if (!threadMessages || "error" in threadMessages) return []
         return backendToUiMessages(threadMessages)
-    }, [threadMessages, sharedThread, isShared, sharedThreadId])
+    }, [threadMessages, sharedThread, isShared, sharedThreadId, pendingBranchHydration, threadId])
     const messageThrottle =
         streamRenderPhase === "pre-first-paint"
             ? undefined

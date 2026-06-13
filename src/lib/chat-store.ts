@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { create } from "zustand"
 
@@ -19,6 +20,18 @@ export type PersonaSelection =
           id: string
       }
 
+export type PendingBranchRetry = {
+    threadId: string
+    messageId: string
+}
+
+export type PendingBranchHydration = {
+    threadId: string
+    messages: UIMessage[]
+}
+
+export type PendingBranchGenerations = Record<string, boolean>
+
 interface ChatState {
     threadId: string | undefined
     uploadedFiles: UploadedFile[]
@@ -34,6 +47,9 @@ interface ChatState {
     uploading: boolean
     selectedPersona: PersonaSelection
     lastLocalMutationAt: number
+    pendingBranchRetry: PendingBranchRetry | undefined
+    pendingBranchHydration: PendingBranchHydration | undefined
+    pendingBranchGenerations: PendingBranchGenerations
 }
 
 interface ChatActions {
@@ -55,6 +71,9 @@ interface ChatActions {
     setRerenderTrigger: (rerenderTrigger: string) => void
     setSelectedPersona: (persona: PersonaSelection) => void
     setLastLocalMutationAt: (time: number) => void
+    setPendingBranchRetry: (pendingBranchRetry: PendingBranchRetry | undefined) => void
+    setPendingBranchHydration: (pendingBranchHydration: PendingBranchHydration | undefined) => void
+    setPendingBranchGeneration: (threadId: string, pending: boolean) => void
 }
 
 const initialState: ChatState = {
@@ -71,7 +90,10 @@ const initialState: ChatState = {
     targetMode: "normal",
     uploading: false,
     selectedPersona: { source: "default" },
-    lastLocalMutationAt: 0
+    lastLocalMutationAt: 0,
+    pendingBranchRetry: undefined,
+    pendingBranchHydration: undefined,
+    pendingBranchGenerations: {}
 }
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
@@ -94,7 +116,26 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     setRerenderTrigger: (rerenderTrigger) => set({ rerenderTrigger }),
     setSelectedPersona: (selectedPersona) => set({ selectedPersona }),
     setLastLocalMutationAt: (lastLocalMutationAt) => set({ lastLocalMutationAt }),
+    setPendingBranchRetry: (pendingBranchRetry) => set({ pendingBranchRetry }),
+    setPendingBranchHydration: (pendingBranchHydration) => set({ pendingBranchHydration }),
+    setPendingBranchGeneration: (threadId, pending) =>
+        set((state) => {
+            if (pending) {
+                return {
+                    pendingBranchGenerations: {
+                        ...state.pendingBranchGenerations,
+                        [threadId]: true
+                    }
+                }
+            }
+
+            const pendingBranchGenerations = { ...state.pendingBranchGenerations }
+            delete pendingBranchGenerations[threadId]
+            return { pendingBranchGenerations }
+        }),
     resetChat: () => {
+        const { pendingBranchRetry, pendingBranchHydration, pendingBranchGenerations } = get()
+
         set({
             ...initialState,
             rerenderTrigger: nanoid(),
@@ -104,7 +145,10 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
             lastProcessedDataIndex: -1,
             skipNextDataCheck: true,
             targetMode: "normal",
-            threadId: undefined
+            threadId: undefined,
+            pendingBranchRetry,
+            pendingBranchHydration,
+            pendingBranchGenerations
         })
     },
 

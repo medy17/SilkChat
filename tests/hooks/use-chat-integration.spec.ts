@@ -39,6 +39,7 @@ type UseChatOptions = {
     id?: string
     experimental_throttle?: number
     transport?: TransportConfig
+    messages?: Array<Record<string, unknown>>
     onFinish?: (options: {
         message: Record<string, unknown>
         messages: Array<Record<string, unknown>>
@@ -134,7 +135,10 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false
+        uploading: false,
+        pendingBranchRetry: undefined,
+        pendingBranchHydration: undefined,
+        pendingBranchGenerations: {}
     })
 }
 
@@ -398,6 +402,42 @@ describe("useChatIntegration", () => {
             threadId: undefined
         })
         expect(result.current.thread).toEqual(sharedThread)
+    })
+
+    it("uses pending branch hydration as initial messages before backend messages load", () => {
+        const branchMessages = [
+            {
+                id: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "branch prompt" }]
+            }
+        ]
+
+        useChatStore.setState({
+            pendingBranchHydration: {
+                threadId: "branch-thread-1",
+                messages: branchMessages
+            }
+        })
+        useConvexQueryMock.mockReturnValue(undefined)
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: "ready",
+                messages: options.messages ?? [],
+                setMessages: vi.fn(),
+                resumeStream: vi.fn()
+            }
+        })
+
+        const { result } = renderHook(() =>
+            useChatIntegration({
+                threadId: "branch-thread-1"
+            })
+        )
+
+        expect(latestUseChatOptions?.messages).toBe(branchMessages)
+        expect(result.current.messages).toBe(branchMessages)
     })
 
     it("restores backend messages before resuming when the UI buffer is empty", async () => {

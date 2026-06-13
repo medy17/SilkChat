@@ -1,4 +1,5 @@
 import {
+    BranchIcon,
     ClaudeIcon,
     FalAIIcon,
     GeminiIcon,
@@ -134,12 +135,14 @@ export const ChatActions = memo(
         role,
         message,
         onRetry,
+        onBranch,
         onEdit,
         requiresNativePdfForModelSelection = false
     }: {
         role: UIMessage["role"]
         message: UIMessage
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
+        onBranch?: (message: UIMessage) => void
         onEdit?: (message: UIMessage) => void
         requiresNativePdfForModelSelection?: boolean
     }) => {
@@ -322,6 +325,25 @@ export const ChatActions = memo(
                         onRetry={(configOverride) => onRetry(message, configOverride)}
                         requiresNativePdf={requiresNativePdfForModelSelection}
                     />
+                )}
+
+                {onBranch && (
+                    <Tooltip delayDuration={150}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                aria-label="Branch chat"
+                                onClick={() => onBranch(message)}
+                            >
+                                <BranchIcon className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                            <p>Branch</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )}
 
                 {onEdit && (

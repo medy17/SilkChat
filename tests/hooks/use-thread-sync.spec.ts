@@ -19,7 +19,10 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false
+        uploading: false,
+        pendingBranchRetry: undefined,
+        pendingBranchHydration: undefined,
+        pendingBranchGenerations: {}
     })
 }
 
@@ -50,6 +53,37 @@ describe("useThreadSync", () => {
         expect(useChatStore.getState().threadId).toBeUndefined()
         expect(useChatStore.getState().uploadedFiles).toEqual([])
         expect(useChatStore.getState().targetMode).toBe("normal")
+    })
+
+    it("preserves pending branch handoff state across route reset churn", () => {
+        useChatStore.setState({
+            threadId: "thread-1",
+            pendingBranchRetry: {
+                threadId: "branch-thread-1",
+                messageId: "message-1"
+            },
+            pendingBranchHydration: {
+                threadId: "branch-thread-1",
+                messages: [{ id: "message-1", role: "user", parts: [] }]
+            },
+            pendingBranchGenerations: {
+                "branch-thread-1": true
+            }
+        })
+
+        renderHook(() => useThreadSync({ routeThreadId: undefined }))
+
+        expect(useChatStore.getState().pendingBranchRetry).toEqual({
+            threadId: "branch-thread-1",
+            messageId: "message-1"
+        })
+        expect(useChatStore.getState().pendingBranchHydration).toEqual({
+            threadId: "branch-thread-1",
+            messages: [{ id: "message-1", role: "user", parts: [] }]
+        })
+        expect(useChatStore.getState().pendingBranchGenerations).toEqual({
+            "branch-thread-1": true
+        })
     })
 
     it("adopts a new route thread id and triggers a rerender when the store was on another thread", () => {

@@ -8,14 +8,15 @@ import { motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
+import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
 import { LandingPage } from "@/components/landing-page"
 import { LogoSymbol } from "@/components/logo"
+import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
-import { CircularLoader } from "@/components/ui/loader"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -450,28 +451,9 @@ function ChatLayout() {
                                 </motion.div>
                             ) : null}
                             {isChatTransitionOverlayVisible && !isLibraryRoute ? (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-                                    aria-busy="true"
-                                    aria-label="Loading conversation"
-                                    className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden bg-background backdrop-blur-3xl"
-                                    style={{
-                                        backgroundImage: "url(/noise.png)",
-                                        backgroundRepeat: "repeat",
-                                        backgroundSize: "auto"
-                                    }}
-                                >
-                                    <div className="flex flex-col items-center gap-3 text-center">
-                                        <CircularLoader size="lg" />
-                                        <div className="text-muted-foreground text-sm">
-                                            Loading conversation
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                <ChatLoadingOverlay label="Loading conversation" />
                             ) : null}
+                            {!isLibraryRoute ? <MobileBranchGenerationOverlay /> : null}
                         </div>
                     </div>
                 </SidebarInset>

@@ -1,14 +1,25 @@
 // @vitest-environment jsdom
 
 import type { SharedModel } from "@/convex/lib/models"
-import { renderHook } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
 import type { FileUIPart, UIMessage } from "ai"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { browserEnvMock, deleteFileMutationMock, nanoidMock, useMutationMock } = vi.hoisted(() => ({
+const {
+    branchThreadMutationMock,
+    browserEnvMock,
+    deleteFileMutationMock,
+    nanoidMock,
+    navigateMock,
+    toastErrorMock,
+    useMutationMock
+} = vi.hoisted(() => ({
+    branchThreadMutationMock: vi.fn(),
     browserEnvMock: vi.fn(),
     deleteFileMutationMock: vi.fn(),
     nanoidMock: vi.fn(),
+    navigateMock: vi.fn(),
+    toastErrorMock: vi.fn(),
     useMutationMock: vi.fn()
 }))
 
@@ -24,7 +35,20 @@ vi.mock("@/convex/_generated/api", () => ({
     api: {
         attachments: {
             deleteFile: "deleteFile"
+        },
+        threads: {
+            branchThread: "branchThread"
         }
+    }
+}))
+
+vi.mock("@tanstack/react-router", () => ({
+    useNavigate: () => navigateMock
+}))
+
+vi.mock("sonner", () => ({
+    toast: {
+        error: toastErrorMock
     }
 }))
 
@@ -63,11 +87,19 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false
+        uploading: false,
+        pendingBranchRetry: undefined,
+        pendingBranchHydration: undefined,
+        pendingBranchGenerations: {}
     })
     useModelStore.setState({
         selectedModel: "current-model",
-        reasoningEffort: "off"
+        reasoningEffort: "off",
+        enabledTools: ["web_search"],
+        selectedImageSize: "1024x1024",
+        selectedImageResolution: "high",
+        mcpOverrides: {},
+        defaultMcpOverrides: {}
     })
 }
 
@@ -75,8 +107,11 @@ describe("useChatActions", () => {
     beforeEach(() => {
         resetChatStore()
         browserEnvMock.mockReset()
+        branchThreadMutationMock.mockReset()
         deleteFileMutationMock.mockReset()
+        navigateMock.mockReset()
         nanoidMock.mockReset()
+        toastErrorMock.mockReset()
         useMutationMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         vi.spyOn(console, "log").mockImplementation(() => {})
@@ -90,8 +125,16 @@ describe("useChatActions", () => {
             }
         })
         nanoidMock.mockReturnValue("generated-message-id")
-        useMutationMock.mockReturnValue(deleteFileMutationMock)
+        useMutationMock.mockImplementation((mutation) =>
+            mutation === "branchThread" ? branchThreadMutationMock : deleteFileMutationMock
+        )
         deleteFileMutationMock.mockResolvedValue(undefined)
+        branchThreadMutationMock.mockResolvedValue({
+            threadId: "branch-thread-1",
+            projectId: undefined,
+            targetRole: "user"
+        })
+        navigateMock.mockResolvedValue(undefined)
     })
 
     it("stops the active stream instead of sending a new message while streaming", () => {
@@ -236,6 +279,77 @@ describe("useChatActions", () => {
                 reasoningEffortOverride: "high"
             }
         })
+    })
+
+    it("branches from a finished assistant response and navigates to the new thread", async () => {
+        const messages: TestMessage[] = [
+            { id: "m1", role: "user", parts: [{ type: "text", text: "hello" }] },
+            { id: "m2", role: "assistant", parts: [] }
+        ]
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
+                chat: {
+                    status: "idle",
+                    sendMessage: vi.fn(),
+                    stop: vi.fn(),
+                    messages,
+                    setMessages: vi.fn(),
+                    regenerate: vi.fn()
+                }
+            })
+        )
+
+        await act(async () => {
+            await result.current.handleBranch(messages[1])
+        })
+
+        expect(branchThreadMutationMock).toHaveBeenCalledWith({
+            threadId: "thread-1",
+            messageId: "m2"
+        })
+        expect(useChatStore.getState().pendingBranchRetry).toBeUndefined()
+        expect(useChatStore.getState().pendingBranchHydration).toEqual({
+            threadId: "branch-thread-1",
+            messages
+        })
+        expect(useChatStore.getState().pendingBranchGenerations).toEqual({})
+        expect(navigateMock).toHaveBeenCalledWith({
+            to: "/thread/$threadId",
+            params: { threadId: "branch-thread-1" }
+        })
+    })
+
+    it("does not branch directly from a user message", async () => {
+        const messages: TestMessage[] = [{ id: "m1", role: "user", parts: [] }]
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
+                chat: {
+                    status: "idle",
+                    sendMessage: vi.fn(),
+                    stop: vi.fn(),
+                    messages,
+                    setMessages: vi.fn(),
+                    regenerate: vi.fn()
+                }
+            })
+        )
+
+        await act(async () => {
+            await result.current.handleBranch(messages[0])
+        })
+
+        expect(branchThreadMutationMock).not.toHaveBeenCalled()
+        expect(navigateMock).not.toHaveBeenCalled()
     })
 
     it("retries with the persisted assistant config when retry same is used", () => {

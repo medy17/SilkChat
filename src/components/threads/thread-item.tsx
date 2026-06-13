@@ -1,3 +1,4 @@
+import { BranchIcon } from "@/components/brand-icons"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import {
     ContextMenu,
@@ -95,6 +96,7 @@ export const ThreadItem = memo(
         const togglePinMutation = useMutation(api.threads.togglePinThread)
         const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
         const showPersonaAvatar = Boolean(thread.personaSource)
+        const showBranchIcon = Boolean(thread.isBranched)
         const threadLinkProps = folderId
             ? {
                   to: "/folder/$folderId/thread/$threadId" as const,
@@ -411,6 +413,9 @@ export const ThreadItem = memo(
                                     >
                                         {isSelected && <Check className="h-3 w-3" />}
                                     </span>
+                                    {showBranchIcon ? (
+                                        <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
+                                    ) : null}
                                     {showPersonaAvatar ? (
                                         <PersonaAvatar
                                             name={thread.personaName || thread.title}
@@ -456,6 +461,9 @@ export const ThreadItem = memo(
                                 }
                             >
                                 <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    {showBranchIcon ? (
+                                        <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
+                                    ) : null}
                                     {showPersonaAvatar ? (
                                         <PersonaAvatar
                                             name={thread.personaName || thread.title}
@@ -552,6 +560,7 @@ export const ThreadItem = memo(
             prevProps.thread._id === nextProps.thread._id &&
             prevProps.thread.title === nextProps.thread.title &&
             prevProps.thread.pinned === nextProps.thread.pinned &&
+            prevProps.thread.isBranched === nextProps.thread.isBranched &&
             prevProps.thread.personaName === nextProps.thread.personaName &&
             prevProps.thread.personaSource === nextProps.thread.personaSource &&
             prevProps.thread.personaAvatarKind === nextProps.thread.personaAvatarKind &&

@@ -748,6 +748,7 @@ type MessageRowProps = {
     isEditing: boolean
     hasActiveTarget: boolean
     onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
+    onBranch?: (message: UIMessage) => void
     onEdit: (message: UIMessage) => void
     onSaveEdit: (
         newContent: string,
@@ -765,6 +766,7 @@ const MessageRowComponent = ({
     isEditing,
     hasActiveTarget,
     onRetry,
+    onBranch,
     onEdit,
     onSaveEdit,
     onCancelEdit,
@@ -858,6 +860,7 @@ const MessageRowComponent = ({
                                 role={message.role}
                                 message={message}
                                 onRetry={undefined}
+                                onBranch={isStreamingMessage ? undefined : onBranch}
                                 onEdit={undefined}
                             />
                         ) : null}
@@ -877,6 +880,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.isEditing === nextProps.isEditing &&
     previousProps.hasActiveTarget === nextProps.hasActiveTarget &&
     previousProps.onRetry === nextProps.onRetry &&
+    previousProps.onBranch === nextProps.onBranch &&
     previousProps.onEdit === nextProps.onEdit &&
     previousProps.onSaveEdit === nextProps.onSaveEdit &&
     previousProps.onCancelEdit === nextProps.onCancelEdit &&
@@ -896,6 +900,7 @@ export const Messages = forwardRef<
     {
         messages: UIMessage[]
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
+        onBranch?: (message: UIMessage) => void
         onEditAndRetry?: (
             messageId: string,
             newContent: string,
@@ -912,6 +917,7 @@ export const Messages = forwardRef<
         {
             messages,
             onRetry,
+            onBranch,
             onEditAndRetry,
             onQuoteSelection,
             status,
@@ -1379,6 +1385,7 @@ export const Messages = forwardRef<
                                         isEditing={row.isEditing}
                                         hasActiveTarget={row.hasActiveTarget}
                                         onRetry={onRetry}
+                                        onBranch={onBranch}
                                         onEdit={handleEdit}
                                         onSaveEdit={handleSaveEdit}
                                         onCancelEdit={handleCancelEdit}

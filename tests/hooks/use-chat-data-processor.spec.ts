@@ -30,7 +30,10 @@ const resetChatStore = () => {
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false,
-        selectedPersona: { source: "default" }
+        selectedPersona: { source: "default" },
+        pendingBranchRetry: undefined,
+        pendingBranchHydration: undefined,
+        pendingBranchGenerations: {}
     })
 }
 

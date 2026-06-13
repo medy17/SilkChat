@@ -19,7 +19,10 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false
+        uploading: false,
+        pendingBranchRetry: undefined,
+        pendingBranchHydration: undefined,
+        pendingBranchGenerations: {}
     })
 }
 

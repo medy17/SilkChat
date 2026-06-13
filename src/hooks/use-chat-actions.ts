@@ -8,11 +8,13 @@ import {
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useModelStore } from "@/lib/model-store"
 import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
+import { useNavigate } from "@tanstack/react-router"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
 import { useCallback } from "react"
 import { flushSync } from "react-dom"
+import { toast } from "sonner"
 
 type UserTextPart = {
     type: "text"
@@ -39,12 +41,14 @@ interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
 
 export function useChatActions<TMessage extends UIMessage>({
     threadId,
+    folderId,
     sharedModels,
     availableModels,
     fallbackModelId,
     chat
 }: {
     threadId: string | undefined
+    folderId?: string
     sharedModels: readonly SharedModel[]
     availableModels: readonly { id: string }[]
     fallbackModelId?: string | null
@@ -57,7 +61,9 @@ export function useChatActions<TMessage extends UIMessage>({
         setManuallyStoppedThread,
         setTargetFromMessageId,
         setTargetMode,
-        setLastLocalMutationAt
+        setLastLocalMutationAt,
+        setPendingBranchHydration,
+        setPendingBranchGeneration
     } = useChatStore()
     const selectedModel = useModelStore((state) => state.selectedModel)
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
@@ -65,6 +71,8 @@ export function useChatActions<TMessage extends UIMessage>({
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
+    const branchThreadMutation = useMutation(api.threads.branchThread)
+    const navigate = useNavigate()
 
     const primeImmediateMessageUpdates = useCallback(() => {
         if (!threadId) {
@@ -139,7 +147,10 @@ export function useChatActions<TMessage extends UIMessage>({
             if (messageIndex === -1) return
 
             const messagesUpToRetry = messages.slice(0, messageIndex + 1)
-            const persistedAssistantConfig = getRetryTargetAssistantConfig(messages, message.id)
+            const persistedAssistantConfig = getRetryTargetAssistantConfig(
+                messages as Parameters<typeof getRetryTargetAssistantConfig>[0],
+                message.id
+            )
             const resolvedRetryConfig = resolveAssistantConfigOverride({
                 config: {
                     modelId: configOverride?.modelIdOverride ?? persistedAssistantConfig?.modelId,
@@ -255,6 +266,74 @@ export function useChatActions<TMessage extends UIMessage>({
     return {
         handleInputSubmit,
         handleRetry,
-        handleEditAndRetry
+        handleEditAndRetry,
+        handleBranch: useCallback(
+            async (message: UIMessage) => {
+                if (!threadId || status === "submitted") return
+                if (message.role !== "assistant") return
+
+                const messageIndex = messages.findIndex((m) => m.id === message.id)
+                if (messageIndex === -1) return
+                const branchMessages = messages.slice(0, messageIndex + 1)
+                const branchTransitionKey = `branching:${threadId}`
+
+                try {
+                    setPendingBranchGeneration(branchTransitionKey, true)
+
+                    const result = await branchThreadMutation({
+                        threadId,
+                        messageId: message.id
+                    })
+
+                    if (!result || "error" in result) {
+                        toast.error(
+                            typeof result?.error === "string"
+                                ? result.error
+                                : "Failed to branch chat"
+                        )
+                        return
+                    }
+
+                    flushSync(() => {
+                        setTargetFromMessageId(undefined)
+                        setTargetMode("normal")
+                        setPendingBranchHydration({
+                            threadId: result.threadId,
+                            messages: branchMessages
+                        })
+                    })
+
+                    if (folderId) {
+                        await navigate({
+                            to: "/folder/$folderId/thread/$threadId",
+                            params: { folderId, threadId: result.threadId }
+                        })
+                        return
+                    }
+
+                    await navigate({
+                        to: "/thread/$threadId",
+                        params: { threadId: result.threadId }
+                    })
+                } catch (error) {
+                    console.error("Failed to branch chat:", error)
+                    toast.error("Failed to branch chat")
+                } finally {
+                    setPendingBranchGeneration(branchTransitionKey, false)
+                }
+            },
+            [
+                branchThreadMutation,
+                folderId,
+                messages,
+                navigate,
+                setPendingBranchHydration,
+                setPendingBranchGeneration,
+                setTargetFromMessageId,
+                setTargetMode,
+                status,
+                threadId
+            ]
+        )
     }
 }
