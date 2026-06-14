@@ -45,18 +45,20 @@ function BillingSettingsRoute() {
     })
     const checkoutUrl = optionalBrowserEnv("VITE_LEMONSQUEEZY_PRO_CHECKOUT_URL")
     const customerPortalUrl = optionalBrowserEnv("VITE_LEMONSQUEEZY_CUSTOMER_PORTAL_URL")
+    const billingUserId =
+        billingSummary && !("error" in billingSummary) ? billingSummary.userId : null
     const proCheckoutUrl = useMemo(() => {
-        if (!checkoutUrl || !user?.id) {
+        if (!checkoutUrl || !billingUserId) {
             return null
         }
 
         return buildLemonSqueezyCheckoutUrl({
             checkoutUrl,
-            userId: user.id,
+            userId: billingUserId,
             email: user.email,
             name: user.name
         })
-    }, [checkoutUrl, user?.email, user?.id, user?.name])
+    }, [billingUserId, checkoutUrl, user?.email, user?.name])
 
     const isLoadingBilling = Boolean(user?.id) && billingSummary === undefined
     const plan = billingSummary && !("error" in billingSummary) ? billingSummary.plan : "free"

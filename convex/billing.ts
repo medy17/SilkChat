@@ -42,6 +42,7 @@ export const getMyBillingSummary = query({
             subscriptions.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
 
         return {
+            userId: user.id,
             plan: account?.plan ?? "free",
             subscription: subscription
                 ? {
