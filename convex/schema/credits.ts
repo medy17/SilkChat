@@ -25,6 +25,7 @@ export const PrototypeCreditAccount = v.object({
     plan: PrototypeCreditPlan,
     monthlyBasicCredits: v.optional(v.number()),
     monthlyProCredits: v.optional(v.number()),
+    creditPeriodAnchorAt: v.optional(v.number()),
     updatedAt: v.number()
 })
 

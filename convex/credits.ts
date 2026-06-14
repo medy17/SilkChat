@@ -8,17 +8,21 @@ import {
     query
 } from "./_generated/server"
 import {
+    getAnchoredMonthlyCreditPeriodBounds,
     getConfiguredCreditLimits,
     getCreditPeriodBounds,
+    getCreditPeriodKeyFromBounds,
     getCurrentCreditPeriodKey
 } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
 
 type CreditAccountRecord = {
+    _creationTime?: number
     enabled: boolean
     plan: "free" | "pro"
     monthlyBasicCredits?: number
     monthlyProCredits?: number
+    creditPeriodAnchorAt?: number
 }
 
 type UserAccessRecord = {
@@ -38,6 +42,65 @@ const getUserAccess = async (ctx: QueryCtx | MutationCtx, userId: string) => {
         .query("userAccess")
         .withIndex("byUser", (q) => q.eq("userId", userId))
         .first()
+}
+
+const getLatestSubscription = async (ctx: QueryCtx | MutationCtx, userId: string) => {
+    const subscriptions = await ctx.db
+        .query("lemonSqueezySubscriptions")
+        .withIndex("byUser", (q) => q.eq("userId", userId))
+        .collect()
+
+    return subscriptions.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+}
+
+const parseTimestamp = (value: string | undefined) => {
+    if (!value) return null
+
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) ? timestamp : null
+}
+
+const getUserCreditPeriod = async (
+    ctx: QueryCtx | MutationCtx,
+    userId: string,
+    account: CreditAccountRecord | null | undefined,
+    timestamp = Date.now()
+) => {
+    if (account?.plan === "pro") {
+        const subscription = await getLatestSubscription(ctx, userId)
+        const renewsAt = parseTimestamp(subscription?.renewsAt)
+
+        if (renewsAt) {
+            const bounds = getAnchoredMonthlyCreditPeriodBounds({
+                timestamp,
+                anchorTimestamp: renewsAt
+            })
+
+            return {
+                periodKey: getCreditPeriodKeyFromBounds(bounds),
+                ...bounds
+            }
+        }
+    }
+
+    const anchorTimestamp = account?.creditPeriodAnchorAt ?? account?._creationTime
+    if (anchorTimestamp) {
+        const bounds = getAnchoredMonthlyCreditPeriodBounds({
+            timestamp,
+            anchorTimestamp
+        })
+
+        return {
+            periodKey: getCreditPeriodKeyFromBounds(bounds),
+            ...bounds
+        }
+    }
+
+    const bounds = getCreditPeriodBounds(timestamp)
+    return {
+        periodKey: getCurrentCreditPeriodKey(timestamp),
+        ...bounds
+    }
 }
 
 const getToolCallReservation = async (
@@ -185,15 +248,16 @@ export const getMyCreditSummary = query({
 
         const account = await getCreditAccount(ctx, user.id)
         const resolvedAccount = getResolvedCreditAccount(account)
-        const periodKey = getCurrentCreditPeriodKey()
-        const periodBounds = getCreditPeriodBounds()
+        const period = await getUserCreditPeriod(ctx, user.id, account)
         const events = await ctx.db
             .query("prototypeCreditEvents")
-            .withIndex("byUserPeriod", (q) => q.eq("userId", user.id).eq("periodKey", periodKey))
+            .withIndex("byUserPeriod", (q) =>
+                q.eq("userId", user.id).eq("periodKey", period.periodKey)
+            )
             .collect()
         const [reservedBasicCredits, reservedProCredits] = await Promise.all([
-            getOutstandingReservedUnitsForBucket(ctx, user.id, periodKey, "basic"),
-            getOutstandingReservedUnitsForBucket(ctx, user.id, periodKey, "pro")
+            getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "basic"),
+            getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "pro")
         ])
 
         const usedBasicCredits = events
@@ -209,9 +273,9 @@ export const getMyCreditSummary = query({
         return {
             enabled: resolvedAccount.enabled,
             plan: resolvedAccount.plan,
-            periodKey,
-            periodStartsAt: periodBounds.startsAt,
-            periodEndsAt: periodBounds.endsAt,
+            periodKey: period.periodKey,
+            periodStartsAt: period.startsAt,
+            periodEndsAt: period.endsAt,
             basic: {
                 limit: resolvedAccount.monthlyBasicCredits,
                 used: effectiveBasicCredits,
@@ -240,19 +304,21 @@ export const getCreditUsageForUserInternal = internalQuery({
         periodKey: v.optional(v.string())
     },
     handler: async (ctx, { userId, periodKey }) => {
-        const resolvedPeriodKey = periodKey ?? getCurrentCreditPeriodKey()
-        const periodBounds = getCreditPeriodBounds()
+        const account = await getCreditAccount(ctx, userId)
+        const period = periodKey
+            ? { periodKey, ...getCreditPeriodBounds() }
+            : await getUserCreditPeriod(ctx, userId, account)
         const events = await ctx.db
             .query("prototypeCreditEvents")
             .withIndex("byUserPeriod", (q) =>
-                q.eq("userId", userId).eq("periodKey", resolvedPeriodKey)
+                q.eq("userId", userId).eq("periodKey", period.periodKey)
             )
             .collect()
 
         return {
-            periodKey: resolvedPeriodKey,
-            periodStartsAt: periodBounds.startsAt,
-            periodEndsAt: periodBounds.endsAt,
+            periodKey: period.periodKey,
+            periodStartsAt: period.startsAt,
+            periodEndsAt: period.endsAt,
             usedBasicCredits: events
                 .filter((event) => event.counted && event.bucket === "basic")
                 .reduce((sum, event) => sum + event.units, 0),
@@ -276,20 +342,17 @@ export const getMyCreditUsageSummary = query({
             return null
         }
 
+        const account = await getCreditAccount(ctx, user.id)
+        const period = await getUserCreditPeriod(ctx, user.id, account)
         const usage = await ctx.db
             .query("prototypeCreditEvents")
             .withIndex("byUserPeriod", (q) =>
-                q.eq("userId", user.id).eq("periodKey", getCurrentCreditPeriodKey())
+                q.eq("userId", user.id).eq("periodKey", period.periodKey)
             )
             .collect()
         const [reservedBasicCredits, reservedProCredits] = await Promise.all([
-            getOutstandingReservedUnitsForBucket(
-                ctx,
-                user.id,
-                getCurrentCreditPeriodKey(),
-                "basic"
-            ),
-            getOutstandingReservedUnitsForBucket(ctx, user.id, getCurrentCreditPeriodKey(), "pro")
+            getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "basic"),
+            getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "pro")
         ])
 
         const usedBasicCredits = usage
@@ -298,12 +361,10 @@ export const getMyCreditUsageSummary = query({
         const usedProCredits = usage
             .filter((event) => event.counted && event.bucket === "pro")
             .reduce((sum, event) => sum + event.units, 0)
-        const periodBounds = getCreditPeriodBounds()
-
         return {
-            periodKey: getCurrentCreditPeriodKey(),
-            periodStartsAt: periodBounds.startsAt,
-            periodEndsAt: periodBounds.endsAt,
+            periodKey: period.periodKey,
+            periodStartsAt: period.startsAt,
+            periodEndsAt: period.endsAt,
             basic: {
                 used: usedBasicCredits + reservedBasicCredits
             },
@@ -339,6 +400,7 @@ export const setMyPrototypeCreditPlan = mutation({
             plan: args.plan,
             monthlyBasicCredits: args.monthlyBasicCredits ?? existingAccount?.monthlyBasicCredits,
             monthlyProCredits: args.monthlyProCredits ?? existingAccount?.monthlyProCredits,
+            creditPeriodAnchorAt: existingAccount?.creditPeriodAnchorAt ?? Date.now(),
             updatedAt: Date.now()
         }
 
@@ -373,6 +435,7 @@ export const upsertUserCreditPlansInternal = internalMutation({
                 plan: account.plan,
                 monthlyBasicCredits: existingAccount?.monthlyBasicCredits,
                 monthlyProCredits: existingAccount?.monthlyProCredits,
+                creditPeriodAnchorAt: existingAccount?.creditPeriodAnchorAt ?? Date.now(),
                 updatedAt: Date.now()
             }
 
@@ -457,7 +520,25 @@ export const consumeCreditForMessage = internalMutation({
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        const account = getResolvedCreditAccount(await getCreditAccount(ctx, args.userId))
+        const existingAccount = await getCreditAccount(ctx, args.userId)
+        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
+        if (!existingAccount) {
+            await ctx.db.insert("prototypeCreditAccounts", {
+                userId: args.userId,
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt,
+                updatedAt: accountAnchorAt
+            })
+        }
+        const account = getResolvedCreditAccount(
+            existingAccount ?? {
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt
+            }
+        )
+        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
 
         if (args.requiredPlan === "pro" && account.plan !== "pro" && !access.bypassLimits) {
             return {
@@ -473,7 +554,7 @@ export const consumeCreditForMessage = internalMutation({
         if (!args.counted || args.bucket === "none" || args.units <= 0 || access.bypassLimits) {
             const eventId = await ctx.db.insert("prototypeCreditEvents", {
                 ...eventArgs,
-                periodKey: getCurrentCreditPeriodKey(),
+                periodKey: period.periodKey,
                 createdAt: Date.now()
             })
 
@@ -487,17 +568,16 @@ export const consumeCreditForMessage = internalMutation({
 
         const limit =
             args.bucket === "pro" ? account.monthlyProCredits : account.monthlyBasicCredits
-        const periodKey = getCurrentCreditPeriodKey()
         const events = await ctx.db
             .query("prototypeCreditEvents")
             .withIndex("byUserPeriod", (q) =>
-                q.eq("userId", args.userId).eq("periodKey", periodKey)
+                q.eq("userId", args.userId).eq("periodKey", period.periodKey)
             )
             .collect()
         const reservedCredits = await getOutstandingReservedUnitsForBucket(
             ctx,
             args.userId,
-            periodKey,
+            period.periodKey,
             args.bucket
         )
         const used = events
@@ -519,7 +599,7 @@ export const consumeCreditForMessage = internalMutation({
 
         const eventId = await ctx.db.insert("prototypeCreditEvents", {
             ...eventArgs,
-            periodKey,
+            periodKey: period.periodKey,
             createdAt: Date.now()
         })
 
@@ -579,7 +659,25 @@ export const reserveCreditForMessage = internalMutation({
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        const account = getResolvedCreditAccount(await getCreditAccount(ctx, args.userId))
+        const existingAccount = await getCreditAccount(ctx, args.userId)
+        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
+        if (!existingAccount) {
+            await ctx.db.insert("prototypeCreditAccounts", {
+                userId: args.userId,
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt,
+                updatedAt: accountAnchorAt
+            })
+        }
+        const account = getResolvedCreditAccount(
+            existingAccount ?? {
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt
+            }
+        )
+        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
 
         if (args.requiredPlan === "pro" && account.plan !== "pro" && !access.bypassLimits) {
             return {
@@ -592,14 +690,13 @@ export const reserveCreditForMessage = internalMutation({
             }
         }
 
-        const periodKey = getCurrentCreditPeriodKey()
         if (args.counted && args.bucket !== "none" && args.units > 0 && !access.bypassLimits) {
             const limit =
                 args.bucket === "pro" ? account.monthlyProCredits : account.monthlyBasicCredits
             const events = await ctx.db
                 .query("prototypeCreditEvents")
                 .withIndex("byUserPeriod", (q) =>
-                    q.eq("userId", args.userId).eq("periodKey", periodKey)
+                    q.eq("userId", args.userId).eq("periodKey", period.periodKey)
                 )
                 .collect()
             const used = events
@@ -608,7 +705,7 @@ export const reserveCreditForMessage = internalMutation({
             const reserved = await getOutstandingReservedUnitsForBucket(
                 ctx,
                 args.userId,
-                periodKey,
+                period.periodKey,
                 args.bucket
             )
 
@@ -637,7 +734,7 @@ export const reserveCreditForMessage = internalMutation({
             bucket: args.bucket,
             units: args.units,
             counted: args.counted,
-            periodKey,
+            periodKey: period.periodKey,
             active: true,
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -775,14 +872,31 @@ export const reserveToolCallBudget = internalMutation({
             }
         }
 
-        const periodKey = getCurrentCreditPeriodKey()
+        const existingAccount = await getCreditAccount(ctx, args.userId)
+        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
+        if (!existingAccount) {
+            await ctx.db.insert("prototypeCreditAccounts", {
+                userId: args.userId,
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt,
+                updatedAt: accountAnchorAt
+            })
+        }
+        const account = getResolvedCreditAccount(
+            existingAccount ?? {
+                enabled: true,
+                plan: "free",
+                creditPeriodAnchorAt: accountAnchorAt
+            }
+        )
+        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
 
         if (!access.bypassLimits && args.reservedBasicCredits > 0) {
-            const account = getResolvedCreditAccount(await getCreditAccount(ctx, args.userId))
             const events = await ctx.db
                 .query("prototypeCreditEvents")
                 .withIndex("byUserPeriod", (q) =>
-                    q.eq("userId", args.userId).eq("periodKey", periodKey)
+                    q.eq("userId", args.userId).eq("periodKey", period.periodKey)
                 )
                 .collect()
             const usedBasicCredits = events
@@ -791,7 +905,7 @@ export const reserveToolCallBudget = internalMutation({
             const reservedBasicCredits = await getOutstandingReservedUnitsForBucket(
                 ctx,
                 args.userId,
-                periodKey,
+                period.periodKey,
                 "basic"
             )
 
@@ -816,7 +930,7 @@ export const reserveToolCallBudget = internalMutation({
             ...args,
             consumedCalls: 0,
             consumedBasicCredits: 0,
-            periodKey,
+            periodKey: period.periodKey,
             active: true,
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -873,6 +987,8 @@ export const consumeReservedToolCall = internalMutation({
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
         if (access.bypassLimits) {
+            const account = await getCreditAccount(ctx, args.userId)
+            const period = await getUserCreditPeriod(ctx, args.userId, account)
             await ctx.db.insert("prototypeCreditEvents", {
                 userId: args.userId,
                 threadId: args.threadId,
@@ -884,7 +1000,7 @@ export const consumeReservedToolCall = internalMutation({
                 bucket: args.bucket,
                 units: args.units,
                 counted: args.counted,
-                periodKey: getCurrentCreditPeriodKey(),
+                periodKey: period.periodKey,
                 createdAt: Date.now()
             })
 
@@ -942,7 +1058,7 @@ export const consumeReservedToolCall = internalMutation({
             bucket: args.bucket,
             units: args.units,
             counted: args.counted,
-            periodKey: getCurrentCreditPeriodKey(),
+            periodKey: reservation.periodKey,
             createdAt: Date.now()
         })
 
@@ -1016,9 +1132,12 @@ export const recordCreditEventForMessage = internalMutation({
             return existing._id
         }
 
+        const account = await getCreditAccount(ctx, args.userId)
+        const period = await getUserCreditPeriod(ctx, args.userId, account)
+
         return await ctx.db.insert("prototypeCreditEvents", {
             ...args,
-            periodKey: getCurrentCreditPeriodKey(),
+            periodKey: period.periodKey,
             createdAt: Date.now()
         })
     }

@@ -126,6 +126,7 @@ export function Header() {
                                 isUpdatingCreditPlan={isUpdatingCreditPlan}
                                 onSetCreditPlan={setCreditPlan}
                                 onRefresh={refreshCredits}
+                                upgradeUrl="/settings/billing"
                             />
                         )}
                         {!isMobile && <SidebarShortcutsHelper />}

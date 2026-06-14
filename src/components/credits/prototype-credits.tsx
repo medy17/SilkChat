@@ -96,6 +96,7 @@ function PrototypeCreditsBody({
     onSetCreditPlan,
     onRefresh,
     isRefreshing,
+    upgradeUrl,
     className
 }: {
     summary: PrototypeCreditSummary | null
@@ -104,6 +105,7 @@ function PrototypeCreditsBody({
     onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
     onRefresh: () => Promise<void>
     isRefreshing: boolean
+    upgradeUrl?: string | null
     className?: string
 }) {
     const periodLabel = useMemo(() => {
@@ -128,6 +130,7 @@ function PrototypeCreditsBody({
     const proProgress = summary.pro.limit > 0 ? (summary.pro.used / summary.pro.limit) * 100 : 0
     const PlanIcon = summary.plan === "pro" ? Crown : Wallet
     const shouldAnimateRefresh = isRefreshing || isRefreshAnimating
+    const shouldShowProUpsell = summary.plan === "free"
 
     const handleRefresh = async () => {
         if (shouldAnimateRefresh) {
@@ -153,7 +156,7 @@ function PrototypeCreditsBody({
                         </span>
                     </div>
                     {periodLabel ? (
-                        <div className="text-muted-foreground text-xs">Renews on {periodLabel}</div>
+                        <div className="text-muted-foreground text-xs">Resets on {periodLabel}</div>
                     ) : null}
                 </div>
                 <Button
@@ -188,18 +191,46 @@ function PrototypeCreditsBody({
                         {summary.basic.remaining} remaining
                     </div>
                 </div>
-                <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Pro</span>
-                        <span>
-                            {summary.pro.used}/{summary.pro.limit}
-                        </span>
+                {shouldShowProUpsell ? (
+                    <div className="rounded-[var(--radius-lg)] border bg-muted/30 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-1.5 font-medium text-xs">
+                                    <Crown className="size-3.5 shrink-0" />
+                                    <span>Pro credits</span>
+                                </div>
+                                <p className="text-muted-foreground text-xs">
+                                    Upgrade for image generation and premium models.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className="h-8 shrink-0 rounded-[var(--radius-md)]"
+                                asChild={Boolean(upgradeUrl)}
+                                disabled={!upgradeUrl}
+                            >
+                                {upgradeUrl ? (
+                                    <a href={upgradeUrl}>Upgrade</a>
+                                ) : (
+                                    <span>Upgrade</span>
+                                )}
+                            </Button>
+                        </div>
                     </div>
-                    <Progress value={proProgress} className="h-2" />
-                    <div className="text-[11px] text-muted-foreground sm:text-xs">
-                        {summary.pro.remaining} remaining
+                ) : (
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Pro</span>
+                            <span>
+                                {summary.pro.used}/{summary.pro.limit}
+                            </span>
+                        </div>
+                        <Progress value={proProgress} className="h-2" />
+                        <div className="text-[11px] text-muted-foreground sm:text-xs">
+                            {summary.pro.remaining} remaining
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground sm:text-xs">
@@ -228,7 +259,8 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
     shouldShowDevCreditPlanToggle,
     isUpdatingCreditPlan,
     onSetCreditPlan,
-    onRefresh
+    onRefresh,
+    upgradeUrl
 }: {
     summary: PrototypeCreditSummary | null
     isLoading: boolean
@@ -237,6 +269,7 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
     isUpdatingCreditPlan: boolean
     onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
     onRefresh: () => Promise<void>
+    upgradeUrl?: string | null
 }) {
     return (
         <ResponsivePopover
@@ -274,6 +307,7 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                         onSetCreditPlan={onSetCreditPlan}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
+                        upgradeUrl={upgradeUrl}
                         className="px-4 pt-5 pb-4 md:p-0"
                     />
                 )}
@@ -290,6 +324,7 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isUpdatingCreditPlan,
     onSetCreditPlan,
     onRefresh,
+    upgradeUrl,
     className
 }: {
     summary: PrototypeCreditSummary | null
@@ -299,6 +334,7 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isUpdatingCreditPlan: boolean
     onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
     onRefresh: () => Promise<void>
+    upgradeUrl?: string | null
     className?: string
 }) {
     return (
@@ -318,6 +354,7 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
                         onSetCreditPlan={onSetCreditPlan}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
+                        upgradeUrl={upgradeUrl}
                     />
                 )}
             </CardContent>

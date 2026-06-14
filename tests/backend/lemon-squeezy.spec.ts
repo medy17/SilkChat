@@ -279,4 +279,69 @@ describe("Lemon Squeezy billing", () => {
             })
         )
     })
+
+    it("downgrades a past-due subscription immediately", async () => {
+        const ctx = createCtx({
+            existingSubscription: {
+                _id: "sub-record-1"
+            },
+            existingAccount: {
+                _id: "account-1",
+                enabled: true,
+                plan: "pro"
+            }
+        })
+
+        const result = await recordLemonSqueezyWebhookHandler.handler(ctx, {
+            payload: createSubscriptionPayload({ status: "past_due" })
+        })
+
+        expect(result).toMatchObject({
+            status: "processed",
+            plan: "free"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "account-1",
+            expect.objectContaining({
+                plan: "free"
+            })
+        )
+    })
+
+    it("restores pro when a recovered payment sends an active subscription", async () => {
+        const ctx = createCtx({
+            existingSubscription: {
+                _id: "sub-record-1"
+            },
+            existingAccount: {
+                _id: "account-1",
+                enabled: true,
+                plan: "free"
+            }
+        })
+
+        const result = await recordLemonSqueezyWebhookHandler.handler(ctx, {
+            payload: {
+                ...createSubscriptionPayload({ status: "active" }),
+                meta: {
+                    event_name: "subscription_payment_recovered",
+                    webhook_id: "webhook-recovered",
+                    custom_data: {
+                        user_id: "user-1"
+                    }
+                }
+            }
+        })
+
+        expect(result).toMatchObject({
+            status: "processed",
+            plan: "pro"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "account-1",
+            expect.objectContaining({
+                plan: "pro"
+            })
+        )
+    })
 })

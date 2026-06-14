@@ -29,15 +29,8 @@ type LemonSqueezyPayload = {
     }
 }
 
-const PRO_SUBSCRIPTION_STATUSES = new Set([
-    "active",
-    "cancelled",
-    "on_trial",
-    "past_due",
-    "paused",
-    "unpaid"
-])
-const FREE_SUBSCRIPTION_STATUSES = new Set(["expired"])
+const PRO_SUBSCRIPTION_STATUSES = new Set(["active", "cancelled", "on_trial", "paused"])
+const FREE_SUBSCRIPTION_STATUSES = new Set(["expired", "past_due", "unpaid"])
 
 const getString = (value: unknown) =>
     typeof value === "string" && value.trim() ? value : undefined
@@ -64,7 +57,11 @@ export const isLemonSqueezySubscriptionEvent = (eventName: string) =>
     eventName === "subscription_resumed" ||
     eventName === "subscription_expired" ||
     eventName === "subscription_paused" ||
-    eventName === "subscription_unpaused"
+    eventName === "subscription_unpaused" ||
+    eventName === "subscription_payment_failed" ||
+    eventName === "subscription_payment_success" ||
+    eventName === "subscription_payment_recovered" ||
+    eventName === "subscription_payment_refunded"
 
 export const parseLemonSqueezyWebhookPayload = (
     payload: unknown

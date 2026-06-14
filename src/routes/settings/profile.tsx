@@ -299,6 +299,7 @@ export function AccountSettingsContent() {
                     isUpdatingCreditPlan={isUpdatingCreditPlan}
                     onSetCreditPlan={setCreditPlan}
                     onRefresh={refreshCredits}
+                    upgradeUrl="/settings/billing"
                 />
             </div>
 

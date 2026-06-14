@@ -82,6 +82,72 @@ export const getCreditPeriodBounds = (timestamp = Date.now()) => {
     }
 }
 
+const getDaysInUtcMonth = (year: number, monthIndex: number) =>
+    new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+
+const addUtcMonthsClamped = (timestamp: number, months: number) => {
+    const date = new Date(timestamp)
+    const targetMonthStart = Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + months,
+        1,
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getUTCMilliseconds()
+    )
+    const target = new Date(targetMonthStart)
+    const day = Math.min(
+        date.getUTCDate(),
+        getDaysInUtcMonth(target.getUTCFullYear(), target.getUTCMonth())
+    )
+
+    return Date.UTC(
+        target.getUTCFullYear(),
+        target.getUTCMonth(),
+        day,
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getUTCMilliseconds()
+    )
+}
+
+export const getAnchoredMonthlyCreditPeriodBounds = ({
+    timestamp = Date.now(),
+    anchorTimestamp
+}: {
+    timestamp?: number
+    anchorTimestamp: number
+}) => {
+    if (!Number.isFinite(anchorTimestamp) || anchorTimestamp <= 0) {
+        return getCreditPeriodBounds(timestamp)
+    }
+
+    let startsAt = anchorTimestamp
+
+    while (addUtcMonthsClamped(startsAt, 1) <= timestamp) {
+        startsAt = addUtcMonthsClamped(startsAt, 1)
+    }
+
+    while (startsAt > timestamp) {
+        startsAt = addUtcMonthsClamped(startsAt, -1)
+    }
+
+    return {
+        startsAt,
+        endsAt: addUtcMonthsClamped(startsAt, 1)
+    }
+}
+
+export const getCreditPeriodKeyFromBounds = ({
+    startsAt,
+    endsAt
+}: {
+    startsAt: number
+    endsAt: number
+}) => `${new Date(startsAt).toISOString()}/${new Date(endsAt).toISOString()}`
+
 export const resolvePrototypeCreditCharge = ({
     providerSource,
     modelMode,

@@ -28,6 +28,48 @@ const formatDate = (value?: string) => {
     }).format(new Date(value))
 }
 
+const getSubscriptionTimelineRows = ({
+    plan,
+    status,
+    renewsAt,
+    endsAt,
+    trialEndsAt
+}: {
+    plan: "free" | "pro"
+    status?: string
+    renewsAt: string | null
+    endsAt: string | null
+    trialEndsAt: string | null
+}) => {
+    if (!status) {
+        return [{ label: "Subscription:", value: plan === "pro" ? "Active" : "None" }]
+    }
+
+    if (status === "expired") {
+        return [{ label: "Expired at:", value: endsAt ?? renewsAt ?? "Ended" }]
+    }
+
+    if (status === "cancelled") {
+        return [{ label: "Expires on:", value: endsAt ?? renewsAt ?? "Not scheduled" }]
+    }
+
+    if (status === "past_due" || status === "unpaid") {
+        return [{ label: "Payment failed:", value: renewsAt ?? "Review billing" }]
+    }
+
+    if (status === "paused") {
+        return [{ label: "Paused until:", value: renewsAt ?? "Paused" }]
+    }
+
+    const rows = [{ label: "Renews at:", value: renewsAt ?? "Not scheduled" }]
+
+    if (trialEndsAt) {
+        rows.push({ label: "Trial ends at:", value: trialEndsAt })
+    }
+
+    return rows
+}
+
 function BillingSettingsRoute() {
     const session = useSession()
     const user = session.user
@@ -48,7 +90,7 @@ function BillingSettingsRoute() {
     const billingUserId =
         billingSummary && !("error" in billingSummary) ? billingSummary.userId : null
     const proCheckoutUrl = useMemo(() => {
-        if (!checkoutUrl || !billingUserId) {
+        if (!checkoutUrl || !billingUserId || !user) {
             return null
         }
 
@@ -72,6 +114,13 @@ function BillingSettingsRoute() {
     const renewsAtLabel = formatDate(subscription?.renewsAt)
     const endsAtLabel = formatDate(subscription?.endsAt)
     const trialEndsAtLabel = formatDate(subscription?.trialEndsAt)
+    const subscriptionTimelineRows = getSubscriptionTimelineRows({
+        plan,
+        status: subscription?.status,
+        renewsAt: renewsAtLabel,
+        endsAt: endsAtLabel,
+        trialEndsAt: trialEndsAtLabel
+    })
     const PlanIcon = plan === "pro" ? Crown : Wallet
 
     return (
@@ -105,24 +154,14 @@ function BillingSettingsRoute() {
                                 </div>
 
                                 <div className="space-y-1 text-sm">
-                                    <div className="flex gap-2">
-                                        <span className="text-muted-foreground">Renews at:</span>
-                                        <span>{renewsAtLabel ?? "Not scheduled"}</span>
-                                    </div>
-                                    {endsAtLabel ? (
-                                        <div className="flex gap-2">
-                                            <span className="text-muted-foreground">Ends at:</span>
-                                            <span>{endsAtLabel}</span>
-                                        </div>
-                                    ) : null}
-                                    {trialEndsAtLabel ? (
-                                        <div className="flex gap-2">
+                                    {subscriptionTimelineRows.map((row) => (
+                                        <div key={row.label} className="flex gap-2">
                                             <span className="text-muted-foreground">
-                                                Trial ends at:
+                                                {row.label}
                                             </span>
-                                            <span>{trialEndsAtLabel}</span>
+                                            <span>{row.value}</span>
                                         </div>
-                                    ) : null}
+                                    ))}
                                 </div>
                             </div>
 
@@ -264,6 +303,7 @@ function BillingSettingsRoute() {
                     isUpdatingCreditPlan={isUpdatingCreditPlan}
                     onSetCreditPlan={setCreditPlan}
                     onRefresh={refreshCredits}
+                    upgradeUrl={proCheckoutUrl}
                 />
             </div>
         </SettingsLayout>

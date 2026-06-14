@@ -127,6 +127,7 @@ export const recordLemonSqueezyWebhook = internalMutation({
             plan: summary.plan,
             monthlyBasicCredits: existingAccount?.monthlyBasicCredits,
             monthlyProCredits: existingAccount?.monthlyProCredits,
+            creditPeriodAnchorAt: existingAccount?.creditPeriodAnchorAt ?? now,
             updatedAt: now
         }
 
