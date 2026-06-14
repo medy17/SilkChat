@@ -96,10 +96,10 @@ const ensureLocalDeploymentSelected = () => {
     const rawValue = match[1].split("#")[0].trim().replace(/^"|"$/g, "")
     if (rawValue.startsWith("local:")) return true
 
-    console.error(
-        `[local-dev] CONVEX_DEPLOYMENT is '${rawValue}', not a local deployment.\n[local-dev] Run \`bun run local:convex:configure\` first, then re-run \`bun run local:dev\`.`
+    console.log(
+        `[local-dev] CONVEX_DEPLOYMENT is '${rawValue}'. Switching to the local deployment before starting Convex.`
     )
-    return false
+    return true
 }
 
 const escapeDotenvValue = (value) =>
@@ -184,6 +184,25 @@ const start = (label, command, args) => {
     children.push(child)
 }
 
+const selectLocalDeployment = () =>
+    new Promise((resolve, reject) => {
+        console.log("[local-dev] selecting Convex local deployment...")
+
+        const child = spawn("bunx", ["convex", "deployment", "select", "local"], {
+            stdio: "inherit",
+            shell: process.platform === "win32",
+            env: getSpawnEnv()
+        })
+
+        child.on("exit", (code) => {
+            if (code === 0) {
+                resolve()
+                return
+            }
+            reject(new Error(`Convex local deployment selection failed with exit code ${code}`))
+        })
+    })
+
 const runConvexBootstrap = () =>
     new Promise((resolve, reject) => {
         console.log("[local-dev] bootstrapping Convex local deployment...")
@@ -193,7 +212,6 @@ const runConvexBootstrap = () =>
             [
                 "convex",
                 "dev",
-                "--local",
                 "--local-force-upgrade",
                 "--once",
                 "--tail-logs",
@@ -238,17 +256,15 @@ const shutdown = () => {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
-if (!ensureLocalDeploymentSelected()) {
-    process.exit(1)
-}
+ensureLocalDeploymentSelected()
 
 syncRequiredLocalConvexEnvVars()
+    .then(() => selectLocalDeployment())
     .then(() => runConvexBootstrap())
     .then(() => {
         start("Convex local", "bunx", [
             "convex",
             "dev",
-            "--local",
             "--local-force-upgrade",
             "--tail-logs",
             "pause-on-deploy",
