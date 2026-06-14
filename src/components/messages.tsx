@@ -38,12 +38,13 @@ import {
     Image as ImageIcon,
     Loader2,
     Paperclip,
+    PenOff,
     Quote,
     RotateCcw,
     Trash2,
     X
 } from "lucide-react"
-import { ArrowUp, MoreHorizontal } from "lucide-react"
+import { ArrowUp } from "lucide-react"
 import {
     forwardRef,
     memo,
@@ -70,14 +71,18 @@ import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
 import { ToolSelectorPopover } from "./tool-selector-popover"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "./ui/alert-dialog"
 import { Button } from "./ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
-} from "./ui/dropdown-menu"
 import { Loader } from "./ui/loader"
 import { Textarea } from "./ui/textarea"
 
@@ -315,7 +320,18 @@ const EditableMessage = memo(
             ? location.pathname.split("/thread/")[1]?.split("/")[0]
             : undefined
 
-        const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
+        const {
+            selectedModel,
+            setSelectedModel,
+            enabledTools,
+            setEnabledTools,
+            selectedImageSize,
+            setSelectedImageSize,
+            selectedImageResolution,
+            setSelectedImageResolution,
+            reasoningEffort,
+            setReasoningEffort
+        } = useModelStore()
         const { models: sharedModels } = useSharedModels()
 
         const [
@@ -349,6 +365,30 @@ const EditableMessage = memo(
         const [deletedUrls, setDeletedUrls] = useState<string[]>([])
         const [addedFiles, setAddedFiles] = useState<UploadedFile[]>([])
         const [uploading, setUploading] = useState(false)
+        const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
+        const initialEditSettingsRef = useRef({
+            selectedModel,
+            enabledTools: [...enabledTools],
+            selectedImageSize,
+            selectedImageResolution,
+            reasoningEffort
+        })
+
+        const haveToolsChanged =
+            enabledTools.length !== initialEditSettingsRef.current.enabledTools.length ||
+            enabledTools.some(
+                (tool, index) => tool !== initialEditSettingsRef.current.enabledTools[index]
+            )
+
+        const hasUnsavedChanges =
+            editedContent !== textContent ||
+            deletedUrls.length > 0 ||
+            addedFiles.length > 0 ||
+            selectedModel !== initialEditSettingsRef.current.selectedModel ||
+            selectedImageSize !== initialEditSettingsRef.current.selectedImageSize ||
+            selectedImageResolution !== initialEditSettingsRef.current.selectedImageResolution ||
+            reasoningEffort !== initialEditSettingsRef.current.reasoningEffort ||
+            haveToolsChanged
 
         const uploadFile = useCallback(
             async (file: File): Promise<UploadedFile> => {
@@ -443,272 +483,332 @@ const EditableMessage = memo(
             )
         }
 
+        const discardAddedFiles = useCallback(() => {
+            for (const file of addedFiles) {
+                deleteFileMutation({ key: file.key }).catch(console.error)
+            }
+        }, [addedFiles, deleteFileMutation])
+
+        const restoreInitialEditSettings = useCallback(() => {
+            const initialSettings = initialEditSettingsRef.current
+
+            setSelectedModel(initialSettings.selectedModel)
+            setEnabledTools(initialSettings.enabledTools)
+            setSelectedImageSize(initialSettings.selectedImageSize)
+            setSelectedImageResolution(initialSettings.selectedImageResolution)
+            setReasoningEffort(initialSettings.reasoningEffort)
+        }, [
+            setEnabledTools,
+            setReasoningEffort,
+            setSelectedImageResolution,
+            setSelectedImageSize,
+            setSelectedModel
+        ])
+
+        const commitCancel = useCallback(() => {
+            if (addedFiles.length > 0) {
+                discardAddedFiles()
+            }
+            restoreInitialEditSettings()
+            onCancel()
+        }, [addedFiles.length, discardAddedFiles, onCancel, restoreInitialEditSettings])
+
+        const requestCancel = useCallback(() => {
+            if (!hasUnsavedChanges) {
+                commitCancel()
+                return
+            }
+
+            setShowCancelConfirmation(true)
+        }, [commitCancel, hasUnsavedChanges])
+
+        const handleConfirmCancel = useCallback(() => {
+            setShowCancelConfirmation(false)
+            commitCancel()
+        }, [commitCancel])
+
         const handleKeyDown = (e: React.KeyboardEvent) => {
             if (matchesSaveMessageEditShortcut(e)) {
                 e.preventDefault()
                 handleSave()
             }
             if (matchesCancelMessageEditShortcut(e)) {
-                onCancel()
+                e.preventDefault()
+                requestCancel()
             }
         }
 
         const totalAttachmentCount = fileParts.length + addedFiles.length
 
         return (
-            <div
-                className="border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
-                style={{ borderRadius: "var(--radius-lg)" }}
-            >
-                <Textarea
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
+            <>
+                <div
+                    className="border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
+                    style={{ borderRadius: "var(--radius-lg)" }}
+                >
+                    <Textarea
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
 
-                {totalAttachmentCount > 0 && (
-                    <div className="flex flex-wrap gap-2 pb-3">
-                        {fileParts.map((part, index) => {
-                            const { isImage } = getFileTypeInfo(
-                                part.filename || extractFileName(part.url),
-                                part.mediaType
-                            )
-                            const isRemoved = deletedUrls.includes(part.url)
-                            const isCompact = totalAttachmentCount > 1
-                            const filename = part.filename || extractFileName(part.url)
-
-                            const handleToggleRemove = () => {
-                                setDeletedUrls((prev) =>
-                                    prev.includes(part.url)
-                                        ? prev.filter((url) => url !== part.url)
-                                        : [...prev, part.url]
+                    {totalAttachmentCount > 0 && (
+                        <div className="flex flex-wrap gap-2 pb-3">
+                            {fileParts.map((part, index) => {
+                                const { isImage } = getFileTypeInfo(
+                                    part.filename || extractFileName(part.url),
+                                    part.mediaType
                                 )
-                            }
+                                const isRemoved = deletedUrls.includes(part.url)
+                                const isCompact = totalAttachmentCount > 1
+                                const filename = part.filename || extractFileName(part.url)
 
-                            return (
-                                <div
-                                    key={index}
-                                    className={cn(
-                                        "group relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-all hover:bg-secondary/80",
-                                        isCompact || !isImage
-                                            ? "h-12 w-auto min-w-12 max-w-52"
-                                            : "h-auto max-h-64 w-auto max-w-full",
-                                        isImage && isCompact ? "w-12 p-0" : "px-3",
-                                        isRemoved && "opacity-50 grayscale-[50%]"
-                                    )}
-                                    style={{ borderRadius: "var(--radius)" }}
-                                >
-                                    {isImage ? (
-                                        <img
-                                            src={resolvePublicFileUrl(part.url)}
-                                            alt={filename}
-                                            className={cn(
-                                                "object-cover",
-                                                isCompact
-                                                    ? "h-full w-full"
-                                                    : "h-auto max-h-64 w-auto"
-                                            )}
-                                            style={{ borderRadius: "calc(var(--radius) - 2px)" }}
-                                        />
-                                    ) : (
-                                        <div className="flex min-w-0 items-center gap-2 text-foreground">
-                                            {getFileIcon(part)}
-                                            <div className="flex min-w-0 flex-col">
-                                                <span className="max-w-[8.5rem] truncate font-medium text-xs">
-                                                    {filename}
-                                                </span>
-                                                <span className="text-muted-foreground text-xs">
-                                                    Existing
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
+                                const handleToggleRemove = () => {
+                                    setDeletedUrls((prev) =>
+                                        prev.includes(part.url)
+                                            ? prev.filter((url) => url !== part.url)
+                                            : [...prev, part.url]
+                                    )
+                                }
 
-                                    {isRemoved && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
-                                            <Trash2 className="size-5 text-destructive drop-shadow-md" />
-                                        </div>
-                                    )}
-
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        size="icon"
-                                        onClick={handleToggleRemove}
-                                        title={
-                                            isRemoved
-                                                ? "Restore attachment"
-                                                : "Remove attachment from message"
-                                        }
+                                return (
+                                    <div
+                                        key={index}
                                         className={cn(
-                                            "absolute h-6 w-6 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
-                                            isRemoved
-                                                ? "top-1 right-1 bg-background/80 text-foreground"
-                                                : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
-                                            !isRemoved &&
-                                                (!isCompact && !isImage
-                                                    ? "-translate-y-1/2 top-1/2 right-2"
-                                                    : "top-1 right-1")
+                                            "group relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-all hover:bg-secondary/80",
+                                            isCompact || !isImage
+                                                ? "h-12 w-auto min-w-12 max-w-52"
+                                                : "h-auto max-h-64 w-auto max-w-full",
+                                            isImage && isCompact ? "w-12 p-0" : "px-3",
+                                            isRemoved && "opacity-50 grayscale-[50%]"
                                         )}
-                                        style={{ borderRadius: "var(--radius-xl)" }}
+                                        style={{ borderRadius: "var(--radius)" }}
                                     >
-                                        {isRemoved ? (
-                                            <RotateCcw className="size-3.5" />
-                                        ) : (
-                                            <X className="size-3.5" />
-                                        )}
-                                    </Button>
-                                </div>
-                            )
-                        })}
-
-                        {addedFiles.map((file) => {
-                            const isImage = isImageMimeType(file.fileType)
-
-                            return (
-                                <div
-                                    key={file.key}
-                                    className="group relative flex h-12 min-w-12 max-w-52 shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 px-3 transition-all hover:bg-secondary/80"
-                                    style={{ borderRadius: "var(--radius)" }}
-                                >
-                                    <div className="flex min-w-0 items-center gap-2 text-foreground">
                                         {isImage ? (
                                             <img
-                                                src={getPublicR2AssetUrl(file.key)}
-                                                alt={file.fileName}
-                                                className="size-8 object-cover"
+                                                src={resolvePublicFileUrl(part.url)}
+                                                alt={filename}
+                                                className={cn(
+                                                    "object-cover",
+                                                    isCompact
+                                                        ? "h-full w-full"
+                                                        : "h-auto max-h-64 w-auto"
+                                                )}
                                                 style={{
                                                     borderRadius: "calc(var(--radius) - 2px)"
                                                 }}
                                             />
                                         ) : (
-                                            getFileIcon({
-                                                url: getPublicR2AssetUrl(file.key),
-                                                filename: file.fileName,
-                                                mediaType: file.fileType
-                                            })
+                                            <div className="flex min-w-0 items-center gap-2 text-foreground">
+                                                {getFileIcon(part)}
+                                                <div className="flex min-w-0 flex-col">
+                                                    <span className="max-w-[8.5rem] truncate font-medium text-xs">
+                                                        {filename}
+                                                    </span>
+                                                    <span className="text-muted-foreground text-xs">
+                                                        Existing
+                                                    </span>
+                                                </div>
+                                            </div>
                                         )}
-                                        <div className="flex min-w-0 flex-col">
-                                            <span className="max-w-[8.5rem] truncate font-medium text-xs">
-                                                {file.fileName}
-                                            </span>
-                                            <span className="text-muted-foreground text-xs">
-                                                New
-                                            </span>
-                                        </div>
-                                    </div>
 
+                                        {isRemoved && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
+                                                <Trash2 className="size-5 text-destructive drop-shadow-md" />
+                                            </div>
+                                        )}
+
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon"
+                                            onClick={handleToggleRemove}
+                                            title={
+                                                isRemoved
+                                                    ? "Restore attachment"
+                                                    : "Remove attachment from message"
+                                            }
+                                            className={cn(
+                                                "absolute h-6 w-6 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
+                                                isRemoved
+                                                    ? "top-1 right-1 bg-background/80 text-foreground"
+                                                    : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
+                                                !isRemoved &&
+                                                    (!isCompact && !isImage
+                                                        ? "-translate-y-1/2 top-1/2 right-2"
+                                                        : "top-1 right-1")
+                                            )}
+                                            style={{ borderRadius: "var(--radius-xl)" }}
+                                        >
+                                            {isRemoved ? (
+                                                <RotateCcw className="size-3.5" />
+                                            ) : (
+                                                <X className="size-3.5" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                )
+                            })}
+
+                            {addedFiles.map((file) => {
+                                const isImage = isImageMimeType(file.fileType)
+
+                                return (
+                                    <div
+                                        key={file.key}
+                                        className="group relative flex h-12 min-w-12 max-w-52 shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 px-3 transition-all hover:bg-secondary/80"
+                                        style={{ borderRadius: "var(--radius)" }}
+                                    >
+                                        <div className="flex min-w-0 items-center gap-2 text-foreground">
+                                            {isImage ? (
+                                                <img
+                                                    src={getPublicR2AssetUrl(file.key)}
+                                                    alt={file.fileName}
+                                                    className="size-8 object-cover"
+                                                    style={{
+                                                        borderRadius: "calc(var(--radius) - 2px)"
+                                                    }}
+                                                />
+                                            ) : (
+                                                getFileIcon({
+                                                    url: getPublicR2AssetUrl(file.key),
+                                                    filename: file.fileName,
+                                                    mediaType: file.fileType
+                                                })
+                                            )}
+                                            <div className="flex min-w-0 flex-col">
+                                                <span className="max-w-[8.5rem] truncate font-medium text-xs">
+                                                    {file.fileName}
+                                                </span>
+                                                <span className="text-muted-foreground text-xs">
+                                                    New
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon"
+                                            onClick={() => removeAddedFile(file)}
+                                            title="Remove attachment from message"
+                                            className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                                            style={{ borderRadius: "var(--radius-xl)" }}
+                                        >
+                                            <X className="size-3.5" />
+                                        </Button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 border-border/70 border-t pt-3">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            {selectedModel && (
+                                <ModelSelector
+                                    selectedModel={selectedModel}
+                                    onModelChange={setSelectedModel}
+                                    side="top"
+                                    className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
+                                    requiresNativePdf={requiresNativePdfForModelSelection}
+                                />
+                            )}
+
+                            {modelSupportsImageSizing && (
+                                <AspectRatioSelector selectedModel={selectedModel} />
+                            )}
+
+                            {modelSupportsImageResolution && (
+                                <ImageResolutionSelector selectedModel={selectedModel} />
+                            )}
+
+                            {!isImageModel && (
+                                <>
                                     <Button
                                         type="button"
-                                        variant="secondary"
+                                        variant="ghost"
                                         size="icon"
-                                        onClick={() => removeAddedFile(file)}
-                                        title="Remove attachment from message"
-                                        className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-                                        style={{ borderRadius: "var(--radius-xl)" }}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                        style={{ borderRadius: "var(--radius-md)" }}
+                                        title="Attach files"
                                     >
-                                        <X className="size-3.5" />
+                                        {uploading ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : (
+                                            <Paperclip className="-rotate-45 size-4" />
+                                        )}
                                     </Button>
-                                </div>
-                            )
-                        })}
-                    </div>
-                )}
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        onChange={handleFileChange}
+                                        className="hidden"
+                                        accept={getFileAcceptAttribute(modelSupportsVision)}
+                                    />
+                                    <ToolSelectorPopover
+                                        threadId={threadId}
+                                        enabledTools={enabledTools}
+                                        onEnabledToolsChange={setEnabledTools}
+                                        modelSupportsFunctionCalling={modelSupportsFunctionCalling}
+                                    />
+                                    <ReasoningEffortSelector selectedModel={selectedModel} />
+                                </>
+                            )}
+                        </div>
 
-                <div className="flex items-center justify-between gap-2 border-border/70 border-t pt-3">
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                        {selectedModel && (
-                            <ModelSelector
-                                selectedModel={selectedModel}
-                                onModelChange={setSelectedModel}
-                                side="top"
-                                className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
-                                requiresNativePdf={requiresNativePdfForModelSelection}
-                            />
-                        )}
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={requestCancel}
+                                className="size-8 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80 hover:text-destructive"
+                                style={{ borderRadius: "var(--radius-md)" }}
+                                title="Cancel edit"
+                                aria-label="Cancel edit"
+                            >
+                                <PenOff className="size-4" />
+                            </Button>
 
-                        {modelSupportsImageSizing && (
-                            <AspectRatioSelector selectedModel={selectedModel} />
-                        )}
-
-                        {modelSupportsImageResolution && (
-                            <ImageResolutionSelector selectedModel={selectedModel} />
-                        )}
-
-                        {!isImageModel && (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={uploading}
-                                    className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
-                                    style={{ borderRadius: "var(--radius-md)" }}
-                                    title="Attach files"
-                                >
-                                    {uploading ? (
-                                        <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                        <Paperclip className="-rotate-45 size-4" />
-                                    )}
-                                </Button>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    accept={getFileAcceptAttribute(modelSupportsVision)}
-                                />
-                                <ToolSelectorPopover
-                                    threadId={threadId}
-                                    enabledTools={enabledTools}
-                                    onEnabledToolsChange={setEnabledTools}
-                                    modelSupportsFunctionCalling={modelSupportsFunctionCalling}
-                                />
-                                <ReasoningEffortSelector selectedModel={selectedModel} />
-                            </>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
-                                    style={{ borderRadius: "var(--radius-md)" }}
-                                    title="More options"
-                                >
-                                    <MoreHorizontal className="size-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onClick={onCancel}
-                                    className="cursor-pointer text-destructive"
-                                >
-                                    <X className="mr-2 size-4" /> Cancel Edit
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <Button
-                            size="icon"
-                            className="size-8 shrink-0"
-                            style={{ borderRadius: "var(--radius-md)" }}
-                            onClick={handleSave}
-                            disabled={uploading}
-                            title="Send"
-                        >
-                            <ArrowUp className="size-5" />
-                        </Button>
+                            <Button
+                                size="icon"
+                                className="size-8 shrink-0"
+                                style={{ borderRadius: "var(--radius-md)" }}
+                                onClick={handleSave}
+                                disabled={uploading}
+                                title="Send"
+                            >
+                                <ArrowUp className="size-5" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+
+                <AlertDialog open={showCancelConfirmation} onOpenChange={setShowCancelConfirmation}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Discard edit?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Your message changes will be lost if you cancel now.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleConfirmCancel}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                Discard changes
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </>
         )
     }
 )
