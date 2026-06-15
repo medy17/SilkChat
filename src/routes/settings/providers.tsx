@@ -1,3 +1,4 @@
+import { Logo } from "@/components/logo"
 import { BYOKSearchProviderCard } from "@/components/settings/search-provider-card"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
@@ -34,7 +35,6 @@ import {
     shouldShowCoreInferenceProvider,
     useAvailableModels
 } from "@/lib/models-providers-shared"
-import Logo from "@/logo.svg"
 import { useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
@@ -760,7 +760,7 @@ export function ProvidersSettingsContent() {
                     <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                             <div className="flex size-8 items-center justify-center rounded-lg">
-                                <Logo />
+                                <Logo className="size-6" />
                             </div>
                             <div>
                                 <h4 className="font-semibold text-sm">SilkChat Built-in</h4>

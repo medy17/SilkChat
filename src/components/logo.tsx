@@ -1,6 +1,5 @@
 import SilkchatLogo from "@/assets/silkchat.svg"
 import SilkscreenLogo from "@/assets/silkscreen.svg"
-import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import React from "react"
 
@@ -14,29 +13,26 @@ export const LogoPath = ({ fill }: { fill: string }) => (
 export const LogoSymbol = ({ className }: { className?: string }) => {
     return (
         <svg
-            viewBox="0 0 2200 2200"
+            viewBox="0 0 1507.45 1499.99"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             className={className}
         >
-            <g transform="translate(346, 350)">
-                <LogoPath fill={"currentColor"} />
-            </g>
+            <LogoPath fill={"currentColor"} />
         </svg>
     )
 }
 
-export function Logo() {
-    const { themeState } = useThemeStore()
-    const styles = themeState.cssVars[themeState.currentMode]
-
-    const logoFg = styles.foreground
-
+export function Logo({ className }: { className?: string }) {
     return (
-        <svg viewBox="0 0 2200 2200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(346, 350)">
-                <LogoPath fill={logoFg} />
-            </g>
+        <svg
+            viewBox="0 0 1507.45 1499.99"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={cn("size-full text-foreground", className)}
+            style={{ color: "var(--foreground)" }}
+        >
+            <LogoPath fill="currentColor" />
         </svg>
     )
 }
