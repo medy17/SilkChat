@@ -98,7 +98,7 @@ As long as the domain is verified and the sender is allowed by your Resend setup
 
 ### 5. Set app environment variables
 
-In local `.env.local`:
+In local `envs/.env.local`:
 
 ```bash
 EMAIL_PROVIDER=resend

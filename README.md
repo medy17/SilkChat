@@ -19,7 +19,7 @@ This repository is the source of truth for setup and model/provider changes. The
 bun install
 ```
 
-2. Copy `.env.example` to `.env.local` and fill in the values you actually need.
+2. Copy `.env.example` to `envs/.env.local` and fill in the values you actually need.
 
 3. One-time local setup (starts Docker services and prompts for local Convex):
 
@@ -56,19 +56,51 @@ bun run local:app
 The app runs at `http://localhost:3000`.
 Plain `bun run dev` bypasses the optimizer helper and loads generated images directly from `VITE_R2_PUBLIC_BASE_URL`.
 
-## Push To Cloud Dev
+## Local App With Cloud Dev Convex
 
-When local iteration is done and you want to push Convex functions to cloud dev
-(`knowing-falcon-519`) without changing your local setup:
+Use this when you want local UI iteration, but cloud-hosted Convex data that
+follows you between machines.
+
+Create a cloud dev deployment:
+
+```bash
+bunx convex deployment create dev/cloud-dev --type dev
+```
+
+Then create `envs/.env.cloud-dev`:
+
+```bash
+CLOUD_DEV_CONVEX_DEPLOYMENT="dev:your-cloud-dev-deployment"
+CLOUD_DEV_CONVEX_URL="https://your-cloud-dev-deployment.convex.cloud"
+CLOUD_DEV_CONVEX_API_URL="https://your-cloud-dev-deployment.convex.site"
+CLOUD_DEV_CONVEX_SITE_URL="https://your-cloud-dev-deployment.convex.site"
+```
+
+Run the local app against that cloud dev deployment:
+
+```bash
+bun run cloud:dev:app
+```
+
+Push Convex functions to that cloud dev deployment:
 
 ```bash
 bun run cloud:dev:push
 ```
 
-This script is cross-platform (Windows/macOS/Linux).
-It also restores your original `.env.local` after the push so local mode is not overwritten.
+## Push To Staging
 
-`cloud:dev:push` only pushes code. It does not need any extra auth step on every run.
+When local iteration is done and you want to push Convex functions to staging
+(`knowing-falcon-519`) without changing your local setup:
+
+```bash
+bun run staging:push
+```
+
+This script is cross-platform (Windows/macOS/Linux).
+It also cleans up any root `.env.local` that Convex CLI creates while pushing.
+
+`staging:push` only pushes code. It does not need any extra auth step on every run.
 The only time you need to refresh `JWKS` is when you create a brand new Convex
 deployment instance or intentionally rotate Better Auth keys for an existing one.
 
@@ -84,9 +116,30 @@ Remove-Item Env:CONVEX_DEPLOYMENT
 CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disable --typecheck disable
 ```
 
+## Push To Production
+
+Production Convex deploys use `envs/.env.convex.prod`, which should point at the
+actual production deployment:
+
+```bash
+CONVEX_DEPLOYMENT="prod:fearless-bobcat-351"
+```
+
+Preview the target without deploying:
+
+```bash
+bun run prod:push -- --dry-run
+```
+
+Push Convex functions to production:
+
+```bash
+bun run prod:push
+```
+
 ## Local WS Troubleshooting
 
-If you see websocket errors like `ws://127.0.0.1:3210/... code 1006`, check `CONVEX_DEPLOYMENT` in `.env.local`.
+If you see websocket errors like `ws://127.0.0.1:3210/... code 1006`, check `CONVEX_DEPLOYMENT` in `envs/.env.local`.
 It must start with `local:` when running `bun run local:dev`.
 Local scripts also pass `--local-force-upgrade` to avoid blocking upgrade prompts in non-interactive terminals.
 
@@ -96,23 +149,41 @@ The repo uses two different runtime environments.
 
 ### Vercel environment
 
-These variables are read by the web app and Better Auth:
+These variables are read by the Vercel app/server runtime:
 
-- `BETTER_AUTH_SECRET`
+- `ARTIFICIAL_ANALYSIS_API_KEY`
 - `VITE_BETTER_AUTH_URL`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM`
 - `RESEND_API_KEY`
 - `VITE_CONVEX_URL`
 - `VITE_CONVEX_API_URL`
+- `VITE_CONVEX_SITE_URL`
 - `VITE_ENABLED_INTERNAL_PROVIDERS`
 - `VITE_ENABLE_VOICE_INPUT`
 
 ### Convex environment
 
 These variables are read by Convex actions and HTTP routes:
+
+- `BETTER_AUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `JWKS`
+- `VITE_BETTER_AUTH_URL`
+- model provider secrets
+- search provider secrets
+- storage credentials
+- streaming credentials
+- billing webhook secrets
+- credit configuration
+- `ENCRYPTION_KEY`
+
+Use `envs/.env.convex` as the source file for Convex runtime envs:
+
+```bash
+bun run env:convex:prod:push
+```
 
 - `OPENAI_API_KEY`
 - `OPENROUTER_API_KEY` for routing internal text models through OpenRouter
@@ -180,9 +251,9 @@ See [MODEL_PROVIDER_GUIDE.md](./MODEL_PROVIDER_GUIDE.md) for the rules behind th
 
 - Use the local loop first. Do not debug auth or model changes by waiting on repeated Vercel builds unless the bug only reproduces in production.
 - Better Auth and Convex are coupled through the proxied `/api/auth/*` surface, especially `/api/auth/convex/jwks`, so auth changes are never just a UI concern.
-- `JWKS` is deployment-instance state, not per-push state. For the current cloud
-  dev deployment (`dev:knowing-falcon-519`), normal pushes remain just:
+- `JWKS` is deployment-instance state, not per-push state. For the current
+  staging deployment (`dev:knowing-falcon-519`), normal pushes remain just:
 
 ```bash
-bun run cloud:dev:push
+bun run staging:push
 ```

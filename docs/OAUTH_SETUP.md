@@ -4,7 +4,7 @@ This app currently uses Better Auth with Google OAuth plus email OTP. Better Aut
 
 ## Required Environment Variables
 
-These belong in the Vercel app environment, or in `.env.local` for local development.
+Auth secrets belong in the Convex environment, while `VITE_CONVEX_*` values belong in the app/Vercel environment. For local development, put the needed values in `envs/.env.local`.
 
 ```bash
 BETTER_AUTH_SECRET=replace-with-a-stable-secret
@@ -14,7 +14,7 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 VITE_CONVEX_URL=https://your-convex-deployment.convex.cloud
-VITE_CONVEX_API_URL=https://your-convex-deployment.convex.cloud/http
+VITE_CONVEX_API_URL=https://your-convex-deployment.convex.site
 VITE_CONVEX_SITE_URL=https://your-convex-deployment.convex.site
 ```
 
@@ -31,7 +31,7 @@ VITE_CONVEX_SITE_URL=https://your-convex-deployment.convex.site
 
 ## Local Auth Loop
 
-1. Copy `.env.example` to `.env.local`.
+1. Copy `.env.example` to `envs/.env.local`.
 2. Set `VITE_BETTER_AUTH_URL=http://localhost:3000`.
 3. Set `VITE_CONVEX_SITE_URL` to your local or deployed Convex site URL.
 4. Run:

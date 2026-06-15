@@ -30,7 +30,7 @@ docker compose up -d
 
 ### Recommended flow
 
-1. Copy `.env.example` to `.env.local`.
+1. Copy `.env.example` to `envs/.env.local`.
 2. Fill in the variables you need.
 3. Use local app + local Convex URLs:
 
@@ -41,7 +41,7 @@ VITE_CONVEX_API_URL=http://127.0.0.1:3210/http
 VITE_CONVEX_SITE_URL=http://127.0.0.1:3211
 ```
 
-4. Keep `CONVEX_DEPLOY_KEY` out of `.env.local` for local development to avoid accidentally targeting cloud deployments.
+4. Keep `CONVEX_DEPLOY_KEY` out of `envs/.env.local` for local development to avoid accidentally targeting cloud deployments.
 5. Run one-time local setup:
 
 ```bash
@@ -61,12 +61,44 @@ bun run local:convex
 bun run local:app
 ```
 
-### Push local code to cloud dev (`knowing-falcon-519`)
+### Local app + cloud dev Convex
+
+Use this when you want Convex data to live in the cloud instead of being tied to
+one machine's local deployment.
+
+Create a cloud dev deployment once:
+
+```bash
+bunx convex deployment create dev/cloud-dev --type dev
+```
+
+Create `envs/.env.cloud-dev`:
+
+```bash
+CLOUD_DEV_CONVEX_DEPLOYMENT="dev:your-cloud-dev-deployment"
+CLOUD_DEV_CONVEX_URL="https://your-cloud-dev-deployment.convex.cloud"
+CLOUD_DEV_CONVEX_API_URL="https://your-cloud-dev-deployment.convex.site"
+CLOUD_DEV_CONVEX_SITE_URL="https://your-cloud-dev-deployment.convex.site"
+```
+
+Run the local app against cloud dev:
+
+```bash
+bun run cloud:dev:app
+```
+
+Push Convex code to cloud dev:
+
+```bash
+bun run cloud:dev:push
+```
+
+### Push local code to staging (`knowing-falcon-519`)
 
 Preferred (cross-platform):
 
 ```bash
-bun run cloud:dev:push
+bun run staging:push
 ```
 
 This only pushes code to the existing Convex deployment. It does not require an
@@ -89,12 +121,39 @@ Remove-Item Env:CONVEX_DEPLOYMENT
 CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disable --typecheck disable
 ```
 
-These push Convex functions to cloud dev but keep your local default unchanged.
+These push Convex functions to staging but keep your local default unchanged.
 
-If you still hit `ws://127.0.0.1:3210/... code 1006` afterward, verify `.env.local` has:
+### Push Convex code to production (`fearless-bobcat-351`)
+
+Production deploys use `envs/.env.convex.prod`:
+
+```bash
+CONVEX_DEPLOYMENT="prod:fearless-bobcat-351"
+```
+
+Dry-run first:
+
+```bash
+bun run prod:push -- --dry-run
+```
+
+Then deploy:
+
+```bash
+bun run prod:push
+```
+
+If you still hit `ws://127.0.0.1:3210/... code 1006` afterward, verify `envs/.env.local` has:
 
 ```bash
 CONVEX_DEPLOYMENT=local:...
+```
+
+Convex runtime environment values live in `envs/.env.convex`. Push them
+explicitly:
+
+```bash
+bun run env:convex:prod:push
 ```
 
 Then run:
@@ -112,7 +171,8 @@ Use a local app first. Repeated Vercel builds are too slow for auth and provider
 Good local loops:
 
 - local app + local Convex dev
-- local app + an existing Convex cloud dev deployment
+- local app + cloud dev Convex
+- local app + the Convex staging deployment
 
 Only switch back to Vercel when you already have a likely fix.
 

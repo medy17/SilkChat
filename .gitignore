@@ -49,3 +49,7 @@ test-*.html
 test-*.tsx
 
 .vscode/
+
+backups/
+backup/
+convex-backups/

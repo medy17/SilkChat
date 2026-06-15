@@ -10,7 +10,7 @@ export function loadServerEnv() {
 
     const cwd = process.cwd()
     dotenv.config({
-        path: [path.join(cwd, ".env.local"), path.join(cwd, ".env")],
+        path: [path.join(cwd, "envs", ".env.local")],
         override: false,
         quiet: true
     })

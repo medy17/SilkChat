@@ -4,7 +4,7 @@ import path from "node:path"
 import dotenv from "dotenv"
 
 dotenv.config({
-    path: [path.resolve(process.cwd(), ".env.local"), path.resolve(process.cwd(), ".env")],
+    path: [path.resolve(process.cwd(), "envs", ".env.local")],
     override: false,
     quiet: true
 })
@@ -86,7 +86,7 @@ const getSpawnEnv = (overrides = {}) => ({
 })
 
 const ensureLocalDeploymentSelected = () => {
-    const envLocalPath = path.resolve(process.cwd(), ".env.local")
+    const envLocalPath = path.resolve(process.cwd(), "envs", ".env.local")
     if (!existsSync(envLocalPath)) return true
 
     const envLocalContent = readFileSync(envLocalPath, "utf8")
@@ -115,7 +115,7 @@ const syncRequiredLocalConvexEnvVars = () =>
         if (missingEnvVars.length > 0) {
             reject(
                 new Error(
-                    `Missing required local Convex env vars in .env.local: ${missingEnvVars.join(", ")}`
+                    `Missing required local Convex env vars in envs/.env.local: ${missingEnvVars.join(", ")}`
                 )
             )
             return
