@@ -1,7 +1,14 @@
-import SilkchatLogo from "@/assets/silkchat.svg?react"
-import SilkscreenLogo from "@/assets/silkscreen.svg?react"
+import SilkchatLogo from "@/assets/silkchat.svg"
+import SilkscreenLogo from "@/assets/silkscreen.svg"
 import { cn } from "@/lib/utils"
 import React from "react"
+
+const SilkchatLogoComponent = SilkchatLogo as unknown as React.ComponentType<
+    React.SVGProps<SVGSVGElement> & { "aria-label"?: string }
+>
+const SilkscreenLogoComponent = SilkscreenLogo as unknown as React.ComponentType<
+    React.SVGProps<SVGSVGElement> & { "aria-label"?: string }
+>
 
 export const LogoPath = ({ fill }: { fill: string }) => (
     <path
@@ -38,14 +45,14 @@ export function Logo({ className }: { className?: string }) {
 }
 
 export function LogoMark({ className }: { className?: string }) {
-    return React.createElement(SilkchatLogo, {
+    return React.createElement(SilkchatLogoComponent, {
         "aria-label": "Chat Logo",
         className: cn(className, "text-foreground")
     })
 }
 
 export function LibraryLogo({ className }: { className?: string }) {
-    return React.createElement(SilkscreenLogo, {
+    return React.createElement(SilkscreenLogoComponent, {
         "aria-label": "Library Logo",
         className: cn(className, "text-foreground")
     })
