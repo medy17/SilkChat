@@ -115,7 +115,7 @@ describe("API routes", () => {
         expect(prodResponse.status).toBe(404)
 
         process.env.NODE_ENV = "development"
-        getSessionMock.mockResolvedValueOnce({ id: "user-1" })
+        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
         const invalidPlanResponse = await devCreditPlanHandlers.POST!({
             request: new Request("https://example.com/api/dev/credit-plan", {
                 method: "POST",
@@ -131,7 +131,7 @@ describe("API routes", () => {
 
     it("updates the credit plan in development for authenticated users", async () => {
         process.env.NODE_ENV = "development"
-        getSessionMock.mockResolvedValueOnce({ id: "user-1" })
+        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
         fetchAuthMutationMock.mockResolvedValueOnce({
             plan: "free"
         })

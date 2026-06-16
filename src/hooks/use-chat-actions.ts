@@ -5,7 +5,7 @@ import {
     getRetryTargetAssistantConfig,
     resolveAssistantConfigOverride
 } from "@/lib/assistant-config"
-import { type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useModelStore } from "@/lib/model-store"
 import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useNavigate } from "@tanstack/react-router"
@@ -299,7 +299,7 @@ export function useChatActions<TMessage extends UIMessage>({
                         setTargetMode("normal")
                         setPendingBranchHydration({
                             threadId: result.threadId,
-                            messages: branchMessages
+                            messages: branchMessages as ChatMessage[]
                         })
                     })
 

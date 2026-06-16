@@ -21,7 +21,7 @@ const Paragraph = ({
     const visibleChildren = renderedChildren.filter((child) => child !== null && child !== "")
 
     if (visibleChildren.length === 1 && isValidElement(visibleChildren[0])) {
-        const childProps = visibleChildren[0].props
+        const childProps = visibleChildren[0].props as { node?: unknown; "data-block"?: unknown }
         const node = childProps && typeof childProps === "object" ? childProps.node : undefined
         const tagName =
             node && typeof node === "object" && "tagName" in node ? node.tagName : undefined

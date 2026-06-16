@@ -16,6 +16,7 @@ import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic"
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google"
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
+import type { SharedV3ProviderOptions } from "@ai-sdk/provider"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
@@ -62,6 +63,12 @@ import { buildPrompt } from "./prompt"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     extraBody?: Record<string, unknown>
+    plugins?: Array<{
+        id: string
+        pdf?: {
+            engine: string
+        }
+    }>
 }
 
 const DEFAULT_REASONING_PROFILES: ModelReasoningProfiles = {
@@ -1357,7 +1364,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 : []),
                             ...mapped_messages
                         ],
-                        providerOptions: usesOpenRouter
+                        providerOptions: (usesOpenRouter
                             ? {
                                   openrouter: buildOpenRouterProviderOptions(
                                       modelData.modelId,
@@ -1387,7 +1394,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                       effectiveReasoningEffort,
                                       reasoningProfiles
                                   )
-                              }
+                              }) as SharedV3ProviderOptions
                     })
 
                     const transformedStream = result.fullStream.pipeThrough(

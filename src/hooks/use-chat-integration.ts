@@ -5,7 +5,7 @@ import type { SharedThread, Thread } from "@/convex/schema"
 import { useAutoResume } from "@/hooks/use-auto-resume"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
-import { useChatStore } from "@/lib/chat-store"
+import { type ChatMessage, useChatStore } from "@/lib/chat-store"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
@@ -169,26 +169,6 @@ export function useChatIntegration<IsShared extends boolean>({
     isShared?: IsShared
     folderId?: Id<"projects">
 }) {
-    type ChatMessage = UIMessage<{
-        modelId?: string
-        modelName?: string
-        displayProvider?: string
-        runtimeProvider?: string
-        reasoningEffort?: ReasoningEffort
-        promptTokens?: number
-        completionTokens?: number
-        reasoningTokens?: number
-        totalTokens?: number
-        estimatedCostUsd?: number
-        estimatedPromptCostUsd?: number
-        estimatedCompletionCostUsd?: number
-        serverDurationMs?: number
-        timeToFirstVisibleMs?: number
-        threadId?: string
-        streamId?: string
-        modelIdOverride?: string
-        reasoningEffortOverride?: ReasoningEffort
-    }>
     type StreamRenderPhase = "idle" | "pre-first-paint" | "post-first-paint"
 
     const auth = useConvexAuth()

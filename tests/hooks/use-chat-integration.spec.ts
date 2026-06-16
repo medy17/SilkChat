@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { ChatMessage } from "@/lib/chat-store"
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -405,7 +406,7 @@ describe("useChatIntegration", () => {
     })
 
     it("uses pending branch hydration as initial messages before backend messages load", () => {
-        const branchMessages = [
+        const branchMessages: ChatMessage[] = [
             {
                 id: "user-1",
                 role: "user",

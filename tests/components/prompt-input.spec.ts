@@ -53,12 +53,17 @@ describe("applyPromptTextareaSize", () => {
 })
 
 describe("PromptInputTextarea submit behavior", () => {
+    const promptInputWithTextarea = (
+        props: Omit<React.ComponentProps<typeof PromptInput>, "children">
+    ): React.ComponentProps<typeof PromptInput> => ({
+        ...props,
+        children: React.createElement(PromptInputTextarea)
+    })
+
     it("submits on desktop enter by default", () => {
         const onSubmit = vi.fn()
 
-        render(
-            React.createElement(PromptInput, { onSubmit }, React.createElement(PromptInputTextarea))
-        )
+        render(React.createElement(PromptInput, promptInputWithTextarea({ onSubmit })))
 
         fireEvent.keyDown(screen.getByRole("textbox"), {
             key: "Enter"
@@ -73,8 +78,7 @@ describe("PromptInputTextarea submit behavior", () => {
         render(
             React.createElement(
                 PromptInput,
-                { onSubmit, disableKeyboardSubmit: true },
-                React.createElement(PromptInputTextarea)
+                promptInputWithTextarea({ onSubmit, disableKeyboardSubmit: true })
             )
         )
 

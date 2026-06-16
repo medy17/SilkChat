@@ -418,7 +418,14 @@ describe("createThreadOrInsertMessages", () => {
 describe("branchThread", () => {
     beforeEach(() => {
         aggregateInsertMock.mockReset().mockResolvedValue(undefined)
-        vi.mocked(getUserIdentity).mockReset().mockResolvedValue({ id: "user-1" })
+        vi.mocked(getUserIdentity).mockReset().mockResolvedValue({
+            id: "user-1",
+            authId: "auth-user-1",
+            isAnonymous: false,
+            tokenIdentifier: "token-user-1",
+            subject: "user-1",
+            issuer: "test"
+        })
     })
 
     it("copies the branch prefix in chronological order even when the query returns newest first", async () => {

@@ -14,7 +14,10 @@ type Env = {
 }
 
 export const browserEnv = (key: keyof Env) => {
-    const value = (import.meta as unknown as { env: Env }).env[key]?.trim()
+    const viteEnv = (import.meta as unknown as { env?: Env }).env
+    const processEnv =
+        typeof process !== "undefined" ? (process.env as Partial<Record<keyof Env, string>>) : {}
+    const value = (viteEnv?.[key] ?? processEnv[key])?.trim()
     if (!value) {
         throw new Error(`Missing environment variable(browser): ${key}`)
     }
@@ -22,4 +25,9 @@ export const browserEnv = (key: keyof Env) => {
 }
 
 export const optionalBrowserEnv = (key: keyof Env) =>
-    (import.meta as unknown as { env: Env }).env[key]?.trim()
+    (
+        (import.meta as unknown as { env?: Env }).env?.[key] ??
+        (typeof process !== "undefined"
+            ? (process.env as Partial<Record<keyof Env, string>>)[key]
+            : undefined)
+    )?.trim()

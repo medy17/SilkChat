@@ -2,6 +2,29 @@ import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { create } from "zustand"
 
+export type ChatMessageMetadata = {
+    modelId?: string
+    modelName?: string
+    displayProvider?: string
+    runtimeProvider?: string
+    reasoningEffort?: string
+    promptTokens?: number
+    completionTokens?: number
+    reasoningTokens?: number
+    totalTokens?: number
+    estimatedCostUsd?: number
+    estimatedPromptCostUsd?: number
+    estimatedCompletionCostUsd?: number
+    serverDurationMs?: number
+    timeToFirstVisibleMs?: number
+    threadId?: string
+    streamId?: string
+    modelIdOverride?: string
+    reasoningEffortOverride?: string
+}
+
+export type ChatMessage = UIMessage<ChatMessageMetadata>
+
 export interface UploadedFile {
     key: string
     fileName: string
@@ -27,7 +50,7 @@ export type PendingBranchRetry = {
 
 export type PendingBranchHydration = {
     threadId: string
-    messages: UIMessage[]
+    messages: ChatMessage[]
 }
 
 export type PendingBranchGenerations = Record<string, boolean>

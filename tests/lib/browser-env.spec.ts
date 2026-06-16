@@ -1,8 +1,17 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 
 describe("browser-env", () => {
+    beforeEach(() => {
+        vi.stubEnv("VITE_CONVEX_URL", "https://example.convex.cloud")
+        vi.stubEnv("VITE_CONVEX_API_URL", "https://example.convex.site")
+    })
+
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     it("returns configured browser env values and exposes undefined for optional ones", () => {
         expect(browserEnv("VITE_CONVEX_URL")).toEqual(expect.any(String))
         expect(browserEnv("VITE_CONVEX_URL").length).toBeGreaterThan(0)

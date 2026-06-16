@@ -106,7 +106,7 @@ export const Route = createRootRouteWithContext<{
             {
                 rel: "preconnect",
                 href: "https://fonts.gstatic.com",
-                crossOrigin: "anonymous"
+                crossOrigin: "anonymous" as const
             },
             {
                 rel: "stylesheet",
@@ -117,7 +117,7 @@ export const Route = createRootRouteWithContext<{
                 href: font.href,
                 as: "font",
                 type: font.type,
-                crossOrigin: "anonymous"
+                crossOrigin: "anonymous" as const
             }))
         ]
     }),
