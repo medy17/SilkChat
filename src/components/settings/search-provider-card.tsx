@@ -16,6 +16,15 @@ import { AlertCircle, Check, CheckCircle, Key, RotateCcw, SquarePen, X } from "l
 import { memo, useState } from "react"
 
 type SearchProvider = "firecrawl" | "brave" | "tavily" | "serper"
+type SearchProviderConfig = {
+    enabled: boolean
+    encryptedKey?: string
+    newKey?: string
+    country?: string
+    searchLang?: string
+    safesearch?: string
+    language?: string
+}
 
 // Brave API supported country codes
 const BRAVE_COUNTRIES = [
@@ -260,11 +269,8 @@ type BYOKSearchProviderCardProps = {
         placeholder: string
         icon: React.ComponentType<{ className?: string }> | string
     }
-    currentConfig?: { enabled: boolean; encryptedKey: string } & Record<string, any>
-    onSave: (
-        providerId: string,
-        config: { enabled: boolean; newKey?: string } & Record<string, any>
-    ) => Promise<void>
+    currentConfig?: SearchProviderConfig
+    onSave: (providerId: string, config: SearchProviderConfig) => Promise<void>
     loading: boolean
 }
 
@@ -289,7 +295,7 @@ export const BYOKSearchProviderCard = memo(
 
         const handleSave = async () => {
             try {
-                const config: any = {
+                const config: SearchProviderConfig = {
                     enabled,
                     newKey: rotatingKey || !hasExistingKey ? newKey : undefined
                 }

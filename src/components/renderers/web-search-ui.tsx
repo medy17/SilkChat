@@ -3,6 +3,18 @@ import type { UIToolInvocation } from "ai"
 import { ChevronDown, ExternalLink, Globe, Loader2 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 
+type WebSearchResult = {
+    url?: string
+    title?: string
+    description?: string
+    snippet?: string
+}
+
+type WebSearchToolInvocation = UIToolInvocation<{
+    input: unknown
+    output: unknown | undefined
+}>
+
 function getFaviconUrl(url: string): string {
     try {
         const domain = new URL(url).hostname
@@ -46,14 +58,15 @@ const FaviconWithLoader = memo(({ url }: { url: string }) => {
 })
 
 export const WebSearchToolRenderer = memo(
-    ({ toolInvocation }: { toolInvocation: UIToolInvocation<any> }) => {
+    ({ toolInvocation }: { toolInvocation: WebSearchToolInvocation }) => {
         const [isExpanded, setIsExpanded] = useState(false)
         const contentRef = useRef<HTMLDivElement>(null)
         const innerRef = useRef<HTMLDivElement>(null)
 
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
-        const hasResults = toolInvocation.state === "output-available" && toolInvocation.output
+        const hasResults =
+            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
 
         useEffect(() => {
             if (!contentRef.current || !innerRef.current) return
@@ -125,7 +138,7 @@ export const WebSearchToolRenderer = memo(
                                                     (
                                                         (
                                                             toolInvocation.output as {
-                                                                results?: any[]
+                                                                results?: WebSearchResult[]
                                                             }
                                                         ).results ?? []
                                                     ).length
@@ -167,8 +180,10 @@ export const WebSearchToolRenderer = memo(
                             <div className="relative w-full">
                                 <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border flex gap-4 overflow-x-auto p-4">
                                     {(
-                                        toolInvocation.output as { results?: any[] } | undefined
-                                    )?.results?.map((result: any, index: number) => (
+                                        toolInvocation.output as
+                                            | { results?: WebSearchResult[] }
+                                            | undefined
+                                    )?.results?.map((result, index) => (
                                         <button
                                             key={index}
                                             type="button"

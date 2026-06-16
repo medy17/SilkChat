@@ -169,7 +169,7 @@ export class SerperSearchAdapter implements SearchAdapter {
                     totalContextUsed = this.MAX_CONTEXT_WINDOW
                 }
             } else {
-                const { content, markdown, ...rest } = result as any
+                const { content: _content, markdown: _markdown, ...rest } = result
                 enrichedResults.push(rest)
             }
         }

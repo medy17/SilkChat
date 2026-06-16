@@ -105,7 +105,7 @@ describe("useAutoResume", () => {
     it("waits for resolved thread messages before attempting a resume", () => {
         const experimentalResume = vi.fn()
         const { rerender } = renderHook(
-            (props: { threadMessages?: unknown }) =>
+            (props: { threadMessages?: AutoResumeProps["threadMessages"] }) =>
                 useAutoResume({
                     autoResume: true,
                     threadId: "thread-1",

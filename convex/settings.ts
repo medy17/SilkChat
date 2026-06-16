@@ -20,6 +20,30 @@ import type { SearchProviderType } from "./lib/tools/adapters"
 import type { UserSettings } from "./schema"
 import { NonSensitiveUserSettings, StoredModelAbilitySchema } from "./schema/settings"
 
+type GeneralProviderUpdate = {
+    enabled: boolean
+    newKey?: string
+    country?: string
+    searchLang?: string
+    safesearch?: "off" | "moderate" | "strict"
+    language?: string
+}
+
+type StoredGeneralProvider = {
+    enabled: boolean
+    encryptedKey: string
+}
+
+type BasicGeneralProviderId = "supermemory" | "firecrawl" | "tavily"
+
+const setStoredGeneralProvider = (
+    generalProviders: Infer<typeof UserSettings>["generalProviders"],
+    providerId: BasicGeneralProviderId,
+    provider: StoredGeneralProvider
+) => {
+    generalProviders[providerId] = provider
+}
+
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
     newKey: v.optional(v.string()),
@@ -405,31 +429,37 @@ export const updateUserSettings = mutation({
                         ]
 
                     if (providerId === "brave") {
+                        const braveProviderData = providerData as GeneralProviderUpdate
                         newSettings.generalProviders.brave = {
                             enabled: providerData.enabled,
                             encryptedKey: providerData.newKey
                                 ? await encryptKey(providerData.newKey)
                                 : existingProvider?.encryptedKey || "",
-                            country: (providerData as Record<string, any>).country,
-                            searchLang: (providerData as Record<string, any>).searchLang,
-                            safesearch: (providerData as Record<string, any>).safesearch
+                            country: braveProviderData.country,
+                            searchLang: braveProviderData.searchLang,
+                            safesearch: braveProviderData.safesearch
                         }
                     } else if (providerId === "serper") {
+                        const serperProviderData = providerData as GeneralProviderUpdate
                         newSettings.generalProviders.serper = {
                             enabled: providerData.enabled,
                             encryptedKey: providerData.newKey
                                 ? await encryptKey(providerData.newKey)
                                 : existingProvider?.encryptedKey || "",
-                            language: (providerData as Record<string, any>).language,
-                            country: (providerData as Record<string, any>).country
+                            language: serperProviderData.language,
+                            country: serperProviderData.country
                         }
                     } else {
-                        ;(newSettings.generalProviders as Record<string, any>)[providerId] = {
-                            enabled: providerData.enabled,
-                            encryptedKey: providerData.newKey
-                                ? await encryptKey(providerData.newKey)
-                                : existingProvider?.encryptedKey || ""
-                        }
+                        setStoredGeneralProvider(
+                            newSettings.generalProviders,
+                            providerId as BasicGeneralProviderId,
+                            {
+                                enabled: providerData.enabled,
+                                encryptedKey: providerData.newKey
+                                    ? await encryptKey(providerData.newKey)
+                                    : existingProvider?.encryptedKey || ""
+                            }
+                        )
                     }
                 }
             }
@@ -748,32 +778,38 @@ export const updateUserSettingsPartial = mutation({
                     ]
 
                 if (providerId === "brave") {
+                    const braveUpdate = update as GeneralProviderUpdate
                     newSettings.generalProviders.brave = {
                         enabled: update.enabled,
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
                             : existingProvider?.encryptedKey || "",
-                        country: (update as Record<string, any>).country,
-                        searchLang: (update as Record<string, any>).searchLang,
-                        safesearch: (update as Record<string, any>).safesearch
+                        country: braveUpdate.country,
+                        searchLang: braveUpdate.searchLang,
+                        safesearch: braveUpdate.safesearch
                     }
                 } else if (providerId === "serper") {
+                    const serperUpdate = update as GeneralProviderUpdate
                     newSettings.generalProviders.serper = {
                         enabled: update.enabled,
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
                             : existingProvider?.encryptedKey || "",
-                        language: (update as Record<string, any>).language,
-                        country: (update as Record<string, any>).country
+                        language: serperUpdate.language,
+                        country: serperUpdate.country
                     }
                 } else {
                     // supermemory, firecrawl, tavily
-                    ;(newSettings.generalProviders as Record<string, any>)[providerId] = {
-                        enabled: update.enabled,
-                        encryptedKey: update.newKey
-                            ? await encryptKey(update.newKey)
-                            : existingProvider?.encryptedKey || ""
-                    }
+                    setStoredGeneralProvider(
+                        newSettings.generalProviders,
+                        providerId as BasicGeneralProviderId,
+                        {
+                            enabled: update.enabled,
+                            encryptedKey: update.newKey
+                                ? await encryptKey(update.newKey)
+                                : existingProvider?.encryptedKey || ""
+                        }
+                    )
                 }
             }
         }

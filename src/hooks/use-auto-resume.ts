@@ -11,7 +11,7 @@ export interface AutoResumeProps {
     threadId?: string
     experimental_resume: () => Promise<void> | void
     status?: "idle" | "streaming" | "submitted" | string
-    threadMessages?: any
+    threadMessages?: readonly unknown[] | { error: unknown }
 }
 
 export function useAutoResume({

@@ -21,7 +21,7 @@ import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
-import { httpAction } from "../_generated/server"
+import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
 import {
     resolvePrototypeCreditCharge,
@@ -504,7 +504,7 @@ const fetchPersonaDocumentText = async (key: string) => {
 }
 
 const resolvePersonaSnapshotForRequest = async (
-    ctx: any,
+    ctx: ActionCtx,
     userId: string,
     selection?: PersonaSelection
 ): Promise<CompiledPersonaSnapshot | null | ChatError> => {

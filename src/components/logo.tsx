@@ -1,5 +1,5 @@
-import SilkchatLogo from "@/assets/silkchat.svg"
-import SilkscreenLogo from "@/assets/silkscreen.svg"
+import SilkchatLogo from "@/assets/silkchat.svg?react"
+import SilkscreenLogo from "@/assets/silkscreen.svg?react"
 import { cn } from "@/lib/utils"
 import React from "react"
 
@@ -38,14 +38,14 @@ export function Logo({ className }: { className?: string }) {
 }
 
 export function LogoMark({ className }: { className?: string }) {
-    return React.createElement(SilkchatLogo as any, {
+    return React.createElement(SilkchatLogo, {
         "aria-label": "Chat Logo",
         className: cn(className, "text-foreground")
     })
 }
 
 export function LibraryLogo({ className }: { className?: string }) {
-    return React.createElement(SilkscreenLogo as any, {
+    return React.createElement(SilkscreenLogo, {
         "aria-label": "Library Logo",
         className: cn(className, "text-foreground")
     })

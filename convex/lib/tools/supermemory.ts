@@ -140,11 +140,11 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         }
                     }
 
-                    const memories = response.results.map((result: any) => ({
+                    const memories = response.results.map((result) => ({
                         content: result.content,
                         score: result.score,
                         metadata: result.metadata,
-                        memoryId: result.id,
+                        memoryId: result.documentId,
                         createdAt: result.createdAt
                     }))
 

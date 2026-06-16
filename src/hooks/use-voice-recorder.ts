@@ -77,9 +77,13 @@ const normalizeAudioForTranscription = async (audioBlob: Blob) => {
         return audioBlob
     }
 
-    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext
+    const audioWindow = window as Window & {
+        webkitAudioContext?: typeof AudioContext
+        webkitOfflineAudioContext?: typeof OfflineAudioContext
+    }
+    const AudioContextCtor = window.AudioContext || audioWindow.webkitAudioContext
     const OfflineAudioContextCtor =
-        window.OfflineAudioContext || (window as any).webkitOfflineAudioContext
+        window.OfflineAudioContext || audioWindow.webkitOfflineAudioContext
 
     if (!AudioContextCtor || !OfflineAudioContextCtor) {
         return audioBlob
@@ -339,7 +343,10 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
             mediaStreamRef.current = mediaStream
 
             // Create audio context for visualization only
-            window.AudioContext = window.AudioContext || (window as any).webkitAudioContext
+            const audioWindow = window as Window & {
+                webkitAudioContext?: typeof AudioContext
+            }
+            window.AudioContext = window.AudioContext || audioWindow.webkitAudioContext
             audioContextRef.current = new AudioContext()
 
             if (audioContextRef.current.state === "suspended") {

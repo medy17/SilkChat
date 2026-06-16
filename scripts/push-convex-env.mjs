@@ -37,7 +37,7 @@ const writeMergedEnvFile = (baseFile, overrideFile) => {
     const mergedFile = path.join(tempDir, ".env")
     writeFileSync(
         mergedFile,
-        [baseContent.trimEnd(), overrideContent.trim()].filter(Boolean).join("\n\n") + "\n",
+        `${[baseContent.trimEnd(), overrideContent.trim()].filter(Boolean).join("\n\n")}\n`,
         "utf8"
     )
     return { mergedFile, tempDir }
@@ -73,7 +73,16 @@ const { mergedFile, tempDir } = writeMergedEnvFile(envFile, targetEnvFile)
 
 const child = spawn(
     "bunx",
-    ["convex", "env", "set", "--deployment", deployment.trim(), "--from-file", mergedFile, "--force"],
+    [
+        "convex",
+        "env",
+        "set",
+        "--deployment",
+        deployment.trim(),
+        "--from-file",
+        mergedFile,
+        "--force"
+    ],
     {
         stdio: "inherit",
         shell: process.platform === "win32",

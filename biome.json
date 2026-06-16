@@ -34,7 +34,7 @@
                     "level": "warn",
                     "options": {}
                 },
-                "noExplicitAny": "warn"
+                "noExplicitAny": "error"
             },
             "style": {
                 "noNonNullAssertion": "off",
@@ -65,6 +65,18 @@
             }
         }
     },
+    "overrides": [
+        {
+            "include": ["tests/**"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noExplicitAny": "warn"
+                    }
+                }
+            }
+        }
+    ],
     "javascript": {
         "formatter": {
             "semicolons": "asNeeded",

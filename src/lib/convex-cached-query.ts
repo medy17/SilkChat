@@ -15,7 +15,7 @@ const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
 type CachedItem<
     T,
     IsArray extends boolean = false,
-    ExtraProps extends Record<string, any> = Record<string, never>
+    ExtraProps extends Record<string, unknown> = Record<string, never>
 > = IsArray extends true
     ? T extends readonly unknown[]
         ? (T[number] & ExtraProps)[]
@@ -24,7 +24,7 @@ type CachedItem<
 
 export const useDiskCachedQuery = <
     Query extends FunctionReference<"query">,
-    ExtraProps extends Record<string, any>,
+    ExtraProps extends Record<string, unknown>,
     T = ReturnType<typeof useQuery<Query>>,
     IsArray extends boolean = IsArrayType<T>
 >(
@@ -86,7 +86,7 @@ export const useDiskCachedQuery = <
 }
 
 export const useDiskCachedPaginatedQuery = <
-    ExtraProps extends Record<string, any>,
+    ExtraProps extends Record<string, unknown>,
     Query extends PaginatedQueryReference
 >(
     query: Query,

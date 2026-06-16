@@ -11,8 +11,23 @@ import {
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
+import type { Doc } from "./_generated/dataModel"
+import {
+    type MutationCtx,
+    type QueryCtx,
+    internalMutation,
+    internalQuery,
+    mutation,
+    query
+} from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
+
+type ImageFacetCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">
+type GeneratedImageFacetSnapshot = ReturnType<typeof createEmptyFacetSnapshot>
+type GeneratedImageFacetImage = Pick<
+    Doc<"generatedImages">,
+    "modelId" | "resolution" | "aspectRatio" | "isArchived"
+>
 
 const generatedImageSortValidator = v.union(
     v.literal("relevance"),
@@ -129,20 +144,20 @@ const applyImageToFacetCounts = (
 }
 
 const getFacetSnapshotForImage = (
-    snapshot: ReturnType<typeof createEmptyFacetSnapshot>,
+    snapshot: GeneratedImageFacetSnapshot,
     image: { isArchived?: boolean }
 ) => (image.isArchived === true ? snapshot.archived : snapshot.active)
 
-const getGeneratedImageFacetsDoc = async (ctx: any, userId: string) =>
+const getGeneratedImageFacetsDoc = async (ctx: ImageFacetCtx, userId: string) =>
     await ctx.db
         .query("generatedImageFacets")
-        .withIndex("byUserId", (q: any) => q.eq("userId", userId))
+        .withIndex("byUserId", (q) => q.eq("userId", userId))
         .first()
 
 const patchGeneratedImageFacets = async (
-    ctx: any,
+    ctx: MutationCtx,
     userId: string,
-    update: (snapshot: ReturnType<typeof createEmptyFacetSnapshot>) => void,
+    update: (snapshot: GeneratedImageFacetSnapshot) => void,
     options?: {
         rebuildIfMissing?: boolean
     }
@@ -177,14 +192,7 @@ const patchGeneratedImageFacets = async (
     return await ctx.db.insert("generatedImageFacets", payload)
 }
 
-const buildGeneratedImageFacetSnapshot = (
-    images: Array<{
-        modelId?: string
-        resolution?: string
-        aspectRatio?: string
-        isArchived?: boolean
-    }>
-) => {
+const buildGeneratedImageFacetSnapshot = (images: GeneratedImageFacetImage[]) => {
     const snapshot = createEmptyFacetSnapshot()
     for (const image of images) {
         applyImageToFacetCounts(getFacetSnapshotForImage(snapshot, image), image, 1)
@@ -193,10 +201,10 @@ const buildGeneratedImageFacetSnapshot = (
     return snapshot
 }
 
-const rebuildGeneratedImageFacets = async (ctx: any, userId: string) => {
+const rebuildGeneratedImageFacets = async (ctx: MutationCtx, userId: string) => {
     const images = await ctx.db
         .query("generatedImages")
-        .withIndex("byUserIdAndCreatedAt", (q: any) => q.eq("userId", userId))
+        .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", userId))
         .collect()
 
     const snapshot = buildGeneratedImageFacetSnapshot(images)
@@ -210,7 +218,7 @@ const rebuildGeneratedImageFacets = async (ctx: any, userId: string) => {
 }
 
 const paginateLatestVisibleGeneratedImages = async (
-    ctx: any,
+    ctx: QueryCtx,
     {
         userId,
         paginationOpts,
@@ -229,7 +237,7 @@ const paginateLatestVisibleGeneratedImages = async (
     const result = await ctx.db
         .query("generatedImages")
         .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", userId))
-        .filter((q: any) =>
+        .filter((q) =>
             view === "archived"
                 ? q.eq(q.field("isArchived"), true)
                 : q.neq(q.field("isArchived"), true)

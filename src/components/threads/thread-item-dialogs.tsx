@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { getProjectColorClasses } from "@/lib/project-constants"
+import { type ProjectColorId, getProjectColorClasses } from "@/lib/project-constants"
 import { cn } from "@/lib/utils"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
@@ -288,7 +288,7 @@ export const ThreadItemDialogs = memo(
                                 {/* Folder options */}
                                 {projects.map((project) => {
                                     const colorClasses = getProjectColorClasses(
-                                        project.color as any
+                                        project.color as ProjectColorId | undefined
                                     )
                                     return (
                                         <div

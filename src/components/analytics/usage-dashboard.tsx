@@ -66,7 +66,7 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
         if (!chartData) return []
 
         return chartData.map((day) => {
-            const dayData: Record<string, any> = {
+            const dayData: Record<string, string | number> = {
                 date: day.date,
                 total: day.totalTokens
             }

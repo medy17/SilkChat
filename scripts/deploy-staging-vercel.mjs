@@ -40,7 +40,9 @@ const run = (command, args, options = {}) =>
     })
 
 if (stagingDomains.length === 0) {
-    console.error("Missing staging domains. Set STAGING_VERCEL_DOMAINS or update the script default.")
+    console.error(
+        "Missing staging domains. Set STAGING_VERCEL_DOMAINS or update the script default."
+    )
     process.exit(1)
 }
 

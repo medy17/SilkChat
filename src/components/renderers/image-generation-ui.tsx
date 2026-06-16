@@ -5,12 +5,22 @@ import type { UIToolInvocation } from "ai"
 import { AlertCircle } from "lucide-react"
 import { memo, useMemo, useState } from "react"
 
+type ImageGenerationAsset = {
+    imageUrl: string
+}
+
+type ImageGenerationToolInvocation = UIToolInvocation<{
+    input: unknown
+    output: unknown | undefined
+}>
+
 export const ImageGenerationToolRenderer = memo(
-    ({ toolInvocation }: { toolInvocation: UIToolInvocation<any> }) => {
+    ({ toolInvocation }: { toolInvocation: ImageGenerationToolInvocation }) => {
         const { models: sharedModels } = useSharedModels()
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
-        const hasResult = toolInvocation.state === "output-available" && toolInvocation.output
+        const hasResult =
+            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
         const hasError =
             hasResult &&
             typeof toolInvocation.output === "object" &&
@@ -106,7 +116,7 @@ export const ImageGenerationToolRenderer = memo(
             Array.isArray(toolInvocation.output.assets)
         ) {
             const output = toolInvocation.output as {
-                assets: any[]
+                assets: ImageGenerationAsset[]
                 prompt?: string
                 modelId?: string
             }
@@ -142,7 +152,12 @@ const ImageWithErrorHandler = memo(
         prompt,
         modelName,
         cssAspectRatio
-    }: { asset: any; prompt: string; modelName?: string; cssAspectRatio: string }) => {
+    }: {
+        asset: ImageGenerationAsset
+        prompt: string
+        modelName?: string
+        cssAspectRatio: string
+    }) => {
         const [isError, setIsError] = useState(false)
 
         if (isError) {

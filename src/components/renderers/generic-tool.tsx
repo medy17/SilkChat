@@ -4,15 +4,21 @@ import { ChevronDown, Loader2, Wrench } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 import { Codeblock } from "../codeblock"
 
+type GenericToolInvocation = UIToolInvocation<{
+    input: unknown
+    output: unknown
+}>
+
 export const GenericToolRenderer = memo(
-    ({ toolInvocation, toolName }: { toolInvocation: UIToolInvocation<any>; toolName: string }) => {
+    ({ toolInvocation, toolName }: { toolInvocation: GenericToolInvocation; toolName: string }) => {
         const [isExpanded, setIsExpanded] = useState(false)
         const contentRef = useRef<HTMLDivElement>(null)
         const innerRef = useRef<HTMLDivElement>(null)
 
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
-        const hasResults = toolInvocation.state === "output-available" && toolInvocation.output
+        const hasResults =
+            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
 
         useEffect(() => {
             if (!contentRef.current || !innerRef.current) return
@@ -83,12 +89,13 @@ export const GenericToolRenderer = memo(
                                         disable={{ expand: true }}
                                         default={{ wrap: true }}
                                     >
-                                        {JSON.stringify(toolInvocation.input, null, 2)}
+                                        {JSON.stringify(toolInvocation.input, null, 2) ??
+                                            "undefined"}
                                     </Codeblock>
                                 </div>
 
                                 {toolInvocation.state === "output-available" &&
-                                    toolInvocation.output && (
+                                    toolInvocation.output !== undefined && (
                                         <>
                                             <span className="font-medium text-foreground text-sm">
                                                 Result
@@ -99,7 +106,11 @@ export const GenericToolRenderer = memo(
                                                     disable={{ expand: true }}
                                                     default={{ wrap: true }}
                                                 >
-                                                    {JSON.stringify(toolInvocation.output, null, 2)}
+                                                    {JSON.stringify(
+                                                        toolInvocation.output,
+                                                        null,
+                                                        2
+                                                    ) ?? "undefined"}
                                                 </Codeblock>
                                             </div>
                                         </>

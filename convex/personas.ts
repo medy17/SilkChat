@@ -9,8 +9,8 @@ import {
     getBuiltInPersonaById
 } from "@/lib/personas/builtins"
 import { type Infer, v } from "convex/values"
-import type { Id } from "./_generated/dataModel"
-import { internalQuery, mutation, query } from "./_generated/server"
+import type { Doc, Id } from "./_generated/dataModel"
+import { type MutationCtx, internalQuery, mutation, query } from "./_generated/server"
 import { r2 } from "./attachments"
 import { getUserIdentity } from "./lib/identity"
 import { compilePersonaSnapshot } from "./lib/personas"
@@ -90,7 +90,12 @@ const fetchTextFromR2 = async (key: string) => {
     return await response.text()
 }
 
-const ensureOwnedAsset = async (ctx: any, userId: string, key: string, expectedPrefix: string) => {
+const ensureOwnedAsset = async (
+    ctx: MutationCtx,
+    userId: string,
+    key: string,
+    expectedPrefix: string
+) => {
     const metadata = await r2.getMetadata(ctx, key)
 
     if (!metadata) {
@@ -113,7 +118,7 @@ const ensureOwnedAsset = async (ctx: any, userId: string, key: string, expectedP
 }
 
 const resolvePersonaAvatar = async (
-    ctx: any,
+    ctx: MutationCtx,
     userId: string,
     avatar: Infer<typeof PersonaAvatarInput> | null | undefined
 ) => {
@@ -140,7 +145,7 @@ const resolvePersonaAvatar = async (
 }
 
 const resolvePersonaDocs = async (
-    ctx: any,
+    ctx: MutationCtx,
     userId: string,
     docs: Array<Infer<typeof PersonaDocInput>>
 ) => {
@@ -169,7 +174,7 @@ const findAssetReferences = (persona: {
     [persona.avatarKey, ...persona.knowledgeDocs.map((doc) => doc.key)].filter(Boolean) as string[]
 
 const deleteUnreferencedAssets = async (
-    ctx: any,
+    ctx: MutationCtx,
     userId: string,
     candidateKeys: string[],
     excludingPersonaId?: Id<"userPersonas">
@@ -178,13 +183,13 @@ const deleteUnreferencedAssets = async (
 
     const personas = await ctx.db
         .query("userPersonas")
-        .withIndex("byAuthor", (q: any) => q.eq("authorId", userId))
+        .withIndex("byAuthor", (q) => q.eq("authorId", userId))
         .collect()
 
     const referencedKeys = new Set(
         personas
-            .filter((persona: any) => persona._id !== excludingPersonaId)
-            .flatMap((persona: any) => findAssetReferences(persona))
+            .filter((persona) => persona._id !== excludingPersonaId)
+            .flatMap((persona: Doc<"userPersonas">) => findAssetReferences(persona))
     )
 
     await Promise.allSettled(

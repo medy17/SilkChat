@@ -31,7 +31,16 @@ export type FetchedTheme = {
     type: "custom" | "built-in"
 }
 
-export function convertToThemePreset(externalTheme: any): ThemePreset {
+type ExternalTheme = {
+    name?: string
+    cssVars?: {
+        theme?: Record<string, string>
+        light?: Record<string, string>
+        dark?: Record<string, string>
+    }
+}
+
+export function convertToThemePreset(externalTheme: ExternalTheme): ThemePreset {
     if (externalTheme.cssVars) {
         return {
             cssVars: {
@@ -45,7 +54,7 @@ export function convertToThemePreset(externalTheme: any): ThemePreset {
     throw new Error("Unsupported theme format")
 }
 
-export function getThemeName(themeData: any, url: string): string {
+export function getThemeName(themeData: ExternalTheme, url: string): string {
     if (themeData.name) {
         return themeData.name.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
     }

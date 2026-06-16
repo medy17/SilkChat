@@ -4,6 +4,7 @@ import {
     type FieldPaths,
     type FilterBuilder,
     type GenericTableInfo,
+    type PaginationResult,
     paginationOptsValidator
 } from "convex/server"
 import { type Infer, v } from "convex/values"
@@ -25,6 +26,8 @@ import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
 import { HTTPAIMessage, type Message } from "./schema/message"
 import { MessagePart } from "./schema/parts"
+
+type ThreadDoc = Infer<typeof Thread>
 
 const normalizeThreadTitle = (title: string) =>
     title
@@ -1227,8 +1230,8 @@ export const getUserThreadsPaginatedByProject = query({
         const isFirstPage = !paginationOpts.cursor
 
         if (isFirstPage) {
-            let pinnedThreads: any[] = []
-            let regularThreadsResult: any
+            let pinnedThreads: ThreadDoc[] = []
+            let regularThreadsResult: PaginationResult<ThreadDoc>
 
             if (projectId) {
                 // Get pinned threads for specific project

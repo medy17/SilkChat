@@ -16,6 +16,14 @@ interface FirecrawlSearchResponse {
     }>
 }
 
+type FirecrawlSearchRequestBody = {
+    query: string
+    limit: number
+    scrapeOptions?: {
+        formats: string[]
+    }
+}
+
 export interface FirecrawlSearchConfig extends SearchAdapterConfig {
     apiKey: string
     baseUrl?: string
@@ -35,7 +43,7 @@ export class FirecrawlSearchAdapter implements SearchAdapter {
     async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
         const { limit = 5, scrapeContent = false, formats = [] } = options
 
-        const requestBody: any = {
+        const requestBody: FirecrawlSearchRequestBody = {
             query,
             limit
         }
