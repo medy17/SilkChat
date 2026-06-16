@@ -19,42 +19,24 @@ This repository is the source of truth for setup and model/provider changes. The
 bun install
 ```
 
-2. Copy `.env.example` to `envs/.env.local` and fill in the values you actually need.
+2. Copy `.env.example` to `envs/.env.local` and fill in the local/provider values you actually need.
 
-3. One-time local setup (starts Docker services and prompts for local Convex):
+3. Create `envs/.env.cloud-dev` with the cloud dev Convex deployment and R2 public URL.
 
-```bash
-bun run local:setup
-```
-
-4. Start local development (Convex local + app on `localhost:3000`):
+4. Start local development against cloud dev:
 
 ```bash
-bun run local:dev
+bun run dev
 ```
 
-`bun run local:dev` now starts three processes:
+`bun run dev` starts two processes:
 
-- Convex local
 - the Vite app
 - a local Sharp-backed image optimizer that serves mocked `/cdn-cgi/image/...` URLs and caches outputs in `/.optimised-image-cache`
 
-Before running it, set `VITE_R2_PUBLIC_BASE_URL` and `R2_PUBLIC_BASE_URL` to a publicly readable asset base.
-The optimized Library image path now fetches directly from that public asset origin instead of the Convex `/r2` proxy.
-`bun run local:setup` now makes the default local MinIO bucket publicly readable for that purpose.
-
-If you prefer separate terminals:
-
-```bash
-bun run local:convex
-```
-
-```bash
-bun run local:app
-```
+Cloud-dev uploads live in R2, while local browsing uses the optimizer to mock Cloudflare image transforms and avoid spending transform quota during normal iteration.
 
 The app runs at `http://localhost:3000`.
-Plain `bun run dev` bypasses the optimizer helper and loads generated images directly from `VITE_R2_PUBLIC_BASE_URL`.
 
 ## Local App With Cloud Dev Convex
 
@@ -74,6 +56,7 @@ CLOUD_DEV_CONVEX_DEPLOYMENT="dev:your-cloud-dev-deployment"
 CLOUD_DEV_CONVEX_URL="https://your-cloud-dev-deployment.convex.cloud"
 CLOUD_DEV_CONVEX_API_URL="https://your-cloud-dev-deployment.convex.site"
 CLOUD_DEV_CONVEX_SITE_URL="https://your-cloud-dev-deployment.convex.site"
+VITE_R2_PUBLIC_BASE_URL="https://your-cloud-dev-r2-public-host"
 ```
 
 Run the local app against that cloud dev deployment:
@@ -81,6 +64,10 @@ Run the local app against that cloud dev deployment:
 ```bash
 bun run cloud:dev:app
 ```
+
+This starts Vite and the local image optimizer. Cloud-dev uploads live in R2,
+but local browsing uses the optimizer to mock Cloudflare image transforms and
+avoid spending transform quota during normal iteration.
 
 Push Convex functions to that cloud dev deployment:
 
@@ -103,6 +90,16 @@ It also cleans up any root `.env.local` that Convex CLI creates while pushing.
 `staging:push` only pushes code. It does not need any extra auth step on every run.
 The only time you need to refresh `JWKS` is when you create a brand new Convex
 deployment instance or intentionally rotate Better Auth keys for an existing one.
+
+When browser app code or Vercel runtime envs change, deploy a Vercel Preview build
+and alias the staging domains to that Preview deployment:
+
+```bash
+bun run staging:vercel:deploy
+```
+
+This keeps `silkchat-staging.xyz` and `img.silkchat-staging.xyz` on Preview envs
+instead of accidentally serving the production deployment.
 
 Manual overrides:
 
@@ -136,12 +133,6 @@ Push Convex functions to production:
 ```bash
 bun run prod:push
 ```
-
-## Local WS Troubleshooting
-
-If you see websocket errors like `ws://127.0.0.1:3210/... code 1006`, check `CONVEX_DEPLOYMENT` in `envs/.env.local`.
-It must start with `local:` when running `bun run local:dev`.
-Local scripts also pass `--local-force-upgrade` to avoid blocking upgrade prompts in non-interactive terminals.
 
 ## Environment Split
 
@@ -183,6 +174,24 @@ Use `envs/.env.convex` as the source file for Convex runtime envs:
 
 ```bash
 bun run env:convex:prod:push
+```
+
+Target-specific Convex values can override the shared file:
+
+- `envs/.env.convex.staging`
+- `envs/.env.convex.cloud-dev`
+- `envs/.env.convex.production`
+
+For example, staging should set its own auth origin and storage provider values:
+
+```bash
+VITE_BETTER_AUTH_URL="https://silkchat-staging.xyz"
+R2_BUCKET="silkchat-staging"
+R2_ENDPOINT="https://..."
+R2_FORCE_PATH_STYLE="true"
+R2_PUBLIC_BASE_URL="https://r2.silkchat-staging.xyz"
+R2_SECRET_ACCESS_KEY="..."
+R2_ACCESS_KEY_ID="..."
 ```
 
 - `OPENAI_API_KEY`

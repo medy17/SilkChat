@@ -14,57 +14,25 @@ The app is split across three runtime layers:
 
 Convex issues and validates Better Auth JWTs itself. The app keeps `/api/auth/*` stable by proxying that path to the Convex site URL.
 
-## Required Local Services
-
-The included `docker-compose.yml` starts:
-
-- MinIO on `localhost:9000` and console `localhost:9001`
-
-Start them with:
-
-```bash
-docker compose up -d
-```
-
 ## Local Development
 
 ### Recommended flow
 
 1. Copy `.env.example` to `envs/.env.local`.
-2. Fill in the variables you need.
-3. Use local app + local Convex URLs:
+2. Fill in the local/provider values you need.
+3. Create `envs/.env.cloud-dev` for the portable cloud dev deployment.
+4. Run the local app against cloud dev:
 
 ```bash
-VITE_BETTER_AUTH_URL=http://localhost:3000
-VITE_CONVEX_URL=http://127.0.0.1:3210
-VITE_CONVEX_API_URL=http://127.0.0.1:3210/http
-VITE_CONVEX_SITE_URL=http://127.0.0.1:3211
+bun run dev
 ```
 
-4. Keep `CONVEX_DEPLOY_KEY` out of `envs/.env.local` for local development to avoid accidentally targeting cloud deployments.
-5. Run one-time local setup:
-
-```bash
-bun run local:setup
-```
-
-6. Start the local dev loop:
-
-```bash
-bun run local:dev
-```
-
-If you prefer separate terminals:
-
-```bash
-bun run local:convex
-bun run local:app
-```
+This runs the same app path as `bun run cloud:dev:app`.
 
 ### Local app + cloud dev Convex
 
-Use this when you want Convex data to live in the cloud instead of being tied to
-one machine's local deployment.
+Use this when you want fast local UI iteration with Convex data that lives in
+the cloud instead of being tied to one machine's local deployment.
 
 Create a cloud dev deployment once:
 
@@ -79,6 +47,7 @@ CLOUD_DEV_CONVEX_DEPLOYMENT="dev:your-cloud-dev-deployment"
 CLOUD_DEV_CONVEX_URL="https://your-cloud-dev-deployment.convex.cloud"
 CLOUD_DEV_CONVEX_API_URL="https://your-cloud-dev-deployment.convex.site"
 CLOUD_DEV_CONVEX_SITE_URL="https://your-cloud-dev-deployment.convex.site"
+VITE_R2_PUBLIC_BASE_URL="https://your-cloud-dev-r2-public-host"
 ```
 
 Run the local app against cloud dev:
@@ -86,6 +55,10 @@ Run the local app against cloud dev:
 ```bash
 bun run cloud:dev:app
 ```
+
+This starts Vite and the local image optimizer. Cloud-dev uploads live in R2,
+but local browsing uses the optimizer to mock Cloudflare image transforms and
+avoid spending transform quota during normal iteration.
 
 Push Convex code to cloud dev:
 
@@ -123,6 +96,18 @@ CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disabl
 
 These push Convex functions to staging but keep your local default unchanged.
 
+### Deploy the Vercel staging app
+
+When browser app code or Vercel runtime envs change, deploy a Preview build and
+alias the staging domains to that Preview deployment:
+
+```bash
+bun run staging:vercel:deploy
+```
+
+This keeps `silkchat-staging.xyz` and `img.silkchat-staging.xyz` on Preview envs
+instead of accidentally serving the production deployment.
+
 ### Push Convex code to production (`fearless-bobcat-351`)
 
 Production deploys use `envs/.env.convex.prod`:
@@ -143,12 +128,6 @@ Then deploy:
 bun run prod:push
 ```
 
-If you still hit `ws://127.0.0.1:3210/... code 1006` afterward, verify `envs/.env.local` has:
-
-```bash
-CONVEX_DEPLOYMENT=local:...
-```
-
 Convex runtime environment values live in `envs/.env.convex`. Push them
 explicitly:
 
@@ -156,13 +135,25 @@ explicitly:
 bun run env:convex:prod:push
 ```
 
-Then run:
+Use target-specific Convex override files for values that differ by environment:
+
+- `envs/.env.convex.staging`
+- `envs/.env.convex.cloud-dev`
+- `envs/.env.convex.production`
+
+For staging auth and storage, `envs/.env.convex.staging` should include:
 
 ```bash
-bun run local:convex:configure
+VITE_BETTER_AUTH_URL="https://silkchat-staging.xyz"
+R2_BUCKET="silkchat-staging"
+R2_ENDPOINT="https://..."
+R2_FORCE_PATH_STYLE="true"
+R2_PUBLIC_BASE_URL="https://r2.silkchat-staging.xyz"
+R2_SECRET_ACCESS_KEY="..."
+R2_ACCESS_KEY_ID="..."
 ```
 
-The local scripts use `--local-force-upgrade`, so Convex backend upgrade prompts do not block non-interactive terminals.
+Then push the appropriate target-specific envs with the matching `env:convex:*:push` script.
 
 ### Fastest debug loop
 
@@ -170,7 +161,6 @@ Use a local app first. Repeated Vercel builds are too slow for auth and provider
 
 Good local loops:
 
-- local app + local Convex dev
 - local app + cloud dev Convex
 - local app + the Convex staging deployment
 
