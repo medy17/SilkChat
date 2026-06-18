@@ -1,0 +1,3 @@
+# Normalize line endings: store LF in the repo and check out LF everywhere,
+# so working trees stay consistent regardless of core.autocrlf settings.
+* text=auto eol=lf
