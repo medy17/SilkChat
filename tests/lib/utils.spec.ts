@@ -24,13 +24,11 @@ describe("copyImageUrlToClipboard", () => {
 
         vi.stubGlobal(
             "fetch",
-            vi.fn().mockResolvedValue(
-                new Response(new Blob(["png"], { type: "image/png" }), {
-                    headers: {
-                        "content-type": "image/png"
-                    }
-                })
-            )
+            vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                blob: async () => new Blob(["png"], { type: "image/png" })
+            })
         )
         vi.stubGlobal("navigator", {
             clipboard: {
@@ -69,13 +67,11 @@ describe("copyImageUrlToClipboard", () => {
 
         vi.stubGlobal(
             "fetch",
-            vi.fn().mockResolvedValue(
-                new Response(new Blob(["jpeg"], { type: "image/jpeg" }), {
-                    headers: {
-                        "content-type": "image/jpeg"
-                    }
-                })
-            )
+            vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                blob: async () => new Blob(["jpeg"], { type: "image/jpeg" })
+            })
         )
         vi.stubGlobal("navigator", {
             clipboard: {
