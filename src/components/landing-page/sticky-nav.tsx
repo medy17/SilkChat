@@ -16,11 +16,12 @@ interface StickyNavProps {
 const navSections = [
     { id: "hero", label: "Hero" },
     { id: "providers", label: "Models" },
+    { id: "model-selector", label: "Selector" },
     { id: "features", label: "Features" },
     { id: "artifacts", label: "Artifacts" },
-    { id: "model-selector", label: "Selector" },
-    { id: "testimonials", label: "Testimonials" },
+    { id: "gallery", label: "Gallery" },
     { id: "workflows", label: "Workflows" },
+    { id: "testimonials", label: "Testimonials" },
     { id: "pricing", label: "Pricing" },
     { id: "privacy", label: "Privacy" },
     { id: "start", label: "Get Started" }

@@ -9,10 +9,11 @@ import "./masonry.css"
 type MasonryItem = {
     id: string
     img: string
-    url: string
+    url?: string
     width?: number
     height: number
     columns?: number
+    label?: string
 }
 
 type GridItem = MasonryItem & {
@@ -32,6 +33,7 @@ type MasonryProps = {
     hoverScale?: number
     blurToFocus?: boolean
     colorShiftOnHover?: boolean
+    onItemClick?: (item: MasonryItem) => void
 }
 
 const useMedia = (queries: string[], values: number[], defaultValue: number): number => {
@@ -100,7 +102,8 @@ export function Masonry({
     scaleOnHover = true,
     hoverScale = 0.95,
     blurToFocus = true,
-    colorShiftOnHover = false
+    colorShiftOnHover = false,
+    onItemClick
 }: MasonryProps) {
     const queries = useMemo(
         () => [
@@ -115,6 +118,7 @@ export function Masonry({
     const columns = useMedia(queries, columnValues, 1)
     const [containerRef, { width }] = useMeasure<HTMLDivElement>()
     const [imagesReady, setImagesReady] = useState(false)
+    const [hasEnteredView, setHasEnteredView] = useState(false)
     const hasMounted = useRef(false)
 
     const getInitialPosition = useCallback(
@@ -158,6 +162,34 @@ export function Masonry({
         preloadImages(items.map((item) => item.img)).then(() => setImagesReady(true))
     }, [items])
 
+    // Defer the entrance animation until the grid first scrolls into view, so the
+    // slide-up plays for the user instead of finishing off-screen on mount.
+    useEffect(() => {
+        const node = containerRef.current
+
+        if (!node) {
+            return
+        }
+
+        if (typeof IntersectionObserver === "undefined") {
+            setHasEnteredView(true)
+            return
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    setHasEnteredView(true)
+                    observer.disconnect()
+                }
+            },
+            { threshold: 0.15 }
+        )
+
+        observer.observe(node)
+        return () => observer.disconnect()
+    }, [containerRef])
+
     const grid = useMemo<GridItem[]>(() => {
         if (!width) {
             return []
@@ -191,8 +223,19 @@ export function Masonry({
         })
     }, [columns, items, width])
 
+    const containerHeight = useMemo(
+        () => grid.reduce((max, item) => Math.max(max, item.y + item.h), 0),
+        [grid]
+    )
+
     useLayoutEffect(() => {
         if (!imagesReady) {
+            return
+        }
+
+        // Hold the items hidden until the grid enters the viewport; otherwise the
+        // entrance would animate (and settle) while still scrolled out of sight.
+        if (!hasMounted.current && !hasEnteredView) {
             return
         }
 
@@ -235,7 +278,16 @@ export function Masonry({
         })
 
         hasMounted.current = true
-    }, [grid, imagesReady, stagger, getInitialPosition, blurToFocus, duration, ease])
+    }, [
+        grid,
+        imagesReady,
+        hasEnteredView,
+        stagger,
+        getInitialPosition,
+        blurToFocus,
+        duration,
+        ease
+    ])
 
     const handleMouseEnter = (event: React.MouseEvent, item: GridItem) => {
         const selector = `[data-masonry-key="${item.id}"]`
@@ -284,14 +336,27 @@ export function Masonry({
     }
 
     return (
-        <div ref={containerRef} className="react-bits-masonry">
+        <div
+            ref={containerRef}
+            className="react-bits-masonry"
+            style={{ height: containerHeight || undefined }}
+        >
             {grid.map((item) => (
                 <button
                     key={item.id}
                     type="button"
                     data-masonry-key={item.id}
                     className="react-bits-masonry-item"
-                    onClick={() => window.open(item.url, "_blank", "noopener")}
+                    onClick={() => {
+                        if (onItemClick) {
+                            onItemClick(item)
+                            return
+                        }
+
+                        if (item.url) {
+                            window.open(item.url, "_blank", "noopener")
+                        }
+                    }}
                     onMouseEnter={(event) => handleMouseEnter(event, item)}
                     onMouseLeave={(event) => handleMouseLeave(event, item)}
                 >

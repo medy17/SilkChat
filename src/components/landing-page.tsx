@@ -7,6 +7,7 @@ import { CtaSection } from "./landing-page/cta-section"
 import { FeaturesSection } from "./landing-page/features-section"
 import { FooterSection } from "./landing-page/footer-section"
 import { HeroSection } from "./landing-page/hero-section"
+import { ImageGallerySection } from "./landing-page/image-gallery-section"
 import { ModelSelectorSection } from "./landing-page/model-selector-section"
 import { PricingSection } from "./landing-page/pricing-section"
 import { ProvidersSection } from "./landing-page/providers-section"
@@ -78,11 +79,12 @@ export function LandingPage() {
                 <main>
                     <HeroSection />
                     <ProvidersSection />
+                    <ModelSelectorSection />
                     <FeaturesSection />
                     <ArtifactsSection />
-                    <ModelSelectorSection />
-                    <SocialProofSection />
+                    <ImageGallerySection />
                     <UseCasesSection />
+                    <SocialProofSection />
                     <PricingSection />
                     <SecuritySection />
                     <CtaSection />

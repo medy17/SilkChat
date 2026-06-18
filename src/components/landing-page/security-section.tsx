@@ -10,7 +10,7 @@ export function SecuritySection() {
     return (
         <section id="privacy" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead centered eyebrow="Open source" title="Audit it. Host it. Fork it.">
+                <SectionHead centered title="Audit it. Host it. Fork it.">
                     SilkChat is built for privacy and transparency. Use your own keys, review the
                     source, and keep provider-level retention under your control.
                 </SectionHead>

@@ -40,7 +40,13 @@ export function SectionHead({
     return (
         <div className={cn("mb-14 max-w-3xl", centered && "mx-auto text-center")}>
             {eyebrow ? (
-                <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] [color:var(--landing-muted-faint)]">
+                <div
+                    className={cn(
+                        "mb-4 flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.14em] [color:var(--landing-muted-soft)]",
+                        centered && "justify-center"
+                    )}
+                >
+                    <span className="h-px w-6 [background:var(--landing-border-strong)]" />
                     {eyebrow}
                 </div>
             ) : null}

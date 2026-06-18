@@ -23,8 +23,25 @@
     background-color: var(--background);
     background-position: center center;
     background-repeat: no-repeat;
-    background-size: contain;
+    background-size: cover;
     box-shadow: var(--shadow-2xl);
+}
+
+.react-bits-masonry-label {
+    position: absolute;
+    bottom: 0.875rem;
+    left: 0.875rem;
+    z-index: 1;
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklab, var(--background) 72%, transparent);
+    backdrop-filter: blur(8px);
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    color: var(--foreground);
+    pointer-events: none;
 }
 
 .react-bits-masonry-color-overlay {
