@@ -91,19 +91,21 @@ export const galleryImages: GalleryImage[] = [
         resolution: "1K",
         createdAt: "2026-06-13T17:02:00.000Z"
     },
-    {
-        id: "gallery-3",
-        img: "/gallery/opt/portrait_wanderer.webp",
-        fullImg: "/gallery/opt/portrait_wanderer-full.webp",
-        width: 1728,
-        height: 2304,
-        label: "Seedream",
-        prompt: "Portrait of a wanderer in an iridescent cloak, cinematic rim lighting, seamless studio backdrop",
-        model: "Seedream 4.5",
-        aspectRatio: "3:4",
-        resolution: "2K",
-        createdAt: "2026-06-12T11:48:00.000Z"
-    },
+    // Temporarily trimmed to tighten the grid and peek the next section.
+    // Restore (this + surreal_floating below) if the shorter layout doesn't land.
+    // {
+    //     id: "gallery-3",
+    //     img: "/gallery/opt/portrait_wanderer.webp",
+    //     fullImg: "/gallery/opt/portrait_wanderer-full.webp",
+    //     width: 1728,
+    //     height: 2304,
+    //     label: "Seedream",
+    //     prompt: "Portrait of a wanderer in an iridescent cloak, cinematic rim lighting, seamless studio backdrop",
+    //     model: "Seedream 4.5",
+    //     aspectRatio: "3:4",
+    //     resolution: "2K",
+    //     createdAt: "2026-06-12T11:48:00.000Z"
+    // },
     {
         id: "gallery-4",
         img: "/gallery/opt/isometric_miniature.webp",
@@ -117,45 +119,48 @@ export const galleryImages: GalleryImage[] = [
         resolution: "1K",
         createdAt: "2026-06-11T20:15:00.000Z"
     },
-    {
-        id: "gallery-5",
-        img: "/gallery/opt/city_skyline.webp",
-        fullImg: "/gallery/opt/city_skyline-full.webp",
-        width: 2048,
-        height: 1152,
-        label: "GPT Image 2",
-        prompt: "Retro-futurist city skyline at dusk, neon reflections on rain-slick streets, anamorphic lens flare",
-        model: "GPT Image 2",
-        aspectRatio: "16:9",
-        resolution: "2K",
-        createdAt: "2026-06-10T08:37:00.000Z"
-    },
-    {
-        id: "gallery-6",
-        img: "/gallery/opt/macro_web.webp",
-        fullImg: "/gallery/opt/macro_web-full.webp",
-        width: 1200,
-        height: 896,
-        label: "FLUX",
-        prompt: "Macro shot of a dew-covered spiderweb at dawn, shallow depth of field, prismatic refraction",
-        model: "FLUX 1.1 Pro",
-        aspectRatio: "4:3",
-        resolution: "1K",
-        createdAt: "2026-06-09T14:53:00.000Z"
-    },
-    {
-        id: "gallery-7",
-        img: "/gallery/opt/surreal_floating.webp",
-        fullImg: "/gallery/opt/surreal_floating-full.webp",
-        width: 2400,
-        height: 1792,
-        label: "Nano Banana 2",
-        prompt: "Surreal floating mountains above a sea of clouds, matte painting, golden hour, epic scale",
-        model: "Nano Banana 2",
-        aspectRatio: "4:3",
-        resolution: "2K",
-        createdAt: "2026-06-08T19:09:00.000Z"
-    },
+    // Temporarily trimmed to tighten the grid (see note on gallery-3 above).
+    // {
+    //     id: "gallery-5",
+    //     img: "/gallery/opt/city_skyline.webp",
+    //     fullImg: "/gallery/opt/city_skyline-full.webp",
+    //     width: 2048,
+    //     height: 1152,
+    //     label: "GPT Image 2",
+    //     prompt: "Retro-futurist city skyline at dusk, neon reflections on rain-slick streets, anamorphic lens flare",
+    //     model: "GPT Image 2",
+    //     aspectRatio: "16:9",
+    //     resolution: "2K",
+    //     createdAt: "2026-06-10T08:37:00.000Z"
+    // },
+    // Temporarily trimmed to tighten the grid (see note on gallery-3 above).
+    // {
+    //     id: "gallery-6",
+    //     img: "/gallery/opt/macro_web.webp",
+    //     fullImg: "/gallery/opt/macro_web-full.webp",
+    //     width: 1200,
+    //     height: 896,
+    //     label: "FLUX",
+    //     prompt: "Macro shot of a dew-covered spiderweb at dawn, shallow depth of field, prismatic refraction",
+    //     model: "FLUX 1.1 Pro",
+    //     aspectRatio: "4:3",
+    //     resolution: "1K",
+    //     createdAt: "2026-06-09T14:53:00.000Z"
+    // },
+    // Temporarily trimmed to tighten the grid (see note on gallery-3 above).
+    // {
+    //     id: "gallery-7",
+    //     img: "/gallery/opt/surreal_floating.webp",
+    //     fullImg: "/gallery/opt/surreal_floating-full.webp",
+    //     width: 2400,
+    //     height: 1792,
+    //     label: "Nano Banana 2",
+    //     prompt: "Surreal floating mountains above a sea of clouds, matte painting, golden hour, epic scale",
+    //     model: "Nano Banana 2",
+    //     aspectRatio: "4:3",
+    //     resolution: "2K",
+    //     createdAt: "2026-06-08T19:09:00.000Z"
+    // },
     {
         id: "gallery-8",
         img: "/gallery/opt/painted_fox.webp",

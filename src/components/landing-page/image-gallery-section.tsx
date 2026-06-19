@@ -6,6 +6,7 @@ import { useState } from "react"
 import { galleryImages } from "@/components/landing-page/content"
 import { LibraryLightbox } from "@/components/landing-page/library-lightbox"
 import { SectionHead, SignInButton } from "@/components/landing-page/shared"
+import { LibraryLogo } from "@/components/logo"
 import { Masonry } from "@/components/react-bits/masonry"
 
 export function ImageGallerySection() {
@@ -14,10 +15,10 @@ export function ImageGallerySection() {
     return (
         <section id="gallery" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead title="A dedicated home for everything you generate.">
-                    Image generation gets its own first-class space. Create with Nano Banana,
-                    Seedream, FLUX, and more, then browse, organise, and revisit every result in a
-                    purpose-built Library View.
+                <SectionHead title={<LibraryLogo className="h-10 w-auto md:h-12" />}>
+                    Envision your ideas with GPT Image 2, Seedream V4.5, Nano Banana Pro, FLUX.2
+                    [flex], and more in a First-Class library UI made for concurrent generation,
+                    detailed parameters, and intuitive library management.
                 </SectionHead>
 
                 <Masonry

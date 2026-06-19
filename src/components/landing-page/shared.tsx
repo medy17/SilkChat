@@ -33,7 +33,7 @@ export function SectionHead({
     centered = false
 }: {
     eyebrow?: string
-    title: string
+    title: ReactNode
     children: ReactNode
     centered?: boolean
 }) {
