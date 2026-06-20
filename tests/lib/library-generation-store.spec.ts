@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import {
+    FAL_IMAGE_MIGRATION_STORAGE_RESET_KEY,
     LIBRARY_GENERATION_STORE_KEY,
+    clearFalImageMigrationStorageOnce,
     useGenerationStore
 } from "@/components/library/generation-store"
 import { beforeEach, describe, expect, it } from "vitest"
@@ -9,6 +11,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 describe("library-generation-store", () => {
     beforeEach(() => {
         localStorage.removeItem(LIBRARY_GENERATION_STORE_KEY)
+        localStorage.removeItem(FAL_IMAGE_MIGRATION_STORAGE_RESET_KEY)
         useGenerationStore.setState({
             pendingGenerations: [],
             completedGenerationCount: 0,
@@ -68,6 +71,26 @@ describe("library-generation-store", () => {
                 resolution: "1K"
             },
             version: 0
+        })
+    })
+
+    it("clears fal migration-sensitive library storage once", () => {
+        localStorage.setItem(LIBRARY_GENERATION_STORE_KEY, JSON.stringify({ stale: true }))
+        localStorage.setItem("legacy-image-model-migrated:old:new", "true")
+        localStorage.setItem("unrelated-key", "keep")
+
+        clearFalImageMigrationStorageOnce(localStorage)
+
+        expect(localStorage.getItem(LIBRARY_GENERATION_STORE_KEY)).toBeNull()
+        expect(localStorage.getItem("legacy-image-model-migrated:old:new")).toBeNull()
+        expect(localStorage.getItem("unrelated-key")).toBe("keep")
+        expect(localStorage.getItem(FAL_IMAGE_MIGRATION_STORAGE_RESET_KEY)).toBe("true")
+
+        localStorage.setItem(LIBRARY_GENERATION_STORE_KEY, JSON.stringify({ fresh: true }))
+        clearFalImageMigrationStorageOnce(localStorage)
+
+        expect(JSON.parse(localStorage.getItem(LIBRARY_GENERATION_STORE_KEY) || "{}")).toEqual({
+            fresh: true
         })
     })
 })
