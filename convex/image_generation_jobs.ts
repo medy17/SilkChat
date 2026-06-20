@@ -1,0 +1,328 @@
+import { v } from "convex/values"
+import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
+import { action, internalMutation, internalQuery, query } from "./_generated/server"
+import { r2 } from "./attachments"
+import { downloadFalImage } from "./fal_webhooks"
+import { getUserIdentity } from "./lib/identity"
+import { ImageGenerationJobAsset } from "./schema/image_generation_job"
+
+const jobStatusValidator = v.union(
+    v.literal("submitted"),
+    v.literal("processing"),
+    v.literal("completed"),
+    v.literal("partial"),
+    v.literal("storing_failed"),
+    v.literal("refunded"),
+    v.literal("failed"),
+    v.literal("unknown")
+)
+
+const TERMINAL_JOB_STATUSES = new Set(["completed", "partial", "refunded", "failed", "unknown"])
+
+// User-requested asset refetches are rate limited per job so a struggling
+// upstream is not hammered. Arbitrary but bounded.
+const MAX_ASSET_FETCH_ATTEMPTS = 5
+const ASSET_FETCH_COOLDOWN_MS = 15_000
+
+export const listActiveImageGenerationJobs = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) return []
+
+        const jobs = await ctx.db
+            .query("imageGenerationJobs")
+            .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
+            .order("desc")
+            .take(50)
+
+        return jobs.filter(
+            (job) =>
+                job.status === "submitted" ||
+                job.status === "processing" ||
+                job.status === "storing_failed"
+        )
+    }
+})
+
+export const getImageGenerationJobByFalRequestId = internalQuery({
+    args: {
+        falRequestId: v.string()
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("imageGenerationJobs")
+            .withIndex("byFalRequestId", (q) => q.eq("falRequestId", args.falRequestId))
+            .first()
+    }
+})
+
+export const createImageGenerationJob = internalMutation({
+    args: {
+        userId: v.string(),
+        appModelId: v.string(),
+        falEndpoint: v.string(),
+        falRequestId: v.string(),
+        falGatewayRequestId: v.optional(v.string()),
+        prompt: v.string(),
+        aspectRatio: v.string(),
+        resolution: v.optional(v.string()),
+        referenceImageKeys: v.array(v.string()),
+        creditEventKey: v.string()
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now()
+        return await ctx.db.insert("imageGenerationJobs", {
+            ...args,
+            status: "submitted",
+            createdAt: now,
+            updatedAt: now
+        })
+    }
+})
+
+export const claimImageGenerationJobForWebhook = internalMutation({
+    args: {
+        falRequestId: v.string()
+    },
+    handler: async (ctx, args) => {
+        const job = await ctx.db
+            .query("imageGenerationJobs")
+            .withIndex("byFalRequestId", (q) => q.eq("falRequestId", args.falRequestId))
+            .first()
+        if (!job) {
+            return { claimed: false, status: "missing" as const }
+        }
+
+        if (TERMINAL_JOB_STATUSES.has(job.status) || job.status === "processing") {
+            return { claimed: false, status: job.status }
+        }
+
+        await ctx.db.patch(job._id, {
+            status: "processing",
+            updatedAt: Date.now()
+        })
+        return { claimed: true, status: "processing" as const, jobId: job._id }
+    }
+})
+
+export const finalizeImageGenerationJob = internalMutation({
+    args: {
+        falRequestId: v.string(),
+        status: jobStatusValidator,
+        generatedImageIds: v.optional(v.array(v.id("generatedImages"))),
+        error: v.optional(v.string()),
+        webhookPayload: v.optional(v.any())
+    },
+    handler: async (ctx, args) => {
+        const job = await ctx.db
+            .query("imageGenerationJobs")
+            .withIndex("byFalRequestId", (q) => q.eq("falRequestId", args.falRequestId))
+            .first()
+        if (!job) return null
+
+        if (TERMINAL_JOB_STATUSES.has(job.status)) {
+            return job._id
+        }
+
+        await ctx.db.patch(job._id, {
+            status: args.status,
+            generatedImageIds: args.generatedImageIds,
+            error: args.error,
+            webhookPayload: args.webhookPayload,
+            completedAt: Date.now(),
+            updatedAt: Date.now()
+        })
+        return job._id
+    }
+})
+
+// Generation succeeded at fal but the asset could not be materialized into R2.
+// Non-terminal: the persisted asset URLs let a user-requested refetch recover it.
+export const markImageGenerationJobStoringFailed = internalMutation({
+    args: {
+        jobId: v.id("imageGenerationJobs"),
+        assetUrls: v.optional(v.array(ImageGenerationJobAsset)),
+        error: v.optional(v.string()),
+        webhookPayload: v.optional(v.any())
+    },
+    handler: async (ctx, args) => {
+        const job = await ctx.db.get(args.jobId)
+        if (!job) return null
+        // Never clobber an already-materialized success.
+        if (job.status === "completed" || job.status === "partial") return job._id
+
+        await ctx.db.patch(job._id, {
+            status: "storing_failed",
+            ...(args.assetUrls ? { assetUrls: args.assetUrls } : {}),
+            ...(args.webhookPayload ? { webhookPayload: args.webhookPayload } : {}),
+            error: args.error,
+            updatedAt: Date.now()
+        })
+        return job._id
+    }
+})
+
+// Atomically claim a user-requested asset retry: serializes concurrent clicks,
+// enforces the per-job attempt cap and cooldown, and flips to processing so a
+// duplicate request can't run the fetch twice.
+export const claimImageGenerationJobAssetRetry = internalMutation({
+    args: {
+        jobId: v.id("imageGenerationJobs"),
+        userId: v.string()
+    },
+    handler: async (ctx, args) => {
+        const job = await ctx.db.get(args.jobId)
+        if (!job || job.userId !== args.userId) {
+            return { claimed: false as const, reason: "not_found" as const }
+        }
+        if (job.status === "completed" || job.status === "partial") {
+            return { claimed: false as const, reason: "already_stored" as const }
+        }
+        if (job.status !== "storing_failed") {
+            return {
+                claimed: false as const,
+                reason: "not_retryable" as const,
+                message: "This generation is not awaiting an image retry."
+            }
+        }
+
+        const attempts = job.assetFetchAttempts ?? 0
+        if (attempts >= MAX_ASSET_FETCH_ATTEMPTS) {
+            return {
+                claimed: false as const,
+                reason: "limit" as const,
+                message: "Retry limit reached for this image. Try regenerating."
+            }
+        }
+
+        const now = Date.now()
+        if (
+            typeof job.lastAssetFetchAttemptAt === "number" &&
+            now - job.lastAssetFetchAttemptAt < ASSET_FETCH_COOLDOWN_MS
+        ) {
+            return {
+                claimed: false as const,
+                reason: "cooldown" as const,
+                message: "Please wait a moment before retrying."
+            }
+        }
+
+        await ctx.db.patch(job._id, {
+            status: "processing",
+            assetFetchAttempts: attempts + 1,
+            lastAssetFetchAttemptAt: now,
+            updatedAt: now
+        })
+
+        return {
+            claimed: true as const,
+            userId: job.userId,
+            falRequestId: job.falRequestId,
+            prompt: job.prompt,
+            appModelId: job.appModelId,
+            aspectRatio: job.aspectRatio,
+            resolution: job.resolution,
+            referenceImageKeys: job.referenceImageKeys,
+            assetUrls: job.assetUrls ?? []
+        }
+    }
+})
+
+// User-triggered, idempotent recovery for a job stuck in storing_failed: refetch
+// the persisted fal asset URLs into R2 and finalize. Credit was already committed
+// at webhook time (the generation was real), so this only materializes the asset.
+export const reprocessImageGenerationJobAsset = action({
+    args: { jobId: v.id("imageGenerationJobs") },
+    handler: async (
+        ctx,
+        args
+    ): Promise<{
+        status: "completed" | "partial"
+        generatedImageIds?: Id<"generatedImages">[]
+    }> => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("unauthorized:chat")
+
+        const claim = await ctx.runMutation(
+            internal.image_generation_jobs.claimImageGenerationJobAssetRetry,
+            { jobId: args.jobId, userId: user.id }
+        )
+        if (!claim.claimed) {
+            if (claim.reason === "already_stored") {
+                return { status: "completed" }
+            }
+            throw new Error(
+                "message" in claim && claim.message
+                    ? claim.message
+                    : "This image can no longer be retried."
+            )
+        }
+
+        try {
+            if (claim.assetUrls.length === 0) {
+                throw new Error("No stored image URL is available to retry.")
+            }
+
+            const generatedImageIds: Id<"generatedImages">[] = []
+            const failures: string[] = []
+
+            for (const asset of claim.assetUrls) {
+                try {
+                    const downloaded = await downloadFalImage({
+                        url: asset.url,
+                        contentType: asset.contentType
+                    })
+                    const storageKey = await r2.store(ctx, downloaded.bytes, {
+                        authorId: claim.userId,
+                        key: `generations/${claim.userId}/${Date.now()}-${crypto.randomUUID()}-fal.${downloaded.extension}`,
+                        type: downloaded.contentType
+                    })
+                    const id: Id<"generatedImages"> = await ctx.runMutation(
+                        internal.images.insertGeneratedImage,
+                        {
+                            userId: claim.userId,
+                            storageKey,
+                            prompt: claim.prompt,
+                            modelId: claim.appModelId,
+                            aspectRatio: claim.aspectRatio,
+                            resolution: claim.resolution,
+                            referenceImageKeys: claim.referenceImageKeys,
+                            generationJobId: args.jobId,
+                            falRequestId: claim.falRequestId
+                        }
+                    )
+                    generatedImageIds.push(id)
+                } catch (error) {
+                    failures.push(
+                        error instanceof Error ? error.message : "Unknown image storage error"
+                    )
+                }
+            }
+
+            if (generatedImageIds.length === 0) {
+                throw new Error(failures[0] ?? "Could not fetch the image. Please try again.")
+            }
+
+            const status = failures.length > 0 ? "partial" : "completed"
+            await ctx.runMutation(internal.image_generation_jobs.finalizeImageGenerationJob, {
+                falRequestId: claim.falRequestId,
+                status,
+                generatedImageIds,
+                error: failures.length > 0 ? failures.join("; ") : undefined
+            })
+            return { status, generatedImageIds }
+        } catch (error) {
+            // Reset to storing_failed so the card keeps its retry affordance.
+            await ctx.runMutation(
+                internal.image_generation_jobs.markImageGenerationJobStoringFailed,
+                {
+                    jobId: args.jobId,
+                    error: error instanceof Error ? error.message : "Image retry failed"
+                }
+            )
+            throw error
+        }
+    }
+})

@@ -11,6 +11,7 @@ import {
 import { Project } from "./schema/folders"
 import { GeneratedImage } from "./schema/generated_image"
 import { GeneratedImageFacets } from "./schema/generated_image_facets"
+import { ImageGenerationJob } from "./schema/image_generation_job"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
@@ -37,6 +38,7 @@ export {
     ImportJobThread,
     GeneratedImage,
     GeneratedImageFacets,
+    ImageGenerationJob,
     UserAccess,
     LemonSqueezySubscription,
     LemonSqueezyWebhookEvent
@@ -216,5 +218,9 @@ export default defineSchema({
             filterFields: ["userId"]
         }),
 
-    generatedImageFacets: defineTable(GeneratedImageFacets).index("byUserId", ["userId"])
+    generatedImageFacets: defineTable(GeneratedImageFacets).index("byUserId", ["userId"]),
+
+    imageGenerationJobs: defineTable(ImageGenerationJob)
+        .index("byUserIdAndCreatedAt", ["userId", "createdAt"])
+        .index("byFalRequestId", ["falRequestId"])
 })

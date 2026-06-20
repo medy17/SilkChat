@@ -8,6 +8,9 @@ export const GeneratedImage = {
     modelId: v.optional(v.string()),
     aspectRatio: v.optional(v.string()), // Or whatever format ImageSize is
     resolution: v.optional(v.string()), // If applicable
+    referenceImageKeys: v.optional(v.array(v.string())),
+    generationJobId: v.optional(v.id("imageGenerationJobs")),
+    falRequestId: v.optional(v.string()),
     isArchived: v.optional(v.boolean()),
     createdAt: v.number(), // timestamp
     collectionId: v.optional(v.any())

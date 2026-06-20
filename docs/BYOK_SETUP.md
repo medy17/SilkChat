@@ -57,7 +57,7 @@ GOOGLE_VERTEX_PROJECT=
 GOOGLE_VERTEX_LOCATION=us-central1
 
 GROQ_API_KEY=
-FAL_API_KEY=
+FAL_KEY=
 ```
 
 If `OPENROUTER_API_KEY` is set, internal text models that also define an `openrouter:*` adapter can route through OpenRouter even when their original internal provider key is not configured. Direct provider paths are still used for image generation and speech-to-text.
