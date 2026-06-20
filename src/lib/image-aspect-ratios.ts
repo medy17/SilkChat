@@ -21,6 +21,10 @@ const isSelectableImageAspectRatio = (value: string): value is SelectableImageAs
 export const normalizeExactImageAspectRatio = (size?: string): string | undefined => {
     if (!size) return undefined
 
+    if (isSelectableImageAspectRatio(size)) {
+        return size
+    }
+
     if (size.includes("x")) {
         const [width, height] = size.split("x").map(Number)
         if (width > 0 && height > 0) {

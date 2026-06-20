@@ -90,7 +90,7 @@ import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn, copyImageUrlToClipboard } from "@/lib/utils"
 import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react-router"
-import { useAction, useMutation } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import {
     Archive,
     Check,
@@ -433,50 +433,81 @@ const GalleryImageSkeleton = memo(() => (
 ))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
 
-const PendingImageItem = memo(({ aspectRatio }: { aspectRatio: string }) => {
-    // Convert aspect ratio to CSS aspect-ratio value
-    const cssAspectRatio = useMemo(() => {
-        if (aspectRatio.includes("x")) {
-            const [width, height] = aspectRatio.split("x").map(Number)
-            return `${width}/${height}`
-        }
-        if (aspectRatio.includes(":")) {
-            const baseRatio = aspectRatio.replace("-hd", "")
-            return baseRatio.replace(":", "/")
-        }
-        return "1/1"
-    }, [aspectRatio])
+const PendingImageItem = memo(
+    ({
+        aspectRatio,
+        status,
+        isRetrying = false,
+        onRetry
+    }: {
+        aspectRatio: string
+        status?: string
+        isRetrying?: boolean
+        onRetry?: () => void
+    }) => {
+        // Convert aspect ratio to CSS aspect-ratio value
+        const cssAspectRatio = useMemo(() => {
+            if (aspectRatio.includes("x")) {
+                const [width, height] = aspectRatio.split("x").map(Number)
+                return `${width}/${height}`
+            }
+            if (aspectRatio.includes(":")) {
+                const baseRatio = aspectRatio.replace("-hd", "")
+                return baseRatio.replace(":", "/")
+            }
+            return "1/1"
+        }, [aspectRatio])
 
-    // Calculate optimal rows and cols based on aspect ratio
-    const { rows, cols } = useMemo(() => {
-        const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
-        const baseSize = 20
+        // Calculate optimal rows and cols based on aspect ratio
+        const { rows, cols } = useMemo(() => {
+            const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
+            const baseSize = 20
 
-        if (widthRatio >= heightRatio) {
-            const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
-            return { rows: baseSize, cols: calculatedCols }
-        }
-        const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
-        return { rows: calculatedRows, cols: baseSize }
-    }, [cssAspectRatio])
+            if (widthRatio >= heightRatio) {
+                const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
+                return { rows: baseSize, cols: calculatedCols }
+            }
+            const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
+            return { rows: calculatedRows, cols: baseSize }
+        }, [cssAspectRatio])
 
-    return (
-        <div
-            className="group relative overflow-hidden rounded-lg border bg-background"
-            style={{ aspectRatio: cssAspectRatio }}
-        >
-            <ImageSkeleton
-                rows={rows}
-                cols={cols}
-                dotSize={3}
-                gap={4}
-                loadingDuration={99999}
-                autoLoop={false}
-                className="h-full w-full rounded-lg border-0 bg-transparent"
-            />
-        </div>
-    )
-})
+        const isStoringFailed = status === "storing_failed"
+
+        return (
+            <div
+                className="group relative overflow-hidden rounded-lg border bg-background"
+                style={{ aspectRatio: cssAspectRatio }}
+            >
+                <ImageSkeleton
+                    rows={rows}
+                    cols={cols}
+                    dotSize={3}
+                    gap={4}
+                    loadingDuration={99999}
+                    autoLoop={false}
+                    className="h-full w-full rounded-lg border-0 bg-transparent"
+                />
+                {isStoringFailed && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 p-3 text-center backdrop-blur-sm">
+                        <p className="text-muted-foreground text-xs">Couldn't load this image.</p>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={isRetrying || !onRetry}
+                            onClick={onRetry}
+                        >
+                            <RotateCcw
+                                className={cn("mr-2 h-3.5 w-3.5", isRetrying && "animate-spin")}
+                            />
+                            {isRetrying ? "Retrying…" : "Refetch"}
+                        </Button>
+                    </div>
+                )}
+            </div>
+        )
+    }
+)
 PendingImageItem.displayName = "PendingImageItem"
 
 const GeneratedImageItem = memo(
@@ -1197,6 +1228,28 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     )
 
     const { pendingGenerations, completedGenerationCount } = useGenerationStore()
+    const activeGenerationJobs =
+        useQuery(
+            api.image_generation_jobs.listActiveImageGenerationJobs,
+            session.user?.id ? {} : "skip"
+        ) ?? []
+    const displayedPendingGenerations = useMemo(() => {
+        const pendingById = new Map<string, { id: string; aspectRatio: string; status?: string }>()
+
+        for (const job of activeGenerationJobs) {
+            pendingById.set(job._id, {
+                id: job._id,
+                aspectRatio: job.aspectRatio,
+                status: job.status
+            })
+        }
+
+        for (const pending of pendingGenerations) {
+            pendingById.set(pending.id, pending)
+        }
+
+        return Array.from(pendingById.values())
+    }, [activeGenerationJobs, pendingGenerations])
     const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
     const imageOverrides = usePrivateViewingStore((state) => state.imageOverrides)
     const togglePrivateViewingEnabled = usePrivateViewingStore(
@@ -1323,6 +1376,27 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
+    const reprocessImageAsset = useAction(
+        api.image_generation_jobs.reprocessImageGenerationJobAsset
+    )
+    const [retryingAssetJobIds, setRetryingAssetJobIds] = useState<Set<string>>(new Set())
+    const handleRetryImageAsset = useCallback(
+        async (jobId: string) => {
+            setRetryingAssetJobIds((prev) => new Set(prev).add(jobId))
+            try {
+                await reprocessImageAsset({ jobId: jobId as Id<"imageGenerationJobs"> })
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Couldn't retrieve the image")
+            } finally {
+                setRetryingAssetJobIds((prev) => {
+                    const next = new Set(prev)
+                    next.delete(jobId)
+                    return next
+                })
+            }
+        },
+        [reprocessImageAsset]
+    )
     const archiveImage = useMutation(api.images.archiveGeneratedImage)
     const restoreImage = useMutation(api.images.restoreGeneratedImage)
 
@@ -1410,8 +1484,8 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
         ...(hasActiveFilters
             ? [`${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active`]
             : []),
-        ...(pendingGenerations.length > 0 && !hasActiveFilters && !isArchivedView
-            ? [`${pendingGenerations.length} pending`]
+        ...(displayedPendingGenerations.length > 0 && !hasActiveFilters && !isArchivedView
+            ? [`${displayedPendingGenerations.length} pending`]
             : [])
     ]
     const canGoPrevious = pageNumber > 1
@@ -2155,7 +2229,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                             ))}
                         </div>
                     ) : images.length === 0 &&
-                      (!showPendingGenerations || pendingGenerations.length === 0) ? (
+                      (!showPendingGenerations || displayedPendingGenerations.length === 0) ? (
                         <div className="py-24 text-center">
                             <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
                             <h3 className="mb-2 font-medium text-xl">
@@ -2189,7 +2263,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                 <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
                                     <AnimatePresence>
                                         {showPendingGenerations &&
-                                            pendingGenerations.map((pending) => (
+                                            displayedPendingGenerations.map((pending) => (
                                                 <motion.div
                                                     key={pending.id}
                                                     layout
@@ -2208,6 +2282,13 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                                 >
                                                     <PendingImageItem
                                                         aspectRatio={pending.aspectRatio}
+                                                        status={pending.status}
+                                                        isRetrying={retryingAssetJobIds.has(
+                                                            pending.id
+                                                        )}
+                                                        onRetry={() =>
+                                                            handleRetryImageAsset(pending.id)
+                                                        }
                                                     />
                                                 </motion.div>
                                             ))}

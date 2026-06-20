@@ -18,7 +18,7 @@ export const isInternalProviderConfigured = (providerId: CoreProvider) => {
         case "groq":
             return Boolean(process.env.GROQ_API_KEY)
         case "fal":
-            return Boolean(process.env.FAL_API_KEY)
+            return Boolean(process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim())
         case "gateway":
             return Boolean(process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN)
         default: {

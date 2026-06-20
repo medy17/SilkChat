@@ -100,6 +100,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     maxTokens?: number
     maxPerMessage?: number
     supportsReferenceImages?: boolean
+    maxReferenceImages?: number
     openrouterImageModalities?: Array<"image" | "text">
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
