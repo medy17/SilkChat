@@ -225,7 +225,7 @@ const enforceImageGenerationPlan = ({
     }
 }
 
-const getFalWebhookUrl = () => {
+const getFalWebhookUrl = (jobId: Id<"imageGenerationJobs">) => {
     const siteUrl =
         process.env.CONVEX_SITE_URL ??
         process.env.VITE_CONVEX_SITE_URL ??
@@ -235,7 +235,7 @@ const getFalWebhookUrl = () => {
         throw new Error("CONVEX_SITE_URL is required for fal image webhooks.")
     }
 
-    return `${siteUrl.replace(/\/+$/, "")}/webhooks/fal`
+    return `${siteUrl.replace(/\/+$/, "")}/webhooks/fal?jobId=${encodeURIComponent(jobId)}`
 }
 
 const getFalKey = () => {
@@ -371,6 +371,8 @@ export const generateStandaloneImage = action({
             throw new Error("Monthly plan limit reached for image generation.")
         }
 
+        let jobId: Id<"imageGenerationJobs"> | null = null
+
         try {
             fal.config({ credentials: getFalKey() })
             const referenceImages = await resolveReferenceImages(
@@ -386,27 +388,12 @@ export const generateStandaloneImage = action({
                 referenceImages,
                 maxAssets: 1
             })
-            const submitFalQueue = fal.queue.submit as (
-                endpointId: string,
-                options: { input: Record<string, unknown>; webhookUrl: string }
-            ) => Promise<{ request_id?: string; gateway_request_id?: string }>
-            const submission = await submitFalQueue(falEndpoint, {
-                input,
-                webhookUrl: getFalWebhookUrl()
-            })
-            const falRequestId = submission.request_id
-            if (!falRequestId) {
-                throw new Error("fal did not return a request id.")
-            }
-
-            const jobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
+            const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
                 internal.image_generation_jobs.createImageGenerationJob,
                 {
                     userId: user.id,
                     appModelId: args.modelId,
                     falEndpoint,
-                    falRequestId,
-                    falGatewayRequestId: submission.gateway_request_id,
                     prompt: args.prompt,
                     aspectRatio: selectedAspectRatio,
                     resolution: selectedResolution,
@@ -414,6 +401,37 @@ export const generateStandaloneImage = action({
                     creditEventKey
                 }
             )
+            jobId = createdJobId
+            const submitFalQueue = fal.queue.submit as (
+                endpointId: string,
+                options: { input: Record<string, unknown>; webhookUrl: string }
+            ) => Promise<{ request_id?: string; gateway_request_id?: string }>
+            const submission = await submitFalQueue(falEndpoint, {
+                input,
+                webhookUrl: getFalWebhookUrl(createdJobId)
+            })
+            const falRequestId = submission.request_id
+            if (!falRequestId) {
+                console.error("fal accepted image generation without returning a request id", {
+                    jobId: createdJobId,
+                    falEndpoint
+                })
+                return [createdJobId]
+            }
+
+            try {
+                await ctx.runMutation(
+                    internal.image_generation_jobs.attachFalRequestToImageGenerationJob,
+                    {
+                        jobId,
+                        falRequestId,
+                        falGatewayRequestId: submission.gateway_request_id
+                    }
+                )
+            } catch (error) {
+                // The webhook URL carries jobId, so completion can still reconcile.
+                console.error("Failed to attach fal request id to image generation job:", error)
+            }
 
             return [jobId]
         } catch (error) {
@@ -421,6 +439,13 @@ export const generateStandaloneImage = action({
                 userId: user.id,
                 messageKey: creditEventKey
             })
+            if (jobId) {
+                await ctx.runMutation(internal.image_generation_jobs.markImageGenerationJobFailed, {
+                    jobId,
+                    status: "refunded",
+                    error: error instanceof Error ? error.message : "fal submission failed"
+                })
+            }
             throw error
         }
     }

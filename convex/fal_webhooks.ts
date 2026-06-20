@@ -222,12 +222,22 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
         return jsonResponse({ error: "Missing fal request id" }, 400)
     }
 
-    const job = await ctx.runQuery(
+    const webhookJobId = new URL(request.url).searchParams.get(
+        "jobId"
+    ) as Id<"imageGenerationJobs"> | null
+    const jobByRequestId = await ctx.runQuery(
         internal.image_generation_jobs.getImageGenerationJobByFalRequestId,
         {
             falRequestId
         }
     )
+    const job =
+        jobByRequestId ??
+        (webhookJobId
+            ? await ctx.runQuery(internal.image_generation_jobs.getImageGenerationJobInternal, {
+                  jobId: webhookJobId
+              })
+            : null)
     if (!job) {
         return jsonResponse({ ok: true, ignored: true })
     }
@@ -235,7 +245,8 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
     const claim = await ctx.runMutation(
         internal.image_generation_jobs.claimImageGenerationJobForWebhook,
         {
-            falRequestId
+            falRequestId,
+            ...(webhookJobId ? { jobId: webhookJobId } : {})
         }
     )
     if (!claim?.claimed) {

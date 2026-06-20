@@ -11,7 +11,9 @@ type ClaimCtx = {
     }
 }
 
-const createClaimCtx = (job: { _id: string; status: string } | null): ClaimCtx =>
+const createClaimCtx = (
+    job: { _id: string; status: string; processingStartedAt?: number } | null
+): ClaimCtx =>
     ({
         db: {
             query: vi.fn(() => ({
@@ -25,7 +27,7 @@ const createClaimCtx = (job: { _id: string; status: string } | null): ClaimCtx =
 
 const claimImageGenerationJobForWebhookHandler = claimImageGenerationJobForWebhook as unknown as (
     ctx: ClaimCtx,
-    args: { falRequestId: string }
+    args: { falRequestId: string; jobId?: string }
 ) => Promise<{ claimed: boolean; status: string; jobId?: string }>
 
 type RetryJob = {
@@ -64,7 +66,7 @@ const claimImageGenerationJobAssetRetryHandler = claimImageGenerationJobAssetRet
 ) => Promise<{ claimed: boolean; reason?: string; message?: string }>
 
 describe("image_generation_jobs", () => {
-    it("atomically claims only submitted jobs for fal webhook processing", async () => {
+    it("atomically claims submitted jobs for fal webhook processing", async () => {
         const ctx = createClaimCtx({ _id: "job-1", status: "submitted" })
 
         await expect(
@@ -75,13 +77,19 @@ describe("image_generation_jobs", () => {
             jobId: "job-1"
         })
         expect(ctx.db.patch).toHaveBeenCalledWith("job-1", {
+            falRequestId: "fal-request-1",
             status: "processing",
+            processingStartedAt: expect.any(Number),
             updatedAt: expect.any(Number)
         })
     })
 
-    it("does not claim jobs already processing or terminal", async () => {
-        const processingCtx = createClaimCtx({ _id: "job-1", status: "processing" })
+    it("does not claim jobs already processing inside the webhook lease", async () => {
+        const processingCtx = createClaimCtx({
+            _id: "job-1",
+            status: "processing",
+            processingStartedAt: Date.now()
+        })
         await expect(
             claimImageGenerationJobForWebhookHandler(processingCtx, {
                 falRequestId: "fal-request-1"
@@ -91,7 +99,33 @@ describe("image_generation_jobs", () => {
             status: "processing"
         })
         expect(processingCtx.db.patch).not.toHaveBeenCalled()
+    })
 
+    it("reclaims jobs whose webhook processing lease expired", async () => {
+        const ctx = createClaimCtx({
+            _id: "job-1",
+            status: "processing",
+            processingStartedAt: Date.now() - 3 * 60 * 1000
+        })
+
+        await expect(
+            claimImageGenerationJobForWebhookHandler(ctx, {
+                falRequestId: "fal-request-1"
+            })
+        ).resolves.toMatchObject({
+            claimed: true,
+            status: "processing",
+            jobId: "job-1"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith("job-1", {
+            falRequestId: "fal-request-1",
+            status: "processing",
+            processingStartedAt: expect.any(Number),
+            updatedAt: expect.any(Number)
+        })
+    })
+
+    it("does not claim terminal jobs", async () => {
         const completedCtx = createClaimCtx({ _id: "job-1", status: "completed" })
         await expect(
             claimImageGenerationJobForWebhookHandler(completedCtx, {
@@ -121,6 +155,7 @@ describe("image_generation_jobs", () => {
             status: "processing",
             assetFetchAttempts: 2,
             lastAssetFetchAttemptAt: expect.any(Number),
+            processingStartedAt: expect.any(Number),
             updatedAt: expect.any(Number)
         })
     })

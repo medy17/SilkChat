@@ -7,16 +7,17 @@ import type {
 } from "./types"
 
 export const isFalImageSizeSupported = (descriptor: FalImageDescriptor, imageSize: ImageSize) => {
+    const isCustomSize = parseCustomImageSize(imageSize) !== null
     if (descriptor.imageSizeMode === "legacyOpenAi") {
         return Boolean(toLegacyOpenAiImageSize(imageSize))
     }
 
     if (descriptor.imageSizeMode === "standard") {
-        return imageSize.includes("x") || Boolean(STANDARD_FAL_IMAGE_SIZES["1K"][imageSize])
+        return isCustomSize || Boolean(STANDARD_FAL_IMAGE_SIZES["1K"][imageSize])
     }
 
     if (descriptor.imageSizeMode === "seedream") {
-        return imageSize.includes("x") || Boolean(SEEDREAM_FAL_IMAGE_SIZES["1K"][imageSize])
+        return isCustomSize || Boolean(SEEDREAM_FAL_IMAGE_SIZES["1K"][imageSize])
     }
 
     return !imageSize.includes("x")
@@ -127,14 +128,32 @@ const toFalResolution = (
     }
 }
 
-const parseImageSize = (size: string) => {
-    const [width, height] = size.split("x").map((value) => Number.parseInt(value, 10))
+const parseCustomImageSize = (size: string) => {
+    const match = /^(\d+)x(\d+)$/.exec(size)
+    if (!match) return null
 
-    if (!Number.isFinite(width) || !Number.isFinite(height)) {
-        return { width: 1024, height: 1024 }
+    const width = Number.parseInt(match[1], 10)
+    const height = Number.parseInt(match[2], 10)
+
+    if (
+        !Number.isSafeInteger(width) ||
+        !Number.isSafeInteger(height) ||
+        width <= 0 ||
+        height <= 0
+    ) {
+        return null
     }
 
     return { width, height }
+}
+
+const parseImageSize = (size: string) => {
+    const dimensions = parseCustomImageSize(size)
+    if (!dimensions) {
+        throw new Error(`Invalid fal image size: ${size}`)
+    }
+
+    return dimensions
 }
 
 const toStandardFalImageSize = (imageSize: ImageSize, imageResolution?: ImageResolution) => {

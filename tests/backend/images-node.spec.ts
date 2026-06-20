@@ -25,7 +25,9 @@ vi.mock("../../convex/_generated/api", () => ({
             releaseReservedCreditForMessage: "releaseReservedCreditForMessage"
         },
         image_generation_jobs: {
-            createImageGenerationJob: "createImageGenerationJob"
+            createImageGenerationJob: "createImageGenerationJob",
+            attachFalRequestToImageGenerationJob: "attachFalRequestToImageGenerationJob",
+            markImageGenerationJobFailed: "markImageGenerationJobFailed"
         },
         images: {
             insertGeneratedImage: "insertGeneratedImage"
@@ -148,19 +150,22 @@ describe("images_node", () => {
                 num_images: 1,
                 output_format: "png"
             }),
-            webhookUrl: "https://silkchat.convex.site/webhooks/fal"
+            webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("createImageGenerationJob", {
             userId: "user-1",
             appModelId: "gpt-5.4-image-2",
             falEndpoint: "openai/gpt-image-2",
-            falRequestId: "fal-request-1",
-            falGatewayRequestId: "fal-gateway-request-1",
             prompt: "A test image",
             aspectRatio: "1:1",
             resolution: "1K",
             referenceImageKeys: [],
             creditEventKey: expect.stringContaining("standalone-image:")
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("attachFalRequestToImageGenerationJob", {
+            jobId: "image-generation-job-1",
+            falRequestId: "fal-request-1",
+            falGatewayRequestId: "fal-gateway-request-1"
         })
     })
 
@@ -179,7 +184,7 @@ describe("images_node", () => {
                 image_size: "auto",
                 image_urls: ["https://cdn.example.com/reference.png"]
             }),
-            webhookUrl: "https://silkchat.convex.site/webhooks/fal"
+            webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
         })
         expect(falQueueSubmitMock.mock.calls[0]?.[1].input).not.toHaveProperty("image_url")
         expect(ctx.runMutation).toHaveBeenCalledWith(
@@ -208,7 +213,7 @@ describe("images_node", () => {
                 image_size: "1024x1024",
                 quality: "high"
             }),
-            webhookUrl: "https://silkchat.convex.site/webhooks/fal"
+            webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
         })
     })
 
@@ -269,6 +274,41 @@ describe("images_node", () => {
                 userId: "user-1",
                 messageKey: expect.stringContaining("standalone-image:")
             })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "markImageGenerationJobFailed",
+            expect.objectContaining({
+                jobId: "image-generation-job-1",
+                status: "refunded",
+                error: "fal down"
+            })
+        )
+    })
+
+    it("keeps the local pending job when fal accepts without returning a request id", async () => {
+        const ctx = createCtx()
+        const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+        falQueueSubmitMock.mockResolvedValueOnce({})
+
+        try {
+            await expect(
+                generateStandaloneImageHandler(ctx, {
+                    prompt: "A test image",
+                    modelId: "gpt-5.4-image-2",
+                    aspectRatio: "1:1"
+                })
+            ).resolves.toEqual(["image-generation-job-1"])
+        } finally {
+            consoleErrorSpy.mockRestore()
+        }
+
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "releaseReservedCreditForMessage",
+            expect.anything()
+        )
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "markImageGenerationJobFailed",
+            expect.anything()
         )
     })
 })

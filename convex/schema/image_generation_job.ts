@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 
 export const ImageGenerationJobStatus = v.union(
+    v.literal("submitting"),
     v.literal("submitted"),
     v.literal("processing"),
     v.literal("completed"),
@@ -22,7 +23,7 @@ export const ImageGenerationJob = v.object({
     userId: v.string(),
     appModelId: v.string(),
     falEndpoint: v.string(),
-    falRequestId: v.string(),
+    falRequestId: v.optional(v.string()),
     falGatewayRequestId: v.optional(v.string()),
     prompt: v.string(),
     aspectRatio: v.string(),
@@ -32,6 +33,7 @@ export const ImageGenerationJob = v.object({
     status: ImageGenerationJobStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
+    processingStartedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     generatedImageIds: v.optional(v.array(v.id("generatedImages"))),
     // Source image URLs returned by fal, persisted so a failed asset fetch can be

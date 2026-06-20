@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { MODELS_SHARED } from "../../convex/lib/models"
-import { buildFalImageInput, getFalImageDescriptor } from "../../convex/lib/models/fal"
+import type { ImageSize } from "../../convex/lib/models"
+import {
+    buildFalImageInput,
+    getFalImageDescriptor,
+    isFalImageSizeSupported
+} from "../../convex/lib/models/fal"
 
 const descriptor = (modelId: string) => {
     const value = getFalImageDescriptor(modelId)
@@ -219,5 +224,21 @@ describe("fal image model payloads", () => {
             enable_safety_checker: false
         })
         expect(input).not.toHaveProperty("safety_tolerance")
+    })
+
+    it("rejects malformed custom image sizes instead of silently falling back", () => {
+        const model = descriptor("gpt-5.4-image-2")
+        const malformedSize = "wide-x-tall" as ImageSize
+
+        expect(isFalImageSizeSupported(model, malformedSize)).toBe(false)
+        expect(() =>
+            buildFalImageInput(model, {
+                prompt: "A test image",
+                imageSize: malformedSize,
+                imageResolution: "1K",
+                referenceImages: [],
+                maxAssets: 1
+            })
+        ).toThrow("Invalid fal image size")
     })
 })

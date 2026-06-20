@@ -8,6 +8,7 @@ import { getUserIdentity } from "./lib/identity"
 import { ImageGenerationJobAsset } from "./schema/image_generation_job"
 
 const jobStatusValidator = v.union(
+    v.literal("submitting"),
     v.literal("submitted"),
     v.literal("processing"),
     v.literal("completed"),
@@ -19,6 +20,7 @@ const jobStatusValidator = v.union(
 )
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "partial", "refunded", "failed", "unknown"])
+const WEBHOOK_PROCESSING_LEASE_MS = 2 * 60 * 1000
 
 // User-requested asset refetches are rate limited per job so a struggling
 // upstream is not hammered. Arbitrary but bounded.
@@ -40,6 +42,7 @@ export const listActiveImageGenerationJobs = query({
         return jobs.filter(
             (job) =>
                 job.status === "submitted" ||
+                job.status === "submitting" ||
                 job.status === "processing" ||
                 job.status === "storing_failed"
         )
@@ -58,13 +61,20 @@ export const getImageGenerationJobByFalRequestId = internalQuery({
     }
 })
 
+export const getImageGenerationJobInternal = internalQuery({
+    args: {
+        jobId: v.id("imageGenerationJobs")
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.jobId)
+    }
+})
+
 export const createImageGenerationJob = internalMutation({
     args: {
         userId: v.string(),
         appModelId: v.string(),
         falEndpoint: v.string(),
-        falRequestId: v.string(),
-        falGatewayRequestId: v.optional(v.string()),
         prompt: v.string(),
         aspectRatio: v.string(),
         resolution: v.optional(v.string()),
@@ -75,33 +85,88 @@ export const createImageGenerationJob = internalMutation({
         const now = Date.now()
         return await ctx.db.insert("imageGenerationJobs", {
             ...args,
-            status: "submitted",
+            status: "submitting",
             createdAt: now,
             updatedAt: now
         })
     }
 })
 
-export const claimImageGenerationJobForWebhook = internalMutation({
+export const attachFalRequestToImageGenerationJob = internalMutation({
     args: {
-        falRequestId: v.string()
+        jobId: v.id("imageGenerationJobs"),
+        falRequestId: v.string(),
+        falGatewayRequestId: v.optional(v.string())
     },
     handler: async (ctx, args) => {
-        const job = await ctx.db
+        const job = await ctx.db.get(args.jobId)
+        if (!job) return null
+        if (TERMINAL_JOB_STATUSES.has(job.status)) return job._id
+
+        await ctx.db.patch(job._id, {
+            falRequestId: args.falRequestId,
+            falGatewayRequestId: args.falGatewayRequestId,
+            status: job.status === "submitting" ? "submitted" : job.status,
+            updatedAt: Date.now()
+        })
+        return job._id
+    }
+})
+
+export const markImageGenerationJobFailed = internalMutation({
+    args: {
+        jobId: v.id("imageGenerationJobs"),
+        status: v.union(v.literal("failed"), v.literal("refunded")),
+        error: v.optional(v.string())
+    },
+    handler: async (ctx, args) => {
+        const job = await ctx.db.get(args.jobId)
+        if (!job) return null
+        if (TERMINAL_JOB_STATUSES.has(job.status)) return job._id
+
+        await ctx.db.patch(job._id, {
+            status: args.status,
+            error: args.error,
+            completedAt: Date.now(),
+            updatedAt: Date.now()
+        })
+        return job._id
+    }
+})
+
+export const claimImageGenerationJobForWebhook = internalMutation({
+    args: {
+        falRequestId: v.string(),
+        jobId: v.optional(v.id("imageGenerationJobs"))
+    },
+    handler: async (ctx, args) => {
+        const jobByRequestId = await ctx.db
             .query("imageGenerationJobs")
             .withIndex("byFalRequestId", (q) => q.eq("falRequestId", args.falRequestId))
             .first()
+        const job = jobByRequestId ?? (args.jobId ? await ctx.db.get(args.jobId) : null)
         if (!job) {
             return { claimed: false, status: "missing" as const }
         }
 
-        if (TERMINAL_JOB_STATUSES.has(job.status) || job.status === "processing") {
+        if (TERMINAL_JOB_STATUSES.has(job.status)) {
+            return { claimed: false, status: job.status }
+        }
+
+        const now = Date.now()
+        if (
+            job.status === "processing" &&
+            typeof job.processingStartedAt === "number" &&
+            now - job.processingStartedAt < WEBHOOK_PROCESSING_LEASE_MS
+        ) {
             return { claimed: false, status: job.status }
         }
 
         await ctx.db.patch(job._id, {
+            falRequestId: job.falRequestId ?? args.falRequestId,
             status: "processing",
-            updatedAt: Date.now()
+            processingStartedAt: now,
+            updatedAt: now
         })
         return { claimed: true, status: "processing" as const, jobId: job._id }
     }
@@ -131,6 +196,7 @@ export const finalizeImageGenerationJob = internalMutation({
             generatedImageIds: args.generatedImageIds,
             error: args.error,
             webhookPayload: args.webhookPayload,
+            processingStartedAt: undefined,
             completedAt: Date.now(),
             updatedAt: Date.now()
         })
@@ -158,6 +224,7 @@ export const markImageGenerationJobStoringFailed = internalMutation({
             ...(args.assetUrls ? { assetUrls: args.assetUrls } : {}),
             ...(args.webhookPayload ? { webhookPayload: args.webhookPayload } : {}),
             error: args.error,
+            processingStartedAt: undefined,
             updatedAt: Date.now()
         })
         return job._id
@@ -213,6 +280,7 @@ export const claimImageGenerationJobAssetRetry = internalMutation({
             status: "processing",
             assetFetchAttempts: attempts + 1,
             lastAssetFetchAttemptAt: now,
+            processingStartedAt: now,
             updatedAt: now
         })
 
