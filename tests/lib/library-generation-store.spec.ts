@@ -74,6 +74,21 @@ describe("library-generation-store", () => {
         })
     })
 
+    it("can clear an accepted fal placeholder without counting a completed generation", () => {
+        useGenerationStore.getState().addPendingGeneration({
+            id: "pending-1",
+            aspectRatio: "1:1"
+        })
+        useGenerationStore
+            .getState()
+            .removePendingGeneration("pending-1", { countCompleted: false })
+
+        expect(useGenerationStore.getState()).toMatchObject({
+            pendingGenerations: [],
+            completedGenerationCount: 0
+        })
+    })
+
     it("clears fal migration-sensitive library storage once", () => {
         localStorage.setItem(LIBRARY_GENERATION_STORE_KEY, JSON.stringify({ stale: true }))
         localStorage.setItem("legacy-image-model-migrated:old:new", "true")

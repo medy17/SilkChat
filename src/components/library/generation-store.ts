@@ -44,7 +44,7 @@ interface GenerationStore {
     aspectRatio: string
     resolution: string
     addPendingGeneration: (info: PendingGeneration) => void
-    removePendingGeneration: (id: string) => void
+    removePendingGeneration: (id: string, options?: { countCompleted?: boolean }) => void
     setPrompt: (prompt: string) => void
     setSelectedModelIds: (modelIds: string[] | ((currentModelIds: string[]) => string[])) => void
     setSelectedModelCounts: (
@@ -70,10 +70,13 @@ export const useGenerationStore = create<GenerationStore>()(
                 set((state) => ({
                     pendingGenerations: [info, ...state.pendingGenerations]
                 })),
-            removePendingGeneration: (id) =>
+            removePendingGeneration: (id, options) =>
                 set((state) => ({
                     pendingGenerations: state.pendingGenerations.filter((p) => p.id !== id),
-                    completedGenerationCount: state.completedGenerationCount + 1
+                    completedGenerationCount:
+                        options?.countCompleted === false
+                            ? state.completedGenerationCount
+                            : state.completedGenerationCount + 1
                 })),
             setPrompt: (prompt) => set({ prompt }),
             setSelectedModelIds: (modelIds) =>

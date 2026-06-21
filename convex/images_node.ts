@@ -282,6 +282,7 @@ export const generateStandaloneImage = action({
     args: {
         prompt: v.string(),
         modelId: v.string(),
+        clientRequestId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
         referenceImageIds: v.optional(v.array(v.string()))
@@ -392,6 +393,7 @@ export const generateStandaloneImage = action({
                 internal.image_generation_jobs.createImageGenerationJob,
                 {
                     userId: user.id,
+                    clientRequestId: args.clientRequestId,
                     appModelId: args.modelId,
                     falEndpoint,
                     prompt: args.prompt,

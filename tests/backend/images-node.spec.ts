@@ -60,6 +60,7 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
     args: {
         prompt: string
         modelId: string
+        clientRequestId?: string
         aspectRatio?: string
         resolution?: string
         referenceImageIds?: string[]
@@ -135,6 +136,7 @@ describe("images_node", () => {
             generateStandaloneImageHandler(ctx, {
                 prompt: "A test image",
                 modelId: "gpt-5.4-image-2",
+                clientRequestId: "client-request-1",
                 aspectRatio: "1:1",
                 resolution: "1K"
             })
@@ -154,6 +156,7 @@ describe("images_node", () => {
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("createImageGenerationJob", {
             userId: "user-1",
+            clientRequestId: "client-request-1",
             appModelId: "gpt-5.4-image-2",
             falEndpoint: "openai/gpt-image-2",
             prompt: "A test image",

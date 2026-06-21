@@ -792,12 +792,13 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 await generateImage({
                                     prompt: normalizedPrompt,
                                     modelId,
+                                    clientRequestId: id,
                                     aspectRatio,
                                     referenceImageIds: uploadedReferenceKeys,
                                     ...(supportsResolution ? { resolution } : {})
                                 })
                             } finally {
-                                removePendingGeneration(id)
+                                removePendingGeneration(id, { countCompleted: false })
                             }
                         })
                     })

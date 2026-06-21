@@ -1234,18 +1234,23 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
             session.user?.id ? {} : "skip"
         ) ?? []
     const displayedPendingGenerations = useMemo(() => {
-        const pendingById = new Map<string, { id: string; aspectRatio: string; status?: string }>()
-
-        for (const job of activeGenerationJobs) {
-            pendingById.set(job._id, {
-                id: job._id,
-                aspectRatio: job.aspectRatio,
-                status: job.status
-            })
-        }
+        const pendingById = new Map<
+            string,
+            { id: string; jobId?: string; aspectRatio: string; status?: string }
+        >()
 
         for (const pending of pendingGenerations) {
             pendingById.set(pending.id, pending)
+        }
+
+        for (const job of activeGenerationJobs) {
+            const id = job.clientRequestId ?? job._id
+            pendingById.set(id, {
+                id,
+                jobId: job._id,
+                aspectRatio: job.aspectRatio,
+                status: job.status
+            })
         }
 
         return Array.from(pendingById.values())
@@ -2284,10 +2289,12 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
                                                         aspectRatio={pending.aspectRatio}
                                                         status={pending.status}
                                                         isRetrying={retryingAssetJobIds.has(
-                                                            pending.id
+                                                            pending.jobId ?? pending.id
                                                         )}
                                                         onRetry={() =>
-                                                            handleRetryImageAsset(pending.id)
+                                                            handleRetryImageAsset(
+                                                                pending.jobId ?? pending.id
+                                                            )
                                                         }
                                                     />
                                                 </motion.div>

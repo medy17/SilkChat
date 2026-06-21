@@ -73,6 +73,7 @@ export const getImageGenerationJobInternal = internalQuery({
 export const createImageGenerationJob = internalMutation({
     args: {
         userId: v.string(),
+        clientRequestId: v.optional(v.string()),
         appModelId: v.string(),
         falEndpoint: v.string(),
         prompt: v.string(),
