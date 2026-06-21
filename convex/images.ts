@@ -265,6 +265,9 @@ export const insertGeneratedImage = internalMutation({
         modelId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
+        referenceImageKeys: v.optional(v.array(v.string())),
+        generationJobId: v.optional(v.id("imageGenerationJobs")),
+        falRequestId: v.optional(v.string()),
         createdAt: v.optional(v.number())
     },
     handler: async (ctx, args) => {

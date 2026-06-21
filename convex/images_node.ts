@@ -1,21 +1,26 @@
 "use node"
 
-import { ChatError } from "@/lib/errors"
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
-import type { ImageModelV3 } from "@ai-sdk/provider"
+import { fal } from "@fal-ai/client"
+import type { GenericActionCtx } from "convex/server"
 import { v } from "convex/values"
 import { nanoid } from "nanoid"
 import { internal } from "./_generated/api"
-import type { Id } from "./_generated/dataModel"
+import type { DataModel, Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
 import { r2 } from "./attachments"
-import { getModel } from "./chat_http/get_model"
-import { generateAndStoreImage } from "./chat_http/image_generation"
 import { resolvePrototypeCreditCharge, resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
 import { MODELS_SHARED } from "./lib/models"
 import type { ImageResolution, ImageSize } from "./lib/models"
+import {
+    type FalReferenceImage,
+    buildFalImageInput,
+    getFalEndpointForRequest,
+    getFalImageDescriptor,
+    isFalImageSizeSupported
+} from "./lib/models/fal"
 
 const DEV_FAKE_PALETTES = [
     {
@@ -220,10 +225,64 @@ const enforceImageGenerationPlan = ({
     }
 }
 
+const getFalWebhookUrl = (jobId: Id<"imageGenerationJobs">) => {
+    const siteUrl =
+        process.env.CONVEX_SITE_URL ??
+        process.env.VITE_CONVEX_SITE_URL ??
+        process.env.VITE_CONVEX_API_URL
+
+    if (!siteUrl) {
+        throw new Error("CONVEX_SITE_URL is required for fal image webhooks.")
+    }
+
+    return `${siteUrl.replace(/\/+$/, "")}/webhooks/fal?jobId=${encodeURIComponent(jobId)}`
+}
+
+const getFalKey = () => {
+    const key = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim()
+    if (!key) {
+        throw new Error("FAL_KEY is required for image generation.")
+    }
+    return key
+}
+
+const resolveReferenceImages = async (
+    ctx: GenericActionCtx<DataModel>,
+    userId: string,
+    keys: string[] = []
+): Promise<FalReferenceImage[]> => {
+    const references: FalReferenceImage[] = []
+
+    for (const key of keys) {
+        if (!key.startsWith(`references/${userId}/`)) {
+            throw new Error("Invalid reference image.")
+        }
+
+        const metadata = await r2.getMetadata(ctx, key)
+        if (!metadata) {
+            throw new Error("Reference image not found.")
+        }
+
+        const authorId =
+            typeof metadata === "object" && metadata !== null && "authorId" in metadata
+                ? metadata.authorId
+                : undefined
+        if (authorId && authorId !== userId) {
+            throw new Error("Invalid reference image.")
+        }
+
+        const url = await r2.getUrl(key)
+        references.push({ key, url })
+    }
+
+    return references
+}
+
 export const generateStandaloneImage = action({
     args: {
         prompt: v.string(),
         modelId: v.string(),
+        clientRequestId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
         referenceImageIds: v.optional(v.array(v.string()))
@@ -232,21 +291,64 @@ export const generateStandaloneImage = action({
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
 
-        const modelData = await getModel(ctx, args.modelId)
-        if (modelData instanceof ChatError) throw new Error(modelData.message)
+        const sharedModel = MODELS_SHARED.find(
+            (model) => model.id === args.modelId && model.mode === "image"
+        )
+        if (!sharedModel) {
+            throw new Error("Image model not found.")
+        }
 
-        const { model } = modelData
+        const falDescriptor = getFalImageDescriptor(args.modelId)
+        if (!falDescriptor) {
+            throw new Error("Image model is not available on fal.")
+        }
+
+        const selectedAspectRatio = (args.aspectRatio ||
+            sharedModel.supportedImageSizes?.[0] ||
+            "1:1") as ImageSize
+        if (
+            sharedModel.supportedImageSizes?.length &&
+            !sharedModel.supportedImageSizes.includes(selectedAspectRatio) &&
+            !isFalImageSizeSupported(falDescriptor, selectedAspectRatio)
+        ) {
+            throw new Error("Selected aspect ratio is not supported by this model.")
+        }
+
+        const selectedResolution = args.resolution as ImageResolution | undefined
+        if (
+            selectedResolution &&
+            sharedModel.supportedImageResolutions?.length &&
+            !sharedModel.supportedImageResolutions.includes(selectedResolution)
+        ) {
+            throw new Error("Selected resolution is not supported by this model.")
+        }
+
+        if ((args.referenceImageIds?.length ?? 0) > 0 && !sharedModel.supportsReferenceImages) {
+            throw new Error("Reference images are not supported by this model.")
+        }
+        if (
+            typeof sharedModel.maxReferenceImages === "number" &&
+            (args.referenceImageIds?.length ?? 0) > sharedModel.maxReferenceImages
+        ) {
+            throw new Error(
+                `This model supports up to ${sharedModel.maxReferenceImages} reference images.`
+            )
+        }
+        if ((args.referenceImageIds?.length ?? 0) > 0 && !falDescriptor.supportsReferences) {
+            throw new Error("Reference images are not supported by this fal model.")
+        }
+
         const requiredPlan = resolveRequiredPlanForModelAccess({
             reasoningEffort: "off",
-            availableToPickFor: modelData.availableToPickFor
+            availableToPickFor: sharedModel.availableToPickFor
         })
         const creditCharge = resolvePrototypeCreditCharge({
-            providerSource: modelData.providerSource,
-            modelMode: model.modelType,
+            providerSource: "internal",
+            modelMode: "image",
             enabledTools: [],
             reasoningEffort: "off",
-            prototypeCreditTier: modelData.prototypeCreditTier,
-            prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+            prototypeCreditTier: sharedModel.prototypeCreditTier,
+            prototypeCreditTierWithReasoning: sharedModel.prototypeCreditTierWithReasoning
         })
         const creditEventKey = `standalone-image:${nanoid()}`
         const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
@@ -254,7 +356,7 @@ export const generateStandaloneImage = action({
             messageId: creditEventKey,
             messageKey: creditEventKey,
             modelId: args.modelId,
-            providerSource: modelData.providerSource,
+            providerSource: "internal",
             feature: creditCharge.feature,
             bucket: creditCharge.bucket,
             units: creditCharge.units,
@@ -270,44 +372,82 @@ export const generateStandaloneImage = action({
             throw new Error("Monthly plan limit reached for image generation.")
         }
 
-        try {
-            const result = await generateAndStoreImage({
-                prompt: args.prompt,
-                imageSize: (args.aspectRatio || "1:1") as ImageSize,
-                imageResolution: args.resolution as ImageResolution | undefined,
-                imageModel: model as ImageModelV3,
-                modelId: args.modelId,
-                userId: user.id,
-                actionCtx: ctx,
-                referenceImageKeys: args.referenceImageIds,
-                maxAssets: 1,
-                runtimeApiKey: modelData.runtimeApiKey
-            })
+        let jobId: Id<"imageGenerationJobs"> | null = null
 
-            const insertedIds: string[] = []
-            for (const asset of result.assets) {
-                const id = await ctx.runMutation(internal.images.insertGeneratedImage, {
+        try {
+            fal.config({ credentials: getFalKey() })
+            const referenceImages = await resolveReferenceImages(
+                ctx,
+                user.id,
+                args.referenceImageIds
+            )
+            const falEndpoint = getFalEndpointForRequest(falDescriptor, referenceImages.length)
+            const input = buildFalImageInput(falDescriptor, {
+                prompt: args.prompt,
+                imageSize: selectedAspectRatio,
+                imageResolution: selectedResolution,
+                referenceImages,
+                maxAssets: 1
+            })
+            const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
+                internal.image_generation_jobs.createImageGenerationJob,
+                {
                     userId: user.id,
-                    storageKey: asset.imageUrl,
+                    clientRequestId: args.clientRequestId,
+                    appModelId: args.modelId,
+                    falEndpoint,
                     prompt: args.prompt,
-                    modelId: args.modelId,
-                    aspectRatio: asset.imageSize,
-                    resolution: args.resolution
+                    aspectRatio: selectedAspectRatio,
+                    resolution: selectedResolution,
+                    referenceImageKeys: args.referenceImageIds ?? [],
+                    creditEventKey
+                }
+            )
+            jobId = createdJobId
+            const submitFalQueue = fal.queue.submit as (
+                endpointId: string,
+                options: { input: Record<string, unknown>; webhookUrl: string }
+            ) => Promise<{ request_id?: string; gateway_request_id?: string }>
+            const submission = await submitFalQueue(falEndpoint, {
+                input,
+                webhookUrl: getFalWebhookUrl(createdJobId)
+            })
+            const falRequestId = submission.request_id
+            if (!falRequestId) {
+                console.error("fal accepted image generation without returning a request id", {
+                    jobId: createdJobId,
+                    falEndpoint
                 })
-                insertedIds.push(id)
+                return [createdJobId]
             }
 
-            await ctx.runMutation(internal.credits.commitReservedCreditForMessage, {
-                userId: user.id,
-                messageKey: creditEventKey
-            })
+            try {
+                await ctx.runMutation(
+                    internal.image_generation_jobs.attachFalRequestToImageGenerationJob,
+                    {
+                        jobId,
+                        falRequestId,
+                        falGatewayRequestId: submission.gateway_request_id
+                    }
+                )
+            } catch (error) {
+                // The webhook URL carries jobId, so completion can still reconcile.
+                console.error("Failed to attach fal request id to image generation job:", error)
+            }
 
-            return insertedIds
+            return [jobId]
         } catch (error) {
             await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
                 userId: user.id,
                 messageKey: creditEventKey
             })
+            if (jobId) {
+                await ctx.runMutation(internal.image_generation_jobs.markImageGenerationJobFailed, {
+                    jobId,
+                    status: "refunded",
+                    error: error instanceof Error ? error.message : "fal submission failed"
+                })
+            }
             throw error
         }
     }
@@ -366,7 +506,8 @@ export const generateFakeStandaloneImage = action({
                 prompt,
                 modelId: args.modelId,
                 aspectRatio,
-                resolution: args.resolution
+                resolution: args.resolution,
+                referenceImageKeys: args.referenceImageIds
             }
         )
 

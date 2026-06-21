@@ -16,7 +16,8 @@ vi.mock("convex-helpers/server/cors", () => ({
 
 vi.mock("../../convex/attachments", () => ({
     getFile: "getFileHandler",
-    uploadFile: "uploadFileHandler"
+    uploadFile: "uploadFileHandler",
+    uploadReferenceImage: "uploadReferenceImageHandler"
 }))
 
 vi.mock("../../convex/auth", () => ({
@@ -32,6 +33,10 @@ vi.mock("../../convex/chat_http/get.route", () => ({
 
 vi.mock("../../convex/chat_http/post.route", () => ({
     chatPOST: "chatPostHandler"
+}))
+
+vi.mock("../../convex/fal_webhooks", () => ({
+    falImageWebhook: "falImageWebhookHandler"
 }))
 
 vi.mock("../../convex/import_jobs_http", () => ({
@@ -93,12 +98,17 @@ describe("convex/http", () => {
 
         const registeredRoutes = corsRoute.mock.calls.map(([route]) => route)
 
-        expect(registeredRoutes).toHaveLength(9)
+        expect(registeredRoutes).toHaveLength(10)
         expect(registeredRoutes).toEqual(
             expect.arrayContaining([
                 { path: "/chat", method: "POST", handler: "chatPostHandler" },
                 { path: "/chat", method: "GET", handler: "chatGetHandler" },
                 { path: "/upload", method: "POST", handler: "uploadFileHandler" },
+                {
+                    path: "/upload/reference",
+                    method: "POST",
+                    handler: "uploadReferenceImageHandler"
+                },
                 {
                     path: "/upload/persona-avatar",
                     method: "POST",
@@ -119,6 +129,11 @@ describe("convex/http", () => {
             path: "/webhooks/lemon-squeezy",
             method: "POST",
             handler: "lemonSqueezyWebhookHandler"
+        })
+        expect(httpRoute).toHaveBeenCalledWith({
+            path: "/webhooks/fal",
+            method: "POST",
+            handler: "falImageWebhookHandler"
         })
         expect(module.default).toBe(http)
     })

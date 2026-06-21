@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const {
     createAnthropicMock,
-    createFalMock,
     createGatewayMock,
     createGoogleGenerativeAIMock,
     createGroqMock,
@@ -14,7 +13,6 @@ const {
     getGoogleVertexConfigMock
 } = vi.hoisted(() => ({
     createAnthropicMock: vi.fn(),
-    createFalMock: vi.fn(),
     createGatewayMock: vi.fn(),
     createGoogleGenerativeAIMock: vi.fn(),
     createGroqMock: vi.fn(),
@@ -28,10 +26,6 @@ const {
 
 vi.mock("@ai-sdk/anthropic", () => ({
     createAnthropic: createAnthropicMock
-}))
-
-vi.mock("@ai-sdk/fal", () => ({
-    createFal: createFalMock
 }))
 
 vi.mock("@ai-sdk/gateway", () => ({
@@ -69,7 +63,6 @@ import { createProvider } from "../../convex/lib/provider_factory"
 describe("provider_factory", () => {
     beforeEach(() => {
         createAnthropicMock.mockReset()
-        createFalMock.mockReset()
         createGatewayMock.mockReset()
         createGoogleGenerativeAIMock.mockReset()
         createGroqMock.mockReset()
@@ -171,5 +164,11 @@ describe("provider_factory", () => {
             apiKey: "gateway-key"
         })
         expect(provider).toEqual({ provider: "gateway" })
+    })
+
+    it("rejects the removed legacy fal provider", async () => {
+        await expect(createProvider("fal", "internal")).rejects.toThrow(
+            "Legacy fal AI SDK provider has been removed"
+        )
     })
 })

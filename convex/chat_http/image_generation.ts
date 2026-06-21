@@ -742,6 +742,9 @@ export async function generateAndStoreImage({
     maxAssets?: number
     runtimeApiKey?: string
 }): Promise<ImageGenerationResult> {
+    // TODO(fal-migration): remove this synchronous provider-specific path after the
+    // fal queue/webhook image library flow is validated. Chat image generation is
+    // not production-critical and should converge on the fal job pipeline too.
     console.log("[cvx][image_generation] Starting image generation")
 
     const sharedModel = MODELS_SHARED.find((m) => m.id === modelId)

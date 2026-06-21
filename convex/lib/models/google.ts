@@ -6,12 +6,6 @@ const googleTextAdapters = (modelId: string): RegistryKey[] => [
     `openrouter:google/${modelId}`
 ]
 
-const googleImageAdapters = (modelId: string): RegistryKey[] => [
-    `i3-google:${modelId}`,
-    `google:${modelId}`,
-    `openrouter:google/${modelId}`
-]
-
 const FREE_ACCESS = {
     availableToPickFor: "free"
 } satisfies Pick<SharedModel, "availableToPickFor">
@@ -178,71 +172,5 @@ export const GOOGLE_MODELS: SharedModel[] = [
         legacy: true,
         sunsetOn: "2026-03-09",
         replacementId: "gemini-3.1-pro-preview"
-    },
-    {
-        id: "gemini-2.5-flash-image",
-        name: "Gemini 2.5 Flash Image",
-        shortName: "2.5 Flash Image",
-        releaseOrder: 20250826,
-        adapters: googleImageAdapters("gemini-2.5-flash-image"),
-        abilities: [],
-        mode: "image",
-        maxPerMessage: 4,
-        supportsReferenceImages: true,
-        openrouterImageModalities: ["image", "text"],
-        customIcon: "google",
-        supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro",
-        legacy: true,
-        sunsetOn: "2026-10-02",
-        replacementId: "gemini-3.1-flash-image-preview"
-    },
-    {
-        id: "gemini-3.1-flash-image-preview",
-        name: "Gemini 3.1 Flash Image Preview",
-        shortName: "3.1 Flash Image",
-        artificialAnalysis: {
-            type: "text-to-image",
-            slug: "nano-banana-2"
-        },
-        releaseOrder: 20260226,
-        adapters: googleImageAdapters("gemini-3.1-flash-image-preview"),
-        abilities: [],
-        mode: "image",
-        maxPerMessage: 4,
-        supportsReferenceImages: true,
-        openrouterImageModalities: ["image", "text"],
-        customIcon: "google",
-        supportedImageSizes: ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro"
-    },
-    {
-        id: "gemini-3-pro-image-preview",
-        name: "Gemini 3 Pro Image Preview",
-        shortName: "3 Pro Image",
-        releaseOrder: 20251120,
-        adapters: googleImageAdapters("gemini-3-pro-image-preview"),
-        abilities: [],
-        mode: "image",
-        maxPerMessage: 2,
-        supportsReferenceImages: true,
-        openrouterImageModalities: ["image", "text"],
-        customIcon: "google",
-        supportedImageSizes: [
-            "1:1",
-            "3:2",
-            "2:3",
-            "3:4",
-            "4:3",
-            "4:5",
-            "5:4",
-            "9:16",
-            "16:9",
-            "21:9"
-        ],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro"
     }
 ]

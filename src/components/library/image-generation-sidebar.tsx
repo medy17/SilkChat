@@ -95,6 +95,21 @@ const areModelCountsEqual = (left: Record<string, number>, right: Record<string,
     return leftKeys.length === rightKeys.length && leftKeys.every((key) => left[key] === right[key])
 }
 
+type ReferenceFile = {
+    file: File
+    preview: string
+    hash?: string
+    storageKey?: string
+}
+
+const getFileSha256 = async (file: File) => {
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
+    return Array.from(new Uint8Array(hashBuffer))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")
+}
+
 export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolean }) {
     const { token } = useToken()
     const { models } = useSharedModels()
@@ -118,7 +133,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     } = useGenerationStore()
     const isDevMode = import.meta.env.DEV
 
-    const [referenceFiles, setReferenceFiles] = useState<{ file: File; preview: string }[]>([])
+    const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
     const [creditPlan, setCreditPlan] = useState<"free" | "pro" | null>(null)
@@ -177,6 +192,17 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         () => imageModels.filter((model) => !lockedModelIds.has(model.id)),
         [imageModels, lockedModelIds]
     )
+    const selectedModels = useMemo(
+        () => imageModels.filter((model) => selectedModelIds.includes(model.id)),
+        [imageModels, selectedModelIds]
+    )
+    const selectedReferenceLimit = useMemo(() => {
+        const limits = selectedModels
+            .map((model) => model.maxReferenceImages)
+            .filter((limit): limit is number => typeof limit === "number")
+        if (limits.length === 0) return undefined
+        return Math.min(...limits)
+    }, [selectedModels])
 
     useEffect(() => {
         referenceFilesRef.current = referenceFiles
@@ -387,6 +413,18 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         }
     }, [])
 
+    const getAllowedReferenceFiles = (files: File[]) => {
+        if (typeof selectedReferenceLimit !== "number") return files
+
+        const remainingSlots = Math.max(0, selectedReferenceLimit - referenceFiles.length)
+        if (files.length <= remainingSlots) return files
+
+        toast.error(
+            `The selected model set supports up to ${selectedReferenceLimit} reference images. Deselect limited models to add more.`
+        )
+        return files.slice(0, remainingSlots)
+    }
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (generationPanelDisabled || selectedRequiresPlanUpgrade) {
             if (fileInputRef.current) {
@@ -404,8 +442,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         }
 
         const files = Array.from(e.target.files || [])
-        if (files.length > 0) {
-            const newRefs = files.map((file) => ({
+        const allowedFiles = getAllowedReferenceFiles(files)
+        if (allowedFiles.length > 0) {
+            const newRefs = allowedFiles.map((file) => ({
                 file,
                 preview: URL.createObjectURL(file)
             }))
@@ -436,7 +475,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             const files = imageItems
                 .map((item) => item.getAsFile())
                 .filter((f): f is File => f !== null)
-            const newRefs = files.map((file) => ({
+            const allowedFiles = getAllowedReferenceFiles(files)
+            const newRefs = allowedFiles.map((file) => ({
                 file,
                 preview: URL.createObjectURL(file)
             }))
@@ -458,6 +498,21 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             return
         }
 
+        const isSelected = selectedModelIds.includes(modelId)
+        const selectedModelReferenceLimit = imageModels.find(
+            (model) => model.id === modelId
+        )?.maxReferenceImages
+        if (
+            !isSelected &&
+            typeof selectedModelReferenceLimit === "number" &&
+            referenceFiles.length > selectedModelReferenceLimit
+        ) {
+            toast.error(
+                `This model supports up to ${selectedModelReferenceLimit} reference images. Remove references to select it.`
+            )
+            return
+        }
+
         const toggledModel = imageModels.find((model) => model.id === modelId)
         if (toggledModel && isLegacyImageModel(toggledModel)) {
             sessionRevealedLegacyModelIdsRef.current.add(modelId)
@@ -469,7 +524,6 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             })
         }
 
-        const isSelected = selectedModelIds.includes(modelId)
         if (isSelected && selectedModelIds.length === 1) {
             return
         }
@@ -521,10 +575,6 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         }))
     }
 
-    const selectedModels = useMemo(
-        () => imageModels.filter((model) => selectedModelIds.includes(model.id)),
-        [imageModels, selectedModelIds]
-    )
     const collapsedVisibleLegacyModelIds = useMemo(() => {
         const visibleLegacyModelIds = new Set(sessionRevealedLegacyModelIds)
         for (const modelId of selectedModelIds) {
@@ -640,43 +690,77 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         !selectedRequiresPlanUpgrade
 
     const uploadReferenceKeys = async () => {
-        if (referenceFiles.length === 0) {
+        const currentReferences = referenceFilesRef.current
+        if (currentReferences.length === 0) {
             return []
         }
 
-        return await Promise.all(
-            referenceFiles.map(async ({ file }) => {
-                const jwt = await resolveJwtToken(token)
-                if (!jwt) {
-                    throw new Error("Authentication token unavailable")
-                }
+        const hashToStorageKey = new Map<string, string>()
+        for (const reference of currentReferences) {
+            if (reference.hash && reference.storageKey) {
+                hashToStorageKey.set(reference.hash, reference.storageKey)
+            }
+        }
 
-                const formData = new FormData()
-                formData.append("file", file)
-                formData.append("fileName", file.name)
+        const uploadedKeys: string[] = []
 
-                const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload`, {
-                    method: "POST",
-                    body: formData,
-                    headers: {
-                        Authorization: `Bearer ${jwt}`
-                    }
-                })
+        for (const reference of currentReferences) {
+            const hash = reference.hash ?? (await getFileSha256(reference.file))
+            const existingKey = reference.storageKey ?? hashToStorageKey.get(hash)
 
-                const payload = (await response.json()) as {
-                    error?: string
-                    key?: string
-                }
-
-                if (!response.ok || !payload.key) {
-                    throw new Error(
-                        payload.error || `Failed to upload reference image "${file.name}"`
+            if (existingKey) {
+                hashToStorageKey.set(hash, existingKey)
+                uploadedKeys.push(existingKey)
+                setReferenceFiles((prev) =>
+                    prev.map((item) =>
+                        item.preview === reference.preview
+                            ? { ...item, hash, storageKey: existingKey }
+                            : item
                     )
-                }
+                )
+                continue
+            }
 
-                return payload.key
+            const jwt = await resolveJwtToken(token)
+            if (!jwt) {
+                throw new Error("Authentication token unavailable")
+            }
+
+            const formData = new FormData()
+            formData.append("file", reference.file)
+            formData.append("fileName", reference.file.name)
+
+            const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload/reference`, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    Authorization: `Bearer ${jwt}`
+                }
             })
-        )
+
+            const payload = (await response.json()) as {
+                error?: string
+                key?: string
+            }
+
+            if (!response.ok || !payload.key) {
+                throw new Error(
+                    payload.error || `Failed to upload reference image "${reference.file.name}"`
+                )
+            }
+
+            hashToStorageKey.set(hash, payload.key)
+            uploadedKeys.push(payload.key)
+            setReferenceFiles((prev) =>
+                prev.map((item) =>
+                    item.preview === reference.preview
+                        ? { ...item, hash, storageKey: payload.key }
+                        : item
+                )
+            )
+        }
+
+        return uploadedKeys
     }
 
     const handleGenerate = async () => {
@@ -708,12 +792,13 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 await generateImage({
                                     prompt: normalizedPrompt,
                                     modelId,
+                                    clientRequestId: id,
                                     aspectRatio,
                                     referenceImageIds: uploadedReferenceKeys,
                                     ...(supportsResolution ? { resolution } : {})
                                 })
                             } finally {
-                                removePendingGeneration(id)
+                                removePendingGeneration(id, { countCompleted: false })
                             }
                         })
                     })
@@ -916,6 +1001,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 {visibleImageModels.map((model) => {
                                     const isSelected = selectedModelIds.includes(model.id)
                                     const modelPlanLocked = lockedModelIds.has(model.id)
+                                    const modelReferenceLocked =
+                                        !isSelected &&
+                                        typeof model.maxReferenceImages === "number" &&
+                                        referenceFiles.length > model.maxReferenceImages
+                                    const modelDisabled = modelPlanLocked || modelReferenceLocked
                                     const isLegacyModel = isLegacyImageModel(model)
                                     const modelCount =
                                         selectedModelCounts[model.id] ?? DEFAULT_VARIANTS_PER_MODEL
@@ -929,7 +1019,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             key={model.id}
                                             className={cn(
                                                 "group rounded-md p-2 transition-all duration-200",
-                                                modelPlanLocked && "cursor-not-allowed opacity-50",
+                                                modelDisabled && "cursor-not-allowed opacity-50",
                                                 isSelected
                                                     ? "bg-primary/15 text-primary"
                                                     : "text-muted-foreground hover:bg-muted/50"
@@ -938,7 +1028,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             <button
                                                 type="button"
                                                 onClick={() => toggleModel(model.id)}
-                                                disabled={modelPlanLocked}
+                                                disabled={modelDisabled}
                                                 className="flex w-full items-center justify-between p-1 text-left disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex min-w-0 flex-col">
@@ -953,9 +1043,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                     <span className="mt-0.5 text-[0.625rem] opacity-70">
                                                         {modelPlanLocked
                                                             ? "Pro plan required"
-                                                            : `${
-                                                                  isLegacyModel ? "Legacy • " : ""
-                                                              }Up to ${modelMaxPerMessage} per run`}
+                                                            : modelReferenceLocked
+                                                              ? `Max ${model.maxReferenceImages} references`
+                                                              : `${
+                                                                    isLegacyModel ? "Legacy • " : ""
+                                                                }Up to ${modelMaxPerMessage} per run`}
                                                     </span>
                                                 </div>
 

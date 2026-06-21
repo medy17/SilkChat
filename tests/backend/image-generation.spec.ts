@@ -39,13 +39,15 @@ vi.mock("../../convex/lib/google_auth", () => ({
 }))
 
 vi.mock("../../convex/lib/models", async () => {
-    const actual = await vi.importActual<typeof import("../../convex/lib/models/openrouter")>(
-        "../../convex/lib/models/openrouter"
+    const actual = await vi.importActual<typeof import("../../convex/lib/models/fal")>(
+        "../../convex/lib/models/fal"
     )
 
     return {
         MODELS_SHARED: [
-            ...actual.OPENROUTER_MODELS,
+            ...actual.FAL_IMAGE_MODELS.filter(
+                (model) => model.id === "flux-2-flex" || model.id === "seedream-4-5"
+            ),
             {
                 id: "grok-imagine-image",
                 name: "Grok Imagine Image",

@@ -1,7 +1,6 @@
 "use node"
 
 import { createAnthropic } from "@ai-sdk/anthropic"
-import { createFal } from "@ai-sdk/fal"
 import { createGateway } from "@ai-sdk/gateway"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createVertex } from "@ai-sdk/google-vertex/edge"
@@ -133,9 +132,9 @@ const createProviderInternal = async (
             }) as unknown as ProviderV3
         }
         case "fal":
-            return createFal({
-                apiKey: apiKey === "internal" ? process.env.FAL_API_KEY : apiKey
-            })
+            throw new Error(
+                "Legacy fal AI SDK provider has been removed. Use native fal image descriptors."
+            )
         case "gateway":
             return createGateway({
                 ...(apiKey === "internal"

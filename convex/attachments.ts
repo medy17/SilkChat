@@ -245,6 +245,84 @@ export const uploadFile = httpAction(async (ctx, request) => {
     }
 })
 
+export const uploadReferenceImage = httpAction(async (ctx, request) => {
+    try {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) {
+            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+                status: 401,
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+            })
+        }
+
+        const formData = await request.formData()
+        const file = formData.get("file") as Blob | null
+        const fileName = String(formData.get("fileName") || "reference-image")
+
+        if (!file) {
+            return new Response(JSON.stringify({ error: "No file provided" }), {
+                status: 400,
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+            })
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+            return new Response(
+                JSON.stringify({
+                    error: `File size exceeds ${formatFileSizeLimit(MAX_FILE_SIZE)} limit. Current size: ${file.size} bytes`
+                }),
+                {
+                    status: 400,
+                    headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+                }
+            )
+        }
+
+        const fileTypeInfo = getFileTypeInfo(fileName, file.type)
+        if (!fileTypeInfo.isVisionImage) {
+            return new Response(JSON.stringify({ error: "Reference file must be an image" }), {
+                status: 400,
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+            })
+        }
+
+        const fileBuffer = await file.arrayBuffer()
+        const mimeType = getCorrectMimeType(fileName, file.type)
+        const key = `references/${user.id}/${Date.now()}-${crypto.randomUUID()}-${sanitizeKeySegment(fileName)}`
+        const storedKey = await r2.store(ctx, new Uint8Array(fileBuffer), {
+            authorId: user.id,
+            key,
+            type: mimeType
+        })
+
+        return new Response(
+            JSON.stringify({
+                key: storedKey,
+                fileName,
+                fileType: mimeType,
+                fileSize: file.size,
+                uploadedAt: Date.now(),
+                success: true
+            }),
+            {
+                status: 200,
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+            }
+        )
+    } catch (error) {
+        console.error("Error uploading reference image:", error)
+        return new Response(
+            JSON.stringify({
+                error: `Failed to upload reference image: ${error instanceof Error ? error.message : "Unknown error"}`
+            }),
+            {
+                status: 500,
+                headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+            }
+        )
+    }
+})
+
 // Get file metadata - now with auth check
 export const getFileMetadata = query({
     args: { key: v.string() },
