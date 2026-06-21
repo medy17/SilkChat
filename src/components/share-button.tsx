@@ -19,10 +19,20 @@ import { type ReactNode, useState } from "react"
 interface ShareButtonProps {
     threadId: string
     trigger?: ReactNode
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }
 
-export function ShareButton({ threadId, trigger }: ShareButtonProps) {
-    const [isOpen, setIsOpen] = useState(false)
+export function ShareButton({
+    threadId,
+    trigger,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange
+}: ShareButtonProps) {
+    const [internalOpen, setInternalOpen] = useState(false)
+    const isControlled = controlledOpen !== undefined
+    const isOpen = isControlled ? controlledOpen : internalOpen
+    const setIsOpen = isControlled ? (controlledOnOpenChange ?? (() => {})) : setInternalOpen
     const [sharedUrl, setSharedUrl] = useState<string | null>(null)
     const [isSharing, setIsSharing] = useState(false)
     const [copied, setCopied] = useState(false)
@@ -72,15 +82,23 @@ export function ShareButton({ threadId, trigger }: ShareButtonProps) {
         }
     }
 
-    const triggerContent = trigger ?? (
-        <Button variant="outline" size="icon" className="size-8 rounded-[var(--radius-md)]">
-            <Share2 className="h-4 w-4" />
-        </Button>
-    )
+    // When used as a controlled dialog (no trigger), don't render a DialogTrigger.
+    const triggerContent =
+        trigger === undefined && isControlled
+            ? null
+            : (trigger ?? (
+                  <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-[var(--radius-md)]"
+                  >
+                      <Share2 className="h-4 w-4" />
+                  </Button>
+              ))
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>{triggerContent}</DialogTrigger>
+            {triggerContent !== null && <DialogTrigger asChild>{triggerContent}</DialogTrigger>}
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Share Thread</DialogTitle>

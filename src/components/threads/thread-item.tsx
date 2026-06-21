@@ -82,6 +82,7 @@ export const ThreadItem = memo(
         onStartSelection
     }: ThreadItemProps) => {
         const [isContextMenuOpen, setIsContextMenuOpen] = useState(false)
+        const [showShareDialog, setShowShareDialog] = useState(false)
         const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
         const [isExporting, setIsExporting] = useState(false)
         const longPressTimeoutRef = useRef<number | null>(null)
@@ -339,15 +340,10 @@ export const ThreadItem = memo(
                             )}
                             Export as Markdown
                         </ContextMenuItem>
-                        <ShareButton
-                            threadId={thread._id}
-                            trigger={
-                                <ContextMenuItem>
-                                    <Share2 className="h-4 w-4" />
-                                    Share
-                                </ContextMenuItem>
-                            }
-                        />
+                        <ContextMenuItem onClick={() => setShowShareDialog(true)}>
+                            <Share2 className="h-4 w-4" />
+                            Share
+                        </ContextMenuItem>
                         <ContextMenuItem
                             onClick={() => {
                                 void handleRegenerateTitle()
@@ -546,13 +542,26 @@ export const ThreadItem = memo(
             </SidebarMenuItem>
         )
 
+        // Rendered outside the ContextMenu so the dialog isn't unmounted when the
+        // menu closes on select (which would make it flash open then disappear).
+        const shareDialog = (
+            <ShareButton
+                threadId={thread._id}
+                open={showShareDialog}
+                onOpenChange={setShowShareDialog}
+            />
+        )
+
         if (!enableContextMenu) return threadContent
 
         return (
-            <ContextMenu onOpenChange={setIsContextMenuOpen}>
-                <ContextMenuTrigger asChild>{threadContent}</ContextMenuTrigger>
-                <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
-            </ContextMenu>
+            <>
+                <ContextMenu onOpenChange={setIsContextMenuOpen}>
+                    <ContextMenuTrigger asChild>{threadContent}</ContextMenuTrigger>
+                    <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
+                </ContextMenu>
+                {shareDialog}
+            </>
         )
     },
     (prevProps, nextProps) => {
