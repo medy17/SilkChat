@@ -12,7 +12,9 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TosRouteImport } from './routes/tos'
+import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as LegalRouteImport } from './routes/legal'
@@ -42,8 +44,6 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
 
-const TermsOfServiceLazyRouteImport = createFileRoute('/terms-of-service')()
-const PrivacyPolicyLazyRouteImport = createFileRoute('/privacy-policy')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
 const AuthPathnameLazyRouteImport = createFileRoute('/auth/$pathname')()
@@ -54,20 +54,6 @@ const ChatFolderFolderIdLazyRouteImport = createFileRoute(
   '/_chat/folder/$folderId',
 )()
 
-const TermsOfServiceLazyRoute = TermsOfServiceLazyRouteImport.update({
-  id: '/terms-of-service',
-  path: '/terms-of-service',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/terms-of-service.lazy').then((d) => d.Route),
-)
-const PrivacyPolicyLazyRoute = PrivacyPolicyLazyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/privacy-policy.lazy').then((d) => d.Route),
-)
 const AboutLazyRoute = AboutLazyRouteImport.update({
   id: '/about',
   path: '/about',
@@ -85,11 +71,25 @@ const TosRoute = TosRouteImport.update({
   path: '/tos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
+  id: '/terms-of-service',
+  path: '/terms-of-service',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/terms-of-service.lazy').then((d) => d.Route),
+)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/privacy-policy.lazy').then((d) => d.Route),
+)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -258,12 +258,12 @@ export interface FileRoutesByFullPath {
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/privacy': typeof PrivacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
-  '/privacy-policy': typeof PrivacyPolicyLazyRoute
-  '/terms-of-service': typeof TermsOfServiceLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -295,12 +295,12 @@ export interface FileRoutesByTo {
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/privacy': typeof PrivacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
-  '/privacy-policy': typeof PrivacyPolicyLazyRoute
-  '/terms-of-service': typeof TermsOfServiceLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -335,12 +335,12 @@ export interface FileRoutesById {
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/privacy': typeof PrivacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
+  '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
-  '/privacy-policy': typeof PrivacyPolicyLazyRoute
-  '/terms-of-service': typeof TermsOfServiceLazyRoute
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -376,12 +376,12 @@ export interface FileRouteTypes {
     | '/legal'
     | '/me'
     | '/privacy'
+    | '/privacy-policy'
     | '/terms'
+    | '/terms-of-service'
     | '/tos'
     | '/settings'
     | '/about'
-    | '/privacy-policy'
-    | '/terms-of-service'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -413,12 +413,12 @@ export interface FileRouteTypes {
     | '/legal'
     | '/me'
     | '/privacy'
+    | '/privacy-policy'
     | '/terms'
+    | '/terms-of-service'
     | '/tos'
     | '/settings'
     | '/about'
-    | '/privacy-policy'
-    | '/terms-of-service'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -452,12 +452,12 @@ export interface FileRouteTypes {
     | '/legal'
     | '/me'
     | '/privacy'
+    | '/privacy-policy'
     | '/terms'
+    | '/terms-of-service'
     | '/tos'
     | '/settings'
     | '/about'
-    | '/privacy-policy'
-    | '/terms-of-service'
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -492,12 +492,12 @@ export interface RootRouteChildren {
   LegalRoute: typeof LegalRoute
   MeRoute: typeof MeRoute
   PrivacyRoute: typeof PrivacyRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsRoute: typeof TermsRoute
+  TermsOfServiceRoute: typeof TermsOfServiceRoute
   TosRoute: typeof TosRoute
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
   AboutLazyRoute: typeof AboutLazyRoute
-  PrivacyPolicyLazyRoute: typeof PrivacyPolicyLazyRoute
-  TermsOfServiceLazyRoute: typeof TermsOfServiceLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
@@ -508,20 +508,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms-of-service': {
-      id: '/terms-of-service'
-      path: '/terms-of-service'
-      fullPath: '/terms-of-service'
-      preLoaderRoute: typeof TermsOfServiceLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -543,11 +529,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms-of-service': {
+      id: '/terms-of-service'
+      path: '/terms-of-service'
+      fullPath: '/terms-of-service'
+      preLoaderRoute: typeof TermsOfServiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -846,12 +846,12 @@ const rootRouteChildren: RootRouteChildren = {
   LegalRoute: LegalRoute,
   MeRoute: MeRoute,
   PrivacyRoute: PrivacyRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsRoute: TermsRoute,
+  TermsOfServiceRoute: TermsOfServiceRoute,
   TosRoute: TosRoute,
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
   AboutLazyRoute: AboutLazyRoute,
-  PrivacyPolicyLazyRoute: PrivacyPolicyLazyRoute,
-  TermsOfServiceLazyRoute: TermsOfServiceLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,
