@@ -11,6 +11,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TosRouteImport } from './routes/tos'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as AuthorRouteImport } from './routes/author'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
@@ -74,6 +80,36 @@ const SettingsRouteLazyRoute = SettingsRouteLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/settings/route.lazy').then((d) => d.Route),
 )
+const TosRoute = TosRouteImport.update({
+  id: '/tos',
+  path: '/tos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthorRoute = AuthorRouteImport.update({
+  id: '/author',
+  path: '/author',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
@@ -218,6 +254,12 @@ const ChatFolderFolderIdThreadThreadIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/author': typeof AuthorRoute
+  '/legal': typeof LegalRoute
+  '/me': typeof MeRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
@@ -249,6 +291,12 @@ export interface FileRoutesByFullPath {
   '/folder/$folderId/thread/$threadId': typeof ChatFolderFolderIdThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
+  '/author': typeof AuthorRoute
+  '/legal': typeof LegalRoute
+  '/me': typeof MeRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
@@ -283,6 +331,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
+  '/author': typeof AuthorRoute
+  '/legal': typeof LegalRoute
+  '/me': typeof MeRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/privacy-policy': typeof PrivacyPolicyLazyRoute
@@ -318,6 +372,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/author'
+    | '/legal'
+    | '/me'
+    | '/privacy'
+    | '/terms'
+    | '/tos'
     | '/settings'
     | '/about'
     | '/privacy-policy'
@@ -349,6 +409,12 @@ export interface FileRouteTypes {
     | '/folder/$folderId/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/author'
+    | '/legal'
+    | '/me'
+    | '/privacy'
+    | '/terms'
+    | '/tos'
     | '/settings'
     | '/about'
     | '/privacy-policy'
@@ -382,6 +448,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_chat'
+    | '/author'
+    | '/legal'
+    | '/me'
+    | '/privacy'
+    | '/terms'
+    | '/tos'
     | '/settings'
     | '/about'
     | '/privacy-policy'
@@ -416,6 +488,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
+  AuthorRoute: typeof AuthorRoute
+  LegalRoute: typeof LegalRoute
+  MeRoute: typeof MeRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
+  TosRoute: typeof TosRoute
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
   AboutLazyRoute: typeof AboutLazyRoute
   PrivacyPolicyLazyRoute: typeof PrivacyPolicyLazyRoute
@@ -456,6 +534,48 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tos': {
+      id: '/tos'
+      path: '/tos'
+      fullPath: '/tos'
+      preLoaderRoute: typeof TosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/author': {
+      id: '/author'
+      path: '/author'
+      fullPath: '/author'
+      preLoaderRoute: typeof AuthorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat': {
@@ -722,6 +842,12 @@ const SettingsRouteLazyRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
+  AuthorRoute: AuthorRoute,
+  LegalRoute: LegalRoute,
+  MeRoute: MeRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
+  TosRoute: TosRoute,
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
   AboutLazyRoute: AboutLazyRoute,
   PrivacyPolicyLazyRoute: PrivacyPolicyLazyRoute,
