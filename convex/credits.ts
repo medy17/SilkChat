@@ -144,6 +144,35 @@ const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => (
     bypassLimits: access?.bypassLimits ?? false
 })
 
+// Returns a record that always carries a period anchor, creating the account row if missing.
+// Callers must use this record (not the stripped getResolvedCreditAccount output) when computing
+// the credit period, otherwise a brand-new account's first event is filed under the calendar-month
+// fallback key and orphaned from the anchored period the summary queries read.
+const ensureCreditAccountRecord = async (
+    ctx: MutationCtx,
+    userId: string
+): Promise<CreditAccountRecord> => {
+    const existingAccount = await getCreditAccount(ctx, userId)
+    if (existingAccount) {
+        return existingAccount
+    }
+
+    const accountAnchorAt = Date.now()
+    await ctx.db.insert("prototypeCreditAccounts", {
+        userId,
+        enabled: true,
+        plan: "free",
+        creditPeriodAnchorAt: accountAnchorAt,
+        updatedAt: accountAnchorAt
+    })
+
+    return {
+        enabled: true,
+        plan: "free",
+        creditPeriodAnchorAt: accountAnchorAt
+    }
+}
+
 const getOutstandingReservedBasicCredits = async (
     ctx: QueryCtx | MutationCtx,
     userId: string,
@@ -520,25 +549,9 @@ export const consumeCreditForMessage = internalMutation({
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        const existingAccount = await getCreditAccount(ctx, args.userId)
-        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
-        if (!existingAccount) {
-            await ctx.db.insert("prototypeCreditAccounts", {
-                userId: args.userId,
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt,
-                updatedAt: accountAnchorAt
-            })
-        }
-        const account = getResolvedCreditAccount(
-            existingAccount ?? {
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt
-            }
-        )
-        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
+        const accountRecord = await ensureCreditAccountRecord(ctx, args.userId)
+        const account = getResolvedCreditAccount(accountRecord)
+        const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
 
         if (args.requiredPlan === "pro" && account.plan !== "pro" && !access.bypassLimits) {
             return {
@@ -659,25 +672,9 @@ export const reserveCreditForMessage = internalMutation({
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        const existingAccount = await getCreditAccount(ctx, args.userId)
-        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
-        if (!existingAccount) {
-            await ctx.db.insert("prototypeCreditAccounts", {
-                userId: args.userId,
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt,
-                updatedAt: accountAnchorAt
-            })
-        }
-        const account = getResolvedCreditAccount(
-            existingAccount ?? {
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt
-            }
-        )
-        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
+        const accountRecord = await ensureCreditAccountRecord(ctx, args.userId)
+        const account = getResolvedCreditAccount(accountRecord)
+        const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
 
         if (args.requiredPlan === "pro" && account.plan !== "pro" && !access.bypassLimits) {
             return {
@@ -872,25 +869,9 @@ export const reserveToolCallBudget = internalMutation({
             }
         }
 
-        const existingAccount = await getCreditAccount(ctx, args.userId)
-        const accountAnchorAt = existingAccount?.creditPeriodAnchorAt ?? Date.now()
-        if (!existingAccount) {
-            await ctx.db.insert("prototypeCreditAccounts", {
-                userId: args.userId,
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt,
-                updatedAt: accountAnchorAt
-            })
-        }
-        const account = getResolvedCreditAccount(
-            existingAccount ?? {
-                enabled: true,
-                plan: "free",
-                creditPeriodAnchorAt: accountAnchorAt
-            }
-        )
-        const period = await getUserCreditPeriod(ctx, args.userId, existingAccount ?? account)
+        const accountRecord = await ensureCreditAccountRecord(ctx, args.userId)
+        const account = getResolvedCreditAccount(accountRecord)
+        const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
 
         if (!access.bypassLimits && args.reservedBasicCredits > 0) {
             const events = await ctx.db

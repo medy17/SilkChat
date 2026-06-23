@@ -38,6 +38,11 @@ import {
     reserveToolCallBudget,
     setMyPrototypeCreditPlan
 } from "../../convex/credits"
+import {
+    getAnchoredMonthlyCreditPeriodBounds,
+    getCreditPeriodKeyFromBounds,
+    getCurrentCreditPeriodKey
+} from "../../convex/lib/credits"
 
 const getMyCreditSummaryHandler = getMyCreditSummary as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
@@ -359,6 +364,58 @@ describe("credits module", () => {
                 messageKey: "assistant-1:model"
             })
         )
+    })
+
+    it("files a brand-new account's first counted event under the anchored period key", async () => {
+        // Regression: previously a new account's first event used the calendar-month fallback key
+        // ("2026-06") because the period was computed from the stripped resolved account (no
+        // anchor). That orphaned the event from the anchored period the summary queries read, so
+        // the first message never counted against quota.
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+
+        try {
+            const ctx = createCtx() // no account row => brand-new account
+
+            const result = await consumeCreditForMessageHandler.handler(ctx, {
+                userId: "user-1",
+                messageId: "assistant-1",
+                messageKey: "assistant-1:model",
+                modelId: "shared-text",
+                providerSource: "internal",
+                feature: "chat",
+                bucket: "basic",
+                units: 1,
+                counted: true,
+                requiredPlan: "free"
+            })
+
+            expect(result).toMatchObject({ allowed: true, existing: false })
+
+            // The account is created on demand with a period anchor...
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "prototypeCreditAccounts",
+                expect.objectContaining({ creditPeriodAnchorAt: fixedNow })
+            )
+
+            // ...and the first event must land under the anchored period (not "2026-06").
+            const expectedPeriodKey = getCreditPeriodKeyFromBounds(
+                getAnchoredMonthlyCreditPeriodBounds({
+                    timestamp: fixedNow,
+                    anchorTimestamp: fixedNow
+                })
+            )
+            expect(expectedPeriodKey).not.toBe(getCurrentCreditPeriodKey(fixedNow))
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "prototypeCreditEvents",
+                expect.objectContaining({
+                    messageKey: "assistant-1:model",
+                    periodKey: expectedPeriodKey
+                })
+            )
+        } finally {
+            nowSpy.mockRestore()
+        }
     })
 
     it("includes active reserved tool credits in the reported basic usage", async () => {
