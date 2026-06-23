@@ -59,6 +59,7 @@ import {
 import { toast } from "sonner"
 import { Virtualizer, type VirtualizerHandle } from "virtua"
 import { ChatActions } from "./chat-actions"
+import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
 import { ModelSelector } from "./model-selector"
 import {
@@ -1009,6 +1010,7 @@ export const Messages = forwardRef<
         ) => void
         onQuoteSelection?: (selection: string) => void
         status: ReturnType<typeof useChatIntegration>["status"]
+        error?: ReturnType<typeof useChatIntegration>["error"]
         onBottomStateChange?: (isAtBottom: boolean) => void
         threadKey?: string
     }
@@ -1021,6 +1023,7 @@ export const Messages = forwardRef<
             onEditAndRetry,
             onQuoteSelection,
             status,
+            error,
             onBottomStateChange,
             threadKey
         },
@@ -1496,24 +1499,14 @@ export const Messages = forwardRef<
                             </Virtualizer>
 
                             {status === "error" && (
-                                <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive p-4">
-                                    <div className="flex w-full items-center justify-between">
-                                        <p className="text-destructive-foreground">
-                                            Oops! Something went wrong.
-                                        </p>
-                                        {lastUserMessage && (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => onRetry?.(lastUserMessage)}
-                                                className="text-destructive-foreground hover:text-destructive-foreground/80"
-                                            >
-                                                <RotateCcw />
-                                                Retry
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
+                                <ChatErrorNotice
+                                    error={error}
+                                    onRetry={
+                                        lastUserMessage
+                                            ? () => onRetry?.(lastUserMessage)
+                                            : undefined
+                                    }
+                                />
                             )}
 
                             <div className="flex min-h-[3rem] items-center gap-2 py-4">

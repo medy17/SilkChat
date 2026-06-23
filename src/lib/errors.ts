@@ -12,6 +12,26 @@ export type ErrorCode = `${ErrorType}:${Surface}`
 
 export type ErrorVisibility = "response" | "log" | "none"
 
+/**
+ * Machine-readable detail attached to a chat error so the client can render a
+ * specific, actionable message (e.g. "out of Pro credits") instead of a generic
+ * "something went wrong" block.
+ */
+export type ChatErrorDetail =
+    | {
+          kind: "credits_exhausted"
+          bucket: "pro" | "basic"
+          used?: number
+          limit?: number
+          remaining?: number
+      }
+    | {
+          kind: "plan_required"
+          requiredPlan: "free" | "pro"
+          currentPlan?: "free" | "pro"
+          feature?: "chat" | "image" | "tool"
+      }
+
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
     database: "log",
     chat: "response",
@@ -25,14 +45,16 @@ export class ChatError extends Error {
     public surface: Surface
     public statusCode: number
     public cause?: string
+    public detail?: ChatErrorDetail
 
-    constructor(errorCode: ErrorCode, cause?: string) {
+    constructor(errorCode: ErrorCode, cause?: string, detail?: ChatErrorDetail) {
         super()
 
         const [type, surface] = errorCode.split(":")
 
         this.type = type as ErrorType
         this.cause = cause
+        this.detail = detail
         this.surface = surface as Surface
         this.message = getMessageByErrorCode(errorCode)
         this.statusCode = getStatusCodeByType(this.type)
@@ -42,7 +64,7 @@ export class ChatError extends Error {
         const code: ErrorCode = `${this.type}:${this.surface}`
         const visibility = visibilityBySurface[this.surface]
 
-        const { message, cause, statusCode } = this
+        const { message, cause, detail, statusCode } = this
 
         if (visibility === "log") {
             console.error({
@@ -66,8 +88,41 @@ export class ChatError extends Error {
             )
         }
 
-        return Response.json({ code, message, cause }, { status: statusCode })
+        return Response.json({ code, message, cause, detail }, { status: statusCode })
     }
+}
+
+/** Shape of the JSON body returned by {@link ChatError.toResponse} for visible errors. */
+export type ParsedChatError = {
+    code: string
+    message: string
+    cause?: string
+    detail?: ChatErrorDetail
+}
+
+/**
+ * The AI SDK surfaces a failed chat request as an `Error` whose `message` is the
+ * raw response body. Parse that back into the structured payload the backend
+ * sent so the UI can render a specific reason. Falls back to a plain-text error
+ * when the body is not our JSON contract.
+ */
+export function parseChatError(error: unknown): ParsedChatError | null {
+    if (!error) return null
+
+    const raw = error instanceof Error ? error.message : typeof error === "string" ? error : ""
+
+    if (!raw) return null
+
+    try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === "object" && typeof parsed.message === "string") {
+            return parsed as ParsedChatError
+        }
+    } catch {
+        // Not JSON — treat the whole message as the human-readable error.
+    }
+
+    return { code: "", message: raw }
 }
 
 export function getMessageByErrorCode(errorCode: ErrorCode): string {

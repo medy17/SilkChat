@@ -104,7 +104,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         threadId,
         folderId
     })
-    const { status, messages } = chat
+    const { status, messages, error } = chat
     const deferredMessages = useDeferredValue(messages)
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
@@ -301,6 +301,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 onBranch={handleBranch}
                 onEditAndRetry={handleEditAndRetry}
                 status={status}
+                error={error}
                 onBottomStateChange={setIsAtBottom}
                 threadKey={threadId ?? folderId.toString()}
             />

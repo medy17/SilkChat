@@ -716,15 +716,24 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     if (!creditReservation.allowed) {
         if (creditReservation.reason === "plan") {
-            return new ChatError(
-                "forbidden:chat",
-                "Pro plan required for the selected model."
-            ).toResponse()
+            return new ChatError("forbidden:chat", "Pro plan required for the selected model.", {
+                kind: "plan_required",
+                requiredPlan: creditReservation.requiredPlan ?? "pro",
+                currentPlan: creditReservation.plan,
+                feature: modelCreditCharge.feature
+            }).toResponse()
         }
 
         return new ChatError(
             "rate_limit:chat",
-            "Monthly plan limit reached for the selected request."
+            "Monthly plan limit reached for the selected request.",
+            {
+                kind: "credits_exhausted",
+                bucket: creditReservation.bucket,
+                used: creditReservation.used,
+                limit: creditReservation.limit,
+                remaining: creditReservation.remaining
+            }
         ).toResponse()
     }
 
@@ -769,7 +778,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
         })
         return new ChatError(
             "rate_limit:chat",
-            "Monthly plan limit reached for the selected request."
+            "Monthly plan limit reached for the selected request.",
+            {
+                kind: "credits_exhausted",
+                bucket: "basic"
+            }
         ).toResponse()
     }
 

@@ -258,6 +258,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 onEditAndRetry={handleEditAndRetry}
                 onQuoteSelection={handleQuoteSelection}
                 status={status}
+                error={chatHelpers.error}
                 onBottomStateChange={setIsAtBottom}
                 threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
             />
