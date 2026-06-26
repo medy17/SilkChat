@@ -11,6 +11,7 @@ import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useConvex, useMutation } from "convex/react"
@@ -92,6 +93,9 @@ export const ThreadItem = memo(
 
         const convex = useConvex()
         const isMobile = useIsMobile()
+        // Hover-reveal pin/delete affordance is keyed on pointer precision, not
+        // viewport width, so it stays available on a zoomed-in desktop (mouse).
+        const isTouchDevice = useIsTouchDevice()
         const { setOpenMobile } = useSidebar()
         const navigate = useNavigate()
         const togglePinMutation = useMutation(api.threads.togglePinThread)
@@ -484,7 +488,7 @@ export const ThreadItem = memo(
                         )}
                     </SidebarMenuButton>
 
-                    {!isSelectionMode && !isMobile && (
+                    {!isSelectionMode && !isTouchDevice && (
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end">
                             <div
                                 className={cn(

@@ -17,6 +17,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useFunction } from "@/hooks/use-function"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import {
     isEditableShortcutTarget,
@@ -148,6 +149,10 @@ export function ThreadsSidebar() {
     const isLibraryArchiveView = librarySearch?.view === "archived"
     const params = useParams({ strict: false }) as { threadId?: string; folderId?: string }
     const isMobile = useIsMobile()
+    // Gate touch-vs-mouse interactions (context menu, long-press, Alt preview) on
+    // actual pointer capability, not viewport width. Browser zoom shrinks the CSS
+    // width below the mobile breakpoint, which must not disable mouse interactions.
+    const isTouchDevice = useIsTouchDevice()
     const { setOpenMobile } = useSidebar()
     const auth = useConvexAuth()
     const convex = useConvex()
@@ -276,7 +281,7 @@ export function ThreadsSidebar() {
     const isThreadSelectionMode = isSelectionMode && selectionScope === "thread"
     const isFolderSelectionMode = isSelectionMode && selectionScope === "folder"
     const isDesktopSelectionPreview =
-        !isMobile && !isLibraryMode && isAltPressed && isSidebarHovered && !isSelectionMode
+        !isTouchDevice && !isLibraryMode && isAltPressed && isSidebarHovered && !isSelectionMode
 
     const groupedNonProjectThreads = useMemo(() => groupThreadsByTime(allThreads), [allThreads])
 
@@ -744,8 +749,8 @@ export function ThreadsSidebar() {
                         projects={resolvedProjects}
                         currentFolderId={params.folderId}
                         isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
-                        enableContextMenu={!isMobile}
-                        enableLongPressSelection={isMobile}
+                        enableContextMenu={!isTouchDevice}
+                        enableLongPressSelection={isTouchDevice}
                         getFolderSelectionState={getFolderSelectionState}
                         onToggleFolderSelection={handleToggleFolderSelection}
                         onStartFolderSelection={handleStartFolderSelection}
@@ -766,8 +771,8 @@ export function ThreadsSidebar() {
                     currentFolderId={params.folderId}
                     isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
                     activeThreadId={params.threadId}
-                    enableContextMenu={!isMobile}
-                    enableLongPressSelection={isMobile}
+                    enableContextMenu={!isTouchDevice}
+                    enableLongPressSelection={isTouchDevice}
                     nestedThreadSelectionMode={isThreadSelectionMode || isDesktopSelectionPreview}
                     selectedThreadIds={
                         isThreadSelectionMode || isDesktopSelectionPreview ? selectedThreadIds : []
@@ -798,8 +803,8 @@ export function ThreadsSidebar() {
                                 ? selectedThreadIds
                                 : []
                         }
-                        enableContextMenu={!isMobile}
-                        enableLongPressSelection={isMobile}
+                        enableContextMenu={!isTouchDevice}
+                        enableLongPressSelection={isTouchDevice}
                         canBulkTogglePin={canBulkTogglePin}
                         areAllSelectedPinned={areAllSelectedPinned}
                         onOpenRenameDialog={handleOpenRenameDialog}
