@@ -14,6 +14,7 @@ import { GeneratedImageFacets } from "./schema/generated_image_facets"
 import { ImageGenerationJob } from "./schema/image_generation_job"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
+import { ModelProviderMetadata } from "./schema/model_provider_metadata"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
@@ -23,6 +24,7 @@ import { UsageEvent } from "./schema/usage"
 export {
     Thread,
     Message,
+    ModelProviderMetadata,
     SharedThread,
     UsageEvent,
     PrototypeCreditAccount,
@@ -157,6 +159,10 @@ export default defineSchema({
     messages: defineTable(Message)
         .index("byThreadId", ["threadId"])
         .index("byMessageId", ["messageId"]),
+    modelProviderMetadata: defineTable(ModelProviderMetadata).index("byProviderModel", [
+        "provider",
+        "providerModelId"
+    ]),
     userPersonas: defineTable(UserPersona)
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"]),

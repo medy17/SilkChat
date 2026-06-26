@@ -2,6 +2,7 @@
 
 import {
     JsonToSseTransformStream,
+    type ModelMessage,
     UI_MESSAGE_STREAM_HEADERS,
     createUIMessageStream,
     smoothStream,
@@ -23,6 +24,13 @@ import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
+import {
+    type ContextLimitViolation,
+    estimateHttpMessageTokens,
+    estimateModelMessagesTokens,
+    getContextLimitViolation,
+    resolveContextLimits
+} from "../lib/context_limits"
 import {
     resolvePrototypeCreditCharge,
     resolvePrototypeToolCreditCharge,
@@ -53,7 +61,7 @@ import {
     sanitizeEnabledTools
 } from "../lib/toolkit"
 import { getBuiltInPersonaDefinition } from "../personas"
-import type { HTTPAIMessage } from "../schema/message"
+import type { HTTPAIMessage, Message } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
@@ -571,6 +579,91 @@ const resolvePersonaSnapshotForRequest = async (
     })
 }
 
+type StoredMessage = Infer<typeof Message>
+
+const sortMessagesChronologically = (messages: StoredMessage[]) =>
+    [...messages].sort((left, right) => {
+        const createdDiff = left.createdAt - right.createdAt
+        if (createdDiff !== 0) return createdDiff
+        return left.messageId.localeCompare(right.messageId)
+    })
+
+const toPendingUserMessage = ({
+    threadId,
+    message
+}: {
+    threadId?: string
+    message: Infer<typeof HTTPAIMessage>
+}): StoredMessage => {
+    const timestamp = Date.now()
+    return {
+        threadId: (threadId ?? "pending-thread") as Id<"threads">,
+        messageId: message.messageId ?? "pending-user-message",
+        role: message.role,
+        parts: message.parts,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        metadata: {}
+    }
+}
+
+const buildProspectiveMessages = ({
+    existingMessages,
+    threadId,
+    userMessage,
+    targetFromMessageId,
+    targetMode
+}: {
+    existingMessages: StoredMessage[]
+    threadId?: string
+    userMessage: Infer<typeof HTTPAIMessage>
+    targetFromMessageId?: string
+    targetMode?: "normal" | "edit" | "retry"
+}) => {
+    const pendingUserMessage = toPendingUserMessage({
+        threadId,
+        message: userMessage
+    })
+
+    if (!targetFromMessageId) {
+        return [pendingUserMessage, ...existingMessages]
+    }
+
+    const chronologicalMessages = sortMessagesChronologically(existingMessages)
+    const targetMessageIndex = chronologicalMessages.findIndex(
+        (message) => message.messageId === targetFromMessageId
+    )
+
+    if (targetMessageIndex === -1) {
+        return existingMessages
+    }
+
+    const keptMessages = chronologicalMessages.slice(0, targetMessageIndex + 1)
+    if (targetMode === "edit") {
+        const targetMessage = keptMessages[targetMessageIndex]
+        keptMessages[targetMessageIndex] = {
+            ...targetMessage,
+            parts: userMessage.parts,
+            updatedAt: Date.now()
+        }
+    }
+
+    return keptMessages.reverse()
+}
+
+const getContextLimitErrorMessage = (violation: ContextLimitViolation) =>
+    violation.limitType === "hosted"
+        ? "This chat is too large for hosted usage. Edit your message, switch to your OpenRouter key, or start a new chat."
+        : "This chat exceeds the selected model's effective context limit. Edit your message, start a new chat, or choose a larger-context model."
+
+const getContextLimitErrorPart = (violation: ContextLimitViolation): Infer<typeof ErrorUIPart> => ({
+    type: "error",
+    error: {
+        code: "context_limit_exceeded",
+        message: getContextLimitErrorMessage(violation)
+    }
+})
+
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
         id?: string
@@ -634,6 +727,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
         typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
             ? configuredMaxTokens
             : 16096
+    const contextLimits = resolveContextLimits(selectedRegistryModel)
+    const immediateContextViolation = getContextLimitViolation({
+        estimatedTokens: estimateHttpMessageTokens(body.message),
+        limits: contextLimits,
+        providerSource: modelData.providerSource,
+        modelId: body.model
+    })
     const effectiveReasoningEffort = resolveEffectiveReasoningEffort(
         body.model,
         selectedRegistryModel,
@@ -700,6 +800,159 @@ export const chatPOST = httpAction(async (ctx, req) => {
         toolAvailability.web_search.fundingSource === "deployment"
             ? effectiveToolCallLimitPerTurn
             : 0
+
+    let contextViolation = immediateContextViolation
+    if (!contextViolation) {
+        try {
+            const persistedPersonaSnapshot =
+                personaSnapshot ??
+                (body.id
+                    ? await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
+                          threadId: body.id as Id<"threads">
+                      })
+                    : null)
+            const existingMessages = body.id
+                ? await ctx.runQuery(internal.messages.getMessagesByThreadId, {
+                      threadId: body.id as Id<"threads">
+                  })
+                : []
+            const prospectiveMessages = buildProspectiveMessages({
+                existingMessages,
+                threadId: body.id,
+                userMessage: body.message,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode
+            })
+            const prospectiveMappedMessages = await dbMessagesToCore(
+                prospectiveMessages,
+                modelData.abilities,
+                {
+                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                }
+            )
+            const promptMessages: ModelMessage[] =
+                modelData.modelId !== "gemini-2.0-flash-image-generation"
+                    ? [
+                          {
+                              role: "system",
+                              content: buildPrompt({
+                                  enabledTools: resolvedEnabledTools,
+                                  toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
+                                  userSettings: settings,
+                                  personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                              })
+                          },
+                          ...prospectiveMappedMessages
+                      ]
+                    : prospectiveMappedMessages
+
+            contextViolation = getContextLimitViolation({
+                estimatedTokens: estimateModelMessagesTokens(promptMessages),
+                limits: contextLimits,
+                providerSource: modelData.providerSource,
+                modelId: body.model
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to estimate request context", error)
+            return new ChatError("bad_request:chat").toResponse()
+        }
+    }
+
+    const createMutationResult = async () => {
+        try {
+            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
+                threadId: body.id as Id<"threads">,
+                authorId: user.id,
+                userMessage: "message" in body ? body.message : undefined,
+                proposedNewAssistantId: body.proposedNewAssistantId,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode,
+                folderId: body.folderId,
+                personaSnapshot: personaSnapshot ?? undefined
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to create or append messages", error)
+            return new ChatError("bad_request:chat")
+        }
+    }
+
+    if (contextViolation) {
+        const mutationResult = await createMutationResult()
+        if (mutationResult instanceof ChatError) {
+            return mutationResult.toResponse()
+        }
+        if (!mutationResult) {
+            return new ChatError("bad_request:chat").toResponse()
+        }
+
+        const errorPart = getContextLimitErrorPart(contextViolation)
+        await ctx.runMutation(internal.messages.patchMessage, {
+            threadId: mutationResult.threadId,
+            messageId: mutationResult.assistantMessageId,
+            parts: [errorPart],
+            metadata: {
+                modelId: body.model,
+                modelName,
+                displayProvider,
+                runtimeProvider: modelData.runtimeProvider,
+                reasoningEffort: effectiveReasoningEffort,
+                creditProviderSource: modelData.providerSource,
+                creditBucket: "none",
+                creditFeature: model.modelType === "image" ? "image" : "chat",
+                creditUnits: 0,
+                creditCounted: false
+            }
+        })
+
+        const stream = createUIMessageStream({
+            execute: ({ writer }) => {
+                const textId = `${mutationResult.assistantMessageId}:context-limit`
+                writer.write({
+                    type: "text-start",
+                    id: textId
+                })
+                writer.write({
+                    type: "text-delta",
+                    id: textId,
+                    delta: errorPart.error.message
+                })
+                writer.write({
+                    type: "text-end",
+                    id: textId
+                })
+                writer.write({
+                    type: "finish",
+                    finishReason: "error",
+                    messageMetadata: {
+                        threadId: mutationResult.threadId,
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        reasoningEffort: effectiveReasoningEffort,
+                        creditProviderSource: modelData.providerSource,
+                        creditBucket: "none",
+                        creditFeature: model.modelType === "image" ? "image" : "chat",
+                        creditUnits: 0,
+                        creditCounted: false,
+                        contextLimit: contextViolation
+                    }
+                })
+            },
+            onError: (error) => {
+                console.error("[cvx][chat][context-limit] Failed to stream rejection:", error)
+                return "Context limit reached"
+            }
+        })
+
+        return new Response(
+            stream.pipeThrough(new JsonToSseTransformStream()).pipeThrough(new TextEncoderStream()),
+            {
+                headers: UI_MESSAGE_STREAM_HEADERS
+            }
+        )
+    }
+
     const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId: user.id,
         threadId: body.id as Id<"threads"> | undefined,
@@ -801,23 +1054,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         ])
     }
 
-    const mutationResult = await (async () => {
-        try {
-            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
-                threadId: body.id as Id<"threads">,
-                authorId: user.id,
-                userMessage: "message" in body ? body.message : undefined,
-                proposedNewAssistantId: body.proposedNewAssistantId,
-                targetFromMessageId: body.targetFromMessageId,
-                targetMode: body.targetMode,
-                folderId: body.folderId,
-                personaSnapshot: personaSnapshot ?? undefined
-            })
-        } catch (error) {
-            console.error("[cvx][chat] Failed to create or append messages", error)
-            return new ChatError("bad_request:chat")
-        }
-    })()
+    const mutationResult = await createMutationResult()
 
     if (mutationResult instanceof ChatError) {
         await releaseSetupReservations()

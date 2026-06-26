@@ -1,6 +1,6 @@
 import { type ParsedChatError, parseChatError } from "@/lib/errors"
 import { Link } from "@tanstack/react-router"
-import { AlertTriangle, CreditCard, Lock, RotateCcw } from "lucide-react"
+import { AlertTriangle, CreditCard, KeyRound, Lock, RotateCcw } from "lucide-react"
 import { memo, useMemo } from "react"
 import { Button } from "./ui/button"
 
@@ -55,6 +55,25 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             title: `Out of ${bucketLabel} credits`,
             description,
             cta: { label: "Manage plan", to: "/settings/billing" }
+        }
+    }
+
+    if (detail?.kind === "context_limit_exceeded") {
+        if (detail.limitType === "hosted") {
+            return {
+                icon: KeyRound,
+                title: "Hosted context limit reached",
+                description:
+                    "This chat is too large for hosted usage. Edit your message, switch to your OpenRouter key, or start a new chat.",
+                cta: { label: "Set up BYOK", to: "/settings/providers" }
+            }
+        }
+
+        return {
+            icon: AlertTriangle,
+            title: "Model context limit reached",
+            description:
+                "This chat exceeds the selected model's effective context limit. Edit your message, start a new chat, or choose a larger-context model."
         }
     }
 

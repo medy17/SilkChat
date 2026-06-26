@@ -98,6 +98,9 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     mode?: "text" | "image" | "speech-to-text"
     contextLength?: number
     maxTokens?: number
+    inputUsdPer1MTokens?: number
+    outputUsdPer1MTokens?: number
+    hostedContextLength?: number
     maxPerMessage?: number
     supportsReferenceImages?: boolean
     maxReferenceImages?: number
