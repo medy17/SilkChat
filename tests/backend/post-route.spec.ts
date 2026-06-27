@@ -615,6 +615,421 @@ describe("chatPOST", () => {
         )
     })
 
+    it("persists hosted context-limit rejections without reserving credits or calling the model", async () => {
+        const largeText = "x".repeat(24_000)
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock
+            .mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelId: "shared-text",
+                modelName: "Shared Text",
+                runtimeProvider: "openrouter",
+                providerSource: "internal",
+                abilities: [],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: [],
+                            contextLength: 100_000,
+                            maxTokens: 10_000,
+                            inputUsdPer1MTokens: 200
+                        }
+                    }
+                },
+                prototypeCreditTier: "basic",
+                prototypeCreditTierWithReasoning: undefined
+            })
+            .mockResolvedValueOnce(new ChatError("bad_model:api"))
+        dbMessagesToCoreMock.mockResolvedValueOnce([
+            {
+                role: "user",
+                content: largeText
+            }
+        ])
+
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "patchMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: largeText }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        const responseText = await response.text()
+        expect(responseText).toContain("too large for hosted usage")
+        expect(responseText).toContain('"threadId":"thread-1"')
+        expect(streamTextMock).not.toHaveBeenCalled()
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.anything()
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "patchMessage",
+            expect.objectContaining({
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                parts: [
+                    expect.objectContaining({
+                        type: "error",
+                        error: expect.objectContaining({
+                            code: "context_limit_exceeded"
+                        })
+                    })
+                ],
+                metadata: expect.objectContaining({
+                    creditCounted: false,
+                    creditUnits: 0
+                })
+            })
+        )
+    })
+
+    it("falls back to OpenRouter BYOK when hosted context is exceeded but the model window is not", async () => {
+        const largeText = "x".repeat(24_000)
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return []
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        const registry = {
+            models: {
+                "shared-text": {
+                    abilities: [],
+                    contextLength: 100_000,
+                    maxTokens: 10_000,
+                    inputUsdPer1MTokens: 200
+                }
+            }
+        }
+        getModelMock
+            .mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelId: "shared-text",
+                modelName: "Shared Text",
+                runtimeProvider: "openrouter",
+                providerSource: "internal",
+                abilities: [],
+                registry,
+                prototypeCreditTier: "basic",
+                prototypeCreditTierWithReasoning: undefined
+            })
+            .mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelId: "shared-text",
+                modelName: "Shared Text",
+                runtimeProvider: "openrouter",
+                providerSource: "openrouter",
+                abilities: [],
+                registry,
+                prototypeCreditTier: "basic",
+                prototypeCreditTierWithReasoning: undefined
+            })
+        dbMessagesToCoreMock
+            .mockResolvedValueOnce([
+                {
+                    role: "user",
+                    content: largeText
+                }
+            ])
+            .mockResolvedValueOnce([
+                {
+                    role: "user",
+                    content: largeText
+                }
+            ])
+        manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([]),
+            finishReason: Promise.resolve("stop")
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: largeText }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        const responseText = await response.text()
+        expect(responseText).not.toContain("too large for hosted usage")
+        expect(streamTextMock).toHaveBeenCalled()
+        expect(getModelMock).toHaveBeenLastCalledWith(
+            expect.anything(),
+            "shared-text",
+            expect.objectContaining({ openRouterByokOnly: true })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                providerSource: "openrouter",
+                counted: false,
+                units: 0
+            })
+        )
+        expect(responseText).toContain('"mode":"byok_fallback"')
+        expect(responseText).toContain('"reason":"message"')
+    })
+
+    it("allows BYOK requests to bypass hosted context limits", async () => {
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "appendStreamId":
+                    return "stream-1"
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "updateThreadStreamingState":
+                case "patchMessage":
+                case "releaseReservedCreditForMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getMessagesByThreadId":
+                    return [{ _id: "db-message-1" }]
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                case "getThreadPersonaSnapshotInternal":
+                    return null
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "shared-text",
+            modelName: "Shared Text",
+            runtimeProvider: "openrouter",
+            providerSource: "openrouter",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: [],
+                        contextLength: 100_000,
+                        maxTokens: 10_000,
+                        inputUsdPer1MTokens: 10
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+        manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
+        streamTextMock.mockReturnValueOnce({
+            fullStream: createObjectStream([]),
+            finishReason: Promise.resolve("stop")
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "x".repeat(24_000) }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await response.text()
+        expect(streamTextMock).toHaveBeenCalled()
+    })
+
+    it("persists model context-limit rejections for BYOK requests", async () => {
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        getModelMock.mockResolvedValueOnce({
+            model: { modelType: "text" },
+            modelId: "shared-text",
+            modelName: "Shared Text",
+            runtimeProvider: "openrouter",
+            providerSource: "openrouter",
+            abilities: [],
+            registry: {
+                models: {
+                    "shared-text": {
+                        abilities: [],
+                        contextLength: 12_000,
+                        maxTokens: 4_000,
+                        inputUsdPer1MTokens: 10
+                    }
+                }
+            },
+            prototypeCreditTier: "basic",
+            prototypeCreditTierWithReasoning: undefined
+        })
+
+        const ctx = createCtx()
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "createThreadOrInsertMessages":
+                    return {
+                        threadId: "thread-1",
+                        assistantMessageId: "assistant-1",
+                        assistantMessageConvexId: 42
+                    }
+                case "patchMessage":
+                    return null
+                default:
+                    throw new Error(`Unexpected mutation: ${name}`)
+            }
+        })
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            switch (name) {
+                case "getUserSettingsInternal":
+                    return {
+                        userId: "user-1",
+                        searchProvider: "firecrawl",
+                        searchIncludeSourcesByDefault: false,
+                        toolCallLimitPerTurn: 3,
+                        generalProviders: {},
+                        mcpServers: []
+                    }
+                default:
+                    throw new Error(`Unexpected query: ${name}`)
+            }
+        })
+
+        const response = await chatPOSTHandler(
+            ctx,
+            createRequest({
+                model: "shared-text",
+                proposedNewAssistantId: "assistant-1",
+                message: {
+                    role: "user",
+                    parts: [{ type: "text", text: "x".repeat(20_000) }]
+                },
+                enabledTools: [],
+                reasoningEffort: "off"
+            })
+        )
+
+        expect(response.status).toBe(200)
+        await expect(response.text()).resolves.toContain(
+            "exceeds the selected model's effective context limit"
+        )
+        expect(streamTextMock).not.toHaveBeenCalled()
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.anything()
+        )
+    })
+
     it("releases the reserved model charge when tool budget reservation fails", async () => {
         process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
@@ -2048,7 +2463,7 @@ describe("chatPOST", () => {
             prototypeCreditTier: "pro",
             prototypeCreditTierWithReasoning: undefined
         })
-        dbMessagesToCoreMock.mockResolvedValueOnce([
+        const pdfMappedMessages = [
             {
                 role: "user",
                 messageId: "message-1",
@@ -2065,7 +2480,10 @@ describe("chatPOST", () => {
                     }
                 ]
             }
-        ])
+        ]
+        dbMessagesToCoreMock
+            .mockResolvedValueOnce(pdfMappedMessages)
+            .mockResolvedValueOnce(pdfMappedMessages)
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
             fullStream: createObjectStream([]),

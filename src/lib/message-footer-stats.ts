@@ -2,6 +2,7 @@ type AssistantMessageMetadata = {
     modelName?: string
     displayProvider?: string
     runtimeProvider?: string
+    creditProviderSource?: "internal" | "byok" | "openrouter" | "custom" | "unknown"
     reasoningEffort?: "off" | "minimal" | "low" | "medium" | "high"
     promptTokens?: number
     completionTokens?: number
@@ -12,6 +13,13 @@ type AssistantMessageMetadata = {
     estimatedCompletionCostUsd?: number
     serverDurationMs?: number
     timeToFirstVisibleMs?: number
+    contextRouting?: {
+        mode: "byok_fallback"
+        reason: "message" | "thread"
+        limitType: "hosted"
+        estimatedTokens: number
+        limitTokens: number
+    }
 }
 
 const isValidNonNegativeNumber = (value: number | undefined): value is number =>
@@ -88,6 +96,7 @@ export const deriveMessageFooterStats = (metadata?: AssistantMessageMetadata) =>
         modelName: metadata.modelName,
         displayProvider: metadata.displayProvider,
         runtimeProvider: metadata.runtimeProvider,
+        creditProviderSource: metadata.creditProviderSource,
         reasoningEffort: metadata.reasoningEffort,
         promptTokens,
         completionTokens,
@@ -98,7 +107,8 @@ export const deriveMessageFooterStats = (metadata?: AssistantMessageMetadata) =>
         estimatedPromptCostUsd,
         estimatedCompletionCostUsd,
         timeToFirstVisibleMs,
-        tokensPerSecond
+        tokensPerSecond,
+        contextRouting: metadata.contextRouting
     }
 }
 

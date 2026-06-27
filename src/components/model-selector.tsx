@@ -75,7 +75,7 @@ import {
     Globe,
     GraduationCap,
     Image,
-    KeyRound,
+    Key,
     Search,
     Terminal,
     Trophy
@@ -1023,7 +1023,8 @@ export function ModelSelector({
     shortcutTarget = "none",
     tone = "default",
     modal = true,
-    requiresNativePdf = false
+    requiresNativePdf = false,
+    byokContextHint
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -1037,6 +1038,10 @@ export function ModelSelector({
     tone?: "default" | "on-primary"
     modal?: boolean
     requiresNativePdf?: boolean
+    byokContextHint?: {
+        tooltip: string
+        ariaLabel: string
+    }
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -1400,6 +1405,7 @@ export function ModelSelector({
                 : null,
         [currentProviders, selectedModelData, sharedModels]
     )
+    const showByokContextHint = Boolean(byokContextHint && !activeRuntimeProvider?.isByok)
     const selectedModelUsesProCredits =
         creditPlan === "pro" &&
         selectedModelData !== undefined &&
@@ -1510,6 +1516,22 @@ export function ModelSelector({
                                 : selectedModelData.name}
                         </span>
                         <span className="hidden md:block">{selectedModelData.name}</span>
+                        {showByokContextHint && byokContextHint && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className={cn(
+                                            "inline-flex text-muted-foreground",
+                                            tone === "on-primary" && "text-primary-foreground"
+                                        )}
+                                        aria-label={byokContextHint.ariaLabel}
+                                    >
+                                        <Key className="size-3.5" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                            </Tooltip>
+                        )}
                         {activeRuntimeProvider?.isByok && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1519,7 +1541,7 @@ export function ModelSelector({
                                             tone === "on-primary" && "text-primary-foreground"
                                         )}
                                     >
-                                        <KeyRound className="size-3.5" />
+                                        <Key className="size-3.5" />
                                     </span>
                                 </TooltipTrigger>
                                 <TooltipContent>

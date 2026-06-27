@@ -43,6 +43,7 @@ import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import {
+    estimateTokenCount,
     getFileAcceptAttribute,
     getFileTypeInfo,
     isImageMimeType,
@@ -72,6 +73,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
+import type { UIMessage } from "ai"
 import { useConvexAuth, useMutation } from "convex/react"
 import {
     ArrowUp,
@@ -106,6 +108,15 @@ import { toast } from "sonner"
 
 type ExtendedUploadedFile = UploadedFileWithSource
 
+const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
+const DEFAULT_MAX_OUTPUT_TOKENS = 16_096
+const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD = 0.75
+const DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS = 32_000
+const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
+const DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS = 256
+const DEFAULT_MESSAGE_OVERHEAD_TOKENS = 4
+const COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER = 1.1
+
 interface LocalUploadingFile {
     id: string
     file: File
@@ -113,6 +124,84 @@ interface LocalUploadingFile {
     status: "uploading" | "success" | "error"
     previewUrl?: string
     error?: string
+}
+
+const isPositiveFiniteNumber = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value) && value > 0
+
+const resolveComposerContextLimits = (model: SharedModel | undefined) => {
+    const modelContextLength = isPositiveFiniteNumber(model?.contextLength)
+        ? model.contextLength
+        : DEFAULT_MODEL_CONTEXT_LENGTH
+    const maxOutputTokens = isPositiveFiniteNumber(model?.maxTokens)
+        ? model.maxTokens
+        : DEFAULT_MAX_OUTPUT_TOKENS
+    const safetyMarginTokens = Math.max(4_096, Math.ceil(modelContextLength * 0.05))
+    const modelInputLimit = Math.max(
+        1_024,
+        modelContextLength - maxOutputTokens - safetyMarginTokens
+    )
+    const configuredHostedLimit = isPositiveFiniteNumber(model?.hostedContextLength)
+        ? model.hostedContextLength
+        : undefined
+    const hostedMetadataLimit = configuredHostedLimit ?? DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS
+    const priceDerivedHostedLimit = isPositiveFiniteNumber(model?.inputUsdPer1MTokens)
+        ? Math.floor(
+              (DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD * 1_000_000) / model.inputUsdPer1MTokens
+          )
+        : undefined
+    const hostedInputLimit = Math.max(
+        1_024,
+        Math.min(
+            modelInputLimit,
+            hostedMetadataLimit,
+            priceDerivedHostedLimit ??
+                configuredHostedLimit ??
+                DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS
+        )
+    )
+
+    return { modelInputLimit, hostedInputLimit }
+}
+
+const estimateUiMessageTokens = (message: UIMessage) =>
+    message.parts.reduce((total, part) => {
+        if (part.type === "text") return total + estimateTokenCount(part.text)
+        if (part.type === "reasoning") return total + estimateTokenCount(part.text ?? "")
+        if (part.type === "file") {
+            return (
+                total +
+                DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS +
+                estimateTokenCount(part.filename ?? "") +
+                estimateTokenCount(part.mediaType ?? "")
+            )
+        }
+        if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
+            return total + estimateTokenCount(JSON.stringify(part))
+        }
+        return total
+    }, DEFAULT_MESSAGE_OVERHEAD_TOKENS)
+
+const estimateUploadedFileTokens = (
+    file: UploadedFile,
+    content: string | undefined,
+    contentAvailable: boolean
+) => {
+    const baseTokens =
+        DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS +
+        estimateTokenCount(file.fileName) +
+        estimateTokenCount(file.fileType)
+
+    if (contentAvailable) {
+        return baseTokens + estimateTokenCount(content ?? "")
+    }
+
+    const fileTypeInfo = getFileTypeInfo(file.fileName, file.fileType)
+    if (fileTypeInfo.isText && !fileTypeInfo.isImage) {
+        return baseTokens + Math.ceil(file.fileSize / 4)
+    }
+
+    return baseTokens
 }
 
 export const AspectRatioSelector = ({
@@ -782,9 +871,10 @@ export const MultimodalInput = forwardRef<
         threadId?: string
         isActive?: boolean
         threadHasPdfAttachments?: boolean
+        messages?: UIMessage[]
     }
 >(function MultimodalInput(
-    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false },
+    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false, messages = [] },
     ref
 ) {
     const { token } = useToken()
@@ -1053,6 +1143,60 @@ export const MultimodalInput = forwardRef<
     const [inputValue, setInputValue] = useState("")
     const isInputEmpty = !inputValue.trim()
     const voiceInputEnabled = optionalBrowserEnv("VITE_ENABLE_VOICE_INPUT") === "true"
+    const predictedByokContextRouting = useMemo(() => {
+        if (!selectedSharedModel || isImageModel) return null
+        if (!selectedSharedModel.adapters.some((adapter) => adapter.startsWith("openrouter:"))) {
+            return null
+        }
+        const openRouterByokEnabled = userSettings.coreAIProviders?.openrouter?.enabled === true
+        const { hostedInputLimit, modelInputLimit } =
+            resolveComposerContextLimits(selectedSharedModel)
+        const attachmentTokens = uploadedFiles.reduce((total, file) => {
+            const hasCachedContent = Object.hasOwn(fileContents, file.key)
+            return (
+                total + estimateUploadedFileTokens(file, fileContents[file.key], hasCachedContent)
+            )
+        }, 0)
+        const draftTokens =
+            DEFAULT_MESSAGE_OVERHEAD_TOKENS + estimateTokenCount(inputValue) + attachmentTokens
+        const threadTokens = messages.reduce(
+            (total, message) => total + estimateUiMessageTokens(message),
+            0
+        )
+        const prospectiveTokens = threadTokens + draftTokens
+        const composerWarningThreshold =
+            hostedInputLimit * COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER
+
+        if (draftTokens > composerWarningThreshold) {
+            return {
+                reason: "message" as const,
+                estimatedTokens: draftTokens,
+                limitTokens: hostedInputLimit,
+                openRouterByokEnabled,
+                exceedsModelLimit: draftTokens > modelInputLimit
+            }
+        }
+
+        if (prospectiveTokens > composerWarningThreshold) {
+            return {
+                reason: "thread" as const,
+                estimatedTokens: prospectiveTokens,
+                limitTokens: hostedInputLimit,
+                openRouterByokEnabled,
+                exceedsModelLimit: prospectiveTokens > modelInputLimit
+            }
+        }
+
+        return null
+    }, [
+        fileContents,
+        inputValue,
+        isImageModel,
+        messages,
+        selectedSharedModel,
+        uploadedFiles,
+        userSettings
+    ])
 
     useEffect(() => {
         const checkInputValue = () => {
@@ -1625,6 +1769,17 @@ export const MultimodalInput = forwardRef<
                                         onModelChange={setSelectedModel}
                                         shortcutTarget="composer"
                                         requiresNativePdf={requiresNativePdfForModelSelection}
+                                        byokContextHint={
+                                            predictedByokContextRouting
+                                                ? {
+                                                      tooltip:
+                                                          predictedByokContextRouting.exceedsModelLimit
+                                                              ? "This request may exceed the selected model's context limit. Shorten it or start a new chat."
+                                                              : "This request may exceed hosted limits. Consider setting up BYOK.",
+                                                      ariaLabel: "BYOK may be needed"
+                                                  }
+                                                : undefined
+                                        }
                                     />
                                 </motion.div>
                             )}

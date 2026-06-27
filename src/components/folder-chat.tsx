@@ -340,6 +340,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                     threadId={threadId}
                                     isActive={isActiveRoute}
                                     threadHasPdfAttachments={threadHasPdfAttachments}
+                                    messages={deferredMessages}
                                 />
                             </motion.div>
                         </div>
@@ -375,6 +376,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                             threadId={threadId}
                             isActive={isActiveRoute}
                             threadHasPdfAttachments={threadHasPdfAttachments}
+                            messages={deferredMessages}
                         />
                     </motion.div>
                 )}

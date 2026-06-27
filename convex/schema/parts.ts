@@ -39,7 +39,17 @@ export const ErrorUIPart = v.object({
     type: v.literal("error"),
     error: v.object({
         code: v.string(),
-        message: v.string()
+        message: v.string(),
+        detail: v.optional(
+            v.object({
+                kind: v.literal("context_limit_exceeded"),
+                limitType: v.union(v.literal("hosted"), v.literal("model")),
+                estimatedTokens: v.number(),
+                limitTokens: v.number(),
+                modelId: v.string(),
+                canUseByok: v.optional(v.boolean())
+            })
+        )
     })
 })
 export const ToolInvocationUIPart = v.object({

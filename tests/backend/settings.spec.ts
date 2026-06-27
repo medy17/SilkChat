@@ -72,6 +72,11 @@ vi.mock("../../convex/lib/models", () => ({
             abilities: ["reasoning"],
             mode: "text",
             adapters: ["i3-openai:shared-text", "openrouter:or-shared", "openai:shared-text"],
+            contextLength: 128000,
+            maxTokens: 8192,
+            inputUsdPer1MTokens: 1.25,
+            outputUsdPer1MTokens: 10,
+            hostedContextLength: 48000,
             maxPerMessage: 4,
             supportsReferenceImages: true,
             openrouterImageModalities: undefined,
@@ -142,7 +147,11 @@ const createCtx = (
                     first: vi
                         .fn()
                         .mockResolvedValue(
-                            tableName === "userAccess" ? (options.userAccess ?? null) : settings
+                            tableName === "userAccess"
+                                ? (options.userAccess ?? null)
+                                : tableName === "modelProviderMetadata"
+                                  ? null
+                                  : settings
                         )
                 })
             })),
@@ -230,12 +239,72 @@ describe("settings", () => {
             "openrouter:or-shared",
             "openai:shared-text"
         ])
+        expect(result.models["shared-text"]).toMatchObject({
+            contextLength: 128000,
+            maxTokens: 8192,
+            inputUsdPer1MTokens: 1.25,
+            outputUsdPer1MTokens: 10,
+            hostedContextLength: 48000
+        })
         expect(result.models["admin-text"]).toBeUndefined()
         expect(result.models["custom-model"]).toMatchObject({
             id: "custom-model-id",
             name: "Custom Model",
             adapters: ["customprov:custom-model-id"],
             customProviderId: "customprov"
+        })
+    })
+
+    it("keeps explicit shared-model metadata ahead of cached OpenRouter metadata", async () => {
+        process.env.OPENROUTER_API_KEY = "or-key"
+        isInternalProviderConfiguredMock.mockImplementation((providerId: string) => {
+            return providerId === "openai"
+        })
+
+        const ctx = createCtx({
+            userId: "user-1",
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            generalProviders: {}
+        })
+        ctx.db.query = vi.fn((tableName: string) => ({
+            withIndex: vi.fn().mockReturnValue({
+                first: vi.fn().mockImplementation(async () => {
+                    if (tableName === "userAccess") return null
+                    if (tableName === "settings") {
+                        return {
+                            userId: "user-1",
+                            coreAIProviders: {},
+                            customAIProviders: {},
+                            customModels: {},
+                            generalProviders: {}
+                        }
+                    }
+                    if (tableName === "modelProviderMetadata") {
+                        return {
+                            provider: "openrouter",
+                            providerModelId: "or-shared",
+                            contextLength: 256000,
+                            maxCompletionTokens: 12000,
+                            inputUsdPer1MTokens: 0.5,
+                            outputUsdPer1MTokens: 2,
+                            fetchedAt: 123,
+                            source: "openrouter"
+                        }
+                    }
+                    return null
+                })
+            })
+        }))
+
+        const result = await getUserRegistryInternalHandler.handler(ctx, { userId: "user-1" })
+
+        expect(result.models["shared-text"]).toMatchObject({
+            contextLength: 128000,
+            maxTokens: 8192,
+            inputUsdPer1MTokens: 1.25,
+            outputUsdPer1MTokens: 10
         })
     })
 

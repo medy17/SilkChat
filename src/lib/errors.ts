@@ -31,6 +31,14 @@ export type ChatErrorDetail =
           currentPlan?: "free" | "pro"
           feature?: "chat" | "image" | "tool"
       }
+    | {
+          kind: "context_limit_exceeded"
+          limitType: "hosted" | "model"
+          estimatedTokens: number
+          limitTokens: number
+          modelId: string
+          canUseByok?: boolean
+      }
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
     database: "log",

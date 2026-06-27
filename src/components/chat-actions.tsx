@@ -24,7 +24,7 @@ import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { cn, copyToClipboard } from "@/lib/utils"
 import type { UIMessage } from "ai"
-import { Check, Clock3, Copy, Cpu, DollarSign, Download, Edit3, Zap } from "lucide-react"
+import { Check, Clock3, Copy, Cpu, DollarSign, Download, Edit3, Key, Zap } from "lucide-react"
 import {
     type CSSProperties,
     type ComponentType,
@@ -192,6 +192,17 @@ export const ChatActions = memo(
             [footerStats?.reasoningEffort]
         )
 
+        const isByokProviderSource =
+            footerStats?.creditProviderSource === "byok" ||
+            footerStats?.creditProviderSource === "openrouter" ||
+            footerStats?.creditProviderSource === "custom"
+        const providerSourceSuffix =
+            isByokProviderSource && footerStats?.contextRouting?.mode === "byok_fallback"
+                ? footerStats.contextRouting.reason === "message"
+                    ? "large message"
+                    : "large thread"
+                : undefined
+
         const footerSegments = useMemo<FooterSegment[]>(() => {
             if (!footerStats) return []
 
@@ -219,6 +230,12 @@ export const ChatActions = memo(
                     icon: ProviderIcon,
                     text: footerStats.modelName,
                     suffix: reasoningLabel
+                },
+                {
+                    key: "provider-source",
+                    icon: Key,
+                    text: isByokProviderSource ? "BYOK" : undefined,
+                    suffix: providerSourceSuffix
                 },
                 {
                     key: "speed",
@@ -265,7 +282,14 @@ export const ChatActions = memo(
                             : undefined
                 }
             ].filter((segment) => Boolean(segment.text))
-        }, [ProviderIcon, footerMode, footerStats, reasoningLabel])
+        }, [
+            ProviderIcon,
+            footerMode,
+            footerStats,
+            isByokProviderSource,
+            providerSourceSuffix,
+            reasoningLabel
+        ])
 
         const imageGenerationAssets = useMemo(() => {
             const assets: string[] = []
@@ -415,6 +439,12 @@ export const ChatActions = memo(
                                 {footerStats.modelName}
                                 {reasoningLabel ? ` (${reasoningLabel})` : ""}
                             </span>
+                            {isByokProviderSource && (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <Key className="size-3" />
+                                    <span>BYOK</span>
+                                </span>
+                            )}
                         </span>
                     </Badge>
                 )}

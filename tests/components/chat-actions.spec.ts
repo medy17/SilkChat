@@ -57,6 +57,23 @@ describe("ChatActions", () => {
         expect(screen.queryByText("TTFT 0.50 sec")).toBeNull()
     })
 
+    it("shows BYOK in simple mode when the response used a user key", () => {
+        render(
+            React.createElement(ChatActions, {
+                role: "assistant",
+                message: createAssistantMessage({
+                    modelName: "Gemini 3.1 Pro",
+                    runtimeProvider: "openrouter",
+                    creditProviderSource: "openrouter",
+                    reasoningEffort: "low"
+                })
+            })
+        )
+
+        expect(screen.getByText("Gemini 3.1 Pro (Low)")).toBeTruthy()
+        expect(screen.getByText("BYOK")).toBeTruthy()
+    })
+
     it("renders nerd stats and marquee chrome when metadata is complete", () => {
         useMessageFooterStore.setState({ footerMode: "nerd" })
 
@@ -84,6 +101,43 @@ describe("ChatActions", () => {
         expect(container.querySelector(".footer-marquee-mask")).toBeTruthy()
         expect(container.querySelector(".footer-marquee-track")).toBeTruthy()
         expect(screen.queryByText(/reasoning/)).toBeNull()
+    })
+
+    it("shows BYOK in the footer without labeling hosted responses", () => {
+        useMessageFooterStore.setState({ footerMode: "nerd" })
+
+        const { rerender } = render(
+            React.createElement(ChatActions, {
+                role: "assistant",
+                message: createAssistantMessage({
+                    modelName: "GPT 5.4 Mini",
+                    creditProviderSource: "internal"
+                })
+            })
+        )
+
+        expect(screen.queryByText("Hosted")).toBeNull()
+        expect(screen.queryByText("BYOK")).toBeNull()
+
+        rerender(
+            React.createElement(ChatActions, {
+                role: "assistant",
+                message: createAssistantMessage({
+                    modelName: "GPT 5.4 Mini",
+                    creditProviderSource: "openrouter",
+                    contextRouting: {
+                        mode: "byok_fallback",
+                        reason: "thread",
+                        limitType: "hosted",
+                        estimatedTokens: 48_000,
+                        limitTokens: 32_000
+                    }
+                })
+            })
+        )
+
+        expect(screen.getByText("BYOK (large thread)")).toBeTruthy()
+        expect(screen.queryByText("Hosted")).toBeNull()
     })
 
     it("falls back to prompt plus completion total without double-counting reasoning", () => {
