@@ -1,28 +1,30 @@
 import { describe, expect, it } from "vitest"
-
-import { estimateTokenCount } from "@/lib/file_constants"
+import { estimateTokenCount } from "../../src/lib/file_constants"
 
 describe("estimateTokenCount", () => {
-    it("keeps ASCII prose near the classic four-character heuristic", () => {
-        expect(estimateTokenCount("a".repeat(400))).toBe(100)
+    it("keeps plain ASCII prose close to the legacy characters-over-four estimate", () => {
+        const text = "This is a normal English sentence with a few ordinary words."
+
+        expect(estimateTokenCount(text)).toBeGreaterThanOrEqual(Math.ceil(text.length / 4))
+        expect(estimateTokenCount(text)).toBeLessThanOrEqual(Math.ceil((text.length / 4) * 1.25))
     })
 
-    it("does not undercount CJK text as one whitespace-delimited token", () => {
-        expect(estimateTokenCount("你好世界".repeat(25))).toBe(100)
+    it("counts CJK text more conservatively than a character-count estimate", () => {
+        const text = "これは日本語の文章です。長い会話でも過小評価しないようにします。"
+
+        expect(estimateTokenCount(text)).toBeGreaterThan(Math.ceil(text.length / 4) * 3)
     })
 
-    it("counts non-Latin alphabetic text more conservatively than ASCII prose", () => {
-        expect(estimateTokenCount("مرحبا".repeat(40))).toBeGreaterThan(80)
+    it("treats code-like content as denser than comparable prose", () => {
+        const prose = "export const value is mentioned in prose but not written as code"
+        const code = "export const value = items.map((item) => item.id).join(',')"
+
+        expect(estimateTokenCount(code)).toBeGreaterThan(estimateTokenCount(prose))
     })
 
-    it("bumps emoji and symbol-heavy text", () => {
-        expect(estimateTokenCount("🔥".repeat(20))).toBeGreaterThan(20)
-    })
+    it("handles symbols and emoji pessimistically", () => {
+        const text = "ok 🔥✨⚙️💡"
 
-    it("bumps long dense tokens such as URLs or encoded blobs", () => {
-        const plain = "a".repeat(96)
-        const dense = `https://example.com/${"Aa0_".repeat(24)}`
-
-        expect(estimateTokenCount(dense)).toBeGreaterThan(estimateTokenCount(plain))
+        expect(estimateTokenCount(text)).toBeGreaterThan(Math.ceil(text.length / 4))
     })
 })

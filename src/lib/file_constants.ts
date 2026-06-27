@@ -232,67 +232,56 @@ export const isSupportedFile = (filename: string, mimeType?: string) => {
 export const getFileAcceptAttribute = (includeImages = true) => {
     const textExtensions = SUPPORTED_TEXT_EXTENSIONS.join(",")
     if (includeImages) {
-        return `image/*,${textExtensions}`
+        return `image/*,.pdf,${textExtensions}`
     }
     return `${textExtensions},.svg`
 }
 
-const hasCjkScript = (char: string) =>
-    /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(char)
-
-const hasLetterOrNumber = (char: string) => /\p{L}|\p{N}/u.test(char)
-
-const hasAsciiLetterOrNumber = (char: string) => /[A-Za-z0-9]/u.test(char)
-
-const hasSymbol = (char: string) => /\p{S}/u.test(char)
-
-const isUrlLikeToken = (value: string) => /^https?:\/\//i.test(value) || /^www\./i.test(value)
-
-const isBase64LikeToken = (value: string) =>
-    value.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(value) && /[A-Z]/.test(value)
-
-// Dependency-free token estimation. This intentionally avoids whitespace splitting so CJK,
-// Thai, emoji, code, and URL-heavy text do not collapse into severe undercounts.
-export const estimateTokenCount = (text: string) => {
-    if (!text) return 0
-
+export const estimateTokenCount = (text: string): number => {
     let ascii = 0
     let cjk = 0
     let nonLatin = 0
-    let symbols = 0
+    let emojiOrSymbol = 0
     let punctuation = 0
     let whitespace = 0
 
     for (const char of text) {
         if (/\s/u.test(char)) {
-            whitespace += 1
-        } else if (hasCjkScript(char)) {
-            cjk += 1
-        } else if (hasAsciiLetterOrNumber(char)) {
-            ascii += 1
-        } else if (hasLetterOrNumber(char)) {
-            nonLatin += 1
-        } else if (hasSymbol(char)) {
-            symbols += 1
+            whitespace++
+        } else if (
+            /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(char)
+        ) {
+            cjk++
+        } else if (/[A-Za-z0-9]/u.test(char)) {
+            ascii++
+        } else if (/\p{L}|\p{N}/u.test(char)) {
+            nonLatin++
+        } else if (/\p{S}/u.test(char)) {
+            emojiOrSymbol++
         } else {
-            punctuation += 1
+            punctuation++
         }
     }
 
-    const rawEstimate =
-        ascii / 4 + whitespace / 20 + cjk + nonLatin / 2.2 + symbols * 1.5 + punctuation / 2
+    const raw =
+        ascii / 4 +
+        whitespace / 20 +
+        cjk * 1.1 +
+        nonLatin / 2.2 +
+        emojiOrSymbol * 2 +
+        punctuation / 2
 
-    const visibleLength = Math.max(text.length - whitespace, 1)
-    const punctuationDensity = punctuation / visibleLength
-    const symbolDensity = symbols / visibleLength
-    const densityMultiplier = punctuationDensity > 0.25 || symbolDensity > 0.15 ? 1.15 : 1
-    const denseTokenCount = text
-        .split(/\s+/u)
-        .filter((token) => isUrlLikeToken(token) || isBase64LikeToken(token)).length
-    const denseTokenMultiplier =
-        denseTokenCount > 0 ? 1 + Math.min(denseTokenCount * 0.08, 0.24) : 1
+    const punctuationDensity = punctuation / Math.max(text.length, 1)
+    const densityMultiplier = punctuationDensity > 0.25 ? 1.15 : 1
 
-    return Math.max(1, Math.ceil(rawEstimate * densityMultiplier * denseTokenMultiplier))
+    const codeish =
+        /```|~~~|[{[\]}();<>]|=>|->|::|\/\*|\*\/|\/\/|import\s|export\s|function\s|const\s|let\s|var\s|class\s|interface\s|type\s|enum\s|SELECT\s|INSERT\s|UPDATE\s|DELETE\s|CREATE\s|FROM\s|WHERE\s|package\s|namespace\s/i.test(
+            text
+        )
+
+    const codeMultiplier = codeish ? 1.25 : 1
+
+    return Math.ceil(raw * densityMultiplier * codeMultiplier * 1.15)
 }
 
 // File type detection result
