@@ -661,8 +661,8 @@ const buildProspectiveMessages = ({
 
 const getContextLimitErrorMessage = (violation: ContextLimitViolation) =>
     violation.limitType === "hosted"
-        ? "This chat is too large for hosted usage. Edit your message, switch to your OpenRouter key, or start a new chat."
-        : "This chat exceeds the selected model's effective context limit. Edit your message, start a new chat, or choose a larger-context model."
+        ? "This thread is too long. Edit your message, start a new chat, or switch to BYOK."
+        : "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats."
 
 const getContextLimitErrorPart = (violation: ContextLimitViolation): Infer<typeof ErrorUIPart> => ({
     type: "error",

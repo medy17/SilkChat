@@ -694,7 +694,7 @@ describe("chatPOST", () => {
 
         expect(response.status).toBe(200)
         const responseText = await response.text()
-        expect(responseText).toContain("too large for hosted usage")
+        expect(responseText).toContain("switch to BYOK")
         expect(responseText).toContain('"threadId":"thread-1"')
         expect(streamTextMock).not.toHaveBeenCalled()
         expect(ctx.runMutation).not.toHaveBeenCalledWith(
@@ -839,7 +839,7 @@ describe("chatPOST", () => {
 
         expect(response.status).toBe(200)
         const responseText = await response.text()
-        expect(responseText).not.toContain("too large for hosted usage")
+        expect(responseText).not.toContain("switch to BYOK")
         expect(streamTextMock).toHaveBeenCalled()
         expect(getModelMock).toHaveBeenLastCalledWith(
             expect.anything(),
@@ -1020,9 +1020,7 @@ describe("chatPOST", () => {
         )
 
         expect(response.status).toBe(200)
-        await expect(response.text()).resolves.toContain(
-            "exceeds the selected model's effective context limit"
-        )
+        await expect(response.text()).resolves.toContain("too long for the selected model")
         expect(streamTextMock).not.toHaveBeenCalled()
         expect(ctx.runMutation).not.toHaveBeenCalledWith(
             "reserveCreditForMessage",
