@@ -146,9 +146,7 @@ export const isLegacyDirectInferenceProvider = (providerId: string) =>
     LEGACY_DIRECT_INFERENCE_PROVIDER_IDS.has(providerId as CoreProvider)
 
 export const shouldShowCoreInferenceProvider = (provider: CoreProviderInfo) =>
-    provider.id === "openrouter" ||
-    provider.id === "gateway" ||
-    (legacyDirectInferenceProvidersEnabled && !provider.hidden)
+    provider.id === "openrouter" || (legacyDirectInferenceProvidersEnabled && !provider.hidden)
 
 const HIDDEN_PROVIDER_IDS = new Set(["groq", "fal", "i3-groq", "i3-fal"])
 const enabledProviderEntries = new Set(

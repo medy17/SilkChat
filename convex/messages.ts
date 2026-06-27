@@ -59,7 +59,16 @@ export const patchMessage = internalMutation({
                     v.union(v.literal("chat"), v.literal("image"), v.literal("tool"))
                 ),
                 creditUnits: v.optional(v.number()),
-                creditCounted: v.optional(v.boolean())
+                creditCounted: v.optional(v.boolean()),
+                contextRouting: v.optional(
+                    v.object({
+                        mode: v.literal("byok_fallback"),
+                        reason: v.union(v.literal("message"), v.literal("thread")),
+                        limitType: v.literal("hosted"),
+                        estimatedTokens: v.number(),
+                        limitTokens: v.number()
+                    })
+                )
             })
         )
     },

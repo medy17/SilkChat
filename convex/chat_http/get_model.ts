@@ -53,6 +53,7 @@ export const getModel = async (
     modelId: string,
     options?: {
         internalOnly?: boolean
+        openRouterByokOnly?: boolean
         reasoningEffort?: ReasoningEffort
     }
 ) => {
@@ -69,9 +70,11 @@ export const getModel = async (
     if (!model) return new ChatError("bad_model:api")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
 
-    const adaptersToConsider = options?.internalOnly
-        ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
-        : model.adapters
+    const adaptersToConsider = options?.openRouterByokOnly
+        ? model.adapters.filter((adapter) => adapter.startsWith("openrouter:"))
+        : options?.internalOnly
+          ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
+          : model.adapters
 
     if (!adaptersToConsider.length) {
         return new ChatError("bad_model:api", "No internal adapters found for model")
@@ -210,7 +213,9 @@ export const getModel = async (
 
         const provider = registry.providers[providerIdRaw]
         const hasInternalOpenRouter =
-            providerIdRaw === "openrouter" && Boolean(getInternalOpenRouterApiKey())
+            providerIdRaw === "openrouter" &&
+            !options?.openRouterByokOnly &&
+            Boolean(getInternalOpenRouterApiKey())
         if (providerIdRaw === "openrouter" && !provider && hasInternalOpenRouter) {
             const sdk_provider = (await createProvider("openrouter", "internal", {
                 modelId: providerSpecificModelId

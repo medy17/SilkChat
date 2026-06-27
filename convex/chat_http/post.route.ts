@@ -581,6 +581,14 @@ const resolvePersonaSnapshotForRequest = async (
 
 type StoredMessage = Infer<typeof Message>
 
+type ContextRoutingMetadata = {
+    mode: "byok_fallback"
+    reason: "message" | "thread"
+    limitType: "hosted"
+    estimatedTokens: number
+    limitTokens: number
+}
+
 const sortMessagesChronologically = (messages: StoredMessage[]) =>
     [...messages].sort((left, right) => {
         const createdDiff = left.createdAt - right.createdAt
@@ -660,7 +668,15 @@ const getContextLimitErrorPart = (violation: ContextLimitViolation): Infer<typeo
     type: "error",
     error: {
         code: "context_limit_exceeded",
-        message: getContextLimitErrorMessage(violation)
+        message: getContextLimitErrorMessage(violation),
+        detail: {
+            kind: "context_limit_exceeded",
+            limitType: violation.limitType,
+            estimatedTokens: violation.estimatedTokens,
+            limitTokens: violation.limitTokens,
+            modelId: violation.modelId,
+            canUseByok: violation.canUseByok
+        }
     }
 })
 
@@ -708,12 +724,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
 
-    const modelData = await getModel(ctx, body.model, {
+    let modelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort
     })
     if (modelData instanceof ChatError) return modelData.toResponse()
-    const { model, modelName } = modelData
-    const displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+    let { model, modelName } = modelData
+    let displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
     const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
     const selectedRegistryModel = modelData.registry.models[body.model]
     const allowedReasoningEfforts = getSharedAllowedReasoningEffortsForModel(selectedRegistryModel)
@@ -723,13 +739,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
         modelData.abilities.includes("effort_control") &&
         (!OPENROUTER_ONLY_REASONING_CONTROL_MODEL_IDS.has(body.model) ||
             modelData.runtimeProvider === "openrouter")
-    const maxTokens =
+    let maxTokens =
         typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
             ? configuredMaxTokens
             : 16096
     const contextLimits = resolveContextLimits(selectedRegistryModel)
+    const immediateEstimatedTokens = estimateHttpMessageTokens(body.message)
     const immediateContextViolation = getContextLimitViolation({
-        estimatedTokens: estimateHttpMessageTokens(body.message),
+        estimatedTokens: immediateEstimatedTokens,
         limits: contextLimits,
         providerSource: modelData.providerSource,
         modelId: body.model
@@ -747,7 +764,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         availableToPickForReasoningEfforts: modelData.availableToPickForReasoningEfforts
     })
 
-    const modelCreditCharge = resolvePrototypeCreditCharge({
+    let modelCreditCharge = resolvePrototypeCreditCharge({
         providerSource: modelData.providerSource,
         modelMode: model.modelType,
         enabledTools: body.enabledTools,
@@ -802,7 +819,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
             : 0
 
     let contextViolation = immediateContextViolation
-    if (!contextViolation) {
+    let contextViolationReason: "message" | "thread" | undefined =
+        immediateContextViolation?.limitType === "hosted" ? "message" : undefined
+    if (!contextViolation || contextViolation.limitType === "hosted") {
         try {
             const persistedPersonaSnapshot =
                 personaSnapshot ??
@@ -846,15 +865,65 @@ export const chatPOST = httpAction(async (ctx, req) => {
                       ]
                     : prospectiveMappedMessages
 
-            contextViolation = getContextLimitViolation({
+            const prospectiveContextViolation = getContextLimitViolation({
                 estimatedTokens: estimateModelMessagesTokens(promptMessages),
                 limits: contextLimits,
                 providerSource: modelData.providerSource,
                 modelId: body.model
             })
+            contextViolation = prospectiveContextViolation
+            contextViolationReason =
+                prospectiveContextViolation?.limitType === "hosted"
+                    ? (contextViolationReason ?? "thread")
+                    : undefined
         } catch (error) {
             console.error("[cvx][chat] Failed to estimate request context", error)
             return new ChatError("bad_request:chat").toResponse()
+        }
+    }
+
+    let contextRouting: ContextRoutingMetadata | undefined
+    if (contextViolation?.limitType === "hosted") {
+        const fallbackModelData = await getModel(ctx, body.model, {
+            reasoningEffort: body.reasoningEffort,
+            openRouterByokOnly: true
+        })
+
+        if (!(fallbackModelData instanceof ChatError)) {
+            const fallbackViolation = getContextLimitViolation({
+                estimatedTokens: contextViolation.estimatedTokens,
+                limits: contextLimits,
+                providerSource: fallbackModelData.providerSource,
+                modelId: body.model
+            })
+
+            if (!fallbackViolation) {
+                modelData = fallbackModelData
+                model = modelData.model
+                modelName = modelData.modelName
+                displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+                maxTokens =
+                    typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
+                    modelData.registry.models[body.model]?.maxTokens > 0
+                        ? modelData.registry.models[body.model].maxTokens
+                        : 16096
+                modelCreditCharge = resolvePrototypeCreditCharge({
+                    providerSource: modelData.providerSource,
+                    modelMode: model.modelType,
+                    enabledTools: body.enabledTools,
+                    reasoningEffort: effectiveReasoningEffort,
+                    prototypeCreditTier: modelData.prototypeCreditTier,
+                    prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+                })
+                contextRouting = {
+                    mode: "byok_fallback",
+                    reason: contextViolationReason ?? "thread",
+                    limitType: "hosted",
+                    estimatedTokens: contextViolation.estimatedTokens,
+                    limitTokens: contextViolation.limitTokens
+                }
+                contextViolation = null
+            }
         }
     }
 
@@ -1319,7 +1388,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     modelName,
                     displayProvider,
                     runtimeProvider: modelData.runtimeProvider,
-                    reasoningEffort: effectiveReasoningEffort
+                    creditProviderSource: modelData.providerSource,
+                    reasoningEffort: effectiveReasoningEffort,
+                    ...(contextRouting ? { contextRouting } : {})
                 }
             })
 
@@ -1410,7 +1481,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
 
@@ -1544,6 +1616,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             modelName,
                             displayProvider,
                             runtimeProvider: modelData.runtimeProvider,
+                            creditProviderSource: modelData.providerSource,
                             reasoningEffort: effectiveReasoningEffort,
                             promptTokens: totalTokenUsage.promptTokens,
                             completionTokens: totalTokenUsage.completionTokens,
@@ -1553,7 +1626,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
                 } else {
@@ -1679,6 +1753,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             modelName,
                             displayProvider,
                             runtimeProvider: modelData.runtimeProvider,
+                            creditProviderSource: modelData.providerSource,
                             reasoningEffort: effectiveReasoningEffort,
                             promptTokens: totalTokenUsage.promptTokens,
                             completionTokens: totalTokenUsage.completionTokens,
@@ -1688,7 +1763,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
                 }
@@ -1738,7 +1814,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     creditUnits: modelCreditCharge.units,
                     creditCounted: modelCreditCharge.counted,
                     serverDurationMs: Date.now() - streamStartTime,
-                    timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                    timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                    ...(contextRouting ? { contextRouting } : {})
                 }
             })
 
@@ -1756,6 +1833,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         modelName,
                         displayProvider,
                         runtimeProvider: modelData.runtimeProvider,
+                        creditProviderSource: modelData.providerSource,
                         reasoningEffort: effectiveReasoningEffort,
                         promptTokens: totalTokenUsage.promptTokens,
                         completionTokens: totalTokenUsage.completionTokens,
@@ -1765,7 +1843,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                         estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                         serverDurationMs: Date.now() - streamStartTime,
-                        timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextRouting ? { contextRouting } : {})
                     }
                 })
             }

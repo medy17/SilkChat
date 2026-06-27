@@ -250,6 +250,30 @@ const PartsRenderer = memo(
         isStreaming?: boolean
     }) => {
         switch (part.type) {
+            case "data-context-error": {
+                const errorPart = part as {
+                    data: {
+                        code: string
+                        message: string
+                        detail?: unknown
+                    }
+                }
+                return (
+                    <div className="not-prose my-3">
+                        <ChatErrorNotice
+                            error={
+                                new Error(
+                                    JSON.stringify({
+                                        code: errorPart.data.code,
+                                        message: errorPart.data.message,
+                                        detail: errorPart.data.detail
+                                    })
+                                )
+                            }
+                        />
+                    </div>
+                )
+            }
             case "text":
                 return markdown ? (
                     <MemoizedMarkdown content={part.text} isAnimating={isStreaming} />

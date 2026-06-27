@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD,
     DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS,
     getContextLimitViolation,
     resolveContextLimits
@@ -30,7 +31,9 @@ describe("context limit policy", () => {
             inputUsdPer1MTokens: 10
         })
 
-        expect(limits.hostedInputLimit).toBe(5_000)
+        expect(limits.hostedInputLimit).toBe(
+            (DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD * 1_000_000) / 10
+        )
     })
 
     it("uses a conservative fallback when pricing metadata is missing", () => {

@@ -377,6 +377,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         threadId={threadId}
                         isActive={isActiveRoute}
                         threadHasPdfAttachments={threadHasPdfAttachments}
+                        messages={deferredMessages}
                     />
                 </div>
             </motion.div>

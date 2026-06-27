@@ -47,7 +47,6 @@ import {
     PackageIcon,
     Plus,
     RotateCcw,
-    Settings2,
     SquarePen,
     Trash2,
     X
@@ -290,7 +289,7 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                             {isEnabled ? (
                                 <SquarePen className="size-4" />
                             ) : (
-                                <Settings2 className="size-4" />
+                                <Key className="size-4" />
                             )}
                             {isEnabled ? "Edit" : "Setup BYOK"}
                         </Button>
