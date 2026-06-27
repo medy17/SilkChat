@@ -97,7 +97,7 @@ export const ChatErrorNotice = memo(
         return (
             <div className="flex flex-col gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-foreground">
                 <div className="flex items-start gap-3">
-                    <Icon className="mt-0.5 size-5 shrink-0 text-foreground" />
+                    <Icon className="mt-2 size-5 shrink-0 text-foreground" />
                     <div className="flex min-w-0 flex-col gap-1">
                         <p className="font-medium text-foreground">{presentation.title}</p>
                         {presentation.description && (
