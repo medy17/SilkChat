@@ -7,7 +7,7 @@
 
 - When writing/modifying UI, always use theme based variables. Do not hardcode radius values, use theme.radius.sm/md/lg/xl. IF YOU HARDCODE, YOUR WORK WILL BE AUTOMATICALLY REJECTED.
 
-- Follow [TEST_WRITING_GUIDE.md](./TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
+- Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
 
 - Local development uses cloud Convex plus the local image optimizer. The user normally runs:
   ```

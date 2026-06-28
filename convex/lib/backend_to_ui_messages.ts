@@ -32,8 +32,8 @@ export const backendToUiMessages = (messages: Infer<typeof Message>[]): AIUIMess
 
                     if (part.type === "error") {
                         return {
-                            type: "text" as const,
-                            text: part.error.message
+                            type: "data-context-error" as const,
+                            data: part.error
                         }
                     }
 

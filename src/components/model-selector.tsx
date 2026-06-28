@@ -56,6 +56,7 @@ import {
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getRequiredPlanToPickModel,
+    hasBuiltInOpenRouterProvider,
     isAdminOnlyModel,
     isImageGenerationCapableModel,
     useAvailableModels
@@ -75,7 +76,7 @@ import {
     Globe,
     GraduationCap,
     Image,
-    KeyRound,
+    Key,
     Search,
     Terminal,
     Trophy
@@ -247,11 +248,26 @@ const getActiveRuntimeProvider = (
 
     for (const adapter of sharedModel.adapters) {
         const providerId = adapter.split(":")[0]
-        if (providerId === "openrouter" && currentProviders.core.openrouter?.enabled) {
+        if (
+            providerId === "openrouter" &&
+            currentProviders.core.openrouter?.enabled &&
+            currentProviders.core.openrouter?.usageMode === "priority"
+        ) {
             return {
                 isByok: true,
                 label: getProviderDisplayName(providerId, currentProviders)
             }
+        }
+    }
+
+    if (isOpenRouterOnlySharedModel(sharedModel) && hasBuiltInOpenRouterProvider(sharedModel)) {
+        return { isByok: false, label: "Built-in" }
+    }
+
+    if (isOpenRouterOnlySharedModel(sharedModel) && currentProviders.core.openrouter?.enabled) {
+        return {
+            isByok: true,
+            label: getProviderDisplayName("openrouter", currentProviders)
         }
     }
 
@@ -1023,7 +1039,8 @@ export function ModelSelector({
     shortcutTarget = "none",
     tone = "default",
     modal = true,
-    requiresNativePdf = false
+    requiresNativePdf = false,
+    byokContextHint
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -1037,6 +1054,10 @@ export function ModelSelector({
     tone?: "default" | "on-primary"
     modal?: boolean
     requiresNativePdf?: boolean
+    byokContextHint?: {
+        tooltip: string
+        ariaLabel: string
+    }
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -1400,6 +1421,7 @@ export function ModelSelector({
                 : null,
         [currentProviders, selectedModelData, sharedModels]
     )
+    const showByokContextHint = Boolean(byokContextHint && !activeRuntimeProvider?.isByok)
     const selectedModelUsesProCredits =
         creditPlan === "pro" &&
         selectedModelData !== undefined &&
@@ -1510,7 +1532,7 @@ export function ModelSelector({
                                 : selectedModelData.name}
                         </span>
                         <span className="hidden md:block">{selectedModelData.name}</span>
-                        {activeRuntimeProvider?.isByok && (
+                        {showByokContextHint && byokContextHint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <span
@@ -1518,13 +1540,28 @@ export function ModelSelector({
                                             "inline-flex text-muted-foreground",
                                             tone === "on-primary" && "text-primary-foreground"
                                         )}
+                                        aria-label={byokContextHint.ariaLabel}
                                     >
-                                        <KeyRound className="size-3.5" />
+                                        <Key className="size-3.5" />
                                     </span>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                    Using your {activeRuntimeProvider.label} key
-                                </TooltipContent>
+                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                            </Tooltip>
+                        )}
+                        {activeRuntimeProvider?.isByok && byokContextHint && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className={cn(
+                                            "inline-flex text-muted-foreground",
+                                            tone === "on-primary" && "text-primary-foreground"
+                                        )}
+                                        aria-label={byokContextHint.ariaLabel}
+                                    >
+                                        <Key className="size-3.5" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
                             </Tooltip>
                         )}
                     </div>

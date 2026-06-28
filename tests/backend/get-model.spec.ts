@@ -151,6 +151,47 @@ describe("getModel", () => {
         })
     })
 
+    it("uses OpenRouter BYOK first for shared models when OpenRouter is set to priority", async () => {
+        const openRouterModel = { provider: "byok-openrouter" }
+        createProviderMock.mockResolvedValueOnce({
+            chat: vi.fn().mockReturnValue(openRouterModel)
+        })
+
+        const result = await getModel(
+            createCtx({
+                providers: {
+                    openrouter: {
+                        key: "user-openrouter-key",
+                        usageMode: "priority"
+                    }
+                },
+                models: {
+                    "shared-text": {
+                        id: "shared-text",
+                        name: "Shared Text",
+                        mode: "text",
+                        abilities: ["reasoning"],
+                        adapters: ["openrouter:or-shared", "i3-openai:shared-text"]
+                    }
+                }
+            }),
+            "shared-text"
+        )
+
+        expect(createProviderMock).toHaveBeenCalledWith("openrouter", "user-openrouter-key", {
+            googleAuthMode: undefined,
+            modelId: "or-shared"
+        })
+        expect(result).toMatchObject({
+            providerSource: "openrouter",
+            runtimeProvider: "openrouter",
+            model: {
+                provider: "byok-openrouter",
+                modelType: "text"
+            }
+        })
+    })
+
     it("uses BYOK core providers for custom models before internal or OpenRouter fallbacks", async () => {
         const responsesModel = { provider: "byok-openai" }
         createProviderMock.mockResolvedValueOnce({

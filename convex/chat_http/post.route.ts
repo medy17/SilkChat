@@ -2,6 +2,7 @@
 
 import {
     JsonToSseTransformStream,
+    type ModelMessage,
     UI_MESSAGE_STREAM_HEADERS,
     createUIMessageStream,
     smoothStream,
@@ -23,6 +24,15 @@ import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
+import {
+    type ContextLimitViolation,
+    type SuggestedModel,
+    computeSuggestedModels,
+    estimateHttpMessageTokens,
+    estimateModelMessagesTokens,
+    getContextLimitViolation,
+    resolveContextLimits
+} from "../lib/context_limits"
 import {
     resolvePrototypeCreditCharge,
     resolvePrototypeToolCreditCharge,
@@ -53,7 +63,7 @@ import {
     sanitizeEnabledTools
 } from "../lib/toolkit"
 import { getBuiltInPersonaDefinition } from "../personas"
-import type { HTTPAIMessage } from "../schema/message"
+import type { HTTPAIMessage, Message } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
@@ -571,6 +581,169 @@ const resolvePersonaSnapshotForRequest = async (
     })
 }
 
+type StoredMessage = Infer<typeof Message>
+
+type ContextRoutingMetadata = {
+    mode: "byok_fallback"
+    reason: "message" | "thread"
+    limitType: "hosted"
+    estimatedTokens: number
+    limitTokens: number
+}
+
+const sortMessagesChronologically = (messages: StoredMessage[]) =>
+    [...messages].sort((left, right) => {
+        const createdDiff = left.createdAt - right.createdAt
+        if (createdDiff !== 0) return createdDiff
+        return left.messageId.localeCompare(right.messageId)
+    })
+
+const toPendingUserMessage = ({
+    threadId,
+    message
+}: {
+    threadId?: string
+    message: Infer<typeof HTTPAIMessage>
+}): StoredMessage => {
+    const timestamp = Date.now()
+    return {
+        threadId: (threadId ?? "pending-thread") as Id<"threads">,
+        messageId: message.messageId ?? "pending-user-message",
+        role: message.role,
+        parts: message.parts,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        metadata: {}
+    }
+}
+
+const buildProspectiveMessages = ({
+    existingMessages,
+    threadId,
+    userMessage,
+    targetFromMessageId,
+    targetMode
+}: {
+    existingMessages: StoredMessage[]
+    threadId?: string
+    userMessage: Infer<typeof HTTPAIMessage>
+    targetFromMessageId?: string
+    targetMode?: "normal" | "edit" | "retry"
+}) => {
+    const pendingUserMessage = toPendingUserMessage({
+        threadId,
+        message: userMessage
+    })
+
+    if (!targetFromMessageId) {
+        return [pendingUserMessage, ...existingMessages]
+    }
+
+    const chronologicalMessages = sortMessagesChronologically(existingMessages)
+    const targetMessageIndex = chronologicalMessages.findIndex(
+        (message) => message.messageId === targetFromMessageId
+    )
+
+    if (targetMessageIndex === -1) {
+        return existingMessages
+    }
+
+    const keptMessages = chronologicalMessages.slice(0, targetMessageIndex + 1)
+    if (targetMode === "edit") {
+        const targetMessage = keptMessages[targetMessageIndex]
+        keptMessages[targetMessageIndex] = {
+            ...targetMessage,
+            parts: userMessage.parts,
+            updatedAt: Date.now()
+        }
+    }
+
+    return keptMessages.reverse()
+}
+
+const getContextLimitErrorMessage = (violation: ContextLimitViolation) =>
+    violation.limitType === "hosted"
+        ? "This thread is too long. Edit your message, start a new chat, or switch to BYOK."
+        : "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats."
+
+const SHARED_MODELS_BY_ID = new Map(MODELS_SHARED.map((model) => [model.id, model]))
+
+const getContextLimitErrorPart = (
+    violation: ContextLimitViolation,
+    suggestedModels: SuggestedModel[]
+): Infer<typeof ErrorUIPart> => ({
+    type: "error",
+    error: {
+        code: "context_limit_exceeded",
+        message: getContextLimitErrorMessage(violation),
+        detail: {
+            kind: "context_limit_exceeded",
+            limitType: violation.limitType,
+            estimatedTokens: violation.estimatedTokens,
+            limitTokens: violation.limitTokens,
+            modelId: violation.modelId,
+            canUseByok: violation.canUseByok,
+            ...(suggestedModels.length > 0 ? { suggestedModels } : {})
+        }
+    }
+})
+
+/**
+ * Pick cheaper/larger models that would accept this thread, joining the
+ * (metadata-overlaid) per-user registry with static fields the registry omits
+ * (developer/releaseOrder/legacy). Returns [] on any failure — suggestions are
+ * a nicety, never a reason to fail the rejection response.
+ */
+const resolveSuggestedModels = async (
+    ctx: ActionCtx,
+    {
+        userId,
+        currentModelId,
+        registryModels,
+        estimatedTokens
+    }: {
+        userId: string
+        currentModelId: string
+        registryModels: Record<string, SharedModel & { customProviderId?: string }>
+        estimatedTokens: number
+    }
+): Promise<SuggestedModel[]> => {
+    try {
+        const userPlan = await ctx.runQuery(internal.credits.getUserCreditPlanInternal, { userId })
+        const currentModel = registryModels[currentModelId]
+        return computeSuggestedModels({
+            currentModelId,
+            currentModelAbilities: currentModel?.abilities ?? [],
+            currentModelDeveloper: SHARED_MODELS_BY_ID.get(currentModelId)?.developer,
+            estimatedTokens,
+            userPlan,
+            candidates: Object.values(registryModels).map((model) => {
+                const shared = SHARED_MODELS_BY_ID.get(model.id)
+                return {
+                    id: model.id,
+                    name: model.name,
+                    abilities: model.abilities ?? [],
+                    mode: model.mode,
+                    runnable: (model.adapters?.length ?? 0) > 0,
+                    requiredPlan: model.availableToPickFor ?? "pro",
+                    contextLength: model.contextLength,
+                    maxTokens: model.maxTokens,
+                    inputUsdPer1MTokens: model.inputUsdPer1MTokens,
+                    outputUsdPer1MTokens: model.outputUsdPer1MTokens,
+                    hostedContextLength: model.hostedContextLength,
+                    prototypeCreditTier: model.prototypeCreditTier,
+                    developer: shared?.developer,
+                    releaseOrder: shared?.releaseOrder,
+                    legacy: shared?.legacy
+                }
+            })
+        })
+    } catch (error) {
+        console.error("[cvx][chat][context-limit] Failed to resolve suggested models:", error)
+        return []
+    }
+}
+
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
         id?: string
@@ -615,12 +788,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
 
-    const modelData = await getModel(ctx, body.model, {
+    let modelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort
     })
     if (modelData instanceof ChatError) return modelData.toResponse()
-    const { model, modelName } = modelData
-    const displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+    let { model, modelName } = modelData
+    let displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
     const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
     const selectedRegistryModel = modelData.registry.models[body.model]
     const allowedReasoningEfforts = getSharedAllowedReasoningEffortsForModel(selectedRegistryModel)
@@ -630,10 +803,18 @@ export const chatPOST = httpAction(async (ctx, req) => {
         modelData.abilities.includes("effort_control") &&
         (!OPENROUTER_ONLY_REASONING_CONTROL_MODEL_IDS.has(body.model) ||
             modelData.runtimeProvider === "openrouter")
-    const maxTokens =
+    let maxTokens =
         typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
             ? configuredMaxTokens
             : 16096
+    const contextLimits = resolveContextLimits(selectedRegistryModel)
+    const immediateEstimatedTokens = estimateHttpMessageTokens(body.message)
+    const immediateContextViolation = getContextLimitViolation({
+        estimatedTokens: immediateEstimatedTokens,
+        limits: contextLimits,
+        providerSource: modelData.providerSource,
+        modelId: body.model
+    })
     const effectiveReasoningEffort = resolveEffectiveReasoningEffort(
         body.model,
         selectedRegistryModel,
@@ -647,7 +828,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         availableToPickForReasoningEfforts: modelData.availableToPickForReasoningEfforts
     })
 
-    const modelCreditCharge = resolvePrototypeCreditCharge({
+    let modelCreditCharge = resolvePrototypeCreditCharge({
         providerSource: modelData.providerSource,
         modelMode: model.modelType,
         enabledTools: body.enabledTools,
@@ -700,7 +881,218 @@ export const chatPOST = httpAction(async (ctx, req) => {
         toolAvailability.web_search.fundingSource === "deployment"
             ? effectiveToolCallLimitPerTurn
             : 0
-    const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
+
+    let contextViolation = immediateContextViolation
+    let contextViolationReason: "message" | "thread" | undefined =
+        immediateContextViolation?.limitType === "hosted" ? "message" : undefined
+    if (!contextViolation || contextViolation.limitType === "hosted") {
+        try {
+            const persistedPersonaSnapshot =
+                personaSnapshot ??
+                (body.id
+                    ? await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
+                          threadId: body.id as Id<"threads">
+                      })
+                    : null)
+            const existingMessages = body.id
+                ? await ctx.runQuery(internal.messages.getMessagesByThreadId, {
+                      threadId: body.id as Id<"threads">
+                  })
+                : []
+            const prospectiveMessages = buildProspectiveMessages({
+                existingMessages,
+                threadId: body.id,
+                userMessage: body.message,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode
+            })
+            const prospectiveMappedMessages = await dbMessagesToCore(
+                prospectiveMessages,
+                modelData.abilities,
+                {
+                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                }
+            )
+            const promptMessages: ModelMessage[] =
+                modelData.modelId !== "gemini-2.0-flash-image-generation"
+                    ? [
+                          {
+                              role: "system",
+                              content: buildPrompt({
+                                  enabledTools: resolvedEnabledTools,
+                                  toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
+                                  userSettings: settings,
+                                  personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                              })
+                          },
+                          ...prospectiveMappedMessages
+                      ]
+                    : prospectiveMappedMessages
+
+            const prospectiveContextViolation = getContextLimitViolation({
+                estimatedTokens: estimateModelMessagesTokens(promptMessages),
+                limits: contextLimits,
+                providerSource: modelData.providerSource,
+                modelId: body.model
+            })
+            contextViolation = prospectiveContextViolation
+            contextViolationReason =
+                prospectiveContextViolation?.limitType === "hosted"
+                    ? (contextViolationReason ?? "thread")
+                    : undefined
+        } catch (error) {
+            console.error("[cvx][chat] Failed to estimate request context", error)
+            return new ChatError("bad_request:chat").toResponse()
+        }
+    }
+
+    let contextRouting: ContextRoutingMetadata | undefined
+    if (contextViolation?.limitType === "hosted") {
+        const fallbackModelData = await getModel(ctx, body.model, {
+            reasoningEffort: body.reasoningEffort,
+            openRouterByokOnly: true
+        })
+
+        if (!(fallbackModelData instanceof ChatError)) {
+            const fallbackViolation = getContextLimitViolation({
+                estimatedTokens: contextViolation.estimatedTokens,
+                limits: contextLimits,
+                providerSource: fallbackModelData.providerSource,
+                modelId: body.model
+            })
+
+            if (!fallbackViolation) {
+                modelData = fallbackModelData
+                model = modelData.model
+                modelName = modelData.modelName
+                displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+                maxTokens =
+                    typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
+                    modelData.registry.models[body.model]?.maxTokens > 0
+                        ? modelData.registry.models[body.model].maxTokens
+                        : 16096
+                modelCreditCharge = resolvePrototypeCreditCharge({
+                    providerSource: modelData.providerSource,
+                    modelMode: model.modelType,
+                    enabledTools: body.enabledTools,
+                    reasoningEffort: effectiveReasoningEffort,
+                    prototypeCreditTier: modelData.prototypeCreditTier,
+                    prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+                })
+                contextRouting = {
+                    mode: "byok_fallback",
+                    reason: contextViolationReason ?? "thread",
+                    limitType: "hosted",
+                    estimatedTokens: contextViolation.estimatedTokens,
+                    limitTokens: contextViolation.limitTokens
+                }
+                contextViolation = null
+            }
+        }
+    }
+
+    const createMutationResult = async () => {
+        try {
+            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
+                threadId: body.id as Id<"threads">,
+                authorId: user.id,
+                userMessage: "message" in body ? body.message : undefined,
+                proposedNewAssistantId: body.proposedNewAssistantId,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode,
+                folderId: body.folderId,
+                personaSnapshot: personaSnapshot ?? undefined
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to create or append messages", error)
+            return new ChatError("bad_request:chat")
+        }
+    }
+
+    if (contextViolation) {
+        const mutationResult = await createMutationResult()
+        if (mutationResult instanceof ChatError) {
+            return mutationResult.toResponse()
+        }
+        if (!mutationResult) {
+            return new ChatError("bad_request:chat").toResponse()
+        }
+
+        const suggestedModels = await resolveSuggestedModels(ctx, {
+            userId: user.id,
+            currentModelId: body.model,
+            registryModels: modelData.registry.models,
+            estimatedTokens: contextViolation.estimatedTokens
+        })
+        const errorPart = getContextLimitErrorPart(contextViolation, suggestedModels)
+        await ctx.runMutation(internal.messages.patchMessage, {
+            threadId: mutationResult.threadId,
+            messageId: mutationResult.assistantMessageId,
+            parts: [errorPart],
+            metadata: {
+                modelId: body.model,
+                modelName,
+                displayProvider,
+                runtimeProvider: modelData.runtimeProvider,
+                reasoningEffort: effectiveReasoningEffort,
+                creditProviderSource: modelData.providerSource,
+                creditBucket: "none",
+                creditFeature: model.modelType === "image" ? "image" : "chat",
+                creditUnits: 0,
+                creditCounted: false
+            }
+        })
+
+        const stream = createUIMessageStream({
+            execute: ({ writer }) => {
+                const textId = `${mutationResult.assistantMessageId}:context-limit`
+                writer.write({
+                    type: "text-start",
+                    id: textId
+                })
+                writer.write({
+                    type: "text-delta",
+                    id: textId,
+                    delta: errorPart.error.message
+                })
+                writer.write({
+                    type: "text-end",
+                    id: textId
+                })
+                writer.write({
+                    type: "finish",
+                    finishReason: "error",
+                    messageMetadata: {
+                        threadId: mutationResult.threadId,
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        reasoningEffort: effectiveReasoningEffort,
+                        creditProviderSource: modelData.providerSource,
+                        creditBucket: "none",
+                        creditFeature: model.modelType === "image" ? "image" : "chat",
+                        creditUnits: 0,
+                        creditCounted: false,
+                        contextLimit: contextViolation
+                    }
+                })
+            },
+            onError: (error) => {
+                console.error("[cvx][chat][context-limit] Failed to stream rejection:", error)
+                return "Context limit reached"
+            }
+        })
+
+        return new Response(
+            stream.pipeThrough(new JsonToSseTransformStream()).pipeThrough(new TextEncoderStream()),
+            {
+                headers: UI_MESSAGE_STREAM_HEADERS
+            }
+        )
+    }
+
+    let creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId: user.id,
         threadId: body.id as Id<"threads"> | undefined,
         messageId: assistantRequestMessageId,
@@ -724,17 +1116,71 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }).toResponse()
         }
 
-        return new ChatError(
-            "rate_limit:chat",
-            "Monthly plan limit reached for the selected request.",
-            {
-                kind: "credits_exhausted",
-                bucket: creditReservation.bucket,
-                used: creditReservation.used,
-                limit: creditReservation.limit,
-                remaining: creditReservation.remaining
+        if (modelData.providerSource === "internal") {
+            const fallbackModelData = await getModel(ctx, body.model, {
+                reasoningEffort: body.reasoningEffort,
+                openRouterByokOnly: true
+            })
+
+            if (fallbackModelData && !(fallbackModelData instanceof ChatError)) {
+                const fallbackViolation = getContextLimitViolation({
+                    estimatedTokens: immediateEstimatedTokens,
+                    limits: contextLimits,
+                    providerSource: fallbackModelData.providerSource,
+                    modelId: body.model
+                })
+
+                if (!fallbackViolation) {
+                    modelData = fallbackModelData
+                    model = modelData.model
+                    modelName = modelData.modelName
+                    displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+                    maxTokens =
+                        typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
+                        modelData.registry.models[body.model]?.maxTokens > 0
+                            ? modelData.registry.models[body.model].maxTokens
+                            : 16096
+                    modelCreditCharge = resolvePrototypeCreditCharge({
+                        providerSource: modelData.providerSource,
+                        modelMode: model.modelType,
+                        enabledTools: body.enabledTools,
+                        reasoningEffort: effectiveReasoningEffort,
+                        prototypeCreditTier: modelData.prototypeCreditTier,
+                        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+                    })
+                    creditReservation = await ctx.runMutation(
+                        internal.credits.reserveCreditForMessage,
+                        {
+                            userId: user.id,
+                            threadId: body.id as Id<"threads"> | undefined,
+                            messageId: assistantRequestMessageId,
+                            messageKey: modelCreditMessageKey,
+                            modelId: body.model,
+                            providerSource: modelData.providerSource,
+                            feature: modelCreditCharge.feature,
+                            bucket: modelCreditCharge.bucket,
+                            units: modelCreditCharge.units,
+                            counted: modelCreditCharge.counted,
+                            requiredPlan: requiredPlanForModel
+                        }
+                    )
+                }
             }
-        ).toResponse()
+        }
+
+        if (!creditReservation.allowed) {
+            return new ChatError(
+                "rate_limit:chat",
+                "Monthly plan limit reached for the selected request.",
+                {
+                    kind: "credits_exhausted",
+                    bucket: creditReservation.bucket,
+                    used: creditReservation.used,
+                    limit: creditReservation.limit,
+                    remaining: creditReservation.remaining
+                }
+            ).toResponse()
+        }
     }
 
     let toolBudgetReservation: {
@@ -801,23 +1247,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         ])
     }
 
-    const mutationResult = await (async () => {
-        try {
-            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
-                threadId: body.id as Id<"threads">,
-                authorId: user.id,
-                userMessage: "message" in body ? body.message : undefined,
-                proposedNewAssistantId: body.proposedNewAssistantId,
-                targetFromMessageId: body.targetFromMessageId,
-                targetMode: body.targetMode,
-                folderId: body.folderId,
-                personaSnapshot: personaSnapshot ?? undefined
-            })
-        } catch (error) {
-            console.error("[cvx][chat] Failed to create or append messages", error)
-            return new ChatError("bad_request:chat")
-        }
-    })()
+    const mutationResult = await createMutationResult()
 
     if (mutationResult instanceof ChatError) {
         await releaseSetupReservations()
@@ -1082,7 +1512,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     modelName,
                     displayProvider,
                     runtimeProvider: modelData.runtimeProvider,
-                    reasoningEffort: effectiveReasoningEffort
+                    creditProviderSource: modelData.providerSource,
+                    reasoningEffort: effectiveReasoningEffort,
+                    ...(contextRouting ? { contextRouting } : {})
                 }
             })
 
@@ -1173,7 +1605,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
 
@@ -1307,6 +1740,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             modelName,
                             displayProvider,
                             runtimeProvider: modelData.runtimeProvider,
+                            creditProviderSource: modelData.providerSource,
                             reasoningEffort: effectiveReasoningEffort,
                             promptTokens: totalTokenUsage.promptTokens,
                             completionTokens: totalTokenUsage.completionTokens,
@@ -1316,7 +1750,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
                 } else {
@@ -1442,6 +1877,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             modelName,
                             displayProvider,
                             runtimeProvider: modelData.runtimeProvider,
+                            creditProviderSource: modelData.providerSource,
                             reasoningEffort: effectiveReasoningEffort,
                             promptTokens: totalTokenUsage.promptTokens,
                             completionTokens: totalTokenUsage.completionTokens,
@@ -1451,7 +1887,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                             estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                             serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                            ...(contextRouting ? { contextRouting } : {})
                         }
                     })
                 }
@@ -1501,7 +1938,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     creditUnits: modelCreditCharge.units,
                     creditCounted: modelCreditCharge.counted,
                     serverDurationMs: Date.now() - streamStartTime,
-                    timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                    timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                    ...(contextRouting ? { contextRouting } : {})
                 }
             })
 
@@ -1519,6 +1957,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         modelName,
                         displayProvider,
                         runtimeProvider: modelData.runtimeProvider,
+                        creditProviderSource: modelData.providerSource,
                         reasoningEffort: effectiveReasoningEffort,
                         promptTokens: totalTokenUsage.promptTokens,
                         completionTokens: totalTokenUsage.completionTokens,
@@ -1528,7 +1967,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                         estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                         serverDurationMs: Date.now() - streamStartTime,
-                        timeToFirstVisibleMs: getTimeToFirstVisibleMs()
+                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextRouting ? { contextRouting } : {})
                     }
                 })
             }

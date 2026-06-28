@@ -29,6 +29,8 @@ type GeneralProviderUpdate = {
     language?: string
 }
 
+type CoreProviderUsageMode = "priority" | "fallback"
+
 type StoredGeneralProvider = {
     enabled: boolean
     encryptedKey: string
@@ -47,6 +49,7 @@ const setStoredGeneralProvider = (
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
     newKey: v.optional(v.string()),
+    usageMode: v.optional(v.union(v.literal("priority"), v.literal("fallback"))),
     authMode: v.optional(v.union(v.literal("ai-studio"), v.literal("vertex")))
 })
 
@@ -114,6 +117,41 @@ const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey)
     }
 
     return model.adapters.some((candidate) => candidate.startsWith("openrouter:"))
+}
+
+const getOpenRouterProviderModelId = (model: Pick<SharedModel, "adapters">) => {
+    const adapter = model.adapters.find((candidate) => candidate.startsWith("openrouter:"))
+    return adapter?.slice("openrouter:".length)
+}
+
+type OpenRouterMetadataRecord = {
+    contextLength?: number
+    maxCompletionTokens?: number
+    inputUsdPer1MTokens?: number
+    outputUsdPer1MTokens?: number
+}
+
+const overlayOpenRouterMetadata = <
+    TModel extends Pick<
+        SharedModel,
+        "adapters" | "contextLength" | "maxTokens" | "inputUsdPer1MTokens" | "outputUsdPer1MTokens"
+    >
+>(
+    model: TModel,
+    metadataByProviderModelId: Record<string, OpenRouterMetadataRecord>
+) => {
+    const providerModelId = getOpenRouterProviderModelId(model)
+    const metadata = providerModelId ? metadataByProviderModelId[providerModelId] : undefined
+
+    if (!metadata) return model
+
+    return {
+        ...model,
+        contextLength: model.contextLength ?? metadata.contextLength,
+        maxTokens: model.maxTokens ?? metadata.maxCompletionTokens,
+        inputUsdPer1MTokens: model.inputUsdPer1MTokens ?? metadata.inputUsdPer1MTokens,
+        outputUsdPer1MTokens: model.outputUsdPer1MTokens ?? metadata.outputUsdPer1MTokens
+    }
 }
 
 const getSettings = async (
@@ -206,6 +244,30 @@ export const getUserRegistryInternal = internalQuery({
     handler: async (ctx, args) => {
         const settings = await getSettings(ctx, args.userId)
         const hasAdminModelAccess = await userHasAdminModelAccess(ctx, args.userId)
+        const sharedModelsForUser = getSharedModelsForUser(hasAdminModelAccess).filter(
+            (model) => !isModelSunset(model)
+        )
+        const openRouterProviderModelIds = sharedModelsForUser
+            .map(getOpenRouterProviderModelId)
+            .filter((id): id is string => Boolean(id))
+        const metadataEntries = await Promise.all(
+            openRouterProviderModelIds.map(async (providerModelId) => {
+                const metadata = await ctx.db
+                    .query("modelProviderMetadata")
+                    .withIndex("byProviderModel", (q) =>
+                        q.eq("provider", "openrouter").eq("providerModelId", providerModelId)
+                    )
+                    .first()
+
+                return metadata ? ([providerModelId, metadata] as const) : null
+            })
+        )
+        const metadataByProviderModelId: Record<string, OpenRouterMetadataRecord> = {}
+        for (const entry of metadataEntries) {
+            if (!entry) continue
+            const [providerModelId, metadata] = entry
+            metadataByProviderModelId[providerModelId] = metadata
+        }
 
         const providers: Record<
             string,
@@ -213,6 +275,7 @@ export const getUserRegistryInternal = internalQuery({
                 key: string
                 endpoint?: string
                 name?: string
+                usageMode?: CoreProviderUsageMode
                 authMode?: "ai-studio" | "vertex"
             }
         > = {}
@@ -221,6 +284,7 @@ export const getUserRegistryInternal = internalQuery({
             providers[providerId] = {
                 key: await decryptKey(provider.encryptedKey),
                 name: providerId,
+                usageMode: provider.usageMode ?? "fallback",
                 authMode: provider.authMode
             }
         }
@@ -235,9 +299,8 @@ export const getUserRegistryInternal = internalQuery({
         }
 
         const models: Record<string, SharedModel & { customProviderId?: string }> = {}
-        for (const model of MODELS_SHARED) {
-            if (isModelSunset(model)) continue
-            if (!userCanAccessSharedModel(model, hasAdminModelAccess)) continue
+        for (const rawModel of sharedModelsForUser) {
+            const model = overlayOpenRouterMetadata(rawModel, metadataByProviderModelId)
 
             const available_adapters: RegistryKey[] = []
             for (const adapter of model.adapters) {
@@ -258,6 +321,11 @@ export const getUserRegistryInternal = internalQuery({
                 adapters: available_adapters,
                 abilities: model.abilities,
                 mode: model.mode,
+                contextLength: model.contextLength,
+                maxTokens: model.maxTokens,
+                inputUsdPer1MTokens: model.inputUsdPer1MTokens,
+                outputUsdPer1MTokens: model.outputUsdPer1MTokens,
+                hostedContextLength: model.hostedContextLength,
                 supportsDisablingReasoning: model.supportsDisablingReasoning,
                 reasoningEfforts: model.reasoningEfforts,
                 defaultReasoningEffort: model.defaultReasoningEffort,
@@ -400,6 +468,10 @@ export const updateUserSettings = mutation({
         for (const [providerId, provider] of Object.entries(args.coreProviders)) {
             newSettings.coreAIProviders[providerId] = {
                 enabled: provider.enabled,
+                usageMode:
+                    provider.usageMode ??
+                    settings.coreAIProviders[providerId]?.usageMode ??
+                    "fallback",
                 authMode: provider.authMode ?? settings.coreAIProviders[providerId]?.authMode,
                 encryptedKey: provider.newKey
                     ? await encryptKey(provider.newKey)
@@ -730,6 +802,10 @@ export const updateUserSettingsPartial = mutation({
             for (const [providerId, update] of Object.entries(args.coreProviderUpdates)) {
                 newSettings.coreAIProviders[providerId] = {
                     enabled: update.enabled,
+                    usageMode:
+                        update.usageMode ??
+                        settings.coreAIProviders[providerId]?.usageMode ??
+                        "fallback",
                     authMode: update.authMode ?? settings.coreAIProviders[providerId]?.authMode,
                     encryptedKey: update.newKey
                         ? await encryptKey(update.newKey)

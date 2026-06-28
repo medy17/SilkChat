@@ -47,7 +47,6 @@ import {
     PackageIcon,
     Plus,
     RotateCcw,
-    Settings2,
     SquarePen,
     Trash2,
     X
@@ -61,12 +60,18 @@ export const Route = createFileRoute("/settings/providers")({
 
 type ProviderCardProps = {
     provider: CoreProviderInfo
-    currentProvider?: { enabled: boolean; encryptedKey: string; authMode?: GoogleAuthMode }
+    currentProvider?: {
+        enabled: boolean
+        encryptedKey: string
+        usageMode?: "priority" | "fallback"
+        authMode?: GoogleAuthMode
+    }
     onSave: (
         providerId: string,
         enabled: boolean,
         newKey?: string,
-        authMode?: GoogleAuthMode
+        authMode?: GoogleAuthMode,
+        usageMode?: "priority" | "fallback"
     ) => Promise<void>
     loading: boolean
 }
@@ -76,6 +81,9 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
     const [enabled, setEnabled] = useState(currentProvider?.enabled || false)
     const [newKey, setNewKey] = useState("")
     const [rotatingKey, setRotatingKey] = useState(false)
+    const [usageMode, setUsageMode] = useState<"priority" | "fallback">(
+        currentProvider?.usageMode ?? "fallback"
+    )
     const defaultAuthMode = provider.authModes?.[0]?.value
     const [authMode, setAuthMode] = useState<GoogleAuthMode | undefined>(
         currentProvider?.authMode || defaultAuthMode
@@ -98,7 +106,8 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                 provider.id,
                 enabled,
                 rotatingKey || !hasExistingKey ? newKey : undefined,
-                selectedAuthMode
+                selectedAuthMode,
+                usageMode
             )
             setIsEditing(false)
             setNewKey("")
@@ -113,6 +122,7 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
         setEnabled(currentProvider?.enabled || false)
         setNewKey("")
         setRotatingKey(false)
+        setUsageMode(currentProvider?.usageMode ?? "fallback")
         setAuthMode(currentProvider?.authMode || defaultAuthMode)
     }
 
@@ -196,6 +206,43 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                                     voice input.
                                                 </p>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {provider.id === "openrouter" && (
+                                        <div className="space-y-2">
+                                            <Label>BYOK Usage</Label>
+                                            <div className="inline-flex border bg-background p-0.5">
+                                                <Button
+                                                    type="button"
+                                                    variant={
+                                                        usageMode === "priority"
+                                                            ? "secondary"
+                                                            : "ghost"
+                                                    }
+                                                    size="sm"
+                                                    onClick={() => setUsageMode("priority")}
+                                                >
+                                                    Priority
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant={
+                                                        usageMode === "fallback"
+                                                            ? "secondary"
+                                                            : "ghost"
+                                                    }
+                                                    size="sm"
+                                                    onClick={() => setUsageMode("fallback")}
+                                                >
+                                                    Fallback
+                                                </Button>
+                                            </div>
+                                            <p className="text-muted-foreground text-xs">
+                                                Priority always uses your OpenRouter key. Fallback
+                                                uses it only when hosted credits run out or hosted
+                                                context limits are exceeded.
+                                            </p>
                                         </div>
                                     )}
 
@@ -290,7 +337,7 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                             {isEnabled ? (
                                 <SquarePen className="size-4" />
                             ) : (
-                                <Settings2 className="size-4" />
+                                <Key className="size-4" />
                             )}
                             {isEnabled ? "Edit" : "Setup BYOK"}
                         </Button>
@@ -637,7 +684,8 @@ export function ProvidersSettingsContent() {
         providerId: string,
         enabled: boolean,
         newKey?: string,
-        authMode?: GoogleAuthMode
+        authMode?: GoogleAuthMode,
+        usageMode?: "priority" | "fallback"
     ) => {
         if (!session.user?.id) return
 
@@ -645,7 +693,7 @@ export function ProvidersSettingsContent() {
         try {
             await updateSettings({
                 coreProviderUpdates: {
-                    [providerId]: { enabled, newKey, authMode }
+                    [providerId]: { enabled, newKey, authMode, usageMode }
                 }
             })
             toast.success(

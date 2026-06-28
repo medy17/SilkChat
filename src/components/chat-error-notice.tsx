@@ -1,19 +1,32 @@
-import { type ParsedChatError, parseChatError } from "@/lib/errors"
-import { Link } from "@tanstack/react-router"
-import { AlertTriangle, CreditCard, Lock, RotateCcw } from "lucide-react"
-import { memo, useMemo } from "react"
+import type { SharedModel } from "@/convex/lib/models"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { type ParsedChatError, type SuggestedModel, parseChatError } from "@/lib/errors"
+import { useSharedModels } from "@/lib/shared-models"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { AlertTriangle, CreditCard, Key, Lock, Pencil, RotateCcw } from "lucide-react"
+import { memo, useCallback, useMemo } from "react"
+import { getProviderIcon } from "./model-selector"
 import { Button } from "./ui/button"
 
 type ErrorCta = {
     label: string
-    to: string
+    icon?: typeof AlertTriangle
+    /** Navigate to a route. Mutually exclusive with {@link ErrorCta.action}. */
+    to?: string
+    /** Trigger an in-app action instead of navigating to a route. */
+    action?: "new_chat"
 }
 
 type ErrorPresentation = {
     icon: typeof AlertTriangle
     title: string
     description?: string
-    cta?: ErrorCta
+    /** The recommended action, rendered as the most prominent button. */
+    primaryCta?: ErrorCta
+    /** An optional alternative action, rendered with lower emphasis. */
+    secondaryCta?: ErrorCta
+    /** Cheaper/larger models offered as one-click switches, shown as a chip row. */
+    suggestedModels?: SuggestedModel[]
 }
 
 const PLAN_LABEL: Record<"free" | "pro", string> = {
@@ -40,7 +53,7 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             icon: Lock,
             title: `${PLAN_LABEL[detail.requiredPlan]} plan required`,
             description: `Your ${PLAN_LABEL[detail.currentPlan ?? "free"]} plan doesn't include the selected ${noun}. Upgrade to ${PLAN_LABEL[detail.requiredPlan]} to use it, or pick a different ${noun}.`,
-            cta: { label: "View plans", to: "/settings/billing" }
+            primaryCta: { label: "View plans", to: "/settings/billing" }
         }
     }
 
@@ -54,7 +67,30 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             icon: CreditCard,
             title: `Out of ${bucketLabel} credits`,
             description,
-            cta: { label: "Manage plan", to: "/settings/billing" }
+            primaryCta: { label: "Manage plan", to: "/settings/billing" }
+        }
+    }
+
+    if (detail?.kind === "context_limit_exceeded") {
+        if (detail.limitType === "hosted") {
+            return {
+                icon: AlertTriangle,
+                title: "This thread is too long",
+                description:
+                    "This thread is too long. Edit your message, start a new chat, or switch to BYOK.",
+                primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
+                secondaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
+                suggestedModels: detail.suggestedModels
+            }
+        }
+
+        return {
+            icon: AlertTriangle,
+            title: "This thread is too long",
+            description:
+                "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats.",
+            primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
+            suggestedModels: detail.suggestedModels
         }
     }
 
@@ -70,15 +106,65 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
     }
 }
 
+/** Mirror the sidebar's "New Chat" behavior: reset composer state, then route home. */
+function useStartNewChat() {
+    const navigate = useNavigate()
+    return useCallback(() => {
+        document.dispatchEvent(new CustomEvent("new_chat"))
+        void navigate({ to: "/" })
+    }, [navigate])
+}
+
 export const ChatErrorNotice = memo(
-    ({ error, onRetry }: { error: unknown; onRetry?: () => void }) => {
+    ({
+        error,
+        onRetry,
+        onSwitchModel
+    }: {
+        error: unknown
+        onRetry?: () => void
+        onSwitchModel?: (modelId: string) => void
+    }) => {
         const presentation = useMemo(() => describeChatError(parseChatError(error)), [error])
         const Icon = presentation.icon
+        const startNewChat = useStartNewChat()
+        const isMobile = useIsMobile()
+        const { models: sharedModels } = useSharedModels()
+        const sharedModelsById = useMemo(
+            () => new Map((sharedModels as SharedModel[]).map((model) => [model.id, model])),
+            [sharedModels]
+        )
+        const suggestedModels = presentation.suggestedModels ?? []
+        // Keep the row compact on mobile.
+        const visibleSuggestions = isMobile ? suggestedModels.slice(0, 2) : suggestedModels
+
+        const renderCta = (cta: ErrorCta, variant: "default" | "outline") => {
+            const CtaIcon = cta.icon
+            if (cta.action === "new_chat") {
+                return (
+                    <Button variant={variant} size="sm" onClick={startNewChat}>
+                        {CtaIcon && <CtaIcon />}
+                        {cta.label}
+                    </Button>
+                )
+            }
+            if (cta.to) {
+                return (
+                    <Button asChild variant={variant} size="sm" className="text-foreground">
+                        <Link to={cta.to}>
+                            {CtaIcon && <CtaIcon />}
+                            {cta.label}
+                        </Link>
+                    </Button>
+                )
+            }
+            return null
+        }
 
         return (
             <div className="flex flex-col gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-foreground">
                 <div className="flex items-start gap-3">
-                    <Icon className="mt-0.5 size-5 shrink-0 text-foreground" />
+                    <Icon className="mt-2 size-5 shrink-0 text-destructive" />
                     <div className="flex min-w-0 flex-col gap-1">
                         <p className="font-medium text-foreground">{presentation.title}</p>
                         {presentation.description && (
@@ -90,11 +176,8 @@ export const ChatErrorNotice = memo(
                 </div>
 
                 <div className="flex items-center justify-end gap-2">
-                    {presentation.cta && (
-                        <Button asChild variant="outline" size="sm" className="text-foreground">
-                            <Link to={presentation.cta.to}>{presentation.cta.label}</Link>
-                        </Button>
-                    )}
+                    {presentation.secondaryCta && renderCta(presentation.secondaryCta, "outline")}
+                    {presentation.primaryCta && renderCta(presentation.primaryCta, "default")}
                     {onRetry && (
                         <Button variant="destructive" size="sm" onClick={onRetry}>
                             <RotateCcw />
@@ -102,6 +185,29 @@ export const ChatErrorNotice = memo(
                         </Button>
                     )}
                 </div>
+
+                {onSwitchModel && visibleSuggestions.length > 0 && (
+                    <div className="flex flex-col gap-2 border-destructive/30 border-t pt-3">
+                        <span className="text-muted-foreground text-sm">Or continue with:</span>
+                        <div className="flex flex-wrap gap-2">
+                            {visibleSuggestions.map((model) => {
+                                const sharedModel = sharedModelsById.get(model.id)
+                                return (
+                                    <Button
+                                        key={model.id}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-foreground"
+                                        onClick={() => onSwitchModel(model.id)}
+                                    >
+                                        {sharedModel && getProviderIcon(sharedModel, false)}
+                                        {model.name}
+                                    </Button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         )
     }

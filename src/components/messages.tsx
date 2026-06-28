@@ -241,15 +241,42 @@ const PartsRenderer = memo(
         markdown,
         id,
         onFilePreview,
+        onSwitchModel,
         isStreaming
     }: {
         part: UIMessage["parts"][number]
         markdown: boolean
         id: string
         onFilePreview?: (part: { url: string; filename?: string; mediaType?: string }) => void
+        onSwitchModel?: (modelId: string) => void
         isStreaming?: boolean
     }) => {
         switch (part.type) {
+            case "data-context-error": {
+                const errorPart = part as {
+                    data: {
+                        code: string
+                        message: string
+                        detail?: unknown
+                    }
+                }
+                return (
+                    <div className="not-prose my-3">
+                        <ChatErrorNotice
+                            error={
+                                new Error(
+                                    JSON.stringify({
+                                        code: errorPart.data.code,
+                                        message: errorPart.data.message,
+                                        detail: errorPart.data.detail
+                                    })
+                                )
+                            }
+                            onSwitchModel={onSwitchModel}
+                        />
+                    </div>
+                )
+            }
             case "text":
                 return markdown ? (
                     <MemoizedMarkdown content={part.text} isAnimating={isStreaming} />
@@ -849,6 +876,7 @@ type MessageRowProps = {
     isEditing: boolean
     hasActiveTarget: boolean
     onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
+    onSwitchModel?: (modelId: string) => void
     onBranch?: (message: UIMessage) => void
     onEdit: (message: UIMessage) => void
     onSaveEdit: (
@@ -867,6 +895,7 @@ const MessageRowComponent = ({
     isEditing,
     hasActiveTarget,
     onRetry,
+    onSwitchModel,
     onBranch,
     onEdit,
     onSaveEdit,
@@ -926,6 +955,7 @@ const MessageRowComponent = ({
                                     markdown={true}
                                     id={`${message.id}-text-${index}`}
                                     onFilePreview={onFilePreview}
+                                    onSwitchModel={onSwitchModel}
                                     isStreaming={isStreamingMessage}
                                 />
                             ))}
@@ -981,6 +1011,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.isEditing === nextProps.isEditing &&
     previousProps.hasActiveTarget === nextProps.hasActiveTarget &&
     previousProps.onRetry === nextProps.onRetry &&
+    previousProps.onSwitchModel === nextProps.onSwitchModel &&
     previousProps.onBranch === nextProps.onBranch &&
     previousProps.onEdit === nextProps.onEdit &&
     previousProps.onSaveEdit === nextProps.onSaveEdit &&
@@ -1231,6 +1262,13 @@ export const Messages = forwardRef<
         const lastUserMessage = useMemo(
             () => [...messages].reverse().find((message) => message.role === "user"),
             [messages]
+        )
+        const handleSwitchModel = useMemo(
+            () =>
+                lastUserMessage
+                    ? (modelId: string) => onRetry?.(lastUserMessage, { modelIdOverride: modelId })
+                    : undefined,
+            [lastUserMessage, onRetry]
         )
         const messageRows = useMemo(
             () =>
@@ -1488,6 +1526,7 @@ export const Messages = forwardRef<
                                         isEditing={row.isEditing}
                                         hasActiveTarget={row.hasActiveTarget}
                                         onRetry={onRetry}
+                                        onSwitchModel={handleSwitchModel}
                                         onBranch={onBranch}
                                         onEdit={handleEdit}
                                         onSaveEdit={handleSaveEdit}
@@ -1506,6 +1545,7 @@ export const Messages = forwardRef<
                                             ? () => onRetry?.(lastUserMessage)
                                             : undefined
                                     }
+                                    onSwitchModel={handleSwitchModel}
                                 />
                             )}
 

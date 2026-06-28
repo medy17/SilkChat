@@ -53,6 +53,7 @@ export const getModel = async (
     modelId: string,
     options?: {
         internalOnly?: boolean
+        openRouterByokOnly?: boolean
         reasoningEffort?: ReasoningEffort
     }
 ) => {
@@ -68,10 +69,13 @@ export const getModel = async (
     const model = registry.models[modelId]
     if (!model) return new ChatError("bad_model:api")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
+    const openRouterUsageMode = registry.providers.openrouter?.usageMode ?? "fallback"
 
-    const adaptersToConsider = options?.internalOnly
-        ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
-        : model.adapters
+    const adaptersToConsider = options?.openRouterByokOnly
+        ? model.adapters.filter((adapter) => adapter.startsWith("openrouter:"))
+        : options?.internalOnly
+          ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
+          : model.adapters
 
     if (!adaptersToConsider.length) {
         return new ChatError("bad_model:api", "No internal adapters found for model")
@@ -81,7 +85,7 @@ export const getModel = async (
     const prefersReasoningVariant = (options?.reasoningEffort ?? "medium") !== "off"
 
     // Priority sorting:
-    // - built-in shared models: OpenRouter BYOK > built-in internal > legacy direct BYOK
+    // - built-in shared models: OpenRouter BYOK can be priority or fallback per user setting
     // - custom models: keep provider-native ordering
     const sortedAdapters = adaptersToConsider.sort((a, b) => {
         const providerA = getRegistryProviderId(a)
@@ -91,7 +95,9 @@ export const getModel = async (
 
         const getPriority = (provider: string) => {
             if (!isCustomModel) {
-                if (provider === "openrouter") return 1
+                if (provider === "openrouter") {
+                    return options?.openRouterByokOnly || openRouterUsageMode === "priority" ? 1 : 3
+                }
                 if (provider.startsWith("i3-")) return 2
                 if (CoreProviders.includes(provider as CoreProvider)) return 3
                 return 4
@@ -210,7 +216,9 @@ export const getModel = async (
 
         const provider = registry.providers[providerIdRaw]
         const hasInternalOpenRouter =
-            providerIdRaw === "openrouter" && Boolean(getInternalOpenRouterApiKey())
+            providerIdRaw === "openrouter" &&
+            !options?.openRouterByokOnly &&
+            Boolean(getInternalOpenRouterApiKey())
         if (providerIdRaw === "openrouter" && !provider && hasInternalOpenRouter) {
             const sdk_provider = (await createProvider("openrouter", "internal", {
                 modelId: providerSpecificModelId

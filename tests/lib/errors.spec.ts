@@ -80,6 +80,36 @@ describe("parseChatError", () => {
         })
     })
 
+    it("parses context-limit details", () => {
+        const error = new Error(
+            JSON.stringify({
+                code: "rate_limit:chat",
+                message: "Context limit reached.",
+                detail: {
+                    kind: "context_limit_exceeded",
+                    limitType: "hosted",
+                    estimatedTokens: 65000,
+                    limitTokens: 64000,
+                    modelId: "shared-text",
+                    canUseByok: true
+                }
+            })
+        )
+
+        expect(parseChatError(error)).toEqual({
+            code: "rate_limit:chat",
+            message: "Context limit reached.",
+            detail: {
+                kind: "context_limit_exceeded",
+                limitType: "hosted",
+                estimatedTokens: 65000,
+                limitTokens: 64000,
+                modelId: "shared-text",
+                canUseByok: true
+            }
+        })
+    })
+
     it("falls back to plain text for non-JSON error messages", () => {
         expect(parseChatError(new Error("Failed to fetch the chat response."))).toEqual({
             code: "",

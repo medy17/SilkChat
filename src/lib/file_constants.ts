@@ -232,14 +232,56 @@ export const isSupportedFile = (filename: string, mimeType?: string) => {
 export const getFileAcceptAttribute = (includeImages = true) => {
     const textExtensions = SUPPORTED_TEXT_EXTENSIONS.join(",")
     if (includeImages) {
-        return `image/*,${textExtensions}`
+        return `image/*,.pdf,${textExtensions}`
     }
     return `${textExtensions},.svg`
 }
 
-// Simple token estimation (rough approximation: 1 token ≈ 4 characters)
-export const estimateTokenCount = (text: string) => {
-    return Math.ceil(text.length / 4)
+export const estimateTokenCount = (text: string): number => {
+    let ascii = 0
+    let cjk = 0
+    let nonLatin = 0
+    let emojiOrSymbol = 0
+    let punctuation = 0
+    let whitespace = 0
+
+    for (const char of text) {
+        if (/\s/u.test(char)) {
+            whitespace++
+        } else if (
+            /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(char)
+        ) {
+            cjk++
+        } else if (/[A-Za-z0-9]/u.test(char)) {
+            ascii++
+        } else if (/\p{L}|\p{N}/u.test(char)) {
+            nonLatin++
+        } else if (/\p{S}/u.test(char)) {
+            emojiOrSymbol++
+        } else {
+            punctuation++
+        }
+    }
+
+    const raw =
+        ascii / 4 +
+        whitespace / 20 +
+        cjk * 1.1 +
+        nonLatin / 2.2 +
+        emojiOrSymbol * 2 +
+        punctuation / 2
+
+    const punctuationDensity = punctuation / Math.max(text.length, 1)
+    const densityMultiplier = punctuationDensity > 0.25 ? 1.15 : 1
+
+    const codeish =
+        /```|~~~|[{[\]}();<>]|=>|->|::|\/\*|\*\/|\/\/|import\s|export\s|function\s|const\s|let\s|var\s|class\s|interface\s|type\s|enum\s|SELECT\s|INSERT\s|UPDATE\s|DELETE\s|CREATE\s|FROM\s|WHERE\s|package\s|namespace\s/i.test(
+            text
+        )
+
+    const codeMultiplier = codeish ? 1.25 : 1
+
+    return Math.ceil(raw * densityMultiplier * codeMultiplier * 1.15)
 }
 
 // File type detection result

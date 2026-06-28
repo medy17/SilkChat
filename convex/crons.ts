@@ -9,4 +9,10 @@ crons.interval(
     internal.import_jobs.cleanupStaleImportData
 )
 
+crons.interval(
+    "sync openrouter model metadata",
+    { hours: 12 },
+    internal.model_provider_metadata_node.syncOpenRouterModelMetadata
+)
+
 export default crons

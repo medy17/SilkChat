@@ -9,6 +9,7 @@ const CoreProvidersSchema = v.union(
 export const CoreAIProvider = v.object({
     enabled: v.boolean(),
     encryptedKey: v.string(),
+    usageMode: v.optional(v.union(v.literal("priority"), v.literal("fallback"))),
     authMode: v.optional(v.union(v.literal("ai-studio"), v.literal("vertex")))
 })
 
