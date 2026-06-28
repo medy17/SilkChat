@@ -29,6 +29,8 @@ type GeneralProviderUpdate = {
     language?: string
 }
 
+type CoreProviderUsageMode = "priority" | "fallback"
+
 type StoredGeneralProvider = {
     enabled: boolean
     encryptedKey: string
@@ -47,6 +49,7 @@ const setStoredGeneralProvider = (
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
     newKey: v.optional(v.string()),
+    usageMode: v.optional(v.union(v.literal("priority"), v.literal("fallback"))),
     authMode: v.optional(v.union(v.literal("ai-studio"), v.literal("vertex")))
 })
 
@@ -272,6 +275,7 @@ export const getUserRegistryInternal = internalQuery({
                 key: string
                 endpoint?: string
                 name?: string
+                usageMode?: CoreProviderUsageMode
                 authMode?: "ai-studio" | "vertex"
             }
         > = {}
@@ -280,6 +284,7 @@ export const getUserRegistryInternal = internalQuery({
             providers[providerId] = {
                 key: await decryptKey(provider.encryptedKey),
                 name: providerId,
+                usageMode: provider.usageMode ?? "fallback",
                 authMode: provider.authMode
             }
         }
@@ -463,6 +468,10 @@ export const updateUserSettings = mutation({
         for (const [providerId, provider] of Object.entries(args.coreProviders)) {
             newSettings.coreAIProviders[providerId] = {
                 enabled: provider.enabled,
+                usageMode:
+                    provider.usageMode ??
+                    settings.coreAIProviders[providerId]?.usageMode ??
+                    "fallback",
                 authMode: provider.authMode ?? settings.coreAIProviders[providerId]?.authMode,
                 encryptedKey: provider.newKey
                     ? await encryptKey(provider.newKey)
@@ -793,6 +802,10 @@ export const updateUserSettingsPartial = mutation({
             for (const [providerId, update] of Object.entries(args.coreProviderUpdates)) {
                 newSettings.coreAIProviders[providerId] = {
                     enabled: update.enabled,
+                    usageMode:
+                        update.usageMode ??
+                        settings.coreAIProviders[providerId]?.usageMode ??
+                        "fallback",
                     authMode: update.authMode ?? settings.coreAIProviders[providerId]?.authMode,
                     encryptedKey: update.newKey
                         ? await encryptKey(update.newKey)

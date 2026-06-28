@@ -117,6 +117,34 @@ const DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS = 256
 const DEFAULT_MESSAGE_OVERHEAD_TOKENS = 4
 const COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER = 1.1
 
+/**
+ * Decide whether to surface the model-selector context hint for an approaching
+ * overage. We only nudge about hosted/BYOK once the user's OpenRouter key is set
+ * up — then the hint reassures them the long request will run on their key. With
+ * no key we stay quiet and let the send fail with the actionable rejection
+ * instead of pre-warning about a BYOK setup they haven't done. The model-limit
+ * case is BYOK-independent (no key can fix it), so it always shows.
+ */
+const resolveByokContextHint = (
+    routing: { exceedsModelLimit: boolean; openRouterByokEnabled: boolean } | null
+): { tooltip: string; ariaLabel: string } | undefined => {
+    if (!routing) return undefined
+    if (routing.exceedsModelLimit) {
+        return {
+            tooltip:
+                "This request may exceed the selected model's context limit. Shorten it or start a new chat.",
+            ariaLabel: "May exceed the model's context limit"
+        }
+    }
+    if (routing.openRouterByokEnabled) {
+        return {
+            tooltip: "This request exceeds hosted limits and will run on your OpenRouter key.",
+            ariaLabel: "Will use your OpenRouter key"
+        }
+    }
+    return undefined
+}
+
 interface LocalUploadingFile {
     id: string
     file: File
@@ -1769,17 +1797,9 @@ export const MultimodalInput = forwardRef<
                                         onModelChange={setSelectedModel}
                                         shortcutTarget="composer"
                                         requiresNativePdf={requiresNativePdfForModelSelection}
-                                        byokContextHint={
+                                        byokContextHint={resolveByokContextHint(
                                             predictedByokContextRouting
-                                                ? {
-                                                      tooltip:
-                                                          predictedByokContextRouting.exceedsModelLimit
-                                                              ? "This request may exceed the selected model's context limit. Shorten it or start a new chat."
-                                                              : "This request may exceed hosted limits. Consider setting up BYOK.",
-                                                      ariaLabel: "BYOK may be needed"
-                                                  }
-                                                : undefined
-                                        }
+                                        )}
                                     />
                                 </motion.div>
                             )}

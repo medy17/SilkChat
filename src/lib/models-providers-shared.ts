@@ -596,7 +596,15 @@ export const getAbilityLabel = (ability: ModelAbility | "pdf") => {
 export const getProviderDisplayName = (
     providerId: string,
     currentProviders: {
-        core: Record<string, { enabled: boolean; encryptedKey: string; authMode?: GoogleAuthMode }>
+        core: Record<
+            string,
+            {
+                enabled: boolean
+                encryptedKey: string
+                usageMode?: "priority" | "fallback"
+                authMode?: GoogleAuthMode
+            }
+        >
         custom: Record<
             string,
             { name: string; enabled: boolean; endpoint: string; encryptedKey: string }

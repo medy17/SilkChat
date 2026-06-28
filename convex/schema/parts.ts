@@ -47,7 +47,8 @@ export const ErrorUIPart = v.object({
                 estimatedTokens: v.number(),
                 limitTokens: v.number(),
                 modelId: v.string(),
-                canUseByok: v.optional(v.boolean())
+                canUseByok: v.optional(v.boolean()),
+                suggestedModels: v.optional(v.array(v.object({ id: v.string(), name: v.string() })))
             })
         )
     })

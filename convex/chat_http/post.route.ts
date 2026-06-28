@@ -26,6 +26,8 @@ import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
 import {
     type ContextLimitViolation,
+    type SuggestedModel,
+    computeSuggestedModels,
     estimateHttpMessageTokens,
     estimateModelMessagesTokens,
     getContextLimitViolation,
@@ -664,7 +666,12 @@ const getContextLimitErrorMessage = (violation: ContextLimitViolation) =>
         ? "This thread is too long. Edit your message, start a new chat, or switch to BYOK."
         : "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats."
 
-const getContextLimitErrorPart = (violation: ContextLimitViolation): Infer<typeof ErrorUIPart> => ({
+const SHARED_MODELS_BY_ID = new Map(MODELS_SHARED.map((model) => [model.id, model]))
+
+const getContextLimitErrorPart = (
+    violation: ContextLimitViolation,
+    suggestedModels: SuggestedModel[]
+): Infer<typeof ErrorUIPart> => ({
     type: "error",
     error: {
         code: "context_limit_exceeded",
@@ -675,10 +682,67 @@ const getContextLimitErrorPart = (violation: ContextLimitViolation): Infer<typeo
             estimatedTokens: violation.estimatedTokens,
             limitTokens: violation.limitTokens,
             modelId: violation.modelId,
-            canUseByok: violation.canUseByok
+            canUseByok: violation.canUseByok,
+            ...(suggestedModels.length > 0 ? { suggestedModels } : {})
         }
     }
 })
+
+/**
+ * Pick cheaper/larger models that would accept this thread, joining the
+ * (metadata-overlaid) per-user registry with static fields the registry omits
+ * (developer/releaseOrder/legacy). Returns [] on any failure — suggestions are
+ * a nicety, never a reason to fail the rejection response.
+ */
+const resolveSuggestedModels = async (
+    ctx: ActionCtx,
+    {
+        userId,
+        currentModelId,
+        registryModels,
+        estimatedTokens
+    }: {
+        userId: string
+        currentModelId: string
+        registryModels: Record<string, SharedModel & { customProviderId?: string }>
+        estimatedTokens: number
+    }
+): Promise<SuggestedModel[]> => {
+    try {
+        const userPlan = await ctx.runQuery(internal.credits.getUserCreditPlanInternal, { userId })
+        const currentModel = registryModels[currentModelId]
+        return computeSuggestedModels({
+            currentModelId,
+            currentModelAbilities: currentModel?.abilities ?? [],
+            currentModelDeveloper: SHARED_MODELS_BY_ID.get(currentModelId)?.developer,
+            estimatedTokens,
+            userPlan,
+            candidates: Object.values(registryModels).map((model) => {
+                const shared = SHARED_MODELS_BY_ID.get(model.id)
+                return {
+                    id: model.id,
+                    name: model.name,
+                    abilities: model.abilities ?? [],
+                    mode: model.mode,
+                    runnable: (model.adapters?.length ?? 0) > 0,
+                    requiredPlan: model.availableToPickFor ?? "pro",
+                    contextLength: model.contextLength,
+                    maxTokens: model.maxTokens,
+                    inputUsdPer1MTokens: model.inputUsdPer1MTokens,
+                    outputUsdPer1MTokens: model.outputUsdPer1MTokens,
+                    hostedContextLength: model.hostedContextLength,
+                    prototypeCreditTier: model.prototypeCreditTier,
+                    developer: shared?.developer,
+                    releaseOrder: shared?.releaseOrder,
+                    legacy: shared?.legacy
+                }
+            })
+        })
+    } catch (error) {
+        console.error("[cvx][chat][context-limit] Failed to resolve suggested models:", error)
+        return []
+    }
+}
 
 export const chatPOST = httpAction(async (ctx, req) => {
     type ChatRequestBody = {
@@ -954,7 +1018,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
             return new ChatError("bad_request:chat").toResponse()
         }
 
-        const errorPart = getContextLimitErrorPart(contextViolation)
+        const suggestedModels = await resolveSuggestedModels(ctx, {
+            userId: user.id,
+            currentModelId: body.model,
+            registryModels: modelData.registry.models,
+            estimatedTokens: contextViolation.estimatedTokens
+        })
+        const errorPart = getContextLimitErrorPart(contextViolation, suggestedModels)
         await ctx.runMutation(internal.messages.patchMessage, {
             threadId: mutationResult.threadId,
             messageId: mutationResult.assistantMessageId,
@@ -1022,7 +1092,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         )
     }
 
-    const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
+    let creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId: user.id,
         threadId: body.id as Id<"threads"> | undefined,
         messageId: assistantRequestMessageId,
@@ -1046,17 +1116,71 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }).toResponse()
         }
 
-        return new ChatError(
-            "rate_limit:chat",
-            "Monthly plan limit reached for the selected request.",
-            {
-                kind: "credits_exhausted",
-                bucket: creditReservation.bucket,
-                used: creditReservation.used,
-                limit: creditReservation.limit,
-                remaining: creditReservation.remaining
+        if (modelData.providerSource === "internal") {
+            const fallbackModelData = await getModel(ctx, body.model, {
+                reasoningEffort: body.reasoningEffort,
+                openRouterByokOnly: true
+            })
+
+            if (fallbackModelData && !(fallbackModelData instanceof ChatError)) {
+                const fallbackViolation = getContextLimitViolation({
+                    estimatedTokens: immediateEstimatedTokens,
+                    limits: contextLimits,
+                    providerSource: fallbackModelData.providerSource,
+                    modelId: body.model
+                })
+
+                if (!fallbackViolation) {
+                    modelData = fallbackModelData
+                    model = modelData.model
+                    modelName = modelData.modelName
+                    displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+                    maxTokens =
+                        typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
+                        modelData.registry.models[body.model]?.maxTokens > 0
+                            ? modelData.registry.models[body.model].maxTokens
+                            : 16096
+                    modelCreditCharge = resolvePrototypeCreditCharge({
+                        providerSource: modelData.providerSource,
+                        modelMode: model.modelType,
+                        enabledTools: body.enabledTools,
+                        reasoningEffort: effectiveReasoningEffort,
+                        prototypeCreditTier: modelData.prototypeCreditTier,
+                        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
+                    })
+                    creditReservation = await ctx.runMutation(
+                        internal.credits.reserveCreditForMessage,
+                        {
+                            userId: user.id,
+                            threadId: body.id as Id<"threads"> | undefined,
+                            messageId: assistantRequestMessageId,
+                            messageKey: modelCreditMessageKey,
+                            modelId: body.model,
+                            providerSource: modelData.providerSource,
+                            feature: modelCreditCharge.feature,
+                            bucket: modelCreditCharge.bucket,
+                            units: modelCreditCharge.units,
+                            counted: modelCreditCharge.counted,
+                            requiredPlan: requiredPlanForModel
+                        }
+                    )
+                }
             }
-        ).toResponse()
+        }
+
+        if (!creditReservation.allowed) {
+            return new ChatError(
+                "rate_limit:chat",
+                "Monthly plan limit reached for the selected request.",
+                {
+                    kind: "credits_exhausted",
+                    bucket: creditReservation.bucket,
+                    used: creditReservation.used,
+                    limit: creditReservation.limit,
+                    remaining: creditReservation.remaining
+                }
+            ).toResponse()
+        }
     }
 
     let toolBudgetReservation: {

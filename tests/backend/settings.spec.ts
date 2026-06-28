@@ -221,11 +221,13 @@ describe("settings", () => {
             openai: {
                 key: "dec:openai-key",
                 name: "openai",
+                usageMode: "fallback",
                 authMode: "ai-studio"
             },
             gateway: {
                 key: "dec:gateway-key",
                 name: "gateway",
+                usageMode: "fallback",
                 authMode: undefined
             },
             customprov: {
@@ -526,6 +528,7 @@ describe("settings", () => {
                 coreAIProviders: {
                     openai: {
                         enabled: true,
+                        usageMode: "fallback",
                         authMode: "vertex",
                         encryptedKey: "existing-core-key"
                     }

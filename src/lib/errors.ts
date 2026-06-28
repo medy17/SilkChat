@@ -13,6 +13,15 @@ export type ErrorCode = `${ErrorType}:${Surface}`
 export type ErrorVisibility = "response" | "log" | "none"
 
 /**
+ * A cheaper/larger-context model the backend determined would accept this
+ * thread, offered as a one-click switch on a context-limit error.
+ */
+export type SuggestedModel = {
+    id: string
+    name: string
+}
+
+/**
  * Machine-readable detail attached to a chat error so the client can render a
  * specific, actionable message (e.g. "out of Pro credits") instead of a generic
  * "something went wrong" block.
@@ -38,6 +47,8 @@ export type ChatErrorDetail =
           limitTokens: number
           modelId: string
           canUseByok?: boolean
+          /** Cheaper/larger models that would accept this thread, if any. */
+          suggestedModels?: SuggestedModel[]
       }
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {

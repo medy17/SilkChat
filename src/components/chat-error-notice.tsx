@@ -1,7 +1,11 @@
-import { type ParsedChatError, parseChatError } from "@/lib/errors"
+import type { SharedModel } from "@/convex/lib/models"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { type ParsedChatError, type SuggestedModel, parseChatError } from "@/lib/errors"
+import { useSharedModels } from "@/lib/shared-models"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { AlertTriangle, CreditCard, Key, Lock, Pencil, RotateCcw } from "lucide-react"
 import { memo, useCallback, useMemo } from "react"
+import { getProviderIcon } from "./model-selector"
 import { Button } from "./ui/button"
 
 type ErrorCta = {
@@ -21,6 +25,8 @@ type ErrorPresentation = {
     primaryCta?: ErrorCta
     /** An optional alternative action, rendered with lower emphasis. */
     secondaryCta?: ErrorCta
+    /** Cheaper/larger models offered as one-click switches, shown as a chip row. */
+    suggestedModels?: SuggestedModel[]
 }
 
 const PLAN_LABEL: Record<"free" | "pro", string> = {
@@ -73,7 +79,8 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
                 description:
                     "This thread is too long. Edit your message, start a new chat, or switch to BYOK.",
                 primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
-                secondaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key }
+                secondaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
+                suggestedModels: detail.suggestedModels
             }
         }
 
@@ -82,7 +89,8 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             title: "This thread is too long",
             description:
                 "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats.",
-            primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil }
+            primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
+            suggestedModels: detail.suggestedModels
         }
     }
 
@@ -108,10 +116,27 @@ function useStartNewChat() {
 }
 
 export const ChatErrorNotice = memo(
-    ({ error, onRetry }: { error: unknown; onRetry?: () => void }) => {
+    ({
+        error,
+        onRetry,
+        onSwitchModel
+    }: {
+        error: unknown
+        onRetry?: () => void
+        onSwitchModel?: (modelId: string) => void
+    }) => {
         const presentation = useMemo(() => describeChatError(parseChatError(error)), [error])
         const Icon = presentation.icon
         const startNewChat = useStartNewChat()
+        const isMobile = useIsMobile()
+        const { models: sharedModels } = useSharedModels()
+        const sharedModelsById = useMemo(
+            () => new Map((sharedModels as SharedModel[]).map((model) => [model.id, model])),
+            [sharedModels]
+        )
+        const suggestedModels = presentation.suggestedModels ?? []
+        // Keep the row compact on mobile.
+        const visibleSuggestions = isMobile ? suggestedModels.slice(0, 2) : suggestedModels
 
         const renderCta = (cta: ErrorCta, variant: "default" | "outline") => {
             const CtaIcon = cta.icon
@@ -160,6 +185,29 @@ export const ChatErrorNotice = memo(
                         </Button>
                     )}
                 </div>
+
+                {onSwitchModel && visibleSuggestions.length > 0 && (
+                    <div className="flex flex-col gap-2 border-destructive/30 border-t pt-3">
+                        <span className="text-muted-foreground text-sm">Or continue with:</span>
+                        <div className="flex flex-wrap gap-2">
+                            {visibleSuggestions.map((model) => {
+                                const sharedModel = sharedModelsById.get(model.id)
+                                return (
+                                    <Button
+                                        key={model.id}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-foreground"
+                                        onClick={() => onSwitchModel(model.id)}
+                                    >
+                                        {sharedModel && getProviderIcon(sharedModel, false)}
+                                        {model.name}
+                                    </Button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         )
     }

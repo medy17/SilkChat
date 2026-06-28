@@ -6,7 +6,7 @@ import type { SharedModel } from "./models"
 
 export const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
 export const DEFAULT_MAX_OUTPUT_TOKENS = 16_096
-export const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD = 0.5
+export const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD = 0.2
 export const DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS = 32_000
 export const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
 export const DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS = 256
@@ -143,6 +143,98 @@ export const getContextLimitViolation = ({
     }
 
     return null
+}
+
+export type SuggestedModel = { id: string; name: string }
+
+/**
+ * Modality abilities a replacement model must preserve. Reasoning controls
+ * (`reasoning`, `effort_control`) are intentionally excluded — they aren't
+ * modalities and requiring them would needlessly drop good cheaper options.
+ */
+const SUGGESTABLE_MODALITIES = ["vision", "native_pdf", "function_calling"] as const
+
+export type ModelSuggestionCandidate = ContextLimitPolicyModel & {
+    id: string
+    name: string
+    abilities: readonly string[]
+    mode?: string
+    /** Whether the user has any usable adapter for this model. */
+    runnable: boolean
+    /** Plan needed to pick the model (`availableToPickFor`, defaulting to pro). */
+    requiredPlan: "free" | "pro"
+    developer?: string
+    releaseOrder?: number
+    legacy?: boolean
+    prototypeCreditTier?: "basic" | "pro"
+}
+
+/**
+ * Rank a price-sorted alternative to a model that just hit its context limit.
+ *
+ * Only models that (a) preserve the current model's modalities and (b) fit the
+ * hosted window for this thread are eligible — fitting hosted guarantees the
+ * retry actually goes through on hosted credits, and since the hosted limit is
+ * price-derived it doubles as the "cheap enough" gate.
+ *
+ * Ordering is "cheapest of latest": the user's provider first, then cheapest
+ * input price (coarse credit tier as a fallback when price is unknown), then
+ * newest generation as a tiebreak between same-priced siblings.
+ */
+export const computeSuggestedModels = ({
+    currentModelId,
+    currentModelAbilities,
+    currentModelDeveloper,
+    estimatedTokens,
+    userPlan,
+    candidates,
+    limit = 3
+}: {
+    currentModelId: string
+    currentModelAbilities: readonly string[]
+    currentModelDeveloper?: string
+    estimatedTokens: number
+    userPlan: "free" | "pro"
+    candidates: ModelSuggestionCandidate[]
+    limit?: number
+}): SuggestedModel[] => {
+    const requiredModalities = SUGGESTABLE_MODALITIES.filter((ability) =>
+        currentModelAbilities.includes(ability)
+    )
+
+    const costKey = (candidate: ModelSuggestionCandidate) => {
+        const price = candidate.inputUsdPer1MTokens
+        if (typeof price === "number" && Number.isFinite(price) && price >= 0) return price
+        // Unknown price: keep cheaper-tier models ahead of premium ones, but
+        // behind any model we actually have a price for.
+        return candidate.prototypeCreditTier === "pro" ? 2e9 : 1e9
+    }
+
+    return candidates
+        .filter((candidate) => {
+            if (candidate.id === currentModelId) return false
+            if (!candidate.runnable) return false
+            if (candidate.legacy) return false
+            if (candidate.mode && candidate.mode !== "text") return false
+            if (userPlan === "free" && candidate.requiredPlan === "pro") return false
+            if (!requiredModalities.every((ability) => candidate.abilities.includes(ability))) {
+                return false
+            }
+            return estimatedTokens <= resolveContextLimits(candidate).hostedInputLimit
+        })
+        .sort((a, b) => {
+            const aSameProvider = a.developer === currentModelDeveloper ? 0 : 1
+            const bSameProvider = b.developer === currentModelDeveloper ? 0 : 1
+            if (aSameProvider !== bSameProvider) return aSameProvider - bSameProvider
+
+            const aCost = costKey(a)
+            const bCost = costKey(b)
+            if (aCost !== bCost) return aCost - bCost
+
+            return (b.releaseOrder ?? 0) - (a.releaseOrder ?? 0)
+        })
+        .slice(0, limit)
+        .map((candidate) => ({ id: candidate.id, name: candidate.name }))
 }
 
 const estimateUnknownTokens = (value: unknown): number => {

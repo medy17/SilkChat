@@ -56,6 +56,7 @@ import {
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getRequiredPlanToPickModel,
+    hasBuiltInOpenRouterProvider,
     isAdminOnlyModel,
     isImageGenerationCapableModel,
     useAvailableModels
@@ -247,11 +248,26 @@ const getActiveRuntimeProvider = (
 
     for (const adapter of sharedModel.adapters) {
         const providerId = adapter.split(":")[0]
-        if (providerId === "openrouter" && currentProviders.core.openrouter?.enabled) {
+        if (
+            providerId === "openrouter" &&
+            currentProviders.core.openrouter?.enabled &&
+            currentProviders.core.openrouter?.usageMode === "priority"
+        ) {
             return {
                 isByok: true,
                 label: getProviderDisplayName(providerId, currentProviders)
             }
+        }
+    }
+
+    if (isOpenRouterOnlySharedModel(sharedModel) && hasBuiltInOpenRouterProvider(sharedModel)) {
+        return { isByok: false, label: "Built-in" }
+    }
+
+    if (isOpenRouterOnlySharedModel(sharedModel) && currentProviders.core.openrouter?.enabled) {
+        return {
+            isByok: true,
+            label: getProviderDisplayName("openrouter", currentProviders)
         }
     }
 
@@ -1532,7 +1548,7 @@ export function ModelSelector({
                                 <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
                             </Tooltip>
                         )}
-                        {activeRuntimeProvider?.isByok && (
+                        {activeRuntimeProvider?.isByok && byokContextHint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <span
@@ -1540,13 +1556,12 @@ export function ModelSelector({
                                             "inline-flex text-muted-foreground",
                                             tone === "on-primary" && "text-primary-foreground"
                                         )}
+                                        aria-label={byokContextHint.ariaLabel}
                                     >
                                         <Key className="size-3.5" />
                                     </span>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                    Using your {activeRuntimeProvider.label} key
-                                </TooltipContent>
+                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
                             </Tooltip>
                         )}
                     </div>
