@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api"
-import { browserEnv } from "@/lib/browser-env"
+import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import {
     type ExportableMessage,
     type ExportableThread,
@@ -94,6 +94,7 @@ export const exportSingleThread = async ({
         thread,
         messages,
         convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
+        publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
         exportedAt
     })
 
@@ -129,6 +130,7 @@ export const exportMultipleThreads = async ({
             thread: bundles[0].thread,
             messages: bundles[0].messages,
             convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
+            publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
             exportedAt
         })
 
@@ -144,6 +146,7 @@ export const exportMultipleThreads = async ({
             thread,
             messages,
             convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
+            publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
             exportedAt
         })
     )

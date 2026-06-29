@@ -5,6 +5,7 @@ import { action, internalMutation, internalQuery, query } from "./_generated/ser
 import { r2 } from "./attachments"
 import { downloadFalImage } from "./fal_webhooks"
 import { getUserIdentity } from "./lib/identity"
+import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
 import { ImageGenerationJobAsset } from "./schema/image_generation_job"
 
 const jobStatusValidator = v.union(
@@ -26,6 +27,20 @@ const WEBHOOK_PROCESSING_LEASE_MS = 2 * 60 * 1000
 // upstream is not hammered. Arbitrary but bounded.
 const MAX_ASSET_FETCH_ATTEMPTS = 5
 const ASSET_FETCH_COOLDOWN_MS = 15_000
+
+const isChatImageAsset = (
+    asset: {
+        generatedImageId: Id<"generatedImages">
+        storageKey: string
+        imageUrl: string
+        variantIndex?: number
+    } | null
+): asset is {
+    generatedImageId: Id<"generatedImages">
+    storageKey: string
+    imageUrl: string
+    variantIndex?: number
+} => asset !== null
 
 export const listActiveImageGenerationJobs = query({
     args: {},
@@ -74,6 +89,11 @@ export const createImageGenerationJob = internalMutation({
     args: {
         userId: v.string(),
         clientRequestId: v.optional(v.string()),
+        source: v.optional(v.union(v.literal("library"), v.literal("chat"))),
+        sourceThreadId: v.optional(v.id("threads")),
+        sourceMessageId: v.optional(v.string()),
+        sourceToolCallId: v.optional(v.string()),
+        sourceCardId: v.optional(v.string()),
         appModelId: v.string(),
         falEndpoint: v.string(),
         prompt: v.string(),
@@ -294,6 +314,12 @@ export const claimImageGenerationJobAssetRetry = internalMutation({
             aspectRatio: job.aspectRatio,
             resolution: job.resolution,
             referenceImageKeys: job.referenceImageKeys,
+            source: job.source,
+            sourceThreadId: job.sourceThreadId,
+            sourceMessageId: job.sourceMessageId,
+            sourceToolCallId: job.sourceToolCallId,
+            sourceCardId: job.sourceCardId,
+            clientRequestId: job.clientRequestId,
             assetUrls: job.assetUrls ?? []
         }
     }
@@ -328,6 +354,38 @@ export const reprocessImageGenerationJobAsset = action({
                     : "This image can no longer be retried."
             )
         }
+
+        const patchChatCard = async (update: {
+            status: "processing" | "completed" | "partial" | "storing_failed"
+            generatedImageIds?: Id<"generatedImages">[]
+            assets?: Array<{
+                generatedImageId: Id<"generatedImages">
+                storageKey: string
+                imageUrl: string
+                variantIndex?: number
+            }>
+            error?: string
+        }) => {
+            if (
+                claim.source !== "chat" ||
+                !claim.sourceThreadId ||
+                !claim.sourceMessageId ||
+                !claim.sourceToolCallId ||
+                !claim.sourceCardId
+            ) {
+                return
+            }
+
+            await ctx.runMutation(internal.messages.patchPreparedImageGenerationToolResult, {
+                threadId: claim.sourceThreadId,
+                messageId: claim.sourceMessageId,
+                toolCallId: claim.sourceToolCallId,
+                cardId: claim.sourceCardId,
+                update
+            })
+        }
+
+        await patchChatCard({ status: "processing" })
 
         try {
             if (claim.assetUrls.length === 0) {
@@ -381,16 +439,39 @@ export const reprocessImageGenerationJobAsset = action({
                 generatedImageIds,
                 error: failures.length > 0 ? failures.join("; ") : undefined
             })
+            const assets = await Promise.all(
+                generatedImageIds.map(async (generatedImageId) => {
+                    const image = await ctx.runQuery(internal.images.getGeneratedImageInternal, {
+                        id: generatedImageId
+                    })
+                    if (!image) return null
+                    const variantIndex = getVariantIndexFromClientRequestId(claim.clientRequestId)
+                    return {
+                        generatedImageId,
+                        storageKey: image.storageKey,
+                        imageUrl: image.storageKey,
+                        ...(variantIndex ? { variantIndex } : {})
+                    }
+                })
+            )
+            await patchChatCard({
+                status,
+                generatedImageIds,
+                assets: assets.filter(isChatImageAsset),
+                ...(failures.length > 0 ? { error: failures.join("; ") } : {})
+            })
             return { status, generatedImageIds }
         } catch (error) {
             // Reset to storing_failed so the card keeps its retry affordance.
+            const message = error instanceof Error ? error.message : "Image retry failed"
             await ctx.runMutation(
                 internal.image_generation_jobs.markImageGenerationJobStoringFailed,
                 {
                     jobId: args.jobId,
-                    error: error instanceof Error ? error.message : "Image retry failed"
+                    error: message
                 }
             )
+            await patchChatCard({ status: "storing_failed", error: message })
             throw error
         }
     }

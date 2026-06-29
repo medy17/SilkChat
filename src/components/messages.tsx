@@ -236,6 +236,8 @@ const PartsRenderer = memo(
         part,
         markdown,
         id,
+        threadId,
+        messageId,
         onFilePreview,
         onSwitchModel,
         isStreaming
@@ -243,6 +245,8 @@ const PartsRenderer = memo(
         part: UIMessage["parts"][number]
         markdown: boolean
         id: string
+        threadId?: string
+        messageId: string
         onFilePreview?: (part: { url: string; filename?: string; mediaType?: string }) => void
         onSwitchModel?: (modelId: string) => void
         isStreaming?: boolean
@@ -305,6 +309,14 @@ const PartsRenderer = memo(
                 return <WebSearchToolRenderer toolInvocation={part} />
             case "tool-image_generation":
                 return <ImageGenerationToolRenderer toolInvocation={part} />
+            case "tool-prepareImageGeneration":
+                return (
+                    <ImageGenerationToolRenderer
+                        toolInvocation={part}
+                        threadId={threadId}
+                        messageId={messageId}
+                    />
+                )
             case "dynamic-tool":
                 return (
                     <GenericToolRenderer
@@ -751,6 +763,7 @@ const EditableMessage = memo(
                                         enabledTools={enabledTools}
                                         onEnabledToolsChange={setEnabledTools}
                                         modelSupportsFunctionCalling={modelSupportsFunctionCalling}
+                                        modelSupportsVision={modelSupportsVision}
                                     />
                                     <ReasoningEffortSelector selectedModel={selectedModel} />
                                 </>
@@ -855,6 +868,7 @@ type MessageRowProps = {
     onCancelEdit: () => void
     onFilePreview: (part: PreviewFile) => void
     requiresNativePdfForModelSelection: boolean
+    threadId?: string
 }
 
 const MessageRowComponent = ({
@@ -869,7 +883,8 @@ const MessageRowComponent = ({
     onSaveEdit,
     onCancelEdit,
     onFilePreview,
-    requiresNativePdfForModelSelection
+    requiresNativePdfForModelSelection,
+    threadId
 }: MessageRowProps) => {
     const reasoning = getMessageReasoningDetails(message)
     const inlineParts = message.parts.filter(
@@ -922,6 +937,11 @@ const MessageRowComponent = ({
                                     part={part}
                                     markdown={true}
                                     id={`${message.id}-text-${index}`}
+                                    threadId={
+                                        ((message.metadata as { threadId?: string } | undefined)
+                                            ?.threadId as string | undefined) ?? threadId
+                                    }
+                                    messageId={message.id}
                                     onFilePreview={onFilePreview}
                                     onSwitchModel={onSwitchModel}
                                     isStreaming={isStreamingMessage}
@@ -937,6 +957,11 @@ const MessageRowComponent = ({
                                         part={part}
                                         markdown={message.role === "assistant"}
                                         id={`${message.id}-file-${index}`}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
                                         onFilePreview={onFilePreview}
                                         isStreaming={isStreamingMessage}
                                     />
@@ -1501,6 +1526,7 @@ export const Messages = forwardRef<
                                         onCancelEdit={handleCancelEdit}
                                         onFilePreview={handleFilePreview}
                                         requiresNativePdfForModelSelection={threadHasPdfAttachments}
+                                        threadId={threadKey}
                                     />
                                 ))}
                             </Virtualizer>

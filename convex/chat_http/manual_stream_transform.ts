@@ -385,11 +385,16 @@ export const manualStreamTransform = (
                             part.toolInvocation.toolCallId === chunk.toolCallId
                     )
 
+                    let resolvedToolName =
+                        "toolName" in chunk && typeof chunk.toolName === "string"
+                            ? chunk.toolName
+                            : undefined
                     if (found !== -1) {
                         const part = parts[found] as Extract<
                             StoredPart,
                             { type: "tool-invocation" }
                         >
+                        resolvedToolName = resolvedToolName ?? part.toolInvocation.toolName
                         part.toolInvocation.state = "result"
                         part.toolInvocation.result = chunk.output
                         notifyPartsChanged()

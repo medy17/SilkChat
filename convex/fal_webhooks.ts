@@ -2,6 +2,7 @@ import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
+import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
 import { type FalGeneratedImage, parseFalImagePayload } from "./lib/models/fal"
 
 const FAL_JWKS_URL = "https://rest.fal.ai/.well-known/jwks.json"
@@ -157,6 +158,70 @@ const FAL_IMAGE_DOWNLOAD_ATTEMPTS = 3
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+const patchChatImageGenerationCard = async (
+    ctx: {
+        runQuery: (reference: unknown, args: Record<string, unknown>) => Promise<unknown>
+        runMutation: (reference: unknown, args: Record<string, unknown>) => Promise<unknown>
+    },
+    {
+        job,
+        status,
+        generatedImageIds,
+        error
+    }: {
+        job: {
+            source?: "library" | "chat"
+            clientRequestId?: string
+            sourceThreadId?: Id<"threads">
+            sourceMessageId?: string
+            sourceToolCallId?: string
+            sourceCardId?: string
+        }
+        status: string
+        generatedImageIds?: Id<"generatedImages">[]
+        error?: string
+    }
+) => {
+    if (
+        job.source !== "chat" ||
+        !job.sourceThreadId ||
+        !job.sourceMessageId ||
+        !job.sourceToolCallId ||
+        !job.sourceCardId
+    ) {
+        return
+    }
+
+    const variantIndex = getVariantIndexFromClientRequestId(job.clientRequestId)
+    const assets = await Promise.all(
+        (generatedImageIds ?? []).map(async (generatedImageId) => {
+            const image = (await ctx.runQuery(internal.images.getGeneratedImageInternal, {
+                id: generatedImageId
+            })) as { storageKey: string } | null
+            if (!image) return null
+            return {
+                generatedImageId,
+                storageKey: image.storageKey,
+                imageUrl: image.storageKey,
+                ...(variantIndex ? { variantIndex } : {})
+            }
+        })
+    )
+
+    await ctx.runMutation(internal.messages.patchPreparedImageGenerationToolResult, {
+        threadId: job.sourceThreadId,
+        messageId: job.sourceMessageId,
+        toolCallId: job.sourceToolCallId,
+        cardId: job.sourceCardId,
+        update: {
+            status,
+            ...(generatedImageIds ? { generatedImageIds } : {}),
+            ...(assets.filter(Boolean).length > 0 ? { assets: assets.filter(Boolean) } : {}),
+            ...(error ? { error } : {})
+        }
+    })
+}
+
 export const downloadFalImage = async (image: FalGeneratedImage) => {
     let lastError: unknown
     for (let attempt = 0; attempt < FAL_IMAGE_DOWNLOAD_ATTEMPTS; attempt++) {
@@ -255,20 +320,22 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
 
     const result = parseFalImagePayload(payload)
     if (result.kind !== "images") {
+        const status =
+            result.kind === "error" ? "failed" : result.kind === "refusal" ? "refunded" : "unknown"
         await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
             userId: job.userId,
             messageKey: job.creditEventKey
         })
         await ctx.runMutation(internal.image_generation_jobs.finalizeImageGenerationJob, {
             falRequestId,
-            status:
-                result.kind === "error"
-                    ? "failed"
-                    : result.kind === "refusal"
-                      ? "refunded"
-                      : "unknown",
+            status,
             error: result.reason,
             webhookPayload: payload
+        })
+        await patchChatImageGenerationCard(ctx, {
+            job,
+            status,
+            error: result.reason
         })
         return jsonResponse({ ok: true, status: result.kind })
     }
@@ -334,15 +401,27 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
             error,
             webhookPayload: payload
         })
+        await patchChatImageGenerationCard(ctx, {
+            job,
+            status: "storing_failed",
+            error
+        })
         return jsonResponse({ ok: true, status: "storing_failed" })
     }
 
+    const completedStatus = failures.length > 0 ? "partial" : "completed"
     await ctx.runMutation(internal.image_generation_jobs.finalizeImageGenerationJob, {
         falRequestId,
-        status: failures.length > 0 ? "partial" : "completed",
+        status: completedStatus,
         generatedImageIds,
         error: failures.length > 0 ? failures.join("; ") : undefined,
         webhookPayload: payload
+    })
+    await patchChatImageGenerationCard(ctx, {
+        job,
+        status: completedStatus,
+        generatedImageIds,
+        error: failures.length > 0 ? failures.join("; ") : undefined
     })
 
     return jsonResponse({ ok: true, generatedImageIds })

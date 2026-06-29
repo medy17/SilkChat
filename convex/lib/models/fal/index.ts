@@ -29,9 +29,12 @@ export const getFalImageDescriptor = (appModelId: string) =>
     FAL_IMAGE_DESCRIPTORS.find((descriptor) => descriptor.appModelId === appModelId)
 
 export {
+    FAL_IMAGE_SAFETY_MESSAGE,
     buildFalImageInput,
     getFalEndpointForRequest,
+    isFalImageSafetyReason,
     isFalImageSizeSupported,
+    normalizeFalImageErrorMessage,
     parseFalImagePayload
 } from "./shared"
 export type {

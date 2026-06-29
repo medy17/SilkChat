@@ -318,6 +318,27 @@ export const listGeneratedImages = query({
     }
 })
 
+export const listGeneratedImagesByIds = query({
+    args: {
+        ids: v.array(v.id("generatedImages"))
+    },
+    handler: async (ctx, args) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) return []
+
+        const images = await Promise.all(args.ids.map((id) => ctx.db.get(id)))
+        const imageById = new Map(
+            images
+                .filter((image): image is NonNullable<(typeof images)[number]> =>
+                    Boolean(image && image.userId === user.id)
+                )
+                .map((image) => [image._id, image])
+        )
+
+        return args.ids.map((id) => imageById.get(id)).filter((image) => image !== undefined)
+    }
+})
+
 export const paginateGeneratedImages = query({
     args: {
         paginationOpts: paginationOptsValidator,

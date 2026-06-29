@@ -48,6 +48,15 @@ const MODEL_FACING_STORAGE_KEY_PREFIXES = ["attachments/", "generations/"]
 const isModelFacingStorageKey = (value: string) =>
     MODEL_FACING_STORAGE_KEY_PREFIXES.some((prefix) => value.startsWith(prefix))
 
+const sanitizeToolResultForModel = (toolName: string, result: unknown) => {
+    if (toolName !== "prepareImageGeneration" || typeof result !== "object" || result === null) {
+        return result ?? null
+    }
+
+    const { referenceSources, ...safeResult } = result as Record<string, unknown>
+    return safeResult
+}
+
 const extractProxyKeyFromUrl = (value: string) => {
     if (!value.startsWith("http://") && !value.startsWith("https://")) {
         return null
@@ -184,6 +193,7 @@ export const dbMessagesToCore = async (
             const mapped_content: AssistantContent = []
             const tool_calls: ToolCallPart[] = []
             const tool_results: ToolContent = []
+            const generated_image_content: UserContent = []
 
             // First pass: collect all content and tool results separately
             for (const p of message.parts) {
@@ -209,6 +219,42 @@ export const dbMessagesToCore = async (
                         })
                     }
                 } else if (p.type === "tool-invocation") {
+                    if (
+                        p.toolInvocation.toolName === "prepareImageGeneration" &&
+                        p.toolInvocation.state === "result" &&
+                        typeof p.toolInvocation.result === "object" &&
+                        p.toolInvocation.result !== null &&
+                        modelAbilities.includes("vision")
+                    ) {
+                        const result = p.toolInvocation.result as {
+                            assets?: Array<{
+                                storageKey?: string
+                                imageUrl?: string
+                            }>
+                            prompt?: string
+                        }
+                        for (const asset of result.assets ?? []) {
+                            const storageKey = asset.storageKey ?? asset.imageUrl
+                            if (!storageKey?.startsWith("generations/")) continue
+                            if (generated_image_content.length === 0) {
+                                generated_image_content.push({
+                                    type: "text",
+                                    text: result.prompt
+                                        ? `SilkScreen generated this image from the prompt: ${result.prompt}`
+                                        : "SilkScreen generated this image."
+                                })
+                            }
+                            generated_image_content.push({
+                                type: "image",
+                                image: buildDirectPublicAssetUrl(
+                                    storageKey,
+                                    options?.publicAssetBaseUrl
+                                ),
+                                mediaType: "image/png"
+                            })
+                        }
+                    }
+
                     tool_calls.push({
                         type: "tool-call",
                         toolCallId: p.toolInvocation.toolCallId,
@@ -222,7 +268,10 @@ export const dbMessagesToCore = async (
                         toolName: p.toolInvocation.toolName,
                         output: {
                             type: "json",
-                            value: p.toolInvocation.result ?? null
+                            value: sanitizeToolResultForModel(
+                                p.toolInvocation.toolName,
+                                p.toolInvocation.result
+                            ) as never
                         }
                     })
                 } else if (p.type === "reasoning") {
@@ -233,7 +282,7 @@ export const dbMessagesToCore = async (
                 }
             }
 
-            if (mapped_content.length === 0) {
+            if (mapped_content.length === 0 && tool_calls.length === 0) {
                 continue
             }
 
@@ -262,12 +311,22 @@ export const dbMessagesToCore = async (
                     } satisfies ToolModelMessage & { messageId: string })
                 }
 
-                // Create new assistant message
-                to_commit_messages.unshift({
-                    role: "assistant",
-                    messageId: message.messageId,
-                    content: mapped_content
-                } satisfies AssistantModelMessage & { messageId: string })
+                if (mapped_content.length > 0) {
+                    // Create new assistant message
+                    to_commit_messages.unshift({
+                        role: "assistant",
+                        messageId: message.messageId,
+                        content: mapped_content
+                    } satisfies AssistantModelMessage & { messageId: string })
+                }
+
+                if (generated_image_content.length > 0) {
+                    to_commit_messages.unshift({
+                        role: "user",
+                        messageId: `${message.messageId}-generated-image-context`,
+                        content: generated_image_content
+                    } satisfies UserModelMessage & { messageId: string })
+                }
             }
         }
 

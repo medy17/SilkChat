@@ -10,6 +10,11 @@ type BuildPromptOptions = {
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
     personaPrompt?: string
+    imageGenerationTool?: {
+        enabled: boolean
+        availableImageSelectionLabels: string[]
+        availableReferenceLabels: string[]
+    }
 }
 
 export const buildPrompt = ({
@@ -18,7 +23,8 @@ export const buildPrompt = ({
     userTimezone,
     clientTimestampMs,
     userSettings,
-    personaPrompt
+    personaPrompt,
+    imageGenerationTool
 }: BuildPromptOptions) => {
     const hasWebSearch = enabledTools.includes("web_search")
     const hasSupermemory = enabledTools.includes("supermemory")
@@ -162,6 +168,38 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
 - These tools provide additional capabilities based on the connected MCP servers
 - Use them as needed based on their descriptions and the user's request`
         )
+
+    if (imageGenerationTool?.enabled) {
+        const references =
+            imageGenerationTool.availableReferenceLabels.length > 0
+                ? imageGenerationTool.availableReferenceLabels
+                      .map((label) => `- ${label}`)
+                      .join("\n")
+                : "- None"
+        const selections =
+            imageGenerationTool.availableImageSelectionLabels.length > 0
+                ? imageGenerationTool.availableImageSelectionLabels
+                      .map((label) => `- ${label}`)
+                      .join("\n")
+                : "- None"
+        layers.push(dedent`
+## SilkScreen Image Preparation Tool
+You have an internal SilkScreen tool named \`prepareImageGeneration\`.
+- Use it when the user asks to create, generate, draw, render, produce, or edit an image.
+- Always provide a short, human-friendly \`title\` (3-6 words) describing the image; it is shown as the card heading.
+- The tool prepares a pending confirmation card only. It does not generate pixels, submit a fal job, store an asset, or spend credits.
+- A successful \`prepareImageGeneration\` call is a valid final assistant action. After the tool returns a pending card, stop the turn and do not add extra text.
+- The user must press Generate on the card before SilkScreen submits the async job. Do not imply the image exists until a later turn includes a completed result.
+- Choose only from the tool's valid enum inputs. Do not invent model ids, aspect ratios, resolutions, variant counts, or reference ids.
+- Whenever the request edits, transforms, restyles, or otherwise builds on an existing image (an attachment, a provided image, or one you generated earlier), you MUST pass its reference id. Passing a reference id is what makes SilkScreen edit that image instead of generating a brand-new one. If the user clearly means an existing image but no matching reference id is available, ask them to attach or select it first.
+- When multiple SilkScreen variants are available, use the variant-specific reference id named by the user, such as "variant 2". If the user asks to edit "that image" or "one of those" and the intended variant is unclear, ask which variant to use instead of guessing.
+
+Available SilkScreen image selections:
+${selections}
+
+Available image reference ids:
+${references}`)
+    }
 
     if (enabledTools.length > 0 && toolCallLimitPerTurn && toolCallLimitPerTurn > 0) {
         layers.push(

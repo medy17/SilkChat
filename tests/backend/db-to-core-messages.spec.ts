@@ -166,4 +166,108 @@ describe("dbMessagesToCore", () => {
             )
         ).rejects.toThrow("R2_PUBLIC_BASE_URL is required")
     })
+
+    it("injects completed SilkScreen generations as model-visible image context", async () => {
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                state: "result",
+                                toolCallId: "call-image",
+                                toolName: "prepareImageGeneration",
+                                args: {
+                                    prompt: "A sunset naval battle"
+                                },
+                                result: {
+                                    success: true,
+                                    kind: "prepared_image_generation",
+                                    status: "completed",
+                                    prompt: "A sunset naval battle",
+                                    assets: [
+                                        {
+                                            storageKey: "generations/user-1/generated.png",
+                                            imageUrl: "generations/user-1/generated.png"
+                                        }
+                                    ],
+                                    referenceSources: [
+                                        {
+                                            id: "image_ref_1",
+                                            key: "attachments/user-1/private.png"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ] as never,
+            ["vision"] as never,
+            {
+                publicAssetBaseUrl: "https://r2.example.com"
+            }
+        )
+
+        expect(result).toEqual([
+            {
+                role: "assistant",
+                messageId: "assistant-1-tool-call",
+                content: [
+                    {
+                        type: "tool-call",
+                        toolCallId: "call-image",
+                        toolName: "prepareImageGeneration",
+                        input: {
+                            prompt: "A sunset naval battle"
+                        }
+                    }
+                ]
+            },
+            {
+                role: "tool",
+                messageId: "assistant-1-tool-result",
+                content: [
+                    {
+                        type: "tool-result",
+                        toolCallId: "call-image",
+                        toolName: "prepareImageGeneration",
+                        output: {
+                            type: "json",
+                            value: {
+                                success: true,
+                                kind: "prepared_image_generation",
+                                status: "completed",
+                                prompt: "A sunset naval battle",
+                                assets: [
+                                    {
+                                        storageKey: "generations/user-1/generated.png",
+                                        imageUrl: "generations/user-1/generated.png"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                role: "user",
+                messageId: "assistant-1-generated-image-context",
+                content: [
+                    {
+                        type: "text",
+                        text: "SilkScreen generated this image from the prompt: A sunset naval battle"
+                    },
+                    {
+                        type: "image",
+                        image: "https://r2.example.com/generations/user-1/generated.png",
+                        mediaType: "image/png"
+                    }
+                ]
+            }
+        ])
+    })
 })

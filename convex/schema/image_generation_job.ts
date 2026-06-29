@@ -22,6 +22,11 @@ export const ImageGenerationJobAsset = v.object({
 export const ImageGenerationJob = v.object({
     userId: v.string(),
     clientRequestId: v.optional(v.string()),
+    source: v.optional(v.union(v.literal("library"), v.literal("chat"))),
+    sourceThreadId: v.optional(v.id("threads")),
+    sourceMessageId: v.optional(v.string()),
+    sourceToolCallId: v.optional(v.string()),
+    sourceCardId: v.optional(v.string()),
     appModelId: v.string(),
     falEndpoint: v.string(),
     falRequestId: v.optional(v.string()),
