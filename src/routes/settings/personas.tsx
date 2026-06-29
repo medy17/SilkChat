@@ -925,6 +925,13 @@ function PersonasSettings() {
         [availableModels]
     )
 
+    const resolveModelName = useMemo(() => {
+        const namesById = new Map<string, string>()
+        for (const model of sharedModels) namesById.set(model.id, model.name)
+        for (const model of availableModels) namesById.set(model.id, model.name)
+        return (modelId: string) => namesById.get(modelId) ?? modelId
+    }, [sharedModels, availableModels])
+
     const [form, setForm] = useState<PersonaFormState>(EMPTY_FORM)
     const [isEditorOpen, setIsEditorOpen] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -1258,7 +1265,7 @@ function PersonasSettings() {
                                                 </p>
                                                 <div className="mt-2 flex flex-wrap gap-2">
                                                     <Badge variant="secondary">
-                                                        {persona.defaultModelId}
+                                                        {resolveModelName(persona.defaultModelId)}
                                                     </Badge>
                                                     {persona.knowledgeDocs.length > 0 && (
                                                         <Badge variant="outline">
@@ -1320,7 +1327,9 @@ function PersonasSettings() {
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    <Badge variant="secondary">{persona.defaultModelId}</Badge>
+                                    <Badge variant="secondary">
+                                        {resolveModelName(persona.defaultModelId)}
+                                    </Badge>
                                     {persona.docNames.map((docName) => (
                                         <Badge key={docName} variant="outline">
                                             {docName}
