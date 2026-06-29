@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { getUserIdentityMock, createProviderMock } = vi.hoisted(() => ({
+const { getUserIdentityMock, createProviderMock, createOpenAIMock } = vi.hoisted(() => ({
     getUserIdentityMock: vi.fn(),
-    createProviderMock: vi.fn()
+    createProviderMock: vi.fn(),
+    createOpenAIMock: vi.fn()
 }))
 
 vi.mock("../../convex/lib/identity", () => ({
@@ -10,8 +11,11 @@ vi.mock("../../convex/lib/identity", () => ({
 }))
 
 vi.mock("../../convex/lib/provider_factory", () => ({
-    createProvider: createProviderMock,
-    createGoogleOpenAICompatibleProvider: vi.fn()
+    createProvider: createProviderMock
+}))
+
+vi.mock("@ai-sdk/openai", () => ({
+    createOpenAI: createOpenAIMock
 }))
 
 vi.mock("../../convex/_generated/api", () => ({
@@ -23,57 +27,22 @@ vi.mock("../../convex/_generated/api", () => ({
 }))
 
 vi.mock("../../convex/lib/models", () => ({
-    CoreProviders: ["openai", "google", "anthropic", "xai", "groq", "gateway"],
     MODELS_SHARED: [
         {
             id: "shared-text",
             name: "Shared Text",
             mode: "text",
             abilities: ["reasoning"],
-            adapters: ["openrouter:or-shared", "i3-openai:shared-text", "openai:shared-text"],
+            adapters: ["openrouter:or-shared"],
             prototypeCreditTier: "basic",
             prototypeCreditTierWithReasoning: "pro"
         },
         {
-            id: "shared-image",
-            name: "Shared Image",
-            mode: "image",
-            abilities: [],
-            adapters: ["i3-xai:grok-imagine-image", "xai:grok-imagine-image"],
-            prototypeCreditTier: "pro"
-        },
-        {
-            id: "gpt-5.4-image-2",
-            name: "GPT 5.4 Image 2",
-            mode: "image",
-            abilities: [],
-            adapters: [
-                "i3-gateway:openai/gpt-image-2",
-                "gateway:openai/gpt-image-2",
-                "i3-openai:gpt-image-2",
-                "openai:gpt-image-2"
-            ],
-            prototypeCreditTier: "pro"
-        },
-        {
-            id: "shared-grok",
-            name: "Shared Grok",
-            mode: "text",
-            abilities: ["reasoning", "function_calling"],
-            supportsDisablingReasoning: true,
-            adapters: [
-                "i3-xai:grok-fast-non-reasoning",
-                "i3-xai:grok-fast-reasoning",
-                "xai:grok-fast-non-reasoning",
-                "xai:grok-fast-reasoning"
-            ]
-        },
-        {
-            id: "shared-thinking",
-            name: "Shared Thinking",
+            id: "legacy-internal-text",
+            name: "Legacy Internal Text",
             mode: "text",
             abilities: ["reasoning"],
-            adapters: ["openrouter:or-shared:thinking", "i3-openai:shared-thinking"]
+            adapters: ["i3-openai:legacy-text", "openrouter:or-legacy-text"]
         }
     ]
 }))
@@ -93,9 +62,8 @@ describe("getModel", () => {
     beforeEach(() => {
         getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" })
         createProviderMock.mockReset()
+        createOpenAIMock.mockReset()
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
-        Reflect.deleteProperty(process.env, "OPENAI_API_KEY")
-        Reflect.deleteProperty(process.env, "XAI_API_KEY")
     })
 
     it("returns unauthorized when the user identity cannot be resolved", async () => {
@@ -108,44 +76,37 @@ describe("getModel", () => {
         })
     })
 
-    it("prefers an internal provider adapter over BYOK for shared models when no internal OpenRouter path is active", async () => {
-        const responsesModel = { provider: "internal-openai" }
+    it("uses internal OpenRouter for shared models when an internal key is configured", async () => {
+        process.env.OPENROUTER_API_KEY = "internal-openrouter-key"
+        const openRouterModel = { provider: "internal-openrouter" }
         createProviderMock.mockResolvedValueOnce({
-            responses: vi.fn().mockReturnValue(responsesModel)
+            chat: vi.fn().mockReturnValue(openRouterModel)
         })
 
         const result = await getModel(
             createCtx({
-                providers: {
-                    openai: {
-                        key: "user-openai-key"
-                    }
-                },
+                providers: {},
                 models: {
                     "shared-text": {
                         id: "shared-text",
                         name: "Shared Text",
                         mode: "text",
                         abilities: ["reasoning"],
-                        adapters: [
-                            "openrouter:or-shared",
-                            "i3-openai:shared-text",
-                            "openai:shared-text"
-                        ]
+                        adapters: ["openrouter:or-shared"]
                     }
                 }
             }),
             "shared-text"
         )
 
-        expect(createProviderMock).toHaveBeenCalledWith("openai", "internal", {
-            modelId: "shared-text"
+        expect(createProviderMock).toHaveBeenCalledWith("openrouter", "internal", {
+            modelId: "or-shared"
         })
         expect(result).toMatchObject({
             providerSource: "internal",
-            runtimeProvider: "openai",
+            runtimeProvider: "openrouter",
             model: {
-                provider: "internal-openai",
+                provider: "internal-openrouter",
                 modelType: "text"
             }
         })
@@ -171,7 +132,7 @@ describe("getModel", () => {
                         name: "Shared Text",
                         mode: "text",
                         abilities: ["reasoning"],
-                        adapters: ["openrouter:or-shared", "i3-openai:shared-text"]
+                        adapters: ["openrouter:or-shared"]
                     }
                 }
             }),
@@ -179,7 +140,6 @@ describe("getModel", () => {
         )
 
         expect(createProviderMock).toHaveBeenCalledWith("openrouter", "user-openrouter-key", {
-            googleAuthMode: undefined,
             modelId: "or-shared"
         })
         expect(result).toMatchObject({
@@ -192,17 +152,23 @@ describe("getModel", () => {
         })
     })
 
-    it("uses BYOK core providers for custom models before internal or OpenRouter fallbacks", async () => {
-        const responsesModel = { provider: "byok-openai" }
-        createProviderMock.mockResolvedValueOnce({
-            responses: vi.fn().mockReturnValue(responsesModel)
+    it("uses custom OpenAI-compatible providers for custom models", async () => {
+        const customModel = { provider: "custom-openai-compatible" }
+        const chatMock = vi.fn().mockReturnValue(customModel)
+        const responsesMock = vi.fn()
+        createOpenAIMock.mockReturnValueOnce({
+            chat: chatMock,
+            responses: responsesMock
         })
 
         const result = await getModel(
             createCtx({
                 providers: {
-                    openai: {
-                        key: "user-openai-key"
+                    customProvider: {
+                        key: "custom-key",
+                        endpoint: "https://custom.example/v1",
+                        name: "Custom Provider",
+                        apiMode: "chat"
                     }
                 },
                 models: {
@@ -211,49 +177,161 @@ describe("getModel", () => {
                         name: "My Custom Model",
                         mode: "text",
                         abilities: ["reasoning"],
-                        customProviderId: "openai",
-                        adapters: ["openai:my-model-id", "i3-openai:my-model-id"]
+                        customProviderId: "customProvider",
+                        adapters: ["customProvider:my-model-id"]
                     }
                 }
             }),
             "custom-model"
         )
 
-        expect(createProviderMock).toHaveBeenCalledWith("openai", "user-openai-key", {
-            googleAuthMode: undefined,
-            modelId: "my-model-id"
+        expect(createOpenAIMock).toHaveBeenCalledWith({
+            baseURL: "https://custom.example/v1",
+            apiKey: "custom-key",
+            name: "Custom Provider"
         })
+        expect(chatMock).toHaveBeenCalledWith("my-model-id")
+        expect(responsesMock).not.toHaveBeenCalled()
         expect(result).toMatchObject({
             modelId: "my-model-id",
             modelName: "My Custom Model",
-            providerSource: "byok",
-            runtimeProvider: "openai",
+            providerSource: "custom",
+            runtimeProvider: "custom",
             model: {
-                provider: "byok-openai",
+                provider: "custom-openai-compatible",
                 modelType: "text"
             }
         })
     })
 
-    it("returns a bad_model error when internalOnly removes all usable adapters", async () => {
+    it("uses the Responses API for custom providers configured that way", async () => {
+        const customModel = { provider: "custom-openai-compatible-responses" }
+        const chatMock = vi.fn()
+        const responsesMock = vi.fn().mockReturnValue(customModel)
+        createOpenAIMock.mockReturnValueOnce({
+            chat: chatMock,
+            responses: responsesMock
+        })
+
         const result = await getModel(
             createCtx({
                 providers: {
-                    openai: {
-                        key: "user-openai-key"
+                    customProvider: {
+                        key: "custom-key",
+                        endpoint: "https://custom.example/v1",
+                        name: "Custom Provider",
+                        apiMode: "responses"
                     }
                 },
                 models: {
-                    "shared-text": {
-                        id: "shared-text",
-                        name: "Shared Text",
+                    "custom-model": {
+                        id: "my-model-id",
+                        name: "My Custom Model",
                         mode: "text",
                         abilities: ["reasoning"],
-                        adapters: ["openai:shared-text"]
+                        customProviderId: "customProvider",
+                        adapters: ["customProvider:my-model-id"]
                     }
                 }
             }),
-            "shared-text",
+            "custom-model"
+        )
+
+        expect(chatMock).not.toHaveBeenCalled()
+        expect(responsesMock).toHaveBeenCalledWith("my-model-id")
+        expect(result).toMatchObject({
+            providerSource: "custom",
+            runtimeProvider: "custom",
+            model: {
+                provider: "custom-openai-compatible-responses",
+                modelType: "text"
+            }
+        })
+    })
+
+    it("uses OpenRouter BYOK for custom OpenRouter models", async () => {
+        const openRouterModel = { provider: "custom-openrouter" }
+        createProviderMock.mockResolvedValueOnce({
+            chat: vi.fn().mockReturnValue(openRouterModel)
+        })
+
+        const result = await getModel(
+            createCtx({
+                providers: {
+                    openrouter: {
+                        key: "user-openrouter-key",
+                        usageMode: "fallback"
+                    }
+                },
+                models: {
+                    "custom-openrouter-model": {
+                        id: "vendor/custom-model",
+                        name: "Custom OpenRouter Model",
+                        mode: "text",
+                        abilities: ["reasoning"],
+                        customProviderId: "openrouter",
+                        adapters: ["openrouter:vendor/custom-model"]
+                    }
+                }
+            }),
+            "custom-openrouter-model"
+        )
+
+        expect(createProviderMock).toHaveBeenCalledWith("openrouter", "user-openrouter-key", {
+            modelId: "vendor/custom-model"
+        })
+        expect(result).toMatchObject({
+            modelId: "vendor/custom-model",
+            providerSource: "openrouter",
+            runtimeProvider: "openrouter",
+            model: {
+                provider: "custom-openrouter",
+                modelType: "text"
+            }
+        })
+    })
+
+    it("does not run custom OpenRouter models with the internal OpenRouter key", async () => {
+        process.env.OPENROUTER_API_KEY = "internal-openrouter-key"
+
+        const result = await getModel(
+            createCtx({
+                providers: {},
+                models: {
+                    "custom-openrouter-model": {
+                        id: "vendor/custom-model",
+                        name: "Custom OpenRouter Model",
+                        mode: "text",
+                        abilities: ["reasoning"],
+                        customProviderId: "openrouter",
+                        adapters: ["openrouter:vendor/custom-model"]
+                    }
+                }
+            }),
+            "custom-openrouter-model"
+        )
+
+        expect(createProviderMock).not.toHaveBeenCalled()
+        expect(result).toBeInstanceOf(ChatError)
+        expect((result as ChatError).type).toBe("bad_model")
+    })
+
+    it("returns a bad_model error when internalOnly has no hosted adapter", async () => {
+        const result = await getModel(
+            createCtx({
+                providers: {},
+                models: {
+                    "custom-model": {
+                        id: "my-model-id",
+                        name: "My Custom Model",
+                        mode: "text",
+                        abilities: ["reasoning"],
+                        customProviderId: "customProvider",
+                        adapters: ["customProvider:my-model-id"]
+                    }
+                }
+            }),
+            "custom-model",
             {
                 internalOnly: true
             }
@@ -262,93 +340,5 @@ describe("getModel", () => {
         expect(result).toBeInstanceOf(ChatError)
         expect((result as ChatError).type).toBe("bad_model")
         expect((result as ChatError).cause).toBe("No internal adapters found for model")
-    })
-
-    it("routes shared Grok models to the matching xAI variant for the selected mode", async () => {
-        createProviderMock.mockResolvedValueOnce({
-            languageModel: vi.fn().mockReturnValue({ provider: "internal-xai" })
-        })
-
-        const result = await getModel(
-            createCtx({
-                providers: {},
-                models: {
-                    "shared-grok": {
-                        id: "shared-grok",
-                        name: "Shared Grok",
-                        mode: "text",
-                        abilities: ["reasoning", "function_calling"],
-                        supportsDisablingReasoning: true,
-                        adapters: [
-                            "i3-xai:grok-fast-non-reasoning",
-                            "i3-xai:grok-fast-reasoning",
-                            "xai:grok-fast-non-reasoning",
-                            "xai:grok-fast-reasoning"
-                        ]
-                    }
-                }
-            }),
-            "shared-grok",
-            {
-                reasoningEffort: "off"
-            }
-        )
-
-        expect(createProviderMock).toHaveBeenCalledWith("xai", "internal", {
-            modelId: "grok-fast-non-reasoning"
-        })
-        expect(result).toMatchObject({
-            providerSource: "internal",
-            runtimeProvider: "xai",
-            model: {
-                provider: "internal-xai",
-                modelType: "text"
-            }
-        })
-    })
-
-    it("prefers gateway adapters for gpt-image-2 before direct OpenAI adapters", async () => {
-        createProviderMock.mockResolvedValueOnce({
-            imageModel: vi.fn().mockReturnValue({
-                provider: "gateway-image",
-                maxImagesPerCall: 1
-            })
-        })
-
-        const result = await getModel(
-            createCtx({
-                providers: {
-                    gateway: {
-                        key: "user-gateway-key"
-                    },
-                    openai: {
-                        key: "user-openai-key"
-                    }
-                },
-                models: {
-                    "gpt-5.4-image-2": {
-                        id: "gpt-5.4-image-2",
-                        name: "GPT 5.4 Image 2",
-                        mode: "image",
-                        abilities: [],
-                        adapters: ["gateway:openai/gpt-image-2", "openai:gpt-image-2"]
-                    }
-                }
-            }),
-            "gpt-5.4-image-2"
-        )
-
-        expect(createProviderMock).toHaveBeenCalledWith("gateway", "user-gateway-key", {
-            googleAuthMode: undefined,
-            modelId: "openai/gpt-image-2"
-        })
-        expect(result).toMatchObject({
-            providerSource: "byok",
-            runtimeProvider: "gateway",
-            model: {
-                provider: "gateway-image",
-                modelType: "image"
-            }
-        })
     })
 })

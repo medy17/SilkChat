@@ -20,8 +20,10 @@ export const CustomAIProvider = v.object({
     name: v.string(),
     enabled: v.boolean(),
     endpoint: v.string(),
+    apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
     encryptedKey: v.string()
 })
+export type CustomProviderApiMode = NonNullable<Infer<typeof CustomAIProvider>["apiMode"]>
 
 export const UserCustomization = v.object({
     name: v.optional(v.string()),

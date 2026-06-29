@@ -312,8 +312,6 @@ describe("useChatIntegration", () => {
                     messageId: "user-message-1"
                 },
                 enabledTools: ["web_search", "mcp"],
-                imageSize: "1536x1024",
-                imageResolution: "medium",
                 folderId: "folder-1",
                 reasoningEffort: "medium",
                 mcpOverrides: {

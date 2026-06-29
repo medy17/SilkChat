@@ -4,9 +4,7 @@ const {
     buildPromptMock,
     createUIMessageStreamMock,
     dbMessagesToCoreMock,
-    generateAndStoreImageMock,
     generateThreadNameMock,
-    getGoogleAuthModeMock,
     getModelMock,
     getResumableStreamContextMock,
     getToolkitMock,
@@ -19,9 +17,7 @@ const {
     buildPromptMock: vi.fn(),
     createUIMessageStreamMock: vi.fn(),
     dbMessagesToCoreMock: vi.fn(),
-    generateAndStoreImageMock: vi.fn(),
     generateThreadNameMock: vi.fn(),
-    getGoogleAuthModeMock: vi.fn(),
     getUserIdentityMock: vi.fn(),
     getModelMock: vi.fn(),
     getResumableStreamContextMock: vi.fn(),
@@ -166,20 +162,12 @@ vi.mock("../../convex/chat_http/generate_thread_name", () => ({
     generateThreadName: generateThreadNameMock
 }))
 
-vi.mock("../../convex/chat_http/image_generation", () => ({
-    generateAndStoreImage: generateAndStoreImageMock
-}))
-
 vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
     manualStreamTransform: manualStreamTransformMock
 }))
 
 vi.mock("../../convex/chat_http/prompt", () => ({
     buildPrompt: buildPromptMock
-}))
-
-vi.mock("../../convex/lib/google_provider", () => ({
-    getGoogleAuthMode: getGoogleAuthModeMock
 }))
 
 vi.mock("../../convex/lib/models", () => ({
@@ -279,9 +267,7 @@ describe("chatPOST", () => {
                 content: "hello from the user"
             }
         ])
-        generateAndStoreImageMock.mockReset()
         generateThreadNameMock.mockReset().mockResolvedValue("hello thread")
-        getGoogleAuthModeMock.mockReset().mockReturnValue("ai-studio")
         getUserIdentityMock.mockReset()
         getModelMock.mockReset()
         getResumableStreamContextMock.mockReset().mockReturnValue(null)

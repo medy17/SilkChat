@@ -35,12 +35,13 @@ import {
     getProviderDisplayName,
     isImageGenerationCapableModel,
     isInternalProviderEnabled,
+    isSupportedCustomModelCoreProvider,
     legacyDirectInferenceProvidersEnabled,
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { Box, Check, Image, Plus, SquarePen, Trash2, X } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
@@ -79,8 +80,10 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
         if ("isCustom" in model && model.isCustom) {
             const providerId = model.providerId
 
-            // Check if it's a core provider
-            if (currentProviders.core[providerId]?.enabled) {
+            if (
+                isSupportedCustomModelCoreProvider(providerId) &&
+                currentProviders.core.openrouter?.enabled
+            ) {
                 return {
                     name: `${getProviderDisplayName(providerId, currentProviders)} BYOK`,
                     available: true
@@ -284,9 +287,9 @@ export function ModelsSettingsContent() {
     const availableProviders = useMemo(() => {
         const providers = new Set<string>()
 
-        // Add core providers that are enabled
+        // Custom models may use OpenRouter slugs or user-defined OpenAI-compatible endpoints.
         for (const [id, provider] of Object.entries(currentProviders.core)) {
-            if (provider.enabled) {
+            if (provider.enabled && isSupportedCustomModelCoreProvider(id)) {
                 providers.add(id)
             }
         }
@@ -300,6 +303,44 @@ export function ModelsSettingsContent() {
 
         return Array.from(providers)
     }, [currentProviders])
+    const hasOpenRouterByok = currentProviders.core.openrouter?.enabled === true
+    const hasCustomOpenAICompatibleProvider = Object.values(currentProviders.custom).some(
+        (provider) => provider.enabled
+    )
+    const customModelProviderHint = hasOpenRouterByok
+        ? undefined
+        : hasCustomOpenAICompatibleProvider
+          ? "openrouter-byok"
+          : "no-provider"
+    const renderCustomModelProviderHint = () => {
+        if (!customModelProviderHint) return null
+
+        const providersLink = (
+            <Link
+                to="/settings/ai-setup"
+                search={{ tab: "providers" }}
+                className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+            >
+                Providers
+            </Link>
+        )
+
+        if (customModelProviderHint === "openrouter-byok") {
+            return (
+                <>
+                    OpenRouter model slugs require an OpenRouter BYOK key. Configure OpenRouter in{" "}
+                    {providersLink} to add them here.
+                </>
+            )
+        }
+
+        return (
+            <>
+                Configure an OpenRouter BYOK key in {providersLink} to add OpenRouter model slugs,
+                or add a custom OpenAI-compatible provider first.
+            </>
+        )
+    }
 
     const handleSaveCustomModel = async () => {
         if (!session.user?.id) return
@@ -552,6 +593,11 @@ export function ModelsSettingsContent() {
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        {customModelProviderHint && (
+                                            <p className="text-muted-foreground text-xs">
+                                                {renderCustomModelProviderHint()}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -739,6 +785,11 @@ export function ModelsSettingsContent() {
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        {customModelProviderHint && (
+                                            <p className="text-muted-foreground text-xs">
+                                                {renderCustomModelProviderHint()}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -842,20 +893,25 @@ export function ModelsSettingsContent() {
                                 </div>
                                 <h4 className="mb-2 font-semibold">Add Custom Model</h4>
                                 <p className="mb-4 text-muted-foreground text-sm">
-                                    Add a custom model from any of your configured providers
+                                    {availableProviders.length > 0
+                                        ? "Add a custom model from any of your configured providers"
+                                        : "You need to configure OpenRouter BYOK or add a provider first"}
                                 </p>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setAddingCustomModel(true)}
-                                    disabled={availableProviders.length === 0}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Model
-                                </Button>
-                                {availableProviders.length === 0 && (
-                                    <p className="mt-2 text-muted-foreground text-xs">
-                                        Configure a provider first to add custom models
-                                    </p>
+                                {availableProviders.length > 0 ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setAddingCustomModel(true)}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add Model
+                                    </Button>
+                                ) : (
+                                    <Button variant="outline" asChild>
+                                        <Link to="/settings/ai-setup" search={{ tab: "providers" }}>
+                                            <Plus className="h-4 w-4" />
+                                            Configure Provider
+                                        </Link>
+                                    </Button>
                                 )}
                             </div>
                         </Card>

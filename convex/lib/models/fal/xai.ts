@@ -1,10 +1,7 @@
 import type { SharedModel } from "../types"
 import type { FalImageDescriptor } from "./types"
 
-const xaiImageAdapters = (modelId: string): SharedModel["adapters"] => [
-    `i3-xai:${modelId}`,
-    `xai:${modelId}`
-]
+const falImageAdapters = (endpoint: string): SharedModel["adapters"] => [`fal:${endpoint}`]
 
 const GROK_IMAGE_SIZES = [
     "1:1",
@@ -32,7 +29,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
             slug: "grok-imagine-image-pro"
         },
         releaseOrder: 20260402,
-        adapters: xaiImageAdapters("grok-imagine-image-pro"),
+        adapters: falImageAdapters("xai/grok-imagine-image/quality/text-to-image"),
         abilities: [],
         mode: "image",
         maxPerMessage: 10,
@@ -52,7 +49,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
             slug: "grok-imagine-image"
         },
         releaseOrder: 20260401,
-        adapters: xaiImageAdapters("grok-imagine-image"),
+        adapters: falImageAdapters("xai/grok-imagine-image"),
         abilities: [],
         mode: "image",
         maxPerMessage: 10,

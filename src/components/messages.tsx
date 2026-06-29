@@ -62,11 +62,7 @@ import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
 import { ModelSelector } from "./model-selector"
-import {
-    AspectRatioSelector,
-    ImageResolutionSelector,
-    ReasoningEffortSelector
-} from "./multimodal-input"
+import { ReasoningEffortSelector } from "./multimodal-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
@@ -353,10 +349,6 @@ const EditableMessage = memo(
             setSelectedModel,
             enabledTools,
             setEnabledTools,
-            selectedImageSize,
-            setSelectedImageSize,
-            selectedImageResolution,
-            setSelectedImageResolution,
             reasoningEffort,
             setReasoningEffort
         } = useModelStore()
@@ -366,19 +358,15 @@ const EditableMessage = memo(
             modelSupportsVision,
             modelSupportsNativePdf,
             modelSupportsFunctionCalling,
-            isImageModel,
-            modelSupportsImageSizing,
-            modelSupportsImageResolution
+            isImageModel
         ] = useMemo(() => {
-            if (!selectedModel) return [false, false, false, false, false, false]
+            if (!selectedModel) return [false, false, false, false]
             const model = sharedModels.find((m) => m.id === selectedModel)
             return [
                 model?.abilities.includes("vision") ?? false,
                 model?.abilities.includes("native_pdf") ?? false,
                 model?.abilities.includes("function_calling") ?? false,
-                model?.mode === "image",
-                (model?.supportedImageSizes?.length ?? 0) > 0,
-                (model?.supportedImageResolutions?.length ?? 0) > 0
+                model?.mode === "image"
             ]
         }, [selectedModel, sharedModels])
 
@@ -397,8 +385,6 @@ const EditableMessage = memo(
         const initialEditSettingsRef = useRef({
             selectedModel,
             enabledTools: [...enabledTools],
-            selectedImageSize,
-            selectedImageResolution,
             reasoningEffort
         })
 
@@ -413,8 +399,6 @@ const EditableMessage = memo(
             deletedUrls.length > 0 ||
             addedFiles.length > 0 ||
             selectedModel !== initialEditSettingsRef.current.selectedModel ||
-            selectedImageSize !== initialEditSettingsRef.current.selectedImageSize ||
-            selectedImageResolution !== initialEditSettingsRef.current.selectedImageResolution ||
             reasoningEffort !== initialEditSettingsRef.current.reasoningEffort ||
             haveToolsChanged
 
@@ -522,16 +506,8 @@ const EditableMessage = memo(
 
             setSelectedModel(initialSettings.selectedModel)
             setEnabledTools(initialSettings.enabledTools)
-            setSelectedImageSize(initialSettings.selectedImageSize)
-            setSelectedImageResolution(initialSettings.selectedImageResolution)
             setReasoningEffort(initialSettings.reasoningEffort)
-        }, [
-            setEnabledTools,
-            setReasoningEffort,
-            setSelectedImageResolution,
-            setSelectedImageSize,
-            setSelectedModel
-        ])
+        }, [setEnabledTools, setReasoningEffort, setSelectedModel])
 
         const commitCancel = useCallback(() => {
             if (addedFiles.length > 0) {
@@ -742,14 +718,6 @@ const EditableMessage = memo(
                                     className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
                                     requiresNativePdf={requiresNativePdfForModelSelection}
                                 />
-                            )}
-
-                            {modelSupportsImageSizing && (
-                                <AspectRatioSelector selectedModel={selectedModel} />
-                            )}
-
-                            {modelSupportsImageResolution && (
-                                <ImageResolutionSelector selectedModel={selectedModel} />
                             )}
 
                             {!isImageModel && (

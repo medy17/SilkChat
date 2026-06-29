@@ -1,7 +1,7 @@
 import type { RegistryKey, SharedModel } from "../types"
 import type { FalImageDescriptor } from "./types"
 
-const openRouterImageAdapters = (modelId: string): RegistryKey[] => [`openrouter:${modelId}`]
+const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
 
 const SEEDREAM_IMAGE_SIZES = [
     "1:1",
@@ -22,7 +22,7 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
         name: "Seedream 4.5",
         shortName: "Seedream 4.5",
         releaseOrder: 20260330,
-        adapters: openRouterImageAdapters("bytedance-seed/seedream-4.5"),
+        adapters: falImageAdapters("fal-ai/bytedance/seedream/v4.5/text-to-image"),
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
