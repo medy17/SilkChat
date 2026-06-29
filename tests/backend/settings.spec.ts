@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { decryptKeyMock, encryptKeyMock, getUserIdentityMock, isInternalProviderConfiguredMock } =
-    vi.hoisted(() => ({
-        decryptKeyMock: vi.fn(),
-        encryptKeyMock: vi.fn(),
-        getUserIdentityMock: vi.fn(),
-        isInternalProviderConfiguredMock: vi.fn()
-    }))
+const { decryptKeyMock, encryptKeyMock, getUserIdentityMock } = vi.hoisted(() => ({
+    decryptKeyMock: vi.fn(),
+    encryptKeyMock: vi.fn(),
+    getUserIdentityMock: vi.fn()
+}))
 
 vi.mock("convex/values", () => {
     const passthrough = () => ({})
@@ -58,10 +56,6 @@ vi.mock("../../convex/lib/encryption", () => ({
 
 vi.mock("../../convex/lib/identity", () => ({
     getUserIdentity: getUserIdentityMock
-}))
-
-vi.mock("../../convex/lib/internal_provider_config", () => ({
-    isInternalProviderConfigured: isInternalProviderConfiguredMock
 }))
 
 vi.mock("../../convex/lib/models", () => ({
@@ -165,7 +159,6 @@ describe("settings", () => {
         decryptKeyMock.mockReset().mockImplementation(async (value: string) => `dec:${value}`)
         encryptKeyMock.mockReset().mockImplementation(async (value: string) => `enc:${value}`)
         getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" })
-        isInternalProviderConfiguredMock.mockReset().mockReturnValue(false)
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
         Reflect.deleteProperty(process.env, "FIRECRAWL_API_KEY")
         Reflect.deleteProperty(process.env, "BRAVE_API_KEY")
@@ -175,9 +168,6 @@ describe("settings", () => {
 
     it("builds a registry with enabled BYOK providers, internal providers, and custom models", async () => {
         process.env.OPENROUTER_API_KEY = "or-key"
-        isInternalProviderConfiguredMock.mockImplementation((providerId: string) => {
-            return providerId === "openai"
-        })
 
         const result = await getUserRegistryInternalHandler.handler(
             createCtx({
@@ -233,6 +223,7 @@ describe("settings", () => {
             customprov: {
                 key: "dec:custom-key",
                 endpoint: "https://custom.example.com/v1",
+                apiMode: "chat",
                 name: "Custom Provider"
             }
         })
@@ -259,9 +250,6 @@ describe("settings", () => {
 
     it("keeps explicit shared-model metadata ahead of cached OpenRouter metadata", async () => {
         process.env.OPENROUTER_API_KEY = "or-key"
-        isInternalProviderConfiguredMock.mockImplementation((providerId: string) => {
-            return providerId === "openai"
-        })
 
         const ctx = createCtx({
             userId: "user-1",
@@ -311,10 +299,6 @@ describe("settings", () => {
     })
 
     it("includes admin-only shared models in the registry for staff users", async () => {
-        isInternalProviderConfiguredMock.mockImplementation((providerId: string) => {
-            return providerId === "openai"
-        })
-
         const result = await getUserRegistryInternalHandler.handler(
             createCtx(
                 {
@@ -338,7 +322,7 @@ describe("settings", () => {
         expect(result.models["admin-text"]).toMatchObject({
             id: "admin-text",
             requiredRole: "admin",
-            adapters: ["i3-openai:admin-text"]
+            adapters: []
         })
     })
 
@@ -463,6 +447,7 @@ describe("settings", () => {
                 customprov: {
                     enabled: true,
                     endpoint: "https://custom.example.com/v1",
+                    apiMode: "responses",
                     name: "Custom Provider",
                     encryptedKey: "existing-custom-key"
                 }
@@ -537,6 +522,7 @@ describe("settings", () => {
                     customprov: {
                         enabled: true,
                         endpoint: "https://custom.example.com/v1",
+                        apiMode: "responses",
                         name: "Custom Provider",
                         encryptedKey: "existing-custom-key"
                     }

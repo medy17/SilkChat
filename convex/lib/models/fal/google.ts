@@ -1,11 +1,7 @@
 import type { RegistryKey, SharedModel } from "../types"
 import type { FalImageDescriptor } from "./types"
 
-const googleImageAdapters = (modelId: string): RegistryKey[] => [
-    `i3-google:${modelId}`,
-    `google:${modelId}`,
-    `openrouter:google/${modelId}`
-]
+const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
 
 const GEMINI_IMAGE_SIZES = [
     "1:1",
@@ -26,7 +22,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         name: "Gemini 2.5 Flash Image",
         shortName: "2.5 Flash Image",
         releaseOrder: 20250826,
-        adapters: googleImageAdapters("gemini-2.5-flash-image"),
+        adapters: falImageAdapters("fal-ai/nano-banana"),
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
@@ -49,7 +45,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
             slug: "nano-banana-2"
         },
         releaseOrder: 20260226,
-        adapters: googleImageAdapters("gemini-3.1-flash-image-preview"),
+        adapters: falImageAdapters("fal-ai/nano-banana-2"),
         abilities: [],
         mode: "image",
         maxPerMessage: 4,
@@ -65,7 +61,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         name: "Gemini 3 Pro Image Preview",
         shortName: "3 Pro Image",
         releaseOrder: 20251120,
-        adapters: googleImageAdapters("gemini-3-pro-image-preview"),
+        adapters: falImageAdapters("fal-ai/gemini-3-pro-image-preview"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,

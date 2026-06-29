@@ -1,18 +1,7 @@
 import type { RegistryKey, SharedModel } from "../types"
 import type { FalImageDescriptor } from "./types"
 
-const openAiImageAdapters = (modelId: string, openRouterModelId = `openai/${modelId}`) =>
-    [`openrouter:${openRouterModelId}`] satisfies RegistryKey[]
-
-const openAiDirectImageAdapters = (modelId: string) =>
-    [`i3-openai:${modelId}`, `openai:${modelId}`] satisfies RegistryKey[]
-
-const openAiGatewayImageAdapters = (modelId: string) =>
-    [
-        `i3-gateway:openai/${modelId}`,
-        `gateway:openai/${modelId}`,
-        ...openAiDirectImageAdapters(modelId)
-    ] satisfies RegistryKey[]
+const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
 
 const GPT_IMAGE_2_SIZES = [
     "1:1",
@@ -29,7 +18,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         name: "GPT Image 2",
         shortName: "GPT Image 2",
         releaseOrder: 20261023,
-        adapters: openAiGatewayImageAdapters("gpt-image-2"),
+        adapters: falImageAdapters("openai/gpt-image-2"),
         abilities: [],
         mode: "image",
         maxPerMessage: 10,
@@ -45,7 +34,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         name: "GPT Image Mini",
         shortName: "GPT Image Mini",
         releaseOrder: 20261016,
-        adapters: openAiImageAdapters("gpt-5-image-mini", "openai/gpt-5-image-mini"),
+        adapters: falImageAdapters("fal-ai/gpt-image-1-mini"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,
@@ -61,7 +50,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         name: "GPT Image",
         shortName: "GPT Image",
         releaseOrder: 20261015,
-        adapters: openAiImageAdapters("gpt-5-image", "openai/gpt-5-image"),
+        adapters: falImageAdapters("fal-ai/gpt-image-1.5"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,

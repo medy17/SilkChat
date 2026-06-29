@@ -671,12 +671,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const hasSingleReferenceXaiEdit = useMemo(
         () =>
             referenceFiles.length === 1 &&
-            selectedModels.some((model) =>
-                model.adapters.some((adapter) => {
-                    const providerId = adapter.split(":")[0]
-                    return providerId === "xai" || providerId === "i3-xai"
-                })
-            ),
+            selectedModels.some((model) => model.customIcon === "xai"),
         [referenceFiles.length, selectedModels]
     )
 

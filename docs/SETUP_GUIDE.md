@@ -182,7 +182,7 @@ Only switch back to Vercel when you already have a likely fix.
 
 ### Convex owns
 
-- model provider secrets
+- `OPENROUTER_API_KEY` for hosted built-in chat models
 - search provider secrets
 - encryption key
 - storage credentials
@@ -250,13 +250,13 @@ If either one returns `500`, the auth state will look inconsistent even when the
 
 ## Internal Provider Setup
 
-The browser only shows internal providers listed in:
+The browser only shows hosted internal chat providers listed in:
 
 ```bash
 VITE_ENABLED_INTERNAL_PROVIDERS
 ```
 
-The backend only enables providers that actually have keys configured in Convex.
+Use `VITE_ENABLED_INTERNAL_PROVIDERS="openrouter"` for the normal hosted chat setup. The backend requires `OPENROUTER_API_KEY` in Convex for built-in chat models. Legacy direct model keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used by the built-in chat runtime.
 
 Both must be correct.
 

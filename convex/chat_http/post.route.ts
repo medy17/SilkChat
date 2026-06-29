@@ -1,5 +1,9 @@
 "use node"
 
+import { ChatError } from "@/lib/errors"
+import type { ReasoningEffort } from "@/lib/model-store"
+import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
+import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import {
     JsonToSseTransformStream,
     type ModelMessage,
@@ -9,16 +13,6 @@ import {
     stepCountIs,
     streamText
 } from "ai"
-import { nanoid } from "nanoid"
-
-import { ChatError } from "@/lib/errors"
-import type { ReasoningEffort } from "@/lib/model-store"
-import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
-import type { AnthropicProviderOptions } from "@ai-sdk/anthropic"
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google"
-import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
-import type { SharedV3ProviderOptions } from "@ai-sdk/provider"
-import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
@@ -39,16 +33,8 @@ import {
     resolveRequiredPlanForModelAccess
 } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
-import { getGoogleAuthMode } from "../lib/google_provider"
 import { getUserIdentity } from "../lib/identity"
-import {
-    type CoreProvider,
-    type ImageResolution,
-    type ImageSize,
-    MODELS_SHARED,
-    type ModelReasoningProfiles,
-    type SharedModel
-} from "../lib/models"
+import { type CoreProvider, MODELS_SHARED, type SharedModel } from "../lib/models"
 import {
     getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
     resolveReasoningEffortForModel
@@ -67,7 +53,6 @@ import type { HTTPAIMessage, Message } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
-import { generateAndStoreImage } from "./image_generation"
 import { manualStreamTransform } from "./manual_stream_transform"
 import { buildPrompt } from "./prompt"
 
@@ -81,57 +66,7 @@ type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     }>
 }
 
-const DEFAULT_REASONING_PROFILES: ModelReasoningProfiles = {
-    google: {
-        off: { thinkingBudget: 0, includeThoughts: false },
-        minimal: { thinkingLevel: "minimal", includeThoughts: true },
-        low: { thinkingBudget: 1000, includeThoughts: true },
-        medium: { thinkingBudget: 6000, includeThoughts: true },
-        high: { thinkingBudget: 12000, includeThoughts: true }
-    },
-    openai: {
-        low: { reasoningEffort: "low", reasoningSummary: "detailed" },
-        medium: { reasoningEffort: "medium", reasoningSummary: "detailed" },
-        high: { reasoningEffort: "high", reasoningSummary: "detailed" }
-    },
-    anthropic: {
-        low: { budgetTokens: 1024 },
-        medium: { budgetTokens: 6000 },
-        high: { budgetTokens: 12000 }
-    }
-}
-
-const resolveReasoningProfiles = (modelId: string) =>
-    MODELS_SHARED.find((model) => model.id === modelId)?.reasoningProfiles
-
-const GOOGLE_IMAGE_PREVIEW_MODEL_IDS = new Set([
-    "gemini-3.1-flash-image-preview",
-    "gemini-3-pro-image-preview"
-])
 const OPENROUTER_ONLY_REASONING_CONTROL_MODEL_IDS = new Set(["grok-4.3"])
-
-const GOOGLE_MINIMUM_SAFETY_SETTINGS = [
-    {
-        category: "HARM_CATEGORY_HATE_SPEECH",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_HARASSMENT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        threshold: "OFF"
-    },
-    {
-        category: "HARM_CATEGORY_CIVIC_INTEGRITY",
-        threshold: "OFF"
-    }
-] as const
 
 const normalizeDisplayProvider = (providerId: string | undefined) => {
     switch (providerId) {
@@ -189,132 +124,6 @@ const resolveDisplayProvider = (
     }
 
     return normalizeDisplayProvider(runtimeProvider)
-}
-
-const isGoogleImagePreviewModel = (modelId: string) => GOOGLE_IMAGE_PREVIEW_MODEL_IDS.has(modelId)
-const isStandardReasoningEffort = (
-    effort: ReasoningEffort
-): effort is Exclude<ReasoningEffort, "off" | "minimal"> =>
-    effort === "low" || effort === "medium" || effort === "high"
-
-const buildGoogleProviderOptions = (
-    modelId: string,
-    reasoningEffort: ReasoningEffort,
-    supportsEffortControl = false,
-    reasoningProfiles?: ModelReasoningProfiles,
-    imageSize?: ImageSize,
-    imageResolution?: ImageResolution
-): GoogleGenerativeAIProviderOptions => {
-    const options: GoogleGenerativeAIProviderOptions = {
-        safetySettings: [...GOOGLE_MINIMUM_SAFETY_SETTINGS]
-    }
-
-    if (["gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview"].includes(modelId)) {
-        options.responseModalities = ["IMAGE"]
-    } else if (["gemini-2.0-flash-image-generation"].includes(modelId)) {
-        options.responseModalities = ["TEXT", "IMAGE"]
-    }
-
-    if (isGoogleImagePreviewModel(modelId)) {
-        const aspectRatio =
-            imageSize && !imageSize.includes("x")
-                ? (imageSize as
-                      | "1:1"
-                      | "16:9"
-                      | "9:16"
-                      | "4:3"
-                      | "3:4"
-                      | "2:3"
-                      | "3:2"
-                      | "4:5"
-                      | "5:4"
-                      | "21:9")
-                : undefined
-
-        options.imageConfig = {
-            ...(aspectRatio ? { aspectRatio } : {}),
-            imageSize: imageResolution ?? "1K"
-        }
-    }
-
-    if (supportsEffortControl) {
-        const googleProfile =
-            reasoningProfiles?.google?.[reasoningEffort] ??
-            DEFAULT_REASONING_PROFILES.google?.[reasoningEffort]
-        const isGemini3Model = /^gemini-3(\.|-)/.test(modelId)
-
-        if (googleProfile) {
-            options.thinkingConfig = {
-                ...(isGemini3Model
-                    ? {
-                          thinkingLevel:
-                              googleProfile.thinkingLevel ??
-                              (reasoningEffort === "off" ? undefined : reasoningEffort)
-                      }
-                    : googleProfile.thinkingBudget !== undefined
-                      ? { thinkingBudget: googleProfile.thinkingBudget }
-                      : {}),
-                ...(googleProfile.includeThoughts !== undefined
-                    ? { includeThoughts: googleProfile.includeThoughts }
-                    : {})
-            }
-        }
-    }
-
-    return options
-}
-
-const buildOpenAIProviderOptions = (
-    modelId: string,
-    reasoningEffort: ReasoningEffort,
-    supportsEffortControl = false,
-    reasoningProfiles?: ModelReasoningProfiles
-): OpenAIResponsesProviderOptions => {
-    const options: OpenAIResponsesProviderOptions = {}
-
-    const openaiProfile = isStandardReasoningEffort(reasoningEffort)
-        ? (reasoningProfiles?.openai?.[reasoningEffort] ??
-          DEFAULT_REASONING_PROFILES.openai?.[reasoningEffort])
-        : undefined
-
-    if (
-        supportsEffortControl &&
-        openaiProfile &&
-        (modelId.startsWith("o1") ||
-            modelId.startsWith("o3") ||
-            modelId.startsWith("o4") ||
-            modelId.startsWith("gpt-5"))
-    ) {
-        options.reasoningEffort = openaiProfile.reasoningEffort
-        options.reasoningSummary = openaiProfile.reasoningSummary
-    }
-
-    return options
-}
-
-const buildAnthropicProviderOptions = (
-    modelId: string,
-    reasoningEffort: ReasoningEffort,
-    reasoningProfiles?: ModelReasoningProfiles
-): AnthropicProviderOptions => {
-    const options: AnthropicProviderOptions = {}
-
-    const anthropicProfile = isStandardReasoningEffort(reasoningEffort)
-        ? (reasoningProfiles?.anthropic?.[reasoningEffort] ??
-          DEFAULT_REASONING_PROFILES.anthropic?.[reasoningEffort])
-        : undefined
-
-    if (
-        anthropicProfile &&
-        ["sonnet-4", "4-sonnet", "4-opus", "opus-4", "3.7"].some((m) => modelId.includes(m))
-    ) {
-        options.thinking = {
-            type: "enabled",
-            budgetTokens: anthropicProfile.budgetTokens
-        }
-    }
-
-    return options
 }
 
 const buildOpenRouterProviderOptions = (
@@ -753,8 +562,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
         enabledTools: AbilityId[]
         targetFromMessageId?: string
         targetMode?: "normal" | "edit" | "retry"
-        imageSize?: ImageSize
-        imageResolution?: ImageResolution
         mcpOverrides?: Record<string, boolean>
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
@@ -787,6 +594,17 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
+
+    if (
+        MODELS_SHARED.some(
+            (sharedModel) => sharedModel.id === body.model && sharedModel.mode === "image"
+        )
+    ) {
+        return new ChatError(
+            "bad_model:api",
+            "Image models are not available through chat. Use the image library generator."
+        ).toResponse()
+    }
 
     let modelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort
@@ -821,7 +639,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
         body.reasoningEffort,
         supportsEffortControl
     )
-    const reasoningProfiles = resolveReasoningProfiles(body.model)
     const requiredPlanForModel = resolveRequiredPlanForModelAccess({
         reasoningEffort: effectiveReasoningEffort,
         availableToPickFor: modelData.availableToPickFor,
@@ -913,21 +730,18 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
                 }
             )
-            const promptMessages: ModelMessage[] =
-                modelData.modelId !== "gemini-2.0-flash-image-generation"
-                    ? [
-                          {
-                              role: "system",
-                              content: buildPrompt({
-                                  enabledTools: resolvedEnabledTools,
-                                  toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
-                                  userSettings: settings,
-                                  personaPrompt: persistedPersonaSnapshot?.compiledPrompt
-                              })
-                          },
-                          ...prospectiveMappedMessages
-                      ]
-                    : prospectiveMappedMessages
+            const promptMessages: ModelMessage[] = [
+                {
+                    role: "system",
+                    content: buildPrompt({
+                        enabledTools: resolvedEnabledTools,
+                        toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
+                        userSettings: settings,
+                        personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                    })
+                },
+                ...prospectiveMappedMessages
+            ]
 
             const prospectiveContextViolation = getContextLimitViolation({
                 estimatedTokens: estimateModelMessagesTokens(promptMessages),
@@ -1518,381 +1332,112 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
             })
 
-            if (model.modelType === "image") {
-                console.log("[cvx][chat][stream] Image generation mode detected")
-
-                // Extract the prompt from the user message
-                const userMessage = mapped_messages.find((m) => m.role === "user")
-
-                const prompt =
-                    typeof userMessage?.content === "string"
-                        ? userMessage.content
-                        : userMessage?.content
-                              .map((t) => (t.type === "text" ? t.text : undefined))
-                              .filter((t) => t !== undefined)
-                              .join(" ")
-
-                const effectivePrompt = persistedPersonaSnapshot?.compiledPrompt
-                    ? `${persistedPersonaSnapshot.compiledPrompt}\n\n## User Request\n${prompt ?? ""}`
-                    : prompt
-
-                if (typeof effectivePrompt !== "string" || !effectivePrompt.trim()) {
-                    console.error("[cvx][chat][stream] No valid prompt found for image generation")
-                    parts.push({
-                        type: "error",
-                        error: {
-                            code: "unknown",
-                            message:
-                                "No prompt provided for image generation. Please provide a description of the image you want to create."
-                        }
-                    })
-                    markFirstVisible()
-                    writer.write({
-                        type: "error",
-                        errorText:
-                            "No prompt provided for image generation. Please provide a description of the image you want to create."
-                    })
-                } else {
-                    // Use the provided imageSize or fall back to default
-                    const imageSize: ImageSize = (body.imageSize || "1:1") as ImageSize
-
-                    // Create mock tool call for image generation
-                    const mockToolCall: {
-                        type: "tool-invocation"
-                        toolInvocation: {
-                            state: "call"
-                            args: {
-                                imageSize: ImageSize
-                                prompt: string
-                            }
-                            toolCallId: string
-                            toolName: "image_generation"
-                        }
-                    } = {
-                        type: "tool-invocation",
-                        toolInvocation: {
-                            state: "call",
-                            args: {
-                                imageSize,
-                                prompt: effectivePrompt
-                            },
-                            toolCallId: nanoid(),
-                            toolName: "image_generation"
-                        }
-                    }
-
-                    parts.push(mockToolCall)
-                    writer.write({
-                        type: "tool-input-available",
-                        toolCallId: mockToolCall.toolInvocation.toolCallId,
-                        toolName: mockToolCall.toolInvocation.toolName,
-                        input: mockToolCall.toolInvocation.args
-                    })
-
-                    // Patch the message with the tool call first
-                    await ctx.runMutation(internal.messages.patchMessage, {
-                        threadId: mutationResult.threadId,
-                        messageId: mutationResult.assistantMessageId,
-                        parts: parts,
-                        metadata: {
-                            modelId: body.model,
-                            modelName,
-                            displayProvider,
-                            runtimeProvider: modelData.runtimeProvider,
-                            reasoningEffort: effectiveReasoningEffort,
-                            totalTokens: totalTokenUsage.totalTokens,
-                            estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                            estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                            estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                            serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                            ...(contextRouting ? { contextRouting } : {})
-                        }
-                    })
-
-                    try {
-                        // Generate the image
-                        const result = await generateAndStoreImage({
-                            prompt: effectivePrompt,
-                            imageSize,
-                            imageResolution: body.imageResolution,
-                            imageModel: model,
-                            modelId: body.model,
-                            userId: user.id,
-                            threadId: mutationResult.threadId,
-                            actionCtx: ctx,
-                            maxAssets: 1,
-                            runtimeApiKey: modelData.runtimeApiKey
-                        })
-
-                        shouldChargeModelReservation = true
-                        await commitModelCreditReservation()
-
-                        // Send tool result
-                        markFirstVisible()
-                        writer.write({
-                            type: "tool-output-available",
-                            toolCallId: mockToolCall.toolInvocation.toolCallId,
-                            output: {
-                                assets: result.assets,
-                                prompt: result.prompt,
-                                modelId: result.modelId
-                            }
-                        })
-
-                        // Update parts with successful result
-                        parts[0] = {
-                            type: "tool-invocation",
-                            toolInvocation: {
-                                state: "result",
-                                args: mockToolCall.toolInvocation.args,
-                                result: {
-                                    assets: result.assets,
-                                    prompt: result.prompt,
-                                    modelId: result.modelId
-                                },
-                                toolCallId: mockToolCall.toolInvocation.toolCallId,
-                                toolName: "image_generation"
-                            }
-                        }
-                    } catch (error) {
-                        console.error("[cvx][chat][stream] Image generation failed:", error)
-
-                        // Send error in tool result
-                        const errorMessage =
-                            error instanceof Error ? error.message : "Unknown error occurred"
-                        markFirstVisible()
-                        writer.write({
-                            type: "tool-output-available",
-                            toolCallId: mockToolCall.toolInvocation.toolCallId,
-                            output: {
-                                error: errorMessage
-                            }
-                        })
-
-                        // Update parts with error
-                        parts[0] = {
-                            type: "tool-invocation",
-                            toolInvocation: {
-                                state: "result",
-                                args: mockToolCall.toolInvocation.args,
-                                result: {
-                                    error: errorMessage
-                                },
-                                toolCallId: mockToolCall.toolInvocation.toolCallId,
-                                toolName: "image_generation"
-                            }
-                        }
-                    }
-                }
-            } else {
-                const authMode = getGoogleAuthMode("internal")
-                const isVertexImageModel =
-                    authMode === "vertex" &&
-                    (isGoogleImagePreviewModel(modelData.modelId) ||
-                        modelData.modelId === "gemini-2.0-flash-image-generation")
-
-                if (isVertexImageModel) {
-                    console.log(
-                        "[cvx][chat][stream] Using custom Vertex streamGenerateContent for image model"
-                    )
-                    const vertexStreamPromise = import("./vertex_stream").then((m) =>
-                        m.fetchVertexStreamGenerateContent(
-                            mapped_messages,
-                            modelData.modelId,
-                            body.imageSize,
-                            body.imageResolution,
-                            effectiveReasoningEffort
-                        )
-                    )
-
-                    const resultStream = await vertexStreamPromise
-
-                    const transformedStream = resultStream.pipeThrough(
-                        manualStreamTransform(
-                            parts,
-                            totalTokenUsage,
-                            uploadPromises,
-                            user.id,
-                            ctx,
-                            streamMetrics,
-                            {
-                                allowReasoning: effectiveReasoningEffort !== "off",
-                                onPartsChanged: scheduleLiveAssistantPersist,
-                                onFirstVisible: () => {
-                                    shouldChargeModelReservation = true
-                                }
-                            }
-                        )
-                    )
-
-                    await forwardStreamToWriter(transformedStream, writer)
-
-                    await Promise.allSettled(uploadPromises)
-
-                    writer.write({
-                        type: "finish",
-                        finishReason: "stop",
-                        messageMetadata: {
-                            threadId: mutationResult.threadId,
-                            streamId,
-                            modelId: body.model,
-                            modelName,
-                            displayProvider,
-                            runtimeProvider: modelData.runtimeProvider,
-                            creditProviderSource: modelData.providerSource,
-                            reasoningEffort: effectiveReasoningEffort,
-                            promptTokens: totalTokenUsage.promptTokens,
-                            completionTokens: totalTokenUsage.completionTokens,
-                            reasoningTokens: Math.max(0, totalTokenUsage.reasoningTokens),
-                            totalTokens: totalTokenUsage.totalTokens,
-                            estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                            estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                            estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                            serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                            ...(contextRouting ? { contextRouting } : {})
-                        }
-                    })
-                } else {
-                    const shouldDisableSmoothTransform = isGoogleImagePreviewModel(
-                        modelData.modelId
-                    )
-                    const usesOpenRouter = modelData.runtimeProvider === "openrouter"
-                    const result = streamText({
-                        model: model,
-                        maxOutputTokens: maxTokens,
-                        stopWhen: stepCountIs(100),
-                        abortSignal: remoteCancel.signal,
-                        experimental_transform: shouldDisableSmoothTransform
-                            ? undefined
-                            : smoothStream(),
-                        tools: hasCallableTools
-                            ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
-                                  consumeToolCall: async ({ toolName, toolCallId }) => {
-                                      const toolCreditCharge = resolvePrototypeToolCreditCharge({
-                                          fundingSource: getToolFundingSource(toolName)
-                                      })
-
-                                      return await ctx.runMutation(
-                                          internal.credits.consumeReservedToolCall,
-                                          {
-                                              userId: user.id,
-                                              threadId: mutationResult.threadId,
-                                              reservationMessageKey: toolBudgetMessageKey,
-                                              messageId: mutationResult.assistantMessageId,
-                                              messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                                              toolCallId,
-                                              toolName,
-                                              modelId: body.model,
-                                              providerSource: toolCreditCharge.providerSource,
-                                              feature: toolCreditCharge.feature,
-                                              bucket: toolCreditCharge.bucket,
-                                              units: toolCreditCharge.units,
-                                              counted: toolCreditCharge.counted
-                                          }
-                                      )
-                                  }
+            const usesOpenRouter = modelData.runtimeProvider === "openrouter"
+            const result = streamText({
+                model: model,
+                maxOutputTokens: maxTokens,
+                stopWhen: stepCountIs(100),
+                abortSignal: remoteCancel.signal,
+                experimental_transform: smoothStream(),
+                tools: hasCallableTools
+                    ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
+                          consumeToolCall: async ({ toolName, toolCallId }) => {
+                              const toolCreditCharge = resolvePrototypeToolCreditCharge({
+                                  fundingSource: getToolFundingSource(toolName)
                               })
-                            : undefined,
-                        messages: [
-                            ...(modelData.modelId !== "gemini-2.0-flash-image-generation"
-                                ? [
-                                      {
-                                          role: "system",
-                                          content: buildPrompt({
-                                              enabledTools: resolvedEnabledTools,
-                                              toolCallLimitPerTurn: promptToolCallLimitPerTurn,
-                                              userSettings: settings,
-                                              personaPrompt:
-                                                  persistedPersonaSnapshot?.compiledPrompt
-                                          })
-                                      } as const
-                                  ]
-                                : []),
-                            ...mapped_messages
-                        ],
-                        providerOptions: (usesOpenRouter
-                            ? {
-                                  openrouter: buildOpenRouterProviderOptions(
-                                      modelData.modelId,
-                                      effectiveReasoningEffort,
-                                      supportsEffortControl,
-                                      supportsReasoningToggle,
-                                      supportsReasoning
-                                  )
-                              }
-                            : {
-                                  google: buildGoogleProviderOptions(
-                                      modelData.modelId,
-                                      effectiveReasoningEffort,
-                                      modelData.abilities.includes("effort_control"),
-                                      reasoningProfiles,
-                                      body.imageSize,
-                                      body.imageResolution
-                                  ),
-                                  openai: buildOpenAIProviderOptions(
-                                      modelData.modelId,
-                                      effectiveReasoningEffort,
-                                      modelData.abilities.includes("effort_control"),
-                                      reasoningProfiles
-                                  ),
-                                  anthropic: buildAnthropicProviderOptions(
-                                      modelData.modelId,
-                                      effectiveReasoningEffort,
-                                      reasoningProfiles
-                                  )
-                              }) as SharedV3ProviderOptions
-                    })
 
-                    const transformedStream = result.fullStream.pipeThrough(
-                        manualStreamTransform(
-                            parts,
-                            totalTokenUsage,
-                            uploadPromises,
-                            user.id,
-                            ctx,
-                            streamMetrics,
-                            {
-                                allowReasoning: effectiveReasoningEffort !== "off",
-                                onPartsChanged: scheduleLiveAssistantPersist,
-                                onFirstVisible: () => {
-                                    shouldChargeModelReservation = true
-                                }
-                            }
-                        )
-                    )
+                              return await ctx.runMutation(
+                                  internal.credits.consumeReservedToolCall,
+                                  {
+                                      userId: user.id,
+                                      threadId: mutationResult.threadId,
+                                      reservationMessageKey: toolBudgetMessageKey,
+                                      messageId: mutationResult.assistantMessageId,
+                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                      toolCallId,
+                                      toolName,
+                                      modelId: body.model,
+                                      providerSource: toolCreditCharge.providerSource,
+                                      feature: toolCreditCharge.feature,
+                                      bucket: toolCreditCharge.bucket,
+                                      units: toolCreditCharge.units,
+                                      counted: toolCreditCharge.counted
+                                  }
+                              )
+                          }
+                      })
+                    : undefined,
+                messages: [
+                    {
+                        role: "system",
+                        content: buildPrompt({
+                            enabledTools: resolvedEnabledTools,
+                            toolCallLimitPerTurn: promptToolCallLimitPerTurn,
+                            userSettings: settings,
+                            personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                        })
+                    },
+                    ...mapped_messages
+                ],
+                providerOptions: usesOpenRouter
+                    ? {
+                          openrouter: buildOpenRouterProviderOptions(
+                              modelData.modelId,
+                              effectiveReasoningEffort,
+                              supportsEffortControl,
+                              supportsReasoningToggle,
+                              supportsReasoning
+                          )
+                      }
+                    : undefined
+            })
 
-                    await forwardStreamToWriter(transformedStream, writer)
-
-                    await Promise.allSettled(uploadPromises)
-
-                    writer.write({
-                        type: "finish",
-                        finishReason: await result.finishReason,
-                        messageMetadata: {
-                            threadId: mutationResult.threadId,
-                            streamId,
-                            modelId: body.model,
-                            modelName,
-                            displayProvider,
-                            runtimeProvider: modelData.runtimeProvider,
-                            creditProviderSource: modelData.providerSource,
-                            reasoningEffort: effectiveReasoningEffort,
-                            promptTokens: totalTokenUsage.promptTokens,
-                            completionTokens: totalTokenUsage.completionTokens,
-                            reasoningTokens: totalTokenUsage.reasoningTokens,
-                            totalTokens: totalTokenUsage.totalTokens,
-                            estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                            estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                            estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                            serverDurationMs: Date.now() - streamStartTime,
-                            timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                            ...(contextRouting ? { contextRouting } : {})
+            const transformedStream = result.fullStream.pipeThrough(
+                manualStreamTransform(
+                    parts,
+                    totalTokenUsage,
+                    uploadPromises,
+                    user.id,
+                    ctx,
+                    streamMetrics,
+                    {
+                        allowReasoning: effectiveReasoningEffort !== "off",
+                        onPartsChanged: scheduleLiveAssistantPersist,
+                        onFirstVisible: () => {
+                            shouldChargeModelReservation = true
                         }
-                    })
+                    }
+                )
+            )
+
+            await forwardStreamToWriter(transformedStream, writer)
+
+            await Promise.allSettled(uploadPromises)
+
+            writer.write({
+                type: "finish",
+                finishReason: await result.finishReason,
+                messageMetadata: {
+                    threadId: mutationResult.threadId,
+                    streamId,
+                    modelId: body.model,
+                    modelName,
+                    displayProvider,
+                    runtimeProvider: modelData.runtimeProvider,
+                    creditProviderSource: modelData.providerSource,
+                    reasoningEffort: effectiveReasoningEffort,
+                    promptTokens: totalTokenUsage.promptTokens,
+                    completionTokens: totalTokenUsage.completionTokens,
+                    reasoningTokens: totalTokenUsage.reasoningTokens,
+                    totalTokens: totalTokenUsage.totalTokens,
+                    estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
+                    estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
+                    estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
+                    serverDurationMs: Date.now() - streamStartTime,
+                    timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                    ...(contextRouting ? { contextRouting } : {})
                 }
-            }
+            })
             remoteCancel.abort()
             console.log()
             req.signal.removeEventListener("abort", abortRemoteGeneration)
@@ -1946,33 +1491,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
             await finalizeToolBudgetReservation()
             await settleModelCreditReservation()
 
-            if (model.modelType === "image") {
-                writer.write({
-                    type: "finish",
-                    finishReason: "stop",
-                    messageMetadata: {
-                        threadId: mutationResult.threadId,
-                        streamId,
-                        modelId: body.model,
-                        modelName,
-                        displayProvider,
-                        runtimeProvider: modelData.runtimeProvider,
-                        creditProviderSource: modelData.providerSource,
-                        reasoningEffort: effectiveReasoningEffort,
-                        promptTokens: totalTokenUsage.promptTokens,
-                        completionTokens: totalTokenUsage.completionTokens,
-                        reasoningTokens: totalTokenUsage.reasoningTokens,
-                        totalTokens: totalTokenUsage.totalTokens,
-                        estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                        estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                        estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                        serverDurationMs: Date.now() - streamStartTime,
-                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                        ...(contextRouting ? { contextRouting } : {})
-                    }
-                })
-            }
-
             if (nameGenerationPromise) {
                 try {
                     await nameGenerationPromise
@@ -2004,10 +1522,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
     })
 
     const streamContext = getResumableStreamContext()
-    const shouldBypassResumableForImagePayloads =
-        model.modelType === "image" || isGoogleImagePreviewModel(modelData.modelId)
 
-    if (streamContext && !shouldBypassResumableForImagePayloads) {
+    if (streamContext) {
         const sseStream = stream.pipeThrough(new JsonToSseTransformStream())
         return new Response(
             (

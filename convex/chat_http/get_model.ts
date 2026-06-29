@@ -2,15 +2,14 @@
 
 import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
-import type { GatewayProvider } from "@ai-sdk/gateway"
-import { type OpenAIProvider, createOpenAI } from "@ai-sdk/openai"
-import type { ImageModelV3, LanguageModelV3 } from "@ai-sdk/provider"
+import { createOpenAI } from "@ai-sdk/openai"
+import type { LanguageModelV3 } from "@ai-sdk/provider"
 import type { OpenRouterProvider } from "@openrouter/ai-sdk-provider"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
-import { type CoreProvider, CoreProviders, MODELS_SHARED } from "../lib/models"
-import { createGoogleOpenAICompatibleProvider, createProvider } from "../lib/provider_factory"
+import { type CoreProvider, MODELS_SHARED } from "../lib/models"
+import { createProvider } from "../lib/provider_factory"
 
 const getInternalOpenRouterApiKey = () => process.env.OPENROUTER_API_KEY?.trim()
 const getRegistryProviderId = (adapter: string) => adapter.slice(0, adapter.indexOf(":"))
@@ -22,31 +21,6 @@ const getOpenRouterModelId = (modelId: string) =>
             adapter.startsWith("openrouter:")
         ) ?? ""
     ) || undefined
-
-const getOpenAIImageModel = (providerSpecificModelId: string, apiKey: string): ImageModelV3 =>
-    createOpenAI({
-        apiKey
-    }).imageModel(providerSpecificModelId)
-
-const getGoogleImageModel = async (
-    providerSpecificModelId: string,
-    apiKey: string | "internal",
-    googleAuthMode?: "ai-studio" | "vertex"
-) => {
-    const sdkProvider = await createProvider("google", apiKey, {
-        googleAuthMode,
-        modelId: providerSpecificModelId
-    })
-
-    if (sdkProvider.imageModel) {
-        return sdkProvider.imageModel(providerSpecificModelId)
-    }
-
-    const googleImageProvider = createGoogleOpenAICompatibleProvider(apiKey, {
-        googleAuthMode
-    })
-    return googleImageProvider.imageModel(providerSpecificModelId)
-}
 
 export const getModel = async (
     ctx: ActionCtx,
@@ -69,290 +43,140 @@ export const getModel = async (
     const model = registry.models[modelId]
     if (!model) return new ChatError("bad_model:api")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
-    const openRouterUsageMode = registry.providers.openrouter?.usageMode ?? "fallback"
 
+    const hasInternalOpenRouter = Boolean(getInternalOpenRouterApiKey())
     const adaptersToConsider = options?.openRouterByokOnly
         ? model.adapters.filter((adapter) => adapter.startsWith("openrouter:"))
         : options?.internalOnly
-          ? model.adapters.filter((adapter) => adapter.startsWith("i3-"))
+          ? model.adapters.filter(
+                (adapter) =>
+                    adapter.startsWith("i3-") ||
+                    (adapter.startsWith("openrouter:") && hasInternalOpenRouter)
+            )
           : model.adapters
 
     if (!adaptersToConsider.length) {
         return new ChatError("bad_model:api", "No internal adapters found for model")
     }
 
+    const openRouterUsageMode = registry.providers.openrouter?.usageMode ?? "fallback"
     const isCustomModel = Boolean(model.customProviderId)
-    const prefersReasoningVariant = (options?.reasoningEffort ?? "medium") !== "off"
-
-    // Priority sorting:
-    // - built-in shared models: OpenRouter BYOK can be priority or fallback per user setting
-    // - custom models: keep provider-native ordering
     const sortedAdapters = adaptersToConsider.sort((a, b) => {
         const providerA = getRegistryProviderId(a)
         const providerB = getRegistryProviderId(b)
-        const modelA = getRegistryModelId(a)
-        const modelB = getRegistryModelId(b)
 
         const getPriority = (provider: string) => {
-            if (!isCustomModel) {
-                if (provider === "openrouter") {
-                    return options?.openRouterByokOnly || openRouterUsageMode === "priority" ? 1 : 3
-                }
-                if (provider.startsWith("i3-")) return 2
-                if (CoreProviders.includes(provider as CoreProvider)) return 3
-                return 4
+            if (isCustomModel) {
+                if (provider === model.customProviderId) return 1
+                if (provider === "openrouter") return 2
+                return 3
             }
 
-            if (CoreProviders.includes(provider as CoreProvider)) return 1
+            if (provider === "openrouter") {
+                return options?.openRouterByokOnly || openRouterUsageMode === "priority" ? 1 : 2
+            }
             if (provider.startsWith("i3-")) return 2
-            if (provider === "openrouter") return 3
-            return 4
+            return 3
         }
 
-        const getXaiVariantPriority = (provider: string, providerModelId: string) => {
-            if (provider !== "xai" && provider !== "i3-xai") return 0
-            if (providerModelId.endsWith("-non-reasoning")) return prefersReasoningVariant ? 2 : 0
-            if (providerModelId.endsWith("-reasoning")) return prefersReasoningVariant ? 0 : 2
-            return 1
-        }
-
-        const providerPriorityDiff = getPriority(providerA) - getPriority(providerB)
-        if (providerPriorityDiff !== 0) return providerPriorityDiff
-
-        return getXaiVariantPriority(providerA, modelA) - getXaiVariantPriority(providerB, modelB)
+        return getPriority(providerA) - getPriority(providerB)
     })
 
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
-    let finalModel: LanguageModelV3 | ImageModelV3 | undefined = undefined
-    let providerSource: "internal" | "byok" | "openrouter" | "custom" | "unknown" = "unknown"
+    let finalModel: LanguageModelV3 | undefined
+    let providerSource: "internal" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
-    let runtimeApiKey: string | undefined = undefined
 
     for (const adapter of sortedAdapters) {
         const providerIdRaw = model.customProviderId ?? getRegistryProviderId(adapter)
         const providerSpecificModelId = model.customProviderId
             ? model.id
             : getRegistryModelId(adapter)
+
         if (providerIdRaw.startsWith("i3-")) {
-            const providerId = providerIdRaw.slice(3) as CoreProvider
-            //last check that this model actually is in MODELS_SHARED
-            if (
-                !MODELS_SHARED.some((m) =>
-                    m.adapters.some((a) => a === `i3-${providerId}:${providerSpecificModelId}`)
-                )
-            ) {
-                console.error(`Model ${providerSpecificModelId} not found in internal modelset`)
-                continue
-            }
+            if (!hasInternalOpenRouter) continue
 
-            const internalOpenRouterApiKey = getInternalOpenRouterApiKey()
-            const openRouterModelId = internalOpenRouterApiKey
-                ? getOpenRouterModelId(model.id)
-                : undefined
+            const openRouterModelId = getOpenRouterModelId(model.id)
+            if (!openRouterModelId) continue
 
-            if (openRouterModelId) {
-                const openRouterProvider = (await createProvider(
-                    "openrouter",
-                    "internal"
-                )) as unknown as OpenRouterProvider
-                finalModel =
-                    model.mode === "image"
-                        ? openRouterProvider.imageModel(openRouterModelId)
-                        : openRouterProvider.chat(openRouterModelId)
-                providerSource = "internal"
-                runtimeProvider = "openrouter"
-                break
-            }
-
-            const sdk_provider = await createProvider(providerId, "internal", {
-                modelId: providerSpecificModelId
-            })
-
-            if (model.mode === "image") {
-                if (providerId === "openai") {
-                    const openAiApiKey = process.env.OPENAI_API_KEY
-                    if (!openAiApiKey) {
-                        console.error("Internal OpenAI API key not found for image model")
-                        continue
-                    }
-
-                    finalModel = getOpenAIImageModel(providerSpecificModelId, openAiApiKey)
-                    providerSource = "internal"
-                    runtimeProvider = providerId
-                    runtimeApiKey = openAiApiKey
-                    break
-                }
-
-                if (providerId === "google") {
-                    finalModel = await getGoogleImageModel(providerSpecificModelId, "internal")
-                    providerSource = "internal"
-                    break
-                }
-
-                if (!sdk_provider.imageModel) {
-                    console.error(`Provider ${providerId} does not support image models`)
-                    continue
-                }
-                finalModel = sdk_provider.imageModel(providerSpecificModelId)
-            } else {
-                if (providerId === "openai") {
-                    finalModel = (sdk_provider as OpenAIProvider).responses(providerSpecificModelId)
-                } else if (providerId === "gateway") {
-                    finalModel = (sdk_provider as GatewayProvider).languageModel(
-                        providerSpecificModelId
-                    )
-                } else if (providerId === "google") {
-                    finalModel = sdk_provider.languageModel(providerSpecificModelId)
-                } else {
-                    finalModel = sdk_provider.languageModel(providerSpecificModelId)
-                }
-            }
-            providerSource = "internal"
-            runtimeProvider = providerId
-            runtimeApiKey =
-                providerId === "xai" ? process.env.XAI_API_KEY?.trim() || undefined : undefined
-            break
-        }
-
-        const provider = registry.providers[providerIdRaw]
-        const hasInternalOpenRouter =
-            providerIdRaw === "openrouter" &&
-            !options?.openRouterByokOnly &&
-            Boolean(getInternalOpenRouterApiKey())
-        if (providerIdRaw === "openrouter" && !provider && hasInternalOpenRouter) {
-            const sdk_provider = (await createProvider("openrouter", "internal", {
-                modelId: providerSpecificModelId
-            })) as unknown as OpenRouterProvider
-
-            finalModel =
-                model.mode === "image"
-                    ? sdk_provider.imageModel(providerSpecificModelId)
-                    : sdk_provider.chat(providerSpecificModelId)
+            const openRouterProvider = (await createProvider(
+                "openrouter",
+                "internal"
+            )) as unknown as OpenRouterProvider
+            finalModel = openRouterProvider.chat(openRouterModelId)
             providerSource = "internal"
             runtimeProvider = "openrouter"
             break
         }
 
+        if (providerIdRaw === "openrouter") {
+            const provider = registry.providers.openrouter
+            const shouldUseInternal =
+                !isCustomModel && !provider && !options?.openRouterByokOnly && hasInternalOpenRouter
+
+            if (!provider && !shouldUseInternal) {
+                console.error("Provider openrouter not found")
+                continue
+            }
+
+            const sdkProvider = (await createProvider(
+                "openrouter",
+                shouldUseInternal ? "internal" : provider.key,
+                {
+                    modelId: providerSpecificModelId
+                }
+            )) as unknown as OpenRouterProvider
+            finalModel = sdkProvider.chat(providerSpecificModelId)
+            providerSource = shouldUseInternal ? "internal" : "openrouter"
+            runtimeProvider = "openrouter"
+            break
+        }
+
+        if (!model.customProviderId) {
+            console.error(`Provider ${providerIdRaw} is not supported for built-in models`)
+            continue
+        }
+
+        const provider = registry.providers[providerIdRaw]
         if (!provider) {
             console.error(`Provider ${providerIdRaw} not found`)
             continue
         }
 
-        if (["openrouter", ...CoreProviders].includes(providerIdRaw)) {
-            if (model.mode === "image") {
-                if (providerIdRaw === "openai") {
-                    finalModel = getOpenAIImageModel(providerSpecificModelId, provider.key)
-                    providerSource = "byok"
-                    runtimeProvider = providerIdRaw as CoreProvider
-                    runtimeApiKey = provider.key
-                    break
-                }
-
-                if (providerIdRaw === "google") {
-                    try {
-                        finalModel = await getGoogleImageModel(
-                            providerSpecificModelId,
-                            provider.key,
-                            provider.authMode
-                        )
-                        providerSource = "byok"
-                        break
-                    } catch (error) {
-                        console.error(
-                            `Provider ${providerIdRaw} does not support image models:`,
-                            error
-                        )
-                        continue
-                    }
-                }
-
-                const sdk_provider = await createProvider(
-                    providerIdRaw as CoreProvider,
-                    provider.key,
-                    {
-                        googleAuthMode: provider.authMode,
-                        modelId: providerSpecificModelId
-                    }
-                )
-                if (!sdk_provider.imageModel) {
-                    console.error(`Provider ${providerIdRaw} does not support image models`)
-                    continue
-                }
-                finalModel = sdk_provider.imageModel(providerSpecificModelId)
-            } else {
-                const sdk_provider = await createProvider(
-                    providerIdRaw as CoreProvider,
-                    provider.key,
-                    {
-                        googleAuthMode: provider.authMode,
-                        modelId: providerSpecificModelId
-                    }
-                )
-                if (providerIdRaw === "openai") {
-                    finalModel = (sdk_provider as OpenAIProvider).responses(providerSpecificModelId)
-                } else if (providerIdRaw === "gateway") {
-                    finalModel = (sdk_provider as GatewayProvider).languageModel(
-                        providerSpecificModelId
-                    )
-                } else if (providerIdRaw === "google") {
-                    finalModel = sdk_provider.languageModel(providerSpecificModelId)
-                } else if (providerIdRaw === "openrouter") {
-                    finalModel = (sdk_provider as unknown as OpenRouterProvider).chat(
-                        providerSpecificModelId
-                    )
-                } else {
-                    finalModel = sdk_provider.languageModel(providerSpecificModelId)
-                }
-            }
-            providerSource = providerIdRaw === "openrouter" ? "openrouter" : "byok"
-            runtimeProvider =
-                providerIdRaw === "openrouter" ? "openrouter" : (providerIdRaw as CoreProvider)
-            runtimeApiKey = providerIdRaw === "xai" ? provider.key : undefined
-            break
-        }
-
-        //custom openai-compatible provider
         if (!provider.endpoint) {
             console.error(`Provider ${providerIdRaw} does not have a valid endpoint`)
             continue
         }
-        const sdk_provider = createOpenAI({
+
+        const sdkProvider = createOpenAI({
             baseURL: provider.endpoint,
             apiKey: provider.key,
             name: provider.name
         })
-        if (model.mode === "image") {
-            if (!sdk_provider.imageModel) {
-                console.error(`Provider ${providerIdRaw} does not support image models`)
-                continue
-            }
-            finalModel = sdk_provider.imageModel(providerSpecificModelId)
-        } else {
-            finalModel = sdk_provider.languageModel(providerSpecificModelId)
-        }
+        finalModel =
+            provider.apiMode === "responses"
+                ? sdkProvider.responses(providerSpecificModelId)
+                : sdkProvider.chat(providerSpecificModelId)
         providerSource = "custom"
         runtimeProvider = "custom"
-        runtimeApiKey = undefined
         break
     }
 
     if (!finalModel) return new ChatError("bad_model:api")
 
     Object.assign(finalModel, {
-        modelType: "maxImagesPerCall" in finalModel ? "image" : "text"
+        modelType: "text"
     })
 
     return {
-        model: finalModel as
-            | (LanguageModelV3 & { modelType: "text" })
-            | (ImageModelV3 & { modelType: "image" }),
+        model: finalModel as LanguageModelV3 & { modelType: "text" },
         abilities: model.abilities,
         registry,
         modelId: model.id,
         modelName: model.name ?? model.id,
         providerSource,
         runtimeProvider,
-        runtimeApiKey,
+        runtimeApiKey: undefined,
         availableToPickFor: model.availableToPickFor,
         availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts,
         prototypeCreditTier: model.prototypeCreditTier,

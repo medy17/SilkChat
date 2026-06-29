@@ -257,8 +257,6 @@ export function useChatIntegration<IsShared extends boolean>({
                       const {
                           selectedModel,
                           enabledTools,
-                          selectedImageSize,
-                          selectedImageResolution,
                           reasoningEffort,
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
@@ -305,8 +303,6 @@ export function useChatIntegration<IsShared extends boolean>({
                                   messageId: message?.id
                               },
                               enabledTools,
-                              imageSize: selectedImageSize,
-                              imageResolution: selectedImageResolution,
                               folderId: currentContext.folderId,
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,

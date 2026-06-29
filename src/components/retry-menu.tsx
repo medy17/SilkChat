@@ -105,7 +105,7 @@ const getProviderSectionLabel = (
         case "google":
             return "Gemini"
         case "xai":
-            return "Grok"
+            return "xAI"
         default:
             return getProviderDisplayName(providerId, currentProviders)
     }

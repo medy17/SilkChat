@@ -162,7 +162,7 @@ These variables are read by Convex actions and HTTP routes:
 - `GOOGLE_CLIENT_SECRET`
 - `JWKS`
 - `VITE_BETTER_AUTH_URL`
-- model provider secrets
+- `OPENROUTER_API_KEY` for hosted chat models
 - search provider secrets
 - storage credentials
 - streaming credentials
@@ -194,15 +194,11 @@ R2_SECRET_ACCESS_KEY="..."
 R2_ACCESS_KEY_ID="..."
 ```
 
-- `OPENAI_API_KEY`
-- `OPENROUTER_API_KEY` for routing internal text models through OpenRouter
-- `XAI_API_KEY`
-- `ANTHROPIC_API_KEY`
+- `OPENROUTER_API_KEY` for internal chat/text models
 - `STT_PROVIDER` to choose `google` or `groq` for `/transcribe`
-- `GOOGLE_AI_STUDIO_API_KEY` or Vertex credentials
 - `GOOGLE_SPEECH_LOCATION` for voice transcription region overrides
 - `GROQ_API_KEY`
-- `FAL_API_KEY`
+- `FAL_KEY`
 - search provider keys
 - storage keys
 - `ENCRYPTION_KEY`
@@ -228,23 +224,23 @@ If a feature looks configured in Vercel but still fails at runtime, check whethe
 - `src/routes/api/auth/$.ts`: auth route wrapper and stale-JWKS recovery
 - `convex/auth.config.ts`: Convex JWT validation against Better Auth JWKS
 - `convex/lib/models.ts`: built-in model registry
-- `convex/lib/provider_factory.ts`: provider creation and OpenAI-compatible adapters
+- `convex/lib/provider_factory.ts`: OpenRouter provider creation
 - `convex/chat_http/get_model.ts`: resolves a selected model into an SDK model
-- `convex/chat_http/post.route.ts`: provider-specific reasoning options
-- `convex/chat_http/image_generation.ts`: image model execution and provider quirks
+- `convex/chat_http/post.route.ts`: chat streaming and OpenRouter reasoning options
+- `convex/lib/models/fal`: fal-backed image model definitions
 - `src/lib/models-providers-shared.ts`: provider metadata and internal-provider visibility in the UI
 
 ## Current Internal Providers
 
-The browser currently enables these internal providers by default:
+The browser currently enables OpenRouter for internal chat models:
 
 ```bash
-VITE_ENABLED_INTERNAL_PROVIDERS="openai,google,xai"
+VITE_ENABLED_INTERNAL_PROVIDERS="openrouter"
 ```
 
-Hidden providers like `groq` and `fal` are still supported, but they are not shown as normal internal-provider options in the UI.
+Hidden runtime integrations like `groq` and `fal` are still supported for speech-to-text and library image generation, but they are not normal internal chat-provider options in the UI.
 
-If `OPENROUTER_API_KEY` is set in Convex, internal text models with an `openrouter:*` adapter will route through OpenRouter first while keeping the same app-level internal model identity. Image and speech flows still use their direct provider integrations.
+`OPENROUTER_API_KEY` is required in Convex for hosted built-in chat models. Legacy direct inference keys such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Google model keys, `XAI_API_KEY`, and `AI_GATEWAY_API_KEY` are not used by the built-in chat runtime. Image generation uses the fal-backed library generator instead of chat.
 
 ## Current Model Notes
 

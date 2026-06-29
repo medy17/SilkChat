@@ -7,20 +7,19 @@ This folder is the application backend, not a stock Convex starter anymore.
 - auth integration for Convex JWT validation
 - chat HTTP streaming routes
 - built-in model registry
-- provider creation for OpenAI, Anthropic, Google, xAI, Groq, fal, and OpenRouter
-- BYOK settings and internal-provider fallback logic
-- search, attachments, image generation, and speech-to-text actions
+- provider creation for OpenRouter chat routing
+- BYOK settings and OpenRouter-hosted chat routing
+- search, attachments, fal-backed image generation, and speech-to-text actions
 
 ## Key Files
 
 - `auth.ts`: Convex-hosted Better Auth setup and current-user query
 - `auth.config.ts`: Convex trusts Better Auth JWTs issued by the Convex site URL
 - `lib/models.ts`: built-in model list and provider adapter mapping
-- `lib/provider_factory.ts`: provider instances, including OpenAI-compatible Google image support and xAI
-- `lib/internal_provider_config.ts`: determines whether an internal provider is actually configured
+- `lib/provider_factory.ts`: OpenRouter provider instance creation
 - `chat_http/get_model.ts`: resolves model IDs into SDK model instances
-- `chat_http/post.route.ts`: applies provider-specific reasoning config
-- `chat_http/image_generation.ts`: image generation execution and aspect-ratio handling
+- `chat_http/post.route.ts`: applies OpenRouter reasoning config and streams chat responses
+- `lib/models/fal`: fal-backed image model definitions
 
 ## Commands
 
@@ -39,7 +38,7 @@ bunx convex deploy
 Set a Convex environment variable:
 
 ```bash
-bunx convex env set OPENAI_API_KEY your-key
+bunx convex env set OPENROUTER_API_KEY your-key
 ```
 
 List Convex environment variables:
@@ -78,14 +77,14 @@ When `JWKS` is set, Convex auth verification and the Better Auth Convex plugin u
 
 ## Internal Provider Notes
 
-Internal providers are controlled in two places:
+Hosted chat models are controlled in two places:
 
-1. Convex must have the actual secret configured.
-2. The browser must allow the provider in `VITE_ENABLED_INTERNAL_PROVIDERS`.
+1. Convex must have `OPENROUTER_API_KEY` configured.
+2. The browser must include `openrouter` in `VITE_ENABLED_INTERNAL_PROVIDERS`.
 
-That means a provider can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
+That means OpenRouter can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
 
-If `OPENROUTER_API_KEY` is configured, internal text models that also define `openrouter:*` adapters can execute through OpenRouter while still appearing to the rest of the app as normal internal models. Image and speech paths still use their direct provider integrations.
+`OPENROUTER_API_KEY` is required for hosted built-in chat models. Legacy direct model keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used by the built-in chat runtime. Image generation uses the fal-backed library generator, and speech-to-text may use Groq or Google depending on voice-input configuration.
 
 ## Where To Read More
 

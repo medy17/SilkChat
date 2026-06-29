@@ -150,10 +150,7 @@ export const shouldShowCoreInferenceProvider = (provider: CoreProviderInfo) =>
 
 const HIDDEN_PROVIDER_IDS = new Set(["groq", "fal", "i3-groq", "i3-fal"])
 const enabledProviderEntries = new Set(
-    (
-        optionalBrowserEnv("VITE_ENABLED_INTERNAL_PROVIDERS") ||
-        ["openai", "anthropic", "google", "xai", "groq", "fal", "gateway"].join(",")
-    )
+    (optionalBrowserEnv("VITE_ENABLED_INTERNAL_PROVIDERS") || "openrouter")
         .split(",")
         .map((provider) => provider.trim())
         .filter(Boolean)
@@ -226,6 +223,9 @@ export const isOpenRouterOnlySharedModel = (model: SharedModel) => {
     return adapters.length > 0 && adapters.every((adapter) => adapter.startsWith("openrouter:"))
 }
 
+export const hasOpenRouterAdapter = (model: SharedModel) =>
+    (model.adapters ?? []).some((adapter) => adapter.startsWith("openrouter:"))
+
 export const isOpenRouterModelEnabledInBrowser = (
     model: SharedModel,
     enabledEntries: ReadonlySet<string> = enabledProviderEntries
@@ -238,10 +238,22 @@ export const isOpenRouterModelEnabledInBrowser = (
     )
 }
 
+const isOpenRouterAdapterEnabledInBrowser = (
+    model: SharedModel,
+    enabledEntries: ReadonlySet<string> = enabledProviderEntries
+) => {
+    if (!hasOpenRouterAdapter(model)) return false
+    if (enabledEntries.has("openrouter")) return true
+
+    return getOpenRouterVisibilityAliases(model).some((alias) =>
+        enabledEntries.has(`openrouter-${alias}`)
+    )
+}
+
 export const hasBuiltInOpenRouterProvider = (
     model: SharedModel,
     enabledEntries: ReadonlySet<string> = enabledProviderEntries
-) => isOpenRouterOnlySharedModel(model) && isOpenRouterModelEnabledInBrowser(model, enabledEntries)
+) => isOpenRouterAdapterEnabledInBrowser(model, enabledEntries)
 
 export const isInternalProviderEnabled = (providerId: string) => {
     if (!providerId.startsWith("i3-")) return false
@@ -250,10 +262,28 @@ export const isInternalProviderEnabled = (providerId: string) => {
     return !HIDDEN_PROVIDER_IDS.has(providerId) && enabledInternalProviders.has(coreProvider)
 }
 
+export const isSupportedCustomModelCoreProvider = (providerId: string) =>
+    providerId === "openrouter"
+
+export const isCustomModelProviderAvailable = (
+    providerId: string,
+    currentProviders: {
+        core: Record<string, { enabled?: boolean }>
+        custom: Record<string, { enabled?: boolean }>
+    }
+) =>
+    (isSupportedCustomModelCoreProvider(providerId) &&
+        currentProviders.core.openrouter?.enabled === true) ||
+    currentProviders.custom[providerId]?.enabled === true
+
 export const getDefaultModelId = (sharedModels: SharedModel[]) => {
     const activeModels = sharedModels.filter((model) => !isModelSunset(model))
     const hasInternalProvider = (model: SharedModel) =>
-        model.adapters.some((adapter) => isInternalProviderEnabled(adapter.split(":")[0]))
+        model.adapters.some(
+            (adapter) =>
+                isInternalProviderEnabled(adapter.split(":")[0]) ||
+                (adapter.startsWith("openrouter:") && enabledProviderEntries.has("openrouter"))
+        )
 
     const preferredResolution = resolveModelReplacement("gemini-3-flash-preview", sharedModels, {
         isCandidateAllowed: (model) => !isModelSunset(model) && hasInternalProvider(model)
@@ -539,9 +569,7 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
     Object.entries(userSettings?.customModels || {}).forEach(([id, customModel]) => {
         if (!customModel.enabled) return
 
-        const hasProvider =
-            currentProviders.core[customModel.providerId]?.enabled ||
-            currentProviders.custom[customModel.providerId]?.enabled
+        const hasProvider = isCustomModelProviderAvailable(customModel.providerId, currentProviders)
 
         const modelData = {
             id,

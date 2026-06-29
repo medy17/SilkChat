@@ -1,7 +1,7 @@
 import type { RegistryKey, SharedModel } from "../types"
 import type { FalImageDescriptor } from "./types"
 
-const openRouterImageAdapters = (modelId: string): RegistryKey[] => [`openrouter:${modelId}`]
+const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
 
 const FLUX_IMAGE_SIZES = [
     "1:1",
@@ -21,7 +21,7 @@ export const FAL_BLACK_FOREST_LABS_IMAGE_MODELS: SharedModel[] = [
         name: "FLUX 2 Flex",
         shortName: "Flux 2 Flex",
         releaseOrder: 20260331,
-        adapters: openRouterImageAdapters("black-forest-labs/flux.2-flex"),
+        adapters: falImageAdapters("fal-ai/flux-2-flex"),
         abilities: [],
         mode: "image",
         maxPerMessage: 2,

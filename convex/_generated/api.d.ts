@@ -41,7 +41,6 @@ import type * as lib_file_constants from "../lib/file_constants.js";
 import type * as lib_google_auth from "../lib/google_auth.js";
 import type * as lib_google_provider from "../lib/google_provider.js";
 import type * as lib_identity from "../lib/identity.js";
-import type * as lib_internal_provider_config from "../lib/internal_provider_config.js";
 import type * as lib_lemon_squeezy from "../lib/lemon_squeezy.js";
 import type * as lib_model_abilities from "../lib/model_abilities.js";
 import type * as lib_models from "../lib/models.js";
@@ -151,7 +150,6 @@ declare const fullApi: ApiFromModules<{
   "lib/google_auth": typeof lib_google_auth;
   "lib/google_provider": typeof lib_google_provider;
   "lib/identity": typeof lib_identity;
-  "lib/internal_provider_config": typeof lib_internal_provider_config;
   "lib/lemon_squeezy": typeof lib_lemon_squeezy;
   "lib/model_abilities": typeof lib_model_abilities;
   "lib/models": typeof lib_models;

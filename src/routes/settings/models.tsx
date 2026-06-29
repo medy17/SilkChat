@@ -35,6 +35,7 @@ import {
     getProviderDisplayName,
     isImageGenerationCapableModel,
     isInternalProviderEnabled,
+    isSupportedCustomModelCoreProvider,
     legacyDirectInferenceProvidersEnabled,
     useAvailableModels
 } from "@/lib/models-providers-shared"
@@ -79,8 +80,10 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
         if ("isCustom" in model && model.isCustom) {
             const providerId = model.providerId
 
-            // Check if it's a core provider
-            if (currentProviders.core[providerId]?.enabled) {
+            if (
+                isSupportedCustomModelCoreProvider(providerId) &&
+                currentProviders.core.openrouter?.enabled
+            ) {
                 return {
                     name: `${getProviderDisplayName(providerId, currentProviders)} BYOK`,
                     available: true
@@ -284,9 +287,9 @@ export function ModelsSettingsContent() {
     const availableProviders = useMemo(() => {
         const providers = new Set<string>()
 
-        // Add core providers that are enabled
+        // Custom models may use OpenRouter slugs or user-defined OpenAI-compatible endpoints.
         for (const [id, provider] of Object.entries(currentProviders.core)) {
-            if (provider.enabled) {
+            if (provider.enabled && isSupportedCustomModelCoreProvider(id)) {
                 providers.add(id)
             }
         }

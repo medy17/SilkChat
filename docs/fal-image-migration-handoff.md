@@ -2,17 +2,17 @@
 
 ## Context
 
-SilkChat/SilkScreen image generation currently routes through the model registry and AI SDK image models. The main backend generator reverse-inspects the selected model/provider and branches into provider-specific execution paths. This has become provider glue.
+SilkChat/SilkScreen image generation now routes through the library image generator and native fal.ai client. The old chat image-generation route was removed after the fal path became the source of truth.
 
 The migration target is native fal.ai, using the official `@fal-ai/client` queue/webhook APIs. Do not use the existing `@ai-sdk/fal` integration; it is legacy and should be removed as part of the migration.
 
 Relevant current files:
 
-- `convex/chat_http/image_generation.ts`: provider-specific image generation branches and R2 storage.
 - `convex/images_node.ts`: standalone library image action, credits, generated image insertion.
-- `convex/chat_http/get_model.ts`: registry adapter resolution into AI SDK model objects.
-- `convex/lib/provider_factory.ts`: legacy `@ai-sdk/fal` provider wiring.
+- `convex/chat_http/get_model.ts`: chat/text registry adapter resolution.
+- `convex/lib/provider_factory.ts`: OpenRouter chat provider wiring.
 - `convex/lib/models.ts` and `convex/lib/models/*`: shared model metadata used by backend and UI.
+- `convex/lib/models/fal/*`: fal endpoint-backed image model definitions.
 - `src/components/library/image-generation-sidebar.tsx`: image model selection, references, aspect ratio/resolution controls, generation submission.
 - `convex/images.ts` and `convex/schema/generated_image.ts`: generated image rows, facets, filters.
 
@@ -27,7 +27,7 @@ Implemented in this branch:
 - Added client-side current-reference SHA-256 reuse so repeated Generate clicks do not reupload unchanged current references.
 - Added `imageGenerationJobs` for server-backed pending state and webhook idempotency by `falRequestId`.
 - Added `referenceImageKeys`, `generationJobId`, and `falRequestId` to generated image rows.
-- Kept the synchronous chat image path in place, but marked it for removal after the fal library path is validated.
+- Removed the synchronous chat image path after the fal library path was validated.
 - Changed internal fal availability to use `FAL_KEY`.
 
 Validated against current fal endpoint schemas during the first pass:
@@ -59,9 +59,9 @@ Still needs follow-up:
 - fal requests should include `enable_safety_checker: false` for endpoints that accept it.
 - For models that accept `safety_tolerance`, pass the lowest strictness value, generally `"1"`, descriptor-controlled.
 
-## Current Provider-Specific Behavior To Preserve
+## Historical Provider-Specific Behavior
 
-The existing generator has several passthrough behaviors that should be represented in fal model descriptors:
+The removed chat generator had several passthrough behaviors. Keep this section as historical context when comparing old outputs to fal model descriptors:
 
 - OpenAI/Gateway image models map app aspect ratio plus `1K`/`2K`/`4K` to concrete pixel sizes.
 - OpenAI paths pass model default quality where configured.

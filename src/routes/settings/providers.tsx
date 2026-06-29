@@ -26,7 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
-import type { GoogleAuthMode } from "@/convex/schema/settings"
+import type { CustomProviderApiMode, GoogleAuthMode } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import {
     CORE_PROVIDERS,
@@ -350,10 +350,22 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
 
 type CustomProviderCardProps = {
     providerId: string
-    provider: { name: string; enabled: boolean; endpoint: string; encryptedKey: string }
+    provider: {
+        name: string
+        enabled: boolean
+        endpoint: string
+        apiMode?: CustomProviderApiMode
+        encryptedKey: string
+    }
     onSave: (
         providerId: string,
-        data: { name: string; enabled: boolean; endpoint: string; newKey?: string }
+        data: {
+            name: string
+            enabled: boolean
+            endpoint: string
+            apiMode: CustomProviderApiMode
+            newKey?: string
+        }
     ) => Promise<void>
     onDelete: (providerId: string) => Promise<void>
     loading: boolean
@@ -366,6 +378,7 @@ const CustomProviderCard = memo(
             name: provider.name,
             enabled: provider.enabled,
             endpoint: provider.endpoint,
+            apiMode: provider.apiMode ?? ("chat" as CustomProviderApiMode),
             newKey: ""
         })
         const [rotatingKey, setRotatingKey] = useState(false)
@@ -381,6 +394,7 @@ const CustomProviderCard = memo(
                     name: formData.name,
                     enabled: formData.enabled,
                     endpoint: formData.endpoint,
+                    apiMode: formData.apiMode,
                     newKey: rotatingKey || !hasExistingKey ? formData.newKey : undefined
                 })
                 setIsEditing(false)
@@ -397,6 +411,7 @@ const CustomProviderCard = memo(
                 name: provider.name,
                 enabled: provider.enabled,
                 endpoint: provider.endpoint,
+                apiMode: provider.apiMode ?? "chat",
                 newKey: ""
             })
             setRotatingKey(false)
@@ -418,6 +433,11 @@ const CustomProviderCard = memo(
                                     </p>
                                     <p className="mt-0.5 font-mono text-muted-foreground text-xs">
                                         {provider.endpoint}
+                                    </p>
+                                    <p className="mt-0.5 text-muted-foreground text-xs">
+                                        {(provider.apiMode ?? "chat") === "responses"
+                                            ? "Responses API"
+                                            : "Chat Completions API"}
                                     </p>
                                 </div>
                             </div>
@@ -511,6 +531,27 @@ const CustomProviderCard = memo(
                                             placeholder="https://api.example.com/v1"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor={`${providerId}-api-mode`}>API Mode</Label>
+                                    <Select
+                                        value={formData.apiMode}
+                                        onValueChange={(value) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                apiMode: value as CustomProviderApiMode
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger id={`${providerId}-api-mode`}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="chat">Chat Completions</SelectItem>
+                                            <SelectItem value="responses">Responses</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 {formData.enabled && (
@@ -633,6 +674,7 @@ export function ProvidersSettingsContent() {
     const [customProviderForm, setCustomProviderForm] = useState({
         name: "",
         endpoint: "",
+        apiMode: "chat" as CustomProviderApiMode,
         enabled: true,
         key: ""
     })
@@ -710,7 +752,13 @@ export function ProvidersSettingsContent() {
 
     const handleSaveCustomProvider = async (
         providerId: string,
-        data: { name: string; enabled: boolean; endpoint: string; newKey?: string }
+        data: {
+            name: string
+            enabled: boolean
+            endpoint: string
+            apiMode: CustomProviderApiMode
+            newKey?: string
+        }
     ) => {
         if (!session.user?.id) return
 
@@ -743,6 +791,7 @@ export function ProvidersSettingsContent() {
                         name: customProviderForm.name,
                         enabled: customProviderForm.enabled,
                         endpoint: customProviderForm.endpoint,
+                        apiMode: customProviderForm.apiMode,
                         newKey: customProviderForm.key
                     }
                 }
@@ -753,6 +802,7 @@ export function ProvidersSettingsContent() {
             setCustomProviderForm({
                 name: "",
                 endpoint: "",
+                apiMode: "chat",
                 enabled: true,
                 key: ""
             })
@@ -958,6 +1008,27 @@ export function ProvidersSettingsContent() {
                                     </div>
                                 </div>
 
+                                <div className="space-y-2">
+                                    <Label htmlFor="custom-provider-api-mode">API Mode</Label>
+                                    <Select
+                                        value={customProviderForm.apiMode}
+                                        onValueChange={(value) =>
+                                            setCustomProviderForm((prev) => ({
+                                                ...prev,
+                                                apiMode: value as CustomProviderApiMode
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger id="custom-provider-api-mode">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="chat">Chat Completions</SelectItem>
+                                            <SelectItem value="responses">Responses</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
                                 {customProviderForm.enabled && (
                                     <div className="space-y-2">
                                         <Label htmlFor="custom-provider-key">API Key</Label>
@@ -1009,6 +1080,7 @@ export function ProvidersSettingsContent() {
                                             setCustomProviderForm({
                                                 name: "",
                                                 endpoint: "",
+                                                apiMode: "chat",
                                                 enabled: true,
                                                 key: ""
                                             })

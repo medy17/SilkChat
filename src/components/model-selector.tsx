@@ -59,6 +59,7 @@ import {
     hasBuiltInOpenRouterProvider,
     isAdminOnlyModel,
     isImageGenerationCapableModel,
+    isSupportedCustomModelCoreProvider,
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
@@ -226,7 +227,10 @@ const getActiveRuntimeProvider = (
     if ("isCustom" in model && model.isCustom) {
         const providerId = model.providerId
 
-        if (currentProviders.core[providerId]?.enabled) {
+        if (
+            isSupportedCustomModelCoreProvider(providerId) &&
+            currentProviders.core.openrouter?.enabled
+        ) {
             return {
                 isByok: true,
                 label: getProviderDisplayName(providerId, currentProviders)
@@ -311,7 +315,7 @@ const getProviderSectionLabel = (
         case "google":
             return "Gemini"
         case "xai":
-            return "Grok"
+            return "xAI"
         default:
             return getProviderDisplayName(providerId, currentProviders)
     }

@@ -90,7 +90,9 @@ const getAvailableTitleModelId = async (
 
     return candidates.find((candidate, index) => {
         if (candidates.indexOf(candidate) !== index) return false
-        return registry.models[candidate]?.adapters.some((adapter) => adapter.startsWith("i3-"))
+        return registry.models[candidate]?.adapters.some(
+            (adapter) => adapter.startsWith("i3-") || adapter.startsWith("openrouter:")
+        )
     })
 }
 

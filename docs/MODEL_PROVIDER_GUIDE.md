@@ -16,7 +16,7 @@ Each entry defines:
 
 - `id`: the app-facing model ID
 - `name` and optional `shortName`
-- `adapters`: provider-specific targets like `openai:gpt-4o` or `i3-google:gemini-2.5-flash`
+- `adapters`: provider identity and runtime targets like `i3-openai:gpt-4o`, `openai:gpt-4o`, `openrouter:openai/gpt-4o`, or `fal:fal-ai/...`
 - `legacy`: marks an older model that remains callable but should be hidden behind legacy UI affordances
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
@@ -27,16 +27,13 @@ Each entry defines:
 
 ### Adapter prefixes
 
-- `openai:*`, `google:*`, `anthropic:*`, `xai:*`, `groq:*`, `fal:*`: user BYOK
-- `i3-openai:*`, `i3-google:*`, `i3-xai:*`, etc.: internal provider keys
-- `openrouter:*`: OpenRouter routing
+- `i3-openai:*`, `i3-anthropic:*`, `i3-google:*`, etc.: legacy internal provider identity aliases. Built-in chat no longer executes these providers directly; when an internal hosted model is selected, it resolves through the matching `openrouter:*` adapter.
+- `openai:*`, `anthropic:*`, `google:*`, `xai:*`, etc.: user-provider identities used by settings and legacy/direct-provider affordances. Built-in chat does not use these directly unless legacy direct inference is explicitly re-enabled.
+- `openrouter:*`: built-in chat/text runtime routing. Production chat uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
+- `fal:*`: library image generation through `convex/lib/models/fal` and the fal client.
+- `groq:*`: Groq identity; currently used for speech-to-text and legacy/direct-provider metadata.
 
-Internal text requests can also route through OpenRouter when:
-
-- the model has an `openrouter:*` adapter
-- `OPENROUTER_API_KEY` is configured in Convex
-
-That keeps the app-level model identity as `i3-*` while flattening transport quirks behind OpenRouter for the actual text request.
+Built-in chat/text execution is routed through `openrouter:*` adapters. Keep provider-specific adapter aliases only when they are needed for provider identity, grouping, settings, or stored preferences.
 
 ### Abilities
 
@@ -64,22 +61,16 @@ Edit `convex/lib/models.ts` and define:
 
 ### 2. Check provider support
 
-If the provider already exists and the model uses the same API shape, you may be done.
+For chat/text models, keep the provider identity adapters and add an `openrouter:*` adapter when the model should run through hosted OpenRouter. For image models, add a `fal:*` adapter under `convex/lib/models/fal` and make sure the library image generator supports the endpoint shape.
 
-If not, also update:
+### 3. Check OpenRouter visibility
 
-- `convex/lib/provider_factory.ts`
-- `convex/chat_http/get_model.ts`
-- `convex/chat_http/post.route.ts`
-- `convex/chat_http/image_generation.ts`
+If the model uses hosted built-in chat, make sure:
 
-### 3. Check internal provider visibility
-
-If the model uses an internal adapter like `i3-xai:*`, make sure:
-
-- the provider is considered configured in `convex/lib/internal_provider_config.ts`
-- the provider is enabled in `VITE_ENABLED_INTERNAL_PROVIDERS`
-- the UI knows how to display the provider in `src/lib/models-providers-shared.ts`
+- the model has an `openrouter:*` adapter
+- Convex has `OPENROUTER_API_KEY`
+- `VITE_ENABLED_INTERNAL_PROVIDERS` includes `openrouter` or the relevant `openrouter-*` visibility alias
+- the UI knows how to display the provider/developer in `src/lib/models-providers-shared.ts`
 
 ### 4. Check UI provider metadata
 
@@ -91,88 +82,40 @@ If the provider is new, also update:
 
 ## How To Add A New Provider
 
-You usually need to touch all of these:
+For built-in chat/text providers, preserve provider identity in the registry and add OpenRouter runtime routing when the provider should be available in production. You usually need to touch:
 
 1. `convex/lib/models.ts`
-2. `convex/lib/provider_factory.ts`
-3. `convex/lib/internal_provider_config.ts`
-4. `convex/chat_http/get_model.ts`
-5. `src/lib/models-providers-shared.ts`
-6. provider icons in the UI
+2. `src/lib/models-providers-shared.ts`
+3. provider icons in the UI
 
-If the provider supports image generation or provider-specific reasoning controls, also update:
-
-7. `convex/chat_http/post.route.ts`
-8. `convex/chat_http/image_generation.ts`
+Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` if the provider changes the supported runtime transports. Image generation is handled separately through fal-backed library models, not through chat.
 
 ## Provider-Specific Notes
 
-### OpenAI
+### OpenRouter
 
-- provider is created with `createOpenAI(...)`
-- built-in reasoning options are currently applied for model IDs starting with:
-  - `o1`
-  - `o3`
-  - `o4`
-  - `gpt-5.4`
-- reasoning is passed via `OpenAIResponsesProviderOptions`
+- hosted chat/text models use `OPENROUTER_API_KEY`
+- user BYOK chat/text models use the user's OpenRouter key
+- OpenRouter attribution headers and app metadata are applied in `convex/lib/provider_factory.ts`
+- legacy direct inference keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used for built-in chat runtime
 
-### Anthropic
+### Custom OpenAI-compatible providers
 
-- reasoning budget is mapped through `thinking.budgetTokens`
-- only models tagged with `effort_control` should receive reasoning controls
+User-defined custom providers can still be resolved from stored provider settings. They are treated as OpenAI-compatible chat endpoints and are not part of the built-in provider catalog.
 
-### Google text models
+### fal image models
 
-- normal text and multimodal Google models use `@ai-sdk/google`
-- auth mode can be:
-  - AI Studio API key
-  - Vertex service account credentials
-- helper logic lives in `convex/lib/google_provider.ts`
+Image generation lives outside chat. Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` adapters consumed by the fal client.
 
-### Google image models
+### Groq speech-to-text
 
-The installed Google SDK path in this repo does not expose a native image model interface, so Google image models are routed through Google's OpenAI-compatible endpoint instead.
-
-That path is implemented in:
-
-- `convex/lib/provider_factory.ts`
-- `convex/chat_http/get_model.ts`
-- `convex/chat_http/image_generation.ts`
-
-Important quirks:
-
-- Google OpenAI-compatible image models require AI Studio auth
-- Vertex is not supported for those image models in the current implementation
-- aspect ratio is passed through:
-
-```text
-providerOptions.openai.extra_body.google.aspect_ratio
-```
-
-### xAI
-
-xAI is implemented through xAI's OpenAI-compatible endpoint:
-
-- base URL: `https://api.x.ai/v1`
-- provider name: `xai`
-
-That keeps xAI aligned with the SDK versions already used in this repo.
+Groq remains supported for speech-to-text paths. Do not add Groq chat adapters unless the production provider policy changes.
 
 ## Reasoning Control Rules
 
 Reasoning controls are applied in `convex/chat_http/post.route.ts`.
 
-Current mapping:
-
-- OpenAI: `reasoningEffort` + `reasoningSummary`
-- Anthropic: `thinking.budgetTokens`
-- Google: `thinkingConfig.thinkingBudget` + `includeThoughts`
-- OpenRouter: `reasoning.effort`
-
-For Google in this repo, use the existing budget mapping. Do not assume newer `thinkingLevel` fields are available unless the installed SDK version actually supports them.
-
-When an internal text request is routed through OpenRouter, the app-level `off|low|medium|high` setting maps to OpenRouter's reasoning effort instead of provider-native OpenAI, Google, or Anthropic fields.
+Current chat mapping is OpenRouter-only: the app-level `off|low|medium|high` setting maps to OpenRouter's `reasoning.effort`.
 
 ## Image Model Rules
 
@@ -181,18 +124,13 @@ Image models must set:
 - `mode: "image"`
 - `supportedImageSizes`
 
-Runtime image generation flows through:
+Runtime image generation flows through the library image generator and fal client, with model definitions under:
 
 ```text
-convex/chat_http/image_generation.ts
+convex/lib/models/fal
 ```
 
-That file decides whether a model uses:
-
-- a resolution like `1024x1024`
-- an aspect ratio like `1:1`
-
-If a provider needs a special transport shape, patch it there.
+Chat rejects image models. If a fal endpoint needs special input mapping, patch the fal-backed image generation path rather than the chat route.
 
 ## Current Recent Additions
 
@@ -224,14 +162,14 @@ Before pushing model/provider changes:
 2. confirm the provider is actually enabled
 3. test one real request locally
 4. test reasoning if the model supports `effort_control`
-5. test image generation if `mode: "image"`
+5. test library image generation if `mode: "image"`
 6. deploy Convex for backend/runtime changes
 7. deploy Vercel only if the browser app or app env changed
 
 ## Common Failure Modes
 
 - model added to `MODELS_SHARED` but provider not exposed in the UI
-- provider enabled in the UI but missing from Convex env
-- Google image model added without OpenAI-compatible routing
+- OpenRouter enabled in the UI but `OPENROUTER_API_KEY` missing from Convex env
+- image model added without a matching fal endpoint adapter
 - reasoning model added without `effort_control`, so the UI/runtime never sends reasoning settings
-- internal provider added but omitted from `VITE_ENABLED_INTERNAL_PROVIDERS`
+- OpenRouter-backed model added but omitted from `VITE_ENABLED_INTERNAL_PROVIDERS` or the relevant `openrouter-*` visibility alias

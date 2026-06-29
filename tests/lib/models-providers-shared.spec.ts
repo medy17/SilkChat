@@ -13,8 +13,10 @@ import {
     getSelectableReasoningEffortsForPlan,
     hasBuiltInOpenRouterProvider,
     isAdminOnlyModel,
+    isCustomModelProviderAvailable,
     isOpenRouterModelEnabledInBrowser,
-    isOpenRouterOnlySharedModel
+    isOpenRouterOnlySharedModel,
+    isSupportedCustomModelCoreProvider
 } from "@/lib/models-providers-shared"
 import { describe, expect, it } from "vitest"
 
@@ -109,6 +111,46 @@ describe("models-providers-shared OpenRouter visibility", () => {
 
         expect(hasBuiltInOpenRouterProvider(model, new Set(["openai", "google"]))).toBe(false)
         expect(hasBuiltInOpenRouterProvider(model, new Set(["openrouter-deepseek"]))).toBe(true)
+    })
+
+    it("treats provider-aliased models as OpenRouter-backed when OpenRouter is enabled", () => {
+        const model = createModel({
+            developer: "OpenAI",
+            adapters: ["i3-openai:gpt-5", "openai:gpt-5", "openrouter:openai/gpt-5"]
+        })
+
+        expect(isOpenRouterModelEnabledInBrowser(model, new Set(["openai", "google"]))).toBe(true)
+        expect(hasBuiltInOpenRouterProvider(model, new Set(["openai", "google"]))).toBe(false)
+        expect(hasBuiltInOpenRouterProvider(model, new Set(["openrouter"]))).toBe(true)
+    })
+
+    it("only treats OpenRouter as a supported core provider for custom models", () => {
+        expect(isSupportedCustomModelCoreProvider("openrouter")).toBe(true)
+        expect(isSupportedCustomModelCoreProvider("openai")).toBe(false)
+        expect(isSupportedCustomModelCoreProvider("anthropic")).toBe(false)
+        expect(isSupportedCustomModelCoreProvider("google")).toBe(false)
+    })
+
+    it("allows custom models through OpenRouter or custom OpenAI-compatible endpoints", () => {
+        const currentProviders = {
+            core: {
+                openrouter: { enabled: true },
+                openai: { enabled: true },
+                anthropic: { enabled: true }
+            },
+            custom: {
+                "custom-openai-compatible": { enabled: true },
+                "custom-disabled": { enabled: false }
+            }
+        }
+
+        expect(isCustomModelProviderAvailable("openrouter", currentProviders)).toBe(true)
+        expect(isCustomModelProviderAvailable("custom-openai-compatible", currentProviders)).toBe(
+            true
+        )
+        expect(isCustomModelProviderAvailable("openai", currentProviders)).toBe(false)
+        expect(isCustomModelProviderAvailable("anthropic", currentProviders)).toBe(false)
+        expect(isCustomModelProviderAvailable("custom-disabled", currentProviders)).toBe(false)
     })
 
     it("maps toggle-only reasoning models to instant and thinking", () => {

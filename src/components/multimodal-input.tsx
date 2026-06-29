@@ -12,16 +12,10 @@ import { ToolSelectorPopover } from "@/components/tool-selector-popover"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
-import type { ImageResolution, ImageSize, SharedModel } from "@/convex/lib/models"
+import type { SharedModel } from "@/convex/lib/models"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
@@ -230,115 +224,6 @@ const estimateUploadedFileTokens = (
     }
 
     return baseTokens
-}
-
-export const AspectRatioSelector = ({
-    selectedModel
-}: {
-    selectedModel: string | null
-}) => {
-    const { selectedImageSize, setSelectedImageSize } = useModelStore()
-    const { models: sharedModels } = useSharedModels()
-
-    const supportedImageSizes = useMemo(() => {
-        if (!selectedModel) return []
-        const model = sharedModels.find((m) => m.id === selectedModel)
-        return model?.supportedImageSizes || []
-    }, [selectedModel, sharedModels])
-
-    useEffect(() => {
-        if (supportedImageSizes.length > 0) {
-            if (!supportedImageSizes.includes(selectedImageSize)) {
-                const defaultSize = supportedImageSizes.includes("1:1" as ImageSize)
-                    ? ("1:1" as ImageSize)
-                    : supportedImageSizes[0]
-                setSelectedImageSize(defaultSize)
-            }
-        }
-    }, [supportedImageSizes, selectedImageSize, setSelectedImageSize])
-
-    const formatImageSizeForDisplay = (size: string) => {
-        if (size.includes("x")) {
-            const [width, height] = size.split("x").map(Number)
-            const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
-            const divisor = gcd(width, height)
-            return `${width / divisor}:${height / divisor}`
-        }
-
-        if (size.endsWith("-hd")) {
-            return size.replace("-hd", " (HD)")
-        }
-
-        return size
-    }
-
-    if (supportedImageSizes.length === 0) return null
-
-    return (
-        <PromptInputAction tooltip="Select aspect ratio">
-            <Select value={selectedImageSize} onValueChange={setSelectedImageSize}>
-                <SelectTrigger className="!h-8 w-auto min-w-[5rem] border bg-secondary/70 font-normal text-xs backdrop-blur-lg hover:bg-secondary/80 sm:text-sm">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {supportedImageSizes.map((size) => (
-                        <SelectItem key={size} value={size} className="text-xs sm:text-sm">
-                            {formatImageSizeForDisplay(size)}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </PromptInputAction>
-    )
-}
-
-export const ImageResolutionSelector = ({
-    selectedModel
-}: {
-    selectedModel: string | null
-}) => {
-    const { selectedImageResolution, setSelectedImageResolution } = useModelStore()
-    const { models: sharedModels } = useSharedModels()
-
-    const supportedImageResolutions = useMemo(() => {
-        if (!selectedModel) return []
-        const model = sharedModels.find((m) => m.id === selectedModel)
-        return model?.supportedImageResolutions || []
-    }, [selectedModel, sharedModels])
-
-    useEffect(() => {
-        if (supportedImageResolutions.length === 0) return
-        if (!supportedImageResolutions.includes(selectedImageResolution)) {
-            setSelectedImageResolution(
-                (supportedImageResolutions.includes("1K" as ImageResolution)
-                    ? "1K"
-                    : supportedImageResolutions[0]) as ImageResolution
-            )
-        }
-    }, [selectedImageResolution, setSelectedImageResolution, supportedImageResolutions])
-
-    if (supportedImageResolutions.length === 0) return null
-
-    return (
-        <PromptInputAction tooltip="Select output resolution">
-            <Select value={selectedImageResolution} onValueChange={setSelectedImageResolution}>
-                <SelectTrigger className="!h-8 w-auto min-w-[4.75rem] border bg-secondary/70 font-normal text-xs backdrop-blur-lg hover:bg-secondary/80 sm:text-sm">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {supportedImageResolutions.map((resolution) => (
-                        <SelectItem
-                            key={resolution}
-                            value={resolution}
-                            className="text-xs sm:text-sm"
-                        >
-                            {resolution}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </PromptInputAction>
-    )
 }
 
 export const ReasoningEffortSelector = ({
@@ -553,8 +438,6 @@ function MobileOverflowMenu({
     modelSupportsFunctionCalling,
     modelSupportsReasoningControl,
     isImageModel,
-    modelSupportsImageSizing,
-    modelSupportsImageResolution,
     allowedReasoningEfforts,
     selectedSharedModel,
     creditPlan,
@@ -575,8 +458,6 @@ function MobileOverflowMenu({
     modelSupportsFunctionCalling: boolean
     modelSupportsReasoningControl: boolean
     isImageModel: boolean
-    modelSupportsImageSizing: boolean
-    modelSupportsImageResolution: boolean
     allowedReasoningEfforts: ReturnType<typeof getAllowedReasoningEffortsForModel>
     selectedSharedModel?: SharedModel
     creditPlan: CreditPlan | null
@@ -631,17 +512,6 @@ function MobileOverflowMenu({
                 className="w-[min(16rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-popover p-1.5 shadow-lg"
             >
                 <div className="space-y-1">
-                    {(modelSupportsImageSizing || modelSupportsImageResolution) && (
-                        <div className="flex flex-wrap gap-2 border-border/60 border-b px-1.5 pb-2.5">
-                            {modelSupportsImageSizing && (
-                                <AspectRatioSelector selectedModel={selectedModel} />
-                            )}
-                            {modelSupportsImageResolution && (
-                                <ImageResolutionSelector selectedModel={selectedModel} />
-                            )}
-                        </div>
-                    )}
-
                     {modelSupportsReasoningControl && (
                         <>
                             <button
@@ -999,19 +869,15 @@ export const MultimodalInput = forwardRef<
         modelSupportsVision,
         modelSupportsFunctionCalling,
         modelSupportsNativePdf,
-        isImageModel,
-        modelSupportsImageSizing,
-        modelSupportsImageResolution
+        isImageModel
     ] = useMemo(() => {
-        if (!selectedModel) return [false, false, false, false, false, false]
+        if (!selectedModel) return [false, false, false, false]
         const model = sharedModels.find((m) => m.id === selectedModel)
         return [
             model?.abilities.includes("vision") ?? false,
             model?.abilities.includes("function_calling") ?? false,
             model?.abilities.includes("native_pdf") ?? false,
-            model?.mode === "image",
-            (model?.supportedImageSizes?.length ?? 0) > 0,
-            (model?.supportedImageResolutions?.length ?? 0) > 0
+            model?.mode === "image"
         ]
     }, [selectedModel, sharedModels])
 
@@ -1813,14 +1679,6 @@ export const MultimodalInput = forwardRef<
                                 }}
                                 className="hidden items-center gap-2 sm:flex"
                             >
-                                {modelSupportsImageSizing && (
-                                    <AspectRatioSelector selectedModel={selectedModel} />
-                                )}
-
-                                {modelSupportsImageResolution && (
-                                    <ImageResolutionSelector selectedModel={selectedModel} />
-                                )}
-
                                 {isImageModel ? null : (
                                     <>
                                         <PromptInputAction tooltip="Attach files">
@@ -1870,10 +1728,7 @@ export const MultimodalInput = forwardRef<
                             </motion.div>
                         </motion.div>
 
-                        {(modelSupportsImageSizing ||
-                            modelSupportsImageResolution ||
-                            !isImageModel ||
-                            modelSupportsReasoningControl) && (
+                        {(!isImageModel || modelSupportsReasoningControl) && (
                             <div className="shrink-0 sm:hidden">
                                 <MobileOverflowMenu
                                     open={mobileMenuOpen}
@@ -1882,8 +1737,6 @@ export const MultimodalInput = forwardRef<
                                     modelSupportsFunctionCalling={modelSupportsFunctionCalling}
                                     modelSupportsReasoningControl={modelSupportsReasoningControl}
                                     isImageModel={isImageModel}
-                                    modelSupportsImageSizing={modelSupportsImageSizing}
-                                    modelSupportsImageResolution={modelSupportsImageResolution}
                                     allowedReasoningEfforts={allowedReasoningEfforts}
                                     selectedSharedModel={selectedSharedModel}
                                     creditPlan={creditPlan}

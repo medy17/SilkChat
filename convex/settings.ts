@@ -5,10 +5,8 @@ import type { Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
-import { isInternalProviderConfigured } from "./lib/internal_provider_config"
 import { normalizeModelAbilities } from "./lib/model_abilities"
 import {
-    type CoreProvider,
     MODELS_SHARED,
     type RegistryKey,
     SHARED_MODELS_VERSION,
@@ -274,6 +272,7 @@ export const getUserRegistryInternal = internalQuery({
             {
                 key: string
                 endpoint?: string
+                apiMode?: "chat" | "responses"
                 name?: string
                 usageMode?: CoreProviderUsageMode
                 authMode?: "ai-studio" | "vertex"
@@ -294,6 +293,8 @@ export const getUserRegistryInternal = internalQuery({
             providers[providerId] = {
                 key: await decryptKey(provider.encryptedKey),
                 endpoint: provider.endpoint,
+                apiMode:
+                    provider.apiMode ?? settings.customAIProviders[providerId]?.apiMode ?? "chat",
                 name: provider.name
             }
         }
@@ -308,9 +309,7 @@ export const getUserRegistryInternal = internalQuery({
                 if (
                     provider in providers ||
                     (provider === "openrouter" && hasInternalOpenRouterForModel(model, adapter)) ||
-                    (provider.startsWith("i3-") &&
-                        (isInternalProviderConfigured(provider.slice(3) as CoreProvider) ||
-                            hasInternalOpenRouterForModel(model, adapter)))
+                    (provider.startsWith("i3-") && hasInternalOpenRouterForModel(model, adapter))
                 ) {
                     available_adapters.push(adapter)
                 }
@@ -372,6 +371,7 @@ export const updateUserSettings = mutation({
                 name: v.string(),
                 enabled: v.boolean(),
                 endpoint: v.string(),
+                apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
                 newKey: v.optional(v.string())
             })
         ),
@@ -484,6 +484,8 @@ export const updateUserSettings = mutation({
             newSettings.customAIProviders[providerId] = {
                 enabled: provider.enabled,
                 endpoint: provider.endpoint,
+                apiMode:
+                    provider.apiMode ?? settings.customAIProviders[providerId]?.apiMode ?? "chat",
                 name: provider.name,
                 encryptedKey: provider.newKey
                     ? await encryptKey(provider.newKey)
@@ -687,6 +689,7 @@ export const updateUserSettingsPartial = mutation({
                         name: v.string(),
                         enabled: v.boolean(),
                         endpoint: v.string(),
+                        apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
                         newKey: v.optional(v.string())
                     }),
                     // Delete provider (null value)
@@ -826,6 +829,10 @@ export const updateUserSettingsPartial = mutation({
                         name: update.name,
                         enabled: update.enabled,
                         endpoint: update.endpoint,
+                        apiMode:
+                            update.apiMode ??
+                            settings.customAIProviders[providerId]?.apiMode ??
+                            "chat",
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
                             : settings.customAIProviders[providerId]?.encryptedKey || ""
