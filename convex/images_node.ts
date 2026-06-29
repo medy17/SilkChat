@@ -5,21 +5,24 @@ import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/pri
 import { fal } from "@fal-ai/client"
 import type { GenericActionCtx } from "convex/server"
 import { v } from "convex/values"
-import { nanoid } from "nanoid"
 import { internal } from "./_generated/api"
 import type { DataModel, Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
 import { r2 } from "./attachments"
-import { resolvePrototypeCreditCharge, resolveRequiredPlanForModelAccess } from "./lib/credits"
+import { resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
-import { MODELS_SHARED } from "./lib/models"
-import type { ImageResolution, ImageSize } from "./lib/models"
 import {
-    type FalReferenceImage,
+    type ImageReferenceSource,
+    createImageCreditEventKey,
+    resolveFalReferenceImages,
+    resolveGeneratedImageReferenceSource,
+    validatePreparedImageRequest
+} from "./lib/image_generation/shared"
+import { MODELS_SHARED } from "./lib/models"
+import {
     buildFalImageInput,
     getFalEndpointForRequest,
-    getFalImageDescriptor,
-    isFalImageSizeSupported
+    normalizeFalImageErrorMessage
 } from "./lib/models/fal"
 
 const DEV_FAKE_PALETTES = [
@@ -246,36 +249,177 @@ const getFalKey = () => {
     return key
 }
 
-const resolveReferenceImages = async (
-    ctx: GenericActionCtx<DataModel>,
-    userId: string,
-    keys: string[] = []
-): Promise<FalReferenceImage[]> => {
-    const references: FalReferenceImage[] = []
+const toReferenceSources = (keys: string[] = []): ImageReferenceSource[] =>
+    keys.map((key) => ({
+        key,
+        source: key.startsWith("attachments/")
+            ? "attachment"
+            : key.startsWith("generations/")
+              ? "generation"
+              : "reference_upload"
+    }))
 
-    for (const key of keys) {
-        if (!key.startsWith(`references/${userId}/`)) {
-            throw new Error("Invalid reference image.")
-        }
-
-        const metadata = await r2.getMetadata(ctx, key)
-        if (!metadata) {
-            throw new Error("Reference image not found.")
-        }
-
-        const authorId =
-            typeof metadata === "object" && metadata !== null && "authorId" in metadata
-                ? metadata.authorId
-                : undefined
-        if (authorId && authorId !== userId) {
-            throw new Error("Invalid reference image.")
-        }
-
-        const url = await r2.getUrl(key)
-        references.push({ key, url })
+const getImageCreditLimitMessage = (reservation: {
+    reason?: string
+    remaining?: number
+    bucket?: "basic" | "pro" | "none"
+}) => {
+    if (reservation.reason === "plan") {
+        return "Pro plan required for image generation."
     }
 
-    return references
+    if (typeof reservation.remaining === "number" && reservation.remaining >= 0) {
+        const creditLabel = reservation.bucket === "basic" ? "basic credit" : "pro credit"
+        return `You only have ${reservation.remaining} ${creditLabel}${reservation.remaining === 1 ? "" : "s"} remaining for image generation.`
+    }
+
+    return "Monthly plan limit reached for image generation."
+}
+
+const submitImageGenerationJob = async (
+    ctx: GenericActionCtx<DataModel>,
+    {
+        userId,
+        prompt,
+        modelId,
+        clientRequestId,
+        aspectRatio,
+        resolution,
+        references,
+        source,
+        sourceThreadId,
+        sourceMessageId,
+        sourceToolCallId,
+        sourceCardId,
+        creditEventKey
+    }: {
+        userId: string
+        prompt: string
+        modelId: string
+        clientRequestId?: string
+        aspectRatio?: string
+        resolution?: string
+        references?: ImageReferenceSource[]
+        source?: "library" | "chat"
+        sourceThreadId?: Id<"threads">
+        sourceMessageId?: string
+        sourceToolCallId?: string
+        sourceCardId?: string
+        creditEventKey?: string
+    }
+) => {
+    const referenceSources = references ?? []
+    const validated = validatePreparedImageRequest({
+        modelId,
+        aspectRatio,
+        resolution,
+        variants: 1,
+        referenceCount: referenceSources.length
+    })
+
+    const imageCreditEventKey =
+        creditEventKey ?? createImageCreditEventKey(source === "chat" ? "chat" : "standalone")
+    const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
+        userId,
+        messageId: imageCreditEventKey,
+        messageKey: imageCreditEventKey,
+        modelId,
+        providerSource: "internal",
+        feature: "image",
+        bucket: validated.creditEstimate.bucket,
+        units: validated.creditEstimate.units,
+        counted: validated.creditEstimate.counted,
+        requiredPlan: validated.creditEstimate.requiredPlan
+    })
+
+    if (!creditReservation.allowed) {
+        if (creditReservation.reason === "plan") {
+            throw new Error("Pro plan required for image generation.")
+        }
+
+        throw new Error("Monthly plan limit reached for image generation.")
+    }
+
+    let jobId: Id<"imageGenerationJobs"> | null = null
+
+    try {
+        fal.config({ credentials: getFalKey() })
+        const referenceImages = await resolveFalReferenceImages(ctx, userId, referenceSources)
+        const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceImages.length)
+        const input = buildFalImageInput(validated.descriptor, {
+            prompt,
+            imageSize: validated.aspectRatio,
+            imageResolution: validated.resolution,
+            referenceImages,
+            maxAssets: 1
+        })
+        const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
+            internal.image_generation_jobs.createImageGenerationJob,
+            {
+                userId,
+                clientRequestId,
+                ...(source ? { source } : {}),
+                ...(sourceThreadId ? { sourceThreadId } : {}),
+                ...(sourceMessageId ? { sourceMessageId } : {}),
+                ...(sourceToolCallId ? { sourceToolCallId } : {}),
+                ...(sourceCardId ? { sourceCardId } : {}),
+                appModelId: modelId,
+                falEndpoint,
+                prompt,
+                aspectRatio: validated.aspectRatio,
+                resolution: validated.resolution,
+                referenceImageKeys: referenceSources.map((reference) => reference.key),
+                creditEventKey: imageCreditEventKey
+            }
+        )
+        jobId = createdJobId
+        const submitFalQueue = fal.queue.submit as (
+            endpointId: string,
+            options: { input: Record<string, unknown>; webhookUrl: string }
+        ) => Promise<{ request_id?: string; gateway_request_id?: string }>
+        const submission = await submitFalQueue(falEndpoint, {
+            input,
+            webhookUrl: getFalWebhookUrl(createdJobId)
+        })
+        const falRequestId = submission.request_id
+        if (!falRequestId) {
+            console.error("fal accepted image generation without returning a request id", {
+                jobId: createdJobId,
+                falEndpoint
+            })
+            return createdJobId
+        }
+
+        try {
+            await ctx.runMutation(
+                internal.image_generation_jobs.attachFalRequestToImageGenerationJob,
+                {
+                    jobId,
+                    falRequestId,
+                    falGatewayRequestId: submission.gateway_request_id
+                }
+            )
+        } catch (error) {
+            // The webhook URL carries jobId, so completion can still reconcile.
+            console.error("Failed to attach fal request id to image generation job:", error)
+        }
+
+        return jobId
+    } catch (error) {
+        const message = normalizeFalImageErrorMessage(error)
+        await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+            userId,
+            messageKey: imageCreditEventKey
+        })
+        if (jobId) {
+            await ctx.runMutation(internal.image_generation_jobs.markImageGenerationJobFailed, {
+                jobId,
+                status: "refunded",
+                error: message
+            })
+        }
+        throw new Error(message)
+    }
 }
 
 export const generateStandaloneImage = action({
@@ -291,165 +435,206 @@ export const generateStandaloneImage = action({
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
 
-        const sharedModel = MODELS_SHARED.find(
-            (model) => model.id === args.modelId && model.mode === "image"
-        )
-        if (!sharedModel) {
-            throw new Error("Image model not found.")
-        }
-
-        const falDescriptor = getFalImageDescriptor(args.modelId)
-        if (!falDescriptor) {
-            throw new Error("Image model is not available on fal.")
-        }
-
-        const selectedAspectRatio = (args.aspectRatio ||
-            sharedModel.supportedImageSizes?.[0] ||
-            "1:1") as ImageSize
-        if (
-            sharedModel.supportedImageSizes?.length &&
-            !sharedModel.supportedImageSizes.includes(selectedAspectRatio) &&
-            !isFalImageSizeSupported(falDescriptor, selectedAspectRatio)
-        ) {
-            throw new Error("Selected aspect ratio is not supported by this model.")
-        }
-
-        const selectedResolution = args.resolution as ImageResolution | undefined
-        if (
-            selectedResolution &&
-            sharedModel.supportedImageResolutions?.length &&
-            !sharedModel.supportedImageResolutions.includes(selectedResolution)
-        ) {
-            throw new Error("Selected resolution is not supported by this model.")
-        }
-
-        if ((args.referenceImageIds?.length ?? 0) > 0 && !sharedModel.supportsReferenceImages) {
-            throw new Error("Reference images are not supported by this model.")
-        }
-        if (
-            typeof sharedModel.maxReferenceImages === "number" &&
-            (args.referenceImageIds?.length ?? 0) > sharedModel.maxReferenceImages
-        ) {
-            throw new Error(
-                `This model supports up to ${sharedModel.maxReferenceImages} reference images.`
-            )
-        }
-        if ((args.referenceImageIds?.length ?? 0) > 0 && !falDescriptor.supportsReferences) {
-            throw new Error("Reference images are not supported by this fal model.")
-        }
-
-        const requiredPlan = resolveRequiredPlanForModelAccess({
-            reasoningEffort: "off",
-            availableToPickFor: sharedModel.availableToPickFor
-        })
-        const creditCharge = resolvePrototypeCreditCharge({
-            providerSource: "internal",
-            modelMode: "image",
-            enabledTools: [],
-            reasoningEffort: "off",
-            prototypeCreditTier: sharedModel.prototypeCreditTier,
-            prototypeCreditTierWithReasoning: sharedModel.prototypeCreditTierWithReasoning
-        })
-        const creditEventKey = `standalone-image:${nanoid()}`
-        const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
+        const jobId = await submitImageGenerationJob(ctx, {
             userId: user.id,
-            messageId: creditEventKey,
-            messageKey: creditEventKey,
+            prompt: args.prompt,
             modelId: args.modelId,
-            providerSource: "internal",
-            feature: creditCharge.feature,
-            bucket: creditCharge.bucket,
-            units: creditCharge.units,
-            counted: creditCharge.counted,
-            requiredPlan
+            clientRequestId: args.clientRequestId,
+            aspectRatio: args.aspectRatio,
+            resolution: args.resolution,
+            references: toReferenceSources(args.referenceImageIds)
         })
 
-        if (!creditReservation.allowed) {
-            if (creditReservation.reason === "plan") {
-                throw new Error("Pro plan required for image generation.")
+        return [jobId]
+    }
+})
+
+export const confirmPreparedChatImageGeneration = action({
+    args: {
+        threadId: v.id("threads"),
+        assistantMessageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async (ctx, args): Promise<Id<"imageGenerationJobs">[]> => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("unauthorized:chat")
+
+        const thread = await ctx.runQuery(internal.threads.getThreadById, {
+            threadId: args.threadId
+        })
+        if (!thread || thread.authorId !== user.id) {
+            throw new Error("Thread not found.")
+        }
+
+        // Atomically claim the card (pending_confirmation -> submitting) so concurrent
+        // confirms (e.g. two tabs) can't both reserve credits and submit jobs.
+        const claim = await ctx.runMutation(internal.messages.claimPreparedImageGenerationCard, {
+            threadId: args.threadId,
+            messageId: args.assistantMessageId,
+            toolCallId: args.toolCallId,
+            cardId: args.cardId
+        })
+        if (!claim.ok) {
+            throw new Error("Image generation card is no longer confirmable.")
+        }
+
+        const result = claim.result as {
+            success?: boolean
+            cardId?: string
+            prompt?: string
+            modelId?: string
+            aspectRatio?: string
+            resolution?: string
+            variants?: number
+            referenceSources?: Array<{
+                key?: string
+                source?: ImageReferenceSource["source"]
+                generatedImageId?: Id<"generatedImages">
+            }>
+        }
+
+        // The card is already claimed (status "submitting"); from here, any failure must
+        // move it to a terminal state so it never sticks in "submitting".
+        const failCard = async (
+            status: "failed" | "partial",
+            error: string,
+            jobIds: Id<"imageGenerationJobs">[] = []
+        ) => {
+            await ctx.runMutation(internal.messages.patchPreparedImageGenerationToolResult, {
+                threadId: args.threadId,
+                messageId: args.assistantMessageId,
+                toolCallId: args.toolCallId,
+                cardId: args.cardId,
+                update: { status, jobIds, error }
+            })
+        }
+
+        if (result.success !== true || !result.prompt || !result.modelId) {
+            await failCard("failed", "Image generation card is no longer confirmable.")
+            throw new Error("Image generation card is no longer confirmable.")
+        }
+
+        let validated: ReturnType<typeof validatePreparedImageRequest>
+        const referenceSources: ImageReferenceSource[] = []
+        try {
+            for (const reference of result.referenceSources ?? []) {
+                if (reference.generatedImageId) {
+                    referenceSources.push(
+                        await resolveGeneratedImageReferenceSource(
+                            ctx,
+                            user.id,
+                            reference.generatedImageId
+                        )
+                    )
+                    continue
+                }
+                if (!reference.key || !reference.source) {
+                    throw new Error("Invalid reference image.")
+                }
+                referenceSources.push({
+                    key: reference.key,
+                    source: reference.source
+                })
             }
 
-            throw new Error("Monthly plan limit reached for image generation.")
+            validated = validatePreparedImageRequest({
+                modelId: result.modelId,
+                aspectRatio: result.aspectRatio,
+                resolution: result.resolution,
+                variants: result.variants ?? 1,
+                referenceCount: referenceSources.length
+            })
+        } catch (error) {
+            const message = normalizeFalImageErrorMessage(error)
+            await failCard("failed", message)
+            throw new Error(message)
         }
 
-        let jobId: Id<"imageGenerationJobs"> | null = null
+        const creditEventKeys = Array.from({ length: validated.variants }, () =>
+            createImageCreditEventKey("chat")
+        )
 
-        try {
-            fal.config({ credentials: getFalKey() })
-            const referenceImages = await resolveReferenceImages(
-                ctx,
-                user.id,
-                args.referenceImageIds
-            )
-            const falEndpoint = getFalEndpointForRequest(falDescriptor, referenceImages.length)
-            const input = buildFalImageInput(falDescriptor, {
-                prompt: args.prompt,
-                imageSize: selectedAspectRatio,
-                imageResolution: selectedResolution,
-                referenceImages,
-                maxAssets: 1
-            })
-            const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
-                internal.image_generation_jobs.createImageGenerationJob,
+        for (let index = 0; index < creditEventKeys.length; index++) {
+            const creditEventKey = creditEventKeys[index]
+            const creditReservation = await ctx.runMutation(
+                internal.credits.reserveCreditForMessage,
                 {
                     userId: user.id,
-                    clientRequestId: args.clientRequestId,
-                    appModelId: args.modelId,
-                    falEndpoint,
-                    prompt: args.prompt,
-                    aspectRatio: selectedAspectRatio,
-                    resolution: selectedResolution,
-                    referenceImageKeys: args.referenceImageIds ?? [],
-                    creditEventKey
+                    messageId: creditEventKey,
+                    messageKey: creditEventKey,
+                    modelId: result.modelId,
+                    providerSource: "internal",
+                    feature: "image",
+                    bucket: validated.creditEstimate.bucket,
+                    units: validated.creditEstimate.units,
+                    counted: validated.creditEstimate.counted,
+                    requiredPlan: validated.creditEstimate.requiredPlan
                 }
             )
-            jobId = createdJobId
-            const submitFalQueue = fal.queue.submit as (
-                endpointId: string,
-                options: { input: Record<string, unknown>; webhookUrl: string }
-            ) => Promise<{ request_id?: string; gateway_request_id?: string }>
-            const submission = await submitFalQueue(falEndpoint, {
-                input,
-                webhookUrl: getFalWebhookUrl(createdJobId)
-            })
-            const falRequestId = submission.request_id
-            if (!falRequestId) {
-                console.error("fal accepted image generation without returning a request id", {
-                    jobId: createdJobId,
-                    falEndpoint
-                })
-                return [createdJobId]
-            }
 
-            try {
-                await ctx.runMutation(
-                    internal.image_generation_jobs.attachFalRequestToImageGenerationJob,
-                    {
-                        jobId,
-                        falRequestId,
-                        falGatewayRequestId: submission.gateway_request_id
-                    }
+            if (!creditReservation.allowed) {
+                await Promise.all(
+                    creditEventKeys.slice(0, index).map((reservedKey) =>
+                        ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                            userId: user.id,
+                            messageKey: reservedKey
+                        })
+                    )
                 )
-            } catch (error) {
-                // The webhook URL carries jobId, so completion can still reconcile.
-                console.error("Failed to attach fal request id to image generation job:", error)
+                const message = getImageCreditLimitMessage(creditReservation)
+                await failCard("failed", message)
+                throw new Error(message)
             }
-
-            return [jobId]
-        } catch (error) {
-            await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
-                userId: user.id,
-                messageKey: creditEventKey
-            })
-            if (jobId) {
-                await ctx.runMutation(internal.image_generation_jobs.markImageGenerationJobFailed, {
-                    jobId,
-                    status: "refunded",
-                    error: error instanceof Error ? error.message : "fal submission failed"
-                })
-            }
-            throw error
         }
+
+        const jobIds: Id<"imageGenerationJobs">[] = []
+        try {
+            for (let index = 0; index < validated.variants; index++) {
+                const jobId = await submitImageGenerationJob(ctx, {
+                    userId: user.id,
+                    prompt: result.prompt,
+                    modelId: result.modelId,
+                    clientRequestId: `${args.cardId}:${index + 1}`,
+                    aspectRatio: validated.aspectRatio,
+                    resolution: validated.resolution,
+                    references: referenceSources,
+                    source: "chat",
+                    sourceThreadId: args.threadId,
+                    sourceMessageId: args.assistantMessageId,
+                    sourceToolCallId: args.toolCallId,
+                    sourceCardId: args.cardId,
+                    creditEventKey: creditEventKeys[index]
+                })
+                jobIds.push(jobId)
+            }
+        } catch (error) {
+            const message = normalizeFalImageErrorMessage(error)
+            await Promise.all(
+                creditEventKeys.slice(jobIds.length).map((reservedKey) =>
+                    ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                        userId: user.id,
+                        messageKey: reservedKey
+                    })
+                )
+            )
+            await failCard(jobIds.length > 0 ? "partial" : "failed", message, jobIds)
+            throw new Error(message)
+        }
+
+        await ctx.runMutation(internal.messages.patchPreparedImageGenerationToolResult, {
+            threadId: args.threadId,
+            messageId: args.assistantMessageId,
+            toolCallId: args.toolCallId,
+            cardId: args.cardId,
+            update: {
+                status: "submitted",
+                jobIds,
+                generatedImageIds: []
+            }
+        })
+
+        return jobIds
     }
 })
 

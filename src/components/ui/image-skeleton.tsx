@@ -21,9 +21,17 @@ type ImageSkeletonProps = {
 
 const REVEAL_DURATION_MS = 800
 const LOOP_RESET_DELAY_MS = 3000
+const MAX_DOTS = 4000
+
+const normalizeGridDimension = (value: number | undefined, fallback: number) => {
+    if (!Number.isFinite(value)) return fallback
+    return Math.min(120, Math.max(1, Math.floor(value ?? fallback)))
+}
 
 function createDots(rows: number, cols: number): DotData[] {
-    return Array.from({ length: rows * cols }, (_, index) => ({
+    const count = Math.min(MAX_DOTS, rows * cols)
+
+    return Array.from({ length: count }, (_, index) => ({
         row: Math.floor(index / cols),
         col: index % cols,
         speed: 0.001 + Math.random() * 0.002,
@@ -50,7 +58,9 @@ export const ImageSkeleton = ({
     const [isShimmering, setIsShimmering] = useState(true)
     const [animationKey, setAnimationKey] = useState(0)
 
-    const dots = useMemo(() => createDots(rows, cols), [rows, cols])
+    const safeRows = normalizeGridDimension(rows, 15)
+    const safeCols = normalizeGridDimension(cols, 25)
+    const dots = useMemo(() => createDots(safeRows, safeCols), [safeRows, safeCols])
 
     useEffect(() => {
         let isMounted = true
@@ -154,8 +164,8 @@ export const ImageSkeleton = ({
             context.clearRect(0, 0, canvas.width, canvas.height)
 
             if (fadeAlpha > 0) {
-                const cellWidth = canvas.width / cols
-                const cellHeight = canvas.height / rows
+                const cellWidth = canvas.width / safeCols
+                const cellHeight = canvas.height / safeRows
                 const actualGap = gap * dpr
                 const baseDotSize =
                     dotSize > 0
@@ -190,7 +200,7 @@ export const ImageSkeleton = ({
         return () => {
             window.cancelAnimationFrame(animationFrameId)
         }
-    }, [rows, cols, dots, isShimmering, gap, dotSize])
+    }, [safeRows, safeCols, dots, isShimmering, gap, dotSize])
 
     return (
         <div

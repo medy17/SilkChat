@@ -175,7 +175,7 @@ vi.mock("../../convex/lib/models", () => ({
 }))
 
 import { ChatError } from "@/lib/errors"
-import { chatPOST } from "../../convex/chat_http/post.route"
+import { buildPreparedImageReferences, chatPOST } from "../../convex/chat_http/post.route"
 
 const chatPOSTHandler = chatPOST as unknown as (
     ctx: {
@@ -187,6 +187,54 @@ const chatPOSTHandler = chatPOST as unknown as (
 ) => Promise<Response>
 
 type ChatPostCtx = Parameters<typeof chatPOSTHandler>[0]
+
+describe("buildPreparedImageReferences", () => {
+    it("labels generated SilkScreen variants distinctly", () => {
+        const references = buildPreparedImageReferences([
+            {
+                messageId: "assistant-1",
+                role: "assistant",
+                createdAt: 1,
+                updatedAt: 1,
+                metadata: {},
+                parts: [
+                    {
+                        type: "tool-invocation",
+                        toolInvocation: {
+                            toolName: "prepareImageGeneration",
+                            toolCallId: "call-image",
+                            state: "result",
+                            result: {
+                                success: true,
+                                kind: "prepared_image_generation",
+                                status: "completed",
+                                variants: 2,
+                                modelName: "GPT Image 2",
+                                aspectRatio: "16:9",
+                                resolution: "1K",
+                                assets: [
+                                    {
+                                        storageKey: "generations/user-1/variant-1.png",
+                                        generatedImageId: "generated-image-1"
+                                    },
+                                    {
+                                        storageKey: "generations/user-1/variant-2.png",
+                                        generatedImageId: "generated-image-2"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        ] as never)
+
+        expect(references.map((reference) => `${reference.id}: ${reference.label}`)).toEqual([
+            "image_ref_1: SilkScreen generation from assistant message 1, variant 1 of 2, GPT Image 2, 16:9 1K",
+            "image_ref_2: SilkScreen generation from assistant message 1, variant 2 of 2, GPT Image 2, 16:9 1K"
+        ])
+    })
+})
 
 const createObjectStream = (chunks: unknown[]) =>
     new ReadableStream({

@@ -30,7 +30,7 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, ExternalLink, Globe, Settings2 } from "lucide-react"
+import { CircleHelp, ExternalLink, Globe, Image, Settings2 } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -39,6 +39,7 @@ type ToolSelectorPopoverProps = {
     enabledTools: AbilityId[]
     onEnabledToolsChange: (tools: AbilityId[]) => void
     modelSupportsFunctionCalling: boolean
+    modelSupportsVision: boolean
     className?: string
     tone?: "default" | "on-primary"
 }
@@ -206,12 +207,88 @@ function ToolCallLimitInfoButton({ isMobile }: { isMobile: boolean }) {
     )
 }
 
+function SilkScreenInfoButton({
+    isMobile,
+    available
+}: {
+    isMobile: boolean
+    available: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const content = (
+        <div className="space-y-3 p-3 text-sm">
+            <div>
+                <div className="font-medium text-foreground">SilkScreen</div>
+                <p className="mt-1 text-muted-foreground text-xs">
+                    Prepares an image job card for confirmation. Credits are only spent after you
+                    tap Generate.
+                </p>
+            </div>
+            <div className="space-y-1 text-xs">
+                <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Tool call</span>
+                    <span className="font-medium text-foreground">Free</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Status</span>
+                    <span className="font-medium text-foreground">
+                        {available ? "Available" : "Needs vision + tools"}
+                    </span>
+                </div>
+            </div>
+        </div>
+    )
+    const trigger = (
+        <button
+            type="button"
+            aria-label="Show SilkScreen image preparation details"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onPointerDown={(event) => {
+                event.stopPropagation()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) setOpen(true)
+            }}
+        >
+            <CircleHelp className="size-3.5" />
+        </button>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    overlayClassName="z-[90]"
+                    title="SilkScreen"
+                    description="Image preparation details"
+                >
+                    {content}
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120}>
+            <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+            <HoverCardContent align="start" side="right" sideOffset={12} className="w-80 p-0">
+                {content}
+            </HoverCardContent>
+        </HoverCard>
+    )
+}
+
 export const ToolSelectorPopover = memo(
     ({
         threadId,
         enabledTools,
         onEnabledToolsChange,
         modelSupportsFunctionCalling,
+        modelSupportsVision,
         className,
         tone = "default"
     }: ToolSelectorPopoverProps) => {
@@ -248,6 +325,7 @@ export const ToolSelectorPopover = memo(
         }
 
         const webSearchEnabled = enabledTools.includes("web_search")
+        const silkScreenAvailable = modelSupportsFunctionCalling && modelSupportsVision
         const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
         const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
@@ -445,6 +523,25 @@ export const ToolSelectorPopover = memo(
                                             onCheckedChange={handleSupermemoryToggle}
                                             disabled={!supermemoryAvailable}
                                         />
+                                    </CommandItem>
+
+                                    <CommandItem
+                                        className={cn(
+                                            "flex items-center justify-between p-3",
+                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
+                                        )}
+                                    >
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <Image className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm">SilkScreen</span>
+                                            <SilkScreenInfoButton
+                                                isMobile={isMobile}
+                                                available={silkScreenAvailable}
+                                            />
+                                        </div>
+                                        <span className="shrink-0 text-muted-foreground text-xs">
+                                            {silkScreenAvailable ? "Auto" : "Unavailable"}
+                                        </span>
                                     </CommandItem>
                                 </CommandGroup>
 

@@ -7,6 +7,7 @@ import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import {
     JsonToSseTransformStream,
     type ModelMessage,
+    type Tool,
     UI_MESSAGE_STREAM_HEADERS,
     createUIMessageStream,
     smoothStream,
@@ -34,6 +35,14 @@ import {
 } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getUserIdentity } from "../lib/identity"
+import {
+    type PreparedImageReference,
+    getImageModelMaxPerMessage,
+    getReferenceSourceForKey,
+    getSelectableImageModels,
+    getSupportedAspectRatiosForImageModel,
+    getSupportedResolutionsForImageModel
+} from "../lib/image_generation/shared"
 import { type CoreProvider, MODELS_SHARED, type SharedModel } from "../lib/models"
 import {
     getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
@@ -48,6 +57,10 @@ import {
     resolveToolAvailability,
     sanitizeEnabledTools
 } from "../lib/toolkit"
+import {
+    PREPARE_IMAGE_GENERATION_TOOL_NAME,
+    getPrepareImageGenerationTool
+} from "../lib/tools/image_generation"
 import { getBuiltInPersonaDefinition } from "../personas"
 import type { HTTPAIMessage, Message } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
@@ -392,6 +405,123 @@ const resolvePersonaSnapshotForRequest = async (
 
 type StoredMessage = Infer<typeof Message>
 
+const extractReferenceKey = (value: string): string | null => {
+    if (getReferenceSourceForKey(value)) return value
+    if (value.startsWith("data:")) return null
+
+    try {
+        const parsed = new URL(value)
+        const queryKey = parsed.searchParams.get("key")
+        if (queryKey && getReferenceSourceForKey(queryKey)) return queryKey
+
+        const decodedPath = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""))
+        for (const prefix of ["attachments/", "generations/", "references/"]) {
+            const prefixIndex = decodedPath.indexOf(prefix)
+            if (prefixIndex !== -1) return decodedPath.slice(prefixIndex)
+        }
+    } catch {
+        return null
+    }
+
+    return null
+}
+
+const getFileLabelFromKey = (key: string, fallback: string) => {
+    const lastSegment = key.split("/").pop()?.trim()
+    if (!lastSegment) return fallback
+    const withoutPrefix = lastSegment.replace(/^\d+-[0-9a-f-]+-/i, "")
+    return withoutPrefix || fallback
+}
+
+export const buildPreparedImageReferences = (
+    messages: StoredMessage[]
+): PreparedImageReference[] => {
+    const references: PreparedImageReference[] = []
+    const seenKeys = new Set<string>()
+    let assistantMessageIndex = 0
+
+    const addReference = (reference: Omit<PreparedImageReference, "id">) => {
+        if (seenKeys.has(reference.key)) return
+        seenKeys.add(reference.key)
+        references.push({
+            ...reference,
+            id: `image_ref_${references.length + 1}`
+        })
+    }
+
+    for (const message of sortMessagesChronologically(messages)) {
+        if (message.role === "assistant") assistantMessageIndex++
+
+        for (const part of message.parts ?? []) {
+            if (part.type === "file" && part.mimeType?.startsWith("image/")) {
+                const key = extractReferenceKey(part.data)
+                if (!key) continue
+                const source = getReferenceSourceForKey(key)
+                if (!source) continue
+                addReference({
+                    key,
+                    source,
+                    label: part.filename ?? getFileLabelFromKey(key, "Attached image"),
+                    mimeType: part.mimeType
+                })
+                continue
+            }
+
+            if (
+                part.type !== "tool-invocation" ||
+                part.toolInvocation.toolName !== PREPARE_IMAGE_GENERATION_TOOL_NAME ||
+                part.toolInvocation.state !== "result" ||
+                typeof part.toolInvocation.result !== "object" ||
+                part.toolInvocation.result === null
+            ) {
+                continue
+            }
+
+            const result = part.toolInvocation.result as {
+                assets?: Array<{
+                    storageKey?: string
+                    imageUrl?: string
+                    generatedImageId?: Id<"generatedImages">
+                    variantIndex?: number
+                }>
+                prompt?: string
+                modelName?: string
+                aspectRatio?: string
+                resolution?: string
+                variants?: number
+            }
+            const modelLabel = result.modelName ? `, ${result.modelName}` : ""
+            const sizeLabel =
+                result.aspectRatio || result.resolution
+                    ? `, ${[result.aspectRatio, result.resolution].filter(Boolean).join(" ")}`
+                    : ""
+            const assets = result.assets ?? []
+            const variantCount = Math.max(result.variants ?? 1, assets.length, 1)
+
+            for (const [assetIndex, asset] of assets.entries()) {
+                const key = extractReferenceKey(asset.storageKey ?? asset.imageUrl ?? "")
+                if (!key) continue
+                const source = getReferenceSourceForKey(key)
+                if (!source) continue
+                const displayIndex = asset.variantIndex ?? assetIndex + 1
+                const variantLabel =
+                    variantCount > 1
+                        ? `variant ${displayIndex} of ${variantCount}`
+                        : `image ${displayIndex}`
+                addReference({
+                    key,
+                    source,
+                    generatedImageId: asset.generatedImageId,
+                    label: `SilkScreen generation from assistant message ${assistantMessageIndex}, ${variantLabel}${modelLabel}${sizeLabel}`,
+                    mimeType: "image/png"
+                })
+            }
+        }
+    }
+
+    return references
+}
+
 type ContextRoutingMetadata = {
     mode: "byok_fallback"
     reason: "message" | "thread"
@@ -687,13 +817,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
         return "byok"
     }
-    const hasCallableTools =
+    const hasPaidCallableTools =
         modelData.abilities.includes("function_calling") && resolvedEnabledTools.length > 0
+    const hasInternalImagePreparationTool =
+        modelData.abilities.includes("function_calling") && modelData.abilities.includes("vision")
+    const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
-        hasEnabledTools: hasCallableTools
+        hasEnabledTools: hasPaidCallableTools
     })
     const reservedToolBasicCredits =
-        hasCallableTools &&
+        hasPaidCallableTools &&
         resolvedEnabledTools.includes("web_search") &&
         toolAvailability.web_search.fundingSource === "deployment"
             ? effectiveToolCallLimitPerTurn
@@ -1004,7 +1137,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         reservedCalls?: number
         reservedBasicCredits?: number
     } | null = null
-    if (hasCallableTools && effectiveToolCallLimitPerTurn > 0) {
+    if (hasPaidCallableTools && effectiveToolCallLimitPerTurn > 0) {
         try {
             toolBudgetReservation = await ctx.runMutation(internal.credits.reserveToolCallBudget, {
                 userId: user.id,
@@ -1084,17 +1217,24 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const dbMessages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
                 threadId: mutationResult.threadId
             })
+            const normalizedDbMessages = Array.isArray(dbMessages) ? dbMessages : []
+            const imageReferences = buildPreparedImageReferences(normalizedDbMessages)
             const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
                 threadId: mutationResult.threadId
             })
-            const mapped_messages = await dbMessagesToCore(dbMessages, modelData.abilities, {
-                publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
-            })
+            const mapped_messages = await dbMessagesToCore(
+                normalizedDbMessages,
+                modelData.abilities,
+                {
+                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                }
+            )
 
             return {
                 persistedPersonaSnapshot,
                 streamId,
-                mapped_messages
+                mapped_messages,
+                imageReferences
             }
         } catch (error) {
             console.error("[cvx][chat] Failed to prepare stream context", error)
@@ -1106,7 +1246,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         await releaseSetupReservations()
         return streamSetup.toResponse()
     }
-    const { persistedPersonaSnapshot, streamId, mapped_messages } = streamSetup
+    const { persistedPersonaSnapshot, streamId, mapped_messages, imageReferences } = streamSetup
 
     const streamStartTime = Date.now()
 
@@ -1333,40 +1473,61 @@ export const chatPOST = httpAction(async (ctx, req) => {
             })
 
             const usesOpenRouter = modelData.runtimeProvider === "openrouter"
+            const paidTools = hasPaidCallableTools
+                ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
+                      consumeToolCall: async ({ toolName, toolCallId }) => {
+                          const toolCreditCharge = resolvePrototypeToolCreditCharge({
+                              fundingSource: getToolFundingSource(toolName)
+                          })
+
+                          return await ctx.runMutation(internal.credits.consumeReservedToolCall, {
+                              userId: user.id,
+                              threadId: mutationResult.threadId,
+                              reservationMessageKey: toolBudgetMessageKey,
+                              messageId: mutationResult.assistantMessageId,
+                              messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                              toolCallId,
+                              toolName,
+                              modelId: body.model,
+                              providerSource: toolCreditCharge.providerSource,
+                              feature: toolCreditCharge.feature,
+                              bucket: toolCreditCharge.bucket,
+                              units: toolCreditCharge.units,
+                              counted: toolCreditCharge.counted
+                          })
+                      }
+                  })
+                : {}
+            const internalTools = getPrepareImageGenerationTool({
+                enabled: hasInternalImagePreparationTool,
+                references: imageReferences
+            }) as Record<string, Tool>
+            const availableImageSelectionLabels = hasInternalImagePreparationTool
+                ? getSelectableImageModels().map((imageModel) => {
+                      const aspectRatios = getSupportedAspectRatiosForImageModel(imageModel)
+                      const resolutions = getSupportedResolutionsForImageModel(imageModel)
+                      return [
+                          `${imageModel.id} (${imageModel.name})`,
+                          `aspect ratios: ${aspectRatios.join(", ") || "default"}`,
+                          `resolutions: ${resolutions.join(", ") || "default"}`,
+                          imageModel.supportsReferenceImages
+                              ? `references: up to ${imageModel.maxReferenceImages ?? "the model limit"}`
+                              : "references: none",
+                          `max variants: ${getImageModelMaxPerMessage(imageModel)}`
+                      ].join("; ")
+                  })
+                : []
+            const tools: Record<string, Tool> = {
+                ...paidTools,
+                ...internalTools
+            }
             const result = streamText({
                 model: model,
                 maxOutputTokens: maxTokens,
                 stopWhen: stepCountIs(100),
                 abortSignal: remoteCancel.signal,
                 experimental_transform: smoothStream(),
-                tools: hasCallableTools
-                    ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
-                          consumeToolCall: async ({ toolName, toolCallId }) => {
-                              const toolCreditCharge = resolvePrototypeToolCreditCharge({
-                                  fundingSource: getToolFundingSource(toolName)
-                              })
-
-                              return await ctx.runMutation(
-                                  internal.credits.consumeReservedToolCall,
-                                  {
-                                      userId: user.id,
-                                      threadId: mutationResult.threadId,
-                                      reservationMessageKey: toolBudgetMessageKey,
-                                      messageId: mutationResult.assistantMessageId,
-                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                                      toolCallId,
-                                      toolName,
-                                      modelId: body.model,
-                                      providerSource: toolCreditCharge.providerSource,
-                                      feature: toolCreditCharge.feature,
-                                      bucket: toolCreditCharge.bucket,
-                                      units: toolCreditCharge.units,
-                                      counted: toolCreditCharge.counted
-                                  }
-                              )
-                          }
-                      })
-                    : undefined,
+                tools: Object.keys(tools).length > 0 ? tools : undefined,
                 messages: [
                     {
                         role: "system",
@@ -1374,7 +1535,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             enabledTools: resolvedEnabledTools,
                             toolCallLimitPerTurn: promptToolCallLimitPerTurn,
                             userSettings: settings,
-                            personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                            personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                            imageGenerationTool: hasInternalImagePreparationTool
+                                ? {
+                                      enabled: true,
+                                      availableImageSelectionLabels,
+                                      availableReferenceLabels: imageReferences.map(
+                                          (reference) => `${reference.id}: ${reference.label}`
+                                      )
+                                  }
+                                : undefined
                         })
                     },
                     ...mapped_messages

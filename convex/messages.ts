@@ -3,6 +3,88 @@ import type { Id } from "./_generated/dataModel"
 import { internalMutation, internalQuery } from "./_generated/server"
 import { MessagePart } from "./schema/parts"
 
+const getRecordArray = (value: unknown) =>
+    Array.isArray(value)
+        ? value.filter(
+              (entry): entry is Record<string, unknown> =>
+                  typeof entry === "object" && entry !== null
+          )
+        : []
+
+const mergeStringArrays = (current: unknown, next: unknown) => {
+    if (!Array.isArray(next)) return next
+    const merged = new Set<string>()
+
+    for (const value of Array.isArray(current) ? current : []) {
+        if (typeof value === "string") merged.add(value)
+    }
+    for (const value of next) {
+        if (typeof value === "string") merged.add(value)
+    }
+
+    return Array.from(merged)
+}
+
+const getAssetIdentity = (asset: Record<string, unknown>) => {
+    const generatedImageId = asset.generatedImageId
+    if (typeof generatedImageId === "string") return `id:${generatedImageId}`
+
+    const storageKey = asset.storageKey
+    if (typeof storageKey === "string") return `key:${storageKey}`
+
+    const imageUrl = asset.imageUrl
+    if (typeof imageUrl === "string") return `url:${imageUrl}`
+
+    return JSON.stringify(asset)
+}
+
+const getVariantIndex = (asset: Record<string, unknown>) => {
+    const variantIndex = asset.variantIndex
+    return typeof variantIndex === "number" && Number.isFinite(variantIndex)
+        ? variantIndex
+        : undefined
+}
+
+const mergeAssetArrays = (current: unknown, next: unknown) => {
+    if (!Array.isArray(next)) return next
+
+    const merged = new Map<string, Record<string, unknown>>()
+    for (const asset of [...getRecordArray(current), ...getRecordArray(next)]) {
+        merged.set(getAssetIdentity(asset), asset)
+    }
+
+    return Array.from(merged.values()).sort((left, right) => {
+        const leftIndex = getVariantIndex(left)
+        const rightIndex = getVariantIndex(right)
+        if (leftIndex === undefined && rightIndex === undefined) return 0
+        if (leftIndex === undefined) return 1
+        if (rightIndex === undefined) return -1
+        return leftIndex - rightIndex
+    })
+}
+
+const mergePreparedImageGenerationResult = (
+    currentResult: Record<string, unknown>,
+    update: Record<string, unknown>
+) => {
+    const merged = {
+        ...currentResult,
+        ...update
+    }
+
+    if ("generatedImageIds" in update) {
+        merged.generatedImageIds = mergeStringArrays(
+            currentResult.generatedImageIds,
+            update.generatedImageIds
+        )
+    }
+    if ("assets" in update) {
+        merged.assets = mergeAssetArrays(currentResult.assets, update.assets)
+    }
+
+    return merged
+}
+
 export const getMessagesByThreadId = internalQuery({
     args: { threadId: v.id("threads") },
     handler: async ({ db }, { threadId }) => {
@@ -11,6 +93,127 @@ export const getMessagesByThreadId = internalQuery({
             .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
             .order("desc")
             .collect()
+    }
+})
+
+export const patchPreparedImageGenerationToolResult = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string(),
+        update: v.any()
+    },
+    handler: async ({ db }, { threadId, messageId, toolCallId, cardId, update }) => {
+        const msgs = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const msg = msgs.find((candidate) => candidate.threadId === threadId)
+        if (!msg) return null
+
+        const parts = msg.parts.map((part) => {
+            if (
+                part.type !== "tool-invocation" ||
+                part.toolInvocation.toolName !== "prepareImageGeneration" ||
+                part.toolInvocation.toolCallId !== toolCallId ||
+                part.toolInvocation.state !== "result" ||
+                typeof part.toolInvocation.result !== "object" ||
+                part.toolInvocation.result === null
+            ) {
+                return part
+            }
+
+            const currentResult = part.toolInvocation.result as Record<string, unknown>
+            if (currentResult.cardId !== cardId) {
+                return part
+            }
+
+            return {
+                ...part,
+                toolInvocation: {
+                    ...part.toolInvocation,
+                    result: mergePreparedImageGenerationResult(
+                        currentResult,
+                        update as Record<string, unknown>
+                    )
+                }
+            }
+        })
+
+        await db.patch(msg._id as Id<"messages">, {
+            parts,
+            updatedAt: Date.now()
+        })
+        await db.patch(threadId, {
+            updatedAt: Date.now()
+        })
+
+        return { success: true }
+    }
+})
+
+// Atomically claims a pending image-generation card for submission. Because Convex
+// mutations are transactional, this compare-and-swap closes the double-confirm race:
+// only the first caller flips `pending_confirmation` -> `submitting` and gets the card
+// back; concurrent confirms observe the already-claimed status and bail out.
+export const claimPreparedImageGenerationCard = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async ({ db }, { threadId, messageId, toolCallId, cardId }) => {
+        const msgs = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const msg = msgs.find((candidate) => candidate.threadId === threadId)
+        if (!msg || msg.role !== "assistant") {
+            return { ok: false as const, reason: "not_found" as const }
+        }
+
+        const part = msg.parts.find(
+            (candidate) =>
+                candidate.type === "tool-invocation" &&
+                candidate.toolInvocation.toolName === "prepareImageGeneration" &&
+                candidate.toolInvocation.toolCallId === toolCallId &&
+                candidate.toolInvocation.state === "result" &&
+                typeof candidate.toolInvocation.result === "object" &&
+                candidate.toolInvocation.result !== null &&
+                (candidate.toolInvocation.result as Record<string, unknown>).cardId === cardId
+        )
+        if (!part || part.type !== "tool-invocation") {
+            return { ok: false as const, reason: "not_found" as const }
+        }
+
+        const currentResult = part.toolInvocation.result as Record<string, unknown>
+        if (currentResult.status !== "pending_confirmation") {
+            return { ok: false as const, reason: "not_pending" as const }
+        }
+
+        const parts = msg.parts.map((candidate) =>
+            candidate === part
+                ? {
+                      ...candidate,
+                      toolInvocation: {
+                          ...candidate.toolInvocation,
+                          result: { ...currentResult, status: "submitting" }
+                      }
+                  }
+                : candidate
+        )
+
+        await db.patch(msg._id as Id<"messages">, {
+            parts,
+            updatedAt: Date.now()
+        })
+        await db.patch(threadId, {
+            updatedAt: Date.now()
+        })
+
+        return { ok: true as const, result: currentResult }
     }
 })
 

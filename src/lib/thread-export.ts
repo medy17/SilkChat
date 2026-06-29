@@ -23,6 +23,11 @@ type ExportableMessagePart =
       }
     | {
           type: "tool-invocation"
+          toolInvocation?: {
+              toolName?: string
+              args?: unknown
+              result?: unknown
+          }
       }
     | {
           type: "error"
@@ -97,19 +102,44 @@ const escapeFrontmatterString = (value: string) => JSON.stringify(value)
 
 const escapeMarkdownLabel = (value: string) => value.replace(/[[\]]/g, "")
 
-const resolveInternalAttachmentUrl = ({
-    value,
-    convexApiUrl
-}: {
-    value: string
-    convexApiUrl: string
-}) => {
+const extractR2Key = (value: string) =>
+    value.startsWith("/r2?key=") ? decodeURIComponent(value.slice("/r2?key=".length)) : value
+
+const buildDirectPublicAssetUrl = (publicAssetBaseUrl: string, key: string) => {
+    const normalizedBase = publicAssetBaseUrl.replace(/\/+$/, "")
+    const encodedKey = key
+        .replace(/^\/+/, "")
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")
+    return `${normalizedBase}/${encodedKey}`
+}
+
+const buildProxyAssetUrl = (convexApiUrl: string, value: string) => {
     const normalizedApiUrl = convexApiUrl.replace(/\/$/, "")
     if (value.startsWith("/r2?key=")) {
         return `${normalizedApiUrl}${value}`
     }
-
     return `${normalizedApiUrl}/r2?key=${encodeURIComponent(value)}`
+}
+
+// Resolves any internal R2 reference (a bare key or a legacy `/r2?key=` proxy path) to
+// a link. R2 assets are served directly off the bucket's public base url, and the
+// Convex `/r2` endpoint is an auth-less passthrough, so we always prefer the public url
+// and only fall back to the proxy when no public base url is configured.
+const resolveExportAssetUrl = ({
+    value,
+    convexApiUrl,
+    publicAssetBaseUrl
+}: {
+    value: string
+    convexApiUrl: string
+    publicAssetBaseUrl?: string
+}) => {
+    if (isExternalFileReference(value)) return value
+    return publicAssetBaseUrl
+        ? buildDirectPublicAssetUrl(publicAssetBaseUrl, extractR2Key(value))
+        : buildProxyAssetUrl(convexApiUrl, value)
 }
 
 const inferAttachmentFilename = ({
@@ -152,6 +182,77 @@ const buildAttachmentLine = ({
     return `[${label}](${url})`
 }
 
+const buildPreparedImageGenerationBlock = ({
+    result,
+    convexApiUrl,
+    publicAssetBaseUrl
+}: {
+    result: unknown
+    convexApiUrl: string
+    publicAssetBaseUrl?: string
+}) => {
+    if (!result || typeof result !== "object") return []
+    const card = result as {
+        kind?: string
+        status?: string
+        title?: string
+        prompt?: string
+        modelName?: string
+        modelId?: string
+        aspectRatio?: string
+        resolution?: string
+        variants?: number
+        references?: Array<{ label?: string; source?: string }>
+        referenceSources?: Array<{ key?: string; source?: string }>
+        assets?: Array<{ storageKey?: string; imageUrl?: string }>
+        error?: string
+    }
+    if (card.kind !== "prepared_image_generation") return []
+
+    const lines = [
+        `#### ${card.title?.trim() || "SilkScreen Image"}`,
+        "",
+        card.prompt ? `Prompt: ${card.prompt}` : undefined,
+        `Status: ${card.status ?? "unknown"}`,
+        `Model: ${card.modelName ?? card.modelId ?? "unknown"}`,
+        card.aspectRatio
+            ? `Size: ${card.aspectRatio}${card.resolution ? `, ${card.resolution}` : ""}`
+            : undefined,
+        `Variants: ${card.variants ?? 1}`,
+        card.error ? `Error: ${card.error}` : undefined
+    ].filter((line): line is string => Boolean(line))
+
+    if ((card.referenceSources?.length ?? 0) > 0) {
+        lines.push("", "References:")
+        card.referenceSources?.forEach((reference, index) => {
+            if (!reference.key) return
+            const url = resolveExportAssetUrl({
+                value: reference.key,
+                convexApiUrl,
+                publicAssetBaseUrl
+            })
+            const label =
+                card.references?.[index]?.label ??
+                inferAttachmentFilename({ url, fallback: "reference" })
+            lines.push(`- ${buildAttachmentLine({ url, filename: label, mimeType: "image/*" })}`)
+        })
+    }
+
+    if ((card.assets?.length ?? 0) > 0) {
+        lines.push("", "Generated assets:")
+        card.assets?.forEach((asset) => {
+            const key = asset.storageKey ?? asset.imageUrl
+            if (!key) return
+            const url = resolveExportAssetUrl({ value: key, convexApiUrl, publicAssetBaseUrl })
+            lines.push(
+                buildAttachmentLine({ url, filename: "generated image", mimeType: "image/*" })
+            )
+        })
+    }
+
+    return [lines.join("\n")]
+}
+
 const buildMarkdownHeader = ({
     role,
     modelLabel
@@ -176,10 +277,12 @@ const buildMarkdownHeader = ({
 
 const buildMessageBlock = ({
     message,
-    convexApiUrl
+    convexApiUrl,
+    publicAssetBaseUrl
 }: {
     message: ExportableMessage
     convexApiUrl: string
+    publicAssetBaseUrl?: string
 }) => {
     const textContent = normalizeSpacing(
         message.parts
@@ -194,12 +297,11 @@ const buildMessageBlock = ({
     const attachmentLines = message.parts
         .flatMap((part) => {
             if (part.type === "image") {
-                const url = isExternalFileReference(part.image)
-                    ? part.image
-                    : resolveInternalAttachmentUrl({
-                          value: part.image,
-                          convexApiUrl
-                      })
+                const url = resolveExportAssetUrl({
+                    value: part.image,
+                    convexApiUrl,
+                    publicAssetBaseUrl
+                })
 
                 return [
                     buildAttachmentLine({
@@ -214,12 +316,11 @@ const buildMessageBlock = ({
             }
 
             if (part.type === "file") {
-                const url = isExternalFileReference(part.data)
-                    ? part.data
-                    : resolveInternalAttachmentUrl({
-                          value: part.data,
-                          convexApiUrl
-                      })
+                const url = resolveExportAssetUrl({
+                    value: part.data,
+                    convexApiUrl,
+                    publicAssetBaseUrl
+                })
 
                 return [
                     buildAttachmentLine({
@@ -233,6 +334,17 @@ const buildMessageBlock = ({
                         mimeType: part.mimeType
                     })
                 ]
+            }
+
+            if (
+                part.type === "tool-invocation" &&
+                part.toolInvocation?.toolName === "prepareImageGeneration"
+            ) {
+                return buildPreparedImageGenerationBlock({
+                    result: part.toolInvocation.result,
+                    convexApiUrl,
+                    publicAssetBaseUrl
+                })
             }
 
             return []
@@ -302,11 +414,13 @@ export const serializeThreadToMarkdown = ({
     thread,
     messages,
     convexApiUrl,
+    publicAssetBaseUrl,
     exportedAt = Date.now()
 }: {
     thread: ExportableThread
     messages: ExportableMessage[]
     convexApiUrl: string
+    publicAssetBaseUrl?: string
     exportedAt?: number
 }): ThreadMarkdownExport => {
     const sortedMessages = [...messages].sort((left, right) => {
@@ -322,7 +436,7 @@ export const serializeThreadToMarkdown = ({
     })
 
     const messageBlocks = sortedMessages
-        .map((message) => buildMessageBlock({ message, convexApiUrl }))
+        .map((message) => buildMessageBlock({ message, convexApiUrl, publicAssetBaseUrl }))
         .filter((block): block is string => Boolean(block))
 
     if (messageBlocks.length === 0) {

@@ -24,6 +24,13 @@ vi.mock("../../convex/_generated/api", () => ({
             reserveCreditForMessage: "reserveCreditForMessage",
             releaseReservedCreditForMessage: "releaseReservedCreditForMessage"
         },
+        messages: {
+            claimPreparedImageGenerationCard: "claimPreparedImageGenerationCard",
+            patchPreparedImageGenerationToolResult: "patchPreparedImageGenerationToolResult"
+        },
+        threads: {
+            getThreadById: "getThreadById"
+        },
         image_generation_jobs: {
             createImageGenerationJob: "createImageGenerationJob",
             attachFalRequestToImageGenerationJob: "attachFalRequestToImageGenerationJob",
@@ -47,7 +54,11 @@ vi.mock("../../convex/attachments", () => ({
     }
 }))
 
-import { generateStandaloneImage } from "../../convex/images_node"
+import {
+    confirmPreparedChatImageGeneration,
+    generateStandaloneImage
+} from "../../convex/images_node"
+import { FAL_IMAGE_SAFETY_MESSAGE } from "../../convex/lib/models/fal"
 
 type GenerateStandaloneImageCtx = {
     auth: Record<string, unknown>
@@ -64,6 +75,15 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
         aspectRatio?: string
         resolution?: string
         referenceImageIds?: string[]
+    }
+) => Promise<string[]>
+const confirmPreparedChatImageGenerationHandler = confirmPreparedChatImageGeneration as unknown as (
+    ctx: GenerateStandaloneImageCtx,
+    args: {
+        threadId: string
+        assistantMessageId: string
+        toolCallId: string
+        cardId: string
     }
 ) => Promise<string[]>
 
@@ -288,6 +308,35 @@ describe("images_node", () => {
         )
     })
 
+    it("wraps fal 422 submission failures as safety errors", async () => {
+        const ctx = createCtx()
+        falQueueSubmitMock.mockRejectedValueOnce(new Error("Unexpected status code: 422"))
+
+        await expect(
+            generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: "gpt-5.4-image-2",
+                aspectRatio: "1:1"
+            })
+        ).rejects.toThrow(FAL_IMAGE_SAFETY_MESSAGE)
+
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "releaseReservedCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                messageKey: expect.stringContaining("standalone-image:")
+            })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "markImageGenerationJobFailed",
+            expect.objectContaining({
+                jobId: "image-generation-job-1",
+                status: "refunded",
+                error: FAL_IMAGE_SAFETY_MESSAGE
+            })
+        )
+    })
+
     it("keeps the local pending job when fal accepts without returning a request id", async () => {
         const ctx = createCtx()
         const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
@@ -311,6 +360,115 @@ describe("images_node", () => {
         )
         expect(ctx.runMutation).not.toHaveBeenCalledWith(
             "markImageGenerationJobFailed",
+            expect.anything()
+        )
+    })
+
+    it("fails chat confirmation before submitting when requested variants exceed remaining credits", async () => {
+        const ctx = createCtx()
+        let reservationAttempts = 0
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            if (name === "getThreadById") {
+                return { _id: "thread-1", authorId: "user-1" }
+            }
+            return null
+        })
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            if (name === "claimPreparedImageGenerationCard") {
+                return {
+                    ok: true,
+                    result: {
+                        success: true,
+                        status: "pending_confirmation",
+                        cardId: "card-1",
+                        prompt: "A test image",
+                        modelId: "gpt-5.4-image-2",
+                        aspectRatio: "1:1",
+                        resolution: "1K",
+                        variants: 2,
+                        referenceSources: []
+                    }
+                }
+            }
+            if (name === "reserveCreditForMessage") {
+                reservationAttempts += 1
+                if (reservationAttempts === 1) {
+                    return { allowed: true, bypassed: false, existing: false, committed: false }
+                }
+                return {
+                    allowed: false,
+                    reason: "quota",
+                    bypassed: false,
+                    existing: false,
+                    bucket: "pro",
+                    used: 100,
+                    limit: 100,
+                    remaining: 0
+                }
+            }
+            return null
+        })
+
+        await expect(
+            confirmPreparedChatImageGenerationHandler(ctx, {
+                threadId: "thread-1",
+                assistantMessageId: "assistant-message-1",
+                toolCallId: "tool-call-1",
+                cardId: "card-1"
+            })
+        ).rejects.toThrow("You only have 0 pro credits remaining for image generation.")
+
+        expect(falQueueSubmitMock).not.toHaveBeenCalled()
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "releaseReservedCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1"
+            })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "patchPreparedImageGenerationToolResult",
+            expect.objectContaining({
+                threadId: "thread-1",
+                messageId: "assistant-message-1",
+                toolCallId: "tool-call-1",
+                cardId: "card-1",
+                update: expect.objectContaining({
+                    status: "failed",
+                    jobIds: [],
+                    error: "You only have 0 pro credits remaining for image generation."
+                })
+            })
+        )
+    })
+
+    it("bails out without reserving or submitting when the card is already claimed", async () => {
+        const ctx = createCtx()
+        ctx.runQuery.mockImplementation(async (name: string) => {
+            if (name === "getThreadById") {
+                return { _id: "thread-1", authorId: "user-1" }
+            }
+            return null
+        })
+        ctx.runMutation.mockImplementation(async (name: string) => {
+            // A concurrent confirm already flipped the card to "submitting".
+            if (name === "claimPreparedImageGenerationCard") {
+                return { ok: false, reason: "not_pending" }
+            }
+            return null
+        })
+
+        await expect(
+            confirmPreparedChatImageGenerationHandler(ctx, {
+                threadId: "thread-1",
+                assistantMessageId: "assistant-message-1",
+                toolCallId: "tool-call-1",
+                cardId: "card-1"
+            })
+        ).rejects.toThrow("Image generation card is no longer confirmable.")
+
+        expect(falQueueSubmitMock).not.toHaveBeenCalled()
+        expect(ctx.runMutation).not.toHaveBeenCalledWith(
+            "reserveCreditForMessage",
             expect.anything()
         )
     })

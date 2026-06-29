@@ -73,6 +73,87 @@ describe("thread-export", () => {
         expect(exported.markdown).not.toContain("reasoning")
     })
 
+    it("links SilkScreen references and generated assets via the public R2 base url", () => {
+        const exported = serializeThreadToMarkdown({
+            thread: {
+                _id: "thread-img",
+                title: "Image Chat",
+                createdAt: 1,
+                updatedAt: 1
+            },
+            messages: [
+                {
+                    messageId: "a",
+                    role: "assistant",
+                    createdAt: 10,
+                    updatedAt: 10,
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                toolName: "prepareImageGeneration",
+                                result: {
+                                    kind: "prepared_image_generation",
+                                    status: "completed",
+                                    title: "Donkey Eating Sand",
+                                    prompt: "A silly donkey eating sand.",
+                                    referenceSources: [{ key: "attachments/u1/ref.png" }],
+                                    assets: [{ storageKey: "generations/u1/123-abc-fal.png" }]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            convexApiUrl: "https://convex.example.com",
+            publicAssetBaseUrl: "https://r2-dev.silkchat-staging.xyz/"
+        })
+
+        // Both the generated asset and the input reference use the direct public
+        // short-alias URL, not the auth-less Convex proxy.
+        expect(exported.markdown).toContain(
+            "https://r2-dev.silkchat-staging.xyz/generations/u1/123-abc-fal.png"
+        )
+        expect(exported.markdown).toContain(
+            "https://r2-dev.silkchat-staging.xyz/attachments/u1/ref.png"
+        )
+        expect(exported.markdown).not.toContain("/r2?key=")
+        expect(exported.markdown).toContain("#### Donkey Eating Sand")
+    })
+
+    it("falls back to the Convex proxy for generated assets when no public base url is set", () => {
+        const exported = serializeThreadToMarkdown({
+            thread: { _id: "thread-img2", title: "Image Chat", createdAt: 1, updatedAt: 1 },
+            messages: [
+                {
+                    messageId: "a",
+                    role: "assistant",
+                    createdAt: 10,
+                    updatedAt: 10,
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                toolName: "prepareImageGeneration",
+                                result: {
+                                    kind: "prepared_image_generation",
+                                    status: "completed",
+                                    title: "Donkey Eating Sand",
+                                    assets: [{ storageKey: "generations/u1/123-abc-fal.png" }]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            convexApiUrl: "https://convex.example.com"
+        })
+
+        expect(exported.markdown).toContain(
+            "https://convex.example.com/r2?key=generations%2Fu1%2F123-abc-fal.png"
+        )
+    })
+
     it("throws when a thread has no exportable content", () => {
         expect(() =>
             serializeThreadToMarkdown({

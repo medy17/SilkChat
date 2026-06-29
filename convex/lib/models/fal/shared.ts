@@ -312,14 +312,37 @@ const extractReason = (payload: unknown) => {
     )
 }
 
-const isRefusalReason = (reason: string) =>
-    /\b(safety|policy|moderation|blocked|filtered|refus|not allowed)\b/i.test(reason)
+export const FAL_IMAGE_SAFETY_MESSAGE =
+    "This image request was blocked by the image safety system. Please revise the prompt or references and try again."
+
+export const isFalImageSafetyReason = (reason: string) =>
+    /\b(safety|policy|moderation|blocked|filtered|refus|not allowed|unprocessable)\b/i.test(
+        reason
+    ) || /(?:status code:?\s*)?422\b/i.test(reason)
+
+export const normalizeFalImageErrorMessage = (error: unknown) => {
+    const message =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : JSON.stringify(error)
+
+    if (isFalImageSafetyReason(message)) {
+        return FAL_IMAGE_SAFETY_MESSAGE
+    }
+
+    return message
+}
 
 export const parseFalImagePayload = (payload: unknown): FalImageParseResult => {
     const root = asObject(payload)
     const status = getString(root?.status)
     if (status && status !== "OK" && /\b(error|failed|failure)\b/i.test(status)) {
-        return { kind: "error", reason: extractReason(payload) ?? `fal returned status ${status}` }
+        const reason = extractReason(payload) ?? `fal returned status ${status}`
+        return isFalImageSafetyReason(reason)
+            ? { kind: "refusal", reason: FAL_IMAGE_SAFETY_MESSAGE }
+            : { kind: "error", reason }
     }
 
     const candidates = [
@@ -342,8 +365,8 @@ export const parseFalImagePayload = (payload: unknown): FalImageParseResult => {
         candidates.map(extractReason).find((value): value is string => Boolean(value)) ??
         "No image payload returned from fal"
 
-    if (isRefusalReason(reason)) {
-        return { kind: "refusal", reason }
+    if (isFalImageSafetyReason(reason)) {
+        return { kind: "refusal", reason: FAL_IMAGE_SAFETY_MESSAGE }
     }
 
     return { kind: "unknown", reason }

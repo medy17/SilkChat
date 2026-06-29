@@ -435,6 +435,7 @@ function MobileOverflowMenu({
     open,
     onOpenChange,
     selectedModel,
+    modelSupportsVision,
     modelSupportsFunctionCalling,
     modelSupportsReasoningControl,
     isImageModel,
@@ -455,6 +456,7 @@ function MobileOverflowMenu({
     open: boolean
     onOpenChange: (open: boolean) => void
     selectedModel: string | null
+    modelSupportsVision: boolean
     modelSupportsFunctionCalling: boolean
     modelSupportsReasoningControl: boolean
     isImageModel: boolean
@@ -600,6 +602,26 @@ function MobileOverflowMenu({
                                 </div>
                             )}
                         </>
+                    )}
+
+                    {!isImageModel && (
+                        <button
+                            type="button"
+                            className={cn(
+                                mobileMenuRowClassName,
+                                (!modelSupportsVision || !modelSupportsFunctionCalling) &&
+                                    "cursor-not-allowed opacity-50"
+                            )}
+                            disabled={!modelSupportsVision || !modelSupportsFunctionCalling}
+                        >
+                            <ImageIcon className="size-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate">
+                                SilkScreen{" "}
+                                {modelSupportsVision && modelSupportsFunctionCalling
+                                    ? "available"
+                                    : "unavailable"}
+                            </span>
+                        </button>
                     )}
 
                     {!isImageModel && (
@@ -1716,6 +1738,7 @@ export const MultimodalInput = forwardRef<
                                                 modelSupportsFunctionCalling={
                                                     modelSupportsFunctionCalling
                                                 }
+                                                modelSupportsVision={modelSupportsVision}
                                             />
                                         </PromptInputAction>
 
@@ -1734,6 +1757,7 @@ export const MultimodalInput = forwardRef<
                                     open={mobileMenuOpen}
                                     onOpenChange={setMobileMenuOpen}
                                     selectedModel={selectedModel}
+                                    modelSupportsVision={modelSupportsVision}
                                     modelSupportsFunctionCalling={modelSupportsFunctionCalling}
                                     modelSupportsReasoningControl={modelSupportsReasoningControl}
                                     isImageModel={isImageModel}
