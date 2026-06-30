@@ -1,5 +1,6 @@
 import { essayColumnistPersona } from "./essay-columnist"
 import { mourinhoPersona } from "./jose-mourinho"
+import { mondayPersona } from "./monday"
 import { pepGuardiolaPersona } from "./pep-guardiola"
 import { schemingBastardPersona } from "./scheming-bastard"
 import { seniorCodeReviewerPersona } from "./senior-code-reviewer"
@@ -16,6 +17,7 @@ export type { BuiltInPersona, BuiltInPersonaDoc } from "./types"
 export const BUILT_IN_PERSONAS = [
     essayColumnistPersona,
     mourinhoPersona,
+    mondayPersona,
     pepGuardiolaPersona,
     schemingBastardPersona,
     seniorCodeReviewerPersona,
