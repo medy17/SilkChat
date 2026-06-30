@@ -28,12 +28,31 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro"
     },
     {
+        id: "claude-sonnet-5",
+        name: "Claude Sonnet 5",
+        shortName: "Sonnet 5",
+        shortDescription: "Current Sonnet-class Claude model for agentic work and coding",
+        description:
+            "Claude Sonnet 5 is Anthropic's current Sonnet-class model for production chat, coding, analysis, tool use, and agentic workflows. It is the balanced Claude 5 generation option, with stronger capability than previous Sonnet models while staying below the cost and latency of the premium Claude tiers.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-sonnet-5"
+        },
+        releaseOrder: 20260630,
+        adapters: anthropicTextAdapters("claude-sonnet-5"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        supportsDisablingReasoning: true,
+        prototypeCreditTier: "pro"
+    },
+    {
         id: "claude-sonnet-4.6",
         name: "Claude Sonnet 4.6",
         shortName: "Sonnet 4.6",
-        shortDescription: "Anthropic's balanced Claude model for real-world work",
+        shortDescription: "Previous-generation Sonnet-class Claude model for real-world work",
         description:
-            "Claude Sonnet 4.6 is Anthropic's balanced model for production chat, analysis, writing, and tool use. It aims to deliver strong quality without the higher cost and latency of the most premium Claude tier.",
+            "Claude Sonnet 4.6 is Anthropic's previous-generation Sonnet-class model for production chat, analysis, writing, coding, and tool use. It remains a balanced Claude 4 model for everyday professional work when you do not need the newer Claude 5 generation.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
@@ -140,7 +159,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-09-29",
-        replacementId: "claude-sonnet-4.6"
+        replacementId: "claude-sonnet-5"
     },
     {
         id: "claude-opus-4.1",
@@ -179,6 +198,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-06-15",
-        replacementId: "claude-sonnet-4.6"
+        replacementId: "claude-sonnet-5"
     }
 ]
