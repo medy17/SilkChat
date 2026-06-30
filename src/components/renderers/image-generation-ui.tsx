@@ -1,23 +1,28 @@
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { Button } from "@/components/ui/button"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { getLibraryImageSources } from "@/lib/generated-image-urls"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
+import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useQuery } from "convex/react"
 import {
     AlertCircle,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
+    Coins,
     Image as ImageIcon,
     Loader2,
     RotateCcw,
-    Sparkles
+    Sparkles,
+    X
 } from "lucide-react"
-import { memo, useEffect, useMemo, useState } from "react"
+import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 type ImageGenerationAsset = {
@@ -131,6 +136,227 @@ const resolveImageAssetUrl = (value: string) => {
     return getPublicR2AssetUrl(value)
 }
 
+const getCreditLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) => {
+    if (!credits || credits.bucket === "none" || credits.units <= 0) return null
+    return `${credits.units} credits`
+}
+
+function RevealBlock({
+    show,
+    children
+}: {
+    show: boolean
+    children: ReactNode
+}) {
+    return (
+        <div
+            className={
+                show
+                    ? "grid grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity] duration-500 ease-out"
+                    : "grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-500 ease-out"
+            }
+        >
+            <div className="min-h-0 overflow-hidden">{children}</div>
+        </div>
+    )
+}
+
+const getPromptTextId = (toolCallId: string) => `image-generation-prompt-${toolCallId}`
+const getImagePreviewId = (toolCallId: string) => `image-generation-preview-${toolCallId}`
+
+function PromptText({
+    text,
+    clampLines = 3,
+    className,
+    id
+}: {
+    text: string
+    clampLines?: 2 | 3
+    className?: string
+    id?: string
+}) {
+    const ref = useRef<HTMLParagraphElement>(null)
+    const [expanded, setExpanded] = useState(false)
+    const [metrics, setMetrics] = useState({
+        collapsedHeight: 0,
+        expandedHeight: 0,
+        overflowing: false
+    })
+
+    useLayoutEffect(() => {
+        const element = ref.current
+        if (!element) return
+
+        const styles = window.getComputedStyle(element)
+        const parsedLineHeight = Number.parseFloat(styles.lineHeight)
+        const parsedFontSize = Number.parseFloat(styles.fontSize)
+        const lineHeight = Number.isFinite(parsedLineHeight)
+            ? parsedLineHeight
+            : parsedFontSize * 1.5
+        const collapsedHeight = Math.ceil(lineHeight * clampLines)
+        const expandedHeight = Math.ceil(element.scrollHeight)
+        const overflowing = expandedHeight - collapsedHeight > 1
+
+        setMetrics((current) => {
+            if (
+                current.collapsedHeight === collapsedHeight &&
+                current.expandedHeight === expandedHeight &&
+                current.overflowing === overflowing
+            ) {
+                return current
+            }
+
+            return { collapsedHeight, expandedHeight, overflowing }
+        })
+    })
+
+    const maxHeight = metrics.overflowing
+        ? expanded
+            ? metrics.expandedHeight
+            : metrics.collapsedHeight
+        : undefined
+
+    return (
+        <div className="space-y-1">
+            <div
+                className="overflow-hidden transition-[max-height] duration-300 ease-out"
+                style={maxHeight ? { maxHeight } : undefined}
+            >
+                <p ref={ref} id={id} className={cn("whitespace-pre-wrap", className)}>
+                    {text}
+                </p>
+            </div>
+            {(metrics.overflowing || expanded) && (
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-0.5 font-medium text-primary text-xs transition-colors hover:text-primary/80"
+                    aria-expanded={expanded}
+                    aria-controls={id}
+                    aria-label={expanded ? "Collapse image prompt" : "Expand image prompt"}
+                    onClick={() => setExpanded((value) => !value)}
+                >
+                    {expanded ? "Show less" : "Show more"}
+                    <ChevronDown
+                        className={cn("size-3 transition-transform", expanded && "rotate-180")}
+                    />
+                </button>
+            )}
+        </div>
+    )
+}
+
+function FrostedChip({
+    icon,
+    label,
+    ariaLabel,
+    tooltip,
+    tooltipSide = "top"
+}: {
+    icon?: ReactNode
+    label: string
+    ariaLabel?: string
+    tooltip?: string
+    tooltipSide?: "top" | "right" | "bottom" | "left"
+}) {
+    const chip = (
+        <span
+            className="inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-0.5 font-medium text-foreground/90 text-xs shadow-sm outline-none backdrop-blur-md focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={ariaLabel}
+            tabIndex={tooltip ? 0 : undefined}
+        >
+            {icon}
+            {label}
+        </span>
+    )
+
+    if (!tooltip) return chip
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>{chip}</TooltipTrigger>
+            <TooltipContent side={tooltipSide} sideOffset={6}>
+                {tooltip}
+            </TooltipContent>
+        </Tooltip>
+    )
+}
+
+function TooltipIconPill({
+    children,
+    tooltip,
+    ariaLabel,
+    className
+}: {
+    children: ReactNode
+    tooltip: string
+    ariaLabel?: string
+    className?: string
+}) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span
+                    className={cn(
+                        "inline-flex outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        className
+                    )}
+                    aria-label={ariaLabel ?? tooltip}
+                >
+                    {children}
+                </span>
+            </TooltipTrigger>
+            <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+    )
+}
+
+function SidebarModelsIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+        >
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+    )
+}
+
+function SidebarAspectRatioIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+        >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        </svg>
+    )
+}
+
+function SidebarResolutionIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+        >
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+    )
+}
+
 export const ImageGenerationToolRenderer = memo(
     ({
         toolInvocation,
@@ -236,7 +462,7 @@ export const ImageGenerationToolRenderer = memo(
         if (isLoading) {
             return (
                 <div
-                    className="w-full max-w-md overflow-hidden rounded-xl border bg-muted/5"
+                    className="w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-muted/5"
                     style={{ aspectRatio: cssAspectRatio }}
                 >
                     <ImageSkeleton
@@ -246,7 +472,7 @@ export const ImageGenerationToolRenderer = memo(
                         gap={4}
                         loadingDuration={99999}
                         autoLoop={false}
-                        className="h-full w-full rounded-xl border-0 bg-transparent"
+                        className="h-full w-full rounded-[var(--radius-xl)] border-0 bg-transparent"
                     />
                 </div>
             )
@@ -255,10 +481,14 @@ export const ImageGenerationToolRenderer = memo(
         if (hasError) {
             return (
                 <div
-                    className="flex w-full max-w-md flex-col items-center justify-center rounded-xl border border-destructive/50 bg-destructive/10"
+                    className="flex w-full max-w-md flex-col items-center justify-center rounded-[var(--radius-xl)] border border-destructive/50 bg-destructive/10"
                     style={{ aspectRatio: cssAspectRatio }}
+                    role="alert"
                 >
-                    <AlertCircle className="mx-auto mb-2 size-8 text-destructive/70" />
+                    <AlertCircle
+                        className="mx-auto mb-2 size-8 text-destructive/70"
+                        aria-hidden="true"
+                    />
                     <p className="text-destructive text-sm">
                         {String(
                             (toolInvocation.output as { error?: string }).error ||
@@ -359,55 +589,59 @@ export const ImageGenerationToolRenderer = memo(
                     })
                 }
             }
+            const credits = getCreditLabel(output.estimatedCredits)
+            const title = output.title?.trim() || "SilkScreen"
+            const prompt = output.prompt ?? ""
+            const modelLabel = output.modelName ?? output.modelId ?? "Image model"
+            const isPending = status === "pending_confirmation" && !isConfirming
+            const showCanvas = !isPending || Boolean(visibleAsset)
+            const promptId = getPromptTextId(toolInvocation.toolCallId)
+            const previewId = getImagePreviewId(toolInvocation.toolCallId)
 
             return (
-                <div className="not-prose my-3 w-full max-w-md overflow-hidden rounded-xl border bg-muted/20">
-                    <div className="border-b bg-background/60 px-4 py-3">
-                        <div className="flex items-center gap-2 font-medium text-sm">
-                            <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 truncate">
-                                {output.title?.trim() || "SilkScreen image"}
+                <section
+                    className="not-prose relative my-3 w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-card shadow-sm"
+                    aria-label={`Image generation card: ${title}`}
+                    aria-describedby={prompt ? promptId : undefined}
+                >
+                    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2.5">
+                        <TooltipIconPill tooltip={title} className="pointer-events-auto min-w-0">
+                            <span className="flex min-w-0 items-center gap-1.5 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
+                                <Sparkles
+                                    className="size-3 shrink-0 text-primary"
+                                    aria-hidden="true"
+                                />
+                                <span className="truncate">{title}</span>
                             </span>
-                        </div>
-                    </div>
-                    <div className="space-y-3 p-4">
-                        <p className="whitespace-pre-wrap text-sm">{output.prompt}</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="rounded-md bg-background/70 p-2">
-                                <div className="text-muted-foreground">Model</div>
-                                <div className="mt-0.5 font-medium">
-                                    {output.modelName ?? output.modelId}
-                                </div>
-                            </div>
-                            <div className="rounded-md bg-background/70 p-2">
-                                <div className="text-muted-foreground">Aspect ratio</div>
-                                <div className="mt-0.5 font-medium">{output.aspectRatio}</div>
-                            </div>
-                            <div className="rounded-md bg-background/70 p-2">
-                                <div className="text-muted-foreground">Variants</div>
-                                <div className="mt-0.5 font-medium">{output.variants ?? 1}</div>
-                            </div>
-                            <div className="rounded-md bg-background/70 p-2">
-                                <div className="text-muted-foreground">Resolution</div>
-                                <div className="mt-0.5 font-medium">{output.resolution ?? "—"}</div>
-                            </div>
-                        </div>
-                        {(output.references?.length ?? 0) > 0 && (
-                            <div className="space-y-1 text-xs">
-                                <div className="text-muted-foreground">References</div>
-                                {output.references?.map((reference) => (
-                                    <div
-                                        key={reference.id}
-                                        className="rounded-md bg-background/70 px-2 py-1"
-                                    >
-                                        {reference.label}
-                                    </div>
-                                ))}
-                            </div>
+                        </TooltipIconPill>
+                        {credits && (
+                            <TooltipIconPill
+                                tooltip={`Consumed ${credits}`}
+                                className="pointer-events-auto shrink-0"
+                            >
+                                <span className="flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
+                                    <Coins className="size-3" aria-hidden="true" />
+                                    {credits}
+                                </span>
+                            </TooltipIconPill>
                         )}
-                        {visibleAsset ? (
-                            <div className="relative">
-                                {(() => {
+                    </div>
+
+                    <RevealBlock show={showCanvas}>
+                        <div
+                            id={showCanvas ? previewId : undefined}
+                            className="relative overflow-hidden border-b bg-muted/30"
+                            style={{ aspectRatio: cssAspectRatio }}
+                            aria-label={
+                                visibleAsset
+                                    ? `Generated image preview ${visibleAssetIndex + 1} of ${variantCount}`
+                                    : isWorking
+                                      ? "Image generation in progress"
+                                      : undefined
+                            }
+                        >
+                            {visibleAsset ? (
+                                (() => {
                                     const key = visibleAsset.storageKey ?? visibleAsset.imageUrl
                                     if (!key) return null
                                     return (
@@ -419,7 +653,7 @@ export const ImageGenerationToolRenderer = memo(
                                                 storageKey: visibleAsset.storageKey,
                                                 variantIndex: visibleAsset.variantIndex
                                             }}
-                                            prompt={output.prompt ?? "Generated image"}
+                                            prompt={prompt || "Generated image"}
                                             modelName={output.modelName}
                                             cssAspectRatio={cssAspectRatio}
                                             image={
@@ -429,129 +663,242 @@ export const ImageGenerationToolRenderer = memo(
                                                       )
                                                     : undefined
                                             }
+                                            className="h-full max-w-none rounded-none border-0"
+                                            ariaLabel={`Open generated image ${visibleAssetIndex + 1} of ${variantCount}`}
                                         />
                                     )
-                                })()}
-                                {variantCount > 1 && (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon"
-                                            className="-translate-y-1/2 absolute top-1/2 left-2 z-10 size-8 border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
-                                            disabled={visibleAssetIndex <= 0}
-                                            onClick={() =>
-                                                setActiveAssetIndex((current) =>
-                                                    Math.max(0, current - 1)
-                                                )
-                                            }
-                                        >
-                                            <ChevronLeft className="size-4" />
-                                            <span className="sr-only">Previous variant</span>
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon"
-                                            className="-translate-y-1/2 absolute top-1/2 right-2 z-10 size-8 border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
-                                            disabled={visibleAssetIndex >= assets.length - 1}
-                                            onClick={() =>
-                                                setActiveAssetIndex((current) =>
-                                                    Math.min(assets.length - 1, current + 1)
-                                                )
-                                            }
-                                        >
-                                            <ChevronRight className="size-4" />
-                                            <span className="sr-only">Next variant</span>
-                                        </Button>
-                                        <div className="absolute right-2 bottom-2 z-10 rounded-md border border-background/40 bg-background/80 px-2 py-1 font-medium text-foreground text-xs shadow-lg backdrop-blur-md">
-                                            {visibleAssetIndex + 1} / {variantCount}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ) : (
-                            <div
-                                className="overflow-hidden rounded-lg border bg-background/60"
-                                style={{ aspectRatio: cssAspectRatio }}
-                            >
-                                {isWorking ? (
-                                    <ImageSkeleton
-                                        rows={rows}
-                                        cols={cols}
-                                        dotSize={3}
-                                        gap={4}
-                                        loadingDuration={99999}
-                                        autoLoop={false}
-                                        className="h-full w-full rounded-lg border-0 bg-transparent"
+                                })()
+                            ) : isWorking ? (
+                                <ImageSkeleton
+                                    rows={rows}
+                                    cols={cols}
+                                    dotSize={3}
+                                    gap={4}
+                                    loadingDuration={99999}
+                                    autoLoop={false}
+                                    className="h-full w-full border-0 bg-transparent"
+                                />
+                            ) : status === "storing_failed" ? (
+                                <div
+                                    className="flex h-full w-full flex-col items-center justify-center gap-3 bg-destructive/10 p-4 text-center"
+                                    role="alert"
+                                >
+                                    <AlertCircle
+                                        className="size-8 text-destructive/80"
+                                        aria-hidden="true"
                                     />
-                                ) : status === "storing_failed" ? (
-                                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-destructive/10 p-4 text-center">
-                                        <AlertCircle className="size-8 text-destructive/80" />
-                                        <p className="text-destructive text-sm">
-                                            {output.error || "Couldn't store this image."}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-muted/10">
-                                        <ImageIcon className="size-7 text-muted-foreground/45" />
-                                    </div>
-                                )}
+                                    <p className="text-destructive text-sm">
+                                        {output.error || "Couldn't store this image."}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-muted/10">
+                                    <ImageIcon
+                                        className="size-7 text-muted-foreground/45"
+                                        aria-hidden="true"
+                                    />
+                                </div>
+                            )}
+
+                            {visibleAsset && variantCount > 1 && (
+                                <>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="-translate-y-1/2 absolute top-1/2 left-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                aria-disabled={visibleAssetIndex <= 0}
+                                                onClick={(event) => {
+                                                    event.stopPropagation()
+                                                    if (visibleAssetIndex <= 0) return
+                                                    setActiveAssetIndex((current) =>
+                                                        Math.max(0, current - 1)
+                                                    )
+                                                }}
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        "inline-flex size-full items-center justify-center transition-opacity",
+                                                        visibleAssetIndex <= 0 && "opacity-50"
+                                                    )}
+                                                >
+                                                    <ChevronLeft
+                                                        className="size-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span className="sr-only">
+                                                        Previous variant, currently viewing{" "}
+                                                        {visibleAssetIndex + 1} of {variantCount}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Previous variant</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="-translate-y-1/2 absolute top-1/2 right-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                aria-disabled={
+                                                    visibleAssetIndex >= assets.length - 1
+                                                }
+                                                onClick={(event) => {
+                                                    event.stopPropagation()
+                                                    if (visibleAssetIndex >= assets.length - 1) {
+                                                        return
+                                                    }
+                                                    setActiveAssetIndex((current) =>
+                                                        Math.min(assets.length - 1, current + 1)
+                                                    )
+                                                }}
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        "inline-flex size-full items-center justify-center transition-opacity",
+                                                        visibleAssetIndex >= assets.length - 1 &&
+                                                            "opacity-50"
+                                                    )}
+                                                >
+                                                    <ChevronRight
+                                                        className="size-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span className="sr-only">
+                                                        Next variant, currently viewing{" "}
+                                                        {visibleAssetIndex + 1} of {variantCount}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Next variant</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className="absolute right-2 bottom-2 z-10 rounded-[var(--radius-md)] border border-background/40 bg-background/80 px-2 py-1 font-medium text-foreground text-xs shadow-lg backdrop-blur-md"
+                                                aria-label={`Variant ${visibleAssetIndex + 1} of ${variantCount}`}
+                                            >
+                                                {visibleAssetIndex + 1} / {variantCount}
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" sideOffset={6}>
+                                            Variant {visibleAssetIndex + 1} of {variantCount}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </>
+                            )}
+                        </div>
+                    </RevealBlock>
+
+                    <div
+                        className={cn(
+                            "space-y-2.5 p-4 transition-[padding] duration-500 ease-out",
+                            isPending ? "pt-12" : "pt-4"
+                        )}
+                    >
+                        <PromptText
+                            id={promptId}
+                            text={prompt}
+                            clampLines={3}
+                            className="text-foreground/90 text-sm leading-relaxed"
+                        />
+                        <div className="flex flex-wrap gap-1.5">
+                            <FrostedChip
+                                icon={<SidebarAspectRatioIcon className="size-3" />}
+                                label={displayAspectRatio}
+                                ariaLabel={`Aspect ratio: ${displayAspectRatio}`}
+                                tooltip="Aspect ratio"
+                                tooltipSide="bottom"
+                            />
+                            <FrostedChip
+                                icon={<SidebarModelsIcon className="size-3" />}
+                                label={modelLabel}
+                                ariaLabel={`Model: ${modelLabel}`}
+                                tooltip="Model"
+                                tooltipSide="bottom"
+                            />
+                            <FrostedChip
+                                icon={<X className="size-3" aria-hidden="true" />}
+                                label={`${variantCount}`}
+                                ariaLabel={`${variantCount} ${
+                                    variantCount === 1 ? "variant" : "variants"
+                                }`}
+                                tooltip="Variant count"
+                                tooltipSide="bottom"
+                            />
+                            <FrostedChip
+                                icon={<SidebarResolutionIcon className="size-3" />}
+                                label={output.resolution ?? "Standard"}
+                                ariaLabel={`Resolution: ${output.resolution ?? "Standard"}`}
+                                tooltip="Resolution"
+                                tooltipSide="bottom"
+                            />
+                        </div>
+                        {(output.references?.length ?? 0) > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {output.references?.map((reference) => (
+                                    <FrostedChip key={reference.id} label={reference.label} />
+                                ))}
                             </div>
                         )}
                         {output.error && status !== "storing_failed" && (
                             <p className="text-destructive text-xs">{output.error}</p>
                         )}
-                        <div className="min-h-10">
-                            {status === "pending_confirmation" ? (
-                                <Button
-                                    type="button"
-                                    className="h-10 w-full gap-2"
-                                    disabled={!canConfirm}
-                                    onClick={handleConfirm}
-                                >
-                                    {isConfirming ? (
-                                        <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                        <Sparkles className="size-4" />
-                                    )}
-                                    {isConfirming ? "Generating" : "Generate"}
-                                </Button>
-                            ) : isWorking ? (
-                                <Button type="button" className="h-10 w-full gap-2" disabled>
-                                    <Loader2 className="size-4 animate-spin" />
-                                    {isRetryingAsset ? "Refetching" : "Generating"}
-                                </Button>
-                            ) : isAwaitingVariants ? (
-                                <Button type="button" className="h-10 w-full gap-2" disabled>
-                                    <Loader2 className="size-4 animate-spin" />
-                                    {assets.length} of {variantCount} ready
-                                </Button>
-                            ) : status === "storing_failed" ? (
-                                <Button
-                                    type="button"
-                                    className="h-10 w-full gap-2"
-                                    variant="secondary"
-                                    disabled={retryableJobIds.length === 0}
-                                    onClick={handleRefetch}
-                                >
-                                    <RotateCcw className="size-4" />
-                                    Refetch
-                                </Button>
-                            ) : isTerminalError ? (
-                                <div className="flex h-10 items-center gap-2 rounded-md bg-destructive/10 px-3 text-destructive text-sm">
-                                    <AlertCircle className="size-4" />
-                                    {isComplete ? "Partial" : "Failed"}
-                                </div>
-                            ) : isComplete ? (
-                                <div className="flex h-10 items-center gap-2 rounded-md bg-background/60 px-3 text-muted-foreground text-sm">
-                                    <Sparkles className="size-4" />
-                                    Complete
-                                </div>
-                            ) : null}
-                        </div>
                     </div>
-                </div>
+
+                    <div className="border-t bg-muted/10 p-3">
+                        {status === "pending_confirmation" ? (
+                            <Button
+                                type="button"
+                                className="h-10 w-full gap-2"
+                                disabled={!canConfirm}
+                                onClick={handleConfirm}
+                                aria-describedby={prompt ? promptId : undefined}
+                            >
+                                {isConfirming ? (
+                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                ) : (
+                                    <Sparkles className="size-4" aria-hidden="true" />
+                                )}
+                                {isConfirming ? "Generating" : "Generate"}
+                            </Button>
+                        ) : isWorking ? (
+                            <Button type="button" className="h-10 w-full gap-2" disabled>
+                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                {isRetryingAsset ? "Refetching" : "Generating"}
+                            </Button>
+                        ) : isAwaitingVariants ? (
+                            <Button type="button" className="h-10 w-full gap-2" disabled>
+                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                {assets.length} of {variantCount} ready
+                            </Button>
+                        ) : status === "storing_failed" ? (
+                            <Button
+                                type="button"
+                                className="h-10 w-full gap-2"
+                                variant="secondary"
+                                disabled={retryableJobIds.length === 0}
+                                onClick={handleRefetch}
+                            >
+                                <RotateCcw className="size-4" aria-hidden="true" />
+                                Refetch
+                            </Button>
+                        ) : isTerminalError ? (
+                            <output className="flex h-10 items-center gap-2 rounded-[var(--radius-md)] bg-destructive/10 px-3 text-destructive text-sm">
+                                <AlertCircle className="size-4" aria-hidden="true" />
+                                {isComplete ? "Partial" : "Failed"}
+                            </output>
+                        ) : isComplete ? (
+                            <output className="flex h-10 items-center gap-2 rounded-[var(--radius-md)] bg-background/60 px-3 text-muted-foreground text-sm">
+                                <Sparkles className="size-4" aria-hidden="true" />
+                                Complete
+                            </output>
+                        ) : null}
+                    </div>
+                </section>
             )
         }
 
@@ -604,13 +951,17 @@ const ImageWithErrorHandler = memo(
         prompt,
         modelName,
         cssAspectRatio,
-        image
+        image,
+        className,
+        ariaLabel
     }: {
         asset: ImageGenerationAsset
         prompt: string
         modelName?: string
         cssAspectRatio: string
         image?: Doc<"generatedImages">
+        className?: string
+        ariaLabel?: string
     }) => {
         const [isError, setIsError] = useState(false)
         const [retryNonce, setRetryNonce] = useState(0)
@@ -635,16 +986,24 @@ const ImageWithErrorHandler = memo(
         if (isError) {
             return (
                 <div
-                    className="flex w-full max-w-md items-center justify-center rounded-xl border bg-muted/50"
+                    className={cn(
+                        "flex w-full max-w-md items-center justify-center rounded-[var(--radius-xl)] border bg-muted/50",
+                        className
+                    )}
                     style={{ aspectRatio: cssAspectRatio }}
+                    role="alert"
                 >
                     <div className="flex flex-col items-center gap-2">
-                        <AlertCircle className="mx-auto mb-2 size-8 text-destructive/70" />
+                        <AlertCircle
+                            className="mx-auto mb-2 size-8 text-destructive/70"
+                            aria-hidden="true"
+                        />
                         <p className="text-destructive text-sm">Failed to load image</p>
                         <Button
                             type="button"
                             variant="secondary"
                             size="sm"
+                            aria-label="Retry loading generated image"
                             onClick={() => {
                                 setIsError(false)
                                 setRetryNonce((current) => current + 1)
@@ -660,8 +1019,12 @@ const ImageWithErrorHandler = memo(
             <>
                 <button
                     type="button"
-                    className="not-prose relative block w-full max-w-md overflow-hidden rounded-xl border bg-background text-left outline-none transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary"
+                    className={cn(
+                        "not-prose relative block w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-background text-left outline-none transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary",
+                        className
+                    )}
                     style={{ aspectRatio: cssAspectRatio }}
+                    aria-label={ariaLabel ?? "Open generated image details"}
                     onClick={() => {
                         if (image) setIsDetailsOpen(true)
                     }}
