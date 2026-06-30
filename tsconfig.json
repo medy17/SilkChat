@@ -12,5 +12,6 @@
             "@/convex/*": ["./convex/*"],
             "@tanstack/react-start/server": ["./src/lib/tanstack-react-start-server-shim.ts"]
         }
-    }
+    },
+    "exclude": ["temp"]
 }
