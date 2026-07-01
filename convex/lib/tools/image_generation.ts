@@ -7,6 +7,12 @@ import {
     getSupportedResolutionsForImageModel,
     validatePreparedImageRequest
 } from "../image_generation/shared"
+import type { ImageResolution } from "../models"
+
+export type ImageGenerationDefaults = {
+    resolution?: ImageResolution
+    variants?: number
+}
 
 const nonEmptyEnum = (values: string[], fallback: string) =>
     z.enum((values.length > 0 ? values : [fallback]) as [string, ...string[]])
@@ -15,10 +21,12 @@ export const PREPARE_IMAGE_GENERATION_TOOL_NAME = "prepareImageGeneration"
 
 export const getPrepareImageGenerationTool = ({
     enabled,
-    references
+    references,
+    defaults
 }: {
     enabled: boolean
     references: PreparedImageReference[]
+    defaults?: ImageGenerationDefaults
 }) => {
     if (!enabled) return {}
 
@@ -44,6 +52,14 @@ export const getPrepareImageGenerationTool = ({
         })
         .join("\n")
 
+    const defaultsSummary = `resolution ${defaults?.resolution ?? "1K"}, variants ${defaults?.variants ?? 1}`
+
+    // One tool instance is constructed per turn, so this closure is turn-scoped. It lets us
+    // reject duplicate cards from models that call the tool repeatedly (one card per option)
+    // instead of setting the variants field on a single call. execute() has no await before
+    // the check-and-add, so it is atomic even if the SDK runs parallel tool calls.
+    const preparedCardKeys = new Set<string>()
+
     return {
         [PREPARE_IMAGE_GENERATION_TOOL_NAME]: tool({
             description: [
@@ -53,6 +69,7 @@ export const getPrepareImageGenerationTool = ({
                 "Use only valid enum inputs supplied by the schema.",
                 "For edits or transformations of an attached/provided/current image, include the relevant referenceIds.",
                 "When multiple SilkScreen variants are available, select the variant-specific reference id the user named. If the intended variant is ambiguous, ask the user which variant to use instead of guessing.",
+                `Leave resolution and variants unset to apply the user's defaults (${defaultsSummary}); an explicit user request for higher fidelity or multiple images overrides them.`,
                 `Available SilkScreen image selections:\n${modelSelectionSummary}`
             ].join("\n"),
             inputSchema: z.object({
@@ -63,7 +80,12 @@ export const getPrepareImageGenerationTool = ({
                     .describe(
                         'A short, human-friendly title for the image (3-6 words), shown as the card heading. E.g. "Greek goddess on the beach".'
                     ),
-                prompt: z.string().min(1).describe("The image generation or edit prompt."),
+                prompt: z
+                    .string()
+                    .min(1)
+                    .describe(
+                        "The prompt for a SINGLE image, written in the singular. For multiple options use the variants field instead — never request several images, a grid, or a count inside this text (each variant re-runs this same prompt independently)."
+                    ),
                 modelId: nonEmptyEnum(modelIds, imageModels[0].id).describe(
                     "The SilkScreen image model to use."
                 ),
@@ -74,15 +96,19 @@ export const getPrepareImageGenerationTool = ({
                     resolutions.length > 0
                         ? nonEmptyEnum(resolutions, "1K")
                               .optional()
-                              .describe("The requested image resolution when supported.")
+                              .describe(
+                                  "The requested image resolution. Leave unset to use the user's default (standard quality). Only set a higher resolution when the user explicitly asks for high fidelity, large prints, or names a resolution."
+                              )
                         : z.undefined().optional(),
                 variants: z
                     .number()
                     .int()
                     .min(1)
                     .max(10)
-                    .default(1)
-                    .describe("How many image variants to prepare."),
+                    .optional()
+                    .describe(
+                        "How many image variants to prepare. Leave unset to use the user's default. Only request multiple when the user explicitly asks for options or variations."
+                    ),
                 referenceIds:
                     referenceIds.length > 0
                         ? z
@@ -118,8 +144,32 @@ export const getPrepareImageGenerationTool = ({
                         aspectRatio,
                         resolution,
                         variants,
-                        referenceCount: selectedReferences.length
+                        referenceCount: selectedReferences.length,
+                        defaults
                     })
+
+                    // Dedupe on everything that defines the image (not variant count): a
+                    // model that wants N copies of the same card is really asking for N
+                    // variants. Distinct prompts/models/references still produce distinct
+                    // cards, so legitimate multi-image turns are unaffected.
+                    const cardKey = [
+                        prompt.trim().replace(/\s+/g, " ").toLowerCase(),
+                        validated.model.id,
+                        validated.aspectRatio,
+                        validated.resolution ?? "",
+                        selectedReferences
+                            .map((reference) => reference.id)
+                            .sort()
+                            .join(",")
+                    ].join("|")
+                    if (preparedCardKeys.has(cardKey)) {
+                        return {
+                            success: false,
+                            code: "duplicate_card",
+                            error: "An identical image card was already prepared this turn. To create multiple variations of the same image, set the `variants` field on a single call — do not call the tool again."
+                        }
+                    }
+                    preparedCardKeys.add(cardKey)
 
                     return {
                         success: true,

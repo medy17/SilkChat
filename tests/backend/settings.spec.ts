@@ -98,6 +98,7 @@ vi.mock("../../convex/schema", () => ({
 }))
 
 vi.mock("../../convex/schema/settings", () => ({
+    ImageGenerationDefaults: {},
     NonSensitiveUserSettings: {},
     StoredModelAbilitySchema: {}
 }))
@@ -639,6 +640,44 @@ describe("settings", () => {
             "settings-id",
             expect.objectContaining({
                 toolCallLimitPerTurn: 7
+            })
+        )
+    })
+
+    it("merges image generation defaults so a partial update preserves the other field", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            searchProvider: "firecrawl",
+            searchIncludeSourcesByDefault: false,
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            toolCallLimitPerTurn: 3,
+            customThemes: [],
+            mcpServers: [],
+            invertSendNewlineBehavior: false,
+            imageGenerationDefaults: { variants: 3 },
+            generalProviders: {
+                supermemory: undefined,
+                firecrawl: undefined,
+                tavily: undefined,
+                brave: undefined,
+                serper: undefined
+            },
+            customization: undefined,
+            onboardingCompleted: false
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            imageGenerationDefaults: { resolution: "2K" }
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                imageGenerationDefaults: { variants: 3, resolution: "2K" }
             })
         )
     })

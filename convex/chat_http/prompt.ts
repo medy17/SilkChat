@@ -182,17 +182,33 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
                       .map((label) => `- ${label}`)
                       .join("\n")
                 : "- None"
+        const imageDefaults = userSettings?.imageGenerationDefaults
+        const imageDefaultsSummary = `resolution ${imageDefaults?.resolution ?? "1K"}, variants ${imageDefaults?.variants ?? 1}`
         layers.push(dedent`
 ## SilkScreen Image Preparation Tool
 You have an internal SilkScreen tool named \`prepareImageGeneration\`.
 - Use it when the user asks to create, generate, draw, render, produce, or edit an image.
-- Always provide a short, human-friendly \`title\` (3-6 words) describing the image; it is shown as the card heading.
-- The tool prepares a pending confirmation card only. It does not generate pixels, submit a fal job, store an asset, or spend credits.
-- A successful \`prepareImageGeneration\` call is a valid final assistant action. After the tool returns a pending card, stop the turn and do not add extra text.
-- The user must press Generate on the card before SilkScreen submits the async job. Do not imply the image exists until a later turn includes a completed result.
+- Provide a short, human-friendly \`title\` (3-6 words) as the card heading.
 - Choose only from the tool's valid enum inputs. Do not invent model ids, aspect ratios, resolutions, variant counts, or reference ids.
-- Whenever the request edits, transforms, restyles, or otherwise builds on an existing image (an attachment, a provided image, or one you generated earlier), you MUST pass its reference id. Passing a reference id is what makes SilkScreen edit that image instead of generating a brand-new one. If the user clearly means an existing image but no matching reference id is available, ask them to attach or select it first.
-- When multiple SilkScreen variants are available, use the variant-specific reference id named by the user, such as "variant 2". If the user asks to edit "that image" or "one of those" and the intended variant is unclear, ask which variant to use instead of guessing.
+
+**Behaviour**
+The tool only prepares a pending confirmation card — it doesn't generate pixels, submit a job, or spend credits. A successful call is a valid final assistant action: stop the turn with no extra text once it returns; the user confirms on the card before anything is generated. Don't imply the image exists until a later turn shows a completed result.
+
+**Resolution & variants**
+Leave both unset by default to use the user's saved defaults (${imageDefaultsSummary}). You are permitted to override when the request implies a different count or fidelity — raise variants for multiple options/variations, raise resolution for print-quality or high-fidelity requests, lower it for drafts/sketches/demos/non-concrete ideas. Infer intent from context; you don't need explicit numbers stated. If ambiguous, stick with the defaults. examples:
+- "generate a logo" → leave unset
+- "a few different logo options" → set variants
+- "quick draft of a logo" → lower resolution
+- "print-ready poster design" → raise resolution
+
+The count belongs in \`variants\`, never in the prompt words. Each variant is an independent generation of the *same* prompt, so the prompt must describe ONE image in the singular — strip "a few", "several", "options", "variations", grids, and numbers out of it even when the user phrases the request that way, or each generation packs multiple designs into a single image.
+- User: "a few types/generations/drafts/variants/designs etc of ACME logo" → \`variants\` 4, prompt: "A logo for ACME — [description]" (one design, singular)
+- Not: \`variants\` 4, prompt: "Create a few variations…" (the plural leaks into the prompt and each of the 4 generations renders several logos at once)
+
+Call \`prepareImageGeneration\` exactly once per distinct image. Never call it repeatedly to produce copies of the same card — that is what the \`variants\` field is for. Two calls are only correct when the images are genuinely different (e.g. a logo and a banner).
+
+**Editing existing images**
+You MUST pass the reference id whenever the request edits, transforms, restyles, or builds on an existing image (an attachment, a provided image, or one you generated earlier) — this is what makes SilkScreen edit that image rather than generating a new one. If the user clearly means an existing image but no reference id is available, ask them to attach or select it first. If multiple variants exist and the user says "that image" or "one of those" without specifying which, ask rather than guess.
 
 Available SilkScreen image selections:
 ${selections}

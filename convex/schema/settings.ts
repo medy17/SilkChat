@@ -46,6 +46,17 @@ export const MCPServerConfig = v.object({
     )
 })
 
+export const ImageResolutionSchema = v.union(v.literal("1K"), v.literal("2K"), v.literal("4K"))
+
+// Per-user defaults for the SilkScreen image tool. These are soft preferences: they
+// fill fields the model leaves empty, are overridden by an explicit model choice, and
+// are always clamped to what the chosen model actually supports (see
+// validatePreparedImageRequest).
+export const ImageGenerationDefaults = v.object({
+    resolution: v.optional(ImageResolutionSchema),
+    variants: v.optional(v.number())
+})
+
 const ModelAbilitySchema = v.union(
     v.literal("reasoning"),
     v.literal("vision"),
@@ -83,6 +94,7 @@ export const NonSensitiveUserSettings = v.object({
     mcpServers: v.optional(v.array(MCPServerConfig)),
     invertSendNewlineBehavior: v.optional(v.boolean()),
     customization: v.optional(UserCustomization),
+    imageGenerationDefaults: v.optional(ImageGenerationDefaults),
     onboardingCompleted: v.optional(v.boolean())
 })
 

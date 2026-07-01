@@ -10,6 +10,7 @@ export const DefaultSettings = (userId: string) => ({
     customThemes: [],
     mcpServers: [],
     invertSendNewlineBehavior: false,
+    imageGenerationDefaults: undefined,
     generalProviders: {
         supermemory: undefined,
         firecrawl: undefined,

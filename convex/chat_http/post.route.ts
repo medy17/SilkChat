@@ -1500,7 +1500,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 : {}
             const internalTools = getPrepareImageGenerationTool({
                 enabled: hasInternalImagePreparationTool,
-                references: imageReferences
+                references: imageReferences,
+                defaults: settings.imageGenerationDefaults
             }) as Record<string, Tool>
             const availableImageSelectionLabels = hasInternalImagePreparationTool
                 ? getSelectableImageModels().map((imageModel) => {

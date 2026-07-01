@@ -75,18 +75,47 @@ export const getSupportedAspectRatiosForImageModel = (model: SharedModel) => {
 export const getSupportedResolutionsForImageModel = (model: SharedModel) =>
     model.supportedImageResolutions ?? []
 
+// Resolution is a magnitude axis (1K < 2K < 4K), so an out-of-range choice is clamped to
+// the nearest supported rung rather than dropped to the floor: an explicit 4K request on a
+// 2K-max model yields 2K (honor the "high fidelity" intent), not 1K.
+const RESOLUTION_ORDER: ImageResolution[] = ["1K", "2K", "4K"]
+const resolutionRank = (resolution: ImageResolution) => RESOLUTION_ORDER.indexOf(resolution)
+
+const clampResolutionToSupported = (
+    desired: ImageResolution,
+    supported: ImageResolution[]
+): ImageResolution => {
+    if (supported.includes(desired)) return desired
+
+    const desiredRank = resolutionRank(desired)
+    const largestSupportedAtOrBelow = [...supported]
+        .filter((candidate) => resolutionRank(candidate) <= desiredRank)
+        .sort((a, b) => resolutionRank(b) - resolutionRank(a))[0]
+    if (largestSupportedAtOrBelow) return largestSupportedAtOrBelow
+
+    // Nothing at or below the request: fall to the smallest the model offers.
+    return [...supported].sort((a, b) => resolutionRank(a) - resolutionRank(b))[0]
+}
+
 export const validatePreparedImageRequest = ({
     modelId,
     aspectRatio,
     resolution,
     variants,
-    referenceCount
+    referenceCount,
+    defaults
 }: {
     modelId: string
     aspectRatio?: string
     resolution?: string
     variants?: number
     referenceCount: number
+    // Soft per-user defaults: fill an empty field, are outranked by an explicit model
+    // choice, and are themselves clamped to the model's capabilities below.
+    defaults?: {
+        resolution?: ImageResolution
+        variants?: number
+    }
 }) => {
     const model = getImageModelById(modelId)
     if (!model) {
@@ -98,38 +127,44 @@ export const validatePreparedImageRequest = ({
         throw new Error("Image model is not available on fal.")
     }
 
-    const selectedAspectRatio = (aspectRatio ||
-        getSupportedAspectRatiosForImageModel(model)[0] ||
-        "1:1") as ImageSize
+    // Aspect ratio, resolution, and variant count are coerced to legal values rather
+    // than rejected: the model selects from a union of every model's enums, so a value
+    // that's valid in general can still be illegal for the specific model picked. Since
+    // this only builds a pending card the user confirms before spending credits,
+    // snapping to the nearest legal value is safer than failing the card. References are
+    // the exception (handled below) — silently dropping a reference would change intent.
     const supportedAspectRatios = getSupportedAspectRatiosForImageModel(model)
-    if (
-        supportedAspectRatios.length > 0 &&
-        !supportedAspectRatios.includes(selectedAspectRatio) &&
-        !isFalImageSizeSupported(descriptor, selectedAspectRatio)
-    ) {
-        throw new Error("Selected aspect ratio is not supported by this model.")
-    }
+    const requestedAspectRatio = (aspectRatio || supportedAspectRatios[0] || "1:1") as ImageSize
+    const aspectRatioSupported =
+        supportedAspectRatios.length === 0 ||
+        supportedAspectRatios.includes(requestedAspectRatio) ||
+        isFalImageSizeSupported(descriptor, requestedAspectRatio)
+    const selectedAspectRatio = aspectRatioSupported
+        ? requestedAspectRatio
+        : ((supportedAspectRatios[0] ?? "1:1") as ImageSize)
 
-    const selectedResolution = resolution as ImageResolution | undefined
     const supportedResolutions = getSupportedResolutionsForImageModel(model)
-    if (
-        selectedResolution &&
-        supportedResolutions.length > 0 &&
-        !supportedResolutions.includes(selectedResolution)
-    ) {
-        throw new Error("Selected resolution is not supported by this model.")
+    const requestedResolution = resolution as ImageResolution | undefined
+    let selectedResolution: ImageResolution | undefined
+    if (supportedResolutions.length === 0) {
+        // Model takes no explicit resolution; leave whatever was passed (usually nothing).
+        selectedResolution = requestedResolution
+    } else {
+        // Precedence: explicit model choice > user default > system default ("1K"). The
+        // winner is then clamped to a supported rung, so every layer stays within limits.
+        const desiredResolution =
+            requestedResolution ?? defaults?.resolution ?? ("1K" as ImageResolution)
+        selectedResolution = clampResolutionToSupported(desiredResolution, supportedResolutions)
     }
 
-    const requestedVariants = Math.max(1, Math.trunc(variants ?? 1))
+    // Same precedence for count: explicit > user default > 1, then clamp to the ceiling.
+    const desiredVariants = variants ?? defaults?.variants ?? 1
+    const requestedVariants = Math.max(1, Math.trunc(desiredVariants))
     const maxVariants = Math.min(
         getImageModelMaxPerMessage(model),
         MAX_TOTAL_IMAGE_GENERATIONS_PER_RUN
     )
-    if (requestedVariants > maxVariants) {
-        throw new Error(
-            `This model supports up to ${maxVariants} image variant${maxVariants === 1 ? "" : "s"}.`
-        )
-    }
+    const selectedVariants = Math.min(requestedVariants, maxVariants)
 
     if (referenceCount > 0 && !model.supportsReferenceImages) {
         throw new Error("Reference images are not supported by this model.")
@@ -146,7 +181,7 @@ export const validatePreparedImageRequest = ({
         descriptor,
         aspectRatio: selectedAspectRatio,
         resolution: selectedResolution,
-        variants: requestedVariants,
+        variants: selectedVariants,
         creditEstimate: getImageModelCreditEstimate(model)
     }
 }

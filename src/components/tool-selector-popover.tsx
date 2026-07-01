@@ -19,6 +19,11 @@ import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+    IMAGE_RESOLUTION_OPTIONS,
+    type ImageDefaultResolution,
+    MAX_DEFAULT_VARIANTS
+} from "@/lib/image-generation-defaults"
 import { useModelStore } from "@/lib/model-store"
 import { SEARCH_PROVIDERS } from "@/lib/models-providers-shared"
 import type { AbilityId } from "@/lib/tool-abilities"
@@ -347,6 +352,21 @@ export const ToolSelectorPopover = memo(
                 : toolAvailability?.web_search.fundingSource === "deployment"
                   ? "server"
                   : "not configured"
+        const imageDefaults = userSettings?.imageGenerationDefaults
+        const defaultImageResolution: ImageDefaultResolution =
+            (imageDefaults?.resolution as ImageDefaultResolution | undefined) ?? "1K"
+        const defaultImageVariants = imageDefaults?.variants ?? 1
+        const updateImageDefaults = async (partial: {
+            resolution?: ImageDefaultResolution
+            variants?: number
+        }) => {
+            try {
+                await updateSettings({ imageGenerationDefaults: partial })
+            } catch (error) {
+                toast.error("Failed to update image defaults")
+                console.error(error)
+            }
+        }
         const updateToolCallLimit = async (nextLimit: number, isInteractive: boolean) => {
             if (!isInteractive) {
                 return
@@ -542,6 +562,93 @@ export const ToolSelectorPopover = memo(
                                         <span className="shrink-0 text-muted-foreground text-xs">
                                             {silkScreenAvailable ? "Auto" : "Unavailable"}
                                         </span>
+                                    </CommandItem>
+
+                                    <CommandItem
+                                        className={cn(
+                                            "flex items-center justify-between gap-3 p-3",
+                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
+                                        )}
+                                    >
+                                        <span className="text-sm">Default resolution</span>
+                                        <div className="flex items-center gap-1">
+                                            {IMAGE_RESOLUTION_OPTIONS.map((option) => {
+                                                const isActive = defaultImageResolution === option
+                                                return (
+                                                    <button
+                                                        key={option}
+                                                        type="button"
+                                                        disabled={!silkScreenAvailable}
+                                                        className={cn(
+                                                            "flex h-6 min-w-9 items-center justify-center rounded border px-2 text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                                                            isActive
+                                                                ? "border-primary bg-primary text-primary-foreground"
+                                                                : "border-border/60 text-foreground hover:bg-muted/60"
+                                                        )}
+                                                        onClick={() => {
+                                                            if (!silkScreenAvailable) return
+                                                            void updateImageDefaults({
+                                                                resolution: option
+                                                            })
+                                                        }}
+                                                    >
+                                                        {option}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </CommandItem>
+
+                                    <CommandItem
+                                        className={cn(
+                                            "flex items-center justify-between gap-3 p-3",
+                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
+                                        )}
+                                    >
+                                        <span className="text-sm">Default variants</span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                disabled={
+                                                    !silkScreenAvailable ||
+                                                    defaultImageVariants <= 1
+                                                }
+                                                onClick={() => {
+                                                    if (!silkScreenAvailable) return
+                                                    void updateImageDefaults({
+                                                        variants: Math.max(
+                                                            1,
+                                                            defaultImageVariants - 1
+                                                        )
+                                                    })
+                                                }}
+                                            >
+                                                -
+                                            </button>
+                                            <div className="min-w-6 text-center text-sm tabular-nums">
+                                                {defaultImageVariants}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                disabled={
+                                                    !silkScreenAvailable ||
+                                                    defaultImageVariants >= MAX_DEFAULT_VARIANTS
+                                                }
+                                                onClick={() => {
+                                                    if (!silkScreenAvailable) return
+                                                    void updateImageDefaults({
+                                                        variants: Math.min(
+                                                            MAX_DEFAULT_VARIANTS,
+                                                            defaultImageVariants + 1
+                                                        )
+                                                    })
+                                                }}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
                                     </CommandItem>
                                 </CommandGroup>
 

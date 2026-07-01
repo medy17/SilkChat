@@ -56,4 +56,52 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("## Tool Budget")
         expect(prompt).toContain("This turn has 5 allocated tool calls maximum.")
     })
+
+    it("states the user's image defaults in the SilkScreen section", () => {
+        const prompt = buildPrompt({
+            enabledTools: [],
+            userSettings: {
+                userId: "user-1",
+                searchProvider: "firecrawl",
+                searchIncludeSourcesByDefault: false,
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                titleGenerationModel: "gemini-3.1-flash-lite-preview",
+                toolCallLimitPerTurn: 3,
+                customThemes: [],
+                mcpServers: [],
+                imageGenerationDefaults: { resolution: "2K", variants: 2 },
+                generalProviders: {
+                    supermemory: undefined,
+                    firecrawl: undefined,
+                    tavily: undefined,
+                    brave: undefined,
+                    serper: undefined
+                },
+                onboardingCompleted: false
+            },
+            imageGenerationTool: {
+                enabled: true,
+                availableImageSelectionLabels: ["some-model (Some Model)"],
+                availableReferenceLabels: []
+            }
+        })
+
+        expect(prompt).toContain("## SilkScreen Image Preparation Tool")
+        expect(prompt).toContain("the user's saved defaults (resolution 2K, variants 2)")
+    })
+
+    it("falls back to 1K / 1 variant in the SilkScreen section when no defaults are set", () => {
+        const prompt = buildPrompt({
+            enabledTools: [],
+            imageGenerationTool: {
+                enabled: true,
+                availableImageSelectionLabels: ["some-model (Some Model)"],
+                availableReferenceLabels: []
+            }
+        })
+
+        expect(prompt).toContain("the user's saved defaults (resolution 1K, variants 1)")
+    })
 })

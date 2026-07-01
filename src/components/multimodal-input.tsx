@@ -44,6 +44,11 @@ import {
     isSvgExtension,
     isSvgMimeType
 } from "@/lib/file_constants"
+import {
+    IMAGE_RESOLUTION_OPTIONS,
+    type ImageDefaultResolution,
+    MAX_DEFAULT_VARIANTS
+} from "@/lib/image-generation-defaults"
 import { useModelStore } from "@/lib/model-store"
 import {
     getAllowedReasoningEffortsForModel,
@@ -449,6 +454,9 @@ function MobileOverflowMenu({
     toolCallLimitPerTurn,
     toolLimitInteractive,
     onSetToolCallLimit,
+    imageDefaultResolution,
+    imageDefaultVariants,
+    onSetImageDefaults,
     onToggleTool,
     onToggleMcpServer,
     onAttachClick
@@ -470,6 +478,12 @@ function MobileOverflowMenu({
     toolCallLimitPerTurn: number
     toolLimitInteractive: boolean
     onSetToolCallLimit: (nextLimit: number) => void
+    imageDefaultResolution: ImageDefaultResolution
+    imageDefaultVariants: number
+    onSetImageDefaults: (partial: {
+        resolution?: ImageDefaultResolution
+        variants?: number
+    }) => void
     onToggleTool: (tool: AbilityId) => void
     onToggleMcpServer: (serverName: string) => void
     onAttachClick: () => void
@@ -715,6 +729,104 @@ function MobileOverflowMenu({
                                         </span>
                                     </button>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {!isImageModel && (
+                        <div className="border-border/60 border-t pt-2">
+                            <p className="px-2.5 pb-1 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-[0.16em]">
+                                Image Defaults
+                            </p>
+                            <div
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm",
+                                    !(modelSupportsVision && modelSupportsFunctionCalling) &&
+                                        "cursor-not-allowed opacity-50"
+                                )}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="truncate">Resolution</div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {IMAGE_RESOLUTION_OPTIONS.map((option) => {
+                                        const isActive = imageDefaultResolution === option
+                                        return (
+                                            <button
+                                                key={option}
+                                                type="button"
+                                                disabled={
+                                                    !(
+                                                        modelSupportsVision &&
+                                                        modelSupportsFunctionCalling
+                                                    )
+                                                }
+                                                className={cn(
+                                                    "flex h-6 min-w-9 items-center justify-center rounded border px-2 text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                                                    isActive
+                                                        ? "border-primary bg-primary text-primary-foreground"
+                                                        : "border-border/60 text-foreground hover:bg-muted/60"
+                                                )}
+                                                onClick={() =>
+                                                    onSetImageDefaults({ resolution: option })
+                                                }
+                                            >
+                                                {option}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                            <div
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm",
+                                    !(modelSupportsVision && modelSupportsFunctionCalling) &&
+                                        "cursor-not-allowed opacity-50"
+                                )}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="truncate">Variants</div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        disabled={
+                                            !(
+                                                modelSupportsVision && modelSupportsFunctionCalling
+                                            ) || imageDefaultVariants <= 1
+                                        }
+                                        onClick={() =>
+                                            onSetImageDefaults({
+                                                variants: Math.max(1, imageDefaultVariants - 1)
+                                            })
+                                        }
+                                    >
+                                        <Minus className="h-3 w-3" />
+                                    </button>
+                                    <span className="min-w-8 text-center font-medium text-foreground text-xs">
+                                        {imageDefaultVariants}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        disabled={
+                                            !(
+                                                modelSupportsVision && modelSupportsFunctionCalling
+                                            ) || imageDefaultVariants >= MAX_DEFAULT_VARIANTS
+                                        }
+                                        onClick={() =>
+                                            onSetImageDefaults({
+                                                variants: Math.min(
+                                                    MAX_DEFAULT_VARIANTS,
+                                                    imageDefaultVariants + 1
+                                                )
+                                            })
+                                        }
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1013,6 +1125,20 @@ export const MultimodalInput = forwardRef<
     const handleToolCallLimitUpdate = useCallback((nextLimit: number) => {
         setPendingToolCallLimitPerTurn(nextLimit)
     }, [])
+
+    const imageDefaults = userSettings.imageGenerationDefaults
+    const imageDefaultResolution: ImageDefaultResolution =
+        (imageDefaults?.resolution as ImageDefaultResolution | undefined) ?? "1K"
+    const imageDefaultVariants = imageDefaults?.variants ?? 1
+    const handleImageDefaultsUpdate = useCallback(
+        (partial: { resolution?: ImageDefaultResolution; variants?: number }) => {
+            void updateUserSettings({ imageGenerationDefaults: partial }).catch((error) => {
+                toast.error("Failed to update image defaults")
+                console.error(error)
+            })
+        },
+        [updateUserSettings]
+    )
 
     const handleSubmit = async () => {
         const inputValue = promptInputRef.current?.getValue() || ""
@@ -1771,6 +1897,9 @@ export const MultimodalInput = forwardRef<
                                     toolCallLimitPerTurn={displayedToolCallLimitPerTurn}
                                     toolLimitInteractive={toolLimitInteractive}
                                     onSetToolCallLimit={handleToolCallLimitUpdate}
+                                    imageDefaultResolution={imageDefaultResolution}
+                                    imageDefaultVariants={imageDefaultVariants}
+                                    onSetImageDefaults={handleImageDefaultsUpdate}
                                     onToggleTool={handleToolToggle}
                                     onToggleMcpServer={handleMcpServerToggle}
                                     onAttachClick={() => uploadInputRef.current?.click()}

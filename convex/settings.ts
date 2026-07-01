@@ -16,7 +16,11 @@ import {
 import { getDeploymentSearchProviderApiKey, resolveToolAvailability } from "./lib/toolkit"
 import type { SearchProviderType } from "./lib/tools/adapters"
 import type { UserSettings } from "./schema"
-import { NonSensitiveUserSettings, StoredModelAbilitySchema } from "./schema/settings"
+import {
+    ImageGenerationDefaults,
+    NonSensitiveUserSettings,
+    StoredModelAbilitySchema
+} from "./schema/settings"
 
 type GeneralProviderUpdate = {
     enabled: boolean
@@ -670,6 +674,7 @@ export const updateUserSettingsPartial = mutation({
         titleGenerationModel: v.optional(v.string()),
         toolCallLimitPerTurn: v.optional(v.number()),
         invertSendNewlineBehavior: v.optional(v.boolean()),
+        imageGenerationDefaults: v.optional(ImageGenerationDefaults),
         customization: v.optional(
             v.object({
                 name: v.optional(v.string()),
@@ -792,6 +797,13 @@ export const updateUserSettingsPartial = mutation({
         }
         if (args.invertSendNewlineBehavior !== undefined) {
             newSettings.invertSendNewlineBehavior = args.invertSendNewlineBehavior
+        }
+        if (args.imageGenerationDefaults !== undefined) {
+            // Merge so a partial update (e.g. only resolution) preserves the other field.
+            newSettings.imageGenerationDefaults = {
+                ...newSettings.imageGenerationDefaults,
+                ...args.imageGenerationDefaults
+            }
         }
         if (args.customization !== undefined) {
             newSettings.customization = {
