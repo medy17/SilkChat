@@ -23,6 +23,9 @@ type CreditAccountRecord = {
     monthlyBasicCredits?: number
     monthlyProCredits?: number
     creditPeriodAnchorAt?: number
+    carriedForPeriodKey?: string
+    carriedBasicUnits?: number
+    carriedProUnits?: number
 }
 
 type UserAccessRecord = {
@@ -143,6 +146,44 @@ const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => (
     isStaff: access?.isStaff ?? false,
     bypassLimits: access?.bypassLimits ?? false
 })
+
+const sumCountedEventUnits = (
+    events: Array<{ counted: boolean; bucket: "basic" | "pro" | "none"; units: number }>,
+    bucket: "basic" | "pro"
+) =>
+    events
+        .filter((event) => event.counted && event.bucket === bucket)
+        .reduce((sum, event) => sum + event.units, 0)
+
+const getCarriedUnitsForPeriod = (
+    account: CreditAccountRecord | null | undefined,
+    periodKey: string,
+    bucket: "basic" | "pro"
+) => {
+    if (account?.carriedForPeriodKey !== periodKey) return 0
+
+    const carriedUnits = bucket === "basic" ? account.carriedBasicUnits : account.carriedProUnits
+    return Math.max(0, carriedUnits ?? 0)
+}
+
+const getEffectiveUsedUnits = ({
+    account,
+    periodKey,
+    events,
+    reservedUnits,
+    bucket
+}: {
+    account: CreditAccountRecord | null | undefined
+    periodKey: string
+    events: Array<{ counted: boolean; bucket: "basic" | "pro" | "none"; units: number }>
+    reservedUnits: number
+    bucket: "basic" | "pro"
+}) =>
+    sumCountedEventUnits(events, bucket) +
+    reservedUnits +
+    getCarriedUnitsForPeriod(account, periodKey, bucket)
+
+const getRemainingUnits = (limit: number, used: number) => Math.max(0, limit - used)
 
 // Returns a record that always carries a period anchor, creating the account row if missing.
 // Callers must use this record (not the stripped getResolvedCreditAccount output) when computing
@@ -289,13 +330,20 @@ export const getMyCreditSummary = query({
             getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "pro")
         ])
 
-        const usedBasicCredits = events
-            .filter((event) => event.counted && event.bucket === "basic")
-            .reduce((sum, event) => sum + event.units, 0)
-        const effectiveBasicCredits = usedBasicCredits + reservedBasicCredits
-        const usedProCredits = events
-            .filter((event) => event.counted && event.bucket === "pro")
-            .reduce((sum, event) => sum + event.units, 0)
+        const effectiveBasicCredits = getEffectiveUsedUnits({
+            account,
+            periodKey: period.periodKey,
+            events,
+            reservedUnits: reservedBasicCredits,
+            bucket: "basic"
+        })
+        const effectiveProCredits = getEffectiveUsedUnits({
+            account,
+            periodKey: period.periodKey,
+            events,
+            reservedUnits: reservedProCredits,
+            bucket: "pro"
+        })
         const internalRequestCount = events.filter((event) => event.counted).length
         const byokRequestCount = events.filter((event) => !event.counted).length
 
@@ -308,15 +356,15 @@ export const getMyCreditSummary = query({
             basic: {
                 limit: resolvedAccount.monthlyBasicCredits,
                 used: effectiveBasicCredits,
-                remaining: Math.max(0, resolvedAccount.monthlyBasicCredits - effectiveBasicCredits)
+                remaining: getRemainingUnits(
+                    resolvedAccount.monthlyBasicCredits,
+                    effectiveBasicCredits
+                )
             },
             pro: {
                 limit: resolvedAccount.monthlyProCredits,
-                used: usedProCredits + reservedProCredits,
-                remaining: Math.max(
-                    0,
-                    resolvedAccount.monthlyProCredits - (usedProCredits + reservedProCredits)
-                )
+                used: effectiveProCredits,
+                remaining: getRemainingUnits(resolvedAccount.monthlyProCredits, effectiveProCredits)
             },
             requestCounts: {
                 internal: internalRequestCount,
@@ -344,16 +392,29 @@ export const getCreditUsageForUserInternal = internalQuery({
             )
             .collect()
 
+        const [reservedBasicCredits, reservedProCredits] = await Promise.all([
+            getOutstandingReservedUnitsForBucket(ctx, userId, period.periodKey, "basic"),
+            getOutstandingReservedUnitsForBucket(ctx, userId, period.periodKey, "pro")
+        ])
+
         return {
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,
-            usedBasicCredits: events
-                .filter((event) => event.counted && event.bucket === "basic")
-                .reduce((sum, event) => sum + event.units, 0),
-            usedProCredits: events
-                .filter((event) => event.counted && event.bucket === "pro")
-                .reduce((sum, event) => sum + event.units, 0),
+            usedBasicCredits: getEffectiveUsedUnits({
+                account,
+                periodKey: period.periodKey,
+                events,
+                reservedUnits: reservedBasicCredits,
+                bucket: "basic"
+            }),
+            usedProCredits: getEffectiveUsedUnits({
+                account,
+                periodKey: period.periodKey,
+                events,
+                reservedUnits: reservedProCredits,
+                bucket: "pro"
+            }),
             requestCounts: {
                 internal: events.filter((event) => event.counted).length,
                 byok: events.filter((event) => !event.counted).length,
@@ -384,21 +445,27 @@ export const getMyCreditUsageSummary = query({
             getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "pro")
         ])
 
-        const usedBasicCredits = usage
-            .filter((event) => event.counted && event.bucket === "basic")
-            .reduce((sum, event) => sum + event.units, 0)
-        const usedProCredits = usage
-            .filter((event) => event.counted && event.bucket === "pro")
-            .reduce((sum, event) => sum + event.units, 0)
         return {
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,
             basic: {
-                used: usedBasicCredits + reservedBasicCredits
+                used: getEffectiveUsedUnits({
+                    account,
+                    periodKey: period.periodKey,
+                    events: usage,
+                    reservedUnits: reservedBasicCredits,
+                    bucket: "basic"
+                })
             },
             pro: {
-                used: usedProCredits + reservedProCredits
+                used: getEffectiveUsedUnits({
+                    account,
+                    periodKey: period.periodKey,
+                    events: usage,
+                    reservedUnits: reservedProCredits,
+                    bucket: "pro"
+                })
             },
             requestCounts: {
                 internal: usage.filter((event) => event.counted).length,
@@ -593,20 +660,24 @@ export const consumeCreditForMessage = internalMutation({
             period.periodKey,
             args.bucket
         )
-        const used = events
-            .filter((event) => event.counted && event.bucket === args.bucket)
-            .reduce((sum, event) => sum + event.units, 0)
+        const used = getEffectiveUsedUnits({
+            account: accountRecord,
+            periodKey: period.periodKey,
+            events,
+            reservedUnits: reservedCredits,
+            bucket: args.bucket
+        })
 
-        if (used + reservedCredits + args.units > limit) {
+        if (used + args.units > limit) {
             return {
                 allowed: false,
                 reason: "quota" as const,
                 bypassed: false,
                 existing: false,
                 bucket: args.bucket,
-                used: used + reservedCredits,
+                used,
                 limit,
-                remaining: Math.max(0, limit - (used + reservedCredits))
+                remaining: getRemainingUnits(limit, used)
             }
         }
 
@@ -696,26 +767,30 @@ export const reserveCreditForMessage = internalMutation({
                     q.eq("userId", args.userId).eq("periodKey", period.periodKey)
                 )
                 .collect()
-            const used = events
-                .filter((event) => event.counted && event.bucket === args.bucket)
-                .reduce((sum, event) => sum + event.units, 0)
             const reserved = await getOutstandingReservedUnitsForBucket(
                 ctx,
                 args.userId,
                 period.periodKey,
                 args.bucket
             )
+            const used = getEffectiveUsedUnits({
+                account: accountRecord,
+                periodKey: period.periodKey,
+                events,
+                reservedUnits: reserved,
+                bucket: args.bucket
+            })
 
-            if (used + reserved + args.units > limit) {
+            if (used + args.units > limit) {
                 return {
                     allowed: false,
                     reason: "quota" as const,
                     bypassed: false,
                     existing: false,
                     bucket: args.bucket,
-                    used: used + reserved,
+                    used,
                     limit,
-                    remaining: Math.max(0, limit - (used + reserved))
+                    remaining: getRemainingUnits(limit, used)
                 }
             }
         }
@@ -880,29 +955,27 @@ export const reserveToolCallBudget = internalMutation({
                     q.eq("userId", args.userId).eq("periodKey", period.periodKey)
                 )
                 .collect()
-            const usedBasicCredits = events
-                .filter((event) => event.counted && event.bucket === "basic")
-                .reduce((sum, event) => sum + event.units, 0)
             const reservedBasicCredits = await getOutstandingReservedUnitsForBucket(
                 ctx,
                 args.userId,
                 period.periodKey,
                 "basic"
             )
+            const usedBasicCredits = getEffectiveUsedUnits({
+                account: accountRecord,
+                periodKey: period.periodKey,
+                events,
+                reservedUnits: reservedBasicCredits,
+                bucket: "basic"
+            })
 
-            if (
-                usedBasicCredits + reservedBasicCredits + args.reservedBasicCredits >
-                account.monthlyBasicCredits
-            ) {
+            if (usedBasicCredits + args.reservedBasicCredits > account.monthlyBasicCredits) {
                 return {
                     allowed: false,
                     reason: "quota" as const,
-                    used: usedBasicCredits + reservedBasicCredits,
+                    used: usedBasicCredits,
                     limit: account.monthlyBasicCredits,
-                    remaining: Math.max(
-                        0,
-                        account.monthlyBasicCredits - (usedBasicCredits + reservedBasicCredits)
-                    )
+                    remaining: getRemainingUnits(account.monthlyBasicCredits, usedBasicCredits)
                 }
             }
         }

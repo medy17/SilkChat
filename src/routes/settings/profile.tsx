@@ -1,11 +1,22 @@
 import { PrototypeCreditsCard } from "@/components/credits/prototype-credits"
+import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { api } from "@/convex/_generated/api"
 import {
     useListSessions,
     useRevokeOtherSessions,
@@ -18,6 +29,7 @@ import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { queryClient } from "@/providers"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
+import { useMutation as useConvexMutation, useQuery } from "convex/react"
 import {
     Edit,
     Globe,
@@ -27,6 +39,7 @@ import {
     Save,
     Smartphone,
     Tablet,
+    Trash2,
     UserX,
     X
 } from "lucide-react"
@@ -54,12 +67,22 @@ function LegacyProfileRedirect() {
 export function AccountSettingsContent() {
     const { data: session, isLoading: sessionLoading } = useSession()
     const { data: sessions = [], isLoading: sessionsLoading } = useListSessions()
+    const deletionRequest = useQuery(
+        api.account_deletion.getMyAccountDeletionRequest,
+        session?.user?.id ? {} : "skip"
+    )
+    const requestAccountDeletion = useConvexMutation(api.account_deletion.requestMyAccountDeletion)
     const updateUser = useUpdateUser()
     const revokeSession = useRevokeSession()
     const revokeOtherSessions = useRevokeOtherSessions()
     const router = useRouter()
     const [isEditingName, setIsEditingName] = useState(false)
     const [nameValue, setNameValue] = useState("")
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [deleteConfirmationPhrase, setDeleteConfirmationPhrase] = useState("")
+    const [acceptPermanentErasure, setAcceptPermanentErasure] = useState(false)
+    const [acceptFraudRetention, setAcceptFraudRetention] = useState(false)
+    const [isRequestingDeletion, setIsRequestingDeletion] = useState(false)
     const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
     const {
         summary: prototypeCreditSummary,
@@ -148,6 +171,55 @@ export function AccountSettingsContent() {
             console.error("Error revoking other sessions:", error)
         }
     }, [revokeOtherSessions])
+
+    const resetDeleteDialog = useCallback(() => {
+        setDeleteConfirmationPhrase("")
+        setAcceptPermanentErasure(false)
+        setAcceptFraudRetention(false)
+    }, [])
+
+    const handleDeleteDialogOpenChange = useCallback(
+        (open: boolean) => {
+            setDeleteDialogOpen(open)
+            if (!open) {
+                resetDeleteDialog()
+            }
+        },
+        [resetDeleteDialog]
+    )
+
+    const canRequestDeletion =
+        deleteConfirmationPhrase === "Delete my account" &&
+        acceptPermanentErasure &&
+        acceptFraudRetention &&
+        !isRequestingDeletion
+
+    const handleRequestAccountDeletion = useCallback(async () => {
+        if (!canRequestDeletion) return
+
+        setIsRequestingDeletion(true)
+        try {
+            await requestAccountDeletion({
+                confirmationPhrase: deleteConfirmationPhrase,
+                consentPermanentErasureAccepted: acceptPermanentErasure,
+                consentFraudPreventionRetentionAccepted: acceptFraudRetention
+            })
+            toast.success("Account deletion request recorded")
+            handleDeleteDialogOpenChange(false)
+        } catch (error) {
+            toast.error("Failed to request account deletion")
+            console.error("Error requesting account deletion:", error)
+        } finally {
+            setIsRequestingDeletion(false)
+        }
+    }, [
+        acceptFraudRetention,
+        acceptPermanentErasure,
+        canRequestDeletion,
+        deleteConfirmationPhrase,
+        handleDeleteDialogOpenChange,
+        requestAccountDeletion
+    ])
 
     const getDeviceInfo = useCallback((userAgent: string | null | undefined) => {
         if (!userAgent) {
@@ -424,6 +496,127 @@ export function AccountSettingsContent() {
                     )}
                 </CardContent>
             </Card>
+
+            <Card className="border-destructive/40">
+                <CardHeader>
+                    <CardTitle>Danger Zone</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1">
+                            <div className="font-medium text-sm">Delete account</div>
+                            <div className="max-w-2xl text-muted-foreground text-sm">
+                                Permanently delete your SilkChat account and all associated data.
+                                This action cannot be undone.
+                            </div>
+                            {deletionRequest?.status && (
+                                <div className="text-destructive text-xs">
+                                    Deletion request status: {deletionRequest.status}
+                                </div>
+                            )}
+                        </div>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            className="w-full shrink-0 rounded-[var(--radius-md)] sm:w-auto"
+                            onClick={() => setDeleteDialogOpen(true)}
+                            disabled={
+                                deletionRequest?.status === "pending" ||
+                                deletionRequest?.status === "purging"
+                            }
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete Account
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
+                <AlertDialogContent className="rounded-[var(--radius-xl)]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive text-xl">
+                            Are you sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <p>
+                                This will permanently delete your SilkChat account and associated
+                                user data. This action cannot be undone.
+                            </p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="delete-confirmation-phrase">Confirmation phrase</Label>
+                            <Input
+                                id="delete-confirmation-phrase"
+                                value={deleteConfirmationPhrase}
+                                onChange={(event) =>
+                                    setDeleteConfirmationPhrase(event.target.value)
+                                }
+                                placeholder="Type 'Delete my account' to confirm"
+                                autoComplete="off"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <label
+                                htmlFor="delete-permanent-erasure-consent"
+                                className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
+                            >
+                                <Checkbox
+                                    id="delete-permanent-erasure-consent"
+                                    checked={acceptPermanentErasure}
+                                    onCheckedChange={(checked) =>
+                                        setAcceptPermanentErasure(checked === true)
+                                    }
+                                    className="mt-0.5 rounded-[var(--radius-sm)]"
+                                />
+                                <span>
+                                    I understand that deleting my SilkChat account will permanently
+                                    erase my user data with no recovery guarantee.
+                                </span>
+                            </label>
+
+                            <label
+                                htmlFor="delete-fraud-retention-consent"
+                                className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
+                            >
+                                <Checkbox
+                                    id="delete-fraud-retention-consent"
+                                    checked={acceptFraudRetention}
+                                    onCheckedChange={(checked) =>
+                                        setAcceptFraudRetention(checked === true)
+                                    }
+                                    className="mt-0.5 rounded-[var(--radius-sm)]"
+                                />
+                                <span>
+                                    I understand SilkChat may retain limited records where required
+                                    for fraud prevention, security, legal compliance, or abuse
+                                    prevention.
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isRequestingDeletion}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            className="rounded-[var(--radius-md)]"
+                            disabled={!canRequestDeletion}
+                            onClick={handleRequestAccountDeletion}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            {isRequestingDeletion ? "Requesting..." : "Request deletion"}
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

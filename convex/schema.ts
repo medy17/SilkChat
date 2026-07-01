@@ -1,6 +1,11 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
 import { UserAccess } from "./schema/access"
+import {
+    AccountDeletionJob,
+    BillingSubscriptionLink,
+    IdentitySuppression
+} from "./schema/account_deletion"
 import { LemonSqueezySubscription, LemonSqueezyWebhookEvent } from "./schema/billing"
 import { PrototypeCreditReservation } from "./schema/credit_reservations"
 import {
@@ -27,6 +32,9 @@ export {
     ModelProviderMetadata,
     SharedThread,
     UsageEvent,
+    IdentitySuppression,
+    BillingSubscriptionLink,
+    AccountDeletionJob,
     PrototypeCreditAccount,
     PrototypeCreditReservation,
     PrototypeCreditEvent,
@@ -145,6 +153,15 @@ export default defineSchema({
         count: v.number(),
         lastRequest: v.number()
     }).index("key", ["key"]),
+    identitySuppressions: defineTable(IdentitySuppression)
+        .index("byGoogleSubHash", ["googleSubHash"])
+        .index("byEmailHash", ["emailHash"])
+        .index("bySubscriptionId", ["lemonSqueezySubscriptionId"])
+        .index("byCustomerId", ["lemonSqueezyCustomerId"]),
+    billingSubscriptionLinks: defineTable(BillingSubscriptionLink)
+        .index("bySubscriptionId", ["lemonSqueezySubscriptionId"])
+        .index("byCustomerId", ["lemonSqueezyCustomerId"]),
+    accountDeletionJobs: defineTable(AccountDeletionJob).index("byUser", ["userId"]),
     threads: defineTable(Thread)
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"])

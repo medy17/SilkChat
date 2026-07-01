@@ -446,6 +446,92 @@ describe("credits module", () => {
         })
     })
 
+    it("applies carried basic usage when reporting the matching credit period", async () => {
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const periodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: fixedNow,
+                anchorTimestamp: fixedNow
+            })
+        )
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+
+        try {
+            const result = await getMyCreditSummaryHandler.handler(
+                createCtx({
+                    account: {
+                        userId: "user-1",
+                        enabled: true,
+                        plan: "free",
+                        monthlyBasicCredits: 20,
+                        monthlyProCredits: 0,
+                        creditPeriodAnchorAt: fixedNow,
+                        carriedForPeriodKey: periodKey,
+                        carriedBasicUnits: 7
+                    },
+                    events: [{ counted: true, bucket: "basic", units: 4 }]
+                }),
+                {}
+            )
+
+            expect(result.basic).toMatchObject({
+                used: 11,
+                remaining: 9
+            })
+        } finally {
+            nowSpy.mockRestore()
+        }
+    })
+
+    it("uses carried usage when enforcing counted model quota", async () => {
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const periodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: fixedNow,
+                anchorTimestamp: fixedNow
+            })
+        )
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+
+        try {
+            const result = await consumeCreditForMessageHandler.handler(
+                createCtx({
+                    account: {
+                        userId: "user-1",
+                        enabled: true,
+                        plan: "free",
+                        monthlyBasicCredits: 20,
+                        monthlyProCredits: 0,
+                        creditPeriodAnchorAt: fixedNow,
+                        carriedForPeriodKey: periodKey,
+                        carriedBasicUnits: 20
+                    }
+                }),
+                {
+                    userId: "user-1",
+                    messageId: "assistant-1",
+                    messageKey: "assistant-1:model",
+                    modelId: "shared-text",
+                    providerSource: "internal",
+                    feature: "chat",
+                    bucket: "basic",
+                    units: 1,
+                    counted: true,
+                    requiredPlan: "free"
+                }
+            )
+
+            expect(result).toMatchObject({
+                allowed: false,
+                reason: "quota",
+                used: 20,
+                remaining: 0
+            })
+        } finally {
+            nowSpy.mockRestore()
+        }
+    })
+
     it("includes active reserved model credits in the reported usage", async () => {
         const result = await getMyCreditSummaryHandler.handler(
             createCtx({

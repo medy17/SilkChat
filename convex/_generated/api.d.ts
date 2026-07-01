@@ -9,6 +9,7 @@
  */
 
 import type * as aggregates from "../aggregates.js";
+import type * as account_deletion from "../account_deletion.js";
 import type * as analytics from "../analytics.js";
 import type * as attachments from "../attachments.js";
 import type * as auth from "../auth.js";
@@ -118,6 +119,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   aggregates: typeof aggregates;
+  account_deletion: typeof account_deletion;
   analytics: typeof analytics;
   attachments: typeof attachments;
   auth: typeof auth;

@@ -44,7 +44,7 @@ const createSubscriptionPayload = (overrides: Record<string, unknown> = {}) => (
         webhook_id: "webhook-1",
         custom_data: {
             user_id: "user-1"
-        }
+        } as Record<string, unknown>
     },
     data: {
         id: "sub-1",
@@ -66,6 +66,8 @@ const createCtx = (options?: {
     existingEvent?: Record<string, unknown> | null
     existingSubscription?: Record<string, unknown> | null
     existingAccount?: Record<string, unknown> | null
+    existingLink?: Record<string, unknown> | null
+    existingSuppression?: Record<string, unknown> | null
 }) =>
     ({
         db: {
@@ -80,7 +82,11 @@ const createCtx = (options?: {
                                   ? (options?.existingSubscription ?? null)
                                   : table === "prototypeCreditAccounts"
                                     ? (options?.existingAccount ?? null)
-                                    : null
+                                    : table === "billingSubscriptionLinks"
+                                      ? (options?.existingLink ?? null)
+                                      : table === "identitySuppressions"
+                                        ? (options?.existingSuppression ?? null)
+                                        : null
                         )
                 })
             })),
@@ -170,6 +176,15 @@ describe("Lemon Squeezy billing", () => {
             })
         )
         expect(ctx.db.insert).toHaveBeenCalledWith(
+            "billingSubscriptionLinks",
+            expect.objectContaining({
+                liveUserId: "user-1",
+                lemonSqueezySubscriptionId: "sub-1",
+                status: "active",
+                plan: "pro"
+            })
+        )
+        expect(ctx.db.insert).toHaveBeenCalledWith(
             "lemonSqueezySubscriptions",
             expect.objectContaining({
                 userId: "user-1",
@@ -188,6 +203,93 @@ describe("Lemon Squeezy billing", () => {
                 monthlyProCredits: 1
             })
         )
+    })
+
+    it("resolves stale webhook custom data through the subscription link", async () => {
+        const ctx = createCtx({
+            existingLink: {
+                _id: "link-1",
+                liveUserId: "user-new"
+            },
+            existingSubscription: {
+                _id: "sub-record-1",
+                userId: "user-old"
+            },
+            existingAccount: {
+                _id: "account-1",
+                enabled: true,
+                plan: "free"
+            }
+        })
+
+        const result = await recordLemonSqueezyWebhookHandler.handler(ctx, {
+            payload: createSubscriptionPayload()
+        })
+
+        expect(result).toMatchObject({
+            status: "processed",
+            plan: "pro"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "link-1",
+            expect.objectContaining({
+                liveUserId: "user-new",
+                lemonSqueezySubscriptionId: "sub-1"
+            })
+        )
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "sub-record-1",
+            expect.objectContaining({
+                userId: "user-new",
+                lemonSqueezySubscriptionId: "sub-1"
+            })
+        )
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "account-1",
+            expect.objectContaining({
+                userId: "user-new",
+                plan: "pro"
+            })
+        )
+    })
+
+    it("records refunded deleted-user subscriptions against the tombstone", async () => {
+        const ctx = createCtx({
+            existingSuppression: {
+                _id: "suppression-1",
+                refundCount: 2
+            }
+        })
+
+        const result = await recordLemonSqueezyWebhookHandler.handler(ctx, {
+            payload: {
+                ...createSubscriptionPayload({ status: "cancelled" }),
+                meta: {
+                    event_name: "subscription_payment_refunded",
+                    webhook_id: "webhook-refunded",
+                    custom_data: {
+                        user_id: "deleted-user"
+                    }
+                }
+            }
+        })
+
+        expect(result).toMatchObject({
+            status: "processed_tombstone",
+            eventId: "webhook-refunded",
+            plan: "pro"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "suppression-1",
+            expect.objectContaining({
+                refundCount: 3
+            })
+        )
+        expect(ctx.db.insert).not.toHaveBeenCalledWith(
+            "lemonSqueezySubscriptions",
+            expect.anything()
+        )
+        expect(ctx.db.insert).not.toHaveBeenCalledWith("prototypeCreditAccounts", expect.anything())
     })
 
     it("does not reapply a webhook event that has already been processed", async () => {

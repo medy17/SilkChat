@@ -20,6 +20,20 @@ const getSubscription = async (ctx: MutationCtx, subscriptionId: string) => {
         .first()
 }
 
+const getSubscriptionLink = async (ctx: MutationCtx, subscriptionId: string) => {
+    return await ctx.db
+        .query("billingSubscriptionLinks")
+        .withIndex("bySubscriptionId", (q) => q.eq("lemonSqueezySubscriptionId", subscriptionId))
+        .first()
+}
+
+const getSuppressionBySubscriptionId = async (ctx: MutationCtx, subscriptionId: string) => {
+    return await ctx.db
+        .query("identitySuppressions")
+        .withIndex("bySubscriptionId", (q) => q.eq("lemonSqueezySubscriptionId", subscriptionId))
+        .first()
+}
+
 export const getMyBillingSummary = query({
     args: {},
     handler: async (ctx) => {
@@ -89,7 +103,6 @@ export const recordLemonSqueezyWebhook = internalMutation({
 
         if (
             !isLemonSqueezySubscriptionEvent(summary.eventName) ||
-            !summary.userId ||
             !summary.subscriptionId ||
             !summary.plan ||
             !summary.status
@@ -97,9 +110,56 @@ export const recordLemonSqueezyWebhook = internalMutation({
             return { status: "ignored" as const, eventId: summary.eventId }
         }
 
+        const [existingLink, suppression] = await Promise.all([
+            getSubscriptionLink(ctx, summary.subscriptionId),
+            getSuppressionBySubscriptionId(ctx, summary.subscriptionId)
+        ])
+        const resolvedUserId =
+            existingLink?.liveUserId ??
+            suppression?.relinkedToUserId ??
+            (suppression ? undefined : summary.userId)
+        const suppressionId = existingLink?.suppressionId ?? suppression?._id
+        const nextLink = {
+            lemonSqueezySubscriptionId: summary.subscriptionId,
+            lemonSqueezyCustomerId: summary.customerId,
+            liveUserId: resolvedUserId,
+            suppressionId,
+            status: summary.status,
+            plan: summary.plan,
+            renewsAt: summary.renewsAt,
+            endsAt: summary.endsAt,
+            trialEndsAt: summary.trialEndsAt,
+            lastEventId: summary.eventId,
+            updatedAt: now
+        }
+
+        if (existingLink?._id) {
+            await ctx.db.patch(existingLink._id, nextLink)
+        } else {
+            await ctx.db.insert("billingSubscriptionLinks", nextLink)
+        }
+
+        if (!resolvedUserId) {
+            if (summary.eventName === "subscription_payment_refunded" && suppression?._id) {
+                await ctx.db.patch(suppression._id, {
+                    refundCount: (suppression.refundCount ?? 0) + 1,
+                    proEntitlementEndsAt: now,
+                    lastDeletedAt: now
+                })
+
+                return {
+                    status: "processed_tombstone" as const,
+                    eventId: summary.eventId,
+                    plan: summary.plan
+                }
+            }
+
+            return { status: "linked" as const, eventId: summary.eventId, plan: summary.plan }
+        }
+
         const existingSubscription = await getSubscription(ctx, summary.subscriptionId)
         const nextSubscription = {
-            userId: summary.userId,
+            userId: resolvedUserId,
             lemonSqueezySubscriptionId: summary.subscriptionId,
             lemonSqueezyCustomerId: summary.customerId,
             lemonSqueezyOrderId: summary.orderId,
@@ -120,9 +180,9 @@ export const recordLemonSqueezyWebhook = internalMutation({
             await ctx.db.insert("lemonSqueezySubscriptions", nextSubscription)
         }
 
-        const existingAccount = await getCreditAccount(ctx, summary.userId)
+        const existingAccount = await getCreditAccount(ctx, resolvedUserId)
         const nextAccount = {
-            userId: summary.userId,
+            userId: resolvedUserId,
             enabled: existingAccount?.enabled ?? true,
             plan: summary.plan,
             monthlyBasicCredits: existingAccount?.monthlyBasicCredits,

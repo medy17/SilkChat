@@ -26,6 +26,9 @@ export const PrototypeCreditAccount = v.object({
     monthlyBasicCredits: v.optional(v.number()),
     monthlyProCredits: v.optional(v.number()),
     creditPeriodAnchorAt: v.optional(v.number()),
+    carriedForPeriodKey: v.optional(v.string()),
+    carriedBasicUnits: v.optional(v.number()),
+    carriedProUnits: v.optional(v.number()),
     updatedAt: v.number()
 })
 
