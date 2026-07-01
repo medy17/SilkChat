@@ -292,7 +292,30 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="7" title="Right of Withdrawal (EU Customers)">
+                <TermsSection number="7" title="Refund Policy">
+                    <p className="text-muted-foreground">
+                        All purchases, subscription payments, and credit purchases made through the
+                        Services are <strong>final and non-refundable</strong>, except where
+                        non-waivable consumer rights apply under applicable law.
+                    </p>
+                    <TermsList>
+                        <TermsItem>
+                            We do not provide refunds or credits for partial subscription periods,
+                            unused credits, downgrades, or voluntary cancellation.
+                        </TermsItem>
+                        <TermsItem>
+                            You may cancel your subscription at any time; cancellation stops future
+                            billing but does not entitle you to a refund for the current or any
+                            prior billing period.
+                        </TermsItem>
+                        <TermsItem>
+                            If we terminate or suspend your access for violating these Terms, you
+                            are not entitled to a refund for any unused portion of a paid plan.
+                        </TermsItem>
+                    </TermsList>
+                </TermsSection>
+
+                <TermsSection number="8" title="Right of Withdrawal (EU Customers)">
                     <p className="text-muted-foreground">
                         Except where non-waivable consumer rights apply under applicable law, we do
                         not offer refunds, money-back guarantees, or trial periods for paid digital
@@ -300,7 +323,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="8" title="Privacy">
+                <TermsSection number="9" title="Privacy">
                     <TermsList>
                         <TermsItem>
                             Your use of the Services is also subject to our Privacy Policy.
@@ -324,7 +347,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="9" title="Modification and Termination of Services">
+                <TermsSection number="10" title="Modification and Termination of Services">
                     <TermsList>
                         <TermsItem>
                             We may modify, suspend, or discontinue all or part of the Services from
@@ -353,7 +376,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="10" title="Beta Services">
+                <TermsSection number="11" title="Beta Services">
                     <TermsList>
                         <TermsItem>
                             We may offer alpha, beta, preview, early-access, or evaluation features
@@ -374,7 +397,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="11" title="Changes to the Terms">
+                <TermsSection number="12" title="Changes to the Terms">
                     <TermsList>
                         <TermsItem>We may amend or update these Terms from time to time.</TermsItem>
                         <TermsItem>
@@ -388,7 +411,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="12" title="Disclaimer of Warranty">
+                <TermsSection number="13" title="Disclaimer of Warranty">
                     <p className="text-muted-foreground">
                         THE SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE." TO THE MAXIMUM EXTENT
                         PERMITTED BY APPLICABLE LAW, WE DISCLAIM ALL WARRANTIES, WHETHER EXPRESS,
@@ -403,7 +426,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="13" title="Limitation of Liability">
+                <TermsSection number="14" title="Limitation of Liability">
                     <p className="text-muted-foreground">
                         TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, WE WILL NOT BE LIABLE FOR
                         ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE
@@ -423,7 +446,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="14" title="Indemnification">
+                <TermsSection number="15" title="Indemnification">
                     <p className="text-muted-foreground">
                         You agree to defend, indemnify, and hold harmless {COMPANY_NAME}, its
                         affiliates, officers, directors, employees, contractors, licensors, and
@@ -434,7 +457,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="15" title="Copyright Policy">
+                <TermsSection number="16" title="Copyright Policy">
                     <p className="text-muted-foreground">
                         We respect intellectual property rights and expect users to do the same. If
                         you believe material available through the Services infringes your
@@ -466,7 +489,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="16" title="Third-Party Content and Materials">
+                <TermsSection number="17" title="Third-Party Content and Materials">
                     <TermsList>
                         <TermsItem>
                             The Services may allow you to access third-party websites, models, APIs,
@@ -484,7 +507,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="17" title="Third-Party Software">
+                <TermsSection number="18" title="Third-Party Software">
                     <p className="text-muted-foreground">
                         The Services may include or rely on third-party software, libraries, models,
                         or open-source components. Those components may be governed by their own
@@ -493,7 +516,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="18" title="Feedback">
+                <TermsSection number="19" title="Feedback">
                     <p className="text-muted-foreground">
                         If you submit feedback, ideas, suggestions, or proposals regarding the
                         Services, you agree that we may use them without restriction and without any
@@ -502,7 +525,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="19" title="Disputes">
+                <TermsSection number="20" title="Disputes">
                     <p className="text-muted-foreground">
                         If you have a dispute, claim, or legal notice relating to the Services or
                         these Terms, you must initiate it by contacting{" "}
@@ -511,7 +534,7 @@ function TermsOfServicePage() {
                     </p>
                 </TermsSection>
 
-                <TermsSection number="20" title="Miscellaneous">
+                <TermsSection number="21" title="Miscellaneous">
                     <TermsList>
                         <TermsItem>
                             These Terms, together with our Privacy Policy and any additional terms
@@ -533,7 +556,7 @@ function TermsOfServicePage() {
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="21" title="Contact Us">
+                <TermsSection number="22" title="Contact Us">
                     <p className="text-muted-foreground">
                         If you have questions, complaints, claims, or legal notices relating to the
                         Services or these Terms, contact:
