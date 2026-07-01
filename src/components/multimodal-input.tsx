@@ -60,6 +60,7 @@ import {
     isInstantReasoningEffortForModel
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
+import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
 import { appendQuotedSelection } from "@/lib/quote-selection"
 import { useSharedModels } from "@/lib/shared-models"
 import type { AbilityId } from "@/lib/tool-abilities"
@@ -935,6 +936,10 @@ export const MultimodalInput = forwardRef<
     const { chatWidthState } = useChatWidthStore()
 
     const isLoading = status === "streaming"
+    const isImageGenerationPending = useMemo(() => hasPendingImageGeneration(messages), [messages])
+    // One-shot escape hatch: "Send anyway" on the gate toast arms this for a single
+    // submit so a generation stuck in a non-terminal status can never lock the thread.
+    const imageGenerationGateBypassRef = useRef(false)
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const promptInputRef = useRef<PromptInputRef>(null)
     const composerViewportRef = useRef<HTMLDivElement>(null)
@@ -1153,6 +1158,20 @@ export const MultimodalInput = forwardRef<
             promptInputRef.current?.focus()
             return
         }
+
+        if (isImageGenerationPending && !imageGenerationGateBypassRef.current) {
+            toast.warning("An image is still generating in this chat.", {
+                action: {
+                    label: "Send anyway",
+                    onClick: () => {
+                        imageGenerationGateBypassRef.current = true
+                        void handleSubmit()
+                    }
+                }
+            })
+            return
+        }
+        imageGenerationGateBypassRef.current = false
 
         const attachmentValidationErrors = uploadedFiles
             .map((file) =>
@@ -1909,11 +1928,13 @@ export const MultimodalInput = forwardRef<
 
                         <PromptInputAction
                             tooltip={
-                                voiceInputEnabled && isInputEmpty && !isLoading
-                                    ? "Voice input"
-                                    : isLoading
-                                      ? "Stop generation"
-                                      : "Send message"
+                                isImageGenerationPending && !isLoading
+                                    ? "Wait for image generation to finish"
+                                    : voiceInputEnabled && isInputEmpty && !isLoading
+                                      ? "Voice input"
+                                      : isLoading
+                                        ? "Stop generation"
+                                        : "Send message"
                             }
                         >
                             <Button
