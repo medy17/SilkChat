@@ -11,10 +11,10 @@ import { action } from "./_generated/server"
 import { r2 } from "./attachments"
 import { resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
+import { resolveFalReferenceImagesForProvider } from "./lib/image_generation/reference_images_node"
 import {
     type ImageReferenceSource,
     createImageCreditEventKey,
-    resolveFalReferenceImages,
     resolveGeneratedImageReferenceSource,
     validatePreparedImageRequest
 } from "./lib/image_generation/shared"
@@ -344,7 +344,11 @@ const submitImageGenerationJob = async (
 
     try {
         fal.config({ credentials: getFalKey() })
-        const referenceImages = await resolveFalReferenceImages(ctx, userId, referenceSources)
+        const referenceImages = await resolveFalReferenceImagesForProvider(
+            ctx,
+            userId,
+            referenceSources
+        )
         const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceImages.length)
         const input = buildFalImageInput(validated.descriptor, {
             prompt,

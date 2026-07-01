@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-model-lifecycle-migration"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
+import { prepareChatAttachmentForUpload } from "@/lib/chat-attachments"
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio,
@@ -700,7 +701,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const uploadedKeys: string[] = []
 
         for (const reference of currentReferences) {
-            const hash = reference.hash ?? (await getFileSha256(reference.file))
+            const preparedFile = await prepareChatAttachmentForUpload(reference.file)
+            const hash = reference.hash ?? (await getFileSha256(preparedFile))
             const existingKey = reference.storageKey ?? hashToStorageKey.get(hash)
 
             if (existingKey) {
@@ -722,8 +724,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
 
             const formData = new FormData()
-            formData.append("file", reference.file)
-            formData.append("fileName", reference.file.name)
+            formData.append("file", preparedFile)
+            formData.append("fileName", preparedFile.name)
 
             const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload/reference`, {
                 method: "POST",
@@ -740,7 +742,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
             if (!response.ok || !payload.key) {
                 throw new Error(
-                    payload.error || `Failed to upload reference image "${reference.file.name}"`
+                    payload.error || `Failed to upload reference image "${preparedFile.name}"`
                 )
             }
 

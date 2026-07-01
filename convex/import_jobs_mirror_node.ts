@@ -14,6 +14,7 @@ import {
 } from "@/lib/file_constants"
 import type { ActionCtx } from "./_generated/server"
 import { r2 } from "./attachments"
+import { compressImageBytesToWebpLimit } from "./lib/image_compression_node"
 import { ensureAttachmentFilename } from "./lib/thread_import_core"
 
 const sanitizeKeySegment = (name: string) =>
@@ -28,19 +29,6 @@ const sanitizeKeySegment = (name: string) =>
         .replace(/^-|-$/g, "")
         .slice(0, 120) || "file"
 
-let sharpPromise: Promise<typeof import("sharp")> | null = null
-
-const getSharp = () => {
-    if (!sharpPromise) {
-        const resolved = import.meta.resolve?.("sharp")
-        sharpPromise = resolved
-            ? (import(resolved) as Promise<typeof import("sharp")>)
-            : (Function("return import('sharp')")() as Promise<typeof import("sharp")>)
-    }
-
-    return sharpPromise
-}
-
 const compressImageToLimit = async ({
     bytes,
     fileName
@@ -48,46 +36,19 @@ const compressImageToLimit = async ({
     bytes: Uint8Array
     fileName: string
 }) => {
-    const sharp = await getSharp()
-    const metadata = await sharp(bytes, { failOn: "none" }).metadata()
-    const width = metadata.width ?? 0
-    const height = metadata.height ?? 0
-    const largestSide = Math.max(width, height)
+    const compressed = await compressImageBytesToWebpLimit({
+        bytes,
+        maxBytes: MAX_FILE_SIZE,
+        steps: IMAGE_COMPRESSION_STEPS,
+        errorLabel: "image"
+    })
+    const fileNameBase = fileName.replace(/\.[^.]+$/, "") || "attachment"
 
-    for (const step of IMAGE_COMPRESSION_STEPS) {
-        const resize =
-            largestSide > 0
-                ? {
-                      width:
-                          width > height
-                              ? Math.max(1, Math.floor(width * (step.maxDimension / largestSide)))
-                              : undefined,
-                      height:
-                          height >= width
-                              ? Math.max(1, Math.floor(height * (step.maxDimension / largestSide)))
-                              : undefined,
-                      fit: "inside" as const,
-                      withoutEnlargement: true
-                  }
-                : undefined
-
-        const compressed = await sharp(bytes, { failOn: "none" })
-            .rotate()
-            .resize(resize)
-            .webp({ quality: Math.round(step.quality * 100) })
-            .toBuffer()
-
-        if (compressed.byteLength <= MAX_FILE_SIZE) {
-            const fileNameBase = fileName.replace(/\.[^.]+$/, "") || "attachment"
-            return {
-                bytes: new Uint8Array(compressed),
-                fileName: `${fileNameBase}.webp`,
-                mimeType: "image/webp"
-            }
-        }
+    return {
+        bytes: compressed,
+        fileName: `${fileNameBase}.webp`,
+        mimeType: "image/webp"
     }
-
-    throw new Error(`Could not compress image below ${formatFileSizeLimit(MAX_FILE_SIZE)}`)
 }
 
 const prepareImportedAttachmentForUpload = async ({

@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { falConfigMock, falQueueSubmitMock, getUserIdentityMock, r2GetMetadataMock, r2GetUrlMock } =
-    vi.hoisted(() => ({
-        falConfigMock: vi.fn(),
-        falQueueSubmitMock: vi.fn(),
-        getUserIdentityMock: vi.fn(),
-        r2GetMetadataMock: vi.fn(),
-        r2GetUrlMock: vi.fn()
-    }))
+const {
+    falConfigMock,
+    falQueueSubmitMock,
+    getUserIdentityMock,
+    r2GetMetadataMock,
+    r2GetUrlMock,
+    r2StoreMock
+} = vi.hoisted(() => ({
+    falConfigMock: vi.fn(),
+    falQueueSubmitMock: vi.fn(),
+    getUserIdentityMock: vi.fn(),
+    r2GetMetadataMock: vi.fn(),
+    r2GetUrlMock: vi.fn(),
+    r2StoreMock: vi.fn()
+}))
 
 vi.mock("@fal-ai/client", () => ({
     fal: {
@@ -48,7 +55,7 @@ vi.mock("../../convex/lib/identity", () => ({
 
 vi.mock("../../convex/attachments", () => ({
     r2: {
-        store: vi.fn(),
+        store: r2StoreMock,
         getMetadata: r2GetMetadataMock,
         getUrl: r2GetUrlMock
     }
@@ -114,8 +121,20 @@ describe("images_node", () => {
             request_id: "fal-request-1",
             gateway_request_id: "fal-gateway-request-1"
         })
-        r2GetMetadataMock.mockReset().mockResolvedValue({ authorId: "user-1" })
-        r2GetUrlMock.mockReset().mockResolvedValue("https://cdn.example.com/reference.png")
+        r2GetMetadataMock.mockReset().mockImplementation(async (ctx: unknown, key: string) => ({
+            authorId: "user-1",
+            type: "image/png",
+            size: key.startsWith("generations/") ? 1024 : undefined
+        }))
+        r2GetUrlMock.mockReset().mockImplementation(async (key: string) => {
+            const suffix = encodeURIComponent(key)
+            return `https://cdn.example.com/${suffix}`
+        })
+        r2StoreMock
+            .mockReset()
+            .mockImplementation(
+                async (_ctx: unknown, _bytes: unknown, options: { key: string }) => options.key
+            )
     })
 
     it("rejects free users before submitting to fal", async () => {
@@ -205,7 +224,7 @@ describe("images_node", () => {
         expect(falQueueSubmitMock).toHaveBeenCalledWith("openai/gpt-image-2/edit", {
             input: expect.objectContaining({
                 image_size: "auto",
-                image_urls: ["https://cdn.example.com/reference.png"]
+                image_urls: ["https://cdn.example.com/references%2Fuser-1%2Fref.png"]
             }),
             webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
         })
@@ -216,6 +235,94 @@ describe("images_node", () => {
                 appModelId: "gpt-5.4-image-2",
                 falEndpoint: "openai/gpt-image-2/edit",
                 referenceImageKeys: ["references/user-1/ref.png"]
+            })
+        )
+    })
+
+    it("passes small generated references to fal without creating a derivative", async () => {
+        const ctx = createCtx()
+
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "Edit this",
+            modelId: "gpt-5.4-image-2",
+            aspectRatio: "1:1",
+            referenceImageIds: ["generations/user-1/small.png"]
+        })
+
+        expect(r2StoreMock).not.toHaveBeenCalled()
+        expect(falQueueSubmitMock).toHaveBeenCalledWith("openai/gpt-image-2/edit", {
+            input: expect.objectContaining({
+                image_urls: ["https://cdn.example.com/generations%2Fuser-1%2Fsmall.png"]
+            }),
+            webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
+        })
+    })
+
+    it("uses a compressed derivative for oversized generated references", async () => {
+        const ctx = createCtx()
+        const png1x1 = Uint8Array.from([
+            137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8,
+            6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255,
+            63, 0, 5, 254, 2, 254, 167, 53, 129, 132, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+        ])
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(png1x1, {
+                status: 200,
+                headers: { "Content-Type": "image/png" }
+            })
+        )
+        vi.stubGlobal("fetch", fetchMock)
+        r2GetMetadataMock.mockImplementation(async (_ctx: unknown, key: string) => {
+            if (key === "generations/user-1/huge.png") {
+                return {
+                    authorId: "user-1",
+                    type: "image/png",
+                    size: 8 * 1024 * 1024
+                }
+            }
+            if (key.startsWith("references/user-1/generated/")) {
+                return null
+            }
+            return { authorId: "user-1", type: "image/png", size: 1024 }
+        })
+
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "Edit this",
+            modelId: "gpt-5.4-image-2",
+            aspectRatio: "1:1",
+            referenceImageIds: ["generations/user-1/huge.png"]
+        })
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://cdn.example.com/generations%2Fuser-1%2Fhuge.png",
+            expect.objectContaining({
+                headers: expect.objectContaining({
+                    Accept: "image/*"
+                })
+            })
+        )
+        expect(r2StoreMock).toHaveBeenCalledWith(
+            ctx,
+            expect.any(Uint8Array),
+            expect.objectContaining({
+                authorId: "user-1",
+                key: expect.stringMatching(
+                    /^references\/user-1\/generated\/[a-f0-9]{32}-[a-f0-9]+\.webp$/
+                ),
+                type: "image/webp"
+            })
+        )
+        const derivativeKey = r2StoreMock.mock.calls[0]?.[2].key
+        expect(falQueueSubmitMock).toHaveBeenCalledWith("openai/gpt-image-2/edit", {
+            input: expect.objectContaining({
+                image_urls: [`https://cdn.example.com/${encodeURIComponent(derivativeKey)}`]
+            }),
+            webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "createImageGenerationJob",
+            expect.objectContaining({
+                referenceImageKeys: ["generations/user-1/huge.png"]
             })
         )
     })

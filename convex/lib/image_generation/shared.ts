@@ -193,7 +193,7 @@ export const getReferenceSourceForKey = (key: string): ImageReferenceSource["sou
     return null
 }
 
-const getMetadataString = (metadata: unknown, key: string) =>
+export const getMetadataString = (metadata: unknown, key: string) =>
     typeof metadata === "object" &&
     metadata !== null &&
     key in metadata &&
@@ -201,7 +201,15 @@ const getMetadataString = (metadata: unknown, key: string) =>
         ? ((metadata as Record<string, unknown>)[key] as string)
         : undefined
 
-const assertOwnedImageKey = async (
+export const getMetadataNumber = (metadata: unknown, key: string) =>
+    typeof metadata === "object" &&
+    metadata !== null &&
+    key in metadata &&
+    typeof (metadata as Record<string, unknown>)[key] === "number"
+        ? ((metadata as Record<string, unknown>)[key] as number)
+        : undefined
+
+export const assertOwnedImageKey = async (
     ctx: GenericActionCtx<DataModel>,
     userId: string,
     key: string
@@ -231,7 +239,8 @@ const assertOwnedImageKey = async (
 
     return {
         source,
-        mimeType: contentType
+        mimeType: contentType,
+        size: getMetadataNumber(metadata, "size")
     }
 }
 
