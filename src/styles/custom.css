@@ -54,6 +54,18 @@
     }
 } */
 
+/** KaTeX: let long display math scroll instead of overflowing the viewport */
+.markdown-content .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-block: 0.25rem;
+}
+
+.markdown-content .katex-display > .katex {
+    white-space: nowrap;
+}
+
 /** Sandpack Styling */
 .sandpack-container {
     .sp-wrapper,
