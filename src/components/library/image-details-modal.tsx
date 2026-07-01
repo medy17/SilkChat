@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/drawer"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
-import { useIsMobile } from "@/hooks/use-mobile"
 import {
     getNextGeneratedImageRecoveryPhase,
     resolveGeneratedImageRenderSource
@@ -81,9 +80,12 @@ interface ImageDetailsModalProps {
 
 const DESKTOP_BREAKPOINT = 1100
 const DESKTOP_GAP = 24
-const DESKTOP_HORIZONTAL_CHROME = 96
+// Must leave room on each side for the flyout close/nav buttons (4.5rem offset + margin).
+const DESKTOP_HORIZONTAL_CHROME = 176
 const DESKTOP_VERTICAL_CHROME = 96
 const DESKTOP_INFO_PANEL_WIDTH = 420
+// Keeps the info panel usable when an ultra-wide image renders very short.
+const DESKTOP_INFO_PANEL_MIN_HEIGHT = 480
 const DESKTOP_MAX_IMAGE_HEIGHT = 920
 const MOBILE_HORIZONTAL_CHROME = 32
 const MOBILE_FULLSCREEN_IMAGE_CHROME = 136
@@ -162,7 +164,6 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     onArchiveStart,
     onRestoreStart
 }: ImageDetailsModalProps) {
-    const isMobile = useIsMobile()
     const { models } = useSharedModels()
     const convex = useConvex()
     const deleteImage = useAction(api.images_node.deleteGeneratedImage)
@@ -212,7 +213,15 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const [isPromptCopied, setIsPromptCopied] = useState(false)
     const [imageRecoveryPhase, setImageRecoveryPhase] = useState<"primary" | "fallback">("primary")
     const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">("loading")
-    const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 })
+    const [viewportSize, setViewportSize] = useState(() =>
+        typeof window === "undefined"
+            ? { width: 1440, height: 900 }
+            : { width: window.innerWidth, height: window.innerHeight }
+    )
+    // Single source of truth for the render path so it can never disagree with
+    // the layout math below (768–1099px used to render desktop chrome with
+    // mobile sizing).
+    const isMobile = viewportSize.width < DESKTOP_BREAKPOINT
     const [mobileDrawerTop, setMobileDrawerTop] = useState<number | null>(null)
     const [mobileDismissOffset, setMobileDismissOffset] = useState(0)
     const revealTimeoutRef = useRef<number | null>(null)
@@ -357,11 +366,16 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             )
             const imageHeight = Math.min(maxImageHeight, maxImageWidth / aspectRatioValue)
             const imageWidth = imageHeight * aspectRatioValue
+            const infoHeight = Math.max(
+                imageHeight,
+                Math.min(maxImageHeight, DESKTOP_INFO_PANEL_MIN_HEIGHT)
+            )
 
             return {
                 isDesktop: true,
                 imageWidth,
                 imageHeight,
+                infoHeight,
                 mobileFullscreenImage: { width: imageWidth, height: imageHeight },
                 mobilePreviewImage: { width: imageWidth, height: imageHeight },
                 mobileDetailsMaxHeight: 0,
@@ -402,6 +416,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             isDesktop: false,
             imageWidth: fullscreenImage.width,
             imageHeight: fullscreenImage.height,
+            infoHeight: fullscreenImage.height,
             mobileFullscreenImage: fullscreenImage,
             mobilePreviewImage: previewImage,
             mobileDetailsMaxHeight,
@@ -730,7 +745,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 <DialogContent
                     showCloseButton={false}
                     overlayClassName="bg-black/92 backdrop-blur-md"
-                    className="pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none"
+                    className="pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
                     onInteractOutside={(event) => {
                         event.preventDefault()
                         closeMobileDetailsOrViewer()
@@ -999,7 +1014,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 </DialogHeader>
                 <div
                     className={cn(
-                        "relative mx-auto flex items-start",
+                        "relative mx-auto flex items-center",
                         layout.isDesktop ? "flex-row gap-6" : "flex-col gap-4"
                     )}
                     style={{ width: layout.shellWidth }}
@@ -1098,8 +1113,8 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-md"
                         style={{
                             width: layout.infoWidth,
-                            height: layout.isDesktop ? layout.imageHeight : undefined,
-                            minHeight: layout.isDesktop ? layout.imageHeight : undefined
+                            height: layout.isDesktop ? layout.infoHeight : undefined,
+                            minHeight: layout.isDesktop ? layout.infoHeight : undefined
                         }}
                     >
                         <div className="flex-1 overflow-y-auto p-6">
