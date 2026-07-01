@@ -1,10 +1,12 @@
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
+import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { getLibraryImageSources } from "@/lib/generated-image-urls"
+import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -398,8 +400,20 @@ export const ImageGenerationToolRenderer = memo(
             api.images.listGeneratedImagesByIds,
             generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
         ) as Doc<"generatedImages">[] | undefined
+        // Accumulate images so a transient `undefined` (which the query returns while it
+        // re-subscribes as new variant ids stream in) doesn't drop the currently-viewed
+        // image, which would otherwise flash a reload and unmount the open details modal.
+        const generatedImageByIdRef = useRef(
+            new Map<Id<"generatedImages">, Doc<"generatedImages">>()
+        )
         const generatedImageById = useMemo(() => {
-            return new Map((generatedImages ?? []).map((image) => [image._id, image]))
+            if (!generatedImages) return generatedImageByIdRef.current
+            const next = new Map(generatedImageByIdRef.current)
+            for (const image of generatedImages) {
+                next.set(image._id, image)
+            }
+            generatedImageByIdRef.current = next
+            return next
         }, [generatedImages])
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
@@ -420,13 +434,26 @@ export const ImageGenerationToolRenderer = memo(
             "error" in toolInvocation.output &&
             !preparedOutput
         const preparedAssetCount = preparedOutput?.assets?.length ?? 0
+        // Total navigable slots: while more variants are still generating we expose a slot
+        // per expected variant (ready assets + pending placeholders) so the carousel index
+        // survives an image becoming ready instead of snapping back to the ready range.
+        const preparedStatus = preparedOutput?.status ?? "pending_confirmation"
+        const preparedVariantCount = Math.max(preparedOutput?.variants ?? 1, preparedAssetCount, 1)
+        const preparedIsAwaitingVariants =
+            preparedAssetCount > 0 &&
+            preparedAssetCount < preparedVariantCount &&
+            preparedStatus !== "failed" &&
+            preparedStatus !== "partial" &&
+            preparedStatus !== "refunded" &&
+            preparedStatus !== "storing_failed" &&
+            !preparedOutput?.error
+        const navigableSlotCount = preparedIsAwaitingVariants
+            ? preparedVariantCount
+            : Math.max(preparedAssetCount, 1)
 
         useEffect(() => {
-            setActiveAssetIndex((current) => {
-                if (preparedAssetCount <= 0) return 0
-                return Math.min(current, preparedAssetCount - 1)
-            })
-        }, [preparedAssetCount])
+            setActiveAssetIndex((current) => Math.min(Math.max(current, 0), navigableSlotCount - 1))
+        }, [navigableSlotCount])
 
         // Extract aspect ratio from args to determine container dimensions
         const aspectRatio =
@@ -504,9 +531,15 @@ export const ImageGenerationToolRenderer = memo(
             const assets = output.assets ?? []
             const status = output.status ?? "pending_confirmation"
             const variantCount = Math.max(output.variants ?? 1, assets.length, 1)
-            const visibleAssetIndex =
-                assets.length > 0 ? Math.min(activeAssetIndex, assets.length - 1) : 0
-            const visibleAsset = assets[visibleAssetIndex]
+            // Slot-based: ready assets plus pending placeholders while variants generate.
+            const totalSlots = navigableSlotCount
+            const visibleSlotIndex = Math.min(Math.max(activeAssetIndex, 0), totalSlots - 1)
+            const visibleAsset = assets[visibleSlotIndex]
+            const canNavigateSlots = totalSlots > 1
+            const goToPreviousVariant = () =>
+                setActiveAssetIndex((current) => Math.max(0, current - 1))
+            const goToNextVariant = () =>
+                setActiveAssetIndex((current) => Math.min(totalSlots - 1, current + 1))
             const retryableJobIds = status === "storing_failed" ? (output.jobIds ?? []) : []
             const isRetryingAsset = retryableJobIds.some((jobId) => retryingAssetJobIds.has(jobId))
             const isWorking =
@@ -527,6 +560,8 @@ export const ImageGenerationToolRenderer = memo(
                 status !== "refunded" &&
                 status !== "storing_failed" &&
                 !output.error
+            // The active slot points past the ready assets at a still-generating variant.
+            const isPendingSlot = !visibleAsset && isAwaitingVariants
             const canConfirm =
                 status === "pending_confirmation" &&
                 output.cardId &&
@@ -632,12 +667,44 @@ export const ImageGenerationToolRenderer = memo(
                             id={showCanvas ? previewId : undefined}
                             className="relative overflow-hidden border-b bg-muted/30"
                             style={{ aspectRatio: cssAspectRatio }}
+                            role={canNavigateSlots ? "group" : undefined}
+                            aria-roledescription={canNavigateSlots ? "carousel" : undefined}
                             aria-label={
                                 visibleAsset
-                                    ? `Generated image preview ${visibleAssetIndex + 1} of ${variantCount}`
-                                    : isWorking
-                                      ? "Image generation in progress"
-                                      : undefined
+                                    ? `Generated image preview ${visibleSlotIndex + 1} of ${totalSlots}`
+                                    : isPendingSlot
+                                      ? `Generating variant ${visibleSlotIndex + 1} of ${totalSlots}`
+                                      : isWorking
+                                        ? "Image generation in progress"
+                                        : undefined
+                            }
+                            onKeyDown={
+                                canNavigateSlots
+                                    ? (event) => {
+                                          // Portal children (e.g. the details modal) bubble
+                                          // keydowns through the React tree; ignore anything that
+                                          // didn't originate from this card's own DOM subtree.
+                                          if (
+                                              !(event.target instanceof Node) ||
+                                              !event.currentTarget.contains(event.target)
+                                          ) {
+                                              return
+                                          }
+                                          if (
+                                              matchesPreviousImageShortcut(event) &&
+                                              visibleSlotIndex > 0
+                                          ) {
+                                              event.preventDefault()
+                                              goToPreviousVariant()
+                                          } else if (
+                                              matchesNextImageShortcut(event) &&
+                                              visibleSlotIndex < totalSlots - 1
+                                          ) {
+                                              event.preventDefault()
+                                              goToNextVariant()
+                                          }
+                                      }
+                                    : undefined
                             }
                         >
                             {visibleAsset ? (
@@ -646,7 +713,10 @@ export const ImageGenerationToolRenderer = memo(
                                     if (!key) return null
                                     return (
                                         <ImageWithErrorHandler
-                                            key={visibleAsset.generatedImageId ?? visibleAssetIndex}
+                                            // Stable key so the instance (and its open details
+                                            // modal) persists while cycling variants, letting the
+                                            // expanded view navigate instead of unmounting/closing.
+                                            key="variant-carousel-image"
                                             asset={{
                                                 imageUrl: key,
                                                 generatedImageId: visibleAsset.generatedImageId,
@@ -664,10 +734,40 @@ export const ImageGenerationToolRenderer = memo(
                                                     : undefined
                                             }
                                             className="h-full max-w-none rounded-none border-0"
-                                            ariaLabel={`Open generated image ${visibleAssetIndex + 1} of ${variantCount}`}
+                                            ariaLabel={`Open generated image ${visibleSlotIndex + 1} of ${totalSlots}`}
+                                            onNavigatePrevious={goToPreviousVariant}
+                                            onNavigateNext={goToNextVariant}
+                                            // The details modal only navigates ready images, so
+                                            // bound it to the ready range (which is contiguous).
+                                            canNavigatePrevious={visibleSlotIndex > 0}
+                                            canNavigateNext={visibleSlotIndex < assets.length - 1}
                                         />
                                     )
                                 })()
+                            ) : isPendingSlot ? (
+                                <div
+                                    className="relative h-full w-full"
+                                    aria-label={`Variant ${visibleSlotIndex + 1} of ${totalSlots} is still generating`}
+                                >
+                                    <ImageSkeleton
+                                        rows={rows}
+                                        cols={cols}
+                                        dotSize={3}
+                                        gap={4}
+                                        loadingDuration={99999}
+                                        autoLoop={false}
+                                        className="h-full w-full border-0 bg-transparent"
+                                    />
+                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                        <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-background/75 px-2.5 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
+                                            <Loader2
+                                                className="size-3 animate-spin"
+                                                aria-hidden="true"
+                                            />
+                                            Generating…
+                                        </span>
+                                    </div>
+                                </div>
                             ) : isWorking ? (
                                 <ImageSkeleton
                                     rows={rows}
@@ -700,27 +800,25 @@ export const ImageGenerationToolRenderer = memo(
                                 </div>
                             )}
 
-                            {visibleAsset && variantCount > 1 && (
+                            {canNavigateSlots && (visibleAsset || isPendingSlot) && (
                                 <>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <button
                                                 type="button"
                                                 className="-translate-y-1/2 absolute top-1/2 left-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
-                                                aria-disabled={visibleAssetIndex <= 0}
+                                                aria-disabled={visibleSlotIndex <= 0}
                                                 onClick={(event) => {
                                                     event.stopPropagation()
-                                                    if (visibleAssetIndex <= 0) return
-                                                    setActiveAssetIndex((current) =>
-                                                        Math.max(0, current - 1)
-                                                    )
+                                                    if (visibleSlotIndex <= 0) return
+                                                    goToPreviousVariant()
                                                 }}
                                                 onMouseDown={(event) => event.stopPropagation()}
                                             >
                                                 <span
                                                     className={cn(
                                                         "inline-flex size-full items-center justify-center transition-opacity",
-                                                        visibleAssetIndex <= 0 && "opacity-50"
+                                                        visibleSlotIndex <= 0 && "opacity-50"
                                                     )}
                                                 >
                                                     <ChevronLeft
@@ -729,7 +827,7 @@ export const ImageGenerationToolRenderer = memo(
                                                     />
                                                     <span className="sr-only">
                                                         Previous variant, currently viewing{" "}
-                                                        {visibleAssetIndex + 1} of {variantCount}
+                                                        {visibleSlotIndex + 1} of {totalSlots}
                                                     </span>
                                                 </span>
                                             </button>
@@ -741,24 +839,20 @@ export const ImageGenerationToolRenderer = memo(
                                             <button
                                                 type="button"
                                                 className="-translate-y-1/2 absolute top-1/2 right-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
-                                                aria-disabled={
-                                                    visibleAssetIndex >= assets.length - 1
-                                                }
+                                                aria-disabled={visibleSlotIndex >= totalSlots - 1}
                                                 onClick={(event) => {
                                                     event.stopPropagation()
-                                                    if (visibleAssetIndex >= assets.length - 1) {
+                                                    if (visibleSlotIndex >= totalSlots - 1) {
                                                         return
                                                     }
-                                                    setActiveAssetIndex((current) =>
-                                                        Math.min(assets.length - 1, current + 1)
-                                                    )
+                                                    goToNextVariant()
                                                 }}
                                                 onMouseDown={(event) => event.stopPropagation()}
                                             >
                                                 <span
                                                     className={cn(
                                                         "inline-flex size-full items-center justify-center transition-opacity",
-                                                        visibleAssetIndex >= assets.length - 1 &&
+                                                        visibleSlotIndex >= totalSlots - 1 &&
                                                             "opacity-50"
                                                     )}
                                                 >
@@ -768,7 +862,7 @@ export const ImageGenerationToolRenderer = memo(
                                                     />
                                                     <span className="sr-only">
                                                         Next variant, currently viewing{" "}
-                                                        {visibleAssetIndex + 1} of {variantCount}
+                                                        {visibleSlotIndex + 1} of {totalSlots}
                                                     </span>
                                                 </span>
                                             </button>
@@ -779,13 +873,13 @@ export const ImageGenerationToolRenderer = memo(
                                         <TooltipTrigger asChild>
                                             <div
                                                 className="absolute right-2 bottom-2 z-10 rounded-[var(--radius-md)] border border-background/40 bg-background/80 px-2 py-1 font-medium text-foreground text-xs shadow-lg backdrop-blur-md"
-                                                aria-label={`Variant ${visibleAssetIndex + 1} of ${variantCount}`}
+                                                aria-label={`Variant ${visibleSlotIndex + 1} of ${totalSlots}`}
                                             >
-                                                {visibleAssetIndex + 1} / {variantCount}
+                                                {visibleSlotIndex + 1} / {totalSlots}
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent side="left" sideOffset={6}>
-                                            Variant {visibleAssetIndex + 1} of {variantCount}
+                                            Variant {visibleSlotIndex + 1} of {totalSlots}
                                         </TooltipContent>
                                     </Tooltip>
                                 </>
@@ -953,7 +1047,11 @@ const ImageWithErrorHandler = memo(
         cssAspectRatio,
         image,
         className,
-        ariaLabel
+        ariaLabel,
+        onNavigatePrevious,
+        onNavigateNext,
+        canNavigatePrevious,
+        canNavigateNext
     }: {
         asset: ImageGenerationAsset
         prompt: string
@@ -962,10 +1060,18 @@ const ImageWithErrorHandler = memo(
         image?: Doc<"generatedImages">
         className?: string
         ariaLabel?: string
+        onNavigatePrevious?: () => void
+        onNavigateNext?: () => void
+        canNavigatePrevious?: boolean
+        canNavigateNext?: boolean
     }) => {
         const [isError, setIsError] = useState(false)
         const [retryNonce, setRetryNonce] = useState(0)
         const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+        const revealTimeoutRef = useRef<number | null>(null)
+        // Sources this instance has already loaded once, so cycling back to an
+        // already-seen variant reveals instantly instead of replaying the load animation.
+        const loadedSignaturesRef = useRef<Set<string>>(new Set())
         const storageKey = image?.storageKey ?? asset.storageKey ?? asset.imageUrl
         const optimizedSources =
             image && storageKey
@@ -976,12 +1082,25 @@ const ImageWithErrorHandler = memo(
                 : null
         const imageSrc = optimizedSources?.src ?? resolveImageAssetUrl(storageKey || asset.imageUrl)
         const imageSourceSignature = `${imageSrc}\n${optimizedSources?.srcSet ?? ""}`
+        const [loadState, setLoadState] = useState<"loading" | "revealing" | "ready">(() =>
+            loadedSignaturesRef.current.has(imageSourceSignature) ? "ready" : "loading"
+        )
 
         useEffect(() => {
-            void imageSourceSignature
             setIsError(false)
             setRetryNonce(0)
+            setLoadState(
+                loadedSignaturesRef.current.has(imageSourceSignature) ? "ready" : "loading"
+            )
         }, [imageSourceSignature])
+
+        useEffect(() => {
+            return () => {
+                if (revealTimeoutRef.current !== null) {
+                    window.clearTimeout(revealTimeoutRef.current)
+                }
+            }
+        }, [])
 
         if (isError) {
             return (
@@ -1029,16 +1148,37 @@ const ImageWithErrorHandler = memo(
                         if (image) setIsDetailsOpen(true)
                     }}
                 >
+                    {loadState !== "ready" && (
+                        <ImageLoadIndicator complete={loadState === "revealing"} />
+                    )}
                     <img
                         key={`${imageSourceSignature}:${retryNonce}`}
                         src={imageSrc}
                         srcSet={optimizedSources?.srcSet}
                         sizes={optimizedSources?.sizes}
                         alt={prompt || "Generated image"}
-                        className="h-full w-full object-cover"
+                        className={cn(
+                            "h-full w-full object-cover transition-opacity duration-300 ease-out",
+                            loadState === "loading" && "opacity-0"
+                        )}
                         style={{ aspectRatio: cssAspectRatio }}
                         onLoad={() => {
                             setIsError(false)
+                            const alreadyRevealed =
+                                loadedSignaturesRef.current.has(imageSourceSignature)
+                            loadedSignaturesRef.current.add(imageSourceSignature)
+                            if (alreadyRevealed) {
+                                setLoadState("ready")
+                                return
+                            }
+                            setLoadState("revealing")
+                            if (revealTimeoutRef.current !== null) {
+                                window.clearTimeout(revealTimeoutRef.current)
+                            }
+                            revealTimeoutRef.current = window.setTimeout(() => {
+                                setLoadState("ready")
+                                revealTimeoutRef.current = null
+                            }, 240)
                         }}
                         onError={() => {
                             if (retryNonce < MAX_IMAGE_LOAD_RETRIES) {
@@ -1058,6 +1198,10 @@ const ImageWithErrorHandler = memo(
                         image={image}
                         isOpen={isDetailsOpen}
                         onClose={() => setIsDetailsOpen(false)}
+                        onPrevious={onNavigatePrevious}
+                        onNext={onNavigateNext}
+                        canNavigatePrevious={canNavigatePrevious}
+                        canNavigateNext={canNavigateNext}
                     />
                 )}
             </>
