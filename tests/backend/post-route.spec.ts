@@ -10,6 +10,7 @@ const {
     getToolkitMock,
     getUserIdentityMock,
     manualStreamTransformMock,
+    resolveGeneratedImageContextUrlMock,
     smoothStreamMock,
     stepCountIsMock,
     streamTextMock
@@ -23,6 +24,7 @@ const {
     getResumableStreamContextMock: vi.fn(),
     getToolkitMock: vi.fn(),
     manualStreamTransformMock: vi.fn(),
+    resolveGeneratedImageContextUrlMock: vi.fn(),
     smoothStreamMock: vi.fn(),
     stepCountIsMock: vi.fn(),
     streamTextMock: vi.fn()
@@ -110,6 +112,10 @@ vi.mock("../../convex/lib/resumable_stream_context", () => ({
 
 vi.mock("../../convex/lib/db_to_core_messages", () => ({
     dbMessagesToCore: dbMessagesToCoreMock
+}))
+
+vi.mock("../../convex/lib/image_generation/context_images_node", () => ({
+    resolveGeneratedImageContextUrl: resolveGeneratedImageContextUrlMock
 }))
 
 vi.mock("../../convex/lib/toolkit", () => ({
@@ -323,6 +329,10 @@ describe("chatPOST", () => {
             web_search: {
                 description: "Search"
             }
+        })
+        resolveGeneratedImageContextUrlMock.mockReset().mockResolvedValue({
+            url: "https://r2.example.com/references/user-1/generated-context/context.webp",
+            mediaType: "image/webp"
         })
         manualStreamTransformMock.mockReset().mockImplementation(
             (

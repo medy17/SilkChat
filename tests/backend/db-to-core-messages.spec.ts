@@ -168,6 +168,10 @@ describe("dbMessagesToCore", () => {
     })
 
     it("injects completed SilkScreen generations as model-visible image context", async () => {
+        const resolveGeneratedImageContextUrl = vi.fn().mockResolvedValue({
+            url: "https://r2.example.com/references/user-1/generated-context/context.webp",
+            mediaType: "image/webp"
+        })
         const result = await dbMessagesToCore(
             [
                 {
@@ -208,7 +212,8 @@ describe("dbMessagesToCore", () => {
             ] as never,
             ["vision"] as never,
             {
-                publicAssetBaseUrl: "https://r2.example.com"
+                publicAssetBaseUrl: "https://r2.example.com",
+                resolveGeneratedImageContextUrl
             }
         )
 
@@ -263,11 +268,14 @@ describe("dbMessagesToCore", () => {
                     },
                     {
                         type: "image",
-                        image: "https://r2.example.com/generations/user-1/generated.png",
-                        mediaType: "image/png"
+                        image: "https://r2.example.com/references/user-1/generated-context/context.webp",
+                        mediaType: "image/webp"
                     }
                 ]
             }
         ])
+        expect(resolveGeneratedImageContextUrl).toHaveBeenCalledWith(
+            "generations/user-1/generated.png"
+        )
     })
 })

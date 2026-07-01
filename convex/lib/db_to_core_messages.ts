@@ -82,6 +82,10 @@ export const dbMessagesToCore = async (
     modelAbilities: ModelAbility[],
     options?: {
         publicAssetBaseUrl?: string
+        resolveGeneratedImageContextUrl?: (storageKey: string) => Promise<{
+            url: string
+            mediaType?: string
+        }>
     }
 ): Promise<CoreMessage[]> => {
     const mapped_messages: CoreMessage[] = []
@@ -244,13 +248,17 @@ export const dbMessagesToCore = async (
                                         : "SilkScreen generated this image."
                                 })
                             }
+                            const resolvedContextImage =
+                                await options?.resolveGeneratedImageContextUrl?.(storageKey)
                             generated_image_content.push({
                                 type: "image",
-                                image: buildDirectPublicAssetUrl(
-                                    storageKey,
-                                    options?.publicAssetBaseUrl
-                                ),
-                                mediaType: "image/png"
+                                image:
+                                    resolvedContextImage?.url ??
+                                    buildDirectPublicAssetUrl(
+                                        storageKey,
+                                        options?.publicAssetBaseUrl
+                                    ),
+                                mediaType: resolvedContextImage?.mediaType || "image/png"
                             })
                         }
                     }

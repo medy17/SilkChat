@@ -35,6 +35,7 @@ import {
 } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getUserIdentity } from "../lib/identity"
+import { resolveGeneratedImageContextUrl } from "../lib/image_generation/context_images_node"
 import {
     type PreparedImageReference,
     getImageModelMaxPerMessage,
@@ -831,6 +832,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
         toolAvailability.web_search.fundingSource === "deployment"
             ? effectiveToolCallLimitPerTurn
             : 0
+    const resolveGeneratedImageContext = (storageKey: string) =>
+        resolveGeneratedImageContextUrl(ctx, {
+            userId: user.id,
+            storageKey,
+            publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+        })
 
     let contextViolation = immediateContextViolation
     let contextViolationReason: "message" | "thread" | undefined =
@@ -860,7 +867,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 prospectiveMessages,
                 modelData.abilities,
                 {
-                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext
                 }
             )
             const promptMessages: ModelMessage[] = [
@@ -1226,7 +1234,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 normalizedDbMessages,
                 modelData.abilities,
                 {
-                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                    publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext
                 }
             )
 
