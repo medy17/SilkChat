@@ -5,7 +5,7 @@ import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
-import { getLibraryImageSources } from "@/lib/generated-image-urls"
+import { getChatImageCardSources } from "@/lib/generated-image-urls"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
@@ -1075,7 +1075,7 @@ const ImageWithErrorHandler = memo(
         const storageKey = image?.storageKey ?? asset.storageKey ?? asset.imageUrl
         const optimizedSources =
             image && storageKey
-                ? getLibraryImageSources({
+                ? getChatImageCardSources({
                       storageKey,
                       aspectRatio: image.aspectRatio
                   })

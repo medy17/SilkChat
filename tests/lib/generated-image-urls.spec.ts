@@ -29,6 +29,7 @@ vi.mock("@/lib/browser-env", () => ({
 }))
 
 import {
+    getChatImageCardSources,
     getCloudflareTransformedImageUrl,
     getExpandedImageUrl,
     getGeneratedImageCopyUrl,
@@ -174,6 +175,28 @@ describe("generated-image-urls", () => {
         ).toBe(
             "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=810,quality=84,format=auto/https://r2.silkchat.dev/generated/key-3"
         )
+    })
+
+    it("builds larger chat card sources with 1x/2x candidates and honest sizes", () => {
+        vi.stubGlobal("window", {
+            location: {
+                hostname: "www.silkchat.dev"
+            }
+        })
+
+        expect(
+            getChatImageCardSources({
+                storageKey: "generated/key-card",
+                aspectRatio: "3:4"
+            })
+        ).toEqual({
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=672,quality=82,format=auto/https://r2.silkchat.dev/generated/key-card",
+            srcSet: [
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=336,quality=84,format=auto/https://r2.silkchat.dev/generated/key-card 336w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=672,quality=82,format=auto/https://r2.silkchat.dev/generated/key-card 672w"
+            ].join(", "),
+            sizes: "(min-width: 480px) 448px, 100vw"
+        })
     })
 
     it("builds responsive library metadata with local optimizer URLs when enabled", () => {

@@ -234,6 +234,49 @@ export const getLibraryImageSources = ({
     }
 }
 
+// The chat tool card renders a single image up to max-w-md (448px CSS), which is
+// much larger than a Library grid tile. Reusing the grid's library sources here
+// advertised `20vw`-style `sizes` and capped the long edge at 720px, so browsers
+// picked a grid-sized candidate and upscaled it across the card, looking pixelated.
+// Give the card its own 1x/2x candidates and honest `sizes` so high-DPI displays
+// fetch a source large enough for the bigger view.
+const CHAT_IMAGE_CARD_MAX_WIDTH = 448
+
+export const getChatImageCardSources = ({
+    storageKey,
+    aspectRatio
+}: {
+    storageKey: string
+    aspectRatio?: string
+}) => {
+    const standardWidth = getConstrainedWidth(aspectRatio, CHAT_IMAGE_CARD_MAX_WIDTH)
+    const retinaWidth = getConstrainedWidth(aspectRatio, CHAT_IMAGE_CARD_MAX_WIDTH * 2)
+
+    return {
+        src: getOptimizedGeneratedImageUrl({
+            storageKey,
+            aspectRatio,
+            longEdge: CHAT_IMAGE_CARD_MAX_WIDTH * 2,
+            quality: 82
+        }),
+        srcSet: [
+            `${getOptimizedGeneratedImageUrl({
+                storageKey,
+                aspectRatio,
+                longEdge: CHAT_IMAGE_CARD_MAX_WIDTH,
+                quality: 84
+            })} ${standardWidth}w`,
+            `${getOptimizedGeneratedImageUrl({
+                storageKey,
+                aspectRatio,
+                longEdge: CHAT_IMAGE_CARD_MAX_WIDTH * 2,
+                quality: 82
+            })} ${retinaWidth}w`
+        ].join(", "),
+        sizes: `(min-width: ${CHAT_IMAGE_CARD_MAX_WIDTH + 32}px) ${CHAT_IMAGE_CARD_MAX_WIDTH}px, 100vw`
+    }
+}
+
 export const getExpandedImageUrl = ({
     storageKey,
     aspectRatio
