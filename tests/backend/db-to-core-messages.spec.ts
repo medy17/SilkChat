@@ -278,4 +278,67 @@ describe("dbMessagesToCore", () => {
             "generations/user-1/generated.png"
         )
     })
+
+    it("falls back to original generated image URLs when context compression fails", async () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+        const resolveGeneratedImageContextUrl = vi.fn().mockRejectedValue(new Error("sharp failed"))
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                state: "result",
+                                toolCallId: "call-image",
+                                toolName: "prepareImageGeneration",
+                                args: {
+                                    prompt: "A sunset naval battle"
+                                },
+                                result: {
+                                    success: true,
+                                    kind: "prepared_image_generation",
+                                    status: "completed",
+                                    prompt: "A sunset naval battle",
+                                    assets: [
+                                        {
+                                            storageKey: "generations/user-1/generated.png",
+                                            imageUrl: "generations/user-1/generated.png"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ] as never,
+            ["vision"] as never,
+            {
+                publicAssetBaseUrl: "https://r2.example.com",
+                resolveGeneratedImageContextUrl
+            }
+        )
+
+        expect(result.at(-1)).toMatchObject({
+            role: "user",
+            messageId: "assistant-1-generated-image-context",
+            content: [
+                expect.any(Object),
+                {
+                    type: "image",
+                    image: "https://r2.example.com/generations/user-1/generated.png",
+                    mediaType: "image/png"
+                }
+            ]
+        })
+        expect(warnSpy).toHaveBeenCalledWith(
+            "[cvx][chat] Failed to prepare compressed generated image context",
+            expect.any(Error)
+        )
+
+        warnSpy.mockRestore()
+    })
 })

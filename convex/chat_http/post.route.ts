@@ -35,7 +35,6 @@ import {
 } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getUserIdentity } from "../lib/identity"
-import { resolveGeneratedImageContextUrl } from "../lib/image_generation/context_images_node"
 import {
     type PreparedImageReference,
     getImageModelMaxPerMessage,
@@ -833,11 +832,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
             ? effectiveToolCallLimitPerTurn
             : 0
     const resolveGeneratedImageContext = (storageKey: string) =>
-        resolveGeneratedImageContextUrl(ctx, {
-            userId: user.id,
-            storageKey,
-            publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
-        })
+        ctx.runAction(
+            internal.lib.image_generation.context_images_node.resolveGeneratedImageContext,
+            {
+                userId: user.id,
+                storageKey,
+                publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+            }
+        )
 
     let contextViolation = immediateContextViolation
     let contextViolationReason: "message" | "thread" | undefined =

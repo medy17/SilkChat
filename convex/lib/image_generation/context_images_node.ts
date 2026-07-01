@@ -1,7 +1,9 @@
 "use node"
 
 import type { GenericActionCtx } from "convex/server"
+import { v } from "convex/values"
 import type { DataModel } from "../../_generated/dataModel"
+import { internalAction } from "../../_generated/server"
 import { r2 } from "../../attachments"
 import {
     DEFAULT_UPLOAD_POLICY_VERSION,
@@ -133,3 +135,17 @@ export const resolveGeneratedImageContextUrl = async (
         mediaType: key.endsWith(".webp") ? "image/webp" : metadata.mimeType || "image/png"
     }
 }
+
+/**
+ * Node-runtime boundary for {@link resolveGeneratedImageContextUrl}. The chat
+ * HTTP handler runs in the V8 isolate, which cannot bundle sharp, so it invokes
+ * this action via `ctx.runAction` to keep image compression in the Node runtime.
+ */
+export const resolveGeneratedImageContext = internalAction({
+    args: {
+        userId: v.string(),
+        storageKey: v.string(),
+        publicAssetBaseUrl: v.optional(v.string())
+    },
+    handler: (ctx, args) => resolveGeneratedImageContextUrl(ctx, args)
+})

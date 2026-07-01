@@ -248,8 +248,21 @@ export const dbMessagesToCore = async (
                                         : "SilkScreen generated this image."
                                 })
                             }
-                            const resolvedContextImage =
-                                await options?.resolveGeneratedImageContextUrl?.(storageKey)
+                            let resolvedContextImage:
+                                | {
+                                      url: string
+                                      mediaType?: string
+                                  }
+                                | undefined
+                            try {
+                                resolvedContextImage =
+                                    await options?.resolveGeneratedImageContextUrl?.(storageKey)
+                            } catch (error) {
+                                console.warn(
+                                    "[cvx][chat] Failed to prepare compressed generated image context",
+                                    error
+                                )
+                            }
                             generated_image_content.push({
                                 type: "image",
                                 image:
