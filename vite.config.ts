@@ -1,3 +1,4 @@
+import http from "node:http"
 import path from "node:path"
 import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
@@ -5,10 +6,13 @@ import tailwindcss from "@tailwindcss/vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig, loadEnv } from "vite"
+import { type PluginOption, defineConfig, loadEnv } from "vite"
 import analyzer from "vite-bundle-analyzer"
 import svgr from "vite-plugin-svgr"
-import { LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT } from "./src/lib/local-image-optimizer"
+import {
+    LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT,
+    LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX
+} from "./src/lib/local-image-optimizer"
 
 const sandpackSsrStub = path.resolve(__dirname, "./src/lib/sandpack-react-ssr-stub.tsx")
 
@@ -45,12 +49,55 @@ export default defineConfig(({ mode }) => {
           }
         : {}
 
-    if (localImageOptimizerEnabled) {
-        proxy["/cdn-cgi/image"] = {
-            target: `http://127.0.0.1:${localImageOptimizerPort}`,
-            changeOrigin: true
-        }
-    }
+    // NOTE: the local image optimizer is intentionally NOT registered via
+    // `server.proxy`. TanStack Start's dev SSR middleware runs ahead of Vite's
+    // proxy middleware for document requests (`Accept: text/html`), so a browser
+    // navigation to `/cdn-cgi/image/...` gets a slash-collapsing 307 followed by
+    // the SPA 404 shell instead of reaching the optimizer. It is served by the
+    // `local-image-optimizer-proxy` plugin below, which is `enforce: "pre"` and
+    // therefore intercepts before the SSR handler for every `Accept` type.
+    const localImageOptimizerPlugin: PluginOption =
+        localImageOptimizerEnabled &&
+        ({
+            name: "local-image-optimizer-proxy",
+            enforce: "pre",
+            configureServer(server) {
+                const routePrefix = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/`
+                server.middlewares.use((req, res, next) => {
+                    if (!req.url?.startsWith(routePrefix)) {
+                        next()
+                        return
+                    }
+
+                    const proxyReq = http.request(
+                        {
+                            host: "127.0.0.1",
+                            port: Number(localImageOptimizerPort),
+                            method: req.method,
+                            path: req.url,
+                            headers: req.headers
+                        },
+                        (proxyRes) => {
+                            res.statusCode = proxyRes.statusCode ?? 502
+                            for (const [header, value] of Object.entries(proxyRes.headers)) {
+                                if (value !== undefined) {
+                                    res.setHeader(header, value)
+                                }
+                            }
+                            proxyRes.pipe(res)
+                        }
+                    )
+
+                    proxyReq.on("error", () => {
+                        res.statusCode = 502
+                        res.setHeader("content-type", "application/json")
+                        res.end(JSON.stringify({ error: "Local image optimizer unavailable" }))
+                    })
+
+                    req.pipe(proxyReq)
+                })
+            }
+        } satisfies PluginOption)
 
     return {
         resolve: {
@@ -69,6 +116,7 @@ export default defineConfig(({ mode }) => {
             proxy: Object.keys(proxy).length > 0 ? proxy : undefined
         },
         plugins: [
+            localImageOptimizerPlugin,
             (process.env.ANALYZE && analyzer()) || null,
             {
                 name: "ssr-sandpack-stub",

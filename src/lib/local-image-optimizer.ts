@@ -113,6 +113,21 @@ export const parseLocalImageTransformOptions = (
     return parsed as ParsedLocalImageTransformOptions
 }
 
+// Cloudflare's real edge percent-decodes the embedded source URL, so a caller
+// may pass it either raw (`https://…`) or encoded (`https%3A%2F%2F…`) — the
+// latter being the form that survives the browser address bar without having
+// its `https://` collapsed to `https:/`. Mirror that decoding locally so both
+// forms resolve to the same source. Only the path is decoded; the outer query
+// string is preserved verbatim because the Convex `/r2?key=…%2F…` flow relies
+// on its encoding.
+const decodeEmbeddedSourcePath = (sourcePath: string) => {
+    try {
+        return decodeURIComponent(sourcePath)
+    } catch {
+        return sourcePath
+    }
+}
+
 export const extractLocalImageOptimizerRequestParts = (requestUrl: URL) => {
     const prefix = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/`
     if (!requestUrl.pathname.startsWith(prefix)) {
@@ -126,7 +141,7 @@ export const extractLocalImageOptimizerRequestParts = (requestUrl: URL) => {
     }
 
     const optionsSegment = remainder.slice(0, slashIndex)
-    const sourcePath = remainder.slice(slashIndex + 1)
+    const sourcePath = decodeEmbeddedSourcePath(remainder.slice(slashIndex + 1))
     const sourceUrl = `${sourcePath}${requestUrl.search}`
 
     return {

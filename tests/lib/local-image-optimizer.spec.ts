@@ -54,6 +54,26 @@ describe("local-image-optimizer", () => {
         })
     })
 
+    it("resolves percent-encoded embedded source URLs like the Cloudflare edge", () => {
+        const encoded = new URL(
+            "http://localhost:3000/cdn-cgi/image/fit=scale-down,width=324,quality=80,format=auto/https%3A%2F%2Fr2.silkchat.dev%2Fgenerated%2Fkey-1"
+        )
+
+        expect(extractLocalImageOptimizerRequestParts(encoded)).toEqual({
+            optionsSegment: "fit=scale-down,width=324,quality=80,format=auto",
+            sourceUrl: "https://r2.silkchat.dev/generated/key-1"
+        })
+
+        // The browser-collapsed single-slash form still resolves to the same source.
+        const collapsed = new URL(
+            "http://localhost:3000/cdn-cgi/image/fit=scale-down,width=324,quality=80,format=auto/https:/r2.silkchat.dev/generated/key-1"
+        )
+
+        expect(extractLocalImageOptimizerRequestParts(collapsed)?.sourceUrl).toBe(
+            "https:/r2.silkchat.dev/generated/key-1"
+        )
+    })
+
     it("allows Convex /r2 source URLs with a key", () => {
         expect(
             isAllowedLocalImageOptimizerSource({
