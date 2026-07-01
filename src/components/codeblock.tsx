@@ -72,8 +72,8 @@ export const Codeblock = memo(
             "[&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-3",
             "[&_[data-streamdown=code-block-body]_pre]:bg-transparent",
             "[&_[data-streamdown=code-block-body]_code>span]:block [&_[data-streamdown=code-block-body]_code>span]:before:hidden",
-            !expanded &&
-                "[&_[data-streamdown=code-block-body]]:max-h-72 [&_[data-streamdown=code-block-body]]:overflow-auto",
+            "[&_[data-streamdown=code-block-body]]:overflow-auto",
+            !expanded && "[&_[data-streamdown=code-block-body]]:max-h-72",
             wrapped
                 ? "[&_[data-streamdown=code-block-body]_code]:whitespace-pre-wrap [&_[data-streamdown=code-block-body]_code]:break-words"
                 : "[&_[data-streamdown=code-block-body]_code]:whitespace-pre [&_[data-streamdown=code-block-body]_code]:break-keep"

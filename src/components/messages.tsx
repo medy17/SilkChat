@@ -901,7 +901,7 @@ const MessageRowComponent = ({
                     "mb-8",
                     message.role === "user" &&
                         !isEditing &&
-                        "my-12 ml-auto w-fit max-w-md rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground"
+                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground"
                 )}
             >
                 {isEditing ? (
@@ -913,7 +913,7 @@ const MessageRowComponent = ({
                     />
                 ) : (
                     <>
-                        <div className="max-w-[calc(100vw-2rem)] overflow-hidden">
+                        <div className="max-w-full overflow-hidden">
                             {reasoning && (
                                 <Reasoning
                                     className="mb-6"
