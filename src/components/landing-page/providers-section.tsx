@@ -30,7 +30,7 @@ export function ProvidersSection() {
                                 <div className="font-medium text-sm [color:var(--landing-fg)]">
                                     {name}
                                 </div>
-                                <div className="truncate font-mono text-[11px] [color:var(--landing-muted-faint)]">
+                                <div className="truncate font-medium text-[14px] [color:var(--landing-muted-faint)]">
                                     {command}
                                 </div>
                             </div>
@@ -38,7 +38,7 @@ export function ProvidersSection() {
                     ))}
                 </div>
 
-                <div className="mt-7 flex flex-wrap gap-5 border-t border-dashed pt-6 [border-color:var(--landing-border)]">
+                <div className="mt-5 flex flex-wrap gap-5 pt-6 [border-color:var(--landing-border)]">
                     {proofItems.map((item) => (
                         <div
                             key={item}

@@ -178,11 +178,11 @@ export const galleryImages: GalleryImage[] = [
 
 export const providers: Provider[] = [
     { name: "OpenAI", command: "GPT-5.5", Icon: OpenAIIcon },
-    { name: "Claude", command: "Claude 4.6", Icon: ClaudeIcon },
-    { name: "Gemini", command: "Gemini 3.1 Pro", Icon: GeminiIcon },
-    { name: "xAI", command: "Grok", Icon: XAIIcon },
-    { name: "DeepSeek", command: "DeepSeek", Icon: DeepSeekIcon },
-    { name: "Z.ai", command: "GLM", Icon: ZAIIcon }
+    { name: "Claude", command: "Sonnet 5", Icon: ClaudeIcon },
+    { name: "Gemini", command: "3.1 Pro", Icon: GeminiIcon },
+    { name: "xAI", command: "Grok 4.3", Icon: XAIIcon },
+    { name: "DeepSeek", command: "V4 Pro", Icon: DeepSeekIcon },
+    { name: "Z.ai", command: "GLM 5.2", Icon: ZAIIcon }
 ]
 
 export const features: Feature[] = [
