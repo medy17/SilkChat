@@ -282,7 +282,7 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
         >
             <ResponsivePopoverTrigger asChild>
                 <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     className="size-8 rounded-[var(--radius-md)]"
                     title="Credits"

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
+import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import {
     DEFAULT_LIBRARY_SEARCH,
     type LibraryView,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import { Archive, Eye, EyeOff, Image as ImageIcon } from "lucide-react"
+import { Archive, ChevronLeft, Eye, EyeOff, Image as ImageIcon } from "lucide-react"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { SidebarShortcutsHelper } from "./threads/sidebar-shortcuts-helper"
 import { SidebarTrigger, useSidebar } from "./ui/sidebar"
@@ -20,6 +21,9 @@ import { UserButton } from "./user-button"
 
 export function Header() {
     const { isMobile, openMobile } = useSidebar()
+    const isMobileActionsCollapsed = useHeaderActionsStore((state) => state.isMobileCollapsed)
+    const isDesktopActionsCollapsed = useHeaderActionsStore((state) => state.isDesktopCollapsed)
+    const toggleActionsCollapsed = useHeaderActionsStore((state) => state.toggleCollapsed)
     const { data: session, isPending: isSessionPending } = useSession()
     const location = useLocation()
     const navigate = useNavigate()
@@ -51,6 +55,9 @@ export function Header() {
     const showDesktopLibraryControls =
         isLibraryRoute && !!session?.user?.id && !isMobile && librarySearch !== null
     const shouldCollapseHeader = showDesktopLibraryControls && isDesktopLibraryChromeCollapsed
+    const areHeaderActionsVisible = isMobile
+        ? !isMobileActionsCollapsed
+        : !isDesktopActionsCollapsed
 
     const handleLibraryViewChange = (nextView: LibraryView) => {
         if (!librarySearch || nextView === librarySearch.view) return
@@ -102,7 +109,7 @@ export function Header() {
                                 </Tabs>
                                 <Button
                                     type="button"
-                                    variant={privateViewingEnabled ? "secondary" : "outline"}
+                                    variant={privateViewingEnabled ? "secondary" : "ghost"}
                                     size="sm"
                                     className="gap-2 text-xs"
                                     onClick={togglePrivateViewingEnabled}
@@ -117,20 +124,50 @@ export function Header() {
                                 <div className="h-4 w-px bg-border" />
                             </>
                         )}
-                        {session?.user?.id && (
-                            <PrototypeCreditsQuickView
-                                summary={prototypeCreditSummary}
-                                isLoading={isCreditsLoading}
-                                isRefreshing={isRefreshingCredits}
-                                shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                                isUpdatingCreditPlan={isUpdatingCreditPlan}
-                                onSetCreditPlan={setCreditPlan}
-                                onRefresh={refreshCredits}
-                                upgradeUrl="/settings/billing"
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-[var(--radius-md)]"
+                            onClick={() => toggleActionsCollapsed(isMobile ? "mobile" : "desktop")}
+                            aria-expanded={areHeaderActionsVisible}
+                            aria-label={
+                                areHeaderActionsVisible
+                                    ? "Hide header actions"
+                                    : "Show header actions"
+                            }
+                        >
+                            <ChevronLeft
+                                className={cn(
+                                    "h-4 w-4 transition-transform duration-300",
+                                    areHeaderActionsVisible && "rotate-180"
+                                )}
                             />
-                        )}
-                        {!isMobile && <SidebarShortcutsHelper />}
-                        <ThemeSwitcher />
+                        </Button>
+                        <div
+                            className={cn(
+                                "flex items-center gap-2 overflow-hidden transition-all duration-300 ease-out",
+                                areHeaderActionsVisible
+                                    ? "max-w-72 opacity-100"
+                                    : "-mr-2 invisible max-w-0 opacity-0"
+                            )}
+                            aria-hidden={!areHeaderActionsVisible}
+                        >
+                            {session?.user?.id && (
+                                <PrototypeCreditsQuickView
+                                    summary={prototypeCreditSummary}
+                                    isLoading={isCreditsLoading}
+                                    isRefreshing={isRefreshingCredits}
+                                    shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
+                                    isUpdatingCreditPlan={isUpdatingCreditPlan}
+                                    onSetCreditPlan={setCreditPlan}
+                                    onRefresh={refreshCredits}
+                                    upgradeUrl="/settings/billing"
+                                />
+                            )}
+                            {!isMobile && <SidebarShortcutsHelper />}
+                            <ThemeSwitcher buttonVariant="ghost" />
+                        </div>
                         <div className="h-4 w-px bg-border" />
                         <UserButton />
                     </div>

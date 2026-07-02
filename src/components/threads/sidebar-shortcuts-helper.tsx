@@ -58,7 +58,7 @@ export function SidebarShortcutsHelper() {
         <ResponsivePopover modal={false}>
             <ResponsivePopoverTrigger asChild>
                 <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     className="size-8 rounded-[var(--radius-md)]"
                     title="Keyboard shortcuts"

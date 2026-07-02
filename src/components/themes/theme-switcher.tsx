@@ -92,7 +92,11 @@ function ThemeButton({ theme, isSelected, onSelect, currentMode }: ThemeButtonPr
     )
 }
 
-export function ThemeSwitcher() {
+export function ThemeSwitcher({
+    buttonVariant = "outline"
+}: {
+    buttonVariant?: "outline" | "ghost"
+}) {
     const isMobile = useIsMobile()
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
 
@@ -128,7 +132,7 @@ export function ThemeSwitcher() {
             />
             <div className="flex items-center gap-2">
                 <Button
-                    variant="outline"
+                    variant={buttonVariant}
                     size="icon"
                     className="size-8 rounded-md"
                     onClick={toggleMode}
@@ -141,7 +145,7 @@ export function ThemeSwitcher() {
                 <ResponsivePopover modal={false}>
                     <ResponsivePopoverTrigger asChild>
                         <Button
-                            variant="outline"
+                            variant={buttonVariant}
                             size="icon"
                             className="flex size-8 items-center rounded-md"
                         >

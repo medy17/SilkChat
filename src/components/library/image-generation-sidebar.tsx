@@ -969,10 +969,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                 </div>
 
                 <div className="relative flex min-h-0 flex-1 flex-col">
-                    <div
-                        ref={scrollContainerRef}
-                        className="custom-scrollbar flex-1 overflow-y-auto"
-                    >
+                    <div ref={scrollContainerRef} className="scrollbar-hide flex-1 overflow-y-auto">
                         {/* Input Section */}
                         <div className="space-y-3 border-b p-4">
                             <div className="flex items-center justify-between font-semibold text-muted-foreground text-xs uppercase tracking-wider">
