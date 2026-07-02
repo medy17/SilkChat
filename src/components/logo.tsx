@@ -17,13 +17,14 @@ export const LogoPath = ({ fill }: { fill: string }) => (
     />
 )
 
-export const LogoSymbol = ({ className }: { className?: string }) => {
+export const LogoSymbol = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => {
     return (
         <svg
             viewBox="0 0 1507.45 1499.99"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             className={className}
+            {...props}
         >
             <LogoPath fill={"currentColor"} />
         </svg>

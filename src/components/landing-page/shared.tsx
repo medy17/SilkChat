@@ -1,8 +1,64 @@
-import { Link } from "@tanstack/react-router"
-import type { ReactNode } from "react"
+"use client"
 
+import { Link } from "@tanstack/react-router"
+import type { ComponentPropsWithoutRef, ReactNode } from "react"
+import { useEffect, useState } from "react"
+
+import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
+
+export function useReducedMotion() {
+    const [reduced, setReduced] = useState(false)
+
+    useEffect(() => {
+        const query = window.matchMedia("(prefers-reduced-motion: reduce)")
+        setReduced(query.matches)
+
+        const onChange = (event: MediaQueryListEvent) => setReduced(event.matches)
+        query.addEventListener("change", onChange)
+        return () => query.removeEventListener("change", onChange)
+    }, [])
+
+    return reduced
+}
+
+export function SilkBackdrop({
+    className,
+    silkClassName,
+    overlayClassName = "bg-background/60",
+    speed = 2.4
+}: {
+    className?: string
+    silkClassName?: string
+    overlayClassName?: string
+    speed?: number
+}) {
+    const { themeState } = useThemeStore()
+    const reducedMotion = useReducedMotion()
+    const isDarkMode = themeState.currentMode === "dark"
+    const themeSilkColor =
+        themeState.cssVars[themeState.currentMode]["muted-foreground"] || "#7B7481"
+    const silkColor = isDarkMode ? "#9b969e" : themeSilkColor
+
+    if (reducedMotion) return null
+
+    return (
+        <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0", className)}>
+            <Silk
+                className={cn("h-full w-full", silkClassName)}
+                color={silkColor}
+                contrast={isDarkMode ? 1 : 1.06}
+                noiseIntensity={isDarkMode ? 1.5 : 0.35}
+                rotation={0}
+                scale={isDarkMode ? 1 : 0.92}
+                speed={speed}
+            />
+            <div className={cn("absolute inset-0", overlayClassName)} />
+        </div>
+    )
+}
 
 export function SignInButton({
     children,
@@ -30,15 +86,17 @@ export function SectionHead({
     eyebrow,
     title,
     children,
-    centered = false
+    centered = false,
+    className
 }: {
     eyebrow?: string
     title: ReactNode
     children: ReactNode
     centered?: boolean
+    className?: string
 }) {
     return (
-        <div className={cn("mb-14 max-w-3xl", centered && "mx-auto text-center")}>
+        <div className={cn("mb-14 max-w-3xl", centered && "mx-auto text-center", className)}>
             {eyebrow ? (
                 <div
                     className={cn(
@@ -65,13 +123,14 @@ export function SectionHead({
     )
 }
 
-export function Tile({ className, children }: { className?: string; children: ReactNode }) {
+export function Tile({ className, children, ...props }: ComponentPropsWithoutRef<"div">) {
     return (
         <div
             className={cn(
                 "overflow-hidden rounded-[var(--radius-xl)] border shadow-2xl [background:var(--landing-surface)] [border-color:var(--landing-border)]",
                 className
             )}
+            {...props}
         >
             {children}
         </div>

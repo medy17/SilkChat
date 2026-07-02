@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router"
 import type { RefObject } from "react"
 import { useEffect, useRef, useState } from "react"
 
-import { LogoMark } from "@/components/logo"
+import { LogoMark, LogoSymbol } from "@/components/logo"
 import { ThemeSwitcher } from "@/components/themes/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -47,15 +47,15 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                 setIsNavVisible(currentScrollY <= lastScrollY.current || currentScrollY <= 100)
                 lastScrollY.current = currentScrollY
 
+                const containerTop = container.getBoundingClientRect().top
                 const scrollPosition = currentScrollY + container.clientHeight / 2
                 const nextActiveIndex = navSections.findIndex((section) => {
                     const element = document.getElementById(section.id)
                     if (!element) return false
 
-                    return (
-                        scrollPosition >= element.offsetTop &&
-                        scrollPosition < element.offsetTop + element.offsetHeight
-                    )
+                    const rect = element.getBoundingClientRect()
+                    const top = rect.top - containerTop + currentScrollY
+                    return scrollPosition >= top && scrollPosition < top + rect.height
                 })
 
                 if (nextActiveIndex >= 0) {
@@ -84,8 +84,20 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                     isNavVisible ? "translate-y-0" : "-translate-y-full"
                 )}
             >
-                <div className="flex items-center gap-2">
-                    <LogoMark className="h-auto w-24 md:w-32" />
+                <div className="relative flex items-center gap-2">
+                    <LogoMark
+                        className={cn(
+                            "h-auto w-24 transition-opacity duration-500 md:w-32",
+                            !isHeroSection && "opacity-0"
+                        )}
+                    />
+                    <LogoSymbol
+                        aria-hidden="true"
+                        className={cn(
+                            "absolute left-0 size-7 text-foreground transition-opacity duration-500 md:size-8",
+                            isHeroSection && "opacity-0"
+                        )}
+                    />
                 </div>
 
                 <div
@@ -123,7 +135,10 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                             if (!element || !container) return
 
                             container.scrollTo({
-                                top: element.offsetTop,
+                                top:
+                                    element.getBoundingClientRect().top -
+                                    container.getBoundingClientRect().top +
+                                    container.scrollTop,
                                 behavior: "smooth"
                             })
                         }}

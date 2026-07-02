@@ -123,7 +123,7 @@ export function HeroSection() {
         <section
             id="hero"
             ref={heroRef}
-            className="relative flex min-h-screen snap-start flex-col items-center justify-center overflow-hidden px-6 pt-24 text-center"
+            className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 pt-24 pb-12 text-center"
         >
             <div className="pointer-events-none absolute inset-0 z-10">
                 <Silk
@@ -187,7 +187,7 @@ export function HeroSection() {
 
             <div
                 ref={logosRef}
-                className="mt-20 flex flex-wrap justify-center gap-8 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0 md:gap-16"
+                className="mt-12 flex flex-wrap justify-center gap-8 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0 md:mt-20 md:gap-16"
             >
                 <OpenAIIcon className="h-8 w-8" style={{ willChange: "transform, opacity" }} />
                 <ClaudeIcon className="h-8 w-8" style={{ willChange: "transform, opacity" }} />

@@ -9,9 +9,9 @@ export function CtaSection() {
     return (
         <section
             id="start"
-            className="border-t py-28 text-center [border-color:var(--landing-border)]"
+            className="relative border-t py-28 text-center [border-color:var(--landing-border)]"
         >
-            <div className="mx-auto max-w-4xl px-5">
+            <div className="relative z-10 mx-auto max-w-4xl px-5">
                 <h2 className="mx-auto mb-5 max-w-3xl text-balance font-medium text-4xl leading-[1.05] tracking-normal [color:var(--landing-fg)] md:text-6xl">
                     One interface for every model you trust.
                 </h2>

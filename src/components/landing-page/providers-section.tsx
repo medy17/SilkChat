@@ -17,11 +17,11 @@ export function ProvidersSection() {
                     systems from OpenAI, Google, Anthropic, xAI, DeepSeek, and more.
                 </SectionHead>
 
-                <div className="grid overflow-hidden rounded-[var(--radius-xl)] border [background:var(--landing-border)] [border-color:var(--landing-border)] md:grid-cols-3 lg:grid-cols-6">
+                <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-xl)] border [background:var(--landing-border)] [border-color:var(--landing-border)] md:grid-cols-3 lg:grid-cols-6">
                     {providers.map(({ name, command, Icon }) => (
                         <div
                             key={name}
-                            className="flex items-center gap-4 border-b p-5 transition-colors [background:var(--landing-surface)] [border-color:var(--landing-border)] md:border-r md:border-b-0 hover:[background:var(--landing-surface-strong)]"
+                            className="flex items-center gap-4 p-5 transition-colors [background:var(--landing-surface)] hover:[background:var(--landing-surface-strong)]"
                         >
                             <div className="grid size-8 shrink-0 place-items-center [color:var(--landing-fg)]">
                                 <Icon className="size-6" />

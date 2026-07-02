@@ -12,6 +12,7 @@ import { ModelSelectorSection } from "./landing-page/model-selector-section"
 import { PricingSection } from "./landing-page/pricing-section"
 import { ProvidersSection } from "./landing-page/providers-section"
 import { SecuritySection } from "./landing-page/security-section"
+import { SilkBackdrop } from "./landing-page/shared"
 import { SocialProofSection } from "./landing-page/social-proof-section"
 import { StickyNav } from "./landing-page/sticky-nav"
 import { UseCasesSection } from "./landing-page/use-cases-section"
@@ -87,10 +88,13 @@ export function LandingPage() {
                     <SocialProofSection />
                     <PricingSection />
                     <SecuritySection />
-                    <CtaSection />
                 </main>
 
-                <FooterSection />
+                <div className="relative overflow-hidden">
+                    <SilkBackdrop silkClassName="opacity-45 dark:opacity-35" />
+                    <CtaSection />
+                    <FooterSection />
+                </div>
             </div>
         </>
     )

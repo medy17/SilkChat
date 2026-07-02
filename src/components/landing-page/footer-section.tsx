@@ -4,8 +4,8 @@ import { LogoMark } from "@/components/logo"
 
 export function FooterSection() {
     return (
-        <footer className="border-t py-10 [border-color:var(--landing-border)]">
-            <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-6 px-5 text-sm [color:var(--landing-muted-faint)] md:flex-row md:px-8">
+        <footer className="relative overflow-hidden pt-10">
+            <div className="relative mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-6 px-5 text-sm [color:var(--landing-muted-faint)] md:flex-row md:px-8">
                 <div className="flex items-center gap-3">
                     <LogoMark className="h-auto w-24 [color:var(--landing-fg)]" />
                     <span>&copy; {new Date().getFullYear()} SilkChat</span>
@@ -32,6 +32,13 @@ export function FooterSection() {
                         GitHub
                     </a>
                 </div>
+            </div>
+
+            <div
+                aria-hidden="true"
+                className="pointer-events-none relative mx-auto mt-12 w-full max-w-7xl select-none px-5 md:px-8"
+            >
+                <LogoMark className="h-auto w-full translate-y-[22%] opacity-[0.15] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
             </div>
         </footer>
     )

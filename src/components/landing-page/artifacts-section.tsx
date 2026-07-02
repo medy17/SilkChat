@@ -62,7 +62,7 @@ export function ArtifactsSection() {
                 </Tile>
 
                 <div>
-                    <SectionHead title="Code that runs in the chat.">
+                    <SectionHead className="mb-8" title="Code that runs in the chat.">
                         Smart Artifacts render React, HTML, and Markdown directly in the
                         conversation. Stop copy-pasting and start seeing results instantly.
                     </SectionHead>

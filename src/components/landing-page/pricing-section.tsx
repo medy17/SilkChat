@@ -13,7 +13,7 @@ export function PricingSection() {
                     Start free. Upgrade when you want the managed Pro credit pool.
                 </SectionHead>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
                     {pricingOptions.map(
                         ({ title, price, cadence, cta, featured, description, items }) => (
                             <Tile
