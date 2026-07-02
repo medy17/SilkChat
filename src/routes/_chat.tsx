@@ -394,7 +394,7 @@ function ChatLayout() {
                 <ThreadsSidebar />
                 <SidebarInset>
                     <div
-                        className="flex min-h-svh flex-1 flex-col overflow-hidden"
+                        className="relative flex min-h-svh flex-1 flex-col overflow-hidden"
                         style={{
                             backgroundImage: "url(/noise.png)",
                             backgroundRepeat: "repeat",

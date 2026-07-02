@@ -73,7 +73,7 @@ export function UserButton() {
     }
 
     return (
-        <DropdownMenu modal={false}>
+        <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button type="button" className="relative h-8 w-8 rounded-md">
                     <Avatar className="h-8 w-8 rounded-md">
