@@ -20,7 +20,7 @@ import { SidebarTrigger, useSidebar } from "./ui/sidebar"
 import { UserButton } from "./user-button"
 
 export function Header() {
-    const { isMobile, openMobile } = useSidebar()
+    const { isMobile, openMobile, state: sidebarState } = useSidebar()
     const isMobileActionsCollapsed = useHeaderActionsStore((state) => state.isMobileCollapsed)
     const isDesktopActionsCollapsed = useHeaderActionsStore((state) => state.isDesktopCollapsed)
     const toggleActionsCollapsed = useHeaderActionsStore((state) => state.toggleCollapsed)
@@ -48,6 +48,7 @@ export function Header() {
     })
 
     const showTrigger = isMobile ? !openMobile : true
+    const isSidebarCollapsed = isMobile ? !openMobile : sidebarState === "collapsed"
     const isLibraryRoute = location.pathname.startsWith("/library")
     const librarySearch = isLibraryRoute
         ? validateLibrarySearch(location.search as Record<string, unknown>)
@@ -76,7 +77,14 @@ export function Header() {
     return (
         <>
             {showTrigger && (
-                <div className="pointer-events-auto fixed top-4 left-4 z-50 md:top-6 md:left-6">
+                <div
+                    className={cn(
+                        "pointer-events-auto fixed z-50",
+                        isSidebarCollapsed
+                            ? "top-2 left-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm md:top-4 md:left-4"
+                            : "top-4 left-4 md:top-6 md:left-6"
+                    )}
+                >
                     <SidebarTrigger className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground" />
                 </div>
             )}
