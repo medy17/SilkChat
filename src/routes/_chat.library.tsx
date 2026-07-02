@@ -422,7 +422,7 @@ const MobileCheckboxFilter = ({
 )
 
 const GalleryImageSkeleton = memo(() => (
-    <div className="relative h-full w-full overflow-hidden rounded-lg border border-border/60 bg-muted/40">
+    <div className="relative h-full w-full overflow-hidden rounded-lg bg-muted/40">
         <div className="absolute inset-0 bg-gradient-to-br from-muted/90 via-muted/70 to-accent/50" />
         <div className="absolute inset-0 backdrop-blur-[1px]" />
         <div className="absolute inset-x-0 bottom-0 space-y-2 p-3">
@@ -475,7 +475,7 @@ const PendingImageItem = memo(
 
         return (
             <div
-                className="group relative overflow-hidden rounded-lg border bg-background"
+                className="group relative overflow-hidden rounded-lg bg-background"
                 style={{ aspectRatio: cssAspectRatio }}
             >
                 <ImageSkeleton
@@ -843,7 +843,7 @@ const GeneratedImageItem = memo(
         if (isError || hasInvalidStoredImage) {
             return (
                 <div
-                    className="group relative overflow-hidden rounded-lg border bg-muted/50"
+                    className="group relative overflow-hidden rounded-lg bg-muted/50"
                     style={{ aspectRatio: cssAspectRatio }}
                 >
                     <div className="flex h-full items-center justify-center">
@@ -863,7 +863,7 @@ const GeneratedImageItem = memo(
                 <ContextMenuTrigger asChild>
                     <div
                         className={cn(
-                            "group relative w-full overflow-hidden rounded-lg border bg-background transition-all",
+                            "group relative w-full overflow-hidden rounded-lg bg-background transition-all",
                             isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}
