@@ -57,6 +57,21 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro"
     },
     {
+        id: "gemini-3.1-flash-lite-image",
+        name: "Gemini 3.1 Flash Lite Image",
+        shortName: "3.1 Flash Lite",
+        releaseOrder: 20260630,
+        adapters: falImageAdapters("google/nano-banana-2-lite"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 4,
+        supportsReferenceImages: true,
+        openrouterImageModalities: ["image", "text"],
+        customIcon: "google",
+        supportedImageSizes: [...GEMINI_IMAGE_SIZES],
+        prototypeCreditTier: "pro"
+    },
+    {
         id: "gemini-3-pro-image-preview",
         name: "Gemini 3 Pro Image Preview",
         shortName: "3 Pro Image",
@@ -92,6 +107,16 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         usesAspectRatio: true,
         resolutionMode: "uppercase",
+        safety: {
+            safetyTolerance: "1"
+        }
+    },
+    {
+        appModelId: "gemini-3.1-flash-lite-image",
+        endpoint: "google/nano-banana-2-lite",
+        editEndpoint: "google/nano-banana-2-lite/edit",
+        supportsReferences: true,
+        usesAspectRatio: true,
         safety: {
             safetyTolerance: "1"
         }

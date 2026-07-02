@@ -143,6 +143,26 @@ describe("fal image model payloads", () => {
         expect(input).not.toHaveProperty("enable_safety_checker")
     })
 
+    it("maps Gemini 3.1 Flash Lite to Nano Banana 2 Lite without a resolution", () => {
+        const model = descriptor("gemini-3.1-flash-lite-image")
+        const input = buildFalImageInput(model, {
+            prompt: "A test image",
+            imageSize: "21:9",
+            imageResolution: "4K",
+            referenceImages: [],
+            maxAssets: 1
+        })
+
+        expect(model.endpoint).toBe("google/nano-banana-2-lite")
+        expect(model.editEndpoint).toBe("google/nano-banana-2-lite/edit")
+        expect(sharedModel("gemini-3.1-flash-lite-image").supportedImageResolutions).toBeUndefined()
+        expect(input).toMatchObject({
+            aspect_ratio: "21:9",
+            safety_tolerance: "1"
+        })
+        expect(input).not.toHaveProperty("resolution")
+    })
+
     it("maps Gemini Pro to its fal endpoint and safety tolerance", () => {
         const model = descriptor("gemini-3-pro-image-preview")
         const input = buildFalImageInput(model, {
