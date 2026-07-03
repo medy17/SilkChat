@@ -297,7 +297,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                     rounded="full"
                                 />
                             ) : (
-                                <div className="mb-6 size-16 rounded-full border-2 opacity-80">
+                                <div className="mb-6 size-16 opacity-80">
                                     <Logo />
                                 </div>
                             )}
