@@ -526,7 +526,8 @@ function MobileOverflowMenu({
                 align="end"
                 side="top"
                 sideOffset={8}
-                className="w-[min(16rem,calc(100vw-1rem))] rounded-lg border-border/70 bg-popover p-1.5 shadow-lg"
+                className="max-h-[min(var(--radix-popover-content-available-height),calc(100dvh-1rem))] w-[min(16rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border/70 bg-popover p-1.5 shadow-lg"
+                style={{ borderRadius: "var(--radius-lg)" }}
             >
                 <div className="space-y-1">
                     {modelSupportsReasoningControl && (
@@ -896,32 +897,13 @@ function MobileOverflowMenu({
     )
 }
 
-export const MultimodalInput = forwardRef<
-    MultimodalInputRef,
-    {
-        onSubmit: (input?: string, files?: UploadedFile[]) => void
-        status: ReturnType<typeof useChat>["status"]
-        threadId?: string
-        isActive?: boolean
-        threadHasPdfAttachments?: boolean
-        messages?: UIMessage[]
-    }
->(function MultimodalInput(
-    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false, messages = [] },
-    ref
-) {
-    const { token } = useToken()
+export function useComposerToolbarState(threadId?: string) {
     const session = useSession()
     const auth = useConvexAuth()
-    const deleteFileMutation = useMutation(api.attachments.deleteFile)
-    const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
-    const isMobile = useIsMobile()
     const { models: sharedModels } = useSharedModels()
     const creditPlan = usePrototypeCreditPlan()
-
     const {
         selectedModel,
-        setSelectedModel,
         enabledTools,
         setEnabledTools,
         reasoningEffort,
@@ -931,28 +913,7 @@ export const MultimodalInput = forwardRef<
         setMcpOverride,
         setDefaultMcpOverride
     } = useModelStore()
-    const { uploadedFiles, addUploadedFile, removeUploadedFile, uploading, setUploading } =
-        useChatStore()
-    const { chatWidthState } = useChatWidthStore()
 
-    const isLoading = status === "streaming"
-    const isImageGenerationPending = useMemo(() => hasPendingImageGeneration(messages), [messages])
-    // One-shot escape hatch: "Send anyway" on the gate toast arms this for a single
-    // submit so a generation stuck in a non-terminal status can never lock the thread.
-    const imageGenerationGateBypassRef = useRef(false)
-    const uploadInputRef = useRef<HTMLInputElement>(null)
-    const promptInputRef = useRef<PromptInputRef>(null)
-    const composerViewportRef = useRef<HTMLDivElement>(null)
-
-    const [fileContents, setFileContents] = useState<Record<string, string>>({})
-    const [localUploadingFiles, setLocalUploadingFiles] = useState<LocalUploadingFile[]>([])
-    const [dialogFile, setDialogFile] = useState<{
-        content: string
-        fileName: string
-        fileType: string
-    } | null>(null)
-    const [dialogOpen, setDialogOpen] = useState(false)
-    const [extendedFiles, setExtendedFiles] = useState<ExtendedUploadedFile[]>([])
     const [pendingToolCallLimitPerTurn, setPendingToolCallLimitPerTurn] = useState<number | null>(
         null
     )
@@ -976,23 +937,6 @@ export const MultimodalInput = forwardRef<
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
     const updateUserSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
-
-    const {
-        state: voiceState,
-        startRecording,
-        stopRecording
-    } = useVoiceRecorder({
-        onTranscript: (text: string) => {
-            if (promptInputRef.current) {
-                const currentValue = promptInputRef.current.getValue()
-                const newValue = currentValue ? `${currentValue} ${text}` : text
-                promptInputRef.current.setValue(newValue)
-                localStorage.setItem("user-input", newValue)
-                promptInputRef.current.focus()
-                setInputValue(newValue)
-            }
-        }
-    })
 
     const selectedSharedModel = useMemo(
         () => sharedModels.find((model) => model.id === selectedModel),
@@ -1025,15 +969,6 @@ export const MultimodalInput = forwardRef<
             setReasoningEffort("off")
         }
     }, [modelSupportsReasoningControl, reasoningEffort, setReasoningEffort])
-
-    useEffect(() => {
-        setExtendedFiles(uploadedFiles.map((file) => ({ ...file })))
-    }, [uploadedFiles])
-
-    const requiresNativePdfForModelSelection = useMemo(
-        () => threadHasPdfAttachments || hasPdfAttachmentInUploadedFiles(uploadedFiles),
-        [threadHasPdfAttachments, uploadedFiles]
-    )
 
     const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
     const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
@@ -1143,6 +1078,220 @@ export const MultimodalInput = forwardRef<
             })
         },
         [updateUserSettings]
+    )
+
+    return {
+        selectedModel,
+        creditPlan,
+        userSettings,
+        selectedSharedModel,
+        allowedReasoningEfforts,
+        modelSupportsReasoningControl,
+        modelSupportsVision,
+        modelSupportsFunctionCalling,
+        modelSupportsNativePdf,
+        isImageModel,
+        webSearchAvailable,
+        hasSupermemory,
+        mcpServers,
+        currentMcpOverrides,
+        toolLimitInteractive,
+        displayedToolCallLimitPerTurn,
+        handleToolCallLimitUpdate,
+        imageDefaultResolution,
+        imageDefaultVariants,
+        handleImageDefaultsUpdate,
+        handleToolToggle,
+        handleMcpServerToggle,
+        invertSendNewlineBehavior
+    }
+}
+
+export type ComposerToolbarState = ReturnType<typeof useComposerToolbarState>
+
+export function ComposerDesktopActions({
+    state,
+    threadId,
+    uploading,
+    onAttachClick
+}: {
+    state: ComposerToolbarState
+    threadId?: string
+    uploading: boolean
+    onAttachClick: () => void
+}) {
+    const { enabledTools, setEnabledTools } = useModelStore()
+
+    return (
+        <motion.div
+            layout
+            transition={{
+                duration: 0.2,
+                ease: [0.16, 1, 0.3, 1]
+            }}
+            className="hidden items-center gap-2 sm:flex"
+        >
+            {state.isImageModel ? null : (
+                <>
+                    <PromptInputAction tooltip="Attach files">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={onAttachClick}
+                            disabled={uploading}
+                            className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                            style={{ borderRadius: "var(--radius-md)" }}
+                        >
+                            {uploading ? (
+                                <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                                <Paperclip className="-rotate-45 size-4 hover:text-primary" />
+                            )}
+                        </Button>
+                    </PromptInputAction>
+
+                    <PromptInputAction tooltip="Tools">
+                        <ToolSelectorPopover
+                            threadId={threadId}
+                            enabledTools={enabledTools}
+                            onEnabledToolsChange={setEnabledTools}
+                            modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
+                            modelSupportsVision={state.modelSupportsVision}
+                        />
+                    </PromptInputAction>
+
+                    <ReasoningEffortSelector
+                        selectedModel={state.selectedModel}
+                        creditPlan={state.creditPlan}
+                    />
+                </>
+            )}
+        </motion.div>
+    )
+}
+
+export function ComposerMobileMenu({
+    state,
+    onAttachClick
+}: {
+    state: ComposerToolbarState
+    onAttachClick: () => void
+}) {
+    const [open, setOpen] = useState(false)
+
+    if (state.isImageModel && !state.modelSupportsReasoningControl) {
+        return null
+    }
+
+    return (
+        <div className="shrink-0 sm:hidden">
+            <MobileOverflowMenu
+                open={open}
+                onOpenChange={setOpen}
+                selectedModel={state.selectedModel}
+                modelSupportsVision={state.modelSupportsVision}
+                modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
+                modelSupportsReasoningControl={state.modelSupportsReasoningControl}
+                isImageModel={state.isImageModel}
+                allowedReasoningEfforts={state.allowedReasoningEfforts}
+                selectedSharedModel={state.selectedSharedModel}
+                creditPlan={state.creditPlan}
+                webSearchAvailable={state.webSearchAvailable}
+                hasSupermemory={state.hasSupermemory}
+                mcpServers={state.mcpServers}
+                currentMcpOverrides={state.currentMcpOverrides}
+                toolCallLimitPerTurn={state.displayedToolCallLimitPerTurn}
+                toolLimitInteractive={state.toolLimitInteractive}
+                onSetToolCallLimit={state.handleToolCallLimitUpdate}
+                imageDefaultResolution={state.imageDefaultResolution}
+                imageDefaultVariants={state.imageDefaultVariants}
+                onSetImageDefaults={state.handleImageDefaultsUpdate}
+                onToggleTool={state.handleToolToggle}
+                onToggleMcpServer={state.handleMcpServerToggle}
+                onAttachClick={onAttachClick}
+            />
+        </div>
+    )
+}
+
+export const MultimodalInput = forwardRef<
+    MultimodalInputRef,
+    {
+        onSubmit: (input?: string, files?: UploadedFile[]) => void
+        status: ReturnType<typeof useChat>["status"]
+        threadId?: string
+        isActive?: boolean
+        threadHasPdfAttachments?: boolean
+        messages?: UIMessage[]
+    }
+>(function MultimodalInput(
+    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false, messages = [] },
+    ref
+) {
+    const { token } = useToken()
+    const session = useSession()
+    const auth = useConvexAuth()
+    const deleteFileMutation = useMutation(api.attachments.deleteFile)
+    const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
+    const isMobile = useIsMobile()
+    const composerToolbar = useComposerToolbarState(threadId)
+    const {
+        userSettings,
+        selectedSharedModel,
+        modelSupportsVision,
+        modelSupportsNativePdf,
+        isImageModel,
+        invertSendNewlineBehavior
+    } = composerToolbar
+
+    const { selectedModel, setSelectedModel } = useModelStore()
+    const { uploadedFiles, addUploadedFile, removeUploadedFile, uploading, setUploading } =
+        useChatStore()
+    const { chatWidthState } = useChatWidthStore()
+
+    const isLoading = status === "streaming"
+    const isImageGenerationPending = useMemo(() => hasPendingImageGeneration(messages), [messages])
+    // One-shot escape hatch: "Send anyway" on the gate toast arms this for a single
+    // submit so a generation stuck in a non-terminal status can never lock the thread.
+    const imageGenerationGateBypassRef = useRef(false)
+    const uploadInputRef = useRef<HTMLInputElement>(null)
+    const promptInputRef = useRef<PromptInputRef>(null)
+    const composerViewportRef = useRef<HTMLDivElement>(null)
+
+    const [fileContents, setFileContents] = useState<Record<string, string>>({})
+    const [localUploadingFiles, setLocalUploadingFiles] = useState<LocalUploadingFile[]>([])
+    const [dialogFile, setDialogFile] = useState<{
+        content: string
+        fileName: string
+        fileType: string
+    } | null>(null)
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [extendedFiles, setExtendedFiles] = useState<ExtendedUploadedFile[]>([])
+
+    const {
+        state: voiceState,
+        startRecording,
+        stopRecording
+    } = useVoiceRecorder({
+        onTranscript: (text: string) => {
+            if (promptInputRef.current) {
+                const currentValue = promptInputRef.current.getValue()
+                const newValue = currentValue ? `${currentValue} ${text}` : text
+                promptInputRef.current.setValue(newValue)
+                localStorage.setItem("user-input", newValue)
+                promptInputRef.current.focus()
+                setInputValue(newValue)
+            }
+        }
+    })
+
+    useEffect(() => {
+        setExtendedFiles(uploadedFiles.map((file) => ({ ...file })))
+    }, [uploadedFiles])
+
+    const requiresNativePdfForModelSelection = useMemo(
+        () => threadHasPdfAttachments || hasPdfAttachmentInUploadedFiles(uploadedFiles),
+        [threadHasPdfAttachments, uploadedFiles]
     )
 
     const handleSubmit = async () => {
@@ -1740,7 +1889,6 @@ export const MultimodalInput = forwardRef<
     }
 
     const [isClient, setIsClient] = useState(false)
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     useEffect(() => {
         setIsClient(true)
@@ -1838,93 +1986,26 @@ export const MultimodalInput = forwardRef<
                             )}
                             <PersonaSelector threadId={threadId} />
 
-                            <motion.div
-                                layout
-                                transition={{
-                                    duration: 0.2,
-                                    ease: [0.16, 1, 0.3, 1]
-                                }}
-                                className="hidden items-center gap-2 sm:flex"
-                            >
-                                {isImageModel ? null : (
-                                    <>
-                                        <PromptInputAction tooltip="Attach files">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                onClick={() => uploadInputRef.current?.click()}
-                                                className={cn(
-                                                    "flex size-8 cursor-pointer items-center justify-center gap-1 rounded-md bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
-                                                )}
-                                            >
-                                                <input
-                                                    type="file"
-                                                    multiple
-                                                    onChange={handleFileChange}
-                                                    className="hidden"
-                                                    ref={uploadInputRef}
-                                                    accept={getFileAcceptAttribute(
-                                                        modelSupportsVision
-                                                    )}
-                                                />
-                                                {uploading ? (
-                                                    <Loader2 className="size-4 animate-spin" />
-                                                ) : (
-                                                    <Paperclip className="-rotate-45 size-4 hover:text-primary" />
-                                                )}
-                                            </Button>
-                                        </PromptInputAction>
-
-                                        <PromptInputAction tooltip="Tools">
-                                            <ToolSelectorPopover
-                                                threadId={threadId}
-                                                enabledTools={enabledTools}
-                                                onEnabledToolsChange={setEnabledTools}
-                                                modelSupportsFunctionCalling={
-                                                    modelSupportsFunctionCalling
-                                                }
-                                                modelSupportsVision={modelSupportsVision}
-                                            />
-                                        </PromptInputAction>
-
-                                        <ReasoningEffortSelector
-                                            selectedModel={selectedModel}
-                                            creditPlan={creditPlan}
-                                        />
-                                    </>
-                                )}
-                            </motion.div>
+                            <input
+                                type="file"
+                                multiple
+                                onChange={handleFileChange}
+                                className="hidden"
+                                ref={uploadInputRef}
+                                accept={getFileAcceptAttribute(modelSupportsVision)}
+                            />
+                            <ComposerDesktopActions
+                                state={composerToolbar}
+                                threadId={threadId}
+                                uploading={uploading}
+                                onAttachClick={() => uploadInputRef.current?.click()}
+                            />
                         </motion.div>
 
-                        {(!isImageModel || modelSupportsReasoningControl) && (
-                            <div className="shrink-0 sm:hidden">
-                                <MobileOverflowMenu
-                                    open={mobileMenuOpen}
-                                    onOpenChange={setMobileMenuOpen}
-                                    selectedModel={selectedModel}
-                                    modelSupportsVision={modelSupportsVision}
-                                    modelSupportsFunctionCalling={modelSupportsFunctionCalling}
-                                    modelSupportsReasoningControl={modelSupportsReasoningControl}
-                                    isImageModel={isImageModel}
-                                    allowedReasoningEfforts={allowedReasoningEfforts}
-                                    selectedSharedModel={selectedSharedModel}
-                                    creditPlan={creditPlan}
-                                    webSearchAvailable={webSearchAvailable}
-                                    hasSupermemory={hasSupermemory}
-                                    mcpServers={mcpServers}
-                                    currentMcpOverrides={currentMcpOverrides}
-                                    toolCallLimitPerTurn={displayedToolCallLimitPerTurn}
-                                    toolLimitInteractive={toolLimitInteractive}
-                                    onSetToolCallLimit={handleToolCallLimitUpdate}
-                                    imageDefaultResolution={imageDefaultResolution}
-                                    imageDefaultVariants={imageDefaultVariants}
-                                    onSetImageDefaults={handleImageDefaultsUpdate}
-                                    onToggleTool={handleToolToggle}
-                                    onToggleMcpServer={handleMcpServerToggle}
-                                    onAttachClick={() => uploadInputRef.current?.click()}
-                                />
-                            </div>
-                        )}
+                        <ComposerMobileMenu
+                            state={composerToolbar}
+                            onAttachClick={() => uploadInputRef.current?.click()}
+                        />
 
                         <PromptInputAction
                             tooltip={
@@ -1940,7 +2021,8 @@ export const MultimodalInput = forwardRef<
                             <Button
                                 variant="default"
                                 size="icon"
-                                className="size-8 shrink-0 rounded-md"
+                                className="size-8 shrink-0"
+                                style={{ borderRadius: "var(--radius-md)" }}
                                 disabled={status === "submitted" || uploading}
                                 onClick={handleVoiceButtonClick}
                                 type="submit"

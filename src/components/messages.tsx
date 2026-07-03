@@ -25,7 +25,6 @@ import {
 import { useModelStore } from "@/lib/model-store"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
-import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
@@ -36,9 +35,6 @@ import {
     FileType,
     FileType2,
     Image as ImageIcon,
-    Loader2,
-    Paperclip,
-    PenOff,
     Quote,
     RotateCcw,
     Trash2,
@@ -62,12 +58,15 @@ import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
 import { ModelSelector } from "./model-selector"
-import { ReasoningEffortSelector } from "./multimodal-input"
+import {
+    ComposerDesktopActions,
+    ComposerMobileMenu,
+    useComposerToolbarState
+} from "./multimodal-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
-import { ToolSelectorPopover } from "./tool-selector-popover"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -231,6 +230,65 @@ const FileAttachment = memo(
 )
 FileAttachment.displayName = "FileAttachment"
 
+// Compact, single-row attachment tile used when a message carries more than one
+// file. Mirrors the edit composer's collapsed previews so a multi-image message
+// doesn't balloon the bubble height (and appear to "vanish" above the fold).
+const CompactAttachment = memo(
+    ({
+        part,
+        onPreview
+    }: {
+        part: { url: string; filename?: string; mediaType?: string }
+        onPreview?: () => void
+    }) => {
+        const fileName = part.filename || extractFileName(part.url)
+        const { isImage } = getFileTypeInfo(fileName, part.mediaType)
+        const [imageError, setImageError] = useState(false)
+
+        const showImage = isImage && !imageError
+
+        return (
+            <button
+                type="button"
+                onClick={() => onPreview?.()}
+                title={fileName}
+                className={cn(
+                    "group relative flex h-12 shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-all hover:bg-secondary/80",
+                    showImage ? "w-12 p-0" : "min-w-12 max-w-52 px-3"
+                )}
+                style={{ borderRadius: "var(--radius)" }}
+            >
+                {showImage ? (
+                    <img
+                        src={resolvePublicFileUrl(part.url)}
+                        alt={fileName}
+                        className="h-full w-full object-cover"
+                        style={{ borderRadius: "calc(var(--radius) - 2px)" }}
+                        onError={() => setImageError(true)}
+                    />
+                ) : (
+                    <div className="flex min-w-0 items-center gap-2 text-foreground">
+                        {isImage ? (
+                            <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                            getFileIcon(part)
+                        )}
+                        <div className="flex min-w-0 flex-col">
+                            <span className="max-w-[8.5rem] truncate font-medium text-xs">
+                                {fileName}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                                {isImage ? "Unavailable" : "File"}
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </button>
+        )
+    }
+)
+CompactAttachment.displayName = "CompactAttachment"
+
 const PartsRenderer = memo(
     ({
         part,
@@ -336,6 +394,7 @@ const EditableMessage = memo(
         message,
         onSave,
         onCancel,
+        cancelRequestRef,
         requiresNativePdfForModelSelection = false
     }: {
         message: UIMessage
@@ -345,6 +404,7 @@ const EditableMessage = memo(
             deletedUrls?: string[]
         ) => void
         onCancel: () => void
+        cancelRequestRef?: React.MutableRefObject<(() => void) | null>
         requiresNativePdfForModelSelection?: boolean
     }) => {
         const location = useLocation()
@@ -364,23 +424,8 @@ const EditableMessage = memo(
             reasoningEffort,
             setReasoningEffort
         } = useModelStore()
-        const { models: sharedModels } = useSharedModels()
-
-        const [
-            modelSupportsVision,
-            modelSupportsNativePdf,
-            modelSupportsFunctionCalling,
-            isImageModel
-        ] = useMemo(() => {
-            if (!selectedModel) return [false, false, false, false]
-            const model = sharedModels.find((m) => m.id === selectedModel)
-            return [
-                model?.abilities.includes("vision") ?? false,
-                model?.abilities.includes("native_pdf") ?? false,
-                model?.abilities.includes("function_calling") ?? false,
-                model?.mode === "image"
-            ]
-        }, [selectedModel, sharedModels])
+        const composerToolbar = useComposerToolbarState(threadId)
+        const { modelSupportsVision, modelSupportsNativePdf } = composerToolbar
 
         const textContent = message.parts
             .filter((part) => part.type === "text")
@@ -434,6 +479,7 @@ const EditableMessage = memo(
 
         const handleAddFiles = useCallback(
             async (files: File[]) => {
+                if (uploading) return
                 if (files.length === 0) return
 
                 const validationErrors = files
@@ -474,7 +520,7 @@ const EditableMessage = memo(
                     }
                 }
             },
-            [modelSupportsNativePdf, modelSupportsVision, uploadFile, uploadPolicy]
+            [modelSupportsNativePdf, modelSupportsVision, uploadFile, uploadPolicy, uploading]
         )
 
         const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -542,6 +588,15 @@ const EditableMessage = memo(
             setShowCancelConfirmation(false)
             commitCancel()
         }, [commitCancel])
+
+        useEffect(() => {
+            if (!cancelRequestRef) return
+
+            cancelRequestRef.current = requestCancel
+            return () => {
+                cancelRequestRef.current = null
+            }
+        }, [cancelRequestRef, requestCancel])
 
         const handleKeyDown = (e: React.KeyboardEvent) => {
             if (matchesSaveMessageEditShortcut(e)) {
@@ -646,7 +701,7 @@ const EditableMessage = memo(
                                                     : "Remove attachment from message"
                                             }
                                             className={cn(
-                                                "absolute h-6 w-6 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
+                                                "absolute h-6 w-6 opacity-100 shadow-sm transition-opacity md:opacity-0 md:group-hover:opacity-100",
                                                 isRemoved
                                                     ? "top-1 right-1 bg-background/80 text-foreground"
                                                     : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
@@ -709,7 +764,7 @@ const EditableMessage = memo(
                                             size="icon"
                                             onClick={() => removeAddedFile(file)}
                                             title="Remove attachment from message"
-                                            className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                                            className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
                                             style={{ borderRadius: "var(--radius-xl)" }}
                                         >
                                             <X className="size-3.5" />
@@ -720,8 +775,8 @@ const EditableMessage = memo(
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between gap-2 border-border/70 border-t pt-3">
-                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 border-border/70 border-t pt-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-2 sm:overflow-visible">
                             {selectedModel && (
                                 <ModelSelector
                                     selectedModel={selectedModel}
@@ -731,70 +786,37 @@ const EditableMessage = memo(
                                     requiresNativePdf={requiresNativePdfForModelSelection}
                                 />
                             )}
-
-                            {!isImageModel && (
-                                <>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                        className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
-                                        style={{ borderRadius: "var(--radius-md)" }}
-                                        title="Attach files"
-                                    >
-                                        {uploading ? (
-                                            <Loader2 className="size-4 animate-spin" />
-                                        ) : (
-                                            <Paperclip className="-rotate-45 size-4" />
-                                        )}
-                                    </Button>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        multiple
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                        accept={getFileAcceptAttribute(modelSupportsVision)}
-                                    />
-                                    <ToolSelectorPopover
-                                        threadId={threadId}
-                                        enabledTools={enabledTools}
-                                        onEnabledToolsChange={setEnabledTools}
-                                        modelSupportsFunctionCalling={modelSupportsFunctionCalling}
-                                        modelSupportsVision={modelSupportsVision}
-                                    />
-                                    <ReasoningEffortSelector selectedModel={selectedModel} />
-                                </>
-                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept={getFileAcceptAttribute(modelSupportsVision)}
+                            />
+                            <ComposerDesktopActions
+                                state={composerToolbar}
+                                threadId={threadId}
+                                uploading={uploading}
+                                onAttachClick={() => fileInputRef.current?.click()}
+                            />
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={requestCancel}
-                                className="size-8 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80 hover:text-destructive"
-                                style={{ borderRadius: "var(--radius-md)" }}
-                                title="Cancel edit"
-                                aria-label="Cancel edit"
-                            >
-                                <PenOff className="size-4" />
-                            </Button>
+                        <ComposerMobileMenu
+                            state={composerToolbar}
+                            onAttachClick={() => fileInputRef.current?.click()}
+                        />
 
-                            <Button
-                                size="icon"
-                                className="size-8 shrink-0"
-                                style={{ borderRadius: "var(--radius-md)" }}
-                                onClick={handleSave}
-                                disabled={uploading}
-                                title="Send"
-                            >
-                                <ArrowUp className="size-5" />
-                            </Button>
-                        </div>
+                        <Button
+                            size="icon"
+                            className="size-8 shrink-0"
+                            style={{ borderRadius: "var(--radius-md)" }}
+                            onClick={handleSave}
+                            disabled={uploading}
+                            title="Send"
+                        >
+                            <ArrowUp className="size-5" />
+                        </Button>
                     </div>
                 </div>
 
@@ -891,10 +913,70 @@ const MessageRowComponent = ({
         (part) => part.type !== "file" && part.type !== "reasoning"
     )
     const fileParts = message.parts.filter((part) => part.type === "file")
+    const cancelEditRequestRef = useRef<(() => void) | null>(null)
+    const bubbleRef = useRef<HTMLDivElement>(null)
+    const bubbleRectRef = useRef<{ width: number; height: number } | null>(null)
+    const prevIsEditingRef = useRef(isEditing)
+
+    // FLIP the message bubble when entering/leaving edit mode. The outer element is
+    // the same node across the toggle, so measuring before/after gives real pixel
+    // sizes — which a CSS keyframe can't, since the resting bubble is content-sized
+    // (w-fit) and clamped by max-width. We animate both dimensions so the transition
+    // reads correctly on any viewport: on desktop the width delta dominates (the
+    // clamped bubble grows to full width), while on mobile the bubble is already
+    // ~full width, so the height delta dominates and it reads as the box growing tall.
+    useLayoutEffect(() => {
+        if (message.role !== "user") return
+
+        const element = bubbleRef.current
+        if (!element) return
+
+        const rect = element.getBoundingClientRect()
+        const nextWidth = rect.width
+        const nextHeight = rect.height
+        const editingChanged = prevIsEditingRef.current !== isEditing
+        const prevRect = bubbleRectRef.current
+
+        bubbleRectRef.current = { width: nextWidth, height: nextHeight }
+        prevIsEditingRef.current = isEditing
+
+        if (!editingChanged || prevRect === null) {
+            return
+        }
+
+        const widthChanged = Math.abs(prevRect.width - nextWidth) >= 1
+        const heightChanged = Math.abs(prevRect.height - nextHeight) >= 1
+        if (!widthChanged && !heightChanged) {
+            return
+        }
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return
+        }
+
+        element.animate(
+            [
+                {
+                    width: `${prevRect.width}px`,
+                    height: `${prevRect.height}px`,
+                    maxWidth: "none",
+                    overflow: "hidden"
+                },
+                {
+                    width: `${nextWidth}px`,
+                    height: `${nextHeight}px`,
+                    maxWidth: "none",
+                    overflow: "hidden"
+                }
+            ],
+            { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+        )
+    })
 
     return (
         <div className="pb-3">
             <div
+                ref={bubbleRef}
                 className={cn(
                     MESSAGE_MARKDOWN_CLASS,
                     "group prose-img:mx-auto prose-img:my-4 prose-pre:grid prose-code:before:hidden prose-code:after:hidden",
@@ -902,16 +984,28 @@ const MessageRowComponent = ({
                     message.role === "user" &&
                         !isEditing &&
                         "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground",
-                    message.role === "user" && isEditing && "mt-12"
+                    message.role === "user" && isEditing && "mt-12 ml-auto w-full"
                 )}
             >
                 {isEditing ? (
-                    <EditableMessage
-                        message={message}
-                        onSave={onSaveEdit}
-                        onCancel={onCancelEdit}
-                        requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
-                    />
+                    <>
+                        <EditableMessage
+                            message={message}
+                            onSave={onSaveEdit}
+                            onCancel={onCancelEdit}
+                            cancelRequestRef={cancelEditRequestRef}
+                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                        />
+                        <ChatActions
+                            role={message.role}
+                            message={message}
+                            onRetry={onRetry}
+                            onEdit={onEdit}
+                            editing
+                            onCancelEdit={() => cancelEditRequestRef.current?.()}
+                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                        />
+                    </>
                 ) : (
                     <>
                         <div className="max-w-full overflow-hidden">
@@ -950,25 +1044,33 @@ const MessageRowComponent = ({
                             ))}
                         </div>
 
-                        {fileParts.length > 0 && (
-                            <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                        {fileParts.length > 1 ? (
+                            <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
                                 {fileParts.map((part, index) => (
-                                    <PartsRenderer
+                                    <CompactAttachment
                                         key={`${message.id}-file-${index}`}
-                                        part={part}
-                                        markdown={message.role === "assistant"}
-                                        id={`${message.id}-file-${index}`}
-                                        threadId={
-                                            ((message.metadata as { threadId?: string } | undefined)
-                                                ?.threadId as string | undefined) ?? threadId
-                                        }
-                                        messageId={message.id}
-                                        onFilePreview={onFilePreview}
-                                        isStreaming={isStreamingMessage}
+                                        part={part as FileUIPart}
+                                        onPreview={() => onFilePreview(part as FileUIPart)}
                                     />
                                 ))}
                             </div>
-                        )}
+                        ) : fileParts.length === 1 ? (
+                            <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                                <PartsRenderer
+                                    key={`${message.id}-file-0`}
+                                    part={fileParts[0]}
+                                    markdown={message.role === "assistant"}
+                                    id={`${message.id}-file-0`}
+                                    threadId={
+                                        ((message.metadata as { threadId?: string } | undefined)
+                                            ?.threadId as string | undefined) ?? threadId
+                                    }
+                                    messageId={message.id}
+                                    onFilePreview={onFilePreview}
+                                    isStreaming={isStreamingMessage}
+                                />
+                            </div>
+                        ) : null}
 
                         {!hasActiveTarget && message.role === "user" ? (
                             <ChatActions
@@ -1119,12 +1221,18 @@ export const Messages = forwardRef<
                 !isImage && !isText && !isPdf && isExternalPreviewUrl
 
             return (
-                <div className="max-h-full overflow-auto">
+                <div
+                    className={cn(
+                        "min-h-0 overflow-auto",
+                        isImage && "flex items-center justify-center"
+                    )}
+                >
                     {isImage && (
                         <img
                             src={resolvedPreviewUrl}
                             alt={fileName}
-                            className="h-auto w-full rounded object-contain"
+                            className="h-auto max-h-[calc(90dvh-8rem)] w-auto max-w-full object-contain"
+                            style={{ borderRadius: "var(--radius-sm)" }}
                             onError={(e) => {
                                 const target = e.target as HTMLImageElement
                                 target.style.display = "none"
@@ -1591,7 +1699,7 @@ export const Messages = forwardRef<
                         }
                     }}
                 >
-                    <DialogContent className="md:!max-w-[min(90vw,60rem)] max-h-[90dvh]">
+                    <DialogContent className="md:!max-w-[min(90vw,60rem)] grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
                         {previewFile && (
                             <>
                                 <DialogHeader>

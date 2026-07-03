@@ -24,7 +24,19 @@ import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { cn, copyToClipboard } from "@/lib/utils"
 import type { UIMessage } from "ai"
-import { Check, Clock3, Copy, Cpu, DollarSign, Download, Edit3, Key, Zap } from "lucide-react"
+import {
+    Check,
+    Clock3,
+    Copy,
+    Cpu,
+    DollarSign,
+    Download,
+    Edit3,
+    Key,
+    PenOff,
+    RotateCcw,
+    Zap
+} from "lucide-react"
 import {
     type CSSProperties,
     type ComponentType,
@@ -137,6 +149,8 @@ export const ChatActions = memo(
         onRetry,
         onBranch,
         onEdit,
+        editing = false,
+        onCancelEdit,
         requiresNativePdfForModelSelection = false
     }: {
         role: UIMessage["role"]
@@ -144,6 +158,8 @@ export const ChatActions = memo(
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
         onBranch?: (message: UIMessage) => void
         onEdit?: (message: UIMessage) => void
+        editing?: boolean
+        onCancelEdit?: () => void
         requiresNativePdfForModelSelection?: boolean
     }) => {
         const [copied, setCopied] = useState(false)
@@ -340,15 +356,30 @@ export const ChatActions = memo(
         return (
             <div
                 className={cn(
-                    "absolute flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-focus:visible md:group-focus:z-10 md:group-focus:opacity-100 md:group-hover:visible md:group-hover:z-10 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+                    "absolute flex items-center gap-1 transition-opacity",
+                    editing
+                        ? "z-10 opacity-100"
+                        : "opacity-100 md:opacity-0 md:group-focus:visible md:group-focus:z-10 md:group-focus:opacity-100 md:group-hover:visible md:group-hover:z-10 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
                     role === "user" ? "right-0 mt-4" : "left-0 mt-3"
                 )}
             >
-                {onRetry && (
-                    <RetryMenu
-                        onRetry={(configOverride) => onRetry(message, configOverride)}
-                        requiresNativePdf={requiresNativePdfForModelSelection}
-                    />
+                {editing ? (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled
+                        aria-label="Retry unavailable while editing"
+                        className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm"
+                    >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                ) : (
+                    onRetry && (
+                        <RetryMenu
+                            onRetry={(configOverride) => onRetry(message, configOverride)}
+                            requiresNativePdf={requiresNativePdfForModelSelection}
+                        />
+                    )
                 )}
 
                 {onBranch && (
@@ -370,22 +401,41 @@ export const ChatActions = memo(
                     </Tooltip>
                 )}
 
-                {onEdit && (
+                {editing ? (
                     <Tooltip delayDuration={150}>
                         <TooltipTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
-                                onClick={() => onEdit(message)}
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-destructive"
+                                aria-label="Cancel edit"
+                                onClick={onCancelEdit}
                             >
-                                <Edit3 className="h-3.5 w-3.5" />
+                                <PenOff className="h-3.5 w-3.5" />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">
-                            <p>Edit</p>
+                            <p>Cancel edit</p>
                         </TooltipContent>
                     </Tooltip>
+                ) : (
+                    onEdit && (
+                        <Tooltip delayDuration={150}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                    onClick={() => onEdit(message)}
+                                >
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                                <p>Edit</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    )
                 )}
 
                 {hasImageGeneration ? (
@@ -394,6 +444,7 @@ export const ChatActions = memo(
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                disabled={editing}
                                 className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
                                 onClick={handleDownload}
                             >
@@ -410,6 +461,7 @@ export const ChatActions = memo(
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                disabled={editing}
                                 className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
                                 onClick={handleCopy}
                             >
