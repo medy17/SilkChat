@@ -57,7 +57,8 @@ import {
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
     getRequiredPlanToPickModel,
-    isInstantReasoningEffortForModel
+    isInstantReasoningEffortForModel,
+    resolveSelectedDisplayModel
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
@@ -938,10 +939,15 @@ export function useComposerToolbarState(threadId?: string) {
     )
     const updateUserSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
 
-    const selectedSharedModel = useMemo(
-        () => sharedModels.find((model) => model.id === selectedModel),
-        [selectedModel, sharedModels]
+    const customModels = "error" in userSettings ? undefined : userSettings.customModels
+    const selectedDisplayModel = useMemo(
+        () => resolveSelectedDisplayModel(selectedModel, sharedModels, customModels),
+        [customModels, selectedModel, sharedModels]
     )
+    const selectedSharedModel =
+        selectedDisplayModel && !("isCustom" in selectedDisplayModel)
+            ? selectedDisplayModel
+            : undefined
     const allowedReasoningEfforts = useMemo(
         () => getAllowedReasoningEffortsForModel(selectedSharedModel),
         [selectedSharedModel]
@@ -955,14 +961,13 @@ export function useComposerToolbarState(threadId?: string) {
         isImageModel
     ] = useMemo(() => {
         if (!selectedModel) return [false, false, false, false]
-        const model = sharedModels.find((m) => m.id === selectedModel)
         return [
-            model?.abilities.includes("vision") ?? false,
-            model?.abilities.includes("function_calling") ?? false,
-            model?.abilities.includes("native_pdf") ?? false,
-            model?.mode === "image"
+            selectedDisplayModel?.abilities.includes("vision") ?? false,
+            selectedDisplayModel?.abilities.includes("function_calling") ?? false,
+            selectedDisplayModel?.abilities.includes("native_pdf") ?? false,
+            selectedDisplayModel?.mode === "image"
         ]
-    }, [selectedModel, sharedModels])
+    }, [selectedDisplayModel, selectedModel])
 
     useEffect(() => {
         if (!modelSupportsReasoningControl && reasoningEffort !== "off") {

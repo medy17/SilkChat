@@ -40,6 +40,8 @@ export type DisplayModel =
           mode?: "text" | "image"
       }
 
+export type CustomModelsRecord = Infer<typeof UserSettings>["customModels"]
+
 export type CoreProviderInfo = {
     id: CoreProvider | "openrouter"
     name: string
@@ -307,6 +309,28 @@ export const isImageGenerationCapableModel = (model: DisplayModel) => {
     if (model.mode === "image") return true
     if (!("supportedImageResolutions" in model)) return false
     return (model.supportedImageResolutions?.length ?? 0) > 0
+}
+
+export const resolveSelectedDisplayModel = (
+    selectedModelId: string | null | undefined,
+    sharedModels: readonly SharedModel[],
+    customModels: CustomModelsRecord | undefined
+): DisplayModel | undefined => {
+    if (!selectedModelId) return undefined
+
+    const sharedModel = sharedModels.find((model) => model.id === selectedModelId)
+    if (sharedModel) return sharedModel
+
+    const customModel = customModels?.[selectedModelId]
+    if (!customModel?.enabled) return undefined
+
+    return {
+        id: selectedModelId,
+        name: customModel.name || customModel.modelId,
+        abilities: normalizeModelAbilities(customModel.abilities),
+        isCustom: true,
+        providerId: customModel.providerId
+    }
 }
 
 const buildFallbackModelDescription = (model: DisplayModel) => {

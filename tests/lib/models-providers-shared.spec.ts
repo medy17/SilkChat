@@ -16,7 +16,8 @@ import {
     isCustomModelProviderAvailable,
     isOpenRouterModelEnabledInBrowser,
     isOpenRouterOnlySharedModel,
-    isSupportedCustomModelCoreProvider
+    isSupportedCustomModelCoreProvider,
+    resolveSelectedDisplayModel
 } from "@/lib/models-providers-shared"
 import { describe, expect, it } from "vitest"
 
@@ -151,6 +152,48 @@ describe("models-providers-shared OpenRouter visibility", () => {
         expect(isCustomModelProviderAvailable("openai", currentProviders)).toBe(false)
         expect(isCustomModelProviderAvailable("anthropic", currentProviders)).toBe(false)
         expect(isCustomModelProviderAvailable("custom-disabled", currentProviders)).toBe(false)
+    })
+
+    it("resolves selected custom models with their configured abilities", () => {
+        const model = resolveSelectedDisplayModel("custom-gemma", [], {
+            "custom-gemma": {
+                enabled: true,
+                name: "Gemma 4 26B A4B",
+                modelId: "google/gemma-4-26b-a4b",
+                providerId: "openrouter",
+                contextLength: 128_000,
+                maxTokens: 8192,
+                abilities: ["vision", "function_calling", "pdf"]
+            }
+        })
+
+        expect(model).toMatchObject({
+            id: "custom-gemma",
+            name: "Gemma 4 26B A4B",
+            isCustom: true,
+            providerId: "openrouter",
+            abilities: ["vision", "function_calling", "native_pdf"]
+        })
+    })
+
+    it("prefers shared models when a selected id exists in both registries", () => {
+        const sharedModel = createModel({
+            id: "gemini-3-flash",
+            abilities: ["function_calling"]
+        })
+
+        expect(
+            resolveSelectedDisplayModel("gemini-3-flash", [sharedModel], {
+                "gemini-3-flash": {
+                    enabled: true,
+                    modelId: "custom/gemini-3-flash",
+                    providerId: "openrouter",
+                    contextLength: 128_000,
+                    maxTokens: 8192,
+                    abilities: ["vision"]
+                }
+            })
+        ).toBe(sharedModel)
     })
 
     it("maps toggle-only reasoning models to instant and thinking", () => {
