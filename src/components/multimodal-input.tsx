@@ -1134,7 +1134,7 @@ export function ComposerDesktopActions({
                 duration: 0.2,
                 ease: [0.16, 1, 0.3, 1]
             }}
-            className="hidden items-center gap-2 sm:flex"
+            className="hidden items-center gap-2 md:flex"
         >
             {state.isImageModel ? null : (
                 <>
@@ -1189,7 +1189,7 @@ export function ComposerMobileMenu({
     }
 
     return (
-        <div className="shrink-0 sm:hidden">
+        <div className="shrink-0 md:hidden">
             <MobileOverflowMenu
                 open={open}
                 onOpenChange={setOpen}
