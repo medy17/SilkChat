@@ -1140,7 +1140,10 @@ function LibraryRouteComponent() {
     return <LibraryView search={search} />
 }
 
-export function LibraryView({ search }: { search: LibrarySearchState }) {
+export function LibraryView({
+    search,
+    deferHeavyContent = false
+}: { search: LibrarySearchState; deferHeavyContent?: boolean }) {
     const navigate = useNavigate({ from: "/library" })
     const session = useSession()
     const isMobile = useIsMobile()
@@ -2221,7 +2224,7 @@ export function LibraryView({ search }: { search: LibrarySearchState }) {
 
                 {/* Scrollable Gallery Area */}
                 <div className="px-3 pt-1 pb-3 sm:px-4 sm:pt-2 sm:pb-4 lg:px-6 lg:pb-6">
-                    {!resolvedImagePage ? (
+                    {deferHeavyContent || !resolvedImagePage ? (
                         <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
                             {Array.from({ length: 12 }).map((_, i) => (
                                 <div

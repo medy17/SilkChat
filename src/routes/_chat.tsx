@@ -223,11 +223,25 @@ function ChatLayout() {
         () => currentChatTarget ?? cachedChatTarget
     )
     const [isChatTransitionOverlayVisible, setIsChatTransitionOverlayVisible] = useState(false)
+    // Once the Library/Chat cross-fade finishes, the losing pane is taken out of the render
+    // budget with `content-visibility: hidden` (see below) and the Library grid defers its
+    // heavy content until now. It starts settled so the initial inactive pane is skipped from
+    // first paint.
+    const [hasViewTransitionSettled, setHasViewTransitionSettled] = useState(true)
+    const previousIsLibraryRouteRef = useRef(isLibraryRoute)
     const previousChatTargetKeyRef = useRef<string | null>(
         getCachedChatTargetKey(currentChatTarget)
     )
     const chatTransitionHideTimeoutRef = useRef<number | null>(null)
     const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
+
+    // Reset the settle flag synchronously when a toggle starts (render-phase, not an effect) so
+    // the entering frame already defers the heavy pane instead of rendering it once and then
+    // hiding it. Guarded by the ref so it runs only on an actual route change, never on mount.
+    if (previousIsLibraryRouteRef.current !== isLibraryRoute) {
+        previousIsLibraryRouteRef.current = isLibraryRoute
+        setHasViewTransitionSettled(false)
+    }
 
     useEffect(() => {
         if (!shouldRunInitialRootAuthGate) return
@@ -397,6 +411,18 @@ function ChatLayout() {
         ? { duration: 0 }
         : { duration: 0.28, ease: [0.16, 1, 0.3, 1] as const }
 
+    const handleViewTransitionComplete = () => setHasViewTransitionSettled(true)
+
+    // Skip rendering the inactive pane while it's idle. Both panes stay mounted (instant swap,
+    // preserved scroll/state) but the offscreen one is dropped from layout/paint/compositing,
+    // which is what keeps the toggle cheap on content-heavy accounts.
+    const libraryContentHidden = !isLibraryRoute && hasViewTransitionSettled
+    const chatContentHidden = isLibraryRoute && hasViewTransitionSettled
+
+    // While entering the Library, hold the image grid on its skeletons until the fade settles so
+    // grid reconciliation doesn't compete with the transition for the main thread.
+    const deferLibraryHeavyContent = isLibraryRoute && !hasViewTransitionSettled
+
     return (
         <OnboardingProvider>
             <SidebarProvider>
@@ -420,14 +446,19 @@ function ChatLayout() {
                                         y: isLibraryRoute ? 0 : 18
                                     }}
                                     transition={viewTransition}
+                                    onAnimationComplete={handleViewTransitionComplete}
                                     aria-hidden={!isLibraryRoute}
                                     className="absolute inset-0 min-h-0 overflow-hidden"
                                     style={{
-                                        pointerEvents: isLibraryRoute ? "auto" : "none"
+                                        pointerEvents: isLibraryRoute ? "auto" : "none",
+                                        contentVisibility: libraryContentHidden
+                                            ? "hidden"
+                                            : "visible"
                                     }}
                                 >
                                     <LibraryView
                                         search={activeLibrarySearch ?? cachedLibrarySearch}
+                                        deferHeavyContent={deferLibraryHeavyContent}
                                     />
                                 </motion.div>
                             ) : null}
@@ -439,10 +470,12 @@ function ChatLayout() {
                                         y: isLibraryRoute ? 18 : 0
                                     }}
                                     transition={viewTransition}
+                                    onAnimationComplete={handleViewTransitionComplete}
                                     aria-hidden={isLibraryRoute}
                                     className="absolute inset-0 flex min-h-0 flex-1 flex-col overflow-hidden"
                                     style={{
-                                        pointerEvents: isLibraryRoute ? "none" : "auto"
+                                        pointerEvents: isLibraryRoute ? "none" : "auto",
+                                        contentVisibility: chatContentHidden ? "hidden" : "visible"
                                     }}
                                 >
                                     <PersistentChatView
