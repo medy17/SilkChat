@@ -68,5 +68,9 @@ const shutdown = () => {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
+// Forward any extra CLI args to Vite, e.g. `bun run dev --host` to expose the
+// dev server on the LAN for testing on a real phone.
+const forwardedViteArgs = process.argv.slice(2)
+
 start("Local image optimizer", "bun", ["run", "local:image-optimizer"])
-start("Web app", "vite", ["dev", "--port", "3000"])
+start("Web app", "vite", ["dev", "--port", "3000", ...forwardedViteArgs])

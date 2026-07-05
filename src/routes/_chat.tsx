@@ -20,6 +20,7 @@ import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
 import {
     isRestorableChatPath,
@@ -190,6 +191,7 @@ function ChatLayout() {
     const { data: session, isPending } = useSession()
     const params = useParams({ strict: false })
     const location = useLocation()
+    const isMobile = useIsMobile()
 
     const isRoot = location.pathname === "/"
     const [shouldRunInitialRootAuthGate] = useState(isRoot)
@@ -388,6 +390,13 @@ function ChatLayout() {
     const isRenderedChatActiveRoute =
         !isLibraryRoute && areCachedChatTargetsEqual(chatTargetToRender, currentChatTarget)
 
+    // Mobile is used as a proxy for low-end hardware: skip the cross-fade entirely and
+    // hard-swap the panes. Both panes stay mounted, so an instant swap is essentially free
+    // and avoids re-rasterizing the (image-heavy, backdrop-blurred) layers on weak GPUs.
+    const viewTransition = isMobile
+        ? { duration: 0 }
+        : { duration: 0.28, ease: [0.16, 1, 0.3, 1] as const }
+
     return (
         <OnboardingProvider>
             <SidebarProvider>
@@ -408,13 +417,9 @@ function ChatLayout() {
                                     initial={false}
                                     animate={{
                                         opacity: isLibraryRoute ? 1 : 0,
-                                        y: isLibraryRoute ? 0 : 18,
-                                        scale: isLibraryRoute ? 1 : 0.985
+                                        y: isLibraryRoute ? 0 : 18
                                     }}
-                                    transition={{
-                                        duration: 0.28,
-                                        ease: [0.16, 1, 0.3, 1]
-                                    }}
+                                    transition={viewTransition}
                                     aria-hidden={!isLibraryRoute}
                                     className="absolute inset-0 min-h-0 overflow-hidden"
                                     style={{
@@ -431,13 +436,9 @@ function ChatLayout() {
                                     initial={false}
                                     animate={{
                                         opacity: isLibraryRoute ? 0 : 1,
-                                        y: isLibraryRoute ? 18 : 0,
-                                        scale: isLibraryRoute ? 0.985 : 1
+                                        y: isLibraryRoute ? 18 : 0
                                     }}
-                                    transition={{
-                                        duration: 0.28,
-                                        ease: [0.16, 1, 0.3, 1]
-                                    }}
+                                    transition={viewTransition}
                                     aria-hidden={isLibraryRoute}
                                     className="absolute inset-0 flex min-h-0 flex-1 flex-col overflow-hidden"
                                     style={{

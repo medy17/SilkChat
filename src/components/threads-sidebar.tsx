@@ -845,7 +845,10 @@ export function ThreadsSidebar() {
                     <SidebarContent
                         ref={scrollContainerRef}
                         className={cn(
-                            "scrollbar-hide absolute inset-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            "scrollbar-hide absolute inset-0",
+                            isMobile
+                                ? "transition-none"
+                                : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                             isLibraryMode
                                 ? "-translate-x-4 pointer-events-none opacity-0"
                                 : "translate-x-0 opacity-100"
@@ -859,7 +862,10 @@ export function ThreadsSidebar() {
 
                     <div
                         className={cn(
-                            "absolute inset-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            "absolute inset-0 flex flex-col",
+                            isMobile
+                                ? "transition-none"
+                                : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                             isLibraryMode
                                 ? "pointer-events-auto translate-x-0 opacity-100"
                                 : "pointer-events-none translate-x-4 opacity-0"
