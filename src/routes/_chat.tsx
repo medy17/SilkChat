@@ -234,6 +234,7 @@ function ChatLayout() {
     )
     const chatTransitionHideTimeoutRef = useRef<number | null>(null)
     const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
+    const hasLoadedLibraryGridRef = useRef(false)
 
     // Reset the settle flag synchronously when a toggle starts (render-phase, not an effect) so
     // the entering frame already defers the heavy pane instead of rendering it once and then
@@ -419,9 +420,15 @@ function ChatLayout() {
     const libraryContentHidden = !isLibraryRoute && hasViewTransitionSettled
     const chatContentHidden = isLibraryRoute && hasViewTransitionSettled
 
-    // While entering the Library, hold the image grid on its skeletons until the fade settles so
-    // grid reconciliation doesn't compete with the transition for the main thread.
-    const deferLibraryHeavyContent = isLibraryRoute && !hasViewTransitionSettled
+    // Defer the grid to its skeletons through the *first* Library entrance so reconciliation
+    // doesn't compete with the fade. Once mounted, the grid stays mounted (hidden via
+    // content-visibility), so re-entering must not remount it — otherwise already-loaded images
+    // visibly reload.
+    if (isLibraryRoute && hasViewTransitionSettled) {
+        hasLoadedLibraryGridRef.current = true
+    }
+    const deferLibraryHeavyContent =
+        isLibraryRoute && !hasViewTransitionSettled && !hasLoadedLibraryGridRef.current
 
     return (
         <OnboardingProvider>

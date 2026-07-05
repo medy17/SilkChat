@@ -1,7 +1,6 @@
 import { useDesktopLibraryChromeStore } from "@/components/library/desktop-library-chrome-store"
 import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
-import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -618,7 +617,9 @@ const GeneratedImageItem = memo(
                 setLoadState("ready")
                 onImageSettled?.()
                 revealTimeoutRef.current = null
-            }, 240)
+                // Keep in sync with the reveal transition duration below (duration-500) so the
+                // skeleton only unmounts once it has fully cross-faded out.
+            }, 500)
         }, [onImageSettled])
 
         const handleImageError = useCallback(() => {
@@ -878,7 +879,12 @@ const GeneratedImageItem = memo(
                             </span>
                         </button>
                         {loadState !== "ready" && (
-                            <div className="pointer-events-none absolute inset-0 z-10 bg-background">
+                            <div
+                                className={cn(
+                                    "pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-500 ease-out",
+                                    loadState === "revealing" ? "opacity-0" : "opacity-100"
+                                )}
+                            >
                                 {placeholder === "tiles" ? (
                                     <ImageSkeleton
                                         rows={rows}
@@ -894,9 +900,6 @@ const GeneratedImageItem = memo(
                                 )}
                             </div>
                         )}
-                        {loadState !== "ready" && (
-                            <ImageLoadIndicator complete={loadState === "revealing"} />
-                        )}
                         <div
                             className={cn(
                                 "absolute inset-0 overflow-hidden transition-transform duration-[1600ms] ease-out will-change-transform",
@@ -910,10 +913,9 @@ const GeneratedImageItem = memo(
                                 sizes={renderedImageSource.sizes}
                                 alt={image.prompt || "AI generation"}
                                 className={cn(
-                                    "absolute inset-0 h-full w-full object-cover transition-[opacity,filter] duration-300 ease-out",
-                                    loadState === "loading" && "scale-[1.04] opacity-0 blur-xl",
-                                    loadState === "revealing" && "scale-[1.02] opacity-100 blur-md",
-                                    loadState === "ready" && "scale-100 opacity-100 blur-0",
+                                    "absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    loadState === "loading" && "translate-y-4 opacity-0",
+                                    loadState !== "loading" && "translate-y-0 opacity-100",
                                     isImageHidden && blurVariantStatus === "ready" && "opacity-0",
                                     useCssBlurFallback && "scale-[1.08] blur-2xl"
                                 )}
