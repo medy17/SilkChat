@@ -4,7 +4,9 @@ import {
     SidebarGroup,
     SidebarGroupContent,
     SidebarGroupLabel,
-    SidebarMenu
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem
 } from "@/components/ui/sidebar"
 import { getLastLibraryRoute } from "@/lib/last-chat-route"
 import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
@@ -91,11 +93,13 @@ function ThreadsGroup({
     onStartSelection,
     onBulkTogglePin,
     onOpenBulkMoveDialog,
-    onOpenBulkDeleteDialog
+    onOpenBulkDeleteDialog,
+    trailing
 }: {
     title: string
     threads: Thread[]
     icon?: ReactNode
+    trailing?: ReactNode
     activeThreadId?: string
     isSelectionMode?: boolean
     selectedThreadIds: string[]
@@ -148,6 +152,7 @@ function ThreadsGroup({
                             onOpenBulkDeleteDialog={onOpenBulkDeleteDialog}
                         />
                     ))}
+                    {trailing}
                 </SidebarMenu>
             </SidebarGroupContent>
         </SidebarGroup>
@@ -322,10 +327,12 @@ export type ThreadGroupActions = {
 export function ThreadSections({
     groupedThreads,
     activeThreadId,
+    trailingItem,
     ...threadGroupActions
 }: {
     groupedThreads: GroupedThreads
     activeThreadId?: string
+    trailingItem?: ReactNode
 } & ThreadGroupActions) {
     const sections = [
         {
@@ -340,45 +347,44 @@ export function ThreadSections({
         { title: "Older", threads: groupedThreads.older }
     ]
 
-    return sections.map((section) => (
+    const lastVisibleIndex = sections.reduce(
+        (last, section, index) => (section.threads.length > 0 ? index : last),
+        -1
+    )
+
+    return sections.map((section, index) => (
         <ThreadsGroup
             key={section.title}
             title={section.title}
             threads={section.threads}
             icon={section.icon}
             activeThreadId={activeThreadId}
+            trailing={index === lastVisibleIndex ? trailingItem : undefined}
             {...threadGroupActions}
         />
     ))
 }
 
-export function LoadMoreThreadsGroup({
-    show,
+export function LoadMoreThreadRow({
     isLoading,
     sentinelRef
 }: {
-    show: boolean
     isLoading: boolean
     sentinelRef: RefObject<HTMLDivElement | null>
 }) {
-    if (!show) return null
-
     return (
-        <SidebarGroup>
-            <SidebarGroupContent>
-                <div
-                    ref={sentinelRef}
-                    className="flex w-full items-center justify-center gap-2 p-3 text-muted-foreground text-sm"
-                >
+        <SidebarMenuItem>
+            <SidebarMenuButton asChild className="pointer-events-none text-muted-foreground">
+                <div ref={sentinelRef} aria-hidden={!isLoading}>
                     {isLoading && (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading more threads...
+                            <span className="truncate">Loading more threads...</span>
                         </>
                     )}
                 </div>
-            </SidebarGroupContent>
-        </SidebarGroup>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
     )
 }
 

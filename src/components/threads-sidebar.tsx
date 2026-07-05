@@ -45,7 +45,7 @@ import { ImportJobsGroup } from "./threads/sidebar-import-jobs"
 import {
     FoldersSection,
     LibraryLink,
-    LoadMoreThreadsGroup,
+    LoadMoreThreadRow,
     ThreadSections,
     groupThreadsByTime
 } from "./threads/sidebar-sections"
@@ -239,7 +239,7 @@ export function ThreadsSidebar() {
 
     const sentinelRef = useInfiniteScroll({
         hasMore: status === "CanLoadMore",
-        isLoading: false,
+        isLoading: status === "LoadingMore",
         onLoadMore: () => loadMore(25),
         rootMargin: "200px",
         threshold: 0.1
@@ -817,13 +817,16 @@ export function ThreadsSidebar() {
                         onBulkTogglePin={handleBulkTogglePin}
                         onOpenBulkMoveDialog={handleOpenBulkMoveDialog}
                         onOpenBulkDeleteDialog={() => setShowBulkDeleteDialog(true)}
+                        trailingItem={
+                            status === "CanLoadMore" || status === "LoadingMore" ? (
+                                <LoadMoreThreadRow
+                                    isLoading={status === "LoadingMore"}
+                                    sentinelRef={sentinelRef}
+                                />
+                            ) : undefined
+                        }
                     />
                 )}
-                <LoadMoreThreadsGroup
-                    show={status === "CanLoadMore"}
-                    isLoading={isLoading}
-                    sentinelRef={sentinelRef}
-                />
             </>
         )
     }
