@@ -5,7 +5,7 @@ import {
     useParams
 } from "@tanstack/react-router"
 import { motion } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
 import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
@@ -209,7 +209,10 @@ function ChatLayout() {
     const activeLibrarySearch = isLibraryRoute
         ? validateLibrarySearch(location.search as Record<string, unknown>)
         : undefined
-    const currentChatTarget = isLibraryRoute ? null : parseCachedChatTarget(location.pathname)
+    const currentChatTarget = useMemo(
+        () => (isLibraryRoute ? null : parseCachedChatTarget(location.pathname)),
+        [isLibraryRoute, location.pathname]
+    )
     const [cachedLibrarySearch, setCachedLibrarySearch] =
         useState<LibrarySearchState>(DEFAULT_LIBRARY_SEARCH)
     const [hasMountedLibrary, setHasMountedLibrary] = useState(false)
@@ -334,6 +337,7 @@ function ChatLayout() {
         previousChatTargetKeyRef.current = nextKey
 
         if (!nextKey || !previousKey || nextKey === previousKey) {
+            setIsChatTransitionOverlayVisible(false)
             setDisplayedChatTarget((previous) =>
                 areCachedChatTargetsEqual(previous, currentChatTarget)
                     ? previous
