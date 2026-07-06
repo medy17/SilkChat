@@ -11,7 +11,8 @@ import { Providers } from "../providers"
 
 // Configurable site metadata
 const SITE_TITLE = "SilkChat"
-const SITE_DESCRIPTION = "Sleek, fast, and powerful AI chatbot experience."
+const SITE_DESCRIPTION =
+    "Sleek, fast, and powerful AI chatbot experience. Generate images, create and chat with Personas, and more."
 const SITE_URL = "https://silkchat.dev"
 
 export const Route = createRootRouteWithContext<{
@@ -99,6 +100,7 @@ export const Route = createRootRouteWithContext<{
         ],
         links: [
             { rel: "stylesheet", href: globals_css },
+            { rel: "canonical", href: `${SITE_URL}/` },
             { rel: "icon", href: "/favicon.ico" },
             { rel: "apple-touch-icon", href: "/apple-icon-180.png" },
             { rel: "manifest", href: "/manifest.webmanifest" },
