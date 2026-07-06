@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
+import { trackGoogleAdsSignupConversion } from "@/lib/google-ads"
 import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
@@ -17,6 +18,10 @@ export function AuthCard() {
     const { data: session } = useSession()
 
     useEffect(() => {
+        if (session?.user) {
+            trackGoogleAdsSignupConversion(session.user)
+        }
+
         if (session?.user?.name) {
             router.navigate({ to: "/" })
         }
