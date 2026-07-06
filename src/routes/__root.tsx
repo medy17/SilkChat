@@ -5,6 +5,7 @@ import { HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
 import { ThemeScript } from "@/components/theme-script"
+import { optionalBrowserEnv } from "@/lib/browser-env"
 import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
 import globals_css from "@/styles/globals.css?url"
 import { Providers } from "../providers"
@@ -141,6 +142,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             <head>
                 <ThemeFontStyles />
                 <ThemeScript />
+                <GoogleAdsTag />
                 <HeadContent />
             </head>
 
@@ -150,5 +152,31 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                 <Scripts />
             </body>
         </html>
+    )
+}
+
+function GoogleAdsTag() {
+    const googleAdsId = optionalBrowserEnv("VITE_GOOGLE_ADS_ID")
+    if (!googleAdsId) {
+        return null
+    }
+
+    const scriptContent = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', '${googleAdsId}');
+    `
+
+    return (
+        <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`} />
+            <script
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Google Ads requires this bootstrap snippet
+                dangerouslySetInnerHTML={{ __html: scriptContent }}
+                suppressHydrationWarning
+            />
+        </>
     )
 }
