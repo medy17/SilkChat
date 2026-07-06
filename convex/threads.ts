@@ -718,9 +718,13 @@ export const updateThreadStreamingState = internalMutation({
         threadId: v.id("threads"),
         isLive: v.boolean(),
         streamStartedAt: v.optional(v.number()),
-        currentStreamId: v.optional(v.string())
+        currentStreamId: v.optional(v.string()),
+        currentStreamOwnerClientId: v.optional(v.string())
     },
-    handler: async ({ db }, { threadId, isLive, streamStartedAt, currentStreamId }) => {
+    handler: async (
+        { db },
+        { threadId, isLive, streamStartedAt, currentStreamId, currentStreamOwnerClientId }
+    ) => {
         const thread = await db.get(threadId)
         if (!thread) {
             console.error("[cvx][updateThreadStreamingState] Thread not found", threadId)
@@ -731,6 +735,7 @@ export const updateThreadStreamingState = internalMutation({
             isLive,
             streamStartedAt: isLive ? streamStartedAt : undefined,
             currentStreamId: isLive ? currentStreamId : undefined,
+            currentStreamOwnerClientId: isLive ? currentStreamOwnerClientId : undefined,
             updatedAt: Date.now()
         })
     }

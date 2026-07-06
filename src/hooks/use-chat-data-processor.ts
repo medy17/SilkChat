@@ -11,10 +11,16 @@ interface UseChatDataProcessorProps {
         streamId?: string
     }>[]
     status: "submitted" | "streaming" | "ready" | "error" | string
+    clientId?: string
     folderId?: string
 }
 
-export function useChatDataProcessor({ messages, status, folderId }: UseChatDataProcessorProps) {
+export function useChatDataProcessor({
+    messages,
+    status,
+    clientId,
+    folderId
+}: UseChatDataProcessorProps) {
     const {
         setThreadId,
         setShouldUpdateQuery,
@@ -23,7 +29,8 @@ export function useChatDataProcessor({ messages, status, folderId }: UseChatData
         setPendingStream,
         shouldUpdateQuery,
         attachedStreamIds,
-        pendingStreams
+        pendingStreams,
+        pendingStreamOwnerClientIds
     } = useChatStore()
     const navigate = useNavigate()
 
@@ -89,7 +96,12 @@ export function useChatDataProcessor({ messages, status, folderId }: UseChatData
                     // Only clear pendingStream if this streamId was not in the existing attached array
                     // (Meaning it's a completely new chunk/stream from the backend)
                     if (!currentStreams.includes(latestStreamId)) {
-                        if (pendingStreams[effectiveThreadId] !== false) {
+                        const isLocalPendingOwner =
+                            !clientId ||
+                            !pendingStreamOwnerClientIds[effectiveThreadId] ||
+                            pendingStreamOwnerClientIds[effectiveThreadId] === clientId
+
+                        if (isLocalPendingOwner && pendingStreams[effectiveThreadId] !== false) {
                             setPendingStream(effectiveThreadId, false)
                         }
                     }
@@ -106,8 +118,10 @@ export function useChatDataProcessor({ messages, status, folderId }: UseChatData
         shouldUpdateQuery,
         attachedStreamIds,
         pendingStreams,
+        pendingStreamOwnerClientIds,
         status,
         navigate,
+        clientId,
         folderId
     ])
 }

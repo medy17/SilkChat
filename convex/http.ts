@@ -4,6 +4,7 @@ import { getFile, uploadFile, uploadReferenceImage } from "./attachments"
 import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
+import { chatDELETE } from "./chat_http/stop.route"
 import { falImageWebhook } from "./fal_webhooks"
 import { uploadImportSource } from "./import_jobs_http"
 import { lemonSqueezyWebhook } from "./lemon_squeezy_http"
@@ -54,6 +55,12 @@ cors.route({
     path: "/chat",
     method: "GET",
     handler: chatGET
+})
+
+cors.route({
+    path: "/chat",
+    method: "DELETE",
+    handler: chatDELETE
 })
 
 // File upload route

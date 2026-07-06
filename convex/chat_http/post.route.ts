@@ -696,6 +696,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
+        clientId?: string
     }
 
     let body: ChatRequestBody
@@ -1230,7 +1231,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const normalizedDbMessages = Array.isArray(dbMessages) ? dbMessages : []
             const imageReferences = buildPreparedImageReferences(normalizedDbMessages)
             const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
-                threadId: mutationResult.threadId
+                threadId: mutationResult.threadId,
+                ...(body.clientId ? { ownerClientId: body.clientId } : {})
             })
             const mapped_messages = await dbMessagesToCore(
                 normalizedDbMessages,
@@ -1261,16 +1263,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const streamStartTime = Date.now()
 
-    const remoteCancel = new AbortController()
-    const abortRemoteGeneration = () => {
-        remoteCancel.abort(req.signal.reason)
-    }
+    // Deliberately not tied to req.signal: generation must survive the sending
+    // client disconnecting so other clients can resume. Only an explicit stop
+    // request (chatDELETE -> Redis STOPPED state) aborts it.
+    const generationAbort = new AbortController()
 
-    if (req.signal.aborted) {
-        abortRemoteGeneration()
-    } else {
-        req.signal.addEventListener("abort", abortRemoteGeneration, { once: true })
-    }
     const parts: Array<
         | { type: "text"; text: string }
         | { type: "reasoning"; reasoning: string; duration?: number; details?: [] }
@@ -1453,7 +1450,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 threadId: mutationResult.threadId,
                 isLive: true,
                 streamStartedAt: streamStartTime,
-                currentStreamId: streamId
+                currentStreamId: streamId,
+                ...(body.clientId ? { currentStreamOwnerClientId: body.clientId } : {})
             })
 
             let nameGenerationPromise: Promise<string | ChatError> | undefined
@@ -1537,7 +1535,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 model: model,
                 maxOutputTokens: maxTokens,
                 stopWhen: stepCountIs(100),
-                abortSignal: remoteCancel.signal,
+                abortSignal: generationAbort.signal,
                 experimental_transform: smoothStream(),
                 tools: Object.keys(tools).length > 0 ? tools : undefined,
                 messages: [
@@ -1620,9 +1618,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ...(contextRouting ? { contextRouting } : {})
                 }
             })
-            remoteCancel.abort()
             console.log()
-            req.signal.removeEventListener("abort", abortRemoteGeneration)
 
             if (livePersistTimeout) {
                 clearTimeout(livePersistTimeout)
@@ -1690,7 +1686,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 .catch((err) => console.error("Failed to update thread state:", err))
         },
         onError: (error) => {
-            req.signal.removeEventListener("abort", abortRemoteGeneration)
             console.error("[cvx][chat][stream] Fatal error:", error)
             void settleModelCreditReservation()
             void finalizeToolBudgetReservation()
@@ -1707,20 +1702,30 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     if (streamContext) {
         const sseStream = stream.pipeThrough(new JsonToSseTransformStream())
-        return new Response(
-            (
-                await streamContext.resumableStream(streamId, () =>
+        const [clientStream, resumableStream] = sseStream.tee()
+
+        try {
+            await streamContext.createNewResumableStream(
+                streamId,
+                () =>
                     createSafeResumableSseStream({
-                        stream: sseStream,
+                        stream: resumableStream,
                         threadId: mutationResult.threadId,
                         streamId
-                    })
-                )
-            )?.pipeThrough(new TextEncoderStream()),
-            {
-                headers: UI_MESSAGE_STREAM_HEADERS
-            }
-        )
+                    }),
+                { onStop: () => generationAbort.abort("Stream stopped by user") }
+            )
+        } catch (error) {
+            console.error("[cvx][chat][stream] Failed to register resumable stream", {
+                threadId: mutationResult.threadId,
+                streamId,
+                error
+            })
+        }
+
+        return new Response(clientStream.pipeThrough(new TextEncoderStream()), {
+            headers: UI_MESSAGE_STREAM_HEADERS
+        })
     }
 
     return new Response(

@@ -9,6 +9,7 @@ export const Thread = v.object({
     streamStartedAt: v.optional(v.number()),
     isLive: v.optional(v.boolean()),
     currentStreamId: v.optional(v.string()),
+    currentStreamOwnerClientId: v.optional(v.string()),
     pinned: v.optional(v.boolean()),
     projectId: v.optional(v.id("projects")),
     isBranched: v.optional(v.boolean()),

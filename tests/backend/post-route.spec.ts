@@ -1605,7 +1605,8 @@ describe("chatPOST", () => {
                     parts: [{ type: "text", text: "hello" }]
                 },
                 enabledTools: ["web_search"],
-                reasoningEffort: "medium"
+                reasoningEffort: "medium",
+                clientId: "client-1"
             })
         )
 
@@ -1661,7 +1662,12 @@ describe("chatPOST", () => {
             threadId: "thread-1",
             isLive: true,
             streamStartedAt: expect.any(Number),
-            currentStreamId: "stream-1"
+            currentStreamId: "stream-1",
+            currentStreamOwnerClientId: "client-1"
+        })
+        expect(ctx.runMutation).toHaveBeenCalledWith("appendStreamId", {
+            threadId: "thread-1",
+            ownerClientId: "client-1"
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("patchMessage", {
             threadId: "thread-1",
@@ -2159,7 +2165,7 @@ describe("chatPOST", () => {
         ).toBe("shared-text")
     })
 
-    it("aborts the provider stream when the incoming request is aborted", async () => {
+    it("keeps the provider stream alive when the incoming request aborts", async () => {
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
@@ -2222,19 +2228,13 @@ describe("chatPOST", () => {
             prototypeCreditTierWithReasoning: undefined
         })
 
-        streamTextMock.mockImplementationOnce(({ abortSignal }: { abortSignal?: AbortSignal }) => ({
+        streamTextMock.mockImplementationOnce(() => ({
             fullStream: new ReadableStream({
                 start(controller) {
-                    abortSignal?.addEventListener(
-                        "abort",
-                        () => {
-                            controller.close()
-                        },
-                        { once: true }
-                    )
+                    controller.close()
                 }
             }),
-            finishReason: Promise.resolve("abort")
+            finishReason: Promise.resolve("stop")
         }))
 
         const controller = new AbortController()
@@ -2254,24 +2254,36 @@ describe("chatPOST", () => {
             )
         )
 
-        const responseTextPromise = response.text()
-        await Promise.resolve()
+        controller.abort("user stop")
+        await response.text()
 
-        const abortSignal = streamTextMock.mock.calls[0]?.[0]?.abortSignal as
+        const generationSignal = streamTextMock.mock.calls[0]?.[0]?.abortSignal as
             | AbortSignal
             | undefined
-        expect(abortSignal).toBeDefined()
-        expect(abortSignal?.aborted).toBe(false)
-
-        controller.abort("user stop")
-        await responseTextPromise
-
-        expect(abortSignal?.aborted).toBe(true)
-        expect(abortSignal?.reason).toBe("user stop")
+        expect(generationSignal).toBeDefined()
+        expect(generationSignal?.aborted).toBe(false)
     })
 
-    it("wraps resumable SSE sources so upstream stream errors become terminal error events", async () => {
+    it("serves the sender directly while registering a resumable side channel", async () => {
         const ctx = createCtx()
+        const persistedChunks: string[] = []
+        const createNewResumableStream = vi.fn(
+            async (
+                _streamId: string,
+                makeStream: () => ReadableStream<string>,
+                _options?: { onStop?: () => void }
+            ) => {
+                const sourceStream = makeStream()
+                const reader = sourceStream.getReader()
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    persistedChunks.push(value)
+                }
+                return new ReadableStream<string>()
+            }
+        )
+
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
                 case "createThreadOrInsertMessages":
@@ -2331,9 +2343,7 @@ describe("chatPOST", () => {
             prototypeCreditTierWithReasoning: undefined
         })
         getResumableStreamContextMock.mockReturnValueOnce({
-            resumableStream: vi.fn(
-                async (_streamId: string, makeStream: () => ReadableStream<string>) => makeStream()
-            )
+            createNewResumableStream
         })
         createUIMessageStreamMock.mockImplementationOnce(
             () =>
@@ -2343,7 +2353,11 @@ describe("chatPOST", () => {
                             type: "start",
                             messageId: "assistant-1"
                         })
-                        controller.error(new Error("upstream broke"))
+                        controller.enqueue({
+                            type: "finish",
+                            finishReason: "stop"
+                        })
+                        controller.close()
                     }
                 })
         )
@@ -2362,8 +2376,12 @@ describe("chatPOST", () => {
         )
 
         expect(response.status).toBe(200)
-        await expect(response.text()).resolves.toContain(
-            '"type":"error","errorText":"Stream error occurred"'
+        await expect(response.text()).resolves.toContain('{"type":"finish","finishReason":"stop"}')
+        expect(persistedChunks.join("")).toContain('{"type":"finish","finishReason":"stop"}')
+        expect(createNewResumableStream).toHaveBeenCalledWith(
+            "stream-1",
+            expect.any(Function),
+            expect.objectContaining({ onStop: expect.any(Function) })
         )
     })
 

@@ -26,6 +26,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        pendingStreamOwnerClientIds: {},
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
@@ -81,6 +82,41 @@ describe("useChatDataProcessor", () => {
             "thread-1": false
         })
         expect(navigate).not.toHaveBeenCalled()
+    })
+
+    it("does not clear pending state owned by another client", () => {
+        const navigate = vi.fn()
+        useNavigateMock.mockReturnValue(navigate)
+        useChatStore.getState().setPendingStream("thread-1", true, "client-owner")
+        useChatStore.setState({ threadId: "thread-1" })
+
+        Object.defineProperty(window, "location", {
+            configurable: true,
+            value: {
+                pathname: "/thread/thread-1"
+            }
+        })
+
+        renderHook(() =>
+            useChatDataProcessor({
+                status: "ready",
+                clientId: "client-observer",
+                messages: [
+                    {
+                        id: "assistant-1",
+                        role: "assistant",
+                        metadata: {
+                            threadId: "thread-1",
+                            streamId: "stream-1"
+                        }
+                    }
+                ] as ProcessorMessages,
+                folderId: undefined
+            })
+        )
+
+        expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
+        expect(useChatStore.getState().pendingStreamOwnerClientIds["thread-1"]).toBe("client-owner")
     })
 
     it("canonicalizes a root new chat only after the initial response settles", () => {

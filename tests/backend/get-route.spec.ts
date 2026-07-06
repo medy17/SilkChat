@@ -142,27 +142,23 @@ describe("chatGET", () => {
         })
     })
 
-    it("returns 404 when a thread has no resumable streams", async () => {
+    it("returns 204 when a thread has no active stream", async () => {
         const ctx = createCtx()
 
         getResumableStreamContextMock.mockReturnValueOnce({})
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        ctx.runQuery
-            .mockResolvedValueOnce({
-                _id: "thread-1",
-                authorId: "user-1"
-            })
-            .mockResolvedValueOnce([])
+        ctx.runQuery.mockResolvedValueOnce({
+            _id: "thread-1",
+            authorId: "user-1",
+            isLive: false
+        })
 
         const response = await chatGETHandler(
             ctx,
             new Request("https://example.com/chat?chatId=thread-1")
         )
 
-        expect(response.status).toBe(404)
-        await expect(response.json()).resolves.toMatchObject({
-            code: "not_found:stream"
-        })
+        expect(response.status).toBe(204)
     })
 
     it("returns 204 when resumable stream recovery throws", async () => {
@@ -175,12 +171,12 @@ describe("chatGET", () => {
             resumeExistingStream
         })
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        ctx.runQuery
-            .mockResolvedValueOnce({
-                _id: "thread-1",
-                authorId: "user-1"
-            })
-            .mockResolvedValueOnce([{ _id: "stream-1" }])
+        ctx.runQuery.mockResolvedValueOnce({
+            _id: "thread-1",
+            authorId: "user-1",
+            isLive: true,
+            currentStreamId: "stream-1"
+        })
 
         const response = await chatGETHandler(
             ctx,
@@ -191,7 +187,7 @@ describe("chatGET", () => {
         expect(resumeExistingStream).toHaveBeenCalledWith("stream-1")
     })
 
-    it("returns an empty SSE stream when the resumable stream is already finished", async () => {
+    it("returns 204 when the active stream is already finished", async () => {
         const resumeExistingStream = vi.fn().mockResolvedValueOnce(null)
         const ctx = createCtx()
 
@@ -199,28 +195,19 @@ describe("chatGET", () => {
             resumeExistingStream
         })
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        ctx.runQuery
-            .mockResolvedValueOnce({
-                _id: "thread-1",
-                authorId: "user-1"
-            })
-            .mockResolvedValueOnce([{ _id: "stream-1" }])
-            .mockResolvedValueOnce([
-                {
-                    _id: "message-1",
-                    role: "assistant",
-                    createdAt: new Date().toISOString()
-                }
-            ])
+        ctx.runQuery.mockResolvedValueOnce({
+            _id: "thread-1",
+            authorId: "user-1",
+            isLive: true,
+            currentStreamId: "stream-1"
+        })
 
         const response = await chatGETHandler(
             ctx,
             new Request("https://example.com/chat?chatId=thread-1")
         )
 
-        expect(response.status).toBe(200)
-        expect(response.headers.get("content-type")).toBe("text/event-stream")
-        await expect(response.text()).resolves.toBe("empty-stream")
+        expect(response.status).toBe(204)
     })
 
     it("returns the resumed stream when one is still available", async () => {
@@ -231,12 +218,12 @@ describe("chatGET", () => {
             resumeExistingStream
         })
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        ctx.runQuery
-            .mockResolvedValueOnce({
-                _id: "thread-1",
-                authorId: "user-1"
-            })
-            .mockResolvedValueOnce([{ _id: "stream-1" }])
+        ctx.runQuery.mockResolvedValueOnce({
+            _id: "thread-1",
+            authorId: "user-1",
+            isLive: true,
+            currentStreamId: "stream-1"
+        })
 
         const response = await chatGETHandler(
             ctx,

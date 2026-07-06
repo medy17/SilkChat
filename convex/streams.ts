@@ -12,8 +12,8 @@ export const getStreamsByThreadId = internalQuery({
 })
 
 export const appendStreamId = internalMutation({
-    args: { threadId: v.id("threads") },
-    handler: async ({ db }, { threadId }) => {
-        return await db.insert("streams", { threadId, createdAt: Date.now() })
+    args: { threadId: v.id("threads"), ownerClientId: v.optional(v.string()) },
+    handler: async ({ db }, { threadId, ownerClientId }) => {
+        return await db.insert("streams", { threadId, ownerClientId, createdAt: Date.now() })
     }
 })

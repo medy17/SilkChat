@@ -104,7 +104,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         threadId,
         folderId
     })
-    const { status, messages, error } = chat
+    const { status, composerStatus, messages, error } = chat
     const deferredMessages = useDeferredValue(messages)
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
@@ -142,7 +142,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         handleRetry(targetMessage)
     }, [handleRetry, messages, pendingBranchRetry, setPendingBranchRetry, status, threadId])
 
-    useChatDataProcessor({ messages, status, folderId })
+    useChatDataProcessor({ messages, status, clientId: chat.clientId, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)
@@ -336,7 +336,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                             >
                                 <MultimodalInput
                                     onSubmit={handleInputSubmitWithScroll}
-                                    status={status}
+                                    status={composerStatus}
                                     threadId={threadId}
                                     isActive={isActiveRoute}
                                     threadHasPdfAttachments={threadHasPdfAttachments}
@@ -372,7 +372,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         </div>
                         <MultimodalInput
                             onSubmit={handleInputSubmitWithScroll}
-                            status={status}
+                            status={composerStatus}
                             threadId={threadId}
                             isActive={isActiveRoute}
                             threadHasPdfAttachments={threadHasPdfAttachments}

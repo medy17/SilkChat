@@ -16,6 +16,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        pendingStreamOwnerClientIds: {},
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",

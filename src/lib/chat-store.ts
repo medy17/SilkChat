@@ -64,6 +64,7 @@ interface ChatState {
     skipNextDataCheck: boolean
     attachedStreamIds: Record<string, string[]>
     pendingStreams: Record<string, boolean>
+    pendingStreamOwnerClientIds: Record<string, string | undefined>
     manuallyStoppedThreads: Record<string, boolean>
     targetFromMessageId: string | undefined
     targetMode: "normal" | "edit" | "retry"
@@ -86,7 +87,7 @@ interface ChatActions {
     resetChat: () => void
     triggerRerender: () => void
     setAttachedStreamId: (threadId: string, streamId: string) => void
-    setPendingStream: (threadId: string, pending: boolean) => void
+    setPendingStream: (threadId: string, pending: boolean, ownerClientId?: string) => void
     setManuallyStoppedThread: (threadId: string, stopped: boolean) => void
     setTargetFromMessageId: (messageId: string | undefined) => void
     setTargetMode: (mode: "normal" | "edit" | "retry") => void
@@ -108,6 +109,7 @@ const initialState: ChatState = {
     skipNextDataCheck: true,
     attachedStreamIds: {},
     pendingStreams: {},
+    pendingStreamOwnerClientIds: {},
     manuallyStoppedThreads: {},
     targetFromMessageId: undefined,
     targetMode: "normal",
@@ -163,6 +165,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
             ...initialState,
             rerenderTrigger: nanoid(),
             attachedStreamIds: {},
+            pendingStreamOwnerClientIds: {},
             manuallyStoppedThreads: {},
             targetFromMessageId: undefined,
             lastProcessedDataIndex: -1,
@@ -193,12 +196,16 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
         })
     },
 
-    setPendingStream: (threadId, pending) => {
+    setPendingStream: (threadId, pending, ownerClientId) => {
         if (!threadId) return
         set((state) => ({
             pendingStreams: {
                 ...state.pendingStreams,
                 [threadId]: pending
+            },
+            pendingStreamOwnerClientIds: {
+                ...state.pendingStreamOwnerClientIds,
+                [threadId]: pending ? ownerClientId : undefined
             }
         }))
     },

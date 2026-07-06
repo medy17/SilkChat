@@ -1,5 +1,4 @@
 import { ChatError } from "@/lib/errors"
-import { UI_MESSAGE_STREAM_HEADERS } from "ai"
 import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
@@ -7,13 +6,8 @@ import { httpAction } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import type { Thread } from "../schema"
-export const chatGET = httpAction(async (ctx, req) => {
-    const streamContext = getResumableStreamContext()
 
-    if (!streamContext) {
-        return new Response(null, { status: 204 })
-    }
-
+export const chatDELETE = httpAction(async (ctx, req) => {
     const { searchParams } = new URL(req.url)
     const threadId = searchParams.get("chatId")
     if (!threadId) return new ChatError("bad_request:api").toResponse()
@@ -40,24 +34,27 @@ export const chatGET = httpAction(async (ctx, req) => {
         return new Response(null, { status: 204 })
     }
 
-    let stream: ReadableStream<string> | null | undefined
+    const streamContext = getResumableStreamContext()
 
-    try {
-        stream = await streamContext.resumeExistingStream(chat.currentStreamId)
-    } catch (error) {
-        console.warn("[cvx][chat][resume] Failed to resume stream", {
-            threadId,
-            streamId: chat.currentStreamId,
-            error
-        })
-        return new Response(null, { status: 204 })
+    if (streamContext) {
+        try {
+            await streamContext.requestStreamStop(chat.currentStreamId)
+        } catch (error) {
+            console.error("[cvx][chat][stop] Failed to flag stream as stopped", {
+                threadId,
+                streamId: chat.currentStreamId,
+                error
+            })
+        }
     }
 
-    if (stream == null) {
-        return new Response(null, { status: 204 })
-    }
-
-    return new Response(stream.pipeThrough(new TextEncoderStream()), {
-        headers: UI_MESSAGE_STREAM_HEADERS
+    // Clear the live flag immediately so viewers settle without waiting for
+    // the generation's own finish path (which may already be dead).
+    await ctx.runMutation(internal.threads.updateThreadStreamingState, {
+        threadId: threadId as Id<"threads">,
+        isLive: false,
+        currentStreamId: undefined
     })
+
+    return new Response(null, { status: 204 })
 })

@@ -35,6 +35,10 @@ vi.mock("../../convex/chat_http/post.route", () => ({
     chatPOST: "chatPostHandler"
 }))
 
+vi.mock("../../convex/chat_http/stop.route", () => ({
+    chatDELETE: "chatDeleteHandler"
+}))
+
 vi.mock("../../convex/fal_webhooks", () => ({
     falImageWebhook: "falImageWebhookHandler"
 }))
@@ -98,11 +102,12 @@ describe("convex/http", () => {
 
         const registeredRoutes = corsRoute.mock.calls.map(([route]) => route)
 
-        expect(registeredRoutes).toHaveLength(10)
+        expect(registeredRoutes).toHaveLength(11)
         expect(registeredRoutes).toEqual(
             expect.arrayContaining([
                 { path: "/chat", method: "POST", handler: "chatPostHandler" },
                 { path: "/chat", method: "GET", handler: "chatGetHandler" },
+                { path: "/chat", method: "DELETE", handler: "chatDeleteHandler" },
                 { path: "/upload", method: "POST", handler: "uploadFileHandler" },
                 {
                     path: "/upload/reference",

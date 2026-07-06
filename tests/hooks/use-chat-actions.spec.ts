@@ -84,6 +84,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        pendingStreamOwnerClientIds: {},
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
@@ -140,6 +141,7 @@ describe("useChatActions", () => {
     it("stops the active stream instead of sending a new message while streaming", () => {
         const sendMessage = vi.fn()
         const stop = vi.fn()
+        const stopRemoteStream = vi.fn()
 
         const { result } = renderHook(() =>
             useChatActions({
@@ -151,6 +153,7 @@ describe("useChatActions", () => {
                     status: "streaming",
                     sendMessage,
                     stop,
+                    stopRemoteStream,
                     messages: [],
                     setMessages: vi.fn(),
                     regenerate: vi.fn()
@@ -161,9 +164,52 @@ describe("useChatActions", () => {
         result.current.handleInputSubmit("hello")
 
         expect(stop).toHaveBeenCalledTimes(1)
+        expect(stopRemoteStream).toHaveBeenCalledTimes(1)
         expect(sendMessage).not.toHaveBeenCalled()
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(false)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(true)
+    })
+
+    it("sends from a passive viewer when only the raw stream status is stale", () => {
+        const sendMessage = vi.fn()
+        const stop = vi.fn()
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
+                chat: {
+                    clientId: "client-viewer",
+                    status: "streaming",
+                    composerStatus: "ready",
+                    sendMessage,
+                    stop,
+                    messages: [],
+                    setMessages: vi.fn(),
+                    regenerate: vi.fn()
+                }
+            })
+        )
+
+        result.current.handleInputSubmit("hello from viewer")
+
+        expect(stop).not.toHaveBeenCalled()
+        expect(sendMessage).toHaveBeenCalledWith({
+            id: "generated-message-id",
+            role: "user",
+            parts: [
+                {
+                    type: "text",
+                    text: "hello from viewer"
+                }
+            ]
+        })
+        expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
+        expect(useChatStore.getState().pendingStreamOwnerClientIds["thread-1"]).toBe(
+            "client-viewer"
+        )
     })
 
     it("sends trimmed input plus uploaded files and clears the store", () => {

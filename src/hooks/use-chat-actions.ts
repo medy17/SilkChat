@@ -28,9 +28,12 @@ type SendableUserMessage = {
 }
 
 interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
+    clientId?: string
     status: string
+    composerStatus?: string
     sendMessage: (message: SendableUserMessage) => Promise<unknown>
     stop: () => void
+    stopRemoteStream?: () => void
     messages: TMessage[]
     setMessages: (messages: TMessage[] | ((messages: TMessage[]) => TMessage[])) => unknown
     regenerate: (options?: {
@@ -69,7 +72,16 @@ export function useChatActions<TMessage extends UIMessage>({
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const setSelectedModel = useModelStore((state) => state.setSelectedModel)
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
-    const { status, sendMessage, stop, messages, setMessages, regenerate } = chat
+    const {
+        status,
+        composerStatus = status,
+        sendMessage,
+        stop,
+        stopRemoteStream,
+        messages,
+        setMessages,
+        regenerate
+    } = chat
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
     const branchThreadMutation = useMutation(api.threads.branchThread)
     const navigate = useNavigate()
@@ -80,24 +92,31 @@ export function useChatActions<TMessage extends UIMessage>({
         }
 
         flushSync(() => {
-            setPendingStream(threadId, true)
+            setPendingStream(threadId, true, chat.clientId)
             setManuallyStoppedThread(threadId, false)
             setLastLocalMutationAt(Date.now())
         })
-    }, [setManuallyStoppedThread, setPendingStream, setLastLocalMutationAt, threadId])
+    }, [
+        chat.clientId,
+        setManuallyStoppedThread,
+        setPendingStream,
+        setLastLocalMutationAt,
+        threadId
+    ])
 
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
-            if (status === "streaming") {
+            if (composerStatus === "streaming") {
                 if (threadId) {
                     setPendingStream(threadId, false)
                     setManuallyStoppedThread(threadId, true)
                 }
                 stop()
+                stopRemoteStream?.()
                 return
             }
 
-            if (status === "submitted") {
+            if (composerStatus === "submitted") {
                 return
             }
 
@@ -133,7 +152,8 @@ export function useChatActions<TMessage extends UIMessage>({
             setManuallyStoppedThread,
             setPendingStream,
             stop,
-            status,
+            stopRemoteStream,
+            composerStatus,
             threadId,
             uploadedFiles,
             setUploadedFiles,
@@ -269,7 +289,7 @@ export function useChatActions<TMessage extends UIMessage>({
         handleEditAndRetry,
         handleBranch: useCallback(
             async (message: UIMessage) => {
-                if (!threadId || status === "submitted") return
+                if (!threadId || composerStatus === "submitted") return
                 if (message.role !== "assistant") return
 
                 const messageIndex = messages.findIndex((m) => m.id === message.id)
@@ -331,7 +351,7 @@ export function useChatActions<TMessage extends UIMessage>({
                 setPendingBranchGeneration,
                 setTargetFromMessageId,
                 setTargetMode,
-                status,
+                composerStatus,
                 threadId
             ]
         )

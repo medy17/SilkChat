@@ -5,6 +5,10 @@ import { useChatStore } from "@/lib/chat-store"
 import type { Infer } from "convex/values"
 import { useEffect, useRef } from "react"
 
+const MAX_RESUME_ATTEMPTS_PER_ACTIVITY_WINDOW = 5
+const MIN_RESUME_RETRY_INTERVAL_MS = 750
+const STALE_ACTIVE_STREAM_MS = 8_000
+
 export interface AutoResumeProps {
     autoResume: boolean
     thread?: Infer<typeof Thread>
@@ -12,6 +16,9 @@ export interface AutoResumeProps {
     experimental_resume: () => Promise<void> | void
     status?: "idle" | "streaming" | "submitted" | string
     threadMessages?: readonly unknown[] | { error: unknown }
+    clientId?: string
+    streamActivityKey?: string
+    stopLocalStream?: () => void
 }
 
 export function useAutoResume({
@@ -20,9 +27,18 @@ export function useAutoResume({
     threadId,
     experimental_resume,
     status,
-    threadMessages
+    threadMessages,
+    clientId,
+    streamActivityKey = "",
+    stopLocalStream
 }: AutoResumeProps) {
-    const pending = useChatStore((s) => (threadId ? s.pendingStreams[threadId] : false))
+    const pending = useChatStore((s) =>
+        threadId && s.pendingStreams[threadId] === true
+            ? !clientId ||
+              !s.pendingStreamOwnerClientIds[threadId] ||
+              s.pendingStreamOwnerClientIds[threadId] === clientId
+            : false
+    )
     const manuallyStopped = useChatStore((s) =>
         threadId ? s.manuallyStoppedThreads[threadId] : false
     )
@@ -30,17 +46,23 @@ export function useAutoResume({
         streamId?: string
         attempts: number
         lastAttemptAt: number
+        lastActivityKey?: string
+        lastActivityAt: number
     }>({
         streamId: undefined,
         attempts: 0,
-        lastAttemptAt: 0
+        lastAttemptAt: 0,
+        lastActivityKey: undefined,
+        lastActivityAt: 0
     })
 
     useEffect(() => {
         resumeAttemptRef.current = {
             streamId: undefined,
             attempts: 0,
-            lastAttemptAt: 0
+            lastAttemptAt: 0,
+            lastActivityKey: undefined,
+            lastActivityAt: 0
         }
     }, [threadId])
 
@@ -48,8 +70,6 @@ export function useAutoResume({
         if (!autoResume) return
         if (!threadId) return
         if (!thread?.isLive || !thread.currentStreamId) return
-
-        if (status === "streaming" || status === "submitted") return
 
         if (!threadMessages || "error" in threadMessages) {
             console.log("[AR:waiting_for_messages]", { threadId: threadId.slice(0, 8) })
@@ -66,7 +86,17 @@ export function useAutoResume({
             resumeAttemptRef.current = {
                 streamId: currentStreamId,
                 attempts: 0,
-                lastAttemptAt: 0
+                lastAttemptAt: 0,
+                lastActivityKey: streamActivityKey,
+                lastActivityAt: Date.now()
+            }
+        } else if (attempt.lastActivityKey !== streamActivityKey) {
+            resumeAttemptRef.current = {
+                ...attempt,
+                attempts: 0,
+                lastAttemptAt: 0,
+                lastActivityKey: streamActivityKey,
+                lastActivityAt: Date.now()
             }
         }
 
@@ -74,15 +104,23 @@ export function useAutoResume({
             const currentAttempt = resumeAttemptRef.current
 
             if (currentAttempt.streamId !== currentStreamId) return
-            if (currentAttempt.attempts >= 5) return
 
             const attemptNow = Date.now()
-            if (attemptNow - currentAttempt.lastAttemptAt < 750) return
+            const isActiveLocally = status === "streaming" || status === "submitted"
+            const lastActivityAt = currentAttempt.lastActivityAt || attemptNow
+            const isStaleActiveStream =
+                isActiveLocally && attemptNow - lastActivityAt >= STALE_ACTIVE_STREAM_MS
+
+            if (isActiveLocally && !isStaleActiveStream) return
+            if (currentAttempt.attempts >= MAX_RESUME_ATTEMPTS_PER_ACTIVITY_WINDOW) return
+            if (attemptNow - currentAttempt.lastAttemptAt < MIN_RESUME_RETRY_INTERVAL_MS) return
 
             resumeAttemptRef.current = {
                 streamId: currentStreamId,
                 attempts: currentAttempt.attempts + 1,
-                lastAttemptAt: attemptNow
+                lastAttemptAt: attemptNow,
+                lastActivityKey: streamActivityKey,
+                lastActivityAt
             }
 
             console.log("[AR:resume]", {
@@ -90,8 +128,16 @@ export function useAutoResume({
                 current: currentStreamId.slice(0, 5),
                 msgsCount: threadMessages.length,
                 attempt: resumeAttemptRef.current.attempts,
-                reason: "live_stream_for_mounted_chat"
+                reason: isStaleActiveStream
+                    ? "stale_local_stream_for_mounted_chat"
+                    : "live_stream_for_mounted_chat"
             })
+
+            if (isStaleActiveStream) {
+                // Kill the possibly-dead local stream before re-attaching so
+                // two streams never feed the same message concurrently.
+                stopLocalStream?.()
+            }
 
             void experimental_resume()
         }
@@ -118,6 +164,8 @@ export function useAutoResume({
         manuallyStopped,
         experimental_resume,
         status,
-        threadMessages
+        threadMessages,
+        streamActivityKey,
+        stopLocalStream
     ])
 }

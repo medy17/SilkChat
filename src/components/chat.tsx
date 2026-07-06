@@ -128,7 +128,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         threadId,
         folderId
     })
-    const { status, messages, ...chatHelpers } = chat
+    const { status, composerStatus, messages, ...chatHelpers } = chat
     const deferredMessages = useDeferredValue(messages)
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
     const setMessagesRef = useRef(chatHelpers.setMessages)
@@ -167,7 +167,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         handleRetry(targetMessage)
     }, [handleRetry, messages, pendingBranchRetry, setPendingBranchRetry, status, threadId])
 
-    useChatDataProcessor({ messages, status, folderId })
+    useChatDataProcessor({ messages, status, clientId: chat.clientId, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
         handleInputSubmit(inputValue, fileValues)
@@ -373,7 +373,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                     <MultimodalInput
                         ref={multimodalInputRef}
                         onSubmit={handleInputSubmitWithScroll}
-                        status={status}
+                        status={composerStatus}
                         threadId={threadId}
                         isActive={isActiveRoute}
                         threadHasPdfAttachments={threadHasPdfAttachments}

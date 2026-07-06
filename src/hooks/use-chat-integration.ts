@@ -98,6 +98,59 @@ const getMessagesContentFingerprint = (messages: UIMessage[]) =>
         )
         .join("|")
 
+const FOOTER_METADATA_KEYS = [
+    "modelId",
+    "modelName",
+    "displayProvider",
+    "runtimeProvider",
+    "creditProviderSource",
+    "reasoningEffort",
+    "promptTokens",
+    "completionTokens",
+    "reasoningTokens",
+    "totalTokens",
+    "estimatedCostUsd",
+    "estimatedPromptCostUsd",
+    "estimatedCompletionCostUsd",
+    "serverDurationMs",
+    "timeToFirstVisibleMs",
+    "contextRouting"
+] as const
+
+const getMetadataValue = (
+    message: UIMessage | undefined,
+    key: (typeof FOOTER_METADATA_KEYS)[number]
+) => {
+    if (!message || !("metadata" in message) || !message.metadata) {
+        return undefined
+    }
+
+    return (message.metadata as Record<string, unknown>)[key]
+}
+
+const serializeMetadataValue = (value: unknown) => {
+    if (value === undefined || value === null) {
+        return ""
+    }
+
+    try {
+        return JSON.stringify(value) ?? ""
+    } catch {
+        return String(value)
+    }
+}
+
+const getMessageFooterMetadataFingerprint = (message: UIMessage | undefined) =>
+    FOOTER_METADATA_KEYS.map((key) => serializeMetadataValue(getMetadataValue(message, key))).join(
+        "|"
+    )
+
+const getMessageFooterMetadataScore = (message: UIMessage | undefined) =>
+    FOOTER_METADATA_KEYS.reduce(
+        (score, key) => (getMetadataValue(message, key) !== undefined ? score + 1 : score),
+        0
+    )
+
 const getLatestAssistantMessage = (messages: UIMessage[]) =>
     [...messages].reverse().find((message) => message.role === "assistant")
 
@@ -113,12 +166,12 @@ const shouldAdoptBackendMessages = ({
     currentMessages,
     backendMessages,
     status,
-    hasActiveStream
+    hasLocalActiveStream
 }: {
     currentMessages: UIMessage[]
     backendMessages: UIMessage[]
     status?: string
-    hasActiveStream?: boolean
+    hasLocalActiveStream?: boolean
 }) => {
     if (backendMessages.length === 0) return false
     if (currentMessages.length === 0) return true
@@ -126,7 +179,8 @@ const shouldAdoptBackendMessages = ({
     const currentIdentity = getMessagesIdentityFingerprint(currentMessages)
     const backendIdentity = getMessagesIdentityFingerprint(backendMessages)
     const isLocallyMutating =
-        hasActiveStream === true || status === "streaming" || status === "submitted"
+        hasLocalActiveStream === true ||
+        (hasLocalActiveStream !== false && (status === "streaming" || status === "submitted"))
 
     if (currentIdentity !== backendIdentity) {
         return !isLocallyMutating
@@ -136,6 +190,24 @@ const shouldAdoptBackendMessages = ({
     const backendContent = getMessagesContentFingerprint(backendMessages)
 
     if (currentContent === backendContent) {
+        const currentAssistant = getLatestAssistantMessage(currentMessages)
+        const backendAssistant = getLatestAssistantMessage(backendMessages)
+        const currentMetadataScore = getMessageFooterMetadataScore(currentAssistant)
+        const backendMetadataScore = getMessageFooterMetadataScore(backendAssistant)
+
+        if (backendMetadataScore > currentMetadataScore) {
+            return true
+        }
+
+        if (
+            backendMetadataScore === currentMetadataScore &&
+            backendMetadataScore > 0 &&
+            getMessageFooterMetadataFingerprint(backendAssistant) !==
+                getMessageFooterMetadataFingerprint(currentAssistant)
+        ) {
+            return true
+        }
+
         return false
     }
 
@@ -172,10 +244,22 @@ export function useChatIntegration<IsShared extends boolean>({
     type StreamRenderPhase = "idle" | "pre-first-paint" | "post-first-paint"
 
     const auth = useConvexAuth()
+    const clientIdRef = useRef<string | undefined>(undefined)
+    if (!clientIdRef.current) {
+        clientIdRef.current = nanoid()
+    }
+    const clientId = clientIdRef.current
+    // Whether the current useChat activity is our own send or a passive resume
+    // of another client's stream. Lets the sender count as "local" without
+    // depending on the thread subscription having caught up.
+    const streamOriginRef = useRef<"send" | "resume" | null>(null)
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
     const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
     const hasPendingLocalStream = useChatStore((state) =>
-        threadId ? state.pendingStreams[threadId] === true : false
+        threadId && state.pendingStreams[threadId] === true
+            ? !state.pendingStreamOwnerClientIds[threadId] ||
+              state.pendingStreamOwnerClientIds[threadId] === clientId
+            : false
     )
     const seededNextId = useRef<string | null>(null)
     const activeStreamingAssistantIdRef = useRef<string | null>(null)
@@ -186,7 +270,6 @@ export function useChatIntegration<IsShared extends boolean>({
         token: undefined as string | undefined
     })
     const [streamRenderPhase, setStreamRenderPhase] = useState<StreamRenderPhase>("idle")
-    const lastLocalMutationAt = useChatStore((state) => state.lastLocalMutationAt)
     latestRequestContextRef.current = {
         folderId,
         threadId,
@@ -272,12 +355,15 @@ export function useChatIntegration<IsShared extends boolean>({
                           useChatStore
                               .getState()
                               .setManuallyStoppedThread(currentContext.threadId, false)
-                          useChatStore.getState().setPendingStream(currentContext.threadId, true)
+                          useChatStore
+                              .getState()
+                              .setPendingStream(currentContext.threadId, true, clientId)
                       }
 
                       const proposedNewAssistantId = nanoid()
                       seededNextId.current = proposedNewAssistantId
                       activeStreamingAssistantIdRef.current = proposedNewAssistantId
+                      streamOriginRef.current = "send"
                       setStreamRenderPhase("pre-first-paint")
 
                       const message = messages[messages.length - 1]
@@ -307,6 +393,7 @@ export function useChatIntegration<IsShared extends boolean>({
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,
                               mcpOverrides,
+                              clientId,
                               personaSelection: currentContext.threadId
                                   ? undefined
                                   : selectedPersona
@@ -338,6 +425,7 @@ export function useChatIntegration<IsShared extends boolean>({
             if (currentThreadId) {
                 useChatStore.getState().setPendingStream(currentThreadId, false)
             }
+            streamOriginRef.current = null
             activeStreamingAssistantIdRef.current = null
             setStreamRenderPhase("idle")
             if (!isShared && shouldUpdateQuery) {
@@ -349,6 +437,7 @@ export function useChatIntegration<IsShared extends boolean>({
             if (currentThreadId) {
                 useChatStore.getState().setPendingStream(currentThreadId, false)
             }
+            streamOriginRef.current = null
             activeStreamingAssistantIdRef.current = null
             setStreamRenderPhase("idle")
         },
@@ -366,8 +455,48 @@ export function useChatIntegration<IsShared extends boolean>({
         chatHelpers.status === "submitted" ||
         hasPendingLocalStream ||
         (thread && "isLive" in thread && thread.isLive === true && Boolean(thread.currentStreamId))
+    const hasServerActiveThreadStream = Boolean(
+        thread && "isLive" in thread && thread.isLive === true && thread.currentStreamId
+    )
+    const serverStreamOwnerClientId =
+        thread && "currentStreamOwnerClientId" in thread
+            ? thread.currentStreamOwnerClientId
+            : undefined
+    const isCurrentClientServerStreamOwner = Boolean(
+        hasServerActiveThreadStream && serverStreamOwnerClientId === clientId
+    )
+    const hasUnownedServerStream = hasServerActiveThreadStream && !serverStreamOwnerClientId
+    const isCurrentClientStreamStatusLocal =
+        !threadId ||
+        streamOriginRef.current === "send" ||
+        isCurrentClientServerStreamOwner ||
+        hasUnownedServerStream
+    const hasLocalActiveStream =
+        hasPendingLocalStream ||
+        ((chatHelpers.status === "submitted" || chatHelpers.status === "streaming") &&
+            isCurrentClientStreamStatusLocal)
+    // A live stream owned elsewhere still surfaces as "streaming" so the
+    // composer offers stop (which stops it server-side) instead of a send the
+    // thread's live-lock would reject.
+    const composerStatus =
+        chatHelpers.status === "submitted" || chatHelpers.status === "streaming"
+            ? hasLocalActiveStream
+                ? chatHelpers.status
+                : hasServerActiveThreadStream
+                  ? "streaming"
+                  : "ready"
+            : hasServerActiveThreadStream && !hasLocalActiveStream
+              ? "streaming"
+              : chatHelpers.status
+    const latestAssistantMessage = getLatestAssistantMessage(chatHelpers.messages)
+    const streamActivityKey = useMemo(
+        () =>
+            latestAssistantMessage ? getMessagesContentFingerprint([latestAssistantMessage]) : "",
+        [latestAssistantMessage]
+    )
 
     useEffect(() => {
+        streamOriginRef.current = null
         activeStreamingAssistantIdRef.current = null
         setStreamRenderPhase("idle")
     }, [threadId])
@@ -442,17 +571,12 @@ export function useChatIntegration<IsShared extends boolean>({
         if (!threadMessages || "error" in threadMessages) return
         if (hasPendingLocalStream) return
 
-        if (Date.now() - lastLocalMutationAt < 2000) {
-            console.log("[UCI] Ignoring backend messages because of recent local mutation")
-            return
-        }
-
         if (
             shouldAdoptBackendMessages({
                 currentMessages: chatHelpers.messages,
                 backendMessages: initialMessages,
                 status: chatHelpers.status,
-                hasActiveStream: hasActiveThreadStream ?? undefined
+                hasLocalActiveStream
             })
         ) {
             chatHelpers.setMessages(initialMessages)
@@ -464,10 +588,24 @@ export function useChatIntegration<IsShared extends boolean>({
         initialMessages,
         chatHelpers.messages,
         chatHelpers.status,
-        hasActiveThreadStream,
+        hasLocalActiveStream,
         hasPendingLocalStream,
-        lastLocalMutationAt,
         chatHelpers.setMessages
+    ])
+
+    useEffect(() => {
+        if (isShared) return
+        if (hasLocalActiveStream) return
+        if (chatHelpers.status !== "streaming") return
+        if (hasServerActiveThreadStream) return
+
+        chatHelpers.stop()
+    }, [
+        isShared,
+        hasLocalActiveStream,
+        hasServerActiveThreadStream,
+        chatHelpers.status,
+        chatHelpers.stop
     ])
 
     const customResume = useCallback(() => {
@@ -475,13 +613,17 @@ export function useChatIntegration<IsShared extends boolean>({
             chatHelpers.messages.length === 0 && initialMessages.length > 0
                 ? initialMessages
                 : chatHelpers.messages
+        const hasLiveStream = Boolean(
+            thread && "isLive" in thread && thread.isLive === true && thread.currentStreamId
+        )
 
         console.log("[UCI:custom_resume]", {
             threadId: threadId?.slice(0, 8),
             backendMsgs: threadMessages && !("error" in threadMessages) ? threadMessages.length : 0,
             currentUIMsgs: chatHelpers.messages.length,
             initialMsgs: initialMessages.length,
-            hasPersistedAssistantContent: hasMeaningfulAssistantContent(effectiveMessages)
+            hasPersistedAssistantContent: hasMeaningfulAssistantContent(effectiveMessages),
+            hasLiveStream
         })
 
         if (chatHelpers.messages.length === 0 && initialMessages.length > 0) {
@@ -489,19 +631,47 @@ export function useChatIntegration<IsShared extends boolean>({
             console.log("[UCI:messages_restored]", { count: initialMessages.length })
         }
 
-        if (hasMeaningfulAssistantContent(effectiveMessages)) {
+        if (!hasLiveStream && hasMeaningfulAssistantContent(effectiveMessages)) {
             return
         }
 
+        streamOriginRef.current = "resume"
         void chatHelpers.resumeStream()
     }, [
         chatHelpers.setMessages,
         chatHelpers.resumeStream,
         chatHelpers.messages,
         initialMessages,
+        thread,
         threadMessages,
         threadId
     ])
+
+    const stopRemoteStream = useCallback(() => {
+        if (isShared) return
+        const currentThreadId = latestRequestContextRef.current.threadId
+        if (!currentThreadId) return
+
+        void (async () => {
+            try {
+                const jwt = await resolveJwtToken(latestRequestContextRef.current.token, {
+                    forceRefresh: true
+                })
+                if (!jwt) return
+                await fetch(
+                    `${browserEnv("VITE_CONVEX_API_URL")}/chat?chatId=${encodeURIComponent(currentThreadId)}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            authorization: `Bearer ${jwt}`
+                        }
+                    }
+                )
+            } catch (error) {
+                console.warn("[UCI:stop_remote] Failed to stop backend stream", error)
+            }
+        })()
+    }, [isShared])
 
     useAutoResume({
         autoResume: !isShared, // Skip auto resume for shared threads
@@ -509,11 +679,17 @@ export function useChatIntegration<IsShared extends boolean>({
         threadId,
         experimental_resume: customResume,
         status: chatHelpers.status,
-        threadMessages
+        threadMessages,
+        clientId,
+        streamActivityKey,
+        stopLocalStream: chatHelpers.stop
     })
 
     return {
         ...chatHelpers,
+        composerStatus,
+        stopRemoteStream,
+        clientId,
         seededNextId,
         thread: (thread || sharedThread) as unknown as IsShared extends true
             ? Infer<typeof SharedThread>

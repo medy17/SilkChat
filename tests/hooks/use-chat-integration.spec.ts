@@ -133,6 +133,7 @@ const resetChatStore = () => {
         skipNextDataCheck: true,
         attachedStreamIds: {},
         pendingStreams: {},
+        pendingStreamOwnerClientIds: {},
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
@@ -231,7 +232,10 @@ describe("useChatIntegration", () => {
             latestUseChatOptions = options
             return chatHelpers
         })
-        nanoidMock.mockReturnValueOnce("assistant-1").mockReturnValueOnce("generated-2")
+        nanoidMock
+            .mockReturnValueOnce("client-1")
+            .mockReturnValueOnce("assistant-1")
+            .mockReturnValueOnce("generated-2")
         useModelStore.setState({
             selectedModel: "model-1",
             enabledTools: ["web_search", "mcp"] as ModelStore["enabledTools"],
@@ -317,11 +321,13 @@ describe("useChatIntegration", () => {
                 mcpOverrides: {
                     alpha: true,
                     beta: false
-                }
+                },
+                clientId: "client-1"
             }
         })
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
+        expect(useChatStore.getState().pendingStreamOwnerClientIds["thread-1"]).toBe("client-1")
         expect(latestUseChatOptions?.generateId).toBeDefined()
         expect(latestUseChatOptions!.generateId!()).toBe("assistant-1")
         expect(latestUseChatOptions!.generateId!()).toBe("generated-2")
@@ -489,7 +495,7 @@ describe("useChatIntegration", () => {
         expect(resumeStream).toHaveBeenCalledTimes(1)
     })
 
-    it("does not resume when persisted assistant content is already available", async () => {
+    it("resumes a live stream even when persisted assistant content is already available", async () => {
         const initialMessages = [
             {
                 id: "ui-message-1",
@@ -536,7 +542,7 @@ describe("useChatIntegration", () => {
         })
 
         expect(setMessages).toHaveBeenCalledWith(initialMessages)
-        expect(resumeStream).not.toHaveBeenCalled()
+        expect(resumeStream).toHaveBeenCalledTimes(1)
     })
 
     it("hydrates newer persisted live assistant content into a stale local buffer", () => {
@@ -625,10 +631,12 @@ describe("useChatIntegration", () => {
             getThread: {
                 _id: "thread-1",
                 isLive: true,
-                currentStreamId: "stream-1"
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
             }
         }
 
+        nanoidMock.mockReturnValueOnce("client-1")
         backendToUiMessagesMock.mockReturnValue(localStreamingMessage)
         useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
         useChatMock.mockImplementation(() => ({
@@ -697,10 +705,12 @@ describe("useChatIntegration", () => {
             getThread: {
                 _id: "thread-1",
                 isLive: true,
-                currentStreamId: "stream-1"
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
             }
         }
 
+        nanoidMock.mockReturnValueOnce("client-1")
         backendToUiMessagesMock.mockReturnValue(fullerBackendMessages)
         useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
         useChatMock.mockImplementation(() => ({
@@ -719,7 +729,7 @@ describe("useChatIntegration", () => {
         expect(setMessages).not.toHaveBeenCalled()
     })
 
-    it("does not adopt live backend snapshots over visible content even if local status is ready", () => {
+    it("adopts fuller live backend snapshots for a passive client", () => {
         const localStreamingMessages = [
             {
                 id: "assistant-1",
@@ -759,6 +769,367 @@ describe("useChatIntegration", () => {
             resumeStream: vi.fn()
         }))
 
+        const { result, rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        // A live backend stream keeps the composer in streaming mode so the
+        // stop affordance (which now stops it server-side) stays available.
+        expect(result.current.composerStatus).toBe("streaming")
+
+        setMessages.mockClear()
+        backendToUiMessagesMock.mockReturnValue(fullerBackendMessages)
+        queryResults.getThreadMessages = [
+            {
+                id: "backend-assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete persisted reply" }]
+            }
+        ]
+
+        rerender()
+
+        expect(setMessages).toHaveBeenCalledWith(fullerBackendMessages)
+    })
+
+    it("adopts backend snapshots when only footer metadata became richer", () => {
+        const localMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }],
+                metadata: {
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const backendMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }],
+                metadata: {
+                    modelId: "shared-text",
+                    modelName: "GPT 5.4 Mini",
+                    runtimeProvider: "openrouter",
+                    reasoningEffort: "medium",
+                    promptTokens: 100,
+                    completionTokens: 50,
+                    totalTokens: 150,
+                    serverDurationMs: 2500,
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete answer" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: false,
+                currentStreamId: undefined
+            }
+        }
+
+        backendToUiMessagesMock.mockReturnValue(backendMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "ready",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+
+        renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(setMessages).toHaveBeenCalledWith(backendMessages)
+    })
+
+    it("does not downgrade full live footer metadata to a partial backend snapshot", () => {
+        const localMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }],
+                metadata: {
+                    modelId: "shared-text",
+                    modelName: "GPT 5.4 Mini",
+                    runtimeProvider: "openrouter",
+                    reasoningEffort: "medium",
+                    promptTokens: 100,
+                    completionTokens: 50,
+                    totalTokens: 150,
+                    serverDurationMs: 2500,
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const backendMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }],
+                metadata: {
+                    serverDurationMs: 1200,
+                    timeToFirstVisibleMs: 500
+                }
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete answer" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-owner"
+            }
+        }
+
+        nanoidMock.mockReturnValueOnce("client-observer")
+        backendToUiMessagesMock.mockReturnValue(backendMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "streaming",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn(),
+            stop: vi.fn()
+        }))
+
+        renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(setMessages).not.toHaveBeenCalledWith(backendMessages)
+    })
+
+    it("adopts fuller backend snapshots while passively streaming another client's live stream", () => {
+        const localStreamingMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Welcome!" }]
+            }
+        ]
+        const fullerBackendMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Welcome! Here is the fuller answer." }]
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Welcome!" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-owner"
+            }
+        }
+
+        nanoidMock.mockReturnValueOnce("client-observer")
+        backendToUiMessagesMock.mockReturnValue(localStreamingMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "streaming",
+            messages: localStreamingMessages,
+            setMessages,
+            resumeStream: vi.fn(),
+            stop: vi.fn()
+        }))
+
+        const { rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        setMessages.mockClear()
+        backendToUiMessagesMock.mockReturnValue(fullerBackendMessages)
+        queryResults.getThreadMessages = [
+            {
+                id: "backend-assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Welcome! Here is the fuller answer." }]
+            }
+        ]
+
+        rerender()
+
+        expect(setMessages).toHaveBeenCalledWith(fullerBackendMessages)
+    })
+
+    it("exposes a ready composer status for a passive submitted stream", () => {
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete answer" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: false,
+                currentStreamId: undefined,
+                currentStreamOwnerClientId: undefined
+            }
+        }
+
+        nanoidMock.mockReturnValueOnce("client-observer")
+        backendToUiMessagesMock.mockReturnValue([
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }]
+            }
+        ])
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "submitted",
+            messages: [
+                {
+                    id: "assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete answer" }]
+                }
+            ],
+            setMessages,
+            resumeStream: vi.fn(),
+            stop: vi.fn()
+        }))
+
+        const { result } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(result.current.status).toBe("submitted")
+        expect(result.current.composerStatus).toBe("ready")
+        expect(setMessages).not.toHaveBeenCalled()
+    })
+
+    it("stops a stale passive stream after the backend stream is no longer live", () => {
+        const stop = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete answer" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: false,
+                currentStreamId: undefined
+            }
+        }
+
+        nanoidMock.mockReturnValueOnce("client-observer")
+        backendToUiMessagesMock.mockReturnValue([
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete answer" }]
+            }
+        ])
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "streaming",
+            messages: [
+                {
+                    id: "assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Partial" }]
+                }
+            ],
+            setMessages: vi.fn(),
+            resumeStream: vi.fn(),
+            stop
+        }))
+
+        renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(stop).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not let a recent mutation in another client block passive backend adoption", () => {
+        const localMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Partial reply" }]
+            }
+        ]
+        const fullerBackendMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete persisted reply" }]
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Partial reply" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1"
+            }
+        }
+
+        useChatStore.setState({ lastLocalMutationAt: Date.now() })
+        backendToUiMessagesMock.mockReturnValue(localMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "ready",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+
         const { rerender } = renderHook(() =>
             useChatIntegration({
                 threadId: "thread-1"
@@ -777,7 +1148,7 @@ describe("useChatIntegration", () => {
 
         rerender()
 
-        expect(setMessages).not.toHaveBeenCalled()
+        expect(setMessages).toHaveBeenCalledWith(fullerBackendMessages)
     })
 
     it("adopts remote retry truncation when the backend thread diverges while idle", () => {
