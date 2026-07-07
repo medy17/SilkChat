@@ -840,7 +840,7 @@ function PersonaEditor({
 
     if (isMobile) {
         return (
-            <Drawer open={open} onOpenChange={onOpenChange}>
+            <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
                 <DrawerContent
                     className="z-[70] flex h-[92dvh] max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0"
                     overlayClassName="z-[70]"
