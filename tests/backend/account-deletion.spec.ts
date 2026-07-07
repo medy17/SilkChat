@@ -259,6 +259,7 @@ describe("account deletion request mutation", () => {
             "accountDeletionJobs",
             expect.objectContaining({
                 userId: "user-1",
+                authId: "auth-user-1",
                 status: "pending",
                 confirmationPhrase: "Delete my account",
                 consentPermanentErasureAccepted: true,
@@ -311,6 +312,7 @@ describe("account deletion request mutation", () => {
         expect(ctx.db.patch).toHaveBeenCalledWith(
             "job-1",
             expect.objectContaining({
+                authId: "auth-user-1",
                 status: "pending",
                 retryCount: 0,
                 error: undefined

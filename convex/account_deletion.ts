@@ -6,7 +6,7 @@ import {
 } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
-import type { Id } from "./_generated/dataModel"
+import type { Id, TableNames } from "./_generated/dataModel"
 import {
     action,
     internalAction,
@@ -19,6 +19,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { aggregrateThreadsByFolder } from "./aggregates"
 import { r2 } from "./attachments"
 import { authComponent } from "./auth"
+import { getUserCreditPeriod } from "./credits"
 import {
     chooseCanonicalSuppression,
     fingerprintAccountIdentity,
@@ -30,7 +31,6 @@ import {
     getActiveAccountDeletionJob
 } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
-import { getUserCreditPeriod } from "./credits"
 
 export const ACCOUNT_DELETION_CONFIRMATION_PHRASE = "Delete my account"
 
@@ -38,8 +38,8 @@ const ACCOUNT_DELETION_RETRY_DELAY_MS = 60_000
 const ACCOUNT_DELETION_BATCH_SIZE = 100
 const ACCOUNT_DELETION_MAX_RETRIES = 5
 const ACCOUNT_DELETION_SWEEP_LIMIT = 10
+const LEGACY_AUTH_USER_SCAN_LIMIT = 10_000
 const PRO_SUBSCRIPTION_STATUSES = new Set(["active", "cancelled", "on_trial", "paused"])
-const AUTH_USER_ID_FIELDS = ["userId"]
 const internalApi = internal as typeof internal & {
     account_deletion: {
         processAccountDeletionJob: typeof processAccountDeletionJob
@@ -96,6 +96,21 @@ export const getAccountDeletionBlockerInternal = internalQuery({
     }
 })
 
+export const getAccountDeletionJobInternal = internalQuery({
+    args: { userId: v.string() },
+    handler: async (ctx, { userId }) => {
+        const job = await getAccountDeletionJob(ctx, userId)
+        if (!job) return null
+
+        return {
+            userId: job.userId,
+            authId: job.authId,
+            status: job.status,
+            phase: job.phase
+        }
+    }
+})
+
 export const requestMyAccountDeletion = mutation({
     args: {
         confirmationPhrase: v.string(),
@@ -126,10 +141,12 @@ export const requestMyAccountDeletion = mutation({
         }
         const nextJob = {
             userId: user.id,
+            authId: user.authId,
             status: "pending" as const,
             phase: "user_confirmed",
             error: undefined,
-            suppressionId: existingJob?.status === "failed" ? undefined : existingJob?.suppressionId,
+            suppressionId:
+                existingJob?.status === "failed" ? undefined : existingJob?.suppressionId,
             confirmationPhrase: args.confirmationPhrase,
             consentPermanentErasureAccepted: args.consentPermanentErasureAccepted,
             consentFraudPreventionRetentionAccepted: args.consentFraudPreventionRetentionAccepted,
@@ -490,6 +507,7 @@ export const prepareAccountDeletion = internalMutation({
 
         await ctx.db.patch(job._id, {
             status: "purging",
+            authId: auth?.authId ?? job.authId,
             suppressionId,
             phase: "prepared",
             error: undefined,
@@ -505,14 +523,14 @@ export const prepareAccountDeletion = internalMutation({
     }
 })
 
-const deleteDocs = async <T extends { _id: Id<any> }>(ctx: MutationCtx, docs: T[]) => {
+const deleteDocs = async <T extends { _id: Id<TableNames> }>(ctx: MutationCtx, docs: T[]) => {
     for (const doc of docs) {
         await ctx.db.delete(doc._id)
     }
     return docs.length
 }
 
-const deleteBatch = async <T extends { _id: Id<any> }>(
+const deleteBatch = async <T extends { _id: Id<TableNames> }>(
     ctx: MutationCtx,
     queryPromise: Promise<T[]>
 ) => deleteDocs(ctx, await queryPromise)
@@ -981,17 +999,17 @@ const getAuthAdapter = <DataModel extends GenericDataModel>(ctx: GenericActionCt
 
 const getAuthSnapshot = async <DataModel extends GenericDataModel>(
     ctx: GenericActionCtx<DataModel>,
-    userId: string
+    userId: string,
+    authId: string | undefined
 ) => {
     const adapter = getAuthAdapter(ctx)
     let authUser: Record<string, unknown> | null = null
 
-    for (const field of AUTH_USER_ID_FIELDS) {
+    if (authId) {
         authUser = await adapter.findOne({
             model: "user",
-            where: [{ field, value: userId }]
+            where: [{ field: "id", value: authId }]
         })
-        if (authUser) break
     }
 
     if (!authUser) {
@@ -1001,20 +1019,34 @@ const getAuthSnapshot = async <DataModel extends GenericDataModel>(
         })
     }
 
-    const authId = typeof authUser?.id === "string" ? authUser.id : undefined
+    if (!authUser && !authId) {
+        const users = (await adapter.findMany({
+            model: "user",
+            limit: LEGACY_AUTH_USER_SCAN_LIMIT
+        })) as Array<Record<string, unknown>>
+        authUser =
+            users.find(
+                (user) =>
+                    typeof user.userId === "string" &&
+                    user.userId.trim().length > 0 &&
+                    user.userId === userId
+            ) ?? null
+    }
+
+    const resolvedAuthId = typeof authUser?.id === "string" ? authUser.id : undefined
     const email = typeof authUser?.email === "string" ? authUser.email : undefined
-    if (!authId || !email) return undefined
+    if (!resolvedAuthId || !email) return undefined
 
     const accounts = await adapter.findMany({
         model: "account",
-        where: [{ field: "userId", value: authId }]
+        where: [{ field: "userId", value: resolvedAuthId }]
     })
     const googleAccount = accounts.find(
         (account: Record<string, unknown>) => account.providerId === "google"
     ) as Record<string, unknown> | undefined
 
     return {
-        authId,
+        authId: resolvedAuthId,
         email,
         googleSub:
             typeof googleAccount?.accountId === "string" ? googleAccount.accountId : undefined
@@ -1258,7 +1290,13 @@ export const processAccountDeletionJob = internalAction({
     args: { userId: v.string() },
     handler: async (ctx, { userId }) => {
         try {
-            const auth = await getAuthSnapshot(ctx, userId)
+            const job = await ctx.runQuery(
+                internal.account_deletion.getAccountDeletionJobInternal,
+                {
+                    userId
+                }
+            )
+            const auth = await getAuthSnapshot(ctx, userId, job?.authId)
             const creditSnapshot = await getDeletionCreditSnapshot(ctx, userId, Date.now())
             const prepared = await ctx.runMutation(
                 internal.account_deletion.prepareAccountDeletion,
