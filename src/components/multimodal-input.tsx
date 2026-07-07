@@ -1894,6 +1894,7 @@ export const MultimodalInput = forwardRef<
     }
 
     const [isClient, setIsClient] = useState(false)
+    const isNewChatComposer = !threadId && messages.length === 0
 
     useEffect(() => {
         setIsClient(true)
@@ -1947,7 +1948,11 @@ export const MultimodalInput = forwardRef<
                     disableKeyboardSubmit={isMobile}
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={240}
-                    className={cn("mx-auto w-full", getChatWidthClass(chatWidthState.chatWidth))}
+                    className={cn(
+                        "mx-auto w-full",
+                        isNewChatComposer && "rounded-[var(--radius-lg)]",
+                        getChatWidthClass(chatWidthState.chatWidth)
+                    )}
                 >
                     {(extendedFiles.length > 0 || localUploadingFiles.length > 0) && (
                         <div className="flex flex-wrap gap-2 pb-3">

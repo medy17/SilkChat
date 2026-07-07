@@ -1,13 +1,6 @@
 import { PersonaAvatar } from "@/components/persona-avatar"
-import { PromptInputAction } from "@/components/prompt-kit/prompt-input"
 import { Badge } from "@/components/ui/badge"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectSeparator,
-    SelectTrigger
-} from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -25,9 +18,9 @@ import { useSharedModels } from "@/lib/shared-models"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
-import { Plus, Sparkles } from "lucide-react"
+import { Check, ChevronDown, Plus, Sparkles } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 type PersonaOption = {
@@ -50,13 +43,15 @@ const personaChromeTransition = {
     duration: 0.2,
     ease: [0.16, 1, 0.3, 1]
 } as const
-const PERSONA_SELECT_CONTENT_CLASS =
-    "max-h-[min(20rem,var(--radix-select-content-available-height,calc(100dvh-1rem)))] overflow-y-auto overscroll-contain"
-const CREATE_PERSONA_SELECT_VALUE = "create-persona"
+const PERSONA_POPOVER_CONTENT_CLASS =
+    "z-[80] max-h-[min(20rem,var(--radix-popover-content-available-height,calc(100dvh-1rem)))] w-[min(14.5rem,calc(100vw-1rem))] min-w-[min(var(--radix-popover-trigger-width),14.5rem,calc(100vw-1rem))] max-w-[min(14.5rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-[var(--radius-lg)] border-border/70 bg-popover p-1 shadow-lg"
+const PERSONA_MENU_ITEM_CLASS =
+    "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+const PERSONA_PICKER_REVALIDATION_DELAY_MS = 240
 
 function PersonaSelectItem({ persona }: { persona: PersonaOption }) {
     return (
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
             <PersonaAvatar
                 name={persona.name}
                 avatarKind={persona.avatarKind}
@@ -73,6 +68,8 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const auth = useConvexAuth()
     const navigate = useNavigate()
     const isMobile = useIsMobile()
+    const [isPickerOpen, setIsPickerOpen] = useState(false)
+    const [canRevalidatePickerOptions, setCanRevalidatePickerOptions] = useState(true)
     const { selectedModel, setSelectedModel } = useModelStore()
     const { selectedPersona, setSelectedPersona } = useChatStore()
     const thread = useQuery(
@@ -81,9 +78,28 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
             ? { threadId: threadId as Id<"threads"> }
             : "skip"
     )
-    const pickerOptions = useQuery(
+    useEffect(() => {
+        if (!isPickerOpen) {
+            setCanRevalidatePickerOptions(true)
+            return
+        }
+
+        setCanRevalidatePickerOptions(false)
+        const timeoutId = window.setTimeout(() => {
+            setCanRevalidatePickerOptions(true)
+        }, PERSONA_PICKER_REVALIDATION_DELAY_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [isPickerOpen])
+
+    const pickerOptions = useDiskCachedQuery(
         api.personas.listPersonaPickerOptions,
-        session.user?.id && !auth.isLoading ? {} : "skip"
+        {
+            key: "persona-picker-options",
+            default: { builtIns: [], userPersonas: [] },
+            forceCache: true
+        },
+        session.user?.id && !auth.isLoading && canRevalidatePickerOptions ? {} : "skip"
     )
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
@@ -144,6 +160,36 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
         (thread?.personaAvatarValue ??
             (thread === undefined && selectedOption ? selectedOption.avatarValue : undefined))
 
+    const applyPersonaSelection = (option: PersonaOption) => {
+        setSelectedPersona({ source: option.source, id: option.id })
+
+        const replacement = resolveAvailableModelReplacement({
+            modelId: option.defaultModelId,
+            sharedModels,
+            availableModels
+        })
+        const targetModelId = availableModelIds.has(option.defaultModelId)
+            ? option.defaultModelId
+            : replacement.replacementId
+
+        if (targetModelId && availableModelIds.has(targetModelId)) {
+            if (selectedModel !== targetModelId) {
+                setSelectedModel(targetModelId)
+            }
+            if (
+                targetModelId !== option.defaultModelId &&
+                replacement.originalModel &&
+                replacement.replacement
+            ) {
+                notifyModelReplacement(replacement.originalModel, replacement.replacement)
+            }
+        } else {
+            toast.warning(
+                `${option.name} prefers ${option.defaultModelId}, but it is not currently available.`
+            )
+        }
+    }
+
     return (
         <motion.div layout className="shrink-0 overflow-hidden">
             <AnimatePresence initial={false} mode="popLayout">
@@ -156,69 +202,14 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                         exit={{ opacity: 0, x: -12, scale: 0.96 }}
                         transition={personaChromeTransition}
                     >
-                        <PromptInputAction tooltip="Select persona">
-                            <Select
-                                value={selectedValue}
-                                onValueChange={(value) => {
-                                    if (value === CREATE_PERSONA_SELECT_VALUE) {
-                                        void navigate({ to: "/settings/personas" })
-                                        return
-                                    }
-
-                                    if (value === "default") {
-                                        setSelectedPersona({ source: "default" })
-                                        return
-                                    }
-
-                                    const [source, id] = value.split(":") as [
-                                        "builtin" | "user",
-                                        string
-                                    ]
-                                    const option = allOptions.find(
-                                        (candidate) =>
-                                            candidate.source === source && candidate.id === id
-                                    )
-
-                                    if (!option) {
-                                        setSelectedPersona({ source: "default" })
-                                        return
-                                    }
-
-                                    setSelectedPersona({ source, id })
-
-                                    const replacement = resolveAvailableModelReplacement({
-                                        modelId: option.defaultModelId,
-                                        sharedModels,
-                                        availableModels
-                                    })
-                                    const targetModelId = availableModelIds.has(
-                                        option.defaultModelId
-                                    )
-                                        ? option.defaultModelId
-                                        : replacement.replacementId
-
-                                    if (targetModelId && availableModelIds.has(targetModelId)) {
-                                        if (selectedModel !== targetModelId) {
-                                            setSelectedModel(targetModelId)
-                                        }
-                                        if (
-                                            targetModelId !== option.defaultModelId &&
-                                            replacement.originalModel &&
-                                            replacement.replacement
-                                        ) {
-                                            notifyModelReplacement(
-                                                replacement.originalModel,
-                                                replacement.replacement
-                                            )
-                                        }
-                                    } else {
-                                        toast.warning(
-                                            `${option.name} prefers ${option.defaultModelId}, but it is not currently available.`
-                                        )
-                                    }
-                                }}
-                            >
-                                <SelectTrigger className="!h-8 !px-1.5 min-[390px]:!px-2 min-w-0 gap-0.5 border bg-secondary/70 text-xs backdrop-blur-lg hover:bg-secondary/80 sm:min-w-[13.75rem] sm:text-sm min-[390px]:gap-2">
+                        <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 sm:min-w-[13.75rem] sm:text-sm min-[390px]:gap-2 min-[390px]:px-2"
+                                    aria-label="Select persona"
+                                    title="Select persona"
+                                >
                                     <div className="flex min-w-0 items-center gap-2">
                                         {selectedOption ? (
                                             <PersonaAvatar
@@ -234,42 +225,82 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                             {selectedLabel}
                                         </span>
                                     </div>
-                                </SelectTrigger>
-                                <SelectContent
-                                    sideOffset={6}
-                                    collisionPadding={8}
-                                    className={PERSONA_SELECT_CONTENT_CLASS}
+                                    <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                align="start"
+                                side="top"
+                                sideOffset={6}
+                                collisionPadding={8}
+                                className={PERSONA_POPOVER_CONTENT_CLASS}
+                            >
+                                <button
+                                    type="button"
+                                    className={`${PERSONA_MENU_ITEM_CLASS} font-medium text-primary`}
+                                    onClick={() => {
+                                        setIsPickerOpen(false)
+                                        void navigate({ to: "/settings/personas" })
+                                    }}
                                 >
-                                    <SelectItem
-                                        value={CREATE_PERSONA_SELECT_VALUE}
-                                        className="font-medium text-primary"
-                                    >
-                                        <Plus className="size-4" />
-                                        Create New Persona
-                                    </SelectItem>
-                                    <SelectSeparator />
-                                    <SelectItem value="default">Default</SelectItem>
-                                    {pickerOptions?.builtIns.map((persona) => (
-                                        <SelectItem
+                                    <Plus className="size-4 shrink-0" />
+                                    Create New Persona
+                                </button>
+                                <div className="-mx-1 my-1 h-px bg-border" />
+                                <button
+                                    type="button"
+                                    className={PERSONA_MENU_ITEM_CLASS}
+                                    onClick={() => {
+                                        setSelectedPersona({ source: "default" })
+                                        setIsPickerOpen(false)
+                                    }}
+                                >
+                                    <Sparkles className="size-4 shrink-0" />
+                                    <span className="min-w-0 flex-1 truncate">Default</span>
+                                    {selectedPersona.source === "default" && (
+                                        <Check className="size-4 shrink-0" />
+                                    )}
+                                </button>
+                                {pickerOptions?.builtIns.map((persona) => {
+                                    const isSelected =
+                                        selectedValue === getSelectValue("builtin", persona.id)
+
+                                    return (
+                                        <button
                                             key={`builtin:${persona.id}`}
-                                            value={getSelectValue("builtin", persona.id)}
-                                            textValue={persona.name}
+                                            type="button"
+                                            className={PERSONA_MENU_ITEM_CLASS}
+                                            onClick={() => {
+                                                applyPersonaSelection(persona)
+                                                setIsPickerOpen(false)
+                                            }}
                                         >
                                             <PersonaSelectItem persona={persona} />
-                                        </SelectItem>
-                                    ))}
-                                    {pickerOptions?.userPersonas.map((persona) => (
-                                        <SelectItem
+                                            {isSelected && <Check className="size-4 shrink-0" />}
+                                        </button>
+                                    )
+                                })}
+                                {pickerOptions?.userPersonas.map((persona) => {
+                                    const isSelected =
+                                        selectedValue === getSelectValue("user", persona.id)
+
+                                    return (
+                                        <button
                                             key={`user:${persona.id}`}
-                                            value={getSelectValue("user", persona.id)}
-                                            textValue={persona.name}
+                                            type="button"
+                                            className={PERSONA_MENU_ITEM_CLASS}
+                                            onClick={() => {
+                                                applyPersonaSelection(persona)
+                                                setIsPickerOpen(false)
+                                            }}
                                         >
                                             <PersonaSelectItem persona={persona} />
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </PromptInputAction>
+                                            {isSelected && <Check className="size-4 shrink-0" />}
+                                        </button>
+                                    )
+                                })}
+                            </PopoverContent>
+                        </Popover>
                     </motion.div>
                 ) : null}
 
@@ -282,26 +313,23 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                         exit={{ opacity: 0, x: -12, scale: 0.96 }}
                         transition={personaChromeTransition}
                     >
-                        <PromptInputAction tooltip="Thread persona">
-                            <Badge
-                                variant="secondary"
-                                className="flex h-8 items-center gap-2 rounded-md bg-secondary/70 px-2"
-                            >
-                                {lockedAvatarKind && lockedAvatarValue ? (
-                                    <PersonaAvatar
-                                        name={lockedPersonaName}
-                                        avatarKind={lockedAvatarKind}
-                                        avatarValue={lockedAvatarValue}
-                                        className="size-5"
-                                    />
-                                ) : (
-                                    <Sparkles className="size-4 shrink-0" />
-                                )}
-                                <span className="max-w-[8.75rem] truncate">
-                                    {lockedPersonaName}
-                                </span>
-                            </Badge>
-                        </PromptInputAction>
+                        <Badge
+                            variant="secondary"
+                            className="flex h-8 items-center gap-2 rounded-[var(--radius-md)] bg-secondary/70 px-2"
+                            title="Thread persona"
+                        >
+                            {lockedAvatarKind && lockedAvatarValue ? (
+                                <PersonaAvatar
+                                    name={lockedPersonaName}
+                                    avatarKind={lockedAvatarKind}
+                                    avatarValue={lockedAvatarValue}
+                                    className="size-5"
+                                />
+                            ) : (
+                                <Sparkles className="size-4 shrink-0" />
+                            )}
+                            <span className="max-w-[8.75rem] truncate">{lockedPersonaName}</span>
+                        </Badge>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
