@@ -124,6 +124,10 @@ const EMPTY_FORM: PersonaFormState = {
 }
 
 const MAX_AVATAR_BYTES = 100 * 1024
+const PERSONA_DESCRIPTION_TEXTAREA_CLASS =
+    "h-24 max-h-40 resize-y overflow-y-auto [field-sizing:fixed]"
+const PERSONA_INSTRUCTIONS_TEXTAREA_CLASS =
+    "h-56 max-h-[50dvh] resize-y overflow-y-auto [field-sizing:fixed]"
 
 const estimatePromptUsage = (form: PersonaFormState) =>
     Math.ceil(
@@ -558,6 +562,7 @@ function PersonaEditorForm({
                     rows={3}
                     maxLength={240}
                     placeholder="Direct, technical guidance for architecture and tradeoff reviews."
+                    className={PERSONA_DESCRIPTION_TEXTAREA_CLASS}
                 />
             </div>
 
@@ -574,6 +579,7 @@ function PersonaEditorForm({
                     }
                     rows={10}
                     placeholder="Describe how this persona should respond, reason, and structure answers."
+                    className={PERSONA_INSTRUCTIONS_TEXTAREA_CLASS}
                 />
             </div>
 
@@ -836,7 +842,7 @@ function PersonaEditor({
         return (
             <Drawer open={open} onOpenChange={onOpenChange}>
                 <DrawerContent
-                    className="z-[70] flex max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0"
+                    className="z-[70] flex h-[92dvh] max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0"
                     overlayClassName="z-[70]"
                 >
                     <DrawerHeader className="shrink-0 text-left">
