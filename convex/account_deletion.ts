@@ -1060,19 +1060,28 @@ const deleteAuthUser = async <DataModel extends GenericDataModel>(
     if (!authId) return
 
     const adapter = getAuthAdapter(ctx)
+    const deleteOptionalAuthModelRows = async (
+        model: "twoFactor" | "oauthApplication" | "oauthAccessToken" | "oauthConsent"
+    ) => {
+        try {
+            await adapter.deleteMany({ model, where: [{ field: "userId", value: authId }] })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            if (message !== `Model "${model}" not found in schema`) {
+                throw error
+            }
+        }
+    }
+
     await Promise.all([
         adapter.deleteMany({ model: "session", where: [{ field: "userId", value: authId }] }),
-        adapter.deleteMany({ model: "account", where: [{ field: "userId", value: authId }] }),
-        adapter.deleteMany({ model: "twoFactor", where: [{ field: "userId", value: authId }] }),
-        adapter.deleteMany({
-            model: "oauthApplication",
-            where: [{ field: "userId", value: authId }]
-        }),
-        adapter.deleteMany({
-            model: "oauthAccessToken",
-            where: [{ field: "userId", value: authId }]
-        }),
-        adapter.deleteMany({ model: "oauthConsent", where: [{ field: "userId", value: authId }] })
+        adapter.deleteMany({ model: "account", where: [{ field: "userId", value: authId }] })
+    ])
+    await Promise.all([
+        deleteOptionalAuthModelRows("twoFactor"),
+        deleteOptionalAuthModelRows("oauthApplication"),
+        deleteOptionalAuthModelRows("oauthAccessToken"),
+        deleteOptionalAuthModelRows("oauthConsent")
     ])
     await adapter.delete({ model: "user", where: [{ field: "id", value: authId }] })
 }
