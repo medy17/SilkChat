@@ -1,7 +1,13 @@
 import { PersonaAvatar } from "@/components/persona-avatar"
 import { PromptInputAction } from "@/components/prompt-kit/prompt-input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectSeparator,
+    SelectTrigger
+} from "@/components/ui/select"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -17,8 +23,9 @@ import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
 import { useConvexAuth } from "@convex-dev/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
-import { Sparkles } from "lucide-react"
+import { Plus, Sparkles } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useMemo } from "react"
 import { toast } from "sonner"
@@ -43,6 +50,9 @@ const personaChromeTransition = {
     duration: 0.2,
     ease: [0.16, 1, 0.3, 1]
 } as const
+const PERSONA_SELECT_CONTENT_CLASS =
+    "max-h-[min(20rem,var(--radix-select-content-available-height,calc(100dvh-1rem)))] overflow-y-auto overscroll-contain"
+const CREATE_PERSONA_SELECT_VALUE = "create-persona"
 
 function PersonaSelectItem({ persona }: { persona: PersonaOption }) {
     return (
@@ -61,6 +71,7 @@ function PersonaSelectItem({ persona }: { persona: PersonaOption }) {
 export function PersonaSelector({ threadId }: { threadId?: string }) {
     const session = useSession()
     const auth = useConvexAuth()
+    const navigate = useNavigate()
     const isMobile = useIsMobile()
     const { selectedModel, setSelectedModel } = useModelStore()
     const { selectedPersona, setSelectedPersona } = useChatStore()
@@ -149,6 +160,11 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                             <Select
                                 value={selectedValue}
                                 onValueChange={(value) => {
+                                    if (value === CREATE_PERSONA_SELECT_VALUE) {
+                                        void navigate({ to: "/settings/personas" })
+                                        return
+                                    }
+
                                     if (value === "default") {
                                         setSelectedPersona({ source: "default" })
                                         return
@@ -219,7 +235,19 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         </span>
                                     </div>
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent
+                                    sideOffset={6}
+                                    collisionPadding={8}
+                                    className={PERSONA_SELECT_CONTENT_CLASS}
+                                >
+                                    <SelectItem
+                                        value={CREATE_PERSONA_SELECT_VALUE}
+                                        className="font-medium text-primary"
+                                    >
+                                        <Plus className="size-4" />
+                                        Create New Persona
+                                    </SelectItem>
+                                    <SelectSeparator />
                                     <SelectItem value="default">Default</SelectItem>
                                     {pickerOptions?.builtIns.map((persona) => (
                                         <SelectItem
