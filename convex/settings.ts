@@ -3,6 +3,7 @@ import { ChatError } from "@/lib/errors"
 import { type Infer, v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
 import { normalizeModelAbilities } from "./lib/model_abilities"
@@ -452,6 +453,7 @@ export const updateUserSettings = mutation({
         if (user.id !== args.userId) {
             throw new ChatError("unauthorized:api")
         }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const settings = await getSettings(ctx, args.userId)
 
@@ -568,6 +570,7 @@ export const addUserTheme = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("Unauthorized")
+        await assertAccountNotDeleting(ctx, user.id)
         const settings = await getSettings(ctx, user.id)
         const existingThemes = settings.customThemes ?? []
 
@@ -594,6 +597,7 @@ export const deleteUserTheme = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("Unauthorized")
+        await assertAccountNotDeleting(ctx, user.id)
         const settings = await getSettings(ctx, user.id)
 
         const existingThemes = settings.customThemes ?? []
@@ -778,6 +782,7 @@ export const updateUserSettingsPartial = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new ChatError("unauthorized:api")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const settings = await getSettings(ctx, user.id)
         const newSettings: Infer<typeof UserSettings> = { ...settings }
@@ -969,6 +974,7 @@ export const completeOnboarding = mutation({
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new ChatError("unauthorized:api")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const settings = await getSettings(ctx, user.id)
 

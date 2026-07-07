@@ -19,6 +19,7 @@ import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
+import { getAccountDeletionBlockerForAction } from "../lib/account_deletion_gate"
 import {
     type ContextLimitViolation,
     type SuggestedModel,
@@ -725,6 +726,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
+
+    const deletionBlocker = await getAccountDeletionBlockerForAction(ctx, user.id)
+    if (deletionBlocker) {
+        return new ChatError(
+            "forbidden:chat",
+            "Account deletion is in progress. New messages are disabled for this account."
+        ).toResponse()
+    }
 
     if (
         MODELS_SHARED.some(

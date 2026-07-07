@@ -3,6 +3,8 @@ import { R2 } from "@convex-dev/r2"
 import { v } from "convex/values"
 import { components } from "./_generated/api"
 import { httpAction, mutation, query } from "./_generated/server"
+import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import {
     DEFAULT_UPLOAD_POLICY,
     DEFAULT_UPLOAD_POLICY_VERSION,
@@ -68,6 +70,12 @@ const uploadPolicyHeaders = (headers?: HeadersInit) => ({
     [UPLOAD_POLICY_HEADER]: DEFAULT_UPLOAD_POLICY_VERSION
 })
 
+const deletionInProgressResponse = () =>
+    new Response(JSON.stringify({ error: "Account deletion is in progress" }), {
+        status: 403,
+        headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
+    })
+
 export const getUploadPolicy = query({
     args: {},
     handler: async () => ({
@@ -85,6 +93,9 @@ export const uploadFile = httpAction(async (ctx, request) => {
                 status: 401,
                 headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             })
+        }
+        if (await getAccountDeletionBlockerForAction(ctx, user.id)) {
+            return deletionInProgressResponse()
         }
         const formData = await request.formData()
         const file = formData.get("file") as Blob
@@ -254,6 +265,9 @@ export const uploadReferenceImage = httpAction(async (ctx, request) => {
                 headers: uploadPolicyHeaders({ "Content-Type": "application/json" })
             })
         }
+        if (await getAccountDeletionBlockerForAction(ctx, user.id)) {
+            return deletionInProgressResponse()
+        }
 
         const formData = await request.formData()
         const file = formData.get("file") as Blob | null
@@ -370,6 +384,7 @@ export const deleteFile = mutation({
                     error: "Unauthorized"
                 }
             }
+            await assertAccountNotDeleting(ctx, user.id)
 
             const metadata = await r2.getMetadata(ctx, args.key)
             if (!metadata) {

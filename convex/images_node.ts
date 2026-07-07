@@ -9,6 +9,7 @@ import { internal } from "./_generated/api"
 import type { DataModel, Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
 import { r2 } from "./attachments"
+import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
 import { resolveFalReferenceImagesForProvider } from "./lib/image_generation/reference_images_node"
@@ -438,6 +439,7 @@ export const generateStandaloneImage = action({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const jobId = await submitImageGenerationJob(ctx, {
             userId: user.id,
@@ -463,6 +465,7 @@ export const confirmPreparedChatImageGeneration = action({
     handler: async (ctx, args): Promise<Id<"imageGenerationJobs">[]> => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const thread = await ctx.runQuery(internal.threads.getThreadById, {
             threadId: args.threadId
@@ -655,6 +658,7 @@ export const generateFakeStandaloneImage = action({
     handler: async (ctx, args): Promise<Id<"generatedImages">[]> => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const modelName =
             MODELS_SHARED.find((model) => model.id === args.modelId)?.name ?? args.modelId
@@ -709,6 +713,7 @@ export const deleteGeneratedImage = action({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         // Need internal query to get image to check ownership and storageKey
         const image = await ctx.runQuery(internal.images.getGeneratedImageInternal, { id: args.id })
@@ -751,6 +756,7 @@ export const migrateUserImages = action({
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const { r2 } = await import("./attachments")
         const keyPrefix = `generations/${user.id}/`

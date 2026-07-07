@@ -15,6 +15,7 @@ import {
     getCurrentCreditPeriodKey
 } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 
 type CreditAccountRecord = {
     _creationTime?: number
@@ -63,7 +64,7 @@ const parseTimestamp = (value: string | undefined) => {
     return Number.isFinite(timestamp) ? timestamp : null
 }
 
-const getUserCreditPeriod = async (
+export const getUserCreditPeriod = async (
     ctx: QueryCtx | MutationCtx,
     userId: string,
     account: CreditAccountRecord | null | undefined,
@@ -147,7 +148,7 @@ const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => (
     bypassLimits: access?.bypassLimits ?? false
 })
 
-const sumCountedEventUnits = (
+export const sumCountedEventUnits = (
     events: Array<{ counted: boolean; bucket: "basic" | "pro" | "none"; units: number }>,
     bucket: "basic" | "pro"
 ) =>
@@ -234,7 +235,7 @@ const getOutstandingReservedBasicCredits = async (
         )
 }
 
-const getOutstandingReservedCreditUnits = async (
+export const getOutstandingReservedCreditUnits = async (
     ctx: QueryCtx | MutationCtx,
     userId: string,
     periodKey: string,
@@ -488,6 +489,7 @@ export const setMyPrototypeCreditPlan = mutation({
         if ("error" in user) {
             throw new Error("Unauthorized")
         }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const existingAccount = await getCreditAccount(ctx, user.id)
         const nextAccount = {

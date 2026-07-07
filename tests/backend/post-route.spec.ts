@@ -64,6 +64,9 @@ vi.mock("../../convex/_generated/server", () => ({
 
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
+        account_deletion: {
+            getAccountDeletionBlockerInternal: "getAccountDeletionBlockerInternal"
+        },
         credits: {
             reserveCreditForMessage: "reserveCreditForMessage",
             commitReservedCreditForMessage: "commitReservedCreditForMessage",
@@ -100,6 +103,10 @@ vi.mock("../../convex/attachments", () => ({
 
 vi.mock("../../convex/lib/identity", () => ({
     getUserIdentity: getUserIdentityMock
+}))
+
+vi.mock("../../convex/lib/account_deletion_gate", () => ({
+    getAccountDeletionBlockerForAction: vi.fn().mockResolvedValue(null)
 }))
 
 vi.mock("../../convex/chat_http/get_model", () => ({

@@ -41,8 +41,10 @@ export const AccountDeletionJob = v.object({
     status: v.union(
         v.literal("pending"),
         v.literal("purging"),
+        v.literal("retrying"),
         v.literal("completed"),
-        v.literal("failed")
+        v.literal("failed"),
+        v.literal("cancelled")
     ),
     suppressionId: v.optional(v.id("identitySuppressions")),
     phase: v.optional(v.string()),
@@ -51,6 +53,10 @@ export const AccountDeletionJob = v.object({
     consentPermanentErasureAccepted: v.optional(v.boolean()),
     consentFraudPreventionRetentionAccepted: v.optional(v.boolean()),
     consentAcceptedAt: v.optional(v.number()),
+    retryCount: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextRetryAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number()
 })

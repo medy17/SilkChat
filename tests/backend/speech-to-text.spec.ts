@@ -32,6 +32,10 @@ vi.mock("../../convex/lib/identity", () => ({
     getUserIdentity: getUserIdentityMock
 }))
 
+vi.mock("../../convex/lib/account_deletion_gate", () => ({
+    getAccountDeletionBlockerForAction: vi.fn().mockResolvedValue(null)
+}))
+
 vi.mock("../../convex/lib/encryption", () => ({
     decryptKey: decryptKeyMock
 }))

@@ -482,10 +482,18 @@ describe("branchThread", () => {
                     .mockImplementation(async (id: string) =>
                         id === "branch-thread-1" ? newThread : sourceThread
                     ),
-                query: vi
-                    .fn()
-                    .mockImplementationOnce(() => messageQuery)
-                    .mockImplementationOnce(() => personaSnapshotQuery)
+                query: vi.fn().mockImplementation((table: string) => {
+                    if (table === "accountDeletionJobs") {
+                        return {
+                            withIndex: vi.fn().mockReturnValue({
+                                first: vi.fn().mockResolvedValue(null)
+                            })
+                        }
+                    }
+
+                    if (table === "messages") return messageQuery
+                    return personaSnapshotQuery
+                })
             }
         }
 

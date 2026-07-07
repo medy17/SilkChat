@@ -13,11 +13,33 @@ vi.mock("convex/values", () => {
 })
 
 vi.mock("../../convex/_generated/server", () => ({
+    action: (config: unknown) => config,
+    httpAction: (handler: unknown) => handler,
+    internalAction: (config: unknown) => config,
+    internalMutation: (config: unknown) => config,
+    internalQuery: (config: unknown) => config,
     mutation: (config: unknown) => config,
     query: (config: unknown) => config
 }))
 
-import { requestMyAccountDeletion } from "../../convex/account_deletion"
+vi.mock("../../convex/_generated/api", () => ({
+    components: {
+        betterAuth: {},
+        r2: {},
+        aggregateFolderThreads: {}
+    },
+    internal: {
+        account_deletion: {
+            processAccountDeletionJob: "processAccountDeletionJob"
+        }
+    }
+}))
+
+import {
+    cancelMyFailedAccountDeletion,
+    listProcessableAccountDeletionJobs,
+    requestMyAccountDeletion
+} from "../../convex/account_deletion"
 import {
     chooseCanonicalSuppression,
     fingerprintAccountIdentity,
@@ -35,6 +57,19 @@ const requestMyAccountDeletionHandler = requestMyAccountDeletion as unknown as {
         }
     ) => Promise<unknown>
 }
+const cancelMyFailedAccountDeletionHandler = cancelMyFailedAccountDeletion as unknown as {
+    handler: (ctx: AccountDeletionTestCtx, args: Record<string, never>) => Promise<unknown>
+}
+const listProcessableAccountDeletionJobsHandler = listProcessableAccountDeletionJobs as unknown as {
+    handler: (
+        ctx: {
+            db: {
+                query: ReturnType<typeof vi.fn>
+            }
+        },
+        args: { limit?: number }
+    ) => Promise<Array<{ userId: string }>>
+}
 
 type AccountDeletionTestCtx = {
     auth: {
@@ -44,6 +79,9 @@ type AccountDeletionTestCtx = {
         query: ReturnType<typeof vi.fn>
         insert: ReturnType<typeof vi.fn>
         patch: ReturnType<typeof vi.fn>
+    }
+    scheduler: {
+        runAfter: ReturnType<typeof vi.fn>
     }
 }
 
@@ -64,6 +102,9 @@ const createDeletionCtx = (existingJob: Record<string, unknown> | null = null) =
             }),
             insert: vi.fn().mockResolvedValue("job-1"),
             patch: vi.fn()
+        },
+        scheduler: {
+            runAfter: vi.fn()
         }
     }) as AccountDeletionTestCtx
 
@@ -225,5 +266,120 @@ describe("account deletion request mutation", () => {
                 phase: "user_confirmed"
             })
         )
+    })
+
+    it("rejects a duplicate request while deletion is active", async () => {
+        await expect(
+            requestMyAccountDeletionHandler.handler(
+                createDeletionCtx({
+                    _id: "job-1",
+                    userId: "user-1",
+                    status: "purging",
+                    createdAt: 1,
+                    updatedAt: 1
+                }),
+                {
+                    confirmationPhrase: "Delete my account",
+                    consentPermanentErasureAccepted: true,
+                    consentFraudPreventionRetentionAccepted: true
+                }
+            )
+        ).rejects.toThrow("Account deletion is already in progress")
+    })
+
+    it("allows a terminal failed request to be requested again", async () => {
+        const ctx = createDeletionCtx({
+            _id: "job-1",
+            userId: "user-1",
+            status: "failed",
+            retryCount: 5,
+            createdAt: 1,
+            updatedAt: 1
+        })
+
+        await expect(
+            requestMyAccountDeletionHandler.handler(ctx, {
+                confirmationPhrase: "Delete my account",
+                consentPermanentErasureAccepted: true,
+                consentFraudPreventionRetentionAccepted: true
+            })
+        ).resolves.toMatchObject({
+            status: "pending",
+            phase: "user_confirmed"
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "job-1",
+            expect.objectContaining({
+                status: "pending",
+                retryCount: 0,
+                error: undefined
+            })
+        )
+    })
+
+    it("lets the user cancel a terminal failed request", async () => {
+        const ctx = createDeletionCtx({
+            _id: "job-1",
+            userId: "user-1",
+            status: "failed",
+            retryCount: 5,
+            createdAt: 1,
+            updatedAt: 1
+        })
+
+        await expect(cancelMyFailedAccountDeletionHandler.handler(ctx, {})).resolves.toMatchObject({
+            status: "cancelled"
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "job-1",
+            expect.objectContaining({
+                status: "cancelled",
+                phase: "cancelled",
+                error: undefined
+            })
+        )
+    })
+})
+
+describe("account deletion job sweep", () => {
+    it("returns active pending, purging, and retrying jobs for post-deploy processing", async () => {
+        const rowsByStatus = {
+            pending: [{ userId: "pending-user", updatedAt: 20 }],
+            purging: [{ userId: "purging-user", updatedAt: 10 }],
+            retrying: [{ userId: "retrying-user", updatedAt: 30 }],
+            failed: [{ userId: "failed-user", updatedAt: 40 }]
+        } as Record<string, Array<{ userId: string; updatedAt: number }>>
+
+        const ctx = {
+            db: {
+                query: vi.fn(() => ({
+                    withIndex: vi.fn((_indexName, buildQuery) => {
+                        let selectedStatus = ""
+                        buildQuery({
+                            eq: vi.fn((_field, status) => {
+                                selectedStatus = status
+                                return {}
+                            })
+                        })
+
+                        return {
+                            take: vi.fn(async (limit: number) =>
+                                (rowsByStatus[selectedStatus] ?? []).slice(0, limit)
+                            )
+                        }
+                    })
+                }))
+            }
+        }
+
+        await expect(
+            listProcessableAccountDeletionJobsHandler.handler(ctx, { limit: 10 })
+        ).resolves.toEqual([
+            { userId: "purging-user" },
+            { userId: "pending-user" },
+            { userId: "retrying-user" }
+        ])
     })
 })

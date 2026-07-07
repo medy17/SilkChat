@@ -12,6 +12,7 @@ import { type Infer, v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { type MutationCtx, internalQuery, mutation, query } from "./_generated/server"
 import { r2 } from "./attachments"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 import { compilePersonaSnapshot } from "./lib/personas"
 
@@ -352,6 +353,7 @@ export const createUserPersona = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new ChatError("unauthorized:api")
+        await assertAccountNotDeleting(ctx, user.id)
 
         validatePersonaInput(args)
         const resolvedAvatar = await resolvePersonaAvatar(ctx, user.id, args.avatar)
@@ -421,6 +423,7 @@ export const updateUserPersona = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new ChatError("unauthorized:api")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const existingPersona = await ctx.db.get(args.personaId)
         if (!existingPersona || existingPersona.authorId !== user.id) {
@@ -493,6 +496,7 @@ export const deleteUserPersona = mutation({
     handler: async (ctx, { personaId }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new ChatError("unauthorized:api")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const persona = await ctx.db.get(personaId)
         if (!persona || persona.authorId !== user.id) {

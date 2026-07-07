@@ -10,6 +10,12 @@ crons.interval(
 )
 
 crons.interval(
+    "process pending account deletion jobs",
+    { minutes: 5 },
+    internal.account_deletion.processPendingAccountDeletionJobs
+)
+
+crons.interval(
     "sync openrouter model metadata",
     { hours: 12 },
     internal.model_provider_metadata_node.syncOpenRouterModelMetadata

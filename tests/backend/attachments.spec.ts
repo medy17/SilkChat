@@ -20,6 +20,11 @@ vi.mock("convex/values", () => ({
 vi.mock("../../convex/_generated/api", () => ({
     components: {
         r2: "r2"
+    },
+    internal: {
+        account_deletion: {
+            getAccountDeletionBlockerInternal: "getAccountDeletionBlockerInternal"
+        }
     }
 }))
 
@@ -66,17 +71,31 @@ const getFileHandler = getFile as unknown as (
 
 type UploadCtx = {
     auth: Record<string, never>
+    runQuery: ReturnType<typeof vi.fn>
 }
-type DeleteCtx = UploadCtx
+type DeleteCtx = UploadCtx & {
+    db: {
+        query: ReturnType<typeof vi.fn>
+    }
+}
 
 const createHttpCtx = () =>
     ({
-        auth: {}
+        auth: {},
+        runQuery: vi.fn().mockResolvedValue(null)
     }) as UploadCtx
 
 const createQueryCtx = () =>
     ({
-        auth: {}
+        auth: {},
+        runQuery: vi.fn().mockResolvedValue(null),
+        db: {
+            query: vi.fn().mockReturnValue({
+                withIndex: vi.fn().mockReturnValue({
+                    first: vi.fn().mockResolvedValue(null)
+                })
+            })
+        }
     }) as DeleteCtx
 
 const createFileRequest = (fields?: { file?: Blob; fileName?: string }) => {

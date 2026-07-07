@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel"
 import { action, internalMutation, internalQuery, query } from "./_generated/server"
 import { r2 } from "./attachments"
 import { downloadFalImage } from "./fal_webhooks"
+import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { getUserIdentity } from "./lib/identity"
 import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
 import { ImageGenerationJobAsset } from "./schema/image_generation_job"
@@ -339,6 +340,7 @@ export const reprocessImageGenerationJobAsset = action({
     }> => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const claim = await ctx.runMutation(
             internal.image_generation_jobs.claimImageGenerationJobAssetRetry,

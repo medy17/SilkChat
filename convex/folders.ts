@@ -2,6 +2,7 @@ import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { aggregrateThreadsByFolder } from "./aggregates"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 
 // Create a new project
@@ -17,6 +18,7 @@ export const createProject = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const projectId = await ctx.db.insert("projects", {
             ...args,
@@ -88,6 +90,7 @@ export const updateProject = mutation({
     handler: async (ctx, { projectId, ...updates }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const project = await ctx.db.get(projectId)
         if (!project || project.authorId !== user.id) {
@@ -109,6 +112,7 @@ export const deleteProject = mutation({
     handler: async (ctx, { projectId }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const project = await ctx.db.get(projectId)
         if (!project || project.authorId !== user.id) {
@@ -147,6 +151,7 @@ export const moveThreadToProject = mutation({
     handler: async (ctx, { threadId, projectId }) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) {

@@ -20,6 +20,7 @@ import {
     mutation,
     query
 } from "./_generated/server"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 
 type ImageFacetCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">
@@ -521,6 +522,7 @@ export const archiveGeneratedImage = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const image = await ctx.db.get(args.id)
         if (!image) throw new Error("Image not found")
@@ -548,6 +550,7 @@ export const restoreGeneratedImage = mutation({
     handler: async (ctx, args) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
+        await assertAccountNotDeleting(ctx, user.id)
 
         const image = await ctx.db.get(args.id)
         if (!image) throw new Error("Image not found")

@@ -206,6 +206,7 @@ export function AccountSettingsContent() {
             })
             toast.success("Account deletion request recorded")
             handleDeleteDialogOpenChange(false)
+            await handleSignOut()
         } catch (error) {
             toast.error("Failed to request account deletion")
             console.error("Error requesting account deletion:", error)
@@ -218,6 +219,7 @@ export function AccountSettingsContent() {
         canRequestDeletion,
         deleteConfirmationPhrase,
         handleDeleteDialogOpenChange,
+        handleSignOut,
         requestAccountDeletion
     ])
 
@@ -522,7 +524,8 @@ export function AccountSettingsContent() {
                             onClick={() => setDeleteDialogOpen(true)}
                             disabled={
                                 deletionRequest?.status === "pending" ||
-                                deletionRequest?.status === "purging"
+                                deletionRequest?.status === "purging" ||
+                                deletionRequest?.status === "retrying"
                             }
                         >
                             <Trash2 className="h-4 w-4" />

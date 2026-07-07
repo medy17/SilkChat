@@ -161,7 +161,9 @@ export default defineSchema({
     billingSubscriptionLinks: defineTable(BillingSubscriptionLink)
         .index("bySubscriptionId", ["lemonSqueezySubscriptionId"])
         .index("byCustomerId", ["lemonSqueezyCustomerId"]),
-    accountDeletionJobs: defineTable(AccountDeletionJob).index("byUser", ["userId"]),
+    accountDeletionJobs: defineTable(AccountDeletionJob)
+        .index("byUser", ["userId"])
+        .index("byStatus", ["status"]),
     threads: defineTable(Thread)
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"])

@@ -1,5 +1,6 @@
 import { httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
+import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
 import { getUserIdentity } from "./lib/identity"
 
 const sanitizeKeySegment = (name: string) =>
@@ -33,6 +34,12 @@ export const uploadImportSource = httpAction(async (ctx, request) => {
         if ("error" in user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
                 status: 401,
+                headers: { "Content-Type": "application/json" }
+            })
+        }
+        if (await getAccountDeletionBlockerForAction(ctx, user.id)) {
+            return new Response(JSON.stringify({ error: "Account deletion is in progress" }), {
+                status: 403,
                 headers: { "Content-Type": "application/json" }
             })
         }

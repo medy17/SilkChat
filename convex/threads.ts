@@ -21,6 +21,8 @@ import {
 } from "./_generated/server"
 import { aggregrateThreadsByFolder } from "./aggregates"
 import { generateThreadName } from "./chat_http/generate_thread_name"
+import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
@@ -802,6 +804,7 @@ export const shareThread = action({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         // Get the original thread
         const thread: Infer<typeof Thread> | null = await ctx.runQuery(
@@ -853,6 +856,7 @@ export const regenerateThreadTitle = action({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeletingForAction(ctx, user.id)
 
         const thread: Infer<typeof Thread> | null = await ctx.runQuery(
             internal.threads.getThreadById,
@@ -892,6 +896,7 @@ export const forkSharedThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const sharedThread = await ctx.runQuery(api.threads.getSharedThread, { sharedThreadId })
         if (!sharedThread) return { error: "Shared thread not found" }
@@ -934,6 +939,7 @@ export const branchThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
@@ -1025,6 +1031,7 @@ export const togglePinThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
@@ -1045,6 +1052,7 @@ export const deleteThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
@@ -1067,6 +1075,7 @@ export const renameThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
@@ -1099,6 +1108,7 @@ export const importThread = mutation({
         })
 
         if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
 
         return await performThreadImport(ctx, {
             authorId: user.id,

@@ -31,6 +31,9 @@ vi.mock("../../convex/_generated/api", () => ({
             reserveCreditForMessage: "reserveCreditForMessage",
             releaseReservedCreditForMessage: "releaseReservedCreditForMessage"
         },
+        account_deletion: {
+            getAccountDeletionBlockerInternal: "getAccountDeletionBlockerInternal"
+        },
         messages: {
             claimPreparedImageGenerationCard: "claimPreparedImageGenerationCard",
             patchPreparedImageGenerationToolResult: "patchPreparedImageGenerationToolResult"
@@ -108,7 +111,13 @@ const createCtx = (): GenerateStandaloneImageCtx =>
 
             return null
         }),
-        runQuery: vi.fn()
+        runQuery: vi.fn().mockImplementation(async (name: string) => {
+            if (name === "getAccountDeletionBlockerInternal") {
+                return null
+            }
+
+            return null
+        })
     }) as GenerateStandaloneImageCtx
 
 describe("images_node", () => {

@@ -1,5 +1,6 @@
 import { httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
+import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
 import { estimateTokenCount } from "./lib/file_constants"
 import { getUserIdentity } from "./lib/identity"
 
@@ -58,6 +59,9 @@ export const uploadPersonaAvatar = httpAction(async (ctx, request) => {
         if ("error" in user) {
             return jsonResponse({ error: "Unauthorized" }, 401)
         }
+        if (await getAccountDeletionBlockerForAction(ctx, user.id)) {
+            return jsonResponse({ error: "Account deletion is in progress" }, 403)
+        }
 
         const formData = await request.formData()
         const file = formData.get("file") as Blob | null
@@ -111,6 +115,9 @@ export const uploadPersonaDoc = httpAction(async (ctx, request) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) {
             return jsonResponse({ error: "Unauthorized" }, 401)
+        }
+        if (await getAccountDeletionBlockerForAction(ctx, user.id)) {
+            return jsonResponse({ error: "Account deletion is in progress" }, 403)
         }
 
         const formData = await request.formData()

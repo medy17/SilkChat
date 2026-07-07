@@ -10,6 +10,7 @@ import {
     mutation,
     query
 } from "./_generated/server"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 import { ImportJobAttachmentMode, ImportJobParsedMessage } from "./schema/import_job"
 
@@ -169,6 +170,7 @@ export const startImportJob = mutation({
         if ("error" in user) {
             return { error: user.error }
         }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const hasSelectedDocuments = sourceFiles.some(
             (source) => source.selectedDocumentKeys.length > 0
@@ -253,6 +255,7 @@ export const deleteImportJob = mutation({
         if ("error" in user) {
             return { error: user.error }
         }
+        await assertAccountNotDeleting(ctx, user.id)
 
         const job = await ctx.db.get(jobId)
         if (!job || job.authorId !== user.id) {
