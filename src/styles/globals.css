@@ -478,3 +478,21 @@ html {
         border-color: var(--primary) !important;
     }
 }
+
+/* Dev tools — only active when the dev dock sets these root markers. */
+[data-dev-no-animations],
+[data-dev-no-animations] *,
+[data-dev-no-animations] *::before,
+[data-dev-no-animations] *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+}
+
+.dev-theme-violation {
+    outline: 2px dashed var(--destructive) !important;
+    outline-offset: -2px !important;
+}

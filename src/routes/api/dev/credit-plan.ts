@@ -30,21 +30,18 @@ export const Route = createFileRoute("/api/dev/credit-plan")({
                     return Response.json({ error: "Invalid plan" }, { status: 400 })
                 }
 
-                let account: { plan: "free" | "pro" }
+                let account: { account?: { plan: "free" | "pro" }; plan?: "free" | "pro" }
                 try {
-                    account = await authServer.fetchAuthMutation(
-                        api.credits.setMyPrototypeCreditPlan,
-                        {
-                            plan: body.plan
-                        }
-                    )
+                    account = await authServer.fetchAuthMutation(api.credits.setMyDevCreditState, {
+                        plan: body.plan
+                    })
                 } catch {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })
                 }
 
                 return Response.json({
                     ok: true,
-                    plan: account.plan
+                    plan: account.account?.plan ?? account.plan ?? body.plan
                 })
             }
         }

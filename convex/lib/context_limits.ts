@@ -31,6 +31,16 @@ export type ContextLimits = {
     hostedInputLimit: number
 }
 
+/**
+ * Dev-only, request-scoped override of the computed input limits. Callers must gate this
+ * behind a non-production signal (see DEV_CREDIT_LAB_ENABLED) before passing it in — the
+ * function itself just applies whatever it is given.
+ */
+export type ContextLimitOverride = {
+    hostedInputLimit?: number | null
+    modelInputLimit?: number | null
+}
+
 export type ContextLimitViolation = {
     limitType: "hosted" | "model"
     estimatedTokens: number
@@ -70,7 +80,10 @@ const getHostedMaxInputTokens = () =>
 const isPositiveFiniteNumber = (value: unknown): value is number =>
     typeof value === "number" && Number.isFinite(value) && value > 0
 
-export const resolveContextLimits = (model: ContextLimitPolicyModel | null | undefined) => {
+export const resolveContextLimits = (
+    model: ContextLimitPolicyModel | null | undefined,
+    override?: ContextLimitOverride
+) => {
     const modelContextLength = isPositiveFiniteNumber(model?.contextLength)
         ? model.contextLength
         : DEFAULT_MODEL_CONTEXT_LENGTH
@@ -78,7 +91,7 @@ export const resolveContextLimits = (model: ContextLimitPolicyModel | null | und
         ? model.maxTokens
         : DEFAULT_MAX_OUTPUT_TOKENS
     const safetyMarginTokens = Math.max(4_096, Math.ceil(modelContextLength * 0.05))
-    const modelInputLimit = Math.max(
+    const computedModelInputLimit = Math.max(
         1_024,
         modelContextLength - maxOutputTokens - safetyMarginTokens
     )
@@ -90,13 +103,25 @@ export const resolveContextLimits = (model: ContextLimitPolicyModel | null | und
     const priceDerivedHostedLimit = isPositiveFiniteNumber(model?.inputUsdPer1MTokens)
         ? Math.floor((getHostedMaxInputCostUsd() * 1_000_000) / model.inputUsdPer1MTokens)
         : undefined
-    const hostedInputLimit = Math.max(
+    const computedHostedInputLimit = Math.max(
         1_024,
         Math.min(
-            modelInputLimit,
+            computedModelInputLimit,
             hostedMetadataLimit,
             priceDerivedHostedLimit ?? configuredHostedLimit ?? getHostedFallbackInputTokens()
         )
+    )
+
+    // Dev override (already gated by the caller). The model limit is the hard cap, so the
+    // hosted limit stays clamped to it even when overridden — raise both to go higher.
+    const modelInputLimit = isPositiveFiniteNumber(override?.modelInputLimit)
+        ? Math.max(1_024, Math.floor(override.modelInputLimit))
+        : computedModelInputLimit
+    const hostedInputLimit = Math.min(
+        modelInputLimit,
+        isPositiveFiniteNumber(override?.hostedInputLimit)
+            ? Math.max(1_024, Math.floor(override.hostedInputLimit))
+            : computedHostedInputLimit
     )
 
     return {

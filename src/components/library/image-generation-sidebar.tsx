@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
@@ -12,6 +14,13 @@ import {
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareChatAttachmentForUpload } from "@/lib/chat-attachments"
+import {
+    resolveDevCapOverride,
+    resolveDevReferenceLimit,
+    useAreDevOverridesActive,
+    useDevOverridesStore
+} from "@/lib/dev-overrides"
+import { useShowContextualDevTools } from "@/lib/dev-tools"
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio,
@@ -132,7 +141,45 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         resolution,
         setResolution
     } = useGenerationStore()
-    const isDevMode = import.meta.env.DEV
+    const isDevMode = useShowContextualDevTools()
+
+    // Dev image-lab overrides. Values only take effect while dev overrides are active
+    // (dev mode); user mode keeps the real model/default caps.
+    const overridesActive = useAreDevOverridesActive()
+    const imageVariantMaxOverride = useDevOverridesStore((state) => state.imageVariantMax)
+    const imageReferenceMaxOverride = useDevOverridesStore((state) => state.imageReferenceMax)
+    const imageRunTotalMaxOverride = useDevOverridesStore((state) => state.imageRunTotalMax)
+    const aspectRatioOverride = useDevOverridesStore((state) => state.aspectRatioOverride)
+    const disableImageCompression = useDevOverridesStore((state) => state.disableImageCompression)
+    const setImageVariantMax = useDevOverridesStore((state) => state.setImageVariantMax)
+    const setImageReferenceMax = useDevOverridesStore((state) => state.setImageReferenceMax)
+    const setImageRunTotalMax = useDevOverridesStore((state) => state.setImageRunTotalMax)
+    const setAspectRatioOverride = useDevOverridesStore((state) => state.setAspectRatioOverride)
+    const setDisableImageCompression = useDevOverridesStore(
+        (state) => state.setDisableImageCompression
+    )
+
+    const resolveVariantMax = (model: SharedModel) =>
+        resolveDevCapOverride(
+            overridesActive,
+            imageVariantMaxOverride,
+            getModelMaxPerMessage(model),
+            1
+        )
+    const effectiveRunTotalMax = resolveDevCapOverride(
+        overridesActive,
+        imageRunTotalMaxOverride,
+        MAX_TOTAL_GENERATIONS_PER_RUN,
+        1
+    )
+    const resolveModelReferenceLimit = (model: SharedModel | undefined) =>
+        resolveDevReferenceLimit(
+            overridesActive,
+            imageReferenceMaxOverride,
+            model?.maxReferenceImages
+        )
+    const effectiveAspectRatio =
+        overridesActive && aspectRatioOverride ? aspectRatioOverride : aspectRatio
 
     const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
     const [showGradient, setShowGradient] = useState(false)
@@ -198,12 +245,15 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         [imageModels, selectedModelIds]
     )
     const selectedReferenceLimit = useMemo(() => {
+        if (overridesActive && imageReferenceMaxOverride != null) {
+            return Math.max(0, imageReferenceMaxOverride)
+        }
         const limits = selectedModels
             .map((model) => model.maxReferenceImages)
             .filter((limit): limit is number => typeof limit === "number")
         if (limits.length === 0) return undefined
         return Math.min(...limits)
-    }, [selectedModels])
+    }, [selectedModels, overridesActive, imageReferenceMaxOverride])
 
     useEffect(() => {
         referenceFilesRef.current = referenceFiles
@@ -350,13 +400,18 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     ])
 
     useEffect(() => {
+        const overrideVariantMax =
+            overridesActive && imageVariantMaxOverride != null
+                ? Math.max(1, imageVariantMaxOverride)
+                : null
         setSelectedModelCounts((prev) => {
             const validCounts = Object.fromEntries(
                 Object.entries(prev)
                     .filter(([id]) => imageModels.some((model) => model.id === id))
                     .map(([id, count]) => {
                         const model = imageModels.find((candidate) => candidate.id === id)
-                        return [id, Math.max(1, Math.min(count, getModelMaxPerMessage(model!)))]
+                        const cap = overrideVariantMax ?? getModelMaxPerMessage(model!)
+                        return [id, Math.max(1, Math.min(count, cap))]
                     })
             )
 
@@ -368,7 +423,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                 imageModels.length > 0 ? { [imageModels[0].id]: DEFAULT_VARIANTS_PER_MODEL } : {}
             return areModelCountsEqual(prev, fallbackCounts) ? prev : fallbackCounts
         })
-    }, [imageModels, setSelectedModelCounts])
+    }, [imageModels, setSelectedModelCounts, overridesActive, imageVariantMaxOverride])
 
     useEffect(() => {
         const container = scrollContainerRef.current
@@ -500,9 +555,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         }
 
         const isSelected = selectedModelIds.includes(modelId)
-        const selectedModelReferenceLimit = imageModels.find(
-            (model) => model.id === modelId
-        )?.maxReferenceImages
+        const selectedModelReferenceLimit = resolveModelReferenceLimit(
+            imageModels.find((model) => model.id === modelId)
+        )
         if (
             !isSelected &&
             typeof selectedModelReferenceLimit === "number" &&
@@ -560,13 +615,13 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const model = imageModels.find((candidate) => candidate.id === modelId)
         if (!model) return
 
-        const modelMax = getModelMaxPerMessage(model)
+        const modelMax = resolveVariantMax(model)
         const clampedCount = Math.max(1, Math.min(nextCount, modelMax))
         const currentCount = selectedModelCounts[modelId] ?? DEFAULT_VARIANTS_PER_MODEL
         const nextTotal = totalRequestedGenerations - currentCount + clampedCount
 
-        if (nextTotal > MAX_TOTAL_GENERATIONS_PER_RUN) {
-            toast.error(`You can generate up to ${MAX_TOTAL_GENERATIONS_PER_RUN} images per run`)
+        if (nextTotal > effectiveRunTotalMax) {
+            toast.error(`You can generate up to ${effectiveRunTotalMax} images per run`)
             return
         }
 
@@ -618,13 +673,15 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     }, [selectedModels])
 
     useEffect(() => {
+        // A manual aspect-ratio override pins whatever the dev typed; skip the reset.
+        if (overridesActive && aspectRatioOverride) return
         if (
             commonImageSizes.length > 0 &&
             !commonImageSizes.includes(aspectRatio as SelectableImageAspectRatio)
         ) {
             setAspectRatio(commonImageSizes[0])
         }
-    }, [commonImageSizes, aspectRatio, setAspectRatio])
+    }, [commonImageSizes, aspectRatio, setAspectRatio, overridesActive, aspectRatioOverride])
 
     const commonImageResolutions = useMemo(() => {
         if (selectedModels.length === 0) return ["1K"]
@@ -701,7 +758,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const uploadedKeys: string[] = []
 
         for (const reference of currentReferences) {
-            const preparedFile = await prepareChatAttachmentForUpload(reference.file)
+            const preparedFile = await prepareChatAttachmentForUpload(reference.file, undefined, {
+                skipImageCompression: overridesActive && disableImageCompression
+            })
             const hash = reference.hash ?? (await getFileSha256(preparedFile))
             const existingKey = reference.storageKey ?? hashToStorageKey.get(hash)
 
@@ -783,14 +842,14 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
                         return Array.from({ length: count }, () => async () => {
                             const id = Math.random().toString(36).substring(2, 11)
-                            addPendingGeneration({ id, aspectRatio })
+                            addPendingGeneration({ id, aspectRatio: effectiveAspectRatio })
 
                             try {
                                 await generateImage({
                                     prompt: normalizedPrompt,
                                     modelId,
                                     clientRequestId: id,
-                                    aspectRatio,
+                                    aspectRatio: effectiveAspectRatio,
                                     referenceImageIds: uploadedReferenceKeys,
                                     ...(supportsResolution ? { resolution } : {})
                                 })
@@ -840,13 +899,13 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
                         return Array.from({ length: count }, (_, index) => async () => {
                             const id = Math.random().toString(36).substring(2, 11)
-                            addPendingGeneration({ id, aspectRatio })
+                            addPendingGeneration({ id, aspectRatio: effectiveAspectRatio })
 
                             try {
                                 await generateFakeImage({
                                     prompt: normalizedPrompt,
                                     modelId,
-                                    aspectRatio,
+                                    aspectRatio: effectiveAspectRatio,
                                     variantIndex: index + 1,
                                     referenceImageIds: uploadedReferenceKeys,
                                     responseTimeSeconds: fakeResponseTimeSeconds,
@@ -995,19 +1054,20 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 {visibleImageModels.map((model) => {
                                     const isSelected = selectedModelIds.includes(model.id)
                                     const modelPlanLocked = lockedModelIds.has(model.id)
+                                    const modelReferenceLimit = resolveModelReferenceLimit(model)
                                     const modelReferenceLocked =
                                         !isSelected &&
-                                        typeof model.maxReferenceImages === "number" &&
-                                        referenceFiles.length > model.maxReferenceImages
+                                        typeof modelReferenceLimit === "number" &&
+                                        referenceFiles.length > modelReferenceLimit
                                     const modelDisabled = modelPlanLocked || modelReferenceLocked
                                     const isLegacyModel = isLegacyImageModel(model)
                                     const modelCount =
                                         selectedModelCounts[model.id] ?? DEFAULT_VARIANTS_PER_MODEL
-                                    const modelMaxPerMessage = getModelMaxPerMessage(model)
+                                    const modelMaxPerMessage = resolveVariantMax(model)
                                     const canIncrement =
                                         isSelected &&
                                         modelCount < modelMaxPerMessage &&
-                                        totalRequestedGenerations < MAX_TOTAL_GENERATIONS_PER_RUN
+                                        totalRequestedGenerations < effectiveRunTotalMax
                                     return (
                                         <div
                                             key={model.id}
@@ -1038,7 +1098,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                         {modelPlanLocked
                                                             ? "Pro plan required"
                                                             : modelReferenceLocked
-                                                              ? `Max ${model.maxReferenceImages} references`
+                                                              ? `Max ${modelReferenceLimit} references`
                                                               : `${
                                                                     isLegacyModel ? "Legacy • " : ""
                                                                 }Up to ${modelMaxPerMessage} per run`}
@@ -1267,6 +1327,76 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                 {/* Bottom Generate Button */}
                 <div className="sticky bottom-0 z-10 border-t bg-sidebar p-4">
                     {isDevMode && (
+                        <div className="mb-3 space-y-2 rounded-md border border-border/60 bg-background/50 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-wider">
+                                    Image Lab Overrides
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 rounded-[var(--radius-sm)] px-2 text-[0.625rem]"
+                                    onClick={() => {
+                                        setImageVariantMax(null)
+                                        setImageRunTotalMax(null)
+                                        setImageReferenceMax(null)
+                                        setAspectRatioOverride(null)
+                                        setDisableImageCompression(false)
+                                    }}
+                                >
+                                    Reset
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <ImageOverrideNumber
+                                    label="Variant max"
+                                    value={imageVariantMaxOverride}
+                                    min={1}
+                                    onChange={setImageVariantMax}
+                                />
+                                <ImageOverrideNumber
+                                    label="Run total"
+                                    value={imageRunTotalMaxOverride}
+                                    min={1}
+                                    onChange={setImageRunTotalMax}
+                                />
+                                <ImageOverrideNumber
+                                    label="Ref max"
+                                    value={imageReferenceMaxOverride}
+                                    min={0}
+                                    onChange={setImageReferenceMax}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-[0.625rem] text-muted-foreground">
+                                    Aspect ratio (blank = auto)
+                                </span>
+                                <Input
+                                    value={aspectRatioOverride ?? ""}
+                                    placeholder="e.g. 21:9"
+                                    className="h-8 rounded-[var(--radius-sm)] text-xs"
+                                    onChange={(event) =>
+                                        setAspectRatioOverride(
+                                            event.target.value.trim() === ""
+                                                ? null
+                                                : event.target.value.trim()
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-muted-foreground text-xs">
+                                    Skip image compression
+                                </span>
+                                <Switch
+                                    checked={disableImageCompression}
+                                    onCheckedChange={setDisableImageCompression}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {isDevMode && (
                         <div className="mb-3 rounded-md border border-border/60 bg-background/50 p-3">
                             <div className="mb-2 flex items-center justify-between gap-3">
                                 <span className="font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-wider">
@@ -1352,6 +1482,41 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
+
+function ImageOverrideNumber({
+    label,
+    value,
+    min,
+    onChange
+}: {
+    label: string
+    value: number | null
+    min: number
+    onChange: (value: number | null) => void
+}) {
+    return (
+        <div className="space-y-1">
+            <span className="text-[0.625rem] text-muted-foreground">{label}</span>
+            <Input
+                type="number"
+                min={min}
+                value={value ?? ""}
+                placeholder="def"
+                aria-label={label}
+                className="h-8 rounded-[var(--radius-sm)] text-xs"
+                onChange={(event) => {
+                    const raw = event.target.value.trim()
+                    if (raw === "") {
+                        onChange(null)
+                        return
+                    }
+                    const parsed = Number.parseInt(raw, 10)
+                    onChange(Number.isNaN(parsed) ? null : Math.max(min, parsed))
+                }}
+            />
         </div>
     )
 }

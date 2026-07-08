@@ -6,6 +6,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { type ChatMessage, useChatStore } from "@/lib/chat-store"
+import { getActiveDevContextOverride } from "@/lib/dev-overrides"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
@@ -396,7 +397,8 @@ export function useChatIntegration<IsShared extends boolean>({
                               clientId,
                               personaSelection: currentContext.threadId
                                   ? undefined
-                                  : selectedPersona
+                                  : selectedPersona,
+                              devContextOverride: getActiveDevContextOverride()
                           }
                       }
                   },

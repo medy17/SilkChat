@@ -39,6 +39,7 @@ import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-bench
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
+import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-state'
 import { Route as ApiDevCreditPlanRouteImport } from './routes/api/dev/credit-plan'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
@@ -230,6 +231,11 @@ const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
   path: '/api/phr/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevCreditStateRoute = ApiDevCreditStateRouteImport.update({
+  id: '/api/dev/credit-state',
+  path: '/api/dev/credit-state',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDevCreditPlanRoute = ApiDevCreditPlanRouteImport.update({
   id: '/api/dev/credit-plan',
   path: '/api/dev/credit-plan',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
+  '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
+  '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
+  '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/_chat/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/_chat/s/$sharedThreadId': typeof ChatSSharedThreadIdLazyRoute
@@ -403,6 +412,7 @@ export interface FileRouteTypes {
     | '/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-plan'
+    | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
@@ -441,6 +451,7 @@ export interface FileRouteTypes {
     | '/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-plan'
+    | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/folder/$folderId'
     | '/s/$sharedThreadId'
@@ -480,6 +491,7 @@ export interface FileRouteTypes {
     | '/_chat/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-plan'
+    | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/_chat/folder/$folderId'
     | '/_chat/s/$sharedThreadId'
@@ -503,6 +515,7 @@ export interface RootRouteChildren {
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDevCreditPlanRoute: typeof ApiDevCreditPlanRoute
+  ApiDevCreditStateRoute: typeof ApiDevCreditStateRoute
   ApiPhrSplatRoute: typeof ApiPhrSplatRoute
 }
 
@@ -739,6 +752,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPhrSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/credit-state': {
+      id: '/api/dev/credit-state'
+      path: '/api/dev/credit-state'
+      fullPath: '/api/dev/credit-state'
+      preLoaderRoute: typeof ApiDevCreditStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dev/credit-plan': {
       id: '/api/dev/credit-plan'
       path: '/api/dev/credit-plan'
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDevCreditPlanRoute: ApiDevCreditPlanRoute,
+  ApiDevCreditStateRoute: ApiDevCreditStateRoute,
   ApiPhrSplatRoute: ApiPhrSplatRoute,
 }
 export const routeTree = rootRouteImport

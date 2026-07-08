@@ -111,12 +111,17 @@ export const compressChatImageIfNeeded = async (
 
 export const prepareChatAttachmentForUpload = async (
     file: File,
-    policy: UploadPolicy = DEFAULT_UPLOAD_POLICY
+    policy: UploadPolicy = DEFAULT_UPLOAD_POLICY,
+    options?: { skipImageCompression?: boolean }
 ): Promise<File> => {
     let fileToUpload = file
     const fileTypeInfo = getFileTypeInfo(fileToUpload.name, fileToUpload.type)
 
-    if (fileTypeInfo.isVisionImage && fileToUpload.size > policy.maxFileSize) {
+    if (
+        !options?.skipImageCompression &&
+        fileTypeInfo.isVisionImage &&
+        fileToUpload.size > policy.maxFileSize
+    ) {
         fileToUpload = await compressChatImageIfNeeded(fileToUpload, policy)
     }
 

@@ -1,6 +1,9 @@
+import { DevRuntime } from "@/components/dev/dev-runtime"
+import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { authClient } from "@/lib/auth-client"
+import { useDevDisableAnimations } from "@/lib/dev-overrides"
 import { installStaleAssetRecovery } from "@/lib/stale-asset-recovery"
 import { ConvexQueryClient } from "@convex-dev/react-query"
 import { AuthQueryProvider } from "@daveyplate/better-auth-tanstack"
@@ -8,6 +11,7 @@ import { AuthUIProviderTanstack } from "@daveyplate/better-auth-ui/tanstack"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ClientOnly, Link, useRouter } from "@tanstack/react-router"
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache"
+import { MotionConfig } from "motion/react"
 import { PostHogProvider } from "posthog-js/react"
 import { type ReactNode, useEffect } from "react"
 import { browserEnv, optionalBrowserEnv } from "./lib/browser-env"
@@ -60,8 +64,10 @@ export function Providers({ children }: { children: ReactNode }) {
                 >
                     <StaleAssetRecovery />
 
-                    {children}
+                    <DevMotionConfig>{children}</DevMotionConfig>
 
+                    <DevRuntime />
+                    <DevUtilityDock />
                     <Toaster />
                 </AuthUIProviderTanstack>
             </ThemeProvider>
@@ -88,6 +94,15 @@ export function Providers({ children }: { children: ReactNode }) {
                 </QueryClientProvider>
             </ConvexQueryCacheProvider>
         </ClientOnly>
+    )
+}
+
+function DevMotionConfig({ children }: { children: ReactNode }) {
+    const disableAnimations = useDevDisableAnimations()
+    return (
+        <MotionConfig reducedMotion={disableAnimations ? "always" : "user"}>
+            {children}
+        </MotionConfig>
     )
 }
 

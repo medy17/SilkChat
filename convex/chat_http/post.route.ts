@@ -698,6 +698,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
         clientId?: string
+        devContextOverride?: { hostedInputLimit?: number; modelInputLimit?: number }
     }
 
     let body: ChatRequestBody
@@ -765,7 +766,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
         typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
             ? configuredMaxTokens
             : 16096
-    const contextLimits = resolveContextLimits(selectedRegistryModel)
+    // Dev-only, request-scoped context-limit override. Ignored entirely in production —
+    // the env flag is unset there, so a crafted body field is a no-op.
+    const devContextOverride =
+        process.env.DEV_CREDIT_LAB_ENABLED === "1" ? body.devContextOverride : undefined
+    const contextLimits = resolveContextLimits(selectedRegistryModel, devContextOverride)
     const immediateEstimatedTokens = estimateHttpMessageTokens(body.message)
     const immediateContextViolation = getContextLimitViolation({
         estimatedTokens: immediateEstimatedTokens,

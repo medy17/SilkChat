@@ -26,6 +26,7 @@ import {
 } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { authClient } from "@/lib/auth-client"
+import { useShowContextualDevTools } from "@/lib/dev-tools"
 import { cn } from "@/lib/utils"
 import { queryClient } from "@/providers"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
@@ -83,17 +84,21 @@ export function AccountSettingsContent() {
     const [acceptPermanentErasure, setAcceptPermanentErasure] = useState(false)
     const [acceptFraudRetention, setAcceptFraudRetention] = useState(false)
     const [isRequestingDeletion, setIsRequestingDeletion] = useState(false)
-    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
+    const showContextualDevTools = useShowContextualDevTools()
+    const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
     const {
         summary: prototypeCreditSummary,
         isLoading: isCreditsLoading,
         isRefreshing: isRefreshingCredits,
         isUpdatingCreditPlan,
+        devCreditState,
+        isUpdatingDevCreditState,
         refreshCredits,
-        setCreditPlan
+        setDevCreditState
     } = usePrototypeCredits({
         userId: session?.user?.id,
-        isAuthLoading: sessionLoading
+        isAuthLoading: sessionLoading,
+        enableDevCreditState: shouldShowDevCreditPlanToggle
     })
 
     // Initialize name value when session data loads
@@ -371,7 +376,9 @@ export function AccountSettingsContent() {
                     isRefreshing={isRefreshingCredits}
                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
                     isUpdatingCreditPlan={isUpdatingCreditPlan}
-                    onSetCreditPlan={setCreditPlan}
+                    devCreditState={devCreditState}
+                    isUpdatingDevCreditState={isUpdatingDevCreditState}
+                    onSetDevCreditState={setDevCreditState}
                     onRefresh={refreshCredits}
                     upgradeUrl="/settings/billing"
                 />

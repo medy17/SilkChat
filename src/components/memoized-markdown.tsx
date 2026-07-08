@@ -1,4 +1,5 @@
 import "katex/dist/katex.min.css"
+import { useDevRawMarkdown } from "@/lib/dev-overrides"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
@@ -41,6 +42,19 @@ export const MemoizedMarkdown = memo(
         content: string
         isAnimating?: boolean
     }) => {
+        const rawMarkdown = useDevRawMarkdown()
+
+        if (rawMarkdown) {
+            return (
+                <pre
+                    data-dev-audit-ignore
+                    className="markdown-content overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-muted/40 p-3 font-mono text-xs"
+                >
+                    {content}
+                </pre>
+            )
+        }
+
         return (
             <Streamdown
                 className="markdown-content space-y-0"

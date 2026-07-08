@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
+import { useShowContextualDevTools } from "@/lib/dev-tools"
 import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import {
     DEFAULT_LIBRARY_SEARCH,
@@ -34,17 +35,21 @@ export function Header() {
     const togglePrivateViewingEnabled = usePrivateViewingStore(
         (state) => state.togglePrivateViewingEnabled
     )
-    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
+    const showContextualDevTools = useShowContextualDevTools()
+    const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
     const {
         summary: prototypeCreditSummary,
         isLoading: isCreditsLoading,
         isRefreshing: isRefreshingCredits,
         isUpdatingCreditPlan,
+        devCreditState,
+        isUpdatingDevCreditState,
         refreshCredits,
-        setCreditPlan
+        setDevCreditState
     } = usePrototypeCredits({
         userId: session?.user?.id,
-        isAuthLoading: isSessionPending
+        isAuthLoading: isSessionPending,
+        enableDevCreditState: shouldShowDevCreditPlanToggle
     })
 
     const showTrigger = isMobile ? !openMobile : true
@@ -168,7 +173,9 @@ export function Header() {
                                     isRefreshing={isRefreshingCredits}
                                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
                                     isUpdatingCreditPlan={isUpdatingCreditPlan}
-                                    onSetCreditPlan={setCreditPlan}
+                                    devCreditState={devCreditState}
+                                    isUpdatingDevCreditState={isUpdatingDevCreditState}
+                                    onSetDevCreditState={setDevCreditState}
                                     onRefresh={refreshCredits}
                                     upgradeUrl="/settings/billing"
                                 />

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto"
-import { access, mkdir, readFile, writeFile } from "node:fs/promises"
+import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
 import {
+    LOCAL_IMAGE_OPTIMIZER_PURGE_PATH,
     extractLocalImageOptimizerRequestParts,
     getLocalImageOptimizerCacheKeyInput,
     isAllowedLocalImageOptimizerSource,
@@ -123,6 +124,29 @@ const buildCachedResponse = ({
 const buildErrorResponse = (status: number, message: string) =>
     Response.json({ error: message }, { status })
 
+const purgeCache = async (cacheDir: string) => {
+    let entries: string[]
+    try {
+        entries = await readdir(cacheDir)
+    } catch {
+        // No cache directory yet — nothing to purge.
+        return 0
+    }
+
+    let removed = 0
+    await Promise.all(
+        entries.map(async (entry) => {
+            try {
+                await unlink(path.join(cacheDir, entry))
+                removed += 1
+            } catch {
+                // Ignore files that vanished or can't be removed.
+            }
+        })
+    )
+    return removed
+}
+
 const writeOptimizedImage = async ({
     cacheDir,
     baseHash,
@@ -184,6 +208,14 @@ export const createLocalImageOptimizerHandler = ({
 
     return async (request: Request) => {
         const requestUrl = new URL(request.url)
+
+        if (requestUrl.pathname === LOCAL_IMAGE_OPTIMIZER_PURGE_PATH) {
+            if (request.method !== "DELETE") {
+                return buildErrorResponse(405, "Method not allowed")
+            }
+            const removed = await purgeCache(cacheDir)
+            return Response.json({ ok: true, removed })
+        }
 
         if (!requestUrl.pathname.startsWith("/cdn-cgi/image/")) {
             return new Response(null, { status: 404 })

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { getUserIdentityMock } = vi.hoisted(() => ({
     getUserIdentityMock: vi.fn()
@@ -32,10 +32,12 @@ import {
     consumeCreditForMessage,
     consumeReservedToolCall,
     getMyCreditSummary,
+    getMyDevCreditState,
     recordCreditEventForMessage,
     releaseReservedCreditForMessage,
     reserveCreditForMessage,
     reserveToolCallBudget,
+    setMyDevCreditState,
     setMyPrototypeCreditPlan
 } from "../../convex/credits"
 import {
@@ -69,6 +71,12 @@ const consumeReservedToolCallHandler = consumeReservedToolCall as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const setMyPrototypeCreditPlanHandler = setMyPrototypeCreditPlan as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const setMyDevCreditStateHandler = setMyDevCreditState as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const getMyDevCreditStateHandler = getMyDevCreditState as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
@@ -125,6 +133,7 @@ const createCtx = (options?: {
                 })
             })),
             patch: vi.fn(),
+            delete: vi.fn(),
             insert: vi.fn().mockResolvedValue("new-event-id")
         }
     }) as CreditsCtx
@@ -135,6 +144,26 @@ describe("credits module", () => {
         Reflect.deleteProperty(process.env, "MONTHLY_CREDITS_FREE")
         Reflect.deleteProperty(process.env, "MONTHLY_CREDITS_PRO")
         Reflect.deleteProperty(process.env, "MONTHLY_PRO_CREDITS")
+        // Dev credit lab controls are gated behind an explicit opt-in env var, which is
+        // set only on non-production deployments (NODE_ENV is always "production" inside
+        // Convex, so it can't gate this).
+        process.env.DEV_CREDIT_LAB_ENABLED = "1"
+    })
+
+    afterEach(() => {
+        Reflect.deleteProperty(process.env, "DEV_CREDIT_LAB_ENABLED")
+    })
+
+    it("denies dev credit lab controls unless explicitly enabled", async () => {
+        Reflect.deleteProperty(process.env, "DEV_CREDIT_LAB_ENABLED")
+        const ctx = createCtx({})
+
+        await expect(getMyDevCreditStateHandler.handler(ctx, {})).rejects.toThrow(
+            "unavailable in production"
+        )
+        await expect(setMyDevCreditStateHandler.handler(ctx, {})).rejects.toThrow(
+            "unavailable in production"
+        )
     })
 
     it("returns a resolved credit summary with defaults and usage totals", async () => {
@@ -364,6 +393,107 @@ describe("credits module", () => {
                 messageKey: "assistant-1:model"
             })
         )
+    })
+
+    it("does not treat staff access as a credit limit bypass by itself", async () => {
+        const result = await consumeCreditForMessageHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free"
+                },
+                userAccess: {
+                    userId: "user-1",
+                    isStaff: true,
+                    bypassLimits: false
+                }
+            }),
+            {
+                userId: "user-1",
+                messageId: "assistant-1",
+                messageKey: "assistant-1:model",
+                modelId: "shared-text",
+                providerSource: "internal",
+                feature: "chat",
+                bucket: "pro",
+                units: 1,
+                counted: true,
+                requiredPlan: "pro"
+            }
+        )
+
+        expect(result).toMatchObject({
+            allowed: false,
+            reason: "plan",
+            bypassed: false
+        })
+    })
+
+    it("applies deterministic dev credit lab usage and independent access flags", async () => {
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+        const ctx = createCtx({
+            events: [
+                {
+                    _id: "old-dev-event",
+                    userId: "user-1",
+                    periodKey: getCreditPeriodKeyFromBounds(
+                        getAnchoredMonthlyCreditPeriodBounds({
+                            timestamp: fixedNow,
+                            anchorTimestamp: fixedNow
+                        })
+                    ),
+                    messageKey: "dev-credit-lab:basic:internal:old",
+                    counted: true,
+                    bucket: "basic",
+                    units: 1
+                }
+            ]
+        })
+
+        try {
+            const result = await setMyDevCreditStateHandler.handler(ctx, {
+                plan: "free",
+                monthlyBasicCredits: 3,
+                isStaff: true,
+                bypassLimits: false,
+                usageScenario: "basic_remaining_zero"
+            })
+
+            expect(result).toMatchObject({
+                ok: true,
+                account: {
+                    plan: "free",
+                    monthlyBasicCredits: 3
+                },
+                access: {
+                    isStaff: true,
+                    bypassLimits: false
+                }
+            })
+            expect(ctx.db.delete).toHaveBeenCalledWith("old-dev-event")
+            const insertedDevEvents = ctx.db.insert.mock.calls.filter(
+                ([table, value]) =>
+                    table === "prototypeCreditEvents" &&
+                    value.messageKey.startsWith("dev-credit-lab:")
+            )
+            expect(insertedDevEvents).toHaveLength(3)
+            expect(insertedDevEvents).toEqual(
+                expect.arrayContaining([
+                    [
+                        "prototypeCreditEvents",
+                        expect.objectContaining({
+                            bucket: "basic",
+                            counted: true,
+                            units: 1
+                        })
+                    ]
+                ])
+            )
+        } finally {
+            nowSpy.mockRestore()
+        }
     })
 
     it("files a brand-new account's first counted event under the anchored period key", async () => {

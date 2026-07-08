@@ -7,6 +7,7 @@ import {
     mutation,
     query
 } from "./_generated/server"
+import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import {
     getAnchoredMonthlyCreditPeriodBounds,
     getConfiguredCreditLimits,
@@ -15,7 +16,6 @@ import {
     getCurrentCreditPeriodKey
 } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
-import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 
 type CreditAccountRecord = {
     _creationTime?: number
@@ -30,6 +30,7 @@ type CreditAccountRecord = {
 }
 
 type UserAccessRecord = {
+    _id?: string
     isStaff: boolean
     bypassLimits: boolean
 }
@@ -147,6 +148,96 @@ const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => (
     isStaff: access?.isStaff ?? false,
     bypassLimits: access?.bypassLimits ?? false
 })
+
+const DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX = "dev-credit-lab:"
+
+// NOTE: Convex runs every deployment (dev, staging, prod) with NODE_ENV === "production"
+// in its V8 runtime, so NODE_ENV cannot distinguish environments here. Gate on a dedicated
+// env var that is set only on non-production deployments; deny by default.
+const assertDevCreditStateRuntime = () => {
+    if (process.env.DEV_CREDIT_LAB_ENABLED !== "1") {
+        throw new Error("Dev credit state controls are unavailable in production")
+    }
+}
+
+const getDevCreditPeriodAnchorAt = (
+    preset: "default" | "ending_today" | "ending_tomorrow" | undefined,
+    now = Date.now()
+) => {
+    if (!preset) return undefined
+    if (preset === "default") return now
+
+    const targetEndsAt =
+        preset === "ending_today" ? now + 60 * 60 * 1000 : now + 25 * 60 * 60 * 1000
+    const targetEndDate = new Date(targetEndsAt)
+
+    return Date.UTC(
+        targetEndDate.getUTCFullYear(),
+        targetEndDate.getUTCMonth() - 1,
+        targetEndDate.getUTCDate(),
+        targetEndDate.getUTCHours(),
+        targetEndDate.getUTCMinutes(),
+        targetEndDate.getUTCSeconds(),
+        targetEndDate.getUTCMilliseconds()
+    )
+}
+
+const deleteCurrentDevCreditLabEvents = async (
+    ctx: MutationCtx,
+    userId: string,
+    periodKey: string
+) => {
+    const events = await ctx.db
+        .query("prototypeCreditEvents")
+        .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+        .collect()
+
+    await Promise.all(
+        events
+            .filter((event) => event.messageKey.startsWith(DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX))
+            .map((event) => ctx.db.delete(event._id))
+    )
+}
+
+const insertDevCreditLabEvents = async (
+    ctx: MutationCtx,
+    {
+        userId,
+        periodKey,
+        bucket,
+        counted,
+        count,
+        units = 1,
+        providerSource = counted ? "internal" : "byok"
+    }: {
+        userId: string
+        periodKey: string
+        bucket: "basic" | "pro" | "none"
+        counted: boolean
+        count: number
+        units?: number
+        providerSource?: "internal" | "byok"
+    }
+) => {
+    const safeCount = Math.max(0, Math.floor(count))
+    await Promise.all(
+        Array.from({ length: safeCount }, async (_, index) => {
+            const messageKey = `${DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX}${bucket}:${counted ? "internal" : "byok"}:${index}`
+            await ctx.db.insert("prototypeCreditEvents", {
+                userId,
+                messageId: messageKey,
+                messageKey,
+                providerSource,
+                feature: "chat",
+                bucket,
+                units,
+                counted,
+                periodKey,
+                createdAt: Date.now() + index
+            })
+        })
+    )
+}
 
 export const sumCountedEventUnits = (
     events: Array<{ counted: boolean; bucket: "basic" | "pro" | "none"; units: number }>,
@@ -509,6 +600,241 @@ export const setMyPrototypeCreditPlan = mutation({
         }
 
         return nextAccount
+    }
+})
+
+export const getMyDevCreditState = query({
+    args: {},
+    handler: async (ctx) => {
+        assertDevCreditStateRuntime()
+
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) {
+            return null
+        }
+
+        const [account, access] = await Promise.all([
+            getCreditAccount(ctx, user.id),
+            getUserAccess(ctx, user.id)
+        ])
+        const resolvedAccount = getResolvedCreditAccount(account)
+        const resolvedAccess = getResolvedUserAccess(access)
+        const period = await getUserCreditPeriod(ctx, user.id, account)
+
+        return {
+            account: {
+                enabled: resolvedAccount.enabled,
+                plan: resolvedAccount.plan,
+                monthlyBasicCredits: resolvedAccount.monthlyBasicCredits,
+                monthlyProCredits: resolvedAccount.monthlyProCredits,
+                creditPeriodAnchorAt: account?.creditPeriodAnchorAt ?? null
+            },
+            access: resolvedAccess,
+            period: {
+                periodKey: period.periodKey,
+                startsAt: period.startsAt,
+                endsAt: period.endsAt
+            }
+        }
+    }
+})
+
+export const setMyDevCreditState = mutation({
+    args: {
+        plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
+        monthlyBasicCredits: v.optional(v.number()),
+        monthlyProCredits: v.optional(v.number()),
+        isStaff: v.optional(v.boolean()),
+        bypassLimits: v.optional(v.boolean()),
+        usageScenario: v.optional(
+            v.union(
+                v.literal("normal_empty"),
+                v.literal("basic_remaining_zero"),
+                v.literal("basic_near_limit"),
+                v.literal("pro_remaining_zero"),
+                v.literal("pro_near_limit"),
+                v.literal("byok_heavy"),
+                v.literal("internal_heavy"),
+                v.literal("staff_with_limits"),
+                v.literal("staff_with_bypass_limits")
+            )
+        ),
+        periodAnchorPreset: v.optional(
+            v.union(v.literal("default"), v.literal("ending_today"), v.literal("ending_tomorrow"))
+        )
+    },
+    handler: async (ctx, args) => {
+        assertDevCreditStateRuntime()
+
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) {
+            throw new Error("Unauthorized")
+        }
+        await assertAccountNotDeleting(ctx, user.id)
+
+        const now = Date.now()
+        const existingAccount = await getCreditAccount(ctx, user.id)
+        const existingAccess = await getUserAccess(ctx, user.id)
+        const proScenario =
+            args.usageScenario === "pro_remaining_zero" || args.usageScenario === "pro_near_limit"
+        const basicScenario =
+            args.usageScenario === "basic_remaining_zero" ||
+            args.usageScenario === "basic_near_limit" ||
+            args.usageScenario === "internal_heavy"
+        const warnings: string[] = []
+
+        const accountWithRequestedPlan = {
+            ...existingAccount,
+            enabled: args.plan
+                ? (existingAccount?.enabled ?? true)
+                : (existingAccount?.enabled ?? true),
+            plan: proScenario ? "pro" : (args.plan ?? existingAccount?.plan ?? "free"),
+            monthlyBasicCredits: args.monthlyBasicCredits ?? existingAccount?.monthlyBasicCredits,
+            monthlyProCredits: args.monthlyProCredits ?? existingAccount?.monthlyProCredits
+        } satisfies CreditAccountRecord
+        const resolvedRequestedAccount = getResolvedCreditAccount(accountWithRequestedPlan)
+        const monthlyBasicCredits =
+            basicScenario && resolvedRequestedAccount.monthlyBasicCredits <= 0
+                ? 10
+                : (args.monthlyBasicCredits ?? existingAccount?.monthlyBasicCredits)
+        const monthlyProCredits =
+            proScenario && resolvedRequestedAccount.monthlyProCredits <= 0
+                ? 5
+                : (args.monthlyProCredits ?? existingAccount?.monthlyProCredits)
+        const periodAnchorAt =
+            getDevCreditPeriodAnchorAt(args.periodAnchorPreset, now) ??
+            existingAccount?.creditPeriodAnchorAt ??
+            now
+        const nextAccount = {
+            userId: user.id,
+            enabled: existingAccount?.enabled ?? true,
+            plan: accountWithRequestedPlan.plan,
+            monthlyBasicCredits,
+            monthlyProCredits,
+            creditPeriodAnchorAt: periodAnchorAt,
+            updatedAt: now
+        }
+
+        if (args.periodAnchorPreset && nextAccount.plan === "pro") {
+            const subscription = await getLatestSubscription(ctx, user.id)
+            const renewsAt = parseTimestamp(subscription?.renewsAt)
+            if (renewsAt && renewsAt > now) {
+                warnings.push("Period is controlled by the active pro subscription renewal date.")
+            }
+        }
+
+        if (existingAccount?._id) {
+            await ctx.db.patch(existingAccount._id, nextAccount)
+        } else {
+            await ctx.db.insert("prototypeCreditAccounts", nextAccount)
+        }
+
+        const scenarioStaff =
+            args.usageScenario === "staff_with_limits" ||
+            args.usageScenario === "staff_with_bypass_limits"
+        const nextAccess = {
+            userId: user.id,
+            isStaff: scenarioStaff ? true : (args.isStaff ?? existingAccess?.isStaff ?? false),
+            bypassLimits:
+                args.usageScenario === "staff_with_bypass_limits"
+                    ? true
+                    : args.usageScenario === "staff_with_limits"
+                      ? false
+                      : (args.bypassLimits ?? existingAccess?.bypassLimits ?? false),
+            updatedAt: now
+        }
+
+        if (existingAccess?._id) {
+            await ctx.db.patch(existingAccess._id, nextAccess)
+        } else {
+            await ctx.db.insert("userAccess", nextAccess)
+        }
+
+        const period = await getUserCreditPeriod(ctx, user.id, nextAccount)
+        if (args.usageScenario) {
+            await deleteCurrentDevCreditLabEvents(ctx, user.id, period.periodKey)
+        }
+
+        const resolvedAccount = getResolvedCreditAccount(nextAccount)
+        switch (args.usageScenario) {
+            case "basic_remaining_zero":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "basic",
+                    counted: true,
+                    count: resolvedAccount.monthlyBasicCredits
+                })
+                break
+            case "basic_near_limit":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "basic",
+                    counted: true,
+                    count: Math.max(0, resolvedAccount.monthlyBasicCredits - 1)
+                })
+                break
+            case "pro_remaining_zero":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "pro",
+                    counted: true,
+                    count: resolvedAccount.monthlyProCredits
+                })
+                break
+            case "pro_near_limit":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "pro",
+                    counted: true,
+                    count: Math.max(0, resolvedAccount.monthlyProCredits - 1)
+                })
+                break
+            case "byok_heavy":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "none",
+                    counted: false,
+                    count: 8,
+                    providerSource: "byok"
+                })
+                break
+            case "internal_heavy":
+                await insertDevCreditLabEvents(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    bucket: "basic",
+                    counted: true,
+                    count: 8,
+                    providerSource: "internal"
+                })
+                break
+        }
+
+        return {
+            ok: true,
+            account: {
+                enabled: resolvedAccount.enabled,
+                plan: resolvedAccount.plan,
+                monthlyBasicCredits: resolvedAccount.monthlyBasicCredits,
+                monthlyProCredits: resolvedAccount.monthlyProCredits,
+                creditPeriodAnchorAt: nextAccount.creditPeriodAnchorAt
+            },
+            access: {
+                isStaff: nextAccess.isStaff,
+                bypassLimits: nextAccess.bypassLimits
+            },
+            period: {
+                periodKey: period.periodKey,
+                startsAt: period.startsAt,
+                endsAt: period.endsAt
+            },
+            warnings
+        }
     }
 })
 

@@ -79,8 +79,10 @@ function BillingSettingsRoute() {
         isLoading: isCreditSummaryLoading,
         isRefreshing,
         isUpdatingCreditPlan,
+        devCreditState,
+        isUpdatingDevCreditState,
         refreshCredits,
-        setCreditPlan
+        setDevCreditState
     } = usePrototypeCredits({
         userId: user?.id,
         isAuthLoading: session.isPending
@@ -301,7 +303,9 @@ function BillingSettingsRoute() {
                     isRefreshing={isRefreshing}
                     shouldShowDevCreditPlanToggle={false}
                     isUpdatingCreditPlan={isUpdatingCreditPlan}
-                    onSetCreditPlan={setCreditPlan}
+                    devCreditState={devCreditState}
+                    isUpdatingDevCreditState={isUpdatingDevCreditState}
+                    onSetDevCreditState={setDevCreditState}
                     onRefresh={refreshCredits}
                     upgradeUrl={proCheckoutUrl}
                 />

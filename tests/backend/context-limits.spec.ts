@@ -47,6 +47,39 @@ describe("context limit policy", () => {
         expect(limits.hostedInputLimit).toBe(32_000)
     })
 
+    it("applies a dev hosted-limit override, staying clamped to the model limit", () => {
+        const model = { contextLength: 1_000_000, maxTokens: 8_000, inputUsdPer1MTokens: 10 }
+
+        // Raise the hosted limit well above its price-derived value.
+        const raised = resolveContextLimits(model, { hostedInputLimit: 250_000 })
+        expect(raised.hostedInputLimit).toBe(250_000)
+
+        // The model limit is still the hard cap for hosted.
+        const clamped = resolveContextLimits(model, { hostedInputLimit: 999_999_999 })
+        expect(clamped.hostedInputLimit).toBe(clamped.modelInputLimit)
+    })
+
+    it("applies a dev model-limit override and re-clamps hosted beneath it", () => {
+        const limits = resolveContextLimits(
+            { contextLength: 1_000_000, maxTokens: 8_000 },
+            { modelInputLimit: 20_000 }
+        )
+
+        expect(limits.modelInputLimit).toBe(20_000)
+        expect(limits.hostedInputLimit).toBe(20_000)
+    })
+
+    it("ignores non-positive or absent overrides", () => {
+        const base = resolveContextLimits({ contextLength: 200_000, maxTokens: 8_000 })
+        const withJunk = resolveContextLimits(
+            { contextLength: 200_000, maxTokens: 8_000 },
+            { hostedInputLimit: 0, modelInputLimit: Number.NaN }
+        )
+
+        expect(withJunk.hostedInputLimit).toBe(base.hostedInputLimit)
+        expect(withJunk.modelInputLimit).toBe(base.modelInputLimit)
+    })
+
     it("allows BYOK to bypass the hosted limit but not the model limit", () => {
         const limits = resolveContextLimits({
             contextLength: 100_000,

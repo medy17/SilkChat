@@ -187,6 +187,59 @@ describe("local-image-optimizer-server", () => {
         expect(response.status).toBe(403)
     })
 
+    it("purges the cache on DELETE and rejects other methods on the purge path", async () => {
+        const cacheDir = await mkdtemp(path.join(os.tmpdir(), "local-image-optimizer-"))
+        tempDirs.push(cacheDir)
+
+        const sourceBytes = await sharp({
+            create: {
+                width: 16,
+                height: 12,
+                channels: 3,
+                background: { r: 25, g: 50, b: 75 }
+            }
+        })
+            .png()
+            .toBuffer()
+
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(
+                new Response(new Uint8Array(sourceBytes), {
+                    status: 200,
+                    headers: { "content-type": "image/png" }
+                })
+            )
+        )
+
+        const handleRequest = createLocalImageOptimizerHandler({
+            cacheDir,
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
+        })
+
+        // Warm the cache so there is something to purge.
+        await handleRequest(
+            createRequest({
+                pathName:
+                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/purge-me"
+            })
+        )
+
+        const purgeUrl = "http://localhost:3000/cdn-cgi/image/__cache"
+
+        const wrongMethod = await handleRequest(new Request(purgeUrl, { method: "POST" }))
+        expect(wrongMethod.status).toBe(405)
+
+        const purged = await handleRequest(new Request(purgeUrl, { method: "DELETE" }))
+        expect(purged.status).toBe(200)
+        expect(await purged.json()).toEqual({ ok: true, removed: 1 })
+
+        // Purging again with an empty cache is a no-op, not an error.
+        const purgedAgain = await handleRequest(new Request(purgeUrl, { method: "DELETE" }))
+        expect(await purgedAgain.json()).toEqual({ ok: true, removed: 0 })
+    })
+
     it("rejects malformed transform options", async () => {
         const cacheDir = await mkdtemp(path.join(os.tmpdir(), "local-image-optimizer-"))
         tempDirs.push(cacheDir)

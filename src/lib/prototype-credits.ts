@@ -49,6 +49,45 @@ export type PrototypeCreditSummary = {
     }
 }
 
+export type PrototypeCreditDevState = {
+    account: {
+        enabled: boolean
+        plan: "free" | "pro"
+        monthlyBasicCredits: number
+        monthlyProCredits: number
+        creditPeriodAnchorAt: number | null
+    }
+    access: {
+        isStaff: boolean
+        bypassLimits: boolean
+    }
+    period: {
+        periodKey: string
+        startsAt: number
+        endsAt: number
+    }
+    warnings?: string[]
+}
+
+export type PrototypeCreditDevStatePayload = {
+    plan?: "free" | "pro"
+    monthlyBasicCredits?: number
+    monthlyProCredits?: number
+    isStaff?: boolean
+    bypassLimits?: boolean
+    usageScenario?:
+        | "normal_empty"
+        | "basic_remaining_zero"
+        | "basic_near_limit"
+        | "pro_remaining_zero"
+        | "pro_near_limit"
+        | "byok_heavy"
+        | "internal_heavy"
+        | "staff_with_limits"
+        | "staff_with_bypass_limits"
+    periodAnchorPreset?: "default" | "ending_today" | "ending_tomorrow"
+}
+
 export type CachedPrototypeCreditValue<T> = {
     value: T
     savedAt: number

@@ -25,6 +25,7 @@ vi.mock("@/lib/auth-server", () => ({
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
 import { Route as DevCreditPlanRoute } from "@/routes/api/dev/credit-plan"
+import { Route as DevCreditStateRoute } from "@/routes/api/dev/credit-state"
 import { Route as PosthogProxyRoute } from "@/routes/api/phr/$"
 
 type RouteHandlers = {
@@ -38,6 +39,7 @@ type RouteHandlers = {
 
 const creditSummaryHandlers = (CreditSummaryRoute as unknown as RouteHandlers).server.handlers
 const devCreditPlanHandlers = (DevCreditPlanRoute as unknown as RouteHandlers).server.handlers
+const devCreditStateHandlers = (DevCreditStateRoute as unknown as RouteHandlers).server.handlers
 const posthogProxyHandlers = (PosthogProxyRoute as unknown as RouteHandlers).server.handlers
 
 describe("API routes", () => {
@@ -133,7 +135,9 @@ describe("API routes", () => {
         process.env.NODE_ENV = "development"
         fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
         fetchAuthMutationMock.mockResolvedValueOnce({
-            plan: "free"
+            account: {
+                plan: "free"
+            }
         })
 
         const response = await devCreditPlanHandlers.POST!({
@@ -176,6 +180,94 @@ describe("API routes", () => {
         expect(devPlanResponse.status).toBe(401)
         await expect(devPlanResponse.json()).resolves.toEqual({
             error: "Unauthorized"
+        })
+    })
+
+    it("enforces auth and dev-only constraints on the credit-state route", async () => {
+        process.env.NODE_ENV = "production"
+
+        const prodResponse = await devCreditStateHandlers.POST!({
+            request: new Request("https://example.com/api/dev/credit-state", {
+                method: "POST",
+                body: JSON.stringify({ plan: "pro" })
+            })
+        })
+
+        expect(prodResponse.status).toBe(404)
+
+        process.env.NODE_ENV = "development"
+        fetchAuthQueryMock.mockResolvedValueOnce(null)
+
+        const unauthorizedResponse = await devCreditStateHandlers.GET!({
+            request: new Request("https://example.com/api/dev/credit-state")
+        })
+
+        expect(unauthorizedResponse.status).toBe(401)
+    })
+
+    it("validates and updates development credit state", async () => {
+        process.env.NODE_ENV = "development"
+        fetchAuthQueryMock.mockResolvedValue({ id: "user-1" })
+
+        const invalidResponse = await devCreditStateHandlers.POST!({
+            request: new Request("https://example.com/api/dev/credit-state", {
+                method: "POST",
+                body: JSON.stringify({ isStaff: "yes" })
+            })
+        })
+
+        expect(invalidResponse.status).toBe(400)
+        await expect(invalidResponse.json()).resolves.toEqual({
+            error: "Invalid isStaff"
+        })
+
+        fetchAuthMutationMock.mockResolvedValueOnce({
+            ok: true,
+            account: {
+                plan: "pro",
+                monthlyBasicCredits: 10,
+                monthlyProCredits: 5
+            },
+            access: {
+                isStaff: true,
+                bypassLimits: false
+            }
+        })
+
+        const response = await devCreditStateHandlers.POST!({
+            request: new Request("https://example.com/api/dev/credit-state", {
+                method: "POST",
+                body: JSON.stringify({
+                    plan: "pro",
+                    monthlyBasicCredits: 10,
+                    monthlyProCredits: 5,
+                    isStaff: true,
+                    bypassLimits: false,
+                    usageScenario: "pro_near_limit",
+                    periodAnchorPreset: "ending_tomorrow"
+                })
+            })
+        })
+
+        expect(fetchAuthMutationMock).toHaveBeenCalledWith(expect.anything(), {
+            plan: "pro",
+            monthlyBasicCredits: 10,
+            monthlyProCredits: 5,
+            isStaff: true,
+            bypassLimits: false,
+            usageScenario: "pro_near_limit",
+            periodAnchorPreset: "ending_tomorrow"
+        })
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toMatchObject({
+            ok: true,
+            account: {
+                plan: "pro"
+            },
+            access: {
+                isStaff: true,
+                bypassLimits: false
+            }
         })
     })
 

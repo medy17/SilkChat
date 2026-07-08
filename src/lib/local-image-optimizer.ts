@@ -5,6 +5,9 @@ export const LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT = 43177
 export const LOCAL_IMAGE_OPTIMIZER_CACHE_DIR = ".optimised-image-cache"
 export const LOCAL_IMAGE_OPTIMIZER_CACHE_VERSION = "v1"
 export const LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX = "/cdn-cgi/image"
+// Dev-only cache purge endpoint, served under the route prefix so the same dev proxy
+// forwarding reaches it. Handled specially by the optimizer server (DELETE = clear cache).
+export const LOCAL_IMAGE_OPTIMIZER_PURGE_PATH = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/__cache`
 
 const MAX_IMAGE_WIDTH = 4096
 const MIN_IMAGE_QUALITY = 1

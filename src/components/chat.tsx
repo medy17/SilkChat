@@ -14,6 +14,8 @@ import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { type ThreadPersonaInfo, usePublishThreadDiagnostics } from "@/lib/dev-thread-diagnostics"
+import { canUseDevTools } from "@/lib/dev-tools"
 import {
     OPEN_MODEL_PICKER_SHORTCUT_EVENT,
     matchesOpenModelPickerShortcut
@@ -22,6 +24,7 @@ import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
+import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { AnimatePresence, motion } from "motion/react"
 import {
     useCallback,
@@ -211,6 +214,73 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const hasSelectedPersonaAvatar = Boolean(
         selectedPersonaOption?.avatarKind && selectedPersonaOption.avatarValue
     )
+
+    // Dev-only: publish thread diagnostics (persona, attachments, token/cost stats) for the dock.
+    // Both queries are skipped entirely outside local dev builds.
+    const devEnabled = canUseDevTools()
+    const devThreadDoc = useConvexQuery(
+        api.threads.getThread,
+        devEnabled && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
+    )
+    const devModelLimits = useConvexQuery(
+        api.settings.getDevModelContextLimits,
+        devEnabled && selectedModel ? { modelId: selectedModel } : "skip"
+    )
+    const personaDiagnostics = useMemo<ThreadPersonaInfo>(() => {
+        const options =
+            "error" in personaOptions
+                ? []
+                : [...personaOptions.builtIns, ...personaOptions.userPersonas]
+
+        // Existing thread: trust the persona snapshot stored on the thread, not the composer.
+        if (devThreadDoc?.personaSource) {
+            const option = options.find(
+                (persona) =>
+                    persona.source === devThreadDoc.personaSource &&
+                    persona.id === devThreadDoc.personaSourceId
+            )
+            return {
+                isPersonaThread: true,
+                name: devThreadDoc.personaName ?? option?.name ?? null,
+                kind: devThreadDoc.personaSource,
+                defaultModelId: option?.defaultModelId ?? null,
+                currentModelId: selectedModel ?? null,
+                avatarKey: devThreadDoc.personaAvatarValue ?? option?.avatarValue ?? null,
+                id: devThreadDoc.personaSourceId ?? null,
+                description: option?.description ?? null
+            }
+        }
+
+        // New/unsaved thread: fall back to the composer selection.
+        return {
+            isPersonaThread: selectedPersona.source !== "default",
+            name: selectedPersonaOption?.name ?? null,
+            kind: selectedPersonaOption?.source ?? null,
+            defaultModelId: selectedPersonaOption?.defaultModelId ?? null,
+            currentModelId: selectedModel ?? null,
+            avatarKey: selectedPersonaOption?.avatarValue ?? null,
+            id: selectedPersona.source === "default" ? null : (selectedPersona.id ?? null),
+            description: selectedPersonaOption?.description ?? null
+        }
+    }, [devThreadDoc, personaOptions, selectedPersona, selectedPersonaOption, selectedModel])
+    const diagnosticsContextModel = useMemo(() => {
+        if (devModelLimits) {
+            return {
+                contextLength: devModelLimits.contextLength ?? undefined,
+                maxTokens: devModelLimits.maxTokens ?? undefined,
+                inputUsdPer1MTokens: devModelLimits.inputUsdPer1MTokens ?? undefined,
+                hostedContextLength: devModelLimits.hostedContextLength ?? undefined
+            }
+        }
+        return sharedModels.find((model) => model.id === selectedModel) ?? null
+    }, [devModelLimits, sharedModels, selectedModel])
+    usePublishThreadDiagnostics({
+        threadId: threadId ?? null,
+        messages: deferredMessages,
+        persona: personaDiagnostics,
+        contextModel: diagnosticsContextModel,
+        hasPricing: Boolean(devModelLimits?.hasPricing)
+    })
 
     useEffect(() => {
         setMessagesRef.current = chatHelpers.setMessages

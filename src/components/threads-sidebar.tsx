@@ -19,6 +19,7 @@ import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { useShowContextualDevTools } from "@/lib/dev-tools"
 import {
     isEditableShortcutTarget,
     matchesDeleteCurrentThreadShortcut,
@@ -245,7 +246,7 @@ export function ThreadsSidebar() {
         threshold: 0.1
     })
 
-    const shouldShowDevCreditPlanToggle = import.meta.env.DEV && Boolean(session?.user?.id)
+    const shouldShowDevTools = useShowContextualDevTools() && Boolean(session?.user?.id)
 
     const currentThreadForShortcut = useMemo(
         () =>
@@ -857,7 +858,7 @@ export function ThreadsSidebar() {
                                 : "translate-x-0 opacity-100"
                         )}
                     >
-                        {shouldShowDevCreditPlanToggle && (
+                        {shouldShowDevTools && (
                             <DevToolsGroup onShowOnboarding={handleShowOnboardingClick} />
                         )}
                         {renderContent()}

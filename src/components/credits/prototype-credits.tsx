@@ -7,9 +7,14 @@ import {
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { PrototypeCreditSummary } from "@/lib/prototype-credits"
+import { Switch } from "@/components/ui/switch"
+import type {
+    PrototypeCreditDevState,
+    PrototypeCreditDevStatePayload,
+    PrototypeCreditSummary
+} from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
-import { Crown, KeyRound, RefreshCw, Wallet } from "lucide-react"
+import { Crown, KeyRound, RefreshCw, Shield, Wallet } from "lucide-react"
 import { memo, useMemo, useState } from "react"
 
 function PrototypeCreditPlanToggle({
@@ -91,18 +96,22 @@ function PrototypeCreditsEmptyState() {
 
 function PrototypeCreditsBody({
     summary,
+    devCreditState,
     shouldShowDevCreditPlanToggle,
     isUpdatingCreditPlan,
-    onSetCreditPlan,
+    isUpdatingDevCreditState,
+    onSetDevCreditState,
     onRefresh,
     isRefreshing,
     upgradeUrl,
     className
 }: {
     summary: PrototypeCreditSummary | null
+    devCreditState: PrototypeCreditDevState | null
     shouldShowDevCreditPlanToggle: boolean
     isUpdatingCreditPlan: boolean
-    onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
+    isUpdatingDevCreditState: boolean
+    onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
     isRefreshing: boolean
     upgradeUrl?: string | null
@@ -242,12 +251,141 @@ function PrototypeCreditsBody({
             </div>
 
             {shouldShowDevCreditPlanToggle && (
-                <PrototypeCreditPlanToggle
-                    plan={summary.plan}
-                    disabled={isUpdatingCreditPlan}
-                    onSetCreditPlan={onSetCreditPlan}
+                <PrototypeCreditDevLab
+                    summary={summary}
+                    devCreditState={devCreditState}
+                    disabled={isUpdatingCreditPlan || isUpdatingDevCreditState}
+                    onSetDevCreditState={onSetDevCreditState}
                 />
             )}
+        </div>
+    )
+}
+
+const usagePresetActions: Array<{
+    label: string
+    payload: PrototypeCreditDevStatePayload
+}> = [
+    { label: "Reset", payload: { usageScenario: "normal_empty" } },
+    { label: "Basic 0", payload: { usageScenario: "basic_remaining_zero" } },
+    { label: "Basic near", payload: { usageScenario: "basic_near_limit" } },
+    { label: "Pro 0", payload: { usageScenario: "pro_remaining_zero" } },
+    { label: "Pro near", payload: { usageScenario: "pro_near_limit" } },
+    { label: "BYOK heavy", payload: { usageScenario: "byok_heavy" } },
+    { label: "Internal heavy", payload: { usageScenario: "internal_heavy" } }
+]
+
+const periodPresetActions: Array<{
+    label: string
+    payload: PrototypeCreditDevStatePayload
+}> = [
+    { label: "Default", payload: { periodAnchorPreset: "default" } },
+    { label: "Ends today", payload: { periodAnchorPreset: "ending_today" } },
+    { label: "Ends tomorrow", payload: { periodAnchorPreset: "ending_tomorrow" } }
+]
+
+function PrototypeCreditDevLab({
+    summary,
+    devCreditState,
+    disabled,
+    onSetDevCreditState
+}: {
+    summary: PrototypeCreditSummary
+    devCreditState: PrototypeCreditDevState | null
+    disabled: boolean
+    onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
+}) {
+    const isStaff = devCreditState?.access.isStaff ?? false
+    const bypassLimits = devCreditState?.access.bypassLimits ?? false
+
+    return (
+        <div className="space-y-3 rounded-[var(--radius-lg)] border border-dashed p-3">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase">
+                <Shield className="size-3.5" />
+                Dev
+            </div>
+
+            <PrototypeCreditPlanToggle
+                plan={summary.plan}
+                disabled={disabled}
+                onSetCreditPlan={(plan) => onSetDevCreditState({ plan })}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+                {usagePresetActions.map((action) => (
+                    <Button
+                        key={action.label}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 rounded-[var(--radius-md)] text-xs"
+                        disabled={disabled}
+                        onClick={() => void onSetDevCreditState(action.payload)}
+                    >
+                        {action.label}
+                    </Button>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+                {periodPresetActions.map((action) => (
+                    <Button
+                        key={action.label}
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 rounded-[var(--radius-md)] px-2 text-xs"
+                        disabled={disabled}
+                        onClick={() => void onSetDevCreditState(action.payload)}
+                    >
+                        {action.label}
+                    </Button>
+                ))}
+            </div>
+
+            <div className="space-y-2">
+                <DevAccessSwitch
+                    label="Staff"
+                    checked={isStaff}
+                    disabled={disabled}
+                    onCheckedChange={(checked) => onSetDevCreditState({ isStaff: checked })}
+                />
+                <DevAccessSwitch
+                    label="Bypass limits"
+                    checked={bypassLimits}
+                    disabled={disabled}
+                    onCheckedChange={(checked) => onSetDevCreditState({ bypassLimits: checked })}
+                />
+            </div>
+
+            {devCreditState?.warnings?.map((warning) => (
+                <p key={warning} className="text-amber-600 text-xs dark:text-amber-400">
+                    {warning}
+                </p>
+            ))}
+        </div>
+    )
+}
+
+function DevAccessSwitch({
+    label,
+    checked,
+    disabled,
+    onCheckedChange
+}: {
+    label: string
+    checked: boolean
+    disabled: boolean
+    onCheckedChange: (checked: boolean) => Promise<void>
+}) {
+    return (
+        <div className="flex items-center justify-between gap-3 text-xs">
+            <span>{label}</span>
+            <Switch
+                checked={checked}
+                disabled={disabled}
+                onCheckedChange={(checkedValue) => void onCheckedChange(checkedValue)}
+            />
         </div>
     )
 }
@@ -258,7 +396,9 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
     isRefreshing,
     shouldShowDevCreditPlanToggle,
     isUpdatingCreditPlan,
-    onSetCreditPlan,
+    devCreditState,
+    isUpdatingDevCreditState,
+    onSetDevCreditState,
     onRefresh,
     upgradeUrl
 }: {
@@ -267,7 +407,9 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
     isRefreshing: boolean
     shouldShowDevCreditPlanToggle: boolean
     isUpdatingCreditPlan: boolean
-    onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
+    devCreditState: PrototypeCreditDevState | null
+    isUpdatingDevCreditState: boolean
+    onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
     upgradeUrl?: string | null
 }) {
@@ -302,9 +444,11 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                 ) : (
                     <PrototypeCreditsBody
                         summary={summary}
+                        devCreditState={devCreditState}
                         shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
                         isUpdatingCreditPlan={isUpdatingCreditPlan}
-                        onSetCreditPlan={onSetCreditPlan}
+                        isUpdatingDevCreditState={isUpdatingDevCreditState}
+                        onSetDevCreditState={onSetDevCreditState}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
                         upgradeUrl={upgradeUrl}
@@ -322,7 +466,9 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isRefreshing,
     shouldShowDevCreditPlanToggle,
     isUpdatingCreditPlan,
-    onSetCreditPlan,
+    devCreditState,
+    isUpdatingDevCreditState,
+    onSetDevCreditState,
     onRefresh,
     upgradeUrl,
     className
@@ -332,7 +478,9 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isRefreshing: boolean
     shouldShowDevCreditPlanToggle: boolean
     isUpdatingCreditPlan: boolean
-    onSetCreditPlan: (plan: "free" | "pro") => Promise<void>
+    devCreditState: PrototypeCreditDevState | null
+    isUpdatingDevCreditState: boolean
+    onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
     upgradeUrl?: string | null
     className?: string
@@ -349,9 +497,11 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
                 ) : (
                     <PrototypeCreditsBody
                         summary={summary}
+                        devCreditState={devCreditState}
                         shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
                         isUpdatingCreditPlan={isUpdatingCreditPlan}
-                        onSetCreditPlan={onSetCreditPlan}
+                        isUpdatingDevCreditState={isUpdatingDevCreditState}
+                        onSetDevCreditState={onSetDevCreditState}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
                         upgradeUrl={upgradeUrl}
