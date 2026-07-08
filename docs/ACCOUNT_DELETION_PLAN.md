@@ -1,12 +1,38 @@
 # Self-Service Account Deletion + Anti-Re-Registration Abuse — Design Plan
 
-Status: **Proposal / implementation in progress.**
+Status: **Implemented for free-account anti-reset; remaining guardrails and Pro edge cases tracked below.**
 Owner: TBD
-Last updated: 2026-07-01
+Last updated: 2026-07-08
+
+---
+
+## 0. Progress checklist
+
+- [x] Schema exists for `identitySuppressions`, `billingSubscriptionLinks`, `accountDeletionJobs`, and credit carry-in fields.
+- [x] Deletion request creates an `accountDeletionJobs` gate before purge processing.
+- [x] Deletion processing snapshots auth identity and current-period credit usage before destructive purge.
+- [x] Tombstone write-back includes existing carry-in, preventing delete -> recreate -> delete loops from resetting usage within one window.
+- [x] Credit summary, usage, reservations, and enforcement count `carriedBasicUnits` / `carriedProUnits` for the matching period.
+- [x] Better Auth user/account create/update triggers re-link returning Google accounts and seed carry-in from the tombstone before first use.
+- [x] LemonSqueezy webhooks resolve by `billingSubscriptionLinks` / tombstone before trusting stale `custom_data.user_id`.
+- [x] Refund webhooks against deleted-user subscriptions update the tombstone and revoke Pro entitlement.
+- [x] DB, Better Auth, and R2 purge paths exist and are batched/idempotent.
+- [ ] Fresh reauth before deletion is not implemented.
+- [ ] Blocking deletion during pending/disputed payment is not implemented.
+- [ ] Pro entitlement restoration is partially implemented; monthly period anchoring/annual-sub edge cases need more validation.
+- [ ] Tombstone pruning is intentionally deferred.
+- [ ] No backfill is planned for pre-fix recreated accounts because there were no real deletion requests before this update.
+
+Current verification:
+- `bun run test` passed with 560 tests.
+- `bun run check-types` passed.
+- `bun run cloud:dev:push` succeeded on 2026-07-08.
 
 ---
 
 ## 1. Problem & goals
+
+Status: **Mostly implemented.** Free-account anti-reset is now wired. Pro preservation exists for active entitlement but still needs validation around period anchoring and annual subscriptions.
 
 We want a self-service "delete my account" flow that:
 
@@ -23,21 +49,25 @@ We want a self-service "delete my account" flow that:
 
 ## 2. Key facts from the codebase (grounding)
 
+Status: **Partly stale line references, still conceptually accurate.** The key implementation facts remain: `userId` changes across deletion/recreation, credit windows are anchored, and carry-in must be modeled as usage rather than a permanent limit change.
+
 - Identity id used everywhere (`authorId` / `userId`) is a **fresh string per signup**; deleting the Better Auth user and re-logging-in mints a **new** id. So `userId` is useless as a fraud key. (`convex/lib/identity.ts:30`)
 - Free allowance is a **rolling anchored monthly window**, not a calendar month:
-  - `creditPeriodAnchorAt` is stamped at account creation (`convex/credits.ts:151` `ensureCreditAccountRecord`).
+  - `creditPeriodAnchorAt` is stamped at account creation or restored from a tombstone on return (`convex/credits.ts` `ensureCreditAccountRecord`; `convex/lib/account_deletion_restore.ts`).
   - Window bounds via `getAnchoredMonthlyCreditPeriodBounds`; `periodKey = "{startISO}/{endISO}"` (`convex/lib/credits.ts:116,143`).
 - "Used this window" = sum of `prototypeCreditEvents.units` where `counted && bucket` matches, filtered by `byUserPeriod (userId, periodKey)`, plus outstanding reservations (`convex/credits.ts:281-311`). Free basic limit = 20 (`MONTHLY_CREDITS_FREE`) (`convex/lib/credits.ts:24,42`).
 - `monthlyBasicCredits` is a **static whole-window limit**, re-read every period with no per-period reset (`convex/credits.ts:134`). **Mutating it to model carry-in would penalize the user forever.**
 - Pro window anchors to the billing cycle `renewsAt` when present; else falls back to the account anchor (`convex/credits.ts:69-97`).
 - A **cancelled** subscription is still `plan:"pro"` until it expires — `"cancelled"` ∈ `PRO_SUBSCRIPTION_STATUSES` (`convex/lib/lemon_squeezy.ts:32`). `endsAt` is the paid-through date.
-- The LS webhook trusts `custom_data.user_id` to resolve the app user and will **re-create** credit/subscription rows for whatever id it finds (`convex/billing.ts:120-137`, `convex/lib/lemon_squeezy.ts:100`). Refund events (`subscription_payment_refunded`) are handled events (`convex/lib/lemon_squeezy.ts:64`).
+- The LS webhook no longer blindly trusts `custom_data.user_id`; it first resolves via `billingSubscriptionLinks` and tombstones (`convex/billing.ts`). Refund events (`subscription_payment_refunded`) are handled events (`convex/lib/lemon_squeezy.ts`).
 - Existing per-entity deletes do **not** fully cascade: `deleteThread` drops only the thread doc + aggregate; messages/streams/snapshots/R2 attachments are left behind (`convex/threads.ts:1049`). The cascade must handle children explicitly.
 - R2 objects are tagged with `authorId` metadata on store, and `r2.listMetadata(ctx, userId, …)` lists by that metadata across all prefixes (`convex/attachments.ts:415`), covering `attachments/`, `references/`, `generations/` (+ blur derivatives), and persona assets uniformly.
 
 ---
 
 ## 3. Architecture overview
+
+Status: **Implemented for the core flow.** The return path is now wired through Better Auth user/account triggers and the credit hot path reads carry-in from `prototypeCreditAccounts`.
 
 Deletion is **purge-with-tombstone**, not full erasure:
 
@@ -61,6 +91,8 @@ New persistent structures:
 
 ## 4. Identity fingerprint
 
+Status: **Implemented.** Google OAuth `accountId` is the primary anchor. Email remains as a fallback/cross-check even though production auth is Google-only.
+
 At deletion time we read, **before destroying the user**:
 - Google `sub` — from the component `account` table (`providerId="google"`, `accountId` = sub). **Primary key** — stable, user-immutable, spoof-resistant, immune to gmail dot/plus aliasing.
 - Email — from the Better Auth user record. **Fallback / cross-check key.**
@@ -81,6 +113,8 @@ Collision rule:
 ---
 
 ## 5. Schema changes
+
+Status: **Implemented.** The schema exists with the planned tables/indexes and optional carry-in fields. `accountDeletionJobs.status` has additional terminal/retry states beyond the early sketch.
 
 ### 5.1 New table `identitySuppressions`
 ```
@@ -157,6 +191,8 @@ All optional → no backfill; absent = zero carry-in.
 
 ## 6. Carry-in credit accounting (the anti-reset core)
 
+Status: **Implemented and tested.** Summary, usage, credit reservation/consumption, and tool-call reservation paths all count carry-in for the matching period.
+
 **Principle:** carry-in is resolved **once at signup** (from the tombstone) and materialized onto the account row. The credit hot path never reads the tombstone — it reads the carry-in fields off the account doc it **already fetches**, so marginal read cost ≈ one extra field. This directly answers the "extra reads" concern.
 
 **Application rule** (in a shared credit usage helper — must cover `getMyCreditSummary`, `getMyCreditUsageSummary`, `getCreditUsageForUserInternal`, `consumeCreditForMessage`, `reserveCreditForMessage`, and `reserveToolCallBudget`, or display and gating diverge):
@@ -175,6 +211,8 @@ Properties:
 ---
 
 ## 7. Deletion flow (ordered, idempotent, resumable)
+
+Status: **Mostly implemented.** Snapshot/tombstone, purge job gating, auth deletion, DB purge, R2 purge, and scheduler retries exist. Fresh reauth and pending/disputed-payment blocking are not implemented.
 
 Trigger: user confirms deletion (require fresh reauth / recent session; see §11).
 
@@ -200,6 +238,8 @@ Mechanism: expose an explicit authenticated deletion mutation/action that perfor
 
 ## 8. Deletion write-back rule (prevents multi-delete stacking)
 
+Status: **Implemented.** Deletion snapshots include current events/reservations plus existing carry-in, then write the cumulative value to the tombstone.
+
 On **every** deletion, before purge:
 ```
 currentPeriodKey  = period(account)
@@ -218,6 +258,8 @@ Because `consumedThisPeriod` already folds in `carriedNow`, we **write** it (not
 ---
 
 ## 9. Pro subscription: cancel + re-link
+
+Status: **Partially implemented.** Webhook re-keying and refund-to-tombstone handling are implemented. Return-time Pro re-linking seeds account/subscription state, but Pro period anchoring and annual-sub behavior still need explicit validation.
 
 ### At deletion
 - Cancel the LS sub (converts active→cancelled; no future renewals/charges; **no refund** — user rides out the paid period). Snapshot `everWasPro`, `proEntitlementEndsAt = endsAt`, pro period key, consumed basic+pro, `customerId`, `subscriptionId`.
@@ -246,6 +288,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 
 ## 10. Scenario matrix (incl. redeletion & sub-window cases)
 
+Status: **Free-account scenarios A-D are covered by the implemented carry-in path.** Pro scenarios E-J are partially covered by webhook/re-link code and still need dedicated scenario tests before treating them as complete.
+
 | # | Scenario | Outcome |
 |---|---|---|
 | A | **Free**, delete → return **same** window | Carry-in applies; remaining = 20 − consumed. No reset. |
@@ -265,6 +309,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 11. Guardrails on the delete action
+
+Status: **Partially implemented.** Write gates exist across chat, uploads, image generation, imports, settings, personas, folders, threads, and credit-plan mutations. Fresh reauth and payment-state blocking are not implemented.
 - Require **fresh reauth** (recent session / re-enter credential) before deletion.
 - Block deletion while a **payment is pending or under dispute** (avoid mid-transaction ambiguity).
 - Clear, explicit confirmation copy: what's erased, that free/pro abuse counters persist in pseudonymized form, and that a cancelled Pro sub rides out its paid period.
@@ -273,6 +319,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 12. Open code questions to resolve during implementation
+
+Status: **Partially resolved.** The implementation purges both app-schema auth duplicate rows and Better Auth component rows. LemonSqueezy cancellation and `renews_at`/`ends_at` semantics still need production verification.
 - Are the app-schema `session`/`account`/`verification`/`twoFactor`/`oauth*` tables (`convex/schema.ts:50-136`) **live duplicates** of the Better Auth component tables or dead? If live, cascade them; if dead, remove.
 - Exact LS **cancel** API call + response shape (confirm `endsAt` semantics on cancel and on trial).
 - Confirm whether `renews_at` is nulled on cancel (affects §6 pro period anchoring — see §9 "restore period bounds").
@@ -280,12 +328,16 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 13. Privacy / legal
+
+Status: **Implemented for minimized tombstones; retention cleanup deferred.** Tombstones store hashes and aggregate counters, not raw PII/content. Free-only tombstone pruning is intentionally not built yet.
 - Store **pseudonymized hashes + minimal aggregates**, not content or raw PII. Documented **legitimate-interest / legal-obligation** basis (GDPR erasure has an explicit fraud-prevention & legal carve-out).
 - Retention: free-only tombstones can be pruned once well past `freePeriodEndsAt` (e.g. a cron dropping rows where `now > freePeriodEndsAt + buffer` and `!everWasPro` and `refundCount == 0`). Pro/refund/billing records kept per accounting/tax retention (longer).
 
 ---
 
 ## 14. Open decisions / config
+
+Status: **Still open except for free anti-reset behavior.** The stable pepper, annual-sub anchoring, refund-abuse policy, pruning policy, and Pro resume UX remain product/ops decisions.
 1. Env `IDENTITY_FINGERPRINT_PEPPER` (stable secret) + `MONTHLY_CREDITS_FREE` interplay confirmed.
 2. Annual-sub monthly-reset handling (scenario I) — anchor strategy through a distant `endsAt`.
 3. Refund-abuse policy: how much to restrict free grants when `refundCount > 0`.
@@ -295,6 +347,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 15. Schema + surface-area change summary
+
+Status: **Mostly implemented.** The only notable exceptions are fresh reauth/payment blocking, full Pro edge-case validation, and pruning.
 - **New table** `identitySuppressions` (+4 indexes).
 - **New table** `billingSubscriptionLinks` (+2 indexes).
 - **New table** `accountDeletionJobs` (+1 index).
@@ -309,6 +363,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 16. Testing (per `docs/TEST_WRITING_GUIDE.md`)
+
+Status: **Core coverage added.** Current tests cover fingerprinting, canonical tombstone selection, conservative merge behavior, carry-in seed behavior, carry-in enforcement/display, and webhook re-key/refund behavior. Pro scenario matrix coverage is still incomplete.
 - Unit: carry-in application (matching vs non-matching periodKey), write-back cumulative rule, gmail email normalization, fingerprint match (sub OR email).
 - Scenario tests A–M above (esp. C, D, G, H — the redeletion / refund cases).
 - Enforcement parity: summary vs reservation path both honor carry-in.
@@ -317,6 +373,8 @@ This keeps **late refunds/chargebacks attributable** across the userId change. (
 ---
 
 ## 17. Suggested rollout order
+
+Status: **Through step 3 for the free anti-reset path.** Cloud dev has been pushed. Staging verification should focus on delete -> Google re-create within the same anchored window and checking that used credits are carried into the recreated account.
 1. Schema (tombstone + account fields) + shared carry-in helper (no behavior change yet).
 2. Deletion cascade + tombstone write + LS cancel (internal action) behind the delete UI.
 3. Seed-on-return (`onCreate`) + webhook re-keying.

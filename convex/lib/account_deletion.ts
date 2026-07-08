@@ -129,3 +129,57 @@ export const mergeSuppressionSnapshots = ({
         }
     )
 }
+
+export type SuppressedCreditSeedInput = {
+    userId: string
+    now: number
+    suppression: {
+        freeAnchorAt: number
+        freePeriodKey: string
+        freeConsumedBasicUnits: number
+        everWasPro: boolean
+        proEntitlementEndsAt?: number
+        proPeriodKey?: string
+        proConsumedBasicUnits?: number
+        proConsumedProUnits?: number
+        refundCount: number
+    }
+    currentFreePeriodKey: string
+}
+
+export const buildSuppressedCreditAccountSeed = ({
+    userId,
+    now,
+    suppression,
+    currentFreePeriodKey
+}: SuppressedCreditSeedInput) => {
+    const hasActiveProEntitlement =
+        suppression.everWasPro &&
+        (suppression.proEntitlementEndsAt ?? 0) > now &&
+        suppression.refundCount === 0
+    const freeCarry =
+        suppression.freePeriodKey === currentFreePeriodKey
+            ? Math.max(0, suppression.freeConsumedBasicUnits)
+            : 0
+    const proBasicCarry =
+        hasActiveProEntitlement && suppression.proPeriodKey === currentFreePeriodKey
+            ? Math.max(0, suppression.proConsumedBasicUnits ?? 0)
+            : 0
+    const proCarry =
+        hasActiveProEntitlement && suppression.proPeriodKey === currentFreePeriodKey
+            ? Math.max(0, suppression.proConsumedProUnits ?? 0)
+            : 0
+    const carriedBasicUnits = Math.max(freeCarry, proBasicCarry)
+    const hasCarry = carriedBasicUnits > 0 || proCarry > 0
+
+    return {
+        userId,
+        enabled: true,
+        plan: hasActiveProEntitlement ? ("pro" as const) : ("free" as const),
+        creditPeriodAnchorAt: suppression.freeAnchorAt,
+        carriedForPeriodKey: hasCarry ? currentFreePeriodKey : undefined,
+        carriedBasicUnits: hasCarry ? carriedBasicUnits : undefined,
+        carriedProUnits: hasCarry ? proCarry : undefined,
+        updatedAt: now
+    }
+}

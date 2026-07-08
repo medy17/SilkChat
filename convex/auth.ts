@@ -2,9 +2,10 @@ import { createClient } from "@convex-dev/better-auth"
 import type { ComponentApi as BetterAuthComponentApi } from "@convex-dev/better-auth/_generated/component.js"
 import { convex } from "@convex-dev/better-auth/plugins"
 import { betterAuth } from "better-auth"
-import { components } from "./_generated/api.js"
+import { components, internal } from "./_generated/api.js"
 import { internalAction, query } from "./_generated/server"
 import authConfig from "./auth.config"
+import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_restore"
 
 const betterAuthComponent = (
     components as typeof components & {
@@ -40,7 +41,73 @@ const isLocalAuthRuntime =
     convexSiteUrl?.includes("localhost") ||
     convexSiteUrl?.includes("127.0.0.1")
 
-export const authComponent = createClient(betterAuthComponent)
+const getAppUserId = (user: { _id: string; userId?: string | null }) =>
+    typeof user.userId === "string" && user.userId.trim().length > 0 ? user.userId : user._id
+
+const getAuthUserById = async (
+    ctx: { runQuery: (query: unknown, args: unknown) => Promise<any> },
+    authId: string
+) =>
+    await ctx.runQuery(betterAuthComponent.adapter.findOne, {
+        model: "user",
+        where: [{ field: "_id", value: authId }]
+    })
+
+export const authComponent = createClient(betterAuthComponent, {
+    triggers: {
+        user: {
+            onCreate: async (ctx, user) => {
+                await restoreDeletedAccountCreditsForIdentity(ctx, {
+                    userId: getAppUserId(user),
+                    email: user.email
+                })
+            },
+            onUpdate: async (ctx, user) => {
+                await restoreDeletedAccountCreditsForIdentity(ctx, {
+                    userId: getAppUserId(user),
+                    email: user.email
+                })
+            }
+        },
+        account: {
+            onCreate: async (ctx, account) => {
+                if (account.providerId !== "google") return
+
+                const user = await getAuthUserById(ctx, account.userId)
+                if (!user?.email) return
+
+                await restoreDeletedAccountCreditsForIdentity(ctx, {
+                    userId: getAppUserId(user),
+                    email: user.email,
+                    googleSub: account.accountId
+                })
+            },
+            onUpdate: async (ctx, account) => {
+                if (account.providerId !== "google") return
+
+                const user = await getAuthUserById(ctx, account.userId)
+                if (!user?.email) return
+
+                await restoreDeletedAccountCreditsForIdentity(ctx, {
+                    userId: getAppUserId(user),
+                    email: user.email,
+                    googleSub: account.accountId
+                })
+            }
+        }
+    },
+    authFunctions: {
+        onCreate: internal.auth.onAuthModelCreate,
+        onUpdate: internal.auth.onAuthModelUpdate,
+        onDelete: internal.auth.onAuthModelDelete
+    }
+})
+
+export const {
+    onCreate: onAuthModelCreate,
+    onUpdate: onAuthModelUpdate,
+    onDelete: onAuthModelDelete
+} = authComponent.triggersApi()
 
 export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
     betterAuth({

@@ -29,6 +29,11 @@ vi.mock("../../convex/_generated/api", () => ({
         aggregateFolderThreads: {}
     },
     internal: {
+        auth: {
+            onAuthModelCreate: "onAuthModelCreate",
+            onAuthModelUpdate: "onAuthModelUpdate",
+            onAuthModelDelete: "onAuthModelDelete"
+        },
         account_deletion: {
             processAccountDeletionJob: "processAccountDeletionJob"
         }
@@ -41,11 +46,16 @@ import {
     requestMyAccountDeletion
 } from "../../convex/account_deletion"
 import {
+    buildSuppressedCreditAccountSeed,
     chooseCanonicalSuppression,
     fingerprintAccountIdentity,
     mergeSuppressionSnapshots,
     normalizeAccountDeletionEmail
 } from "../../convex/lib/account_deletion"
+import {
+    getAnchoredMonthlyCreditPeriodBounds,
+    getCreditPeriodKeyFromBounds
+} from "../../convex/lib/credits"
 
 const requestMyAccountDeletionHandler = requestMyAccountDeletion as unknown as {
     handler: (
@@ -226,6 +236,77 @@ describe("account deletion helpers", () => {
         ).toMatchObject({
             freePeriodKey: "current-period",
             freeConsumedBasicUnits: 8
+        })
+    })
+
+    it("seeds deleted-account credit carry-in for the matching anchored window", () => {
+        const anchorAt = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const now = Date.UTC(2026, 6, 8, 10, 0, 0, 0)
+        const periodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: now,
+                anchorTimestamp: anchorAt
+            })
+        )
+
+        expect(
+            buildSuppressedCreditAccountSeed({
+                userId: "new-user",
+                now,
+                currentFreePeriodKey: periodKey,
+                suppression: {
+                    freeAnchorAt: anchorAt,
+                    freePeriodKey: periodKey,
+                    freeConsumedBasicUnits: 20,
+                    everWasPro: false,
+                    refundCount: 0
+                }
+            })
+        ).toMatchObject({
+            userId: "new-user",
+            plan: "free",
+            creditPeriodAnchorAt: anchorAt,
+            carriedForPeriodKey: periodKey,
+            carriedBasicUnits: 20
+        })
+    })
+
+    it("keeps the original anchor but drops carry-in after the deleted window rolls", () => {
+        const anchorAt = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const deletedPeriodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: Date.UTC(2026, 6, 8, 10, 0, 0, 0),
+                anchorTimestamp: anchorAt
+            })
+        )
+        const now = Date.UTC(2026, 7, 8, 10, 0, 0, 0)
+        const currentPeriodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: now,
+                anchorTimestamp: anchorAt
+            })
+        )
+
+        expect(currentPeriodKey).not.toBe(deletedPeriodKey)
+        expect(
+            buildSuppressedCreditAccountSeed({
+                userId: "new-user",
+                now,
+                currentFreePeriodKey: currentPeriodKey,
+                suppression: {
+                    freeAnchorAt: anchorAt,
+                    freePeriodKey: deletedPeriodKey,
+                    freeConsumedBasicUnits: 20,
+                    everWasPro: false,
+                    refundCount: 0
+                }
+            })
+        ).toMatchObject({
+            userId: "new-user",
+            plan: "free",
+            creditPeriodAnchorAt: anchorAt,
+            carriedForPeriodKey: undefined,
+            carriedBasicUnits: undefined
         })
     })
 })
