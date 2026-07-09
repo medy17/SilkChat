@@ -12,10 +12,14 @@ import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
 import { LandingPage } from "@/components/landing-page"
-import { LogoSymbol } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
+import {
+    SPLASH_EXIT_DURATION_MS,
+    SPLASH_FILL_DURATION_MS,
+    SplashScreen
+} from "@/components/splash-screen"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -44,8 +48,8 @@ export const Route = createFileRoute("/_chat")({
     component: ChatLayout
 })
 
-const ROOT_SESSION_LOADING_DELAY_MS = 2000
-const ROOT_SESSION_EXIT_DELAY_MS = 700
+const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
+const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
 const CHAT_TRANSITION_MIN_SPINNER_MS = 500
 const CHAT_TRANSITION_SWAP_DELAY_MS = 180
 
@@ -508,42 +512,7 @@ function ChatLayout() {
 }
 
 function RootSessionPendingState({ isExiting }: { isExiting: boolean }) {
-    return (
-        <motion.div
-            animate={{
-                opacity: isExiting ? 0 : 1
-            }}
-            aria-busy="true"
-            aria-label="Loading session"
-            className="flex min-h-svh items-center justify-center overflow-hidden bg-background"
-            initial={false}
-            transition={{
-                duration: ROOT_SESSION_EXIT_DELAY_MS / 1000,
-                ease: [0.16, 1, 0.3, 1]
-            }}
-        >
-            <motion.div
-                animate={{
-                    scale: isExiting ? 4.5 : 1
-                }}
-                className="relative size-24"
-                initial={false}
-                transition={{
-                    duration: ROOT_SESSION_EXIT_DELAY_MS / 1000,
-                    ease: [0.16, 1, 0.3, 1]
-                }}
-            >
-                <LogoSymbol className="absolute inset-0 size-full text-muted-foreground/20" />
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-0 animate-[root-logo-fill_2s_ease-in-out_forwards] overflow-hidden"
-                >
-                    <LogoSymbol className="absolute bottom-0 left-0 size-24 text-primary" />
-                </div>
-                <span className="sr-only">Loading session</span>
-            </motion.div>
-        </motion.div>
-    )
+    return <SplashScreen isExiting={isExiting} label="Loading session" />
 }
 
 export const ChatErrorBoundary = ({ error, info, reset }: ErrorComponentProps) => {

@@ -1,3 +1,4 @@
+import RoleplayYourWayLogo from "@/assets/roleplay-your-way.svg"
 import SilkchatLogo from "@/assets/silkchat.svg"
 import SilkscreenLogo from "@/assets/silkscreen.svg"
 import { cn } from "@/lib/utils"
@@ -7,6 +8,9 @@ const SilkchatLogoComponent = SilkchatLogo as unknown as React.ComponentType<
     React.SVGProps<SVGSVGElement> & { "aria-label"?: string }
 >
 const SilkscreenLogoComponent = SilkscreenLogo as unknown as React.ComponentType<
+    React.SVGProps<SVGSVGElement> & { "aria-label"?: string }
+>
+const RoleplayYourWayLogoComponent = RoleplayYourWayLogo as unknown as React.ComponentType<
     React.SVGProps<SVGSVGElement> & { "aria-label"?: string }
 >
 
@@ -49,6 +53,15 @@ export function LogoMark({ className }: { className?: string }) {
     return React.createElement(SilkchatLogoComponent, {
         "aria-label": "Chat Logo",
         className: cn(className, "text-foreground")
+    })
+}
+
+// Color is inherited from the parent (fill="currentColor") so callers can tint
+// it with the landing-page palette instead of the global foreground token.
+export function RoleplayWordmark({ className }: { className?: string }) {
+    return React.createElement(RoleplayYourWayLogoComponent, {
+        "aria-label": "Roleplay Your Way",
+        className: cn(className)
     })
 }
 

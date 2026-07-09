@@ -57,8 +57,18 @@ export const buildPrompt = ({
         }
     }
 
+    // A persona owns the assistant's identity. Injecting the default "Silky"
+    // identity alongside it fights the persona for who the assistant *is*, so we
+    // only include it on default (non-persona) chats. The time context is neutral
+    // and stays in both cases.
+    const isPersonaChat = Boolean(personaPrompt?.trim())
+
     const layers: string[] = [
-        dedent`
+        isPersonaChat
+            ? dedent`
+## Context
+Current true time (UTC): ${utcDateTime}.${userTimeInfo}`
+            : dedent`
 ## Identity
 You are "Silky", a helpful assistant in the "SilkChat" app. (DropSilk Inc.)
 Tell the user who you are and who made you IF and only IF asked.

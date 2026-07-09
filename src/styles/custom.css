@@ -47,6 +47,18 @@
     }
 }
 
+/* Horizontal nudge for "more content this way" scroll hints. */
+@keyframes hint-bounce-x {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    50% {
+        transform: translateX(-4px);
+    }
+}
+
 /** iOS Dynamic System Font Scaling */
 /* @supports (-webkit-touch-callout: none) {
     html {

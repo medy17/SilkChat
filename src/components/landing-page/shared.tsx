@@ -91,7 +91,7 @@ export function SectionHead({
 }: {
     eyebrow?: string
     title: ReactNode
-    children: ReactNode
+    children?: ReactNode
     centered?: boolean
     className?: string
 }) {
@@ -111,14 +111,16 @@ export function SectionHead({
             <h2 className="mb-4 text-balance font-medium text-3xl leading-[1.05] tracking-normal [color:var(--landing-fg)] md:text-5xl">
                 {title}
             </h2>
-            <p
-                className={cn(
-                    "text-lg [color:var(--landing-muted)]",
-                    centered && "mx-auto max-w-2xl"
-                )}
-            >
-                {children}
-            </p>
+            {children ? (
+                <p
+                    className={cn(
+                        "text-lg [color:var(--landing-muted)]",
+                        centered && "mx-auto max-w-2xl"
+                    )}
+                >
+                    {children}
+                </p>
+            ) : null}
         </div>
     )
 }

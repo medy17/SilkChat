@@ -45,6 +45,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
 
+const PersonasLazyRouteImport = createFileRoute('/personas')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
 const AuthPathnameLazyRouteImport = createFileRoute('/auth/$pathname')()
@@ -55,6 +56,11 @@ const ChatFolderFolderIdLazyRouteImport = createFileRoute(
   '/_chat/folder/$folderId',
 )()
 
+const PersonasLazyRoute = PersonasLazyRouteImport.update({
+  id: '/personas',
+  path: '/personas',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/personas.lazy').then((d) => d.Route))
 const AboutLazyRoute = AboutLazyRouteImport.update({
   id: '/about',
   path: '/about',
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
+  '/personas': typeof PersonasLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
+  '/personas': typeof PersonasLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -349,6 +357,7 @@ export interface FileRoutesById {
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/about': typeof AboutLazyRoute
+  '/personas': typeof PersonasLazyRoute
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/settings'
     | '/about'
+    | '/personas'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -429,6 +439,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/settings'
     | '/about'
+    | '/personas'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/tos'
     | '/settings'
     | '/about'
+    | '/personas'
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -510,6 +522,7 @@ export interface RootRouteChildren {
   TosRoute: typeof TosRoute
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
   AboutLazyRoute: typeof AboutLazyRoute
+  PersonasLazyRoute: typeof PersonasLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
@@ -521,6 +534,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/personas': {
+      id: '/personas'
+      path: '/personas'
+      fullPath: '/personas'
+      preLoaderRoute: typeof PersonasLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -872,6 +892,7 @@ const rootRouteChildren: RootRouteChildren = {
   TosRoute: TosRoute,
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
   AboutLazyRoute: AboutLazyRoute,
+  PersonasLazyRoute: PersonasLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   AuthPathnameLazyRoute: AuthPathnameLazyRoute,

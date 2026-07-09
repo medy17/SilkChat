@@ -1,9 +1,14 @@
+import { broodingStrangerPersona } from "./brooding-stranger"
+import { elaraAdventurerPersona } from "./elara-adventurer"
 import { essayColumnistPersona } from "./essay-columnist"
 import { mourinhoPersona } from "./jose-mourinho"
+import { lucianVampirePersona } from "./lucian-vampire"
 import { mondayPersona } from "./monday"
+import { nyxNetrunnerPersona } from "./nyx-netrunner"
 import { pepGuardiolaPersona } from "./pep-guardiola"
 import { schemingBastardPersona } from "./scheming-bastard"
 import { seniorCodeReviewerPersona } from "./senior-code-reviewer"
+import { seraphineFaePersona } from "./seraphine-fae"
 import { socraticTutorPersona } from "./socratic-tutor"
 
 export const MAX_PERSONA_KNOWLEDGE_DOCS = 5
@@ -21,7 +26,12 @@ export const BUILT_IN_PERSONAS = [
     pepGuardiolaPersona,
     schemingBastardPersona,
     seniorCodeReviewerPersona,
-    socraticTutorPersona
+    socraticTutorPersona,
+    seraphineFaePersona,
+    broodingStrangerPersona,
+    nyxNetrunnerPersona,
+    lucianVampirePersona,
+    elaraAdventurerPersona
 ]
 
 export const getBuiltInPersonaById = (id: string) =>
