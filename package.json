@@ -29,7 +29,7 @@
     },
     "keywords": ["better-auth", "tanstack", "vite", "react"],
     "author": "silkchat",
-    "license": "MIT",
+    "license": "AGPL-3.0-only",
     "dependencies": {
         "@ai-sdk/mcp": "^1.0.58",
         "@ai-sdk/openai": "^3.0.80",
