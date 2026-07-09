@@ -2,13 +2,28 @@ import type { SharedModel } from "./types"
 
 export const XAI_MODELS: SharedModel[] = [
     {
+        id: "grok-4.5",
+        name: "Grok 4.5",
+        shortName: "Grok 4.5",
+        shortDescription:
+            "xAI Opus-class model tuned for coding, agentic tasks, and knowledge work",
+        description:
+            "xAI's flagship model built on the 1.5T V9 foundation. Delivers Opus-class reasoning with roughly twice the token efficiency and served at fast-model speeds. Strong multimodal understanding, tool use, and a large context window for complex, long-running conversations.",
+        addedOn: "2026-07-09",
+        releaseOrder: 20260709,
+        adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.5"],
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 500_000,
+        customIcon: "xai"
+    },
+    {
         id: "grok-4.3",
         name: "Grok 4.3",
         shortName: "Grok 4.3",
         shortDescription:
-            "XAI's latest and greatest model for reasoning, vision, and function calling with effort control",
+            "xAI's previous-generation model for reasoning, vision, and function calling with effort control",
         description:
-            "XAI's latest generation model with strong multimodal reasoning, tool use, and a large context window for complex conversations.",
+            "xAI's previous-generation model with strong multimodal reasoning, tool use, and a large context window for complex conversations. Superseded by Grok 4.5.",
         addedOn: "2026-04-30",
         releaseOrder: 20260430,
         adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.3"],

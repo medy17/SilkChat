@@ -4,6 +4,16 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const ZAI_MODELS: SharedModel[] = [
     {
+        id: "glm-5.2",
+        name: "GLM 5.2",
+        shortName: "GLM 5.2",
+        releaseOrder: 20260709,
+        adapters: openRouterTextAdapters("z-ai/glm-5.2"),
+        abilities: ["reasoning", "function_calling", "effort_control"],
+        supportsDisablingReasoning: true,
+        developer: "Z.ai"
+    },
+    {
         id: "glm-5.1",
         name: "GLM 5.1",
         shortName: "GLM 5.1",
