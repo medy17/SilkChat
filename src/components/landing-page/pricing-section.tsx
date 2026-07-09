@@ -10,7 +10,7 @@ export function PricingSection() {
         <section id="pricing" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
                 <SectionHead centered title="Simple pricing for serious model access.">
-                    Start free. Upgrade when you want the managed Pro credit pool.
+                    Start free. Upgrade Anytime.
                 </SectionHead>
 
                 <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">

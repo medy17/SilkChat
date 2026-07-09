@@ -1,4 +1,4 @@
-import { type LucideIcon, MessagesSquare, PenLine, ShieldCheck } from "lucide-react"
+import { BookMarked, type LucideIcon, Repeat2, VenetianMask } from "lucide-react"
 
 // Curated, marketing-facing view of the built-in personas. Intentionally decoupled
 // from `@/lib/personas/builtins` so this public, logged-out page does not bundle the
@@ -162,7 +162,7 @@ export type WalkthroughStep = {
 export const walkthroughSteps: WalkthroughStep[] = [
     { title: "Name it and give it a face" },
     { title: "Describe how it thinks" },
-    { title: "Feed it knowledge and openers" },
+    { title: "Feed it openers and lore compendiums" },
     { title: "Pick a model and save" }
 ]
 
@@ -174,21 +174,21 @@ export type PersonaValueBlock = {
 
 export const personaValueBlocks: PersonaValueBlock[] = [
     {
-        title: "The character never breaks",
+        title: "The mask never slips",
         description:
-            "Each thread snapshots its persona, so the voice never drifts — even if you edit the persona later or switch models.",
-        Icon: ShieldCheck
+            "Every thread pins the persona it started with. Rewrite the character next week and your ongoing story keeps last night's voice — chapter forty reads like chapter one.",
+        Icon: VenetianMask
     },
     {
-        title: "Conversation starters, not a blank box",
+        title: "Recast the actor, keep the character",
         description:
-            "Every persona ships with ready-made openers, so you're one tap from a conversation instead of staring at a cursor.",
-        Icon: MessagesSquare
+            "A persona isn't welded to one model. Run the same character on Claude for slow-burn prose, then switch to a fast model for banter — mid-thread, without resetting the story.",
+        Icon: Repeat2
     },
     {
-        title: "Give them a face",
+        title: "It knows your world",
         description:
-            "Upload an avatar and short name, and your persona shows up with an identity across the picker and every chat.",
-        Icon: PenLine
+            "Attach a lore bible, a case file, a campaign rulebook — up to five docs. The character carries its canon into every new thread instead of making you re-explain your universe.",
+        Icon: BookMarked
     }
 ]

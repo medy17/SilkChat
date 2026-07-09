@@ -8,8 +8,8 @@ export function PersonaValueSection() {
         <section id="persona-why" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
                 <SectionHead centered title="Far More Than a Prompt.">
-                    SilkChat treats personas as first-class. They stay in character, remember their
-                    context, and travel with you across models and threads.
+                    Anyone can paste "act as a vampire" into a system prompt. It works — for about
+                    twenty messages. Personas are built for the long game.
                 </SectionHead>
 
                 <div className="grid gap-4 md:grid-cols-3">
