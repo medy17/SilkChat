@@ -88,6 +88,9 @@ export function PersonaHeroSection() {
                 // The row animates as a single unit: the cards carry a skewX
                 // transform from a class, and GSAP's y tween would overwrite it
                 // with an inline transform if the cards animated individually.
+                // clearProps "all": a leftover identity transform on the row
+                // keeps a compositing layer alive and Chrome stops repainting
+                // the cards' hover scale until a click forces it.
                 .fromTo(
                     ".persona-hero-genres",
                     { y: 60, opacity: 0 },
@@ -96,7 +99,7 @@ export function PersonaHeroSection() {
                         opacity: 1,
                         duration: 1.2,
                         ease: "power3.out",
-                        clearProps: "willChange"
+                        clearProps: "all"
                     },
                     "-=1.4"
                 )
