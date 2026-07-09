@@ -2,7 +2,7 @@
 
 import { Save } from "lucide-react"
 
-import { walkthroughSteps } from "@/components/landing-page/persona-content"
+import { getShowcaseAvatarUrl, walkthroughSteps } from "@/components/landing-page/persona-content"
 import { SectionHead } from "@/components/landing-page/shared"
 
 // Filled instead of bordered: the fields sit inside an already-bordered panel,
@@ -28,7 +28,7 @@ const stepSlices: React.ReactNode[] = [
             <MockField label="Name">Aria, the Archivist</MockField>
         </div>
         <img
-            src="/avatars/aria.webp"
+            src={getShowcaseAvatarUrl("/avatars/aria.webp")}
             alt="Aria's avatar"
             loading="lazy"
             className="size-11 shrink-0 rounded-full object-cover"

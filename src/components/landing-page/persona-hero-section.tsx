@@ -6,7 +6,12 @@ import gsap from "gsap"
 import { ArrowRight, MessagesSquare, ShieldCheck, Sparkles, VenetianMask } from "lucide-react"
 import { useRef } from "react"
 
-import { heroGenreCards, showcasePersonas } from "@/components/landing-page/persona-content"
+import {
+    getHeroGenreImageUrl,
+    getShowcaseAvatarUrl,
+    heroGenreCards,
+    showcasePersonas
+} from "@/components/landing-page/persona-content"
 import { RoleplayWordmark } from "@/components/logo"
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
@@ -231,7 +236,7 @@ export function PersonaHeroSection() {
                     >
                         <div className="-left-12 -right-12 absolute inset-y-0 [transform:skewX(7deg)]">
                             <img
-                                src={card.imagePath}
+                                src={getHeroGenreImageUrl(card.imagePath)}
                                 alt={card.genre}
                                 loading="lazy"
                                 className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -257,7 +262,7 @@ export function PersonaHeroSection() {
                         {showcasePersonas.map((persona) => (
                             <li key={persona.id} className="shrink-0">
                                 <img
-                                    src={persona.avatarPath}
+                                    src={getShowcaseAvatarUrl(persona.avatarPath)}
                                     alt=""
                                     loading="lazy"
                                     className="size-8 shrink-0 rounded-full border-2 object-cover [border-color:var(--landing-bg)]"

@@ -1,5 +1,16 @@
 import { BookMarked, type LucideIcon, Repeat2, VenetianMask } from "lucide-react"
 
+import { getOptimizedStaticImageUrl } from "@/lib/static-image-urls"
+
+// Avatars render tiny (24–44px across the page), so a single small optimized width
+// covers every use. Genre cards are large cover art (~330×450 CSS, retina), fed by
+// heavyweight source PNGs — the real optimization win lives here.
+export const getShowcaseAvatarUrl = (avatarPath: string) =>
+    getOptimizedStaticImageUrl({ src: avatarPath, width: 96 })
+
+export const getHeroGenreImageUrl = (imagePath: string) =>
+    getOptimizedStaticImageUrl({ src: imagePath, width: 768, quality: 70 })
+
 // Curated, marketing-facing view of the built-in personas. Intentionally decoupled
 // from `@/lib/personas/builtins` so this public, logged-out page does not bundle the
 // full instruction/knowledge-doc payloads (tens of KB) into the client. Names and

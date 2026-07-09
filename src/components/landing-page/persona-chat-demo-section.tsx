@@ -5,7 +5,11 @@ import { ArrowRight, ChevronRight } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { personaDemos, showcasePersonas } from "@/components/landing-page/persona-content"
+import {
+    getShowcaseAvatarUrl,
+    personaDemos,
+    showcasePersonas
+} from "@/components/landing-page/persona-content"
 import { SectionHead, useReducedMotion } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
 
@@ -108,7 +112,7 @@ export function PersonaChatDemoSection() {
                                         }`}
                                     >
                                         <img
-                                            src={persona.avatarPath}
+                                            src={getShowcaseAvatarUrl(persona.avatarPath)}
                                             alt=""
                                             loading="lazy"
                                             className="size-6 shrink-0 rounded-full object-cover"
@@ -144,7 +148,7 @@ export function PersonaChatDemoSection() {
                                             }`}
                                         >
                                             <img
-                                                src={persona.avatarPath}
+                                                src={getShowcaseAvatarUrl(persona.avatarPath)}
                                                 alt=""
                                                 loading="lazy"
                                                 className={`size-9 rounded-full object-cover ${
@@ -173,7 +177,7 @@ export function PersonaChatDemoSection() {
                         <div className="flex min-h-[22rem] flex-col md:min-h-[32rem]">
                             <div className="flex items-center gap-3 border-b px-5 py-3 [border-color:var(--landing-border)]">
                                 <img
-                                    src={active.avatarPath}
+                                    src={getShowcaseAvatarUrl(active.avatarPath)}
                                     alt={active.name}
                                     className="size-8 rounded-full object-cover"
                                 />
@@ -206,7 +210,7 @@ export function PersonaChatDemoSection() {
                                     {/* Assistant message */}
                                     <div className="flex items-start gap-2.5">
                                         <img
-                                            src={active.avatarPath}
+                                            src={getShowcaseAvatarUrl(active.avatarPath)}
                                             alt=""
                                             className="mt-0.5 size-7 shrink-0 rounded-full object-cover"
                                         />
