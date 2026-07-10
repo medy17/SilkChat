@@ -9,7 +9,7 @@ const FAL_BILLING_EVENTS_URL = "https://api.fal.ai/v1/models/billing-events"
 const RETRY_DELAYS_MS = [2_000, 10_000, 30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000]
 
 const getFalAdminAuthorization = () => {
-    const key = process.env.FAL_ADMIN_API_KEY?.trim()
+    const key = process.env.FAL_ADMIN_API_KEY?.trim() || process.env.FAL_KEY?.trim()
     if (!key) return null
     return key.startsWith("Key ") ? key : `Key ${key}`
 }
@@ -25,11 +25,11 @@ export const reconcileFalUsageCost = internalAction({
         const attempt = Math.max(0, Math.floor(args.attempt ?? 0))
         const authorization = getFalAdminAuthorization()
         if (!authorization) {
-            console.error("[fal billing] reconciliation disabled: FAL_ADMIN_API_KEY is missing", {
+            console.error("[fal billing] reconciliation disabled: FAL key is missing", {
                 requestId: args.requestId,
                 messageKey: args.messageKey
             })
-            return { reconciled: false, retryScheduled: false, reason: "missing_admin_key" }
+            return { reconciled: false, retryScheduled: false, reason: "missing_key" }
         }
         const url = new URL(FAL_BILLING_EVENTS_URL)
         url.searchParams.set("request_id", args.requestId)
@@ -43,7 +43,7 @@ export const reconcileFalUsageCost = internalAction({
                 }
             })
             if (response.status === 401 || response.status === 403) {
-                console.error("[fal billing] admin API key is not authorized", {
+                console.error("[fal billing] API key is not authorized for billing events", {
                     status: response.status,
                     requestId: args.requestId,
                     messageKey: args.messageKey
