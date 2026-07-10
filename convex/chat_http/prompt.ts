@@ -10,6 +10,7 @@ type BuildPromptOptions = {
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
     personaPrompt?: string
+    includeTemporalContext?: boolean
     imageGenerationTool?: {
         enabled: boolean
         availableImageSelectionLabels: string[]
@@ -17,25 +18,16 @@ type BuildPromptOptions = {
     }
 }
 
-export const buildPrompt = ({
-    enabledTools,
-    toolCallLimitPerTurn,
-    userTimezone,
-    clientTimestampMs,
-    userSettings,
-    personaPrompt,
-    imageGenerationTool
-}: BuildPromptOptions) => {
-    const hasWebSearch = enabledTools.includes("web_search")
-    const hasSupermemory = enabledTools.includes("supermemory")
-    const hasMCP = enabledTools.includes("mcp")
+type TemporalContextOptions = Pick<BuildPromptOptions, "userTimezone" | "clientTimestampMs">
 
+export const buildTemporalContext = ({
+    userTimezone,
+    clientTimestampMs
+}: TemporalContextOptions = {}) => {
     // Fuck Convex's broken clock. If the client passes a timestamp, use
     // that instead to guarantee the right UTC and local time basis.
     const now = clientTimestampMs ? new Date(clientTimestampMs) : new Date()
 
-    // Get current UTC date in DD-MM-YYYY format
-    // Get full UTC date and time
     const utcDateTime = now.toUTCString()
 
     let userTimeInfo = ""
@@ -57,26 +49,48 @@ export const buildPrompt = ({
         }
     }
 
+    return dedent`
+## Current Time
+Current true time (UTC): ${utcDateTime}.${userTimeInfo}`
+}
+
+export const buildPrompt = ({
+    enabledTools,
+    toolCallLimitPerTurn,
+    userTimezone,
+    clientTimestampMs,
+    userSettings,
+    personaPrompt,
+    includeTemporalContext = true,
+    imageGenerationTool
+}: BuildPromptOptions) => {
+    const hasWebSearch = enabledTools.includes("web_search")
+    const hasSupermemory = enabledTools.includes("supermemory")
+    const hasMCP = enabledTools.includes("mcp")
+
     // A persona owns the assistant's identity. Injecting the default "Silky"
     // identity alongside it fights the persona for who the assistant *is*, so we
     // only include it on default (non-persona) chats. The time context is neutral
     // and stays in both cases.
     const isPersonaChat = Boolean(personaPrompt?.trim())
 
-    const layers: string[] = [
-        isPersonaChat
-            ? dedent`
-## Context
-Current true time (UTC): ${utcDateTime}.${userTimeInfo}`
-            : dedent`
+    const layers: string[] = []
+
+    if (!isPersonaChat) {
+        layers.push(dedent`
 ## Identity
 You are "Silky", a helpful assistant in the "SilkChat" app. (DropSilk Inc.)
 Tell the user who you are and who made you IF and only IF asked.
 If either has already been mentioned in the conversation, there's no need to repeat it even if the user prods.
-Current true time (UTC): ${utcDateTime}.${userTimeInfo}
 
-Answer identity questions (if and only if asked) briefly: you are Silky, an AI assistant in SilkChat.`,
+Answer identity questions (if and only if asked) briefly: you are Silky, an AI assistant in SilkChat.`)
+    }
 
+    if (includeTemporalContext) {
+        layers.push(buildTemporalContext({ userTimezone, clientTimestampMs }))
+    }
+
+    layers.push(
         dedent`
 ## Formatting
 Output in markdown format. Do not announce your formatting choices.
@@ -121,7 +135,7 @@ Two formats are supported:
   - Built-in hooks must be imported from \`react\` e.g. \`import { useEffect } from "react"\`
   - The only available external library is \`recharts\`, and only when the user asks for statistical or interactive charts e.g. \`import { LineChart, XAxis, ... } from "recharts"\`
   - For images, use \`https://www.claudeusercontent.com/api/placeholder/{width}/{height}\` as the source. Do not invent image URLs.`
-    ]
+    )
 
     // Add personalization if user customization exists
     if (userSettings?.customization) {

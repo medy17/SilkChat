@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const {
     buildPromptMock,
+    buildTemporalContextMock,
     createUIMessageStreamMock,
     dbMessagesToCoreMock,
     generateThreadNameMock,
@@ -16,6 +17,7 @@ const {
     streamTextMock
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
+    buildTemporalContextMock: vi.fn(),
     createUIMessageStreamMock: vi.fn(),
     dbMessagesToCoreMock: vi.fn(),
     generateThreadNameMock: vi.fn(),
@@ -180,7 +182,8 @@ vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
 }))
 
 vi.mock("../../convex/chat_http/prompt", () => ({
-    buildPrompt: buildPromptMock
+    buildPrompt: buildPromptMock,
+    buildTemporalContext: buildTemporalContextMock
 }))
 
 vi.mock("../../convex/lib/models", () => ({
@@ -282,6 +285,7 @@ const createCtx = () =>
 describe("chatPOST", () => {
     beforeEach(() => {
         buildPromptMock.mockReset().mockReturnValue("system prompt")
+        buildTemporalContextMock.mockReset().mockReturnValue("temporal context")
         createUIMessageStreamMock.mockReset().mockImplementation(
             ({
                 execute,
@@ -1628,7 +1632,8 @@ describe("chatPOST", () => {
                 userSettings: expect.objectContaining({
                     mcpServers: []
                 }),
-                personaPrompt: undefined
+                personaPrompt: undefined,
+                includeTemporalContext: false
             })
         )
         expect(getToolkitMock).toHaveBeenCalledWith(
@@ -1660,6 +1665,10 @@ describe("chatPOST", () => {
                     {
                         role: "user",
                         content: "hello from the user"
+                    },
+                    {
+                        role: "system",
+                        content: "temporal context"
                     }
                 ]
             })
@@ -2486,7 +2495,8 @@ describe("chatPOST", () => {
                             enabled: true
                         },
                         extraBody: expect.objectContaining({
-                            include_reasoning: true
+                            include_reasoning: true,
+                            session_id: "thread-1"
                         })
                     })
                 })

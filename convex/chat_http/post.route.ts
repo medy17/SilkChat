@@ -68,7 +68,7 @@ import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
-import { buildPrompt } from "./prompt"
+import { buildPrompt, buildTemporalContext } from "./prompt"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     extraBody?: Record<string, unknown>
@@ -145,7 +145,8 @@ const buildOpenRouterProviderOptions = (
     reasoningEffort: ReasoningEffort,
     supportsEffortControl = false,
     supportsReasoningToggle = false,
-    supportsReasoning = false
+    supportsReasoning = false,
+    sessionId?: string
 ): OpenRouterProviderOptions => {
     const options: OpenRouterRequestProviderOptions = {}
     const isGoogleModel = modelId.startsWith("gemini-")
@@ -181,6 +182,13 @@ const buildOpenRouterProviderOptions = (
           : {
                 require_parameters: true
             }
+    const applySharedExtraBody = () => {
+        if (!sessionId) return
+        options.extraBody = {
+            ...options.extraBody,
+            session_id: sessionId
+        }
+    }
 
     if (reasoningEffort === "off" && !isAlwaysOnReasoningModel) {
         options.reasoning = {
@@ -195,6 +203,7 @@ const buildOpenRouterProviderOptions = (
                 include: true
             }
         }
+        applySharedExtraBody()
         return options
     }
 
@@ -213,6 +222,7 @@ const buildOpenRouterProviderOptions = (
                 include: true
             }
         }
+        applySharedExtraBody()
         return options
     }
 
@@ -223,6 +233,7 @@ const buildOpenRouterProviderOptions = (
                 include: true
             }
         }
+        applySharedExtraBody()
         return options
     }
 
@@ -237,6 +248,7 @@ const buildOpenRouterProviderOptions = (
             include: true
         }
     }
+    applySharedExtraBody()
 
     return options
 }
@@ -895,10 +907,15 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         enabledTools: resolvedEnabledTools,
                         toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
                         userSettings: settings,
-                        personaPrompt: persistedPersonaSnapshot?.compiledPrompt
+                        personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                        includeTemporalContext: false
                     })
                 },
-                ...prospectiveMappedMessages
+                ...prospectiveMappedMessages,
+                {
+                    role: "system",
+                    content: buildTemporalContext()
+                }
             ]
 
             const prospectiveContextViolation = getContextLimitViolation({
@@ -1560,6 +1577,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             toolCallLimitPerTurn: promptToolCallLimitPerTurn,
                             userSettings: settings,
                             personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                            includeTemporalContext: false,
                             imageGenerationTool: hasInternalImagePreparationTool
                                 ? {
                                       enabled: true,
@@ -1571,7 +1589,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 : undefined
                         })
                     },
-                    ...mapped_messages
+                    ...mapped_messages,
+                    {
+                        role: "system",
+                        content: buildTemporalContext()
+                    }
                 ],
                 providerOptions: usesOpenRouter
                     ? {
@@ -1580,7 +1602,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                               effectiveReasoningEffort,
                               supportsEffortControl,
                               supportsReasoningToggle,
-                              supportsReasoning
+                              supportsReasoning,
+                              String(mutationResult.threadId)
                           )
                       }
                     : undefined
