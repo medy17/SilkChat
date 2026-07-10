@@ -58,16 +58,32 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
     }
 
     if (detail?.kind === "credits_exhausted") {
-        const bucketLabel = detail.bucket === "pro" ? "Pro" : "Basic"
-        const description =
-            detail.bucket === "pro"
-                ? "You've used all your Pro credits for this billing period. They'll reset next period, or you can upgrade your plan for more."
-                : "You've used all your Basic credits for this billing period. They'll reset next period, or you can upgrade your plan for more."
         return {
             icon: CreditCard,
-            title: `Out of ${bucketLabel} credits`,
-            description,
+            title: "Monthly plan limit reached",
+            description:
+                "You've depleted this billing period's allowance for the selected request. It renews next period, or you can upgrade your plan or continue with BYOK.",
             primaryCta: { label: "Manage plan", to: "/settings/billing" }
+        }
+    }
+
+    if (detail?.kind === "usage_limit_exceeded") {
+        const isFiveHour = detail.window === "five_hour"
+        const recovery =
+            isFiveHour && detail.recoversAt
+                ? new Intl.DateTimeFormat(undefined, {
+                      hour: "numeric",
+                      minute: "2-digit"
+                  }).format(new Date(detail.recoversAt))
+                : null
+        return {
+            icon: CreditCard,
+            title: isFiveHour ? "5-hour limit reached" : "Monthly limit reached",
+            description: isFiveHour
+                ? `Your 5-hour window ${recovery ? `resets at ${recovery}` : "resets within a few hours"}. You can wait, pick a cheaper model, or continue with BYOK.`
+                : "You've depleted your usage for this billing period. You can continue with BYOK until it renews.",
+            primaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
+            secondaryCta: { label: "Manage plan", to: "/settings/billing" }
         }
     }
 

@@ -196,6 +196,10 @@ export const manualStreamTransform = (
         if (!costDetails || typeof costDetails !== "object") return undefined
         return costDetails
     }
+    const getRawTotalCost = (raw: unknown) => {
+        if (!raw || typeof raw !== "object" || !("cost" in raw)) return undefined
+        return raw.cost
+    }
 
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK stream chunks are provider-polymorphic here
     return new TransformStream<TextStreamPart<any>, UIMessageChunk>({
@@ -452,7 +456,10 @@ export const manualStreamTransform = (
                     totalTokenUsage.totalTokens +=
                         chunk.usage.totalTokens ||
                         (chunk.usage.inputTokens || 0) + (chunk.usage.outputTokens || 0)
-                    appendCost("estimatedCostUsd", rawCostDetails?.upstream_inference_cost)
+                    appendCost(
+                        "estimatedCostUsd",
+                        getRawTotalCost(chunk.usage.raw) ?? rawCostDetails?.upstream_inference_cost
+                    )
                     appendCost(
                         "estimatedPromptCostUsd",
                         rawCostDetails?.upstream_inference_prompt_cost

@@ -345,7 +345,13 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
     // storage failure is recoverable, not a refund event.
     await ctx.runMutation(internal.credits.commitReservedCreditForMessage, {
         userId: job.userId,
-        messageKey: job.creditEventKey
+        messageKey: job.creditEventKey,
+        providerRequestId: falRequestId
+    })
+    await ctx.scheduler.runAfter(0, internal.fal_billing_node.reconcileFalUsageCost, {
+        userId: job.userId,
+        messageKey: job.creditEventKey,
+        requestId: falRequestId
     })
 
     const generatedImageIds: Id<"generatedImages">[] = []

@@ -93,14 +93,14 @@ describe("usePrototypeCredits", () => {
 
     it("hydrates from the cached summary immediately while keeping fresh plan data off the network", () => {
         localStorage.setItem(
-            "prototype-credit-summary:user-1",
+            "hosted-usage-summary:v2:user-1",
             JSON.stringify({
                 value: cachedSummary,
                 savedAt: Date.now()
             })
         )
         localStorage.setItem(
-            "prototype-credit-plan:user-1",
+            "hosted-usage-plan:v2:user-1",
             JSON.stringify({
                 value: freshPlan,
                 savedAt: Date.now()
@@ -121,7 +121,7 @@ describe("usePrototypeCredits", () => {
 
     it("revalidates stale plan data and recomputes the merged summary with the latest usage", async () => {
         localStorage.setItem(
-            "prototype-credit-plan:user-1",
+            "hosted-usage-plan:v2:user-1",
             JSON.stringify({
                 value: freshPlan,
                 savedAt: Date.now() - 10 * 60 * 1000
@@ -172,13 +172,13 @@ describe("usePrototypeCredits", () => {
         })
 
         expect(
-            JSON.parse(localStorage.getItem("prototype-credit-summary:user-1") || "null").value
+            JSON.parse(localStorage.getItem("hosted-usage-summary:v2:user-1") || "null").value
         ).toEqual(result.current.summary)
     })
 
     it("posts dev plan changes and refreshes the visible summary", async () => {
         localStorage.setItem(
-            "prototype-credit-plan:user-1",
+            "hosted-usage-plan:v2:user-1",
             JSON.stringify({
                 value: freshPlan,
                 savedAt: Date.now()

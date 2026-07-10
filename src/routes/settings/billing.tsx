@@ -128,7 +128,7 @@ function BillingSettingsRoute() {
     return (
         <SettingsLayout
             title="Billing"
-            description="Manage your plan, Pro access, and monthly credits."
+            description="Manage your plan, Pro access, and included usage."
         >
             <div className="space-y-6">
                 <div className="rounded-[var(--radius-xl)] border bg-card p-6 text-card-foreground shadow-sm">

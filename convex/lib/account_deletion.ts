@@ -137,6 +137,8 @@ export type SuppressedCreditSeedInput = {
         freeAnchorAt: number
         freePeriodKey: string
         freeConsumedBasicUnits: number
+        usagePeriodKey?: string
+        consumedUsageMicrousd?: number
         everWasPro: boolean
         proEntitlementEndsAt?: number
         proPeriodKey?: string
@@ -170,7 +172,11 @@ export const buildSuppressedCreditAccountSeed = ({
             ? Math.max(0, suppression.proConsumedProUnits ?? 0)
             : 0
     const carriedBasicUnits = Math.max(freeCarry, proBasicCarry)
-    const hasCarry = carriedBasicUnits > 0 || proCarry > 0
+    const usageCarryMicrousd =
+        suppression.usagePeriodKey === currentFreePeriodKey
+            ? Math.max(0, suppression.consumedUsageMicrousd ?? 0)
+            : 0
+    const hasCarry = carriedBasicUnits > 0 || proCarry > 0 || usageCarryMicrousd > 0
 
     return {
         userId,
@@ -180,6 +186,7 @@ export const buildSuppressedCreditAccountSeed = ({
         carriedForPeriodKey: hasCarry ? currentFreePeriodKey : undefined,
         carriedBasicUnits: hasCarry ? carriedBasicUnits : undefined,
         carriedProUnits: hasCarry ? proCarry : undefined,
+        carriedUsageMicrousd: hasCarry ? usageCarryMicrousd : undefined,
         updatedAt: now
     }
 }

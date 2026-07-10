@@ -29,9 +29,9 @@ export function usePrototypeCredits({
     enableDevCreditState = false
 }: UsePrototypeCreditsOptions) {
     const summaryCacheKey = userId
-        ? `prototype-credit-summary:${userId}`
-        : "prototype-credit-summary:guest"
-    const planCacheKey = userId ? `prototype-credit-plan:${userId}` : "prototype-credit-plan:guest"
+        ? `hosted-usage-summary:v2:${userId}`
+        : "hosted-usage-summary:v2:guest"
+    const planCacheKey = userId ? `hosted-usage-plan:v2:${userId}` : "hosted-usage-plan:v2:guest"
 
     const cachedSummary = useMemo(
         () => readCachedPrototypeCreditValue<PrototypeCreditSummary>(summaryCacheKey),
@@ -57,7 +57,7 @@ export function usePrototypeCredits({
     const usageSummary = useDiskCachedQuery(
         api.credits.getMyCreditUsageSummary,
         {
-            key: userId ? `prototype-credit-usage:${userId}` : "prototype-credit-usage:guest",
+            key: userId ? `hosted-usage:v2:${userId}` : "hosted-usage:v2:guest",
             default: null
         },
         userId && !isAuthLoading ? {} : "skip"

@@ -4,7 +4,7 @@ import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
 import { fal } from "@fal-ai/client"
 import type { GenericActionCtx } from "convex/server"
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 import { internal } from "./_generated/api"
 import type { DataModel, Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
@@ -25,6 +25,57 @@ import {
     getFalEndpointForRequest,
     normalizeFalImageErrorMessage
 } from "./lib/models/fal"
+import {
+    getConfiguredFalReservationMicrousd,
+    resolveFalEstimateMicrousd
+} from "./lib/usage_metering"
+
+const FAL_PRICING_ESTIMATE_URL = "https://api.fal.ai/v1/models/pricing/estimate"
+const FAL_PRICING_CACHE_MS = 10 * 60 * 1000
+const falPricingCache = new Map<string, { microusd: number; expiresAt: number }>()
+
+const estimateFalReservationMicrousd = async (endpoint: string, fallbackMicrousd: number) => {
+    const cached = falPricingCache.get(endpoint)
+    if (cached && cached.expiresAt > Date.now()) return cached.microusd
+
+    const key = process.env.FAL_KEY?.trim()
+    if (!key) return fallbackMicrousd
+
+    try {
+        const response = await fetch(FAL_PRICING_ESTIMATE_URL, {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                Authorization: key.startsWith("Key ") ? key : `Key ${key}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                estimate_type: "historical_api_price",
+                endpoints: {
+                    [endpoint]: { call_quantity: 1 }
+                }
+            })
+        })
+        if (!response.ok) {
+            throw new Error(`Fal pricing estimate failed: ${response.status}`)
+        }
+        const estimatedMicrousd = resolveFalEstimateMicrousd(await response.json())
+        if (estimatedMicrousd !== undefined) {
+            falPricingCache.set(endpoint, {
+                microusd: estimatedMicrousd,
+                expiresAt: Date.now() + FAL_PRICING_CACHE_MS
+            })
+            return estimatedMicrousd
+        }
+    } catch (error) {
+        console.error("Failed to estimate Fal request cost; using configured fallback", {
+            endpoint,
+            error
+        })
+    }
+
+    return fallbackMicrousd
+}
 
 const DEV_FAKE_PALETTES = [
     {
@@ -225,7 +276,7 @@ const enforceImageGenerationPlan = ({
     })
 
     if (requiredPlan === "pro" && userCreditPlan !== "pro") {
-        throw new Error("Pro plan required for image generation.")
+        throw new ConvexError("Pro plan required for image generation.")
     }
 }
 
@@ -262,19 +313,19 @@ const toReferenceSources = (keys: string[] = []): ImageReferenceSource[] =>
 
 const getImageCreditLimitMessage = (reservation: {
     reason?: string
-    remaining?: number
-    bucket?: "basic" | "pro" | "none"
+    window?: "five_hour" | "monthly"
 }) => {
     if (reservation.reason === "plan") {
         return "Pro plan required for image generation."
     }
 
-    if (typeof reservation.remaining === "number" && reservation.remaining >= 0) {
-        const creditLabel = reservation.bucket === "basic" ? "basic credit" : "pro credit"
-        return `You only have ${reservation.remaining} ${creditLabel}${reservation.remaining === 1 ? "" : "s"} remaining for image generation.`
+    if (reservation.reason === "usage") {
+        return reservation.window === "five_hour"
+            ? "You've hit your 5-hour limit. It resets as recent usage rolls off."
+            : "You've hit your monthly limit. It renews next billing period."
     }
 
-    return "Monthly plan limit reached for image generation."
+    return "Usage limit reached for image generation."
 }
 
 const submitImageGenerationJob = async (
@@ -292,7 +343,8 @@ const submitImageGenerationJob = async (
         sourceMessageId,
         sourceToolCallId,
         sourceCardId,
-        creditEventKey
+        creditEventKey,
+        reservedMicrousd: providedReservedMicrousd
     }: {
         userId: string
         prompt: string
@@ -307,6 +359,7 @@ const submitImageGenerationJob = async (
         sourceToolCallId?: string
         sourceCardId?: string
         creditEventKey?: string
+        reservedMicrousd?: number
     }
 ) => {
     const referenceSources = references ?? []
@@ -320,6 +373,14 @@ const submitImageGenerationJob = async (
 
     const imageCreditEventKey =
         creditEventKey ?? createImageCreditEventKey(source === "chat" ? "chat" : "standalone")
+    const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceSources.length)
+    const fallbackMicrousd = getConfiguredFalReservationMicrousd({
+        modelId,
+        resolution: validated.resolution
+    })
+    const reservedMicrousd =
+        providedReservedMicrousd ??
+        (await estimateFalReservationMicrousd(falEndpoint, fallbackMicrousd))
     const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId,
         messageId: imageCreditEventKey,
@@ -330,15 +391,13 @@ const submitImageGenerationJob = async (
         bucket: validated.creditEstimate.bucket,
         units: validated.creditEstimate.units,
         counted: validated.creditEstimate.counted,
+        reservedMicrousd,
+        pricingSource: "fal_manual",
         requiredPlan: validated.creditEstimate.requiredPlan
     })
 
     if (!creditReservation.allowed) {
-        if (creditReservation.reason === "plan") {
-            throw new Error("Pro plan required for image generation.")
-        }
-
-        throw new Error("Monthly plan limit reached for image generation.")
+        throw new ConvexError(getImageCreditLimitMessage(creditReservation))
     }
 
     let jobId: Id<"imageGenerationJobs"> | null = null
@@ -350,7 +409,6 @@ const submitImageGenerationJob = async (
             userId,
             referenceSources
         )
-        const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceImages.length)
         const input = buildFalImageInput(validated.descriptor, {
             prompt,
             imageSize: validated.aspectRatio,
@@ -423,7 +481,7 @@ const submitImageGenerationJob = async (
                 error: message
             })
         }
-        throw new Error(message)
+        throw new ConvexError(message)
     }
 }
 
@@ -555,12 +613,18 @@ export const confirmPreparedChatImageGeneration = action({
         } catch (error) {
             const message = normalizeFalImageErrorMessage(error)
             await failCard("failed", message)
-            throw new Error(message)
+            throw new ConvexError(message)
         }
 
         const creditEventKeys = Array.from({ length: validated.variants }, () =>
             createImageCreditEventKey("chat")
         )
+        const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceSources.length)
+        const fallbackMicrousd = getConfiguredFalReservationMicrousd({
+            modelId: result.modelId,
+            resolution: validated.resolution
+        })
+        const reservedMicrousd = await estimateFalReservationMicrousd(falEndpoint, fallbackMicrousd)
 
         for (let index = 0; index < creditEventKeys.length; index++) {
             const creditEventKey = creditEventKeys[index]
@@ -576,6 +640,8 @@ export const confirmPreparedChatImageGeneration = action({
                     bucket: validated.creditEstimate.bucket,
                     units: validated.creditEstimate.units,
                     counted: validated.creditEstimate.counted,
+                    reservedMicrousd,
+                    pricingSource: "fal_manual",
                     requiredPlan: validated.creditEstimate.requiredPlan
                 }
             )
@@ -591,7 +657,7 @@ export const confirmPreparedChatImageGeneration = action({
                 )
                 const message = getImageCreditLimitMessage(creditReservation)
                 await failCard("failed", message)
-                throw new Error(message)
+                throw new ConvexError(message)
             }
         }
 
@@ -611,7 +677,8 @@ export const confirmPreparedChatImageGeneration = action({
                     sourceMessageId: args.assistantMessageId,
                     sourceToolCallId: args.toolCallId,
                     sourceCardId: args.cardId,
-                    creditEventKey: creditEventKeys[index]
+                    creditEventKey: creditEventKeys[index],
+                    reservedMicrousd
                 })
                 jobIds.push(jobId)
             }
@@ -626,7 +693,7 @@ export const confirmPreparedChatImageGeneration = action({
                 )
             )
             await failCard(jobIds.length > 0 ? "partial" : "failed", message, jobIds)
-            throw new Error(message)
+            throw new ConvexError(message)
         }
 
         await ctx.runMutation(internal.messages.patchPreparedImageGenerationToolResult, {

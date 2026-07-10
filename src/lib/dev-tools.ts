@@ -66,7 +66,9 @@ export const getDevStorageKeysForScope = (storage: Storage, scope: DevStorageSco
         case "theme":
             return keys.filter((key) => THEME_STORAGE_KEYS.includes(key))
         case "credits":
-            return keys.filter((key) => key.startsWith("prototype-credit-"))
+            return keys.filter(
+                (key) => key.startsWith("prototype-credit-") || key.startsWith("hosted-usage")
+            )
         case "library":
             return keys.filter(
                 (key) =>

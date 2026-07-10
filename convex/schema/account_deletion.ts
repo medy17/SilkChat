@@ -7,6 +7,8 @@ export const IdentitySuppression = v.object({
     freePeriodKey: v.string(),
     freePeriodEndsAt: v.number(),
     freeConsumedBasicUnits: v.number(),
+    usagePeriodKey: v.optional(v.string()),
+    consumedUsageMicrousd: v.optional(v.number()),
     everWasPro: v.boolean(),
     proEntitlementEndsAt: v.optional(v.number()),
     proPeriodKey: v.optional(v.string()),

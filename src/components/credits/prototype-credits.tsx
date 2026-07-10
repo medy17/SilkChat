@@ -8,14 +8,28 @@ import {
 } from "@/components/ui/responsive-popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
     PrototypeCreditDevState,
     PrototypeCreditDevStatePayload,
     PrototypeCreditSummary
 } from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
-import { Crown, KeyRound, RefreshCw, Shield, Wallet } from "lucide-react"
-import { memo, useMemo, useState } from "react"
+import { Clock, Crown, KeyRound, RefreshCw, Shield, Wallet } from "lucide-react"
+import { memo, useEffect, useMemo, useState } from "react"
+
+const formatUsageCountdown = (target: number | null, now: number) => {
+    if (!target) return "Ready"
+    const remainingMinutes = Math.max(0, Math.ceil((target - now) / (60 * 1000)))
+    if (remainingMinutes <= 0) return "Now"
+
+    const days = Math.floor(remainingMinutes / (24 * 60))
+    const hours = Math.floor((remainingMinutes % (24 * 60)) / 60)
+    const minutes = remainingMinutes % 60
+    if (days > 0) return `${days}d ${hours}h`
+    if (hours > 0) return `${hours}h ${minutes}m`
+    return `${minutes}m`
+}
 
 function PrototypeCreditPlanToggle({
     plan,
@@ -89,7 +103,7 @@ function PrototypeCreditsLoadingState({ className }: { className?: string }) {
 function PrototypeCreditsEmptyState() {
     return (
         <div className="rounded-[var(--radius-lg)] border border-dashed p-4 text-muted-foreground text-sm">
-            Credits will appear here once your account data is available.
+            Usage will appear here once your account data is available.
         </div>
     )
 }
@@ -129,6 +143,21 @@ function PrototypeCreditsBody({
         }).format(new Date(summary.periodEndsAt))
     }, [summary])
     const [isRefreshAnimating, setIsRefreshAnimating] = useState(false)
+    const [clockNow, setClockNow] = useState(() => Date.now())
+
+    useEffect(() => {
+        const interval = window.setInterval(() => setClockNow(Date.now()), 30 * 1000)
+        return () => window.clearInterval(interval)
+    }, [])
+
+    const fiveHourRecoversAt = summary?.usageMetering?.fiveHour.recoversAt ?? null
+    useEffect(() => {
+        if (!fiveHourRecoversAt) return
+        const delay = fiveHourRecoversAt - Date.now()
+        if (delay <= 0) return
+        const timeout = window.setTimeout(() => void onRefresh(), delay + 1000)
+        return () => window.clearTimeout(timeout)
+    }, [fiveHourRecoversAt, onRefresh])
 
     if (!summary) {
         return <PrototypeCreditsEmptyState />
@@ -140,6 +169,7 @@ function PrototypeCreditsBody({
     const PlanIcon = summary.plan === "pro" ? Crown : Wallet
     const shouldAnimateRefresh = isRefreshing || isRefreshAnimating
     const shouldShowProUpsell = summary.plan === "free"
+    const usageMetering = summary.usageMetering
 
     const handleRefresh = async () => {
         if (shouldAnimateRefresh) {
@@ -175,7 +205,7 @@ function PrototypeCreditsBody({
                     className="size-8 rounded-[var(--radius-md)]"
                     onClick={() => void handleRefresh()}
                     disabled={shouldAnimateRefresh}
-                    title="Refresh credits"
+                    title="Refresh usage"
                 >
                     <RefreshCw
                         className={cn(
@@ -183,64 +213,112 @@ function PrototypeCreditsBody({
                             shouldAnimateRefresh && "animate-spin [animation-duration:800ms]"
                         )}
                     />
-                    <span className="sr-only">Refresh credits</span>
+                    <span className="sr-only">Refresh usage</span>
                 </Button>
             </div>
 
-            <div className="space-y-2.5 md:space-y-3">
-                <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Basic</span>
-                        <span>
-                            {summary.basic.used}/{summary.basic.limit}
-                        </span>
-                    </div>
-                    <Progress value={basicProgress} className="h-2" />
-                    <div className="text-[11px] text-muted-foreground sm:text-xs">
-                        {summary.basic.remaining} remaining
-                    </div>
-                </div>
-                {shouldShowProUpsell ? (
-                    <div className="rounded-[var(--radius-lg)] border bg-muted/30 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 space-y-0.5">
-                                <div className="flex items-center gap-1.5 font-medium text-xs">
-                                    <Crown className="size-3.5 shrink-0" />
-                                    <span>Pro credits</span>
+            {usageMetering ? (
+                <div className="space-y-2.5 md:space-y-3">
+                    {(
+                        [
+                            ["5h limit", usageMetering.fiveHour, usageMetering.fiveHour.recoversAt],
+                            ["Monthly", usageMetering.monthly, summary.periodEndsAt]
+                        ] as const
+                    ).map(([label, window, resetsAt]) => {
+                        const remainingPercent =
+                            window.limitUsd > 0 ? (window.remainingUsd / window.limitUsd) * 100 : 0
+                        return (
+                            <div key={label} className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">{label}</span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                                aria-label={`${Math.max(0, Math.min(100, Math.round(remainingPercent)))}% remaining`}
+                                            >
+                                                <Clock className="size-3" />
+                                                <span>
+                                                    {formatUsageCountdown(resetsAt, clockNow)}
+                                                </span>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {Math.max(
+                                                0,
+                                                Math.min(100, Math.round(remainingPercent))
+                                            )}
+                                            % remaining
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
-                                <p className="text-muted-foreground text-xs">
-                                    Upgrade for image generation and premium models.
-                                </p>
+                                <Progress value={remainingPercent} className="h-2" />
+                                {/* <div className="text-[11px] text-muted-foreground sm:text-xs">
+                                    {window.remainingUsd > 0
+                                        ? "Included usage available"
+                                        : "Limit reached"}
+                                </div> */}
                             </div>
-                            <Button
-                                size="sm"
-                                className="h-8 shrink-0 rounded-[var(--radius-md)]"
-                                asChild={Boolean(upgradeUrl)}
-                                disabled={!upgradeUrl}
-                            >
-                                {upgradeUrl ? (
-                                    <a href={upgradeUrl}>Upgrade</a>
-                                ) : (
-                                    <span>Upgrade</span>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                ) : (
+                        )
+                    })}
+                </div>
+            ) : (
+                <div className="space-y-2.5 md:space-y-3">
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Pro</span>
+                            <span className="text-muted-foreground">Basic</span>
                             <span>
-                                {summary.pro.used}/{summary.pro.limit}
+                                {summary.basic.used}/{summary.basic.limit}
                             </span>
                         </div>
-                        <Progress value={proProgress} className="h-2" />
+                        <Progress value={basicProgress} className="h-2" />
                         <div className="text-[11px] text-muted-foreground sm:text-xs">
-                            {summary.pro.remaining} remaining
+                            {summary.basic.remaining} remaining
                         </div>
                     </div>
-                )}
-            </div>
+                    {shouldShowProUpsell ? (
+                        <div className="rounded-[var(--radius-lg)] border bg-muted/30 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0 space-y-0.5">
+                                    <div className="flex items-center gap-1.5 font-medium text-xs">
+                                        <Crown className="size-3.5 shrink-0" />
+                                        <span>Pro access</span>
+                                    </div>
+                                    <p className="text-muted-foreground text-xs">
+                                        Upgrade for image generation and premium models.
+                                    </p>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    className="h-8 shrink-0 rounded-[var(--radius-md)]"
+                                    asChild={Boolean(upgradeUrl)}
+                                    disabled={!upgradeUrl}
+                                >
+                                    {upgradeUrl ? (
+                                        <a href={upgradeUrl}>Upgrade</a>
+                                    ) : (
+                                        <span>Upgrade</span>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Pro</span>
+                                <span>
+                                    {summary.pro.used}/{summary.pro.limit}
+                                </span>
+                            </div>
+                            <Progress value={proProgress} className="h-2" />
+                            <div className="text-[11px] text-muted-foreground sm:text-xs">
+                                {summary.pro.remaining} remaining
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground sm:text-xs">
                 <span>{summary.requestCounts.internal} internal</span>
@@ -427,16 +505,16 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                     variant="ghost"
                     size="icon"
                     className="size-8 rounded-[var(--radius-md)]"
-                    title="Credits"
+                    title="Usage"
                 >
                     <Wallet className="h-4 w-4" />
-                    <span className="sr-only">Credits</span>
+                    <span className="sr-only">Usage</span>
                 </Button>
             </ResponsivePopoverTrigger>
             <ResponsivePopoverContent
                 side="bottom"
                 align="end"
-                title="Credits"
+                title="Usage"
                 className="w-full max-w-none overflow-hidden p-0 md:w-[22rem] md:p-4"
             >
                 {isLoading ? (
@@ -488,8 +566,8 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>Credits</CardTitle>
-                <CardDescription>Track plan limits and request usage.</CardDescription>
+                <CardTitle>Included usage</CardTitle>
+                <CardDescription>Track your five-hour and monthly included usage.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoading ? (

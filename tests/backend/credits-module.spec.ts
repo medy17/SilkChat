@@ -33,6 +33,7 @@ import {
     consumeReservedToolCall,
     getMyCreditSummary,
     getMyDevCreditState,
+    reconcileSettledUsageCost,
     recordCreditEventForMessage,
     releaseReservedCreditForMessage,
     reserveCreditForMessage,
@@ -62,6 +63,9 @@ const commitReservedCreditForMessageHandler = commitReservedCreditForMessage as 
     handler: (ctx: any, args: any) => Promise<any>
 }
 const releaseReservedCreditForMessageHandler = releaseReservedCreditForMessage as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const reconcileSettledUsageCostHandler = reconcileSettledUsageCost as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const reserveToolCallBudgetHandler = reserveToolCallBudget as unknown as {
@@ -144,6 +148,10 @@ describe("credits module", () => {
         Reflect.deleteProperty(process.env, "MONTHLY_CREDITS_FREE")
         Reflect.deleteProperty(process.env, "MONTHLY_CREDITS_PRO")
         Reflect.deleteProperty(process.env, "MONTHLY_PRO_CREDITS")
+        Reflect.deleteProperty(process.env, "HOSTED_USAGE_5H_USD_FREE")
+        Reflect.deleteProperty(process.env, "HOSTED_USAGE_MONTHLY_USD_FREE")
+        Reflect.deleteProperty(process.env, "HOSTED_USAGE_5H_USD_PRO")
+        Reflect.deleteProperty(process.env, "HOSTED_USAGE_MONTHLY_USD_PRO")
         // Dev credit lab controls are gated behind an explicit opt-in env var, which is
         // set only on non-production deployments (NODE_ENV is always "production" inside
         // Convex, so it can't gate this).
@@ -769,6 +777,115 @@ describe("credits module", () => {
         )
     })
 
+    it("enforces the rolling hosted-usage cap and settles the reported cost", async () => {
+        process.env.HOSTED_USAGE_5H_USD_PRO = "1"
+        process.env.HOSTED_USAGE_MONTHLY_USD_PRO = "18"
+        const ctx = createCtx({
+            account: {
+                userId: "user-1",
+                enabled: true,
+                plan: "pro"
+            },
+            events: [
+                {
+                    accountingKind: "usage",
+                    settledMicrousd: 900_000,
+                    createdAt: Date.now() - 60_000
+                }
+            ]
+        })
+
+        const blocked = await reserveCreditForMessageHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-usage",
+            messageKey: "assistant-usage:model",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "chat",
+            bucket: "pro",
+            units: 1,
+            counted: true,
+            reservedMicrousd: 200_000,
+            pricingSource: "openrouter_estimate",
+            requiredPlan: "pro"
+        })
+
+        expect(blocked).toMatchObject({
+            allowed: false,
+            reason: "usage",
+            window: "five_hour",
+            limitUsd: 1,
+            remainingUsd: 0.1
+        })
+
+        const commitCtx = createCtx({
+            creditReservations: [
+                {
+                    _id: "usage-reservation",
+                    userId: "user-1",
+                    messageId: "assistant-usage",
+                    messageKey: "assistant-usage:model",
+                    modelId: "shared-text",
+                    providerSource: "internal",
+                    feature: "chat",
+                    bucket: "pro",
+                    units: 1,
+                    counted: true,
+                    accountingKind: "usage",
+                    reservedMicrousd: 200_000,
+                    pricingSource: "openrouter_estimate",
+                    periodKey: "2026-07",
+                    active: true
+                }
+            ]
+        })
+
+        await commitReservedCreditForMessageHandler.handler(commitCtx, {
+            userId: "user-1",
+            messageKey: "assistant-usage:model",
+            settledMicrousd: 125_000,
+            pricingSource: "openrouter_reported"
+        })
+
+        expect(commitCtx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditEvents",
+            expect.objectContaining({
+                accountingKind: "usage",
+                reservedMicrousd: 200_000,
+                settledMicrousd: 125_000,
+                pricingSource: "openrouter_reported"
+            })
+        )
+    })
+
+    it("reconciles a settled fal reservation with the billing event cost", async () => {
+        const ctx = createCtx({
+            existingEvent: {
+                _id: "usage-event",
+                accountingKind: "usage",
+                settledMicrousd: 250_000
+            }
+        })
+
+        const result = await reconcileSettledUsageCostHandler.handler(ctx, {
+            userId: "user-1",
+            messageKey: "image-1",
+            providerRequestId: "fal-request-1",
+            settledMicrousd: 87_500,
+            pricingSource: "fal_reported"
+        })
+
+        expect(result).toEqual({ reconciled: true, settledMicrousd: 87_500 })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "usage-event",
+            expect.objectContaining({
+                settledMicrousd: 87_500,
+                providerRequestId: "fal-request-1",
+                pricingSource: "fal_reported"
+            })
+        )
+    })
+
     it("releases a reserved model charge without committing a credit event", async () => {
         const ctx = createCtx({
             creditReservations: [
@@ -809,14 +926,13 @@ describe("credits module", () => {
             messageId: "assistant-1",
             messageKey: "assistant-1:tool-budget",
             reservedCalls: 5,
-            reservedBasicCredits: 5
+            reservedMicrousd: 20_000
         })
 
         expect(result).toMatchObject({
             allowed: true,
             bypassed: true,
-            reservedCalls: 5,
-            reservedBasicCredits: 0
+            reservedCalls: 5
         })
         expect(ctx.db.insert).not.toHaveBeenCalledWith(
             "prototypeToolCallReservations",
@@ -884,14 +1000,13 @@ describe("credits module", () => {
             messageId: "assistant-new",
             messageKey: "assistant-new:tool-budget",
             reservedCalls: 3,
-            reservedBasicCredits: 0
+            reservedMicrousd: 0
         })
 
         expect(result).toMatchObject({
             allowed: true,
             existing: false,
-            reservedCalls: 3,
-            reservedBasicCredits: 0
+            reservedCalls: 3
         })
         expect(ctx.db.insert).toHaveBeenCalledWith(
             "prototypeToolCallReservations",
@@ -900,6 +1015,103 @@ describe("credits module", () => {
                 messageKey: "assistant-new:tool-budget",
                 reservedCalls: 3,
                 active: true
+            })
+        )
+    })
+
+    it("blocks the tool-call budget when the metered reserve exceeds the rolling window", async () => {
+        process.env.HOSTED_USAGE_5H_USD_FREE = "0.1"
+        const ctx = createCtx({
+            account: {
+                userId: "user-1",
+                enabled: true,
+                plan: "free"
+            },
+            events: [
+                {
+                    accountingKind: "usage",
+                    settledMicrousd: 95_000,
+                    counted: true,
+                    createdAt: Date.now() - 60_000
+                }
+            ]
+        })
+
+        const result = await reserveToolCallBudgetHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool-budget",
+            reservedCalls: 3,
+            reservedMicrousd: 12_000
+        })
+
+        expect(result).toMatchObject({
+            allowed: false,
+            reason: "usage",
+            window: "five_hour",
+            limitUsd: 0.1,
+            remainingUsd: 0.005
+        })
+        expect(ctx.db.insert).not.toHaveBeenCalledWith(
+            "prototypeToolCallReservations",
+            expect.anything()
+        )
+    })
+
+    it("settles a consumed tool call at the flat metered rate", async () => {
+        const ctx = createCtx({
+            reservations: [
+                {
+                    _id: "tool-reservation-1",
+                    userId: "user-1",
+                    messageId: "assistant-1",
+                    messageKey: "assistant-1:tool-budget",
+                    reservedCalls: 3,
+                    consumedCalls: 0,
+                    reservedBasicCredits: 0,
+                    consumedBasicCredits: 0,
+                    reservedMicrousd: 12_000,
+                    consumedMicrousd: 0,
+                    periodKey: "2026-07",
+                    active: true
+                }
+            ]
+        })
+
+        const result = await consumeReservedToolCallHandler.handler(ctx, {
+            userId: "user-1",
+            reservationMessageKey: "assistant-1:tool-budget",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool:call-1",
+            toolCallId: "call-1",
+            toolName: "web_search",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "tool",
+            bucket: "basic",
+            units: 1,
+            counted: true,
+            chargedMicrousd: 4_000
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            remainingCalls: 2
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "tool-reservation-1",
+            expect.objectContaining({
+                consumedCalls: 1,
+                consumedMicrousd: 4_000
+            })
+        )
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditEvents",
+            expect.objectContaining({
+                accountingKind: "usage",
+                reservedMicrousd: 4_000,
+                settledMicrousd: 4_000,
+                pricingSource: "tool_flat"
             })
         )
     })

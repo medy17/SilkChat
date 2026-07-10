@@ -62,6 +62,11 @@ import {
     PREPARE_IMAGE_GENERATION_TOOL_NAME,
     getPrepareImageGenerationTool
 } from "../lib/tools/image_generation"
+import {
+    estimateOpenRouterReservationMicrousd,
+    getConfiguredToolUsageMicrousd,
+    usdToMicrousd
+} from "../lib/usage_metering"
 import { getBuiltInPersonaDefinition } from "../personas"
 import type { HTTPAIMessage, Message } from "../schema/message"
 import type { ErrorUIPart } from "../schema/parts"
@@ -784,6 +789,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         process.env.DEV_CREDIT_LAB_ENABLED === "1" ? body.devContextOverride : undefined
     const contextLimits = resolveContextLimits(selectedRegistryModel, devContextOverride)
     const immediateEstimatedTokens = estimateHttpMessageTokens(body.message)
+    let estimatedPromptTokens = immediateEstimatedTokens
     const immediateContextViolation = getContextLimitViolation({
         estimatedTokens: immediateEstimatedTokens,
         limits: contextLimits,
@@ -852,11 +858,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
         hasEnabledTools: hasPaidCallableTools
     })
-    const reservedToolBasicCredits =
+    const reservedToolMicrousd =
         hasPaidCallableTools &&
         resolvedEnabledTools.includes("web_search") &&
         toolAvailability.web_search.fundingSource === "deployment"
-            ? effectiveToolCallLimitPerTurn
+            ? effectiveToolCallLimitPerTurn * getConfiguredToolUsageMicrousd("web_search")
             : 0
     const resolveGeneratedImageContext = (storageKey: string) =>
         ctx.runAction(
@@ -918,8 +924,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
             ]
 
+            estimatedPromptTokens = estimateModelMessagesTokens(promptMessages)
             const prospectiveContextViolation = getContextLimitViolation({
-                estimatedTokens: estimateModelMessagesTokens(promptMessages),
+                estimatedTokens: estimatedPromptTokens,
                 limits: contextLimits,
                 providerSource: modelData.providerSource,
                 modelId: body.model
@@ -1081,6 +1088,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
         )
     }
 
+    const getUsageReservationMicrousd = () =>
+        modelData.providerSource === "internal"
+            ? estimateOpenRouterReservationMicrousd({
+                  estimatedInputTokens: estimatedPromptTokens,
+                  maxOutputTokens: maxTokens,
+                  inputUsdPer1MTokens: selectedRegistryModel?.inputUsdPer1MTokens,
+                  outputUsdPer1MTokens: selectedRegistryModel?.outputUsdPer1MTokens
+              })
+            : undefined
+
     let creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId: user.id,
         threadId: body.id as Id<"threads"> | undefined,
@@ -1092,6 +1109,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
         bucket: modelCreditCharge.bucket,
         units: modelCreditCharge.units,
         counted: modelCreditCharge.counted,
+        ...(getUsageReservationMicrousd() !== undefined
+            ? {
+                  reservedMicrousd: getUsageReservationMicrousd(),
+                  pricingSource: "openrouter_estimate" as const
+              }
+            : {}),
         requiredPlan: requiredPlanForModel
     })
 
@@ -1150,6 +1173,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             bucket: modelCreditCharge.bucket,
                             units: modelCreditCharge.units,
                             counted: modelCreditCharge.counted,
+                            ...(getUsageReservationMicrousd() !== undefined
+                                ? {
+                                      reservedMicrousd: getUsageReservationMicrousd(),
+                                      pricingSource: "openrouter_estimate" as const
+                                  }
+                                : {}),
                             requiredPlan: requiredPlanForModel
                         }
                     )
@@ -1158,6 +1187,20 @@ export const chatPOST = httpAction(async (ctx, req) => {
         }
 
         if (!creditReservation.allowed) {
+            if (creditReservation.reason === "usage") {
+                return new ChatError(
+                    "rate_limit:chat",
+                    "Included usage limit reached for the selected request.",
+                    {
+                        kind: "usage_limit_exceeded",
+                        window: creditReservation.window,
+                        usedUsd: creditReservation.usedUsd,
+                        limitUsd: creditReservation.limitUsd,
+                        remainingUsd: creditReservation.remainingUsd,
+                        recoversAt: creditReservation.recoversAt ?? undefined
+                    }
+                ).toResponse()
+            }
             return new ChatError(
                 "rate_limit:chat",
                 "Monthly plan limit reached for the selected request.",
@@ -1177,7 +1220,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
         bypassed?: boolean
         existing?: boolean
         reservedCalls?: number
-        reservedBasicCredits?: number
+        reason?: "usage"
+        window?: "five_hour" | "monthly"
+        usedUsd?: number
+        limitUsd?: number
+        remainingUsd?: number
+        recoversAt?: number | null
     } | null = null
     if (hasPaidCallableTools && effectiveToolCallLimitPerTurn > 0) {
         try {
@@ -1187,7 +1235,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 messageId: assistantRequestMessageId,
                 messageKey: toolBudgetMessageKey,
                 reservedCalls: effectiveToolCallLimitPerTurn,
-                reservedBasicCredits: reservedToolBasicCredits
+                reservedMicrousd: reservedToolMicrousd
             })
         } catch (error) {
             console.error("[cvx][chat] Failed to reserve tool budget", error)
@@ -1213,10 +1261,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
         })
         return new ChatError(
             "rate_limit:chat",
-            "Monthly plan limit reached for the selected request.",
+            "Included usage limit reached for the selected request.",
             {
-                kind: "credits_exhausted",
-                bucket: "basic"
+                kind: "usage_limit_exceeded",
+                window: toolBudgetReservation.window ?? "five_hour",
+                usedUsd: toolBudgetReservation.usedUsd,
+                limitUsd: toolBudgetReservation.limitUsd,
+                remainingUsd: toolBudgetReservation.remainingUsd,
+                recoversAt: toolBudgetReservation.recoversAt ?? undefined
             }
         ).toResponse()
     }
@@ -1346,12 +1398,18 @@ export const chatPOST = httpAction(async (ctx, req) => {
             userId: user.id,
             messageKey: modelCreditMessageKey,
             threadId: mutationResult.threadId,
-            messageId: mutationResult.assistantMessageId
+            messageId: mutationResult.assistantMessageId,
+            ...(totalTokenUsage.estimatedCostUsd !== undefined
+                ? {
+                      settledMicrousd: usdToMicrousd(totalTokenUsage.estimatedCostUsd),
+                      pricingSource: "openrouter_reported" as const
+                  }
+                : {})
         })
         modelCreditCommitted = modelCreditCommitted || result.committed
     }
     const settleModelCreditReservation = async () => {
-        if (shouldChargeModelReservation) {
+        if (shouldChargeModelReservation || totalTokenUsage.estimatedCostUsd !== undefined) {
             try {
                 await commitModelCreditReservation()
                 return
@@ -1533,7 +1591,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                               feature: toolCreditCharge.feature,
                               bucket: toolCreditCharge.bucket,
                               units: toolCreditCharge.units,
-                              counted: toolCreditCharge.counted
+                              counted: toolCreditCharge.counted,
+                              ...(toolCreditCharge.counted
+                                  ? { chargedMicrousd: getConfiguredToolUsageMicrousd(toolName) }
+                                  : {})
                           })
                       }
                   })

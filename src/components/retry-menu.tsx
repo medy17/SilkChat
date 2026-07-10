@@ -469,7 +469,7 @@ export function RetryMenu({
                                                             {usesProCredits && (
                                                                 <Crown
                                                                     className="size-3.5 shrink-0"
-                                                                    aria-label="Uses Pro credits"
+                                                                    aria-label="Requires Pro plan"
                                                                 />
                                                             )}
                                                             <span className="truncate font-medium text-sm">
@@ -642,7 +642,7 @@ export function RetryMenu({
                                                     {usesProCredits && (
                                                         <Crown
                                                             className="size-3.5 shrink-0"
-                                                            aria-label="Uses Pro credits"
+                                                            aria-label="Requires Pro plan"
                                                         />
                                                     )}
                                                     <span className="truncate font-medium text-sm">

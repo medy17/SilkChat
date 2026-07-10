@@ -29,6 +29,7 @@ export const PrototypeCreditAccount = v.object({
     carriedForPeriodKey: v.optional(v.string()),
     carriedBasicUnits: v.optional(v.number()),
     carriedProUnits: v.optional(v.number()),
+    carriedUsageMicrousd: v.optional(v.number()),
     updatedAt: v.number()
 })
 
@@ -43,6 +44,20 @@ export const PrototypeCreditEvent = v.object({
     bucket: PrototypeCreditBucket,
     units: v.number(),
     counted: v.boolean(),
+    accountingKind: v.optional(v.literal("usage")),
+    reservedMicrousd: v.optional(v.number()),
+    settledMicrousd: v.optional(v.number()),
+    pricingSource: v.optional(
+        v.union(
+            v.literal("openrouter_estimate"),
+            v.literal("openrouter_reported"),
+            v.literal("fal_manual"),
+            v.literal("fal_reported"),
+            v.literal("tool_flat")
+        )
+    ),
+    providerRequestId: v.optional(v.string()),
+    settledAt: v.optional(v.number()),
     periodKey: v.string(),
     createdAt: v.number()
 })
@@ -56,6 +71,8 @@ export const PrototypeToolCallReservation = v.object({
     consumedCalls: v.number(),
     reservedBasicCredits: v.number(),
     consumedBasicCredits: v.number(),
+    reservedMicrousd: v.optional(v.number()),
+    consumedMicrousd: v.optional(v.number()),
     periodKey: v.string(),
     active: v.boolean(),
     createdAt: v.number(),

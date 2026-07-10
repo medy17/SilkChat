@@ -258,6 +258,8 @@ describe("account deletion helpers", () => {
                     freeAnchorAt: anchorAt,
                     freePeriodKey: periodKey,
                     freeConsumedBasicUnits: 20,
+                    usagePeriodKey: periodKey,
+                    consumedUsageMicrousd: 725_000,
                     everWasPro: false,
                     refundCount: 0
                 }
@@ -267,7 +269,8 @@ describe("account deletion helpers", () => {
             plan: "free",
             creditPeriodAnchorAt: anchorAt,
             carriedForPeriodKey: periodKey,
-            carriedBasicUnits: 20
+            carriedBasicUnits: 20,
+            carriedUsageMicrousd: 725_000
         })
     })
 
@@ -297,6 +300,8 @@ describe("account deletion helpers", () => {
                     freeAnchorAt: anchorAt,
                     freePeriodKey: deletedPeriodKey,
                     freeConsumedBasicUnits: 20,
+                    usagePeriodKey: deletedPeriodKey,
+                    consumedUsageMicrousd: 725_000,
                     everWasPro: false,
                     refundCount: 0
                 }
@@ -306,7 +311,8 @@ describe("account deletion helpers", () => {
             plan: "free",
             creditPeriodAnchorAt: anchorAt,
             carriedForPeriodKey: undefined,
-            carriedBasicUnits: undefined
+            carriedBasicUnits: undefined,
+            carriedUsageMicrousd: undefined
         })
     })
 })

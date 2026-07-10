@@ -30,6 +30,7 @@ import { getRequiredPlanToPickModel } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
+import { ConvexError } from "convex/values"
 import { Archive, Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -38,6 +39,15 @@ import { useGenerationStore } from "./generation-store"
 const DEFAULT_VARIANTS_PER_MODEL = 1
 const MAX_TOTAL_GENERATIONS_PER_RUN = 10
 const LEGACY_IMAGE_MODEL_MIGRATION_KEY_PREFIX = "legacy-image-model-migrated"
+
+// ConvexError carries the clean, user-facing message in `data`; plain action
+// errors arrive wrapped in Convex's "[CONVEX A(...)] Server Error ..." banner.
+const getGenerationErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof ConvexError && typeof error.data === "string") {
+        return error.data
+    }
+    return fallback
+}
 
 const getModelMaxPerMessage = (model: SharedModel) =>
     model.maxPerMessage ?? DEFAULT_VARIANTS_PER_MODEL
@@ -869,9 +879,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to generate image:", error)
-            toast.error(
-                error instanceof Error ? error.message : "Failed to generate image with references"
-            )
+            toast.error(getGenerationErrorMessage(error, "Failed to generate image"))
         } finally {
             setGenerationMode(null)
         }
@@ -927,9 +935,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to run fake image generation:", error)
-            toast.error(
-                error instanceof Error ? error.message : "Failed to run fake image generation"
-            )
+            toast.error(getGenerationErrorMessage(error, "Failed to run fake image generation"))
         } finally {
             setGenerationMode(null)
         }

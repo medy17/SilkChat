@@ -958,10 +958,10 @@ const ModelCard = React.memo(function ModelCard({
                                             <TooltipTrigger asChild>
                                                 <Crown
                                                     className="size-3.5 shrink-0"
-                                                    aria-label="Uses Pro credits"
+                                                    aria-label="Requires Pro plan"
                                                 />
                                             </TooltipTrigger>
-                                            <TooltipContent>Uses Pro credits</TooltipContent>
+                                            <TooltipContent>Requires Pro plan</TooltipContent>
                                         </Tooltip>
                                     )}
                                     <span className="truncate font-medium text-sm sm:text-base">
@@ -1523,10 +1523,10 @@ export function ModelSelector({
                                 <TooltipTrigger asChild>
                                     <Crown
                                         className="size-3.5 shrink-0"
-                                        aria-label="Uses Pro credits"
+                                        aria-label="Requires Pro plan"
                                     />
                                 </TooltipTrigger>
-                                <TooltipContent>Uses Pro credits</TooltipContent>
+                                <TooltipContent>Requires Pro plan</TooltipContent>
                             </Tooltip>
                         )}
                         <span className="hidden md:hidden min-[390px]:block">

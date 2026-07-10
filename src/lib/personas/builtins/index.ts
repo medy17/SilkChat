@@ -20,18 +20,18 @@ export const MAX_PERSONA_STARTERS = 5
 export type { BuiltInPersona, BuiltInPersonaDoc } from "./types"
 
 export const BUILT_IN_PERSONAS = [
+    broodingStrangerPersona,
+    elaraAdventurerPersona,
     essayColumnistPersona,
     mourinhoPersona,
+    lucianVampirePersona,
     mondayPersona,
+    nyxNetrunnerPersona,
     pepGuardiolaPersona,
     schemingBastardPersona,
     seniorCodeReviewerPersona,
-    socraticTutorPersona,
     seraphineFaePersona,
-    broodingStrangerPersona,
-    nyxNetrunnerPersona,
-    lucianVampirePersona,
-    elaraAdventurerPersona
+    socraticTutorPersona
 ]
 
 export const getBuiltInPersonaById = (id: string) =>

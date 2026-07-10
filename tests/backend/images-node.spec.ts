@@ -124,6 +124,15 @@ describe("images_node", () => {
     beforeEach(() => {
         vi.stubEnv("FAL_KEY", "fal-key")
         vi.stubEnv("CONVEX_SITE_URL", "https://silkchat.convex.site/")
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(
+                new Response(JSON.stringify({ total_cost: 0.1, currency: "USD" }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" }
+                })
+            )
+        )
         getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" })
         falConfigMock.mockReset()
         falQueueSubmitMock.mockReset().mockResolvedValue({
@@ -513,13 +522,13 @@ describe("images_node", () => {
                 }
                 return {
                     allowed: false,
-                    reason: "quota",
+                    reason: "usage",
+                    window: "five_hour",
                     bypassed: false,
                     existing: false,
-                    bucket: "pro",
-                    used: 100,
-                    limit: 100,
-                    remaining: 0
+                    usedUsd: 1,
+                    limitUsd: 1,
+                    remainingUsd: 0
                 }
             }
             return null
@@ -532,7 +541,7 @@ describe("images_node", () => {
                 toolCallId: "tool-call-1",
                 cardId: "card-1"
             })
-        ).rejects.toThrow("You only have 0 pro credits remaining for image generation.")
+        ).rejects.toThrow("You've hit your 5-hour limit. It resets as recent usage rolls off.")
 
         expect(falQueueSubmitMock).not.toHaveBeenCalled()
         expect(ctx.runMutation).toHaveBeenCalledWith(
@@ -551,7 +560,7 @@ describe("images_node", () => {
                 update: expect.objectContaining({
                     status: "failed",
                     jobIds: [],
-                    error: "You only have 0 pro credits remaining for image generation."
+                    error: "You've hit your 5-hour limit. It resets as recent usage rolls off."
                 })
             })
         )

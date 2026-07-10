@@ -240,8 +240,8 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                             </div>
                                             <p className="text-muted-foreground text-xs">
                                                 Priority always uses your OpenRouter key. Fallback
-                                                uses it only when hosted credits run out or hosted
-                                                context limits are exceeded.
+                                                uses it only when your included usage runs out or
+                                                hosted context limits are exceeded.
                                             </p>
                                         </div>
                                     )}

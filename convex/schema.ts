@@ -199,13 +199,16 @@ export default defineSchema({
     prototypeCreditAccounts: defineTable(PrototypeCreditAccount).index("byUser", ["userId"]),
     prototypeCreditReservations: defineTable(PrototypeCreditReservation)
         .index("byUserPeriod", ["userId", "periodKey"])
-        .index("byUserMessageKey", ["userId", "messageKey"]),
+        .index("byUserMessageKey", ["userId", "messageKey"])
+        .index("byUserCreatedAt", ["userId", "createdAt"]),
     prototypeCreditEvents: defineTable(PrototypeCreditEvent)
         .index("byUserPeriod", ["userId", "periodKey"])
-        .index("byUserMessageKey", ["userId", "messageKey"]),
+        .index("byUserMessageKey", ["userId", "messageKey"])
+        .index("byUserCreatedAt", ["userId", "createdAt"]),
     prototypeToolCallReservations: defineTable(PrototypeToolCallReservation)
         .index("byUserPeriod", ["userId", "periodKey"])
-        .index("byUserMessageKey", ["userId", "messageKey"]),
+        .index("byUserMessageKey", ["userId", "messageKey"])
+        .index("byUserCreatedAt", ["userId", "createdAt"]),
     lemonSqueezySubscriptions: defineTable(LemonSqueezySubscription)
         .index("byUser", ["userId"])
         .index("bySubscriptionId", ["lemonSqueezySubscriptionId"]),

@@ -7,6 +7,10 @@ export type PrototypeCreditPlanSummary = {
     pro: {
         limit: number
     }
+    usageMetering?: {
+        fiveHourLimitUsd: number
+        monthlyLimitUsd: number
+    }
 }
 
 export type PrototypeCreditUsageSummary = {
@@ -18,6 +22,17 @@ export type PrototypeCreditUsageSummary = {
     }
     pro: {
         used: number
+    }
+    usageMetering?: {
+        fiveHour: {
+            usedUsd: number
+            remainingUsd: number
+            recoversAt: number | null
+        }
+        monthly: {
+            usedUsd: number
+            remainingUsd: number
+        }
     }
     requestCounts: {
         internal: number
@@ -41,6 +56,19 @@ export type PrototypeCreditSummary = {
         limit: number
         used: number
         remaining: number
+    }
+    usageMetering?: {
+        fiveHour: {
+            limitUsd: number
+            usedUsd: number
+            remainingUsd: number
+            recoversAt: number | null
+        }
+        monthly: {
+            limitUsd: number
+            usedUsd: number
+            remainingUsd: number
+        }
     }
     requestCounts: {
         internal: number
@@ -113,6 +141,20 @@ export function buildPrototypeCreditSummary(
             used: usageSummary.pro.used,
             remaining: Math.max(0, planSummary.pro.limit - usageSummary.pro.used)
         },
+        ...(planSummary.usageMetering && usageSummary.usageMetering
+            ? {
+                  usageMetering: {
+                      fiveHour: {
+                          limitUsd: planSummary.usageMetering.fiveHourLimitUsd,
+                          ...usageSummary.usageMetering.fiveHour
+                      },
+                      monthly: {
+                          limitUsd: planSummary.usageMetering.monthlyLimitUsd,
+                          ...usageSummary.usageMetering.monthly
+                      }
+                  }
+              }
+            : {}),
         requestCounts: usageSummary.requestCounts
     }
 }

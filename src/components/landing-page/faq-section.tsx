@@ -74,12 +74,12 @@ export function FaqSection() {
                     </AccordionItem>
                     <AccordionItem value="item-2">
                         <AccordionTrigger className="py-6 text-left font-semibold text-lg">
-                            How do Internal Credits work?
+                            How does included usage work?
                         </AccordionTrigger>
                         <AccordionContent className="pb-6 text-base text-muted-foreground leading-relaxed">
-                            If you don't want to manage multiple API keys, you can use our Internal
-                            Credits. Subscribe and use any model seamlessly with generous credit
-                            quotas.
+                            If you don't want to manage API keys, model usage is included with your
+                            plan. Usage is weighted by provider cost and governed by five-hour and
+                            monthly limits, so efficient models go further.
                         </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-3">

@@ -1488,8 +1488,7 @@ describe("chatPOST", () => {
                         allowed: true,
                         existing: false,
                         bypassed: false,
-                        reservedCalls: 3,
-                        reservedBasicCredits: 3
+                        reservedCalls: 3
                     }
                 case "commitReservedCreditForMessage":
                     return {
@@ -1715,24 +1714,31 @@ describe("chatPOST", () => {
         expect(responseText).toContain('"totalTokens":46')
         expect(responseText).toContain('"estimatedCostUsd":0.001552')
         expect(responseText).toMatch(/"timeToFirstVisibleMs":\d+/)
-        expect(ctx.runMutation).toHaveBeenCalledWith("reserveCreditForMessage", {
-            userId: "user-1",
-            threadId: undefined,
-            messageId: "assistant-1",
-            messageKey: "assistant-1:model",
-            modelId: "shared-text",
-            providerSource: "internal",
-            feature: "chat",
-            bucket: "pro",
-            units: 1,
-            counted: true,
-            requiredPlan: "pro"
-        })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                userId: "user-1",
+                threadId: undefined,
+                messageId: "assistant-1",
+                messageKey: "assistant-1:model",
+                modelId: "shared-text",
+                providerSource: "internal",
+                feature: "chat",
+                bucket: "pro",
+                units: 1,
+                counted: true,
+                reservedMicrousd: expect.any(Number),
+                pricingSource: "openrouter_estimate",
+                requiredPlan: "pro"
+            })
+        )
         expect(ctx.runMutation).toHaveBeenCalledWith("commitReservedCreditForMessage", {
             userId: "user-1",
             messageKey: "assistant-1:model",
             threadId: "thread-1",
-            messageId: "assistant-1"
+            messageId: "assistant-1",
+            settledMicrousd: 1552,
+            pricingSource: "openrouter_reported"
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("reserveToolCallBudget", {
             userId: "user-1",
@@ -1740,7 +1746,7 @@ describe("chatPOST", () => {
             messageId: "assistant-1",
             messageKey: "assistant-1:tool-budget",
             reservedCalls: 3,
-            reservedBasicCredits: 3
+            reservedMicrousd: 12_000
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("finalizeToolCallBudget", {
             userId: "user-1",

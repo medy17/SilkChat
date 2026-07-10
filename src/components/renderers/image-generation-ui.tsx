@@ -12,6 +12,7 @@ import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useQuery } from "convex/react"
+import { ConvexError } from "convex/values"
 import {
     AlertCircle,
     ChevronDown,
@@ -130,6 +131,15 @@ const clampGridDimension = (value: number) => {
 
 const MAX_IMAGE_LOAD_RETRIES = 3
 
+// ConvexError carries the clean, user-facing message in `data`; plain action
+// errors arrive wrapped in Convex's "[CONVEX A(...)] Server Error ..." banner.
+const getActionErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof ConvexError && typeof error.data === "string") {
+        return error.data
+    }
+    return fallback
+}
+
 const resolveImageAssetUrl = (value: string) => {
     if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
         return value
@@ -140,7 +150,7 @@ const resolveImageAssetUrl = (value: string) => {
 
 const getCreditLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) => {
     if (!credits || credits.bucket === "none" || credits.units <= 0) return null
-    return `${credits.units} credits`
+    return "Included usage"
 }
 
 function RevealBlock({
@@ -579,9 +589,7 @@ export const ImageGenerationToolRenderer = memo(
                         cardId: output.cardId
                     })
                 } catch (error) {
-                    toast.error(
-                        error instanceof Error ? error.message : "Failed to start image generation"
-                    )
+                    toast.error(getActionErrorMessage(error, "Failed to start image generation"))
                 } finally {
                     setIsConfirming(false)
                 }
@@ -613,7 +621,7 @@ export const ImageGenerationToolRenderer = memo(
                     }
                     toast.success("Image refetched")
                 } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Failed to refetch image")
+                    toast.error(getActionErrorMessage(error, "Failed to refetch image"))
                 } finally {
                     setRetryingAssetJobIds((current) => {
                         const next = new Set(current)
@@ -651,7 +659,7 @@ export const ImageGenerationToolRenderer = memo(
                         </TooltipIconPill>
                         {credits && (
                             <TooltipIconPill
-                                tooltip={`Consumed ${credits}`}
+                                tooltip="Counts toward included usage"
                                 className="pointer-events-auto shrink-0"
                             >
                                 <span className="flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">

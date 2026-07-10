@@ -304,14 +304,14 @@ export const ReasoningEffortSelector = ({
                     <div className="hidden items-center gap-1.5 sm:flex">
                         <ReasoningIcon className="size-4" />
                         {selectedEffortUsesProCredits && (
-                            <Crown className="size-3.5 shrink-0" aria-label="Uses Pro credits" />
+                            <Crown className="size-3.5 shrink-0" aria-label="Requires Pro plan" />
                         )}
                         <span>{reasoningLabel}</span>
                     </div>
                     <span className="flex items-center gap-1 sm:hidden">
                         <ReasoningIcon className="size-4" />
                         {selectedEffortUsesProCredits && (
-                            <Crown className="size-2.5 shrink-0" aria-label="Uses Pro credits" />
+                            <Crown className="size-2.5 shrink-0" aria-label="Requires Pro plan" />
                         )}
                     </span>
                 </SelectTrigger>
@@ -353,7 +353,7 @@ export const ReasoningEffortSelector = ({
                                     {effortUsesProCredits && (
                                         <Crown
                                             className="size-3.5 shrink-0"
-                                            aria-label="Uses Pro credits"
+                                            aria-label="Requires Pro plan"
                                         />
                                     )}
                                 </span>
@@ -542,7 +542,7 @@ function MobileOverflowMenu({
                                 {selectedEffortUsesProCredits && (
                                     <Crown
                                         className="size-3.5 shrink-0"
-                                        aria-label="Uses Pro credits"
+                                        aria-label="Requires Pro plan"
                                     />
                                 )}
                                 <span className="min-w-0 flex-1 truncate">
@@ -607,7 +607,7 @@ function MobileOverflowMenu({
                                                 {effortUsesProCredits && (
                                                     <Crown
                                                         className="size-3.5 shrink-0"
-                                                        aria-label="Uses Pro credits"
+                                                        aria-label="Requires Pro plan"
                                                     />
                                                 )}
                                                 {isSelected && (

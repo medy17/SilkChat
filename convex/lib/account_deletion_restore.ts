@@ -4,10 +4,7 @@ import {
     chooseCanonicalSuppression,
     fingerprintAccountIdentity
 } from "./account_deletion"
-import {
-    getAnchoredMonthlyCreditPeriodBounds,
-    getCreditPeriodKeyFromBounds
-} from "./credits"
+import { getAnchoredMonthlyCreditPeriodBounds, getCreditPeriodKeyFromBounds } from "./credits"
 
 type RestoreDeletedAccountCreditsArgs = {
     userId: string
@@ -129,6 +126,10 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         existingAccount?.carriedForPeriodKey === seed.carriedForPeriodKey
             ? (existingAccount?.carriedProUnits ?? 0)
             : 0
+    const existingCarryUsageMicrousd =
+        existingAccount?.carriedForPeriodKey === seed.carriedForPeriodKey
+            ? (existingAccount?.carriedUsageMicrousd ?? 0)
+            : 0
     const nextAccount = {
         userId,
         enabled: existingAccount?.enabled ?? seed.enabled,
@@ -144,6 +145,10 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         carriedProUnits:
             seed.carriedForPeriodKey || existingAccount?.carriedForPeriodKey
                 ? Math.max(existingCarryPro, seed.carriedProUnits ?? 0)
+                : undefined,
+        carriedUsageMicrousd:
+            seed.carriedForPeriodKey || existingAccount?.carriedForPeriodKey
+                ? Math.max(existingCarryUsageMicrousd, seed.carriedUsageMicrousd ?? 0)
                 : undefined,
         updatedAt: now
     }
@@ -199,6 +204,7 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         carriedForPeriodKey: nextAccount.carriedForPeriodKey,
         carriedBasicUnits: nextAccount.carriedBasicUnits ?? 0,
         carriedProUnits: nextAccount.carriedProUnits ?? 0,
+        carriedUsageMicrousd: nextAccount.carriedUsageMicrousd ?? 0,
         plan: nextAccount.plan
     }
 }

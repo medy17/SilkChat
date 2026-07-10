@@ -16,6 +16,7 @@ import {
     getCurrentCreditPeriodKey
 } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
+import { FIVE_HOURS_MS, getConfiguredHostedUsageLimits, microusdToUsd } from "./lib/usage_metering"
 
 type CreditAccountRecord = {
     _creationTime?: number
@@ -27,6 +28,7 @@ type CreditAccountRecord = {
     carriedForPeriodKey?: string
     carriedBasicUnits?: number
     carriedProUnits?: number
+    carriedUsageMicrousd?: number
 }
 
 type UserAccessRecord = {
@@ -360,6 +362,186 @@ const getOutstandingReservedUnitsForBucket = async (
     return reservedCredits
 }
 
+const sumUsageEventMicrousd = (
+    events: Array<{
+        accountingKind?: "usage"
+        settledMicrousd?: number
+        reservedMicrousd?: number
+    }>
+) =>
+    events
+        .filter((event) => event.accountingKind === "usage")
+        .reduce(
+            (sum, event) => sum + Math.max(0, event.settledMicrousd ?? event.reservedMicrousd ?? 0),
+            0
+        )
+
+const sumUsageReservationMicrousd = (
+    reservations: Array<{
+        active: boolean
+        accountingKind?: "usage"
+        reservedMicrousd?: number
+    }>
+) =>
+    reservations
+        .filter((reservation) => reservation.active && reservation.accountingKind === "usage")
+        .reduce((sum, reservation) => sum + Math.max(0, reservation.reservedMicrousd ?? 0), 0)
+
+// Consumed tool calls become usage events, so an active tool budget only
+// contributes the not-yet-consumed remainder of its reserve.
+const sumToolReservationOutstandingMicrousd = (
+    reservations: Array<{
+        active: boolean
+        reservedMicrousd?: number
+        consumedMicrousd?: number
+    }>
+) =>
+    reservations
+        .filter((reservation) => reservation.active)
+        .reduce(
+            (sum, reservation) =>
+                sum +
+                Math.max(
+                    0,
+                    (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0)
+                ),
+            0
+        )
+
+const getHostedUsageState = async (
+    ctx: QueryCtx | MutationCtx,
+    {
+        userId,
+        periodKey,
+        plan,
+        account,
+        now = Date.now()
+    }: {
+        userId: string
+        periodKey: string
+        plan: "free" | "pro"
+        account: CreditAccountRecord | null
+        now?: number
+    }
+) => {
+    const fiveHourStartsAt = now - FIVE_HOURS_MS
+    const [
+        monthlyEvents,
+        monthlyReservations,
+        monthlyToolReservations,
+        rollingEvents,
+        rollingReservations,
+        rollingToolReservations
+    ] = await Promise.all([
+        ctx.db
+            .query("prototypeCreditEvents")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect(),
+        ctx.db
+            .query("prototypeCreditReservations")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect(),
+        ctx.db
+            .query("prototypeToolCallReservations")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect(),
+        ctx.db
+            .query("prototypeCreditEvents")
+            .withIndex("byUserCreatedAt", (q) =>
+                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
+            )
+            .collect(),
+        ctx.db
+            .query("prototypeCreditReservations")
+            .withIndex("byUserCreatedAt", (q) =>
+                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
+            )
+            .collect(),
+        ctx.db
+            .query("prototypeToolCallReservations")
+            .withIndex("byUserCreatedAt", (q) =>
+                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
+            )
+            .collect()
+    ])
+    const limits = getConfiguredHostedUsageLimits(plan)
+    const carriedUsageMicrousd =
+        account?.carriedForPeriodKey === periodKey
+            ? Math.max(0, account.carriedUsageMicrousd ?? 0)
+            : 0
+    const monthlyUsedMicrousd =
+        sumUsageEventMicrousd(monthlyEvents) +
+        sumUsageReservationMicrousd(monthlyReservations) +
+        sumToolReservationOutstandingMicrousd(monthlyToolReservations) +
+        carriedUsageMicrousd
+    const fiveHourUsedMicrousd =
+        sumUsageEventMicrousd(rollingEvents) +
+        sumUsageReservationMicrousd(rollingReservations) +
+        sumToolReservationOutstandingMicrousd(rollingToolReservations)
+    const firstRecoveringEvent = rollingEvents
+        .filter(
+            (event) =>
+                event.accountingKind === "usage" &&
+                (event.settledMicrousd ?? event.reservedMicrousd ?? 0) > 0
+        )
+        .sort((left, right) => left.createdAt - right.createdAt)[0]
+
+    return {
+        limits,
+        monthlyUsedMicrousd,
+        fiveHourUsedMicrousd,
+        fiveHourRemainingMicrousd: Math.max(0, limits.fiveHourMicrousd - fiveHourUsedMicrousd),
+        monthlyRemainingMicrousd: Math.max(0, limits.monthlyMicrousd - monthlyUsedMicrousd),
+        recoversAt: firstRecoveringEvent ? firstRecoveringEvent.createdAt + FIVE_HOURS_MS : null
+    }
+}
+
+const evaluateHostedUsageReservation = async (
+    ctx: QueryCtx | MutationCtx,
+    {
+        userId,
+        periodKey,
+        periodEndsAt,
+        plan,
+        account,
+        reservedMicrousd
+    }: {
+        userId: string
+        periodKey: string
+        periodEndsAt: number
+        plan: "free" | "pro"
+        account: CreditAccountRecord | null
+        reservedMicrousd: number
+    }
+) => {
+    const usage = await getHostedUsageState(ctx, { userId, periodKey, plan, account })
+    const exceedsFiveHour =
+        usage.fiveHourUsedMicrousd + reservedMicrousd > usage.limits.fiveHourMicrousd
+    const exceedsMonthly =
+        usage.monthlyUsedMicrousd + reservedMicrousd > usage.limits.monthlyMicrousd
+
+    if (!exceedsFiveHour && !exceedsMonthly) {
+        return null
+    }
+
+    const window = exceedsFiveHour ? ("five_hour" as const) : ("monthly" as const)
+    const usedMicrousd = exceedsFiveHour ? usage.fiveHourUsedMicrousd : usage.monthlyUsedMicrousd
+    const limitMicrousd = exceedsFiveHour
+        ? usage.limits.fiveHourMicrousd
+        : usage.limits.monthlyMicrousd
+    return {
+        allowed: false as const,
+        reason: "usage" as const,
+        window,
+        bypassed: false,
+        existing: false,
+        usedUsd: microusdToUsd(usedMicrousd),
+        limitUsd: microusdToUsd(limitMicrousd),
+        remainingUsd: microusdToUsd(Math.max(0, limitMicrousd - usedMicrousd)),
+        recoversAt: window === "five_hour" ? usage.recoversAt : periodEndsAt
+    }
+}
+
 export const getUserCreditAccountInternal = internalQuery({
     args: {
         userId: v.string()
@@ -438,6 +620,7 @@ export const getMyCreditSummary = query({
         })
         const internalRequestCount = events.filter((event) => event.counted).length
         const byokRequestCount = events.filter((event) => !event.counted).length
+        const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
 
         return {
             enabled: resolvedAccount.enabled,
@@ -457,6 +640,10 @@ export const getMyCreditSummary = query({
                 limit: resolvedAccount.monthlyProCredits,
                 used: effectiveProCredits,
                 remaining: getRemainingUnits(resolvedAccount.monthlyProCredits, effectiveProCredits)
+            },
+            usageMetering: {
+                fiveHourLimitUsd: microusdToUsd(usageLimits.fiveHourMicrousd),
+                monthlyLimitUsd: microusdToUsd(usageLimits.monthlyMicrousd)
             },
             requestCounts: {
                 internal: internalRequestCount,
@@ -488,7 +675,6 @@ export const getCreditUsageForUserInternal = internalQuery({
             getOutstandingReservedUnitsForBucket(ctx, userId, period.periodKey, "basic"),
             getOutstandingReservedUnitsForBucket(ctx, userId, period.periodKey, "pro")
         ])
-
         return {
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
@@ -536,6 +722,13 @@ export const getMyCreditUsageSummary = query({
             getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "basic"),
             getOutstandingReservedUnitsForBucket(ctx, user.id, period.periodKey, "pro")
         ])
+        const resolvedAccount = getResolvedCreditAccount(account)
+        const metering = await getHostedUsageState(ctx, {
+            userId: user.id,
+            periodKey: period.periodKey,
+            plan: resolvedAccount.plan,
+            account
+        })
 
         return {
             periodKey: period.periodKey,
@@ -558,6 +751,17 @@ export const getMyCreditUsageSummary = query({
                     reservedUnits: reservedProCredits,
                     bucket: "pro"
                 })
+            },
+            usageMetering: {
+                fiveHour: {
+                    usedUsd: microusdToUsd(metering.fiveHourUsedMicrousd),
+                    remainingUsd: microusdToUsd(metering.fiveHourRemainingMicrousd),
+                    recoversAt: metering.recoversAt
+                },
+                monthly: {
+                    usedUsd: microusdToUsd(metering.monthlyUsedMicrousd),
+                    remainingUsd: microusdToUsd(metering.monthlyRemainingMicrousd)
+                }
             },
             requestCounts: {
                 internal: usage.filter((event) => event.counted).length,
@@ -1042,6 +1246,11 @@ export const reserveCreditForMessage = internalMutation({
         bucket: v.union(v.literal("basic"), v.literal("pro"), v.literal("none")),
         units: v.number(),
         counted: v.boolean(),
+        reservedMicrousd: v.optional(v.number()),
+        pricingSource: v.optional(
+            v.union(v.literal("openrouter_estimate"), v.literal("fal_manual"))
+        ),
+        providerRequestId: v.optional(v.string()),
         requiredPlan: v.optional(v.union(v.literal("free"), v.literal("pro")))
     },
     handler: async (ctx, args) => {
@@ -1086,7 +1295,29 @@ export const reserveCreditForMessage = internalMutation({
             }
         }
 
-        if (args.counted && args.bucket !== "none" && args.units > 0 && !access.bypassLimits) {
+        const isUsageReservation = args.reservedMicrousd !== undefined
+        const reservedMicrousd = Math.max(0, Math.round(args.reservedMicrousd ?? 0))
+        if (reservedMicrousd > 0 && args.counted && !access.bypassLimits) {
+            const usageBlocked = await evaluateHostedUsageReservation(ctx, {
+                userId: args.userId,
+                periodKey: period.periodKey,
+                periodEndsAt: period.endsAt,
+                plan: account.plan,
+                account: accountRecord,
+                reservedMicrousd
+            })
+            if (usageBlocked) {
+                return usageBlocked
+            }
+        }
+
+        if (
+            !isUsageReservation &&
+            args.counted &&
+            args.bucket !== "none" &&
+            args.units > 0 &&
+            !access.bypassLimits
+        ) {
             const limit =
                 args.bucket === "pro" ? account.monthlyProCredits : account.monthlyBasicCredits
             const events = await ctx.db
@@ -1134,6 +1365,14 @@ export const reserveCreditForMessage = internalMutation({
             bucket: args.bucket,
             units: args.units,
             counted: args.counted,
+            ...(isUsageReservation
+                ? {
+                      accountingKind: "usage" as const,
+                      reservedMicrousd,
+                      pricingSource: args.pricingSource,
+                      providerRequestId: args.providerRequestId
+                  }
+                : {}),
             periodKey: period.periodKey,
             active: true,
             createdAt: Date.now(),
@@ -1154,7 +1393,12 @@ export const commitReservedCreditForMessage = internalMutation({
         userId: v.string(),
         messageKey: v.string(),
         threadId: v.optional(v.id("threads")),
-        messageId: v.optional(v.string())
+        messageId: v.optional(v.string()),
+        settledMicrousd: v.optional(v.number()),
+        pricingSource: v.optional(
+            v.union(v.literal("openrouter_reported"), v.literal("fal_reported"))
+        ),
+        providerRequestId: v.optional(v.string())
     },
     handler: async (ctx, args) => {
         const existingEvent = await ctx.db
@@ -1188,6 +1432,11 @@ export const commitReservedCreditForMessage = internalMutation({
             }
         }
 
+        const settledAt = Date.now()
+        const settledMicrousd =
+            reservation.accountingKind === "usage"
+                ? Math.max(0, Math.round(args.settledMicrousd ?? reservation.reservedMicrousd ?? 0))
+                : undefined
         const eventId = await ctx.db.insert("prototypeCreditEvents", {
             userId: reservation.userId,
             threadId: args.threadId ?? reservation.threadId,
@@ -1199,8 +1448,18 @@ export const commitReservedCreditForMessage = internalMutation({
             bucket: reservation.bucket,
             units: reservation.units,
             counted: reservation.counted,
+            ...(reservation.accountingKind === "usage"
+                ? {
+                      accountingKind: "usage" as const,
+                      reservedMicrousd: reservation.reservedMicrousd,
+                      settledMicrousd,
+                      pricingSource: args.pricingSource ?? reservation.pricingSource,
+                      providerRequestId: args.providerRequestId ?? reservation.providerRequestId,
+                      settledAt
+                  }
+                : {}),
             periodKey: reservation.periodKey,
-            createdAt: Date.now()
+            createdAt: settledAt
         })
 
         await ctx.db.patch(reservation._id, {
@@ -1214,6 +1473,37 @@ export const commitReservedCreditForMessage = internalMutation({
             existing: false,
             eventId
         }
+    }
+})
+
+export const reconcileSettledUsageCost = internalMutation({
+    args: {
+        userId: v.string(),
+        messageKey: v.string(),
+        providerRequestId: v.string(),
+        settledMicrousd: v.number(),
+        pricingSource: v.literal("fal_reported")
+    },
+    handler: async (ctx, args) => {
+        const event = await ctx.db
+            .query("prototypeCreditEvents")
+            .withIndex("byUserMessageKey", (q) =>
+                q.eq("userId", args.userId).eq("messageKey", args.messageKey)
+            )
+            .first()
+        if (!event || event.accountingKind !== "usage") {
+            return { reconciled: false }
+        }
+
+        const settledMicrousd = Math.max(0, Math.round(args.settledMicrousd))
+        await ctx.db.patch(event._id, {
+            settledMicrousd,
+            pricingSource: args.pricingSource,
+            providerRequestId: args.providerRequestId,
+            settledAt: Date.now()
+        })
+
+        return { reconciled: true, settledMicrousd }
     }
 })
 
@@ -1247,7 +1537,7 @@ export const reserveToolCallBudget = internalMutation({
         messageId: v.string(),
         messageKey: v.string(),
         reservedCalls: v.number(),
-        reservedBasicCredits: v.number()
+        reservedMicrousd: v.optional(v.number())
     },
     handler: async (ctx, args) => {
         const existing = await getToolCallReservation(ctx, args.userId, args.messageKey)
@@ -1256,8 +1546,7 @@ export const reserveToolCallBudget = internalMutation({
                 allowed: true,
                 existing: true,
                 bypassed: false,
-                reservedCalls: existing.reservedCalls,
-                reservedBasicCredits: existing.reservedBasicCredits
+                reservedCalls: existing.reservedCalls
             }
         }
 
@@ -1267,8 +1556,7 @@ export const reserveToolCallBudget = internalMutation({
                 allowed: true,
                 existing: false,
                 bypassed: true,
-                reservedCalls: args.reservedCalls,
-                reservedBasicCredits: 0
+                reservedCalls: args.reservedCalls
             }
         }
 
@@ -1276,42 +1564,32 @@ export const reserveToolCallBudget = internalMutation({
         const account = getResolvedCreditAccount(accountRecord)
         const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
 
-        if (!access.bypassLimits && args.reservedBasicCredits > 0) {
-            const events = await ctx.db
-                .query("prototypeCreditEvents")
-                .withIndex("byUserPeriod", (q) =>
-                    q.eq("userId", args.userId).eq("periodKey", period.periodKey)
-                )
-                .collect()
-            const reservedBasicCredits = await getOutstandingReservedUnitsForBucket(
-                ctx,
-                args.userId,
-                period.periodKey,
-                "basic"
-            )
-            const usedBasicCredits = getEffectiveUsedUnits({
-                account: accountRecord,
+        const reservedMicrousd = Math.max(0, Math.round(args.reservedMicrousd ?? 0))
+        if (reservedMicrousd > 0) {
+            const usageBlocked = await evaluateHostedUsageReservation(ctx, {
+                userId: args.userId,
                 periodKey: period.periodKey,
-                events,
-                reservedUnits: reservedBasicCredits,
-                bucket: "basic"
+                periodEndsAt: period.endsAt,
+                plan: account.plan,
+                account: accountRecord,
+                reservedMicrousd
             })
-
-            if (usedBasicCredits + args.reservedBasicCredits > account.monthlyBasicCredits) {
-                return {
-                    allowed: false,
-                    reason: "quota" as const,
-                    used: usedBasicCredits,
-                    limit: account.monthlyBasicCredits,
-                    remaining: getRemainingUnits(account.monthlyBasicCredits, usedBasicCredits)
-                }
+            if (usageBlocked) {
+                return usageBlocked
             }
         }
 
         await ctx.db.insert("prototypeToolCallReservations", {
-            ...args,
+            userId: args.userId,
+            threadId: args.threadId,
+            messageId: args.messageId,
+            messageKey: args.messageKey,
+            reservedCalls: args.reservedCalls,
             consumedCalls: 0,
+            reservedBasicCredits: 0,
             consumedBasicCredits: 0,
+            reservedMicrousd,
+            consumedMicrousd: 0,
             periodKey: period.periodKey,
             active: true,
             createdAt: Date.now(),
@@ -1322,8 +1600,7 @@ export const reserveToolCallBudget = internalMutation({
             allowed: true,
             existing: false,
             bypassed: false,
-            reservedCalls: args.reservedCalls,
-            reservedBasicCredits: args.reservedBasicCredits
+            reservedCalls: args.reservedCalls
         }
     }
 })
@@ -1348,7 +1625,8 @@ export const consumeReservedToolCall = internalMutation({
         feature: v.union(v.literal("chat"), v.literal("image"), v.literal("tool")),
         bucket: v.union(v.literal("basic"), v.literal("pro"), v.literal("none")),
         units: v.number(),
-        counted: v.boolean()
+        counted: v.boolean(),
+        chargedMicrousd: v.optional(v.number())
     },
     handler: async (ctx, args) => {
         const existingEvent = await ctx.db
@@ -1419,14 +1697,17 @@ export const consumeReservedToolCall = internalMutation({
         }
 
         const nextConsumedCalls = reservation.consumedCalls + 1
-        const nextConsumedBasicCredits =
-            reservation.consumedBasicCredits +
-            (args.counted && args.bucket === "basic" ? args.units : 0)
+        const chargedMicrousd =
+            args.counted && args.chargedMicrousd !== undefined
+                ? Math.max(0, Math.round(args.chargedMicrousd))
+                : 0
+        const nextConsumedMicrousd = (reservation.consumedMicrousd ?? 0) + chargedMicrousd
 
+        const consumedAt = Date.now()
         await ctx.db.patch(reservation._id, {
             consumedCalls: nextConsumedCalls,
-            consumedBasicCredits: nextConsumedBasicCredits,
-            updatedAt: Date.now()
+            consumedMicrousd: nextConsumedMicrousd,
+            updatedAt: consumedAt
         })
 
         await ctx.db.insert("prototypeCreditEvents", {
@@ -1440,8 +1721,17 @@ export const consumeReservedToolCall = internalMutation({
             bucket: args.bucket,
             units: args.units,
             counted: args.counted,
+            ...(chargedMicrousd > 0
+                ? {
+                      accountingKind: "usage" as const,
+                      reservedMicrousd: chargedMicrousd,
+                      settledMicrousd: chargedMicrousd,
+                      pricingSource: "tool_flat" as const,
+                      settledAt: consumedAt
+                  }
+                : {}),
             periodKey: reservation.periodKey,
-            createdAt: Date.now()
+            createdAt: consumedAt
         })
 
         return {

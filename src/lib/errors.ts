@@ -35,6 +35,14 @@ export type ChatErrorDetail =
           remaining?: number
       }
     | {
+          kind: "usage_limit_exceeded"
+          window: "five_hour" | "monthly"
+          usedUsd?: number
+          limitUsd?: number
+          remainingUsd?: number
+          recoversAt?: number
+      }
+    | {
           kind: "plan_required"
           requiredPlan: "free" | "pro"
           currentPlan?: "free" | "pro"

@@ -225,8 +225,8 @@ function SilkScreenInfoButton({
             <div>
                 <div className="font-medium text-foreground">SilkScreen</div>
                 <p className="mt-1 text-muted-foreground text-xs">
-                    Prepares an image job card for confirmation. Credits are only spent after you
-                    tap Generate.
+                    Prepares an image job card for confirmation. Included usage is only consumed
+                    after you tap Generate.
                 </p>
             </div>
             <div className="space-y-1 text-xs">

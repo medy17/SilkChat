@@ -156,12 +156,13 @@ function PrivacyPolicyPage() {
                         <PolicyList>
                             <PolicyItem>
                                 Users are on the free plan by default. If you upgrade to Pro, you
-                                receive <strong>1,500 Basic Credits</strong> and{" "}
-                                <strong>100 Pro Credits</strong>.
+                                receive a configurable included usage allowance governed by rolling
+                                and billing-period limits.
                             </PolicyItem>
                             <PolicyItem>
-                                At our discretion, models may be assigned to consume Basic Credits
-                                or Pro Credits based on upstream cost and operational convenience.
+                                Included usage is weighted using estimated and provider-reported
+                                costs, so different models and generation features may consume
+                                allowance at different rates.
                             </PolicyItem>
                             <PolicyItem>
                                 Payments for paid plans are processed by{" "}

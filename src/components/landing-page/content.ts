@@ -254,7 +254,7 @@ export const useCases: UseCase[] = [
 ]
 
 export const proofItems = [
-    "Use internal credits or bring your own keys",
+    "Use included usage or bring your own keys",
     "Switch models mid-thread",
     "Import chats from other platforms"
 ]
@@ -266,9 +266,9 @@ export const pricingOptions = [
         cadence: "forever",
         cta: "Start free",
         featured: false,
-        description: "Try the workspace with starter credits and your own provider keys.",
+        description: "Try the workspace with included usage and your own provider keys.",
         items: [
-            "200 Basic Credits each month",
+            "Included model usage",
             "Bring your own provider keys",
             "Chat, files, imports, and personas",
             "Upgrade when you need Pro models"
@@ -280,10 +280,10 @@ export const pricingOptions = [
         cadence: "per month",
         cta: "Get Pro",
         featured: true,
-        description: "Use managed credits for premium models without provider setup.",
+        description: "Use managed premium models without provider setup.",
         items: [
-            "1,500 Basic Credits each month",
-            "100 Pro Credits each month",
+            "Generous five-hour usage windows",
+            "Monthly included usage allowance",
             "Premium image generation",
             "Keep BYOK for direct provider billing"
         ]
