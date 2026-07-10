@@ -62,7 +62,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-sonnet-4-6"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro"
+        prototypeCreditTier: "pro",
+        legacy: true
     },
     {
         id: "claude-opus-4.6",
@@ -80,7 +81,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-opus-4-6"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro"
+        prototypeCreditTier: "pro",
+        legacy: true
     },
     {
         id: "claude-opus-4.8",
@@ -116,7 +118,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-opus-4-7"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro"
+        prototypeCreditTier: "pro",
+        legacy: true
     },
     {
         id: "claude-opus-4.5",
