@@ -117,7 +117,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        prototypeCreditTier: "basic",
+        legacy: true
     },
     {
         id: "gpt-5.4-mini",
@@ -136,7 +137,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        prototypeCreditTier: "basic",
+        legacy: true
     },
     {
         id: "gpt-5.4",
@@ -156,7 +158,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
-        prototypeCreditTierWithReasoning: "pro"
+        prototypeCreditTierWithReasoning: "pro",
+        legacy: true
     },
     {
         id: "gpt-5.3",
