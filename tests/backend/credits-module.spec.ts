@@ -32,6 +32,7 @@ import {
     consumeCreditForMessage,
     consumeReservedToolCall,
     getMyCreditSummary,
+    getMyCreditUsageSummary,
     getMyDevCreditState,
     reconcileSettledUsageCost,
     recordCreditEventForMessage,
@@ -48,6 +49,9 @@ import {
 } from "../../convex/lib/credits"
 
 const getMyCreditSummaryHandler = getMyCreditSummary as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const getMyCreditUsageSummaryHandler = getMyCreditUsageSummary as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const recordCreditEventForMessageHandler = recordCreditEventForMessage as unknown as {
@@ -539,6 +543,16 @@ describe("credits module", () => {
             expect(ctx.db.insert).toHaveBeenCalledWith(
                 "prototypeCreditEvents",
                 expect.objectContaining({
+                    messageKey: "dev-credit-lab:usage-window:boundary",
+                    counted: false,
+                    bucket: "none",
+                    units: 0,
+                    createdAt: fixedNow
+                })
+            )
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "prototypeCreditEvents",
+                expect.objectContaining({
                     messageKey: "dev-credit-lab:usage:5h:exhausted",
                     accountingKind: "usage",
                     reservedMicrousd: 100_000,
@@ -583,6 +597,14 @@ describe("credits module", () => {
             })
 
             expect(ctx.db.delete).toHaveBeenCalledWith("old-dev-usage-event")
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "prototypeCreditEvents",
+                expect.objectContaining({
+                    messageKey: "dev-credit-lab:usage-window:boundary",
+                    counted: false,
+                    createdAt: fixedNow
+                })
+            )
             expect(ctx.db.insert).not.toHaveBeenCalledWith(
                 "prototypeCreditEvents",
                 expect.objectContaining({
@@ -1001,6 +1023,51 @@ describe("credits module", () => {
                 reservedMicrousd: 100_000
             })
         )
+    })
+
+    it("lets a dev boundary end the active five-hour window without deleting real usage", async () => {
+        process.env.HOSTED_USAGE_5H_USD_FREE = "0.1"
+        process.env.HOSTED_USAGE_MONTHLY_USD_FREE = "1"
+        const now = Date.now()
+
+        const result = await getMyCreditUsageSummaryHandler.handler(
+            createCtx({
+                account: {
+                    userId: "user-1",
+                    enabled: true,
+                    plan: "free"
+                },
+                events: [
+                    {
+                        accountingKind: "usage",
+                        settledMicrousd: 80_000,
+                        counted: true,
+                        bucket: "none",
+                        units: 0,
+                        messageKey: "real-usage",
+                        createdAt: now - 50 * 60 * 1000
+                    },
+                    {
+                        counted: false,
+                        bucket: "none",
+                        units: 0,
+                        messageKey: "dev-credit-lab:usage-window:boundary",
+                        createdAt: now
+                    }
+                ]
+            }),
+            {}
+        )
+
+        expect(result.usageMetering.fiveHour).toMatchObject({
+            usedUsd: 0,
+            remainingUsd: 0.1,
+            recoversAt: null
+        })
+        expect(result.usageMetering.monthly).toMatchObject({
+            usedUsd: 0.08,
+            remainingUsd: 0.92
+        })
     })
 
     it("reconciles a settled fal reservation with the billing event cost", async () => {

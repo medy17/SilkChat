@@ -152,6 +152,7 @@ const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => (
 })
 
 const DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX = "dev-credit-lab:"
+const DEV_USAGE_WINDOW_BOUNDARY_MESSAGE_KEY = `${DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX}usage-window:boundary`
 
 // NOTE: Convex runs every deployment (dev, staging, prod) with NODE_ENV === "production"
 // in its V8 runtime, so NODE_ENV cannot distinguish environments here. Gate on a dedicated
@@ -286,6 +287,33 @@ const insertDevHostedUsageEvent = async (
         settledMicrousd: safeAmountMicrousd,
         pricingSource: "openrouter_reported" as const,
         settledAt: createdAt,
+        periodKey,
+        createdAt
+    })
+}
+
+const insertDevHostedUsageWindowBoundary = async (
+    ctx: MutationCtx,
+    {
+        userId,
+        periodKey,
+        createdAt
+    }: {
+        userId: string
+        periodKey: string
+        createdAt: number
+    }
+) => {
+    await ctx.db.insert("prototypeCreditEvents", {
+        userId,
+        messageId: DEV_USAGE_WINDOW_BOUNDARY_MESSAGE_KEY,
+        messageKey: DEV_USAGE_WINDOW_BOUNDARY_MESSAGE_KEY,
+        modelId: "dev-hosted-usage",
+        providerSource: "internal",
+        feature: "chat",
+        bucket: "none",
+        units: 0,
+        counted: false,
         periodKey,
         createdAt
     })
@@ -524,9 +552,18 @@ const getToolReservationOutstandingMicrousd = (reservation: {
         ? Math.max(0, (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0))
         : 0
 
-const getActiveFiveHourUsageWindow = (records: UsageWindowRecord[], now: number) => {
+const getActiveFiveHourUsageWindow = (
+    records: UsageWindowRecord[],
+    now: number,
+    windowBoundaryAt?: number
+) => {
     const sortedRecords = records
-        .filter((record) => record.amountMicrousd > 0 && record.createdAt <= now)
+        .filter(
+            (record) =>
+                record.amountMicrousd > 0 &&
+                record.createdAt <= now &&
+                (windowBoundaryAt === undefined || record.createdAt >= windowBoundaryAt)
+        )
         .sort((left, right) => left.createdAt - right.createdAt)
     let windowStartsAt: number | null = null
 
@@ -594,6 +631,12 @@ const getHostedUsageState = async (
         sumUsageReservationMicrousd(monthlyReservations) +
         sumToolReservationOutstandingMicrousd(monthlyToolReservations) +
         carriedUsageMicrousd
+    const latestDevUsageWindowBoundary = monthlyEvents
+        .filter(
+            (event) =>
+                event.messageKey === DEV_USAGE_WINDOW_BOUNDARY_MESSAGE_KEY && event.createdAt <= now
+        )
+        .sort((left, right) => right.createdAt - left.createdAt)[0]
     const activeFiveHourWindow = getActiveFiveHourUsageWindow(
         [
             ...monthlyEvents.map((event) => ({
@@ -609,7 +652,8 @@ const getHostedUsageState = async (
                 amountMicrousd: getToolReservationOutstandingMicrousd(reservation)
             }))
         ],
-        now
+        now,
+        latestDevUsageWindowBoundary?.createdAt
     )
 
     return {
@@ -1096,6 +1140,13 @@ export const setMyDevCreditState = mutation({
 
         const resolvedAccount = getResolvedCreditAccount(nextAccount)
         const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
+        if (args.usageScenario?.startsWith("usage_")) {
+            await insertDevHostedUsageWindowBoundary(ctx, {
+                userId: user.id,
+                periodKey: period.periodKey,
+                createdAt: now
+            })
+        }
         switch (args.usageScenario) {
             case "basic_remaining_zero":
                 await insertDevCreditLabEvents(ctx, {
