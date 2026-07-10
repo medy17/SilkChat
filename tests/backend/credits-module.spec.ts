@@ -504,6 +504,96 @@ describe("credits module", () => {
         }
     })
 
+    it("emulates hosted usage windows through the dev credit lab", async () => {
+        process.env.HOSTED_USAGE_5H_USD_FREE = "0.1"
+        process.env.HOSTED_USAGE_MONTHLY_USD_FREE = "0.5"
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+        const periodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: fixedNow,
+                anchorTimestamp: fixedNow
+            })
+        )
+        const ctx = createCtx({
+            events: [
+                {
+                    _id: "old-dev-usage-event",
+                    userId: "user-1",
+                    periodKey,
+                    messageKey: "dev-credit-lab:usage:old",
+                    counted: true,
+                    bucket: "none",
+                    units: 0
+                }
+            ]
+        })
+
+        try {
+            await setMyDevCreditStateHandler.handler(ctx, {
+                plan: "free",
+                usageScenario: "usage_5h_exhausted"
+            })
+
+            expect(ctx.db.delete).toHaveBeenCalledWith("old-dev-usage-event")
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "prototypeCreditEvents",
+                expect.objectContaining({
+                    messageKey: "dev-credit-lab:usage:5h:exhausted",
+                    accountingKind: "usage",
+                    reservedMicrousd: 100_000,
+                    settledMicrousd: 100_000,
+                    bucket: "none",
+                    units: 0,
+                    createdAt: fixedNow
+                })
+            )
+        } finally {
+            nowSpy.mockRestore()
+        }
+    })
+
+    it("resets the dev-emulated five-hour hosted usage window without inserting usage", async () => {
+        const fixedNow = Date.UTC(2026, 5, 23, 8, 48, 45, 602)
+        const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow)
+        const periodKey = getCreditPeriodKeyFromBounds(
+            getAnchoredMonthlyCreditPeriodBounds({
+                timestamp: fixedNow,
+                anchorTimestamp: fixedNow
+            })
+        )
+        const ctx = createCtx({
+            events: [
+                {
+                    _id: "old-dev-usage-event",
+                    userId: "user-1",
+                    periodKey,
+                    messageKey: "dev-credit-lab:usage:5h:exhausted",
+                    counted: true,
+                    bucket: "none",
+                    units: 0
+                }
+            ]
+        })
+
+        try {
+            await setMyDevCreditStateHandler.handler(ctx, {
+                plan: "free",
+                usageScenario: "usage_5h_reset"
+            })
+
+            expect(ctx.db.delete).toHaveBeenCalledWith("old-dev-usage-event")
+            expect(ctx.db.insert).not.toHaveBeenCalledWith(
+                "prototypeCreditEvents",
+                expect.objectContaining({
+                    accountingKind: "usage"
+                })
+            )
+        } finally {
+            nowSpy.mockRestore()
+        }
+    })
+
     it("files a brand-new account's first counted event under the anchored period key", async () => {
         // Regression: previously a new account's first event used the calendar-month fallback key
         // ("2026-06") because the period was computed from the stripped resolved account (no

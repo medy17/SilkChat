@@ -353,6 +353,18 @@ const usagePresetActions: Array<{
     { label: "Internal heavy", payload: { usageScenario: "internal_heavy" } }
 ]
 
+const hostedUsagePresetActions: Array<{
+    label: string
+    payload: PrototypeCreditDevStatePayload
+}> = [
+    { label: "Reset 5h", payload: { usageScenario: "usage_5h_reset" } },
+    { label: "5h near", payload: { usageScenario: "usage_5h_near_limit" } },
+    { label: "5h 0", payload: { usageScenario: "usage_5h_exhausted" } },
+    { label: "5h expired", payload: { usageScenario: "usage_5h_expired" } },
+    { label: "Month near", payload: { usageScenario: "usage_monthly_near_limit" } },
+    { label: "Month 0", payload: { usageScenario: "usage_monthly_exhausted" } }
+]
+
 const periodPresetActions: Array<{
     label: string
     payload: PrototypeCreditDevStatePayload
@@ -396,6 +408,22 @@ function PrototypeCreditDevLab({
                         type="button"
                         size="sm"
                         variant="outline"
+                        className="h-8 rounded-[var(--radius-md)] text-xs"
+                        disabled={disabled}
+                        onClick={() => void onSetDevCreditState(action.payload)}
+                    >
+                        {action.label}
+                    </Button>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+                {hostedUsagePresetActions.map((action) => (
+                    <Button
+                        key={action.label}
+                        type="button"
+                        size="sm"
+                        variant="secondary"
                         className="h-8 rounded-[var(--radius-md)] text-xs"
                         disabled={disabled}
                         onClick={() => void onSetDevCreditState(action.payload)}

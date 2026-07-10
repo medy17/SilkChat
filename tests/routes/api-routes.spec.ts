@@ -221,6 +221,18 @@ describe("API routes", () => {
             error: "Invalid isStaff"
         })
 
+        const invalidScenarioResponse = await devCreditStateHandlers.POST!({
+            request: new Request("https://example.com/api/dev/credit-state", {
+                method: "POST",
+                body: JSON.stringify({ usageScenario: "usage_5h_impossible" })
+            })
+        })
+
+        expect(invalidScenarioResponse.status).toBe(400)
+        await expect(invalidScenarioResponse.json()).resolves.toEqual({
+            error: "Invalid usageScenario"
+        })
+
         fetchAuthMutationMock.mockResolvedValueOnce({
             ok: true,
             account: {
@@ -243,7 +255,7 @@ describe("API routes", () => {
                     monthlyProCredits: 5,
                     isStaff: true,
                     bypassLimits: false,
-                    usageScenario: "pro_near_limit",
+                    usageScenario: "usage_5h_exhausted",
                     periodAnchorPreset: "ending_tomorrow"
                 })
             })
@@ -255,7 +267,7 @@ describe("API routes", () => {
             monthlyProCredits: 5,
             isStaff: true,
             bypassLimits: false,
-            usageScenario: "pro_near_limit",
+            usageScenario: "usage_5h_exhausted",
             periodAnchorPreset: "ending_tomorrow"
         })
         expect(response.status).toBe(200)

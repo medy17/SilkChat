@@ -11,7 +11,13 @@ const usageScenarios = new Set([
     "byok_heavy",
     "internal_heavy",
     "staff_with_limits",
-    "staff_with_bypass_limits"
+    "staff_with_bypass_limits",
+    "usage_5h_reset",
+    "usage_5h_near_limit",
+    "usage_5h_exhausted",
+    "usage_5h_expired",
+    "usage_monthly_near_limit",
+    "usage_monthly_exhausted"
 ])
 
 const periodAnchorPresets = new Set(["default", "ending_today", "ending_tomorrow"])

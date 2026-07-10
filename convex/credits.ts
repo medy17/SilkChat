@@ -189,15 +189,25 @@ const deleteCurrentDevCreditLabEvents = async (
     userId: string,
     periodKey: string
 ) => {
-    const events = await ctx.db
-        .query("prototypeCreditEvents")
-        .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
-        .collect()
+    const [events, reservations, toolReservations] = await Promise.all([
+        ctx.db
+            .query("prototypeCreditEvents")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect(),
+        ctx.db
+            .query("prototypeCreditReservations")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect(),
+        ctx.db
+            .query("prototypeToolCallReservations")
+            .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
+            .collect()
+    ])
 
     await Promise.all(
-        events
-            .filter((event) => event.messageKey.startsWith(DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX))
-            .map((event) => ctx.db.delete(event._id))
+        [...events, ...reservations, ...toolReservations]
+            .filter((row) => row.messageKey.startsWith(DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX))
+            .map((row) => ctx.db.delete(row._id))
     )
 }
 
@@ -239,6 +249,80 @@ const insertDevCreditLabEvents = async (
             })
         })
     )
+}
+
+const insertDevHostedUsageEvent = async (
+    ctx: MutationCtx,
+    {
+        userId,
+        periodKey,
+        amountMicrousd,
+        createdAt,
+        label
+    }: {
+        userId: string
+        periodKey: string
+        amountMicrousd: number
+        createdAt: number
+        label: string
+    }
+) => {
+    const safeAmountMicrousd = Math.max(0, Math.round(amountMicrousd))
+    if (safeAmountMicrousd <= 0) return
+
+    const messageKey = `${DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX}usage:${label}`
+    await ctx.db.insert("prototypeCreditEvents", {
+        userId,
+        messageId: messageKey,
+        messageKey,
+        modelId: "dev-hosted-usage",
+        providerSource: "internal",
+        feature: "chat",
+        bucket: "none",
+        units: 0,
+        counted: true,
+        accountingKind: "usage" as const,
+        reservedMicrousd: safeAmountMicrousd,
+        settledMicrousd: safeAmountMicrousd,
+        pricingSource: "openrouter_reported" as const,
+        settledAt: createdAt,
+        periodKey,
+        createdAt
+    })
+}
+
+const insertDevHostedMonthlyUsage = async (
+    ctx: MutationCtx,
+    {
+        userId,
+        periodKey,
+        amountMicrousd,
+        now
+    }: {
+        userId: string
+        periodKey: string
+        amountMicrousd: number
+        now: number
+    }
+) => {
+    const safeAmountMicrousd = Math.max(0, Math.round(amountMicrousd))
+    if (safeAmountMicrousd <= 0) return
+
+    const chunkCount = Math.min(6, Math.max(1, Math.ceil(safeAmountMicrousd / 1_000_000)))
+    const baseAmount = Math.floor(safeAmountMicrousd / chunkCount)
+    let remainder = safeAmountMicrousd - baseAmount * chunkCount
+
+    for (let index = 0; index < chunkCount; index++) {
+        const amount = baseAmount + (remainder > 0 ? 1 : 0)
+        remainder = Math.max(0, remainder - 1)
+        await insertDevHostedUsageEvent(ctx, {
+            userId,
+            periodKey,
+            amountMicrousd: amount,
+            createdAt: now - (index + 1) * (FIVE_HOURS_MS + 60_000),
+            label: `monthly:${index}`
+        })
+    }
 }
 
 export const sumCountedEventUnits = (
@@ -905,7 +989,13 @@ export const setMyDevCreditState = mutation({
                 v.literal("byok_heavy"),
                 v.literal("internal_heavy"),
                 v.literal("staff_with_limits"),
-                v.literal("staff_with_bypass_limits")
+                v.literal("staff_with_bypass_limits"),
+                v.literal("usage_5h_reset"),
+                v.literal("usage_5h_near_limit"),
+                v.literal("usage_5h_exhausted"),
+                v.literal("usage_5h_expired"),
+                v.literal("usage_monthly_near_limit"),
+                v.literal("usage_monthly_exhausted")
             )
         ),
         periodAnchorPreset: v.optional(
@@ -1005,6 +1095,7 @@ export const setMyDevCreditState = mutation({
         }
 
         const resolvedAccount = getResolvedCreditAccount(nextAccount)
+        const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
         switch (args.usageScenario) {
             case "basic_remaining_zero":
                 await insertDevCreditLabEvents(ctx, {
@@ -1060,6 +1151,49 @@ export const setMyDevCreditState = mutation({
                     counted: true,
                     count: 8,
                     providerSource: "internal"
+                })
+                break
+            case "usage_5h_near_limit":
+                await insertDevHostedUsageEvent(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    amountMicrousd: Math.max(0, usageLimits.fiveHourMicrousd - 1_000),
+                    createdAt: now,
+                    label: "5h:near"
+                })
+                break
+            case "usage_5h_exhausted":
+                await insertDevHostedUsageEvent(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    amountMicrousd: usageLimits.fiveHourMicrousd,
+                    createdAt: now,
+                    label: "5h:exhausted"
+                })
+                break
+            case "usage_5h_expired":
+                await insertDevHostedUsageEvent(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    amountMicrousd: Math.floor(usageLimits.fiveHourMicrousd / 2),
+                    createdAt: now - FIVE_HOURS_MS - 60_000,
+                    label: "5h:expired"
+                })
+                break
+            case "usage_monthly_near_limit":
+                await insertDevHostedMonthlyUsage(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    amountMicrousd: Math.max(0, usageLimits.monthlyMicrousd - 1_000),
+                    now
+                })
+                break
+            case "usage_monthly_exhausted":
+                await insertDevHostedMonthlyUsage(ctx, {
+                    userId: user.id,
+                    periodKey: period.periodKey,
+                    amountMicrousd: usageLimits.monthlyMicrousd,
+                    now
                 })
                 break
         }
