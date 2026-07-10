@@ -21,12 +21,72 @@ const FREE_WITHOUT_REASONING_ACCESS = {
 
 export const OPENAI_MODELS: SharedModel[] = [
     {
+        id: "gpt-5.6-sol",
+        name: "GPT 5.6 Sol",
+        shortName: "5.6 Sol",
+        shortDescription: "Flagship GPT-5.6 model for complex reasoning, coding, and agents",
+        description:
+            "GPT 5.6 Sol is the flagship GPT-5.6 model, built for complex reasoning, coding, multimodal input, tool use, and long-horizon agentic workflows.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-6-sol"
+        },
+        releaseOrder: 20261026,
+        adapters: openAiTextAdapters("gpt-5.6-sol"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        prototypeCreditTier: "basic",
+        prototypeCreditTierWithReasoning: "pro"
+    },
+    {
+        id: "gpt-5.6-terra",
+        name: "GPT 5.6 Terra",
+        shortName: "5.6 Terra",
+        shortDescription: "Balanced GPT-5.6 model for everyday coding, reasoning, and agents",
+        description:
+            "GPT 5.6 Terra is the balanced GPT-5.6 model, positioned for everyday coding, reasoning, multimodal input, tool use, and agentic tasks where capability and cost both matter.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-6-terra"
+        },
+        releaseOrder: 20261025,
+        adapters: openAiTextAdapters("gpt-5.6-terra"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        prototypeCreditTier: "basic",
+        prototypeCreditTierWithReasoning: "pro"
+    },
+    {
+        id: "gpt-5.6-luna",
+        name: "GPT 5.6 Luna",
+        shortName: "5.6 Luna",
+        shortDescription: "Fast, cost-efficient GPT-5.6 model for high-volume workflows",
+        description:
+            "GPT 5.6 Luna is the fast, cost-efficient GPT-5.6 model, suited for high-volume chat, classification, lightweight agentic workflows, multimodal input, and tool use.",
+        developer: "OpenAI",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "gpt-5-6-luna"
+        },
+        releaseOrder: 20261024,
+        adapters: openAiTextAdapters("gpt-5.6-luna"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        prototypeCreditTier: "basic",
+        prototypeCreditTierWithReasoning: "pro"
+    },
+    {
         id: "gpt-5.5",
         name: "GPT 5.5",
         shortName: "5.5",
-        shortDescription: "Latest SOTA OpenAI model for everyday chat and tools",
+        shortDescription: "Premium OpenAI model for high-quality chat, multimodal input, and tools",
         description:
-            "GPT 5.5 is OpenAI's latest SOTA model. Expensive but built to be a token-efficient model for high-quality chat, multimodal input, and tool use.",
+            "GPT 5.5 is a premium OpenAI model for high-quality chat, multimodal input, and tool use. It remains capable and token-efficient, with GPT 5.6 Sol now occupying the flagship tier.",
         developer: "OpenAI",
         artificialAnalysis: {
             type: "llm",
@@ -109,7 +169,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
         prototypeCreditTierWithReasoning: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-08-10",
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5.2",
@@ -122,7 +184,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
         prototypeCreditTierWithReasoning: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-08-10",
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5.1",
@@ -135,7 +199,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
         prototypeCreditTierWithReasoning: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-07-23",
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5",
@@ -147,7 +213,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
         prototypeCreditTierWithReasoning: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-12-11",
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5-mini",
@@ -158,7 +226,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-12-11",
+        replacementId: "gpt-5.4-mini"
     },
     {
         id: "gpt-5-nano",
@@ -169,7 +239,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         ...FREE_WITHOUT_REASONING_ACCESS,
         prototypeCreditTier: "basic",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-12-11",
+        replacementId: "gpt-5.4-nano"
     },
     {
         id: "o4-mini-high",
@@ -189,7 +261,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("o3"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         prototypeCreditTier: "pro",
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-12-11",
+        replacementId: "gpt-5.5"
     },
     {
         id: "o4-mini",
@@ -201,7 +275,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-10-23",
-        replacementId: "gpt-5-mini"
+        replacementId: "gpt-5.4-mini"
     },
     {
         id: "gpt-4.1",
@@ -236,7 +310,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-10-23",
-        replacementId: "gpt-5-nano"
+        replacementId: "gpt-5.4-nano"
     },
     {
         id: "gpt-4.5-preview",
@@ -271,7 +345,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-10-23",
-        replacementId: "o3"
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-4o",
