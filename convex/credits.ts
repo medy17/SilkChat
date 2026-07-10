@@ -408,6 +408,68 @@ const sumToolReservationOutstandingMicrousd = (
             0
         )
 
+type UsageWindowRecord = {
+    createdAt: number
+    amountMicrousd: number
+}
+
+const getUsageEventAmountMicrousd = (event: {
+    accountingKind?: "usage"
+    settledMicrousd?: number
+    reservedMicrousd?: number
+}) =>
+    event.accountingKind === "usage"
+        ? Math.max(0, event.settledMicrousd ?? event.reservedMicrousd ?? 0)
+        : 0
+
+const getUsageReservationAmountMicrousd = (reservation: {
+    active: boolean
+    accountingKind?: "usage"
+    reservedMicrousd?: number
+}) =>
+    reservation.active && reservation.accountingKind === "usage"
+        ? Math.max(0, reservation.reservedMicrousd ?? 0)
+        : 0
+
+const getToolReservationOutstandingMicrousd = (reservation: {
+    active: boolean
+    reservedMicrousd?: number
+    consumedMicrousd?: number
+}) =>
+    reservation.active
+        ? Math.max(0, (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0))
+        : 0
+
+const getActiveFiveHourUsageWindow = (records: UsageWindowRecord[], now: number) => {
+    const sortedRecords = records
+        .filter((record) => record.amountMicrousd > 0 && record.createdAt <= now)
+        .sort((left, right) => left.createdAt - right.createdAt)
+    let windowStartsAt: number | null = null
+
+    for (const record of sortedRecords) {
+        if (windowStartsAt === null || record.createdAt >= windowStartsAt + FIVE_HOURS_MS) {
+            windowStartsAt = record.createdAt
+        }
+    }
+
+    if (windowStartsAt === null || now >= windowStartsAt + FIVE_HOURS_MS) {
+        return {
+            usedMicrousd: 0,
+            recoversAt: null
+        }
+    }
+
+    const windowEndsAt = windowStartsAt + FIVE_HOURS_MS
+    return {
+        usedMicrousd: sortedRecords
+            .filter(
+                (record) => record.createdAt >= windowStartsAt && record.createdAt < windowEndsAt
+            )
+            .reduce((sum, record) => sum + record.amountMicrousd, 0),
+        recoversAt: windowEndsAt
+    }
+}
+
 const getHostedUsageState = async (
     ctx: QueryCtx | MutationCtx,
     {
@@ -424,15 +486,7 @@ const getHostedUsageState = async (
         now?: number
     }
 ) => {
-    const fiveHourStartsAt = now - FIVE_HOURS_MS
-    const [
-        monthlyEvents,
-        monthlyReservations,
-        monthlyToolReservations,
-        rollingEvents,
-        rollingReservations,
-        rollingToolReservations
-    ] = await Promise.all([
+    const [monthlyEvents, monthlyReservations, monthlyToolReservations] = await Promise.all([
         ctx.db
             .query("prototypeCreditEvents")
             .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
@@ -444,24 +498,6 @@ const getHostedUsageState = async (
         ctx.db
             .query("prototypeToolCallReservations")
             .withIndex("byUserPeriod", (q) => q.eq("userId", userId).eq("periodKey", periodKey))
-            .collect(),
-        ctx.db
-            .query("prototypeCreditEvents")
-            .withIndex("byUserCreatedAt", (q) =>
-                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
-            )
-            .collect(),
-        ctx.db
-            .query("prototypeCreditReservations")
-            .withIndex("byUserCreatedAt", (q) =>
-                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
-            )
-            .collect(),
-        ctx.db
-            .query("prototypeToolCallReservations")
-            .withIndex("byUserCreatedAt", (q) =>
-                q.eq("userId", userId).gte("createdAt", fiveHourStartsAt)
-            )
             .collect()
     ])
     const limits = getConfiguredHostedUsageLimits(plan)
@@ -474,25 +510,34 @@ const getHostedUsageState = async (
         sumUsageReservationMicrousd(monthlyReservations) +
         sumToolReservationOutstandingMicrousd(monthlyToolReservations) +
         carriedUsageMicrousd
-    const fiveHourUsedMicrousd =
-        sumUsageEventMicrousd(rollingEvents) +
-        sumUsageReservationMicrousd(rollingReservations) +
-        sumToolReservationOutstandingMicrousd(rollingToolReservations)
-    const firstRecoveringEvent = rollingEvents
-        .filter(
-            (event) =>
-                event.accountingKind === "usage" &&
-                (event.settledMicrousd ?? event.reservedMicrousd ?? 0) > 0
-        )
-        .sort((left, right) => left.createdAt - right.createdAt)[0]
+    const activeFiveHourWindow = getActiveFiveHourUsageWindow(
+        [
+            ...monthlyEvents.map((event) => ({
+                createdAt: event.createdAt,
+                amountMicrousd: getUsageEventAmountMicrousd(event)
+            })),
+            ...monthlyReservations.map((reservation) => ({
+                createdAt: reservation.createdAt,
+                amountMicrousd: getUsageReservationAmountMicrousd(reservation)
+            })),
+            ...monthlyToolReservations.map((reservation) => ({
+                createdAt: reservation.createdAt,
+                amountMicrousd: getToolReservationOutstandingMicrousd(reservation)
+            }))
+        ],
+        now
+    )
 
     return {
         limits,
         monthlyUsedMicrousd,
-        fiveHourUsedMicrousd,
-        fiveHourRemainingMicrousd: Math.max(0, limits.fiveHourMicrousd - fiveHourUsedMicrousd),
+        fiveHourUsedMicrousd: activeFiveHourWindow.usedMicrousd,
+        fiveHourRemainingMicrousd: Math.max(
+            0,
+            limits.fiveHourMicrousd - activeFiveHourWindow.usedMicrousd
+        ),
         monthlyRemainingMicrousd: Math.max(0, limits.monthlyMicrousd - monthlyUsedMicrousd),
-        recoversAt: firstRecoveringEvent ? firstRecoveringEvent.createdAt + FIVE_HOURS_MS : null
+        recoversAt: activeFiveHourWindow.recoversAt
     }
 }
 
@@ -1433,6 +1478,8 @@ export const commitReservedCreditForMessage = internalMutation({
         }
 
         const settledAt = Date.now()
+        const usageCreatedAt =
+            reservation.accountingKind === "usage" ? reservation.createdAt : settledAt
         const settledMicrousd =
             reservation.accountingKind === "usage"
                 ? Math.max(0, Math.round(args.settledMicrousd ?? reservation.reservedMicrousd ?? 0))
@@ -1459,7 +1506,7 @@ export const commitReservedCreditForMessage = internalMutation({
                   }
                 : {}),
             periodKey: reservation.periodKey,
-            createdAt: settledAt
+            createdAt: usageCreatedAt
         })
 
         await ctx.db.patch(reservation._id, {

@@ -123,6 +123,7 @@ const createCtx = (): GenerateStandaloneImageCtx =>
 describe("images_node", () => {
     beforeEach(() => {
         vi.stubEnv("FAL_KEY", "fal-key")
+        vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "0")
         vi.stubEnv("CONVEX_SITE_URL", "https://silkchat.convex.site/")
         vi.stubGlobal(
             "fetch",
@@ -211,6 +212,13 @@ describe("images_node", () => {
             }),
             webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
         })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                reservedMicrousd: 5_000,
+                pricingSource: "fal_manual"
+            })
+        )
         expect(ctx.runMutation).toHaveBeenCalledWith("createImageGenerationJob", {
             userId: "user-1",
             clientRequestId: "client-request-1",
@@ -227,6 +235,46 @@ describe("images_node", () => {
             falRequestId: "fal-request-1",
             falGatewayRequestId: "fal-gateway-request-1"
         })
+    })
+
+    it("uses fal unit-price estimates only when explicitly enabled", async () => {
+        vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "1")
+        const pricingFetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ total_cost: 0.007, currency: "USD" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" }
+            })
+        )
+        vi.stubGlobal("fetch", pricingFetchMock)
+        const ctx = createCtx()
+
+        await expect(
+            generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: "gpt-5.4-image-2",
+                aspectRatio: "1:1",
+                resolution: "1K"
+            })
+        ).resolves.toEqual(["image-generation-job-1"])
+
+        expect(pricingFetchMock).toHaveBeenCalledWith(
+            "https://api.fal.ai/v1/models/pricing/estimate",
+            expect.objectContaining({
+                body: JSON.stringify({
+                    estimate_type: "unit_price",
+                    endpoints: {
+                        "openai/gpt-image-2": { unit_quantity: 1 }
+                    }
+                })
+            })
+        )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({
+                reservedMicrousd: 7_000,
+                pricingSource: "fal_manual"
+            })
+        )
     })
 
     it("uploads reference keys to fal input without reusing the app model id as fal id", async () => {

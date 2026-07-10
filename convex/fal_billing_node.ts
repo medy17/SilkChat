@@ -25,11 +25,15 @@ export const reconcileFalUsageCost = internalAction({
         const attempt = Math.max(0, Math.floor(args.attempt ?? 0))
         const authorization = getFalAdminAuthorization()
         if (!authorization) {
-            return { reconciled: false, retryScheduled: false }
+            console.error("[fal billing] reconciliation disabled: FAL_ADMIN_API_KEY is missing", {
+                requestId: args.requestId,
+                messageKey: args.messageKey
+            })
+            return { reconciled: false, retryScheduled: false, reason: "missing_admin_key" }
         }
         const url = new URL(FAL_BILLING_EVENTS_URL)
         url.searchParams.set("request_id", args.requestId)
-        url.searchParams.set("limit", "1")
+        url.searchParams.set("limit", "10")
 
         try {
             const response = await fetch(url, {
@@ -40,9 +44,11 @@ export const reconcileFalUsageCost = internalAction({
             })
             if (response.status === 401 || response.status === 403) {
                 console.error("[fal billing] admin API key is not authorized", {
-                    status: response.status
+                    status: response.status,
+                    requestId: args.requestId,
+                    messageKey: args.messageKey
                 })
-                return { reconciled: false, retryScheduled: false }
+                return { reconciled: false, retryScheduled: false, reason: "unauthorized" }
             }
             if (!response.ok) {
                 throw new Error(`Fal billing-events fetch failed: ${response.status}`)
@@ -60,9 +66,17 @@ export const reconcileFalUsageCost = internalAction({
                 })
                 return { reconciled: true, settledMicrousd }
             }
+
+            console.error("[fal billing] billing event not available yet", {
+                requestId: args.requestId,
+                messageKey: args.messageKey,
+                attempt,
+                payloadKeys: payload && typeof payload === "object" ? Object.keys(payload) : []
+            })
         } catch (error) {
             console.error("[fal billing] reconciliation attempt failed", {
                 requestId: args.requestId,
+                messageKey: args.messageKey,
                 attempt,
                 error
             })
@@ -78,6 +92,6 @@ export const reconcileFalUsageCost = internalAction({
             })
         }
 
-        return { reconciled: false, retryScheduled: delay !== undefined }
+        return { reconciled: false, retryScheduled: delay !== undefined, reason: "not_found" }
     }
 })

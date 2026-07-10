@@ -27,6 +27,7 @@ import {
 } from "./lib/models/fal"
 import {
     getConfiguredFalReservationMicrousd,
+    isFalPricingEstimateEnabled,
     resolveFalEstimateMicrousd
 } from "./lib/usage_metering"
 
@@ -35,6 +36,10 @@ const FAL_PRICING_CACHE_MS = 10 * 60 * 1000
 const falPricingCache = new Map<string, { microusd: number; expiresAt: number }>()
 
 const estimateFalReservationMicrousd = async (endpoint: string, fallbackMicrousd: number) => {
+    if (!isFalPricingEstimateEnabled()) {
+        return fallbackMicrousd
+    }
+
     const cached = falPricingCache.get(endpoint)
     if (cached && cached.expiresAt > Date.now()) return cached.microusd
 
@@ -50,9 +55,9 @@ const estimateFalReservationMicrousd = async (endpoint: string, fallbackMicrousd
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                estimate_type: "historical_api_price",
+                estimate_type: "unit_price",
                 endpoints: {
-                    [endpoint]: { call_quantity: 1 }
+                    [endpoint]: { unit_quantity: 1 }
                 }
             })
         })

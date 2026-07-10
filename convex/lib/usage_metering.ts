@@ -14,6 +14,9 @@ const parseNonNegativeNumber = (value: string | undefined, fallback: number) => 
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
 }
 
+const parseBooleanFlag = (value: string | undefined) =>
+    value === "1" || value?.toLowerCase() === "true"
+
 export const usdToMicrousd = (usd: number) =>
     Number.isFinite(usd) && usd > 0 ? Math.max(0, Math.round(usd * MICROUSD_PER_USD)) : 0
 
@@ -101,11 +104,14 @@ export const getConfiguredFalReservationMicrousd = ({
     const modelOverride = process.env[`FAL_USAGE_RESERVATION_USD_${normalizedModel}`]
     const baseUsd = parseNonNegativeNumber(
         modelOverride ?? process.env.FAL_USAGE_RESERVATION_USD_DEFAULT,
-        0.25
+        0.005
     )
     const multiplier = resolution === "4K" ? 2 : resolution === "2K" ? 1.5 : 1
     return usdToMicrousd(baseUsd * multiplier)
 }
+
+export const isFalPricingEstimateEnabled = () =>
+    parseBooleanFlag(process.env.FAL_USAGE_PRICING_ESTIMATE_ENABLED)
 
 export const resolveFalBillingEventMicrousd = (
     payload: unknown,

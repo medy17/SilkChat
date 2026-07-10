@@ -777,7 +777,7 @@ describe("credits module", () => {
         )
     })
 
-    it("enforces the rolling hosted-usage cap and settles the reported cost", async () => {
+    it("enforces the active discrete hosted-usage cap and settles the reported cost", async () => {
         process.env.HOSTED_USAGE_5H_USD_PRO = "1"
         process.env.HOSTED_USAGE_MONTHLY_USD_PRO = "18"
         const ctx = createCtx({
@@ -835,7 +835,8 @@ describe("credits module", () => {
                     reservedMicrousd: 200_000,
                     pricingSource: "openrouter_estimate",
                     periodKey: "2026-07",
-                    active: true
+                    active: true,
+                    createdAt: 1783699980000
                 }
             ]
         })
@@ -853,7 +854,61 @@ describe("credits module", () => {
                 accountingKind: "usage",
                 reservedMicrousd: 200_000,
                 settledMicrousd: 125_000,
-                pricingSource: "openrouter_reported"
+                pricingSource: "openrouter_reported",
+                createdAt: 1783699980000
+            })
+        )
+    })
+
+    it("starts a fresh five-hour window after the previous discrete window expires", async () => {
+        process.env.HOSTED_USAGE_5H_USD_FREE = "0.1"
+        process.env.HOSTED_USAGE_MONTHLY_USD_FREE = "1"
+        const now = Date.now()
+        const ctx = createCtx({
+            account: {
+                userId: "user-1",
+                enabled: true,
+                plan: "free"
+            },
+            events: [
+                {
+                    accountingKind: "usage",
+                    settledMicrousd: 95_000,
+                    counted: true,
+                    createdAt: now - 301 * 60 * 1000
+                },
+                {
+                    accountingKind: "usage",
+                    settledMicrousd: 5_000,
+                    counted: true,
+                    createdAt: now - 2 * 60 * 1000
+                }
+            ]
+        })
+
+        const result = await reserveCreditForMessageHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-usage",
+            messageKey: "assistant-usage:model",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "chat",
+            bucket: "basic",
+            units: 1,
+            counted: true,
+            reservedMicrousd: 100_000,
+            pricingSource: "openrouter_estimate"
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            existing: false
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeCreditReservations",
+            expect.objectContaining({
+                accountingKind: "usage",
+                reservedMicrousd: 100_000
             })
         )
     })
@@ -1019,7 +1074,7 @@ describe("credits module", () => {
         )
     })
 
-    it("blocks the tool-call budget when the metered reserve exceeds the rolling window", async () => {
+    it("blocks the tool-call budget when the metered reserve exceeds the active window", async () => {
         process.env.HOSTED_USAGE_5H_USD_FREE = "0.1"
         const ctx = createCtx({
             account: {

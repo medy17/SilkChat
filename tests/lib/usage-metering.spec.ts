@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest"
 import {
     estimateOpenRouterReservationMicrousd,
+    getConfiguredFalReservationMicrousd,
     getConfiguredHostedUsageLimits,
     getConfiguredToolUsageMicrousd,
+    isFalPricingEstimateEnabled,
     resolveFalBillingEventMicrousd,
     resolveFalEstimateMicrousd,
     usdToMicrousd
@@ -32,6 +34,17 @@ describe("hosted usage metering", () => {
         expect(getConfiguredToolUsageMicrousd("web_search")).toBe(10_000)
 
         expect(getConfiguredToolUsageMicrousd("unknown_tool")).toBe(0)
+    })
+
+    it("uses a low configured fal reservation unless live estimates are explicitly enabled", () => {
+        expect(getConfiguredFalReservationMicrousd({ modelId: "gpt-5.4-image-2" })).toBe(5_000)
+        expect(isFalPricingEstimateEnabled()).toBe(false)
+
+        process.env.FAL_USAGE_RESERVATION_USD_DEFAULT = "0.01"
+        process.env.FAL_USAGE_PRICING_ESTIMATE_ENABLED = "1"
+
+        expect(getConfiguredFalReservationMicrousd({ modelId: "gpt-5.4-image-2" })).toBe(10_000)
+        expect(isFalPricingEstimateEnabled()).toBe(true)
     })
 
     it("reserves prompt and bounded output cost using model prices", () => {
