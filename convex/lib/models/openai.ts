@@ -36,9 +36,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-5.6-sol"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS,
-        prototypeCreditTier: "basic",
-        prototypeCreditTierWithReasoning: "pro"
+        prototypeCreditTier: "pro"
     },
     {
         id: "gpt-5.6-terra",
