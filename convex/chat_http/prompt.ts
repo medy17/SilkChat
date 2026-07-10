@@ -20,6 +20,18 @@ type BuildPromptOptions = {
 
 type TemporalContextOptions = Pick<BuildPromptOptions, "userTimezone" | "clientTimestampMs">
 
+const formatDateInTimeZone = (date: Date, timeZone: string) => {
+    const parts = new Intl.DateTimeFormat("en", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(date)
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+
+    return `${byType.year}-${byType.month}-${byType.day}`
+}
+
 export const buildTemporalContext = ({
     userTimezone,
     clientTimestampMs
@@ -28,21 +40,13 @@ export const buildTemporalContext = ({
     // that instead to guarantee the right UTC and local time basis.
     const now = clientTimestampMs ? new Date(clientTimestampMs) : new Date()
 
-    const utcDateTime = now.toUTCString()
+    const utcDate = now.toISOString().slice(0, 10)
 
     let userTimeInfo = ""
     if (userTimezone) {
         try {
-            const localTime = now.toLocaleString("en-GB", {
-                timeZone: userTimezone,
-                hour: "2-digit",
-                minute: "2-digit",
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-                timeZoneName: "short"
-            })
-            userTimeInfo = `\nThe user's local time in ${userTimezone}: ${localTime}.`
+            const localDate = formatDateInTimeZone(now, userTimezone)
+            userTimeInfo = `\nUser timezone: ${userTimezone}. Local date: ${localDate}.`
         } catch {
             // Gracefully ignore invalid timezones without shitting the bed
             userTimeInfo = ""
@@ -50,8 +54,8 @@ export const buildTemporalContext = ({
     }
 
     return dedent`
-## Current Time
-Current true time (UTC): ${utcDateTime}.${userTimeInfo}`
+## Current Date
+UTC date: ${utcDate}.${userTimeInfo}`
 }
 
 export const buildPrompt = ({
