@@ -5,7 +5,8 @@ import { estimateTokenCount } from "./file_constants"
 import type { SharedModel } from "./models"
 
 export const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
-export const DEFAULT_MAX_OUTPUT_TOKENS = 16_096
+export const MAX_OUTPUT_CONTEXT_FRACTION = 0.25
+export const MAX_OUTPUT_TOKENS_CAP = 64_000
 export const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD = 0.5
 export const DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS = 32_000
 export const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
@@ -80,6 +81,21 @@ const getHostedMaxInputTokens = () =>
 const isPositiveFiniteNumber = (value: unknown): value is number =>
     typeof value === "number" && Number.isFinite(value) && value > 0
 
+/** Provider catalogs expose a theoretical ceiling, so keep a practical per-request budget. */
+export const resolveMaxOutputTokens = (model: ContextLimitPolicyModel | null | undefined) => {
+    const contextLength = isPositiveFiniteNumber(model?.contextLength)
+        ? model.contextLength
+        : DEFAULT_MODEL_CONTEXT_LENGTH
+    const policyLimit = Math.min(
+        Math.floor(contextLength * MAX_OUTPUT_CONTEXT_FRACTION),
+        MAX_OUTPUT_TOKENS_CAP
+    )
+
+    return isPositiveFiniteNumber(model?.maxTokens)
+        ? Math.min(model.maxTokens, policyLimit)
+        : policyLimit
+}
+
 export const resolveContextLimits = (
     model: ContextLimitPolicyModel | null | undefined,
     override?: ContextLimitOverride
@@ -87,9 +103,7 @@ export const resolveContextLimits = (
     const modelContextLength = isPositiveFiniteNumber(model?.contextLength)
         ? model.contextLength
         : DEFAULT_MODEL_CONTEXT_LENGTH
-    const maxOutputTokens = isPositiveFiniteNumber(model?.maxTokens)
-        ? model.maxTokens
-        : DEFAULT_MAX_OUTPUT_TOKENS
+    const maxOutputTokens = resolveMaxOutputTokens(model)
     const safetyMarginTokens = Math.max(4_096, Math.ceil(modelContextLength * 0.05))
     const computedModelInputLimit = Math.max(
         1_024,

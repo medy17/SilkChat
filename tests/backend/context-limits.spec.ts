@@ -47,6 +47,30 @@ describe("context limit policy", () => {
         expect(limits.hostedInputLimit).toBe(32_000)
     })
 
+    it("does not let a provider completion ceiling consume the input window", () => {
+        const limits = resolveContextLimits({
+            contextLength: 262_144,
+            maxTokens: 262_144,
+            inputUsdPer1MTokens: 0.66
+        })
+
+        expect(limits.maxOutputTokens).toBe(64_000)
+        expect(limits.modelInputLimit).toBe(185_036)
+        expect(limits.hostedInputLimit).toBe(DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS)
+    })
+
+    it("uses one quarter of a smaller context window for the output budget", () => {
+        const limits = resolveContextLimits({ contextLength: 100_000 })
+
+        expect(limits.maxOutputTokens).toBe(25_000)
+    })
+
+    it("respects a lower provider completion limit", () => {
+        const limits = resolveContextLimits({ contextLength: 262_144, maxTokens: 8_192 })
+
+        expect(limits.maxOutputTokens).toBe(8_192)
+    })
+
     it("applies a dev hosted-limit override, staying clamped to the model limit", () => {
         const model = { contextLength: 1_000_000, maxTokens: 8_000, inputUsdPer1MTokens: 10 }
 

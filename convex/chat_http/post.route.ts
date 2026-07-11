@@ -27,7 +27,8 @@ import {
     estimateHttpMessageTokens,
     estimateModelMessagesTokens,
     getContextLimitViolation,
-    resolveContextLimits
+    resolveContextLimits,
+    resolveMaxOutputTokens
 } from "../lib/context_limits"
 import {
     resolvePrototypeCreditCharge,
@@ -770,7 +771,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
     if (modelData instanceof ChatError) return modelData.toResponse()
     let { model, modelName } = modelData
     let displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
-    const configuredMaxTokens = modelData.registry.models[body.model]?.maxTokens
     const selectedRegistryModel = modelData.registry.models[body.model]
     const allowedReasoningEfforts = getSharedAllowedReasoningEffortsForModel(selectedRegistryModel)
     const supportsReasoningToggle = allowedReasoningEfforts.includes("off")
@@ -779,10 +779,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         modelData.abilities.includes("effort_control") &&
         (!OPENROUTER_ONLY_REASONING_CONTROL_MODEL_IDS.has(body.model) ||
             modelData.runtimeProvider === "openrouter")
-    let maxTokens =
-        typeof configuredMaxTokens === "number" && configuredMaxTokens > 0
-            ? configuredMaxTokens
-            : 16096
+    let maxTokens = resolveMaxOutputTokens(selectedRegistryModel)
     // Dev-only, request-scoped context-limit override. Ignored entirely in production —
     // the env flag is unset there, so a crafted body field is a no-op.
     const devContextOverride =
@@ -962,11 +959,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 model = modelData.model
                 modelName = modelData.modelName
                 displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
-                maxTokens =
-                    typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
-                    modelData.registry.models[body.model]?.maxTokens > 0
-                        ? modelData.registry.models[body.model].maxTokens
-                        : 16096
+                maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
                 modelCreditCharge = resolvePrototypeCreditCharge({
                     providerSource: modelData.providerSource,
                     modelMode: model.modelType,
@@ -1147,11 +1140,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     model = modelData.model
                     modelName = modelData.modelName
                     displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
-                    maxTokens =
-                        typeof modelData.registry.models[body.model]?.maxTokens === "number" &&
-                        modelData.registry.models[body.model]?.maxTokens > 0
-                            ? modelData.registry.models[body.model].maxTokens
-                            : 16096
+                    maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
                     modelCreditCharge = resolvePrototypeCreditCharge({
                         providerSource: modelData.providerSource,
                         modelMode: model.modelType,

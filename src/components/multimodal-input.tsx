@@ -111,7 +111,8 @@ import { toast } from "sonner"
 type ExtendedUploadedFile = UploadedFileWithSource
 
 const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
-const DEFAULT_MAX_OUTPUT_TOKENS = 16_096
+const MAX_OUTPUT_CONTEXT_FRACTION = 0.25
+const MAX_OUTPUT_TOKENS_CAP = 64_000
 const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD = 0.75
 const DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS = 32_000
 const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
@@ -163,9 +164,13 @@ const resolveComposerContextLimits = (model: SharedModel | undefined) => {
     const modelContextLength = isPositiveFiniteNumber(model?.contextLength)
         ? model.contextLength
         : DEFAULT_MODEL_CONTEXT_LENGTH
+    const outputPolicyLimit = Math.min(
+        Math.floor(modelContextLength * MAX_OUTPUT_CONTEXT_FRACTION),
+        MAX_OUTPUT_TOKENS_CAP
+    )
     const maxOutputTokens = isPositiveFiniteNumber(model?.maxTokens)
-        ? model.maxTokens
-        : DEFAULT_MAX_OUTPUT_TOKENS
+        ? Math.min(model.maxTokens, outputPolicyLimit)
+        : outputPolicyLimit
     const safetyMarginTokens = Math.max(4_096, Math.ceil(modelContextLength * 0.05))
     const modelInputLimit = Math.max(
         1_024,
