@@ -16,6 +16,20 @@ export interface UploadedFileWithSource extends UploadedFile {
     file?: File
 }
 
+export const imageNeedsPreparation = ({
+    fileSize,
+    width,
+    height,
+    maxFileSize,
+    maxDimension
+}: {
+    fileSize: number
+    width: number
+    height: number
+    maxFileSize: number
+    maxDimension: number
+}) => fileSize > maxFileSize || Math.max(width, height) > maxDimension
+
 export const readChatAttachmentContent = async (file: File): Promise<string> =>
     isSvgMimeType(file.type) ||
     isSvgExtension(file.name) ||
@@ -39,18 +53,19 @@ export const readChatAttachmentContent = async (file: File): Promise<string> =>
 
 export const compressChatImageIfNeeded = async (
     file: File,
-    policy: UploadPolicy = DEFAULT_UPLOAD_POLICY
+    policy: UploadPolicy = DEFAULT_UPLOAD_POLICY,
+    options?: { maxImageDimension?: number }
 ): Promise<File> => {
     const isSvg = isSvgMimeType(file.type) || isSvgExtension(file.name)
     const isRasterImage = isImageMimeType(file.type) && !isSvg
 
-    if (!isRasterImage || file.size <= policy.maxFileSize) {
+    if (!isRasterImage) {
         return file
     }
 
-    if (file.size > policy.maxCompressibleImageSize) {
+    if (file.size > policy.maxFileSize) {
         throw new Error(
-            `${file.name}: Image exceeds ${formatFileSizeLimit(policy.maxCompressibleImageSize)} limit`
+            `${file.name}: Image exceeds ${formatFileSizeLimit(policy.maxFileSize)} limit`
         )
     }
 
@@ -64,9 +79,23 @@ export const compressChatImageIfNeeded = async (
             image.src = objectUrl
         })
 
+        const maxImageDimension = options?.maxImageDimension ?? policy.maxImageDimension
+        if (
+            !imageNeedsPreparation({
+                fileSize: file.size,
+                width: sourceImage.width,
+                height: sourceImage.height,
+                maxFileSize: policy.maxImageFileSize,
+                maxDimension: maxImageDimension
+            })
+        ) {
+            return file
+        }
+
         for (const step of policy.imageCompressionSteps) {
             const largestSide = Math.max(sourceImage.width, sourceImage.height)
-            const scale = Math.min(1, step.maxDimension / largestSide)
+            const targetMaxDimension = Math.min(step.maxDimension, maxImageDimension)
+            const scale = Math.min(1, targetMaxDimension / largestSide)
             const targetWidth = Math.max(1, Math.floor(sourceImage.width * scale))
             const targetHeight = Math.max(1, Math.floor(sourceImage.height * scale))
 
@@ -96,13 +125,13 @@ export const compressChatImageIfNeeded = async (
                 lastModified: file.lastModified
             })
 
-            if (compressedFile.size < policy.maxFileSize) {
+            if (compressedFile.size <= policy.maxImageFileSize) {
                 return compressedFile
             }
         }
 
         throw new Error(
-            `${file.name}: Could not compress image below ${formatFileSizeLimit(policy.maxFileSize)} after ${policy.imageCompressionSteps.length} attempts`
+            `${file.name}: Could not prepare image within ${maxImageDimension}px and ${formatFileSizeLimit(policy.maxImageFileSize)} limits after ${policy.imageCompressionSteps.length} attempts`
         )
     } finally {
         URL.revokeObjectURL(objectUrl)
@@ -112,17 +141,19 @@ export const compressChatImageIfNeeded = async (
 export const prepareChatAttachmentForUpload = async (
     file: File,
     policy: UploadPolicy = DEFAULT_UPLOAD_POLICY,
-    options?: { skipImageCompression?: boolean }
+    options?: { skipImageCompression?: boolean; maxImageDimension?: number }
 ): Promise<File> => {
     let fileToUpload = file
     const fileTypeInfo = getFileTypeInfo(fileToUpload.name, fileToUpload.type)
 
-    if (
-        !options?.skipImageCompression &&
-        fileTypeInfo.isVisionImage &&
-        fileToUpload.size > policy.maxFileSize
-    ) {
-        fileToUpload = await compressChatImageIfNeeded(fileToUpload, policy)
+    if (fileToUpload.size > policy.maxFileSize) {
+        throw new Error(
+            `${fileToUpload.name}: File size exceeds ${formatFileSizeLimit(policy.maxFileSize)} limit`
+        )
+    }
+
+    if (!options?.skipImageCompression && fileTypeInfo.isVisionImage) {
+        fileToUpload = await compressChatImageIfNeeded(fileToUpload, policy, options)
     }
 
     if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {

@@ -72,6 +72,7 @@ import {
     clampToolCallLimitPerTurn
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
+import { type ImageDimensions, estimateImageInputTokens } from "@/lib/vision-token-estimate"
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
 import type { UIMessage } from "ai"
@@ -214,19 +215,27 @@ const estimateUiMessageTokens = (message: UIMessage) =>
 const estimateUploadedFileTokens = (
     file: UploadedFile,
     content: string | undefined,
-    contentAvailable: boolean
+    contentAvailable: boolean,
+    imageDimensions: ImageDimensions | undefined,
+    modelId: string | null
 ) => {
     const baseTokens =
         DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS +
         estimateTokenCount(file.fileName) +
         estimateTokenCount(file.fileType)
+    const fileTypeInfo = getFileTypeInfo(file.fileName, file.fileType)
+
+    // Image bytes are sent as a model image reference, not prompt text. Counting a
+    // cached data URL here turns Base64 size into a fictitious text-token estimate.
+    if (fileTypeInfo.isImage) {
+        return baseTokens + estimateImageInputTokens(imageDimensions, modelId ?? undefined)
+    }
 
     if (contentAvailable) {
         return baseTokens + estimateTokenCount(content ?? "")
     }
 
-    const fileTypeInfo = getFileTypeInfo(file.fileName, file.fileType)
-    if (fileTypeInfo.isText && !fileTypeInfo.isImage) {
+    if (fileTypeInfo.isText) {
         return baseTokens + Math.ceil(file.fileSize / 4)
     }
 
@@ -1264,6 +1273,9 @@ export const MultimodalInput = forwardRef<
     const composerViewportRef = useRef<HTMLDivElement>(null)
 
     const [fileContents, setFileContents] = useState<Record<string, string>>({})
+    const [fileImageDimensions, setFileImageDimensions] = useState<Record<string, ImageDimensions>>(
+        {}
+    )
     const [localUploadingFiles, setLocalUploadingFiles] = useState<LocalUploadingFile[]>([])
     const [dialogFile, setDialogFile] = useState<{
         content: string
@@ -1369,7 +1381,14 @@ export const MultimodalInput = forwardRef<
         const attachmentTokens = uploadedFiles.reduce((total, file) => {
             const hasCachedContent = Object.hasOwn(fileContents, file.key)
             return (
-                total + estimateUploadedFileTokens(file, fileContents[file.key], hasCachedContent)
+                total +
+                estimateUploadedFileTokens(
+                    file,
+                    fileContents[file.key],
+                    hasCachedContent,
+                    fileImageDimensions[file.key],
+                    selectedModel
+                )
             )
         }, 0)
         const draftTokens =
@@ -1405,9 +1424,11 @@ export const MultimodalInput = forwardRef<
         return null
     }, [
         fileContents,
+        fileImageDimensions,
         inputValue,
         isImageModel,
         messages,
+        selectedModel,
         selectedSharedModel,
         uploadedFiles,
         userSettings
@@ -1542,6 +1563,20 @@ export const MultimodalInput = forwardRef<
                             ...prev,
                             [result.key]: content
                         }))
+                        if (isImageMimeType(result.file.type)) {
+                            const image = new Image()
+                            image.src = content
+                            await image.decode().catch(() => undefined)
+                            if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                                setFileImageDimensions((prev) => ({
+                                    ...prev,
+                                    [result.key]: {
+                                        width: image.naturalWidth,
+                                        height: image.naturalHeight
+                                    }
+                                }))
+                            }
+                        }
                     }
 
                     await new Promise((resolve) => setTimeout(resolve, 500))
@@ -1645,6 +1680,11 @@ export const MultimodalInput = forwardRef<
             const newContents = { ...prev }
             delete newContents[key]
             return newContents
+        })
+        setFileImageDimensions((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
         })
         deleteFileMutation({ key })
             .then((result) => {

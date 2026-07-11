@@ -133,6 +133,8 @@ describe("attachments", () => {
         await expect(getUploadPolicyHandler(createQueryCtx(), {})).resolves.toMatchObject({
             version: DEFAULT_UPLOAD_POLICY_VERSION,
             maxFileSize: 15 * 1024 * 1024,
+            maxImageFileSize: 5 * 1024 * 1024,
+            maxImageDimension: 2048,
             maxAttachmentsPerThread: 100
         })
     })

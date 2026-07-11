@@ -1,9 +1,39 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
+import {
+    imageNeedsPreparation,
+    prepareChatAttachmentForUpload,
+    uploadChatAttachment
+} from "@/lib/chat-attachments"
 import { DEFAULT_UPLOAD_POLICY, UPLOAD_POLICY_HEADER } from "@/lib/file_constants"
 
 describe("chat-attachments", () => {
+    it("rejects attachments above the input limit before attempting image compression", async () => {
+        const file = new File([new Uint8Array(16)], "large.png", { type: "image/png" })
+
+        await expect(
+            prepareChatAttachmentForUpload(file, {
+                ...DEFAULT_UPLOAD_POLICY,
+                maxFileSize: 15,
+                maxImageFileSize: 5
+            })
+        ).rejects.toThrow("large.png: File size exceeds")
+    })
+
+    it("prepares images based on dimensions or encoded size", () => {
+        const limits = { maxFileSize: 5, maxDimension: 2048 }
+
+        expect(imageNeedsPreparation({ fileSize: 5, width: 2048, height: 1200, ...limits })).toBe(
+            false
+        )
+        expect(imageNeedsPreparation({ fileSize: 5, width: 4096, height: 1200, ...limits })).toBe(
+            true
+        )
+        expect(imageNeedsPreparation({ fileSize: 6, width: 1024, height: 1024, ...limits })).toBe(
+            true
+        )
+    })
+
     it("uses upload policy token limits while preparing text attachments", async () => {
         const file = new File(["a".repeat(20)], "notes.txt", { type: "text/plain" })
 

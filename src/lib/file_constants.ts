@@ -100,10 +100,13 @@ export const ALL_SUPPORTED_EXTENSIONS = [
 
 // File size limits
 export const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB
+export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024 // 5MB stored-image target
+export const MAX_CHAT_IMAGE_DIMENSION = 2048
 export const MAX_TOKENS_PER_FILE = 32000 // 32k tokens
 export const MAX_ATTACHMENTS_PER_THREAD = 100
 export const formatFileSizeLimit = (bytes: number) => `${bytes / 1024 / 1024}MB`
 
+// Used by non-composer ingestion paths that perform their own guarded image processing.
 export const MAX_COMPRESSIBLE_IMAGE_SIZE = 25 * 1024 * 1024 // 25MB
 export const IMAGE_COMPRESSION_STEPS = [
     { quality: 0.86, maxDimension: 4096 },
@@ -116,9 +119,10 @@ export const UPLOAD_POLICY_HEADER = "X-Upload-Policy-Version"
 
 export type UploadPolicy = {
     maxFileSize: number
+    maxImageFileSize: number
+    maxImageDimension: number
     maxTokensPerFile: number
     maxAttachmentsPerThread: number
-    maxCompressibleImageSize: number
     supportedRasterImageExtensions: readonly string[]
     supportedVectorImageExtensions: readonly string[]
     supportedCodeExtensions: readonly string[]
@@ -134,9 +138,10 @@ export type UploadPolicy = {
 
 export const DEFAULT_UPLOAD_POLICY = {
     maxFileSize: MAX_FILE_SIZE,
+    maxImageFileSize: MAX_IMAGE_FILE_SIZE,
+    maxImageDimension: MAX_CHAT_IMAGE_DIMENSION,
     maxTokensPerFile: MAX_TOKENS_PER_FILE,
     maxAttachmentsPerThread: MAX_ATTACHMENTS_PER_THREAD,
-    maxCompressibleImageSize: MAX_COMPRESSIBLE_IMAGE_SIZE,
     supportedRasterImageExtensions: SUPPORTED_RASTER_IMAGE_EXTENSIONS,
     supportedVectorImageExtensions: SUPPORTED_VECTOR_IMAGE_EXTENSIONS,
     supportedCodeExtensions: SUPPORTED_CODE_EXTENSIONS,

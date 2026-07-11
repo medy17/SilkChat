@@ -319,7 +319,9 @@ export function FilesSettingsContent() {
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">File size limit</span>
-                            <span className="font-medium">5 MB per file</span>
+                            <span className="font-medium">
+                                15 MB maximum; images compressed below 5 MB
+                            </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Current usage</span>
