@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
@@ -21,6 +22,7 @@ import {
     useDevOverridesStore
 } from "@/lib/dev-overrides"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
+import { DEFAULT_UPLOAD_POLICY, formatFileSizeLimit } from "@/lib/file_constants"
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio,
@@ -31,7 +33,7 @@ import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useAction } from "convex/react"
 import { ConvexError } from "convex/values"
-import { Archive, Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
+import { AlertCircle, Archive, Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useGenerationStore } from "./generation-store"
@@ -120,7 +122,18 @@ type ReferenceFile = {
     preview: string
     hash?: string
     storageKey?: string
+    error?: string
 }
+
+class ReferencePreparationError extends Error {}
+
+const REFERENCE_INPUT_LIMIT_LABEL = formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxFileSize)
+const REFERENCE_PREPARATION_ERROR = `Reference could not be optimized to ${DEFAULT_UPLOAD_POLICY.maxImageDimension}px and under ${formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxImageFileSize)}.`
+
+const getReferenceInputError = (file: File) =>
+    file.size > DEFAULT_UPLOAD_POLICY.maxFileSize
+        ? `References must be <${REFERENCE_INPUT_LIMIT_LABEL}.`
+        : undefined
 
 const getFileSha256 = async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -512,9 +525,15 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         if (allowedFiles.length > 0) {
             const newRefs = allowedFiles.map((file) => ({
                 file,
-                preview: URL.createObjectURL(file)
+                preview: URL.createObjectURL(file),
+                error: getReferenceInputError(file)
             }))
             setReferenceFiles((prev) => [...prev, ...newRefs])
+            if (newRefs.some((reference) => reference.error)) {
+                toast.error(
+                    `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
+                )
+            }
         }
         if (fileInputRef.current) {
             fileInputRef.current.value = ""
@@ -544,9 +563,15 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             const allowedFiles = getAllowedReferenceFiles(files)
             const newRefs = allowedFiles.map((file) => ({
                 file,
-                preview: URL.createObjectURL(file)
+                preview: URL.createObjectURL(file),
+                error: getReferenceInputError(file)
             }))
             setReferenceFiles((prev) => [...prev, ...newRefs])
+            if (newRefs.some((reference) => reference.error)) {
+                toast.error(
+                    `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
+                )
+            }
         }
     }
 
@@ -758,6 +783,27 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             return []
         }
 
+        setReferenceFiles((prev) => prev.map((reference) => ({ ...reference, error: undefined })))
+
+        const oversizedReferences = currentReferences.filter((reference) =>
+            getReferenceInputError(reference.file)
+        )
+        if (oversizedReferences.length > 0) {
+            const oversizedPreviews = new Set(
+                oversizedReferences.map((reference) => reference.preview)
+            )
+            setReferenceFiles((prev) =>
+                prev.map((reference) =>
+                    oversizedPreviews.has(reference.preview)
+                        ? { ...reference, error: getReferenceInputError(reference.file) }
+                        : reference
+                )
+            )
+            throw new ReferencePreparationError(
+                `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
+            )
+        }
+
         const hashToStorageKey = new Map<string, string>()
         for (const reference of currentReferences) {
             if (reference.hash && reference.storageKey) {
@@ -768,9 +814,23 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const uploadedKeys: string[] = []
 
         for (const reference of currentReferences) {
-            const preparedFile = await prepareChatAttachmentForUpload(reference.file, undefined, {
-                skipImageCompression: overridesActive && disableImageCompression
-            })
+            let preparedFile: File
+            try {
+                preparedFile = await prepareChatAttachmentForUpload(reference.file, undefined, {
+                    skipImageCompression: overridesActive && disableImageCompression
+                })
+            } catch {
+                setReferenceFiles((prev) =>
+                    prev.map((item) =>
+                        item.preview === reference.preview
+                            ? { ...item, error: REFERENCE_PREPARATION_ERROR }
+                            : item
+                    )
+                )
+                throw new ReferencePreparationError(
+                    "One or more references could not be optimized. Try a smaller image."
+                )
+            }
             const hash = reference.hash ?? (await getFileSha256(preparedFile))
             const existingKey = reference.storageKey ?? hashToStorageKey.get(hash)
 
@@ -879,7 +939,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to generate image:", error)
-            toast.error(getGenerationErrorMessage(error, "Failed to generate image"))
+            toast.error(
+                error instanceof ReferencePreparationError
+                    ? error.message
+                    : getGenerationErrorMessage(error, "Failed to generate image")
+            )
         } finally {
             setGenerationMode(null)
         }
@@ -935,7 +999,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to run fake image generation:", error)
-            toast.error(getGenerationErrorMessage(error, "Failed to run fake image generation"))
+            toast.error(
+                error instanceof ReferencePreparationError
+                    ? error.message
+                    : getGenerationErrorMessage(error, "Failed to run fake image generation")
+            )
         } finally {
             setGenerationMode(null)
         }
@@ -1004,13 +1072,35 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                             {referenceFiles.map((ref, index) => (
                                 <div
                                     key={index}
-                                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-background"
+                                    className={cn(
+                                        "relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-background",
+                                        ref.error && "ring-2 ring-destructive/70"
+                                    )}
                                 >
                                     <img
                                         src={ref.preview}
                                         className="h-full w-full object-cover"
                                         alt="ref"
                                     />
+                                    {ref.error && (
+                                        <Tooltip delayDuration={150}>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="absolute bottom-1 left-1 rounded-[var(--radius-sm)] border border-destructive/40 bg-background/90 p-0.5 text-destructive"
+                                                    aria-label={ref.error}
+                                                >
+                                                    <AlertCircle
+                                                        className="h-3.5 w-3.5"
+                                                        aria-hidden="true"
+                                                    />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                                {ref.error}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
                                     <button
                                         type="button"
                                         className="absolute top-1 right-1 rounded-full bg-background/50 p-0.5 text-foreground transition-colors hover:bg-background/80"
