@@ -266,59 +266,60 @@ export const pricingOptions = [
         cadence: "forever",
         cta: "Start free",
         featured: false,
-        description: "Try the workspace with included usage and your own provider keys.",
+        description: "Try the app with zero commitment.",
         items: [
             "Included model usage",
-            "Bring your own provider keys",
-            "Chat, files, imports, and personas",
+            "Chat, file uploads, and light reasoning",
+            "Personas",
             "Upgrade when you need Pro models"
         ]
     },
     {
         title: "Pro",
         price: "$8.99",
-        cadence: "per month",
+        cadence: "p/mo",
         cta: "Get Pro",
         featured: true,
-        description: "Use managed premium models without provider setup.",
+        description: "World-class model variety models with generous usage limits.",
         items: [
-            "Generous five-hour usage windows",
-            "Monthly included usage allowance",
-            "Premium image generation",
-            "Keep BYOK for direct provider billing"
+            "Everything in Free, plus:",
+            "Much larger usage quotas",
+            "Access Pro models like Opus 4.8 and GPT 5.6 Sol",
+            "Premium image generation experience in SilkScreen",
+            "Use BYOK for extra usage"
         ]
     }
 ]
 
 export const testimonials: Testimonial[] = [
     {
-        quote: "SilkChat replaced three separate subscriptions for me. Having every model in one place is an absolute game-changer.",
-        name: "Alex R.",
-        role: "Full-Stack Developer"
+        quote: "Going from maintaining two $20 subscriptions to a single $8.99 plan made an AI sub feel so much more worth it.",
+        name: "Haytham A.",
+        role: "QA Engineer"
     },
     {
-        quote: "The artifacts feature is insane. I can prototype UI components directly in a chat and see them render live.",
+        quote: "The artifacts feature is kinda neat. Being able to mock components directly in a chat and see them render live is incredible.",
         name: "Priya S.",
         role: "UX Designer"
     },
     {
-        quote: "BYOK means I'm in full control of my costs and data. It's the only AI platform I actually trust with sensitive work.",
-        name: "Marcus T.",
+        quote: "SilkChat made me feel insulted when other AI apps didn't offer BYOK. Spoils you proper.",
+        name: "Hubert B.",
         role: "Security Consultant"
     },
     {
-        quote: "The model selector makes it simple to pick the right tool for the job without splitting work across apps.",
+        quote: "Actually crazy to have Claude, GPT, and Gemini in one app.",
         name: "Nadia K.",
         role: "Research Lead"
     },
     {
-        quote: "Importing old chats and keeping them next to new work made SilkChat feel like home on day one.",
+        quote: "No clue why more apps don't have an import feature. Super handy and made me feel at home on day one.",
         name: "Owen L.",
         role: "Product Engineer"
     },
     {
         quote: "Search, images, files, and personas in one thread is exactly how AI tooling should feel.",
-        name: "Maya D.",
+        name: "Mary L.",
         role: "Creative Director"
     }
 ]
