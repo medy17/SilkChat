@@ -10,6 +10,7 @@ import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/ke
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
+import { useNavigate } from "@tanstack/react-router"
 import type { UIToolInvocation } from "ai"
 import { useAction, useQuery } from "convex/react"
 import { ConvexError } from "convex/values"
@@ -379,6 +380,7 @@ export const ImageGenerationToolRenderer = memo(
         threadId?: string
         messageId?: string
     }) => {
+        const navigate = useNavigate()
         const { models: sharedModels } = useSharedModels()
         const confirmPreparedImageGeneration = useAction(
             api.images_node.confirmPreparedChatImageGeneration
@@ -410,6 +412,7 @@ export const ImageGenerationToolRenderer = memo(
             api.images.listGeneratedImagesByIds,
             generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
         ) as Doc<"generatedImages">[] | undefined
+        const creditSummary = useQuery(api.credits.getMyCreditSummary)
         // Accumulate images so a transient `undefined` (which the query returns while it
         // re-subscribes as new variant ids stream in) doesn't drop the currently-viewed
         // image, which would otherwise flash a reload and unmount the open details modal.
@@ -578,6 +581,10 @@ export const ImageGenerationToolRenderer = memo(
                 threadId &&
                 messageId &&
                 !isConfirming
+            const needsPlanUpgrade =
+                output.estimatedCredits?.requiredPlan === "pro" && creditSummary?.plan === "free"
+            const isPlanLoading =
+                output.estimatedCredits?.requiredPlan === "pro" && creditSummary === undefined
             const handleConfirm = async () => {
                 if (!output.cardId || !threadId || !messageId) return
                 setIsConfirming(true)
@@ -956,16 +963,28 @@ export const ImageGenerationToolRenderer = memo(
                             <Button
                                 type="button"
                                 className="h-10 w-full gap-2"
-                                disabled={!canConfirm}
-                                onClick={handleConfirm}
+                                disabled={isPlanLoading || (needsPlanUpgrade ? false : !canConfirm)}
+                                onClick={() => {
+                                    if (needsPlanUpgrade) {
+                                        void navigate({ to: "/settings/billing" })
+                                        return
+                                    }
+                                    void handleConfirm()
+                                }}
                                 aria-describedby={prompt ? promptId : undefined}
                             >
-                                {isConfirming ? (
+                                {isConfirming || isPlanLoading ? (
                                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                                 ) : (
                                     <Sparkles className="size-4" aria-hidden="true" />
                                 )}
-                                {isConfirming ? "Generating" : "Generate"}
+                                {isConfirming
+                                    ? "Generating"
+                                    : isPlanLoading
+                                      ? "Checking plan"
+                                      : needsPlanUpgrade
+                                        ? "Upgrade to Pro"
+                                        : "Generate"}
                             </Button>
                         ) : isWorking ? (
                             <Button type="button" className="h-10 w-full gap-2" disabled>
