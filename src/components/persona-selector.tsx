@@ -14,6 +14,7 @@ import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels } from "@/lib/models-providers-shared"
+import { clearPersonaOnboardingHandoff } from "@/lib/persona-onboarding"
 import { useSharedModels } from "@/lib/shared-models"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -161,6 +162,8 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
             (thread === undefined && selectedOption ? selectedOption.avatarValue : undefined))
 
     const applyPersonaSelection = (option: PersonaOption) => {
+        // Manual choice wins over any pending onboarding handoff.
+        clearPersonaOnboardingHandoff()
         setSelectedPersona({ source: option.source, id: option.id })
 
         const replacement = resolveAvailableModelReplacement({
@@ -251,6 +254,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                     type="button"
                                     className={PERSONA_MENU_ITEM_CLASS}
                                     onClick={() => {
+                                        clearPersonaOnboardingHandoff()
                                         setSelectedPersona({ source: "default" })
                                         setIsPickerOpen(false)
                                     }}

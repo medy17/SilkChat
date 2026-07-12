@@ -7,7 +7,11 @@ import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatDataProcessor } from "@/hooks/use-chat-data-processor"
 import { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
-import { useSelectedModelLifecycleMigration } from "@/hooks/use-model-lifecycle-migration"
+import {
+    notifyModelReplacement,
+    resolveAvailableModelReplacement,
+    useSelectedModelLifecycleMigration
+} from "@/hooks/use-model-lifecycle-migration"
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
@@ -22,6 +26,10 @@ import {
 } from "@/lib/keyboard-shortcuts"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
+import {
+    clearPersonaOnboardingHandoff,
+    peekPersonaOnboardingHandoff
+} from "@/lib/persona-onboarding"
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
@@ -203,7 +211,60 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         localStorage.setItem("DISK_CACHE:user-name", session.user.name)
     }, [session?.user?.name, isPending])
 
-    const { resetChat, selectedPersona } = useChatStore()
+    const { resetChat, selectedPersona, setSelectedPersona } = useChatStore()
+
+    // Handoff from /personas/start. Re-applied (not one-shot) because resetChat
+    // wipes selectedPersona on any ChatContent remount; it stays active until a
+    // thread starts, the user picks a persona manually, or it expires. Waits for
+    // the model list so the persona's default model can be applied like the
+    // persona selector does.
+    useEffect(() => {
+        if (!isActiveRoute || !session?.user?.id) return
+        if (threadId) {
+            // A conversation exists — the handoff has served its purpose.
+            clearPersonaOnboardingHandoff()
+            return
+        }
+        if (availableModels.length === 0) return
+        const handoff = peekPersonaOnboardingHandoff()
+        if (!handoff) return
+        if (selectedPersona.source === handoff.source && selectedPersona.id === handoff.id) {
+            return
+        }
+
+        setSelectedPersona({ source: handoff.source, id: handoff.id })
+
+        if (!handoff.defaultModelId) return
+        const availableModelIds = new Set(availableModels.map((model) => model.id))
+        const replacement = resolveAvailableModelReplacement({
+            modelId: handoff.defaultModelId,
+            sharedModels,
+            availableModels
+        })
+        const targetModelId = availableModelIds.has(handoff.defaultModelId)
+            ? handoff.defaultModelId
+            : replacement.replacementId
+
+        if (targetModelId && availableModelIds.has(targetModelId)) {
+            setSelectedModel(targetModelId)
+            if (
+                targetModelId !== handoff.defaultModelId &&
+                replacement.originalModel &&
+                replacement.replacement
+            ) {
+                notifyModelReplacement(replacement.originalModel, replacement.replacement)
+            }
+        }
+    }, [
+        isActiveRoute,
+        threadId,
+        session?.user?.id,
+        selectedPersona,
+        setSelectedPersona,
+        availableModels,
+        sharedModels,
+        setSelectedModel
+    ])
     const selectedPersonaOption =
         selectedPersona.source === "default" || "error" in personaOptions
             ? null

@@ -15,6 +15,7 @@ import {
 import { RoleplayWordmark } from "@/components/logo"
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 
@@ -164,7 +165,11 @@ export function PersonaHeroSection() {
                     className="persona-hero-cta mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
                     style={{ willChange: "transform, opacity" }}
                 >
-                    <Link to="/auth/$pathname" params={{ pathname: "login" }}>
+                    <Link
+                        to="/auth/$pathname"
+                        params={{ pathname: "login" }}
+                        search={{ redirect: PERSONA_ONBOARDING_PATH }}
+                    >
                         <Button
                             size="lg"
                             className="h-14 gap-2 px-8 font-semibold text-lg shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
@@ -226,6 +231,7 @@ export function PersonaHeroSection() {
                         key={card.genre}
                         to="/auth/$pathname"
                         params={{ pathname: "login" }}
+                        search={{ redirect: PERSONA_ONBOARDING_PATH }}
                         className={cn(
                             "group relative h-[19rem] min-w-0 flex-1 overflow-hidden rounded-[var(--radius-lg)] border shadow-2xl transition-all duration-300 [border-color:var(--landing-border)] [transform:skewX(-7deg)] hover:z-10 sm:h-[24rem] lg:h-[28rem]",
                             // Shed trailing slots as the band narrows: 3 cards on

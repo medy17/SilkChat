@@ -12,6 +12,7 @@ import {
 } from "@/components/landing-page/persona-content"
 import { SectionHead, useReducedMotion } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
+import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
 
 const demoById = new Map(personaDemos.map((demo) => [demo.id, demo]))
 
@@ -237,7 +238,11 @@ export function PersonaChatDemoSection() {
                         This is a preview. The real thing remembers, switches models, and never
                         breaks character.
                     </p>
-                    <Link to="/auth/$pathname" params={{ pathname: "login" }}>
+                    <Link
+                        to="/auth/$pathname"
+                        params={{ pathname: "login" }}
+                        search={{ redirect: PERSONA_ONBOARDING_PATH }}
+                    >
                         <Button className="gap-2">
                             Chat with them for real
                             <ArrowRight className="size-4" />

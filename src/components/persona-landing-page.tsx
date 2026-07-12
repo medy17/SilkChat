@@ -3,6 +3,7 @@
 import { Link } from "@tanstack/react-router"
 import { type RefObject, useEffect, useRef, useState } from "react"
 
+import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
 import { cn } from "@/lib/utils"
 import { FooterSection } from "./landing-page/footer-section"
 import { PersonaChatDemoSection } from "./landing-page/persona-chat-demo-section"
@@ -94,7 +95,11 @@ function PersonaLandingNav({ containerRef }: { containerRef: RefObject<HTMLDivEl
                         About
                     </Button>
                 </Link>
-                <Link to="/auth/$pathname" params={{ pathname: "login" }}>
+                <Link
+                    to="/auth/$pathname"
+                    params={{ pathname: "login" }}
+                    search={{ redirect: PERSONA_ONBOARDING_PATH }}
+                >
                     <Button size="sm" className="px-4 md:px-5">
                         Sign In
                     </Button>

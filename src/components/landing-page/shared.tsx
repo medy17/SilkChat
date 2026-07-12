@@ -63,14 +63,20 @@ export function SilkBackdrop({
 export function SignInButton({
     children,
     className,
-    variant = "default"
+    variant = "default",
+    redirect
 }: {
     children: ReactNode
     className?: string
     variant?: "default" | "outline" | "secondary"
+    redirect?: string
 }) {
     return (
-        <Link to="/auth/$pathname" params={{ pathname: "login" }}>
+        <Link
+            to="/auth/$pathname"
+            params={{ pathname: "login" }}
+            search={redirect ? { redirect } : undefined}
+        >
             <Button
                 size="lg"
                 variant={variant}

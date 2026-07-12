@@ -7,7 +7,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
 import { trackGoogleAdsSignupConversion } from "@/lib/google-ads"
 import { useMutation } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
+import { useRouter, useSearch } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { MotionConfig, motion } from "motion/react"
 import { useEffect } from "react"
@@ -16,6 +16,11 @@ import { toast } from "sonner"
 export function AuthCard() {
     const router = useRouter()
     const { data: session } = useSession()
+    const search = useSearch({ strict: false }) as { redirect?: string }
+    const redirectTarget =
+        search.redirect?.startsWith("/") && !search.redirect.startsWith("//")
+            ? search.redirect
+            : "/"
 
     useEffect(() => {
         if (session?.user) {
@@ -23,14 +28,15 @@ export function AuthCard() {
         }
 
         if (session?.user?.name) {
-            router.navigate({ to: "/" })
+            router.navigate({ to: redirectTarget })
         }
-    }, [session, router])
+    }, [session, router, redirectTarget])
 
     const googleSignInMutation = useMutation({
         mutationFn: async () =>
             authClient.signIn.social({
-                provider: "google"
+                provider: "google",
+                callbackURL: redirectTarget
             }),
         onError: (error) => {
             toast.error(error.message ?? "Failed to sign in with Google")

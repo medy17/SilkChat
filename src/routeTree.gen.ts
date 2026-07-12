@@ -35,6 +35,7 @@ import { Route as SettingsAppearanceRouteImport } from './routes/settings/appear
 import { Route as SettingsAiSetupRouteImport } from './routes/settings/ai-setup'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
+import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
 import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
@@ -48,7 +49,7 @@ import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_
 const PersonasLazyRouteImport = createFileRoute('/personas')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
-const AuthPathnameLazyRouteImport = createFileRoute('/auth/$pathname')()
+const PersonasStartLazyRouteImport = createFileRoute('/personas_/start')()
 const ChatSSharedThreadIdLazyRouteImport = createFileRoute(
   '/_chat/s/$sharedThreadId',
 )()
@@ -126,12 +127,12 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ChatRoute,
 } as any)
-const AuthPathnameLazyRoute = AuthPathnameLazyRouteImport.update({
-  id: '/auth/$pathname',
-  path: '/auth/$pathname',
+const PersonasStartLazyRoute = PersonasStartLazyRouteImport.update({
+  id: '/personas_/start',
+  path: '/personas/start',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
-  import('./routes/auth/$pathname.lazy').then((d) => d.Route),
+  import('./routes/personas_.start.lazy').then((d) => d.Route),
 )
 const SettingsUsageRoute = SettingsUsageRouteImport.update({
   id: '/usage',
@@ -203,6 +204,13 @@ const SettingsAccountRoute = SettingsAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const AuthPathnameRoute = AuthPathnameRouteImport.update({
+  id: '/auth/$pathname',
+  path: '/auth/$pathname',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/auth/$pathname.lazy').then((d) => d.Route),
+)
 const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
   id: '/api/model-benchmarks',
   path: '/api/model-benchmarks',
@@ -280,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/ai-setup': typeof SettingsAiSetupRoute
@@ -294,7 +303,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
-  '/auth/$pathname': typeof AuthPathnameLazyRoute
+  '/personas/start': typeof PersonasStartLazyRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
@@ -319,6 +328,7 @@ export interface FileRoutesByTo {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/ai-setup': typeof SettingsAiSetupRoute
@@ -333,7 +343,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
-  '/auth/$pathname': typeof AuthPathnameLazyRoute
+  '/personas/start': typeof PersonasStartLazyRoute
   '/': typeof ChatIndexRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -361,6 +371,7 @@ export interface FileRoutesById {
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
   '/settings/ai-setup': typeof SettingsAiSetupRoute
@@ -375,7 +386,7 @@ export interface FileRoutesById {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
-  '/auth/$pathname': typeof AuthPathnameLazyRoute
+  '/personas_/start': typeof PersonasStartLazyRoute
   '/_chat/': typeof ChatIndexRoute
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
     | '/settings/ai-setup'
@@ -418,7 +430,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
-    | '/auth/$pathname'
+    | '/personas/start'
     | '/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-plan'
@@ -443,6 +455,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
     | '/settings/ai-setup'
@@ -457,7 +470,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
-    | '/auth/$pathname'
+    | '/personas/start'
     | '/'
     | '/thread/$threadId'
     | '/api/auth/$'
@@ -484,6 +497,7 @@ export interface FileRouteTypes {
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
     | '/settings/ai-setup'
@@ -498,7 +512,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
-    | '/auth/$pathname'
+    | '/personas_/start'
     | '/_chat/'
     | '/_chat/thread/$threadId'
     | '/api/auth/$'
@@ -525,7 +539,8 @@ export interface RootRouteChildren {
   PersonasLazyRoute: typeof PersonasLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
-  AuthPathnameLazyRoute: typeof AuthPathnameLazyRoute
+  AuthPathnameRoute: typeof AuthPathnameRoute
+  PersonasStartLazyRoute: typeof PersonasStartLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDevCreditPlanRoute: typeof ApiDevCreditPlanRoute
   ApiDevCreditStateRoute: typeof ApiDevCreditStateRoute
@@ -625,11 +640,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/auth/$pathname': {
-      id: '/auth/$pathname'
-      path: '/auth/$pathname'
-      fullPath: '/auth/$pathname'
-      preLoaderRoute: typeof AuthPathnameLazyRouteImport
+    '/personas_/start': {
+      id: '/personas_/start'
+      path: '/personas/start'
+      fullPath: '/personas/start'
+      preLoaderRoute: typeof PersonasStartLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/usage': {
@@ -729,6 +744,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/account'
       preLoaderRoute: typeof SettingsAccountRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/auth/$pathname': {
+      id: '/auth/$pathname'
+      path: '/auth/$pathname'
+      fullPath: '/auth/$pathname'
+      preLoaderRoute: typeof AuthPathnameRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/model-benchmarks': {
       id: '/api/model-benchmarks'
@@ -895,7 +917,8 @@ const rootRouteChildren: RootRouteChildren = {
   PersonasLazyRoute: PersonasLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
-  AuthPathnameLazyRoute: AuthPathnameLazyRoute,
+  AuthPathnameRoute: AuthPathnameRoute,
+  PersonasStartLazyRoute: PersonasStartLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDevCreditPlanRoute: ApiDevCreditPlanRoute,
   ApiDevCreditStateRoute: ApiDevCreditStateRoute,

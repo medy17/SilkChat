@@ -4,6 +4,7 @@ import { ArrowRight, Github } from "lucide-react"
 
 import { SignInButton } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
+import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
 
 export function PersonaCtaSection() {
     return (
@@ -20,7 +21,7 @@ export function PersonaCtaSection() {
                     need to build personas of your own.
                 </p>
                 <div className="flex flex-wrap justify-center gap-3">
-                    <SignInButton className="gap-2">
+                    <SignInButton className="gap-2" redirect={PERSONA_ONBOARDING_PATH}>
                         Start chatting free
                         <ArrowRight className="size-4" />
                     </SignInButton>
