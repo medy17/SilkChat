@@ -10,10 +10,10 @@ import { MODELS_SHARED, resolveModelReplacement } from "../lib/models"
 import type { UserSettings } from "../schema"
 import { getModel } from "./get_model"
 
-const TITLE_MODEL_PREFERRED = "gemini-3.1-flash-lite-preview"
+const TITLE_MODEL_PREFERRED = "gemini-3.1-flash-lite"
 
 const TITLE_MODEL_FALLBACKS = [
-    "gemini-3.1-flash-lite-preview",
+    "gemini-3.1-flash-lite",
     "gpt-5.4-nano",
     "gpt-4.1-mini",
     "gpt-4o-mini"

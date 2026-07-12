@@ -58,24 +58,40 @@ export const GOOGLE_MODELS: SharedModel[] = [
         prototypeCreditTier: "basic"
     },
     {
-        id: "gemini-3.1-flash-lite-preview",
+        id: "gemini-3.1-flash-lite",
         name: "Gemini 3.1 Flash Lite",
         shortName: "3.1 Flash Lite",
         shortDescription: "Lowest-latency Gemini 3.1 option for lightweight workloads",
         description:
-            "Gemini 3.1 Flash Lite Preview is optimized for quick everyday responses and lower-cost workloads. It is a good fit for simple assistants, short-form drafting, and fast multimodal interactions where efficiency matters most.",
+            "Gemini 3.1 Flash Lite is optimized for quick everyday responses and lower-cost workloads. It is a good fit for simple assistants, short-form drafting, and fast multimodal interactions where efficiency matters most.",
         developer: "Google",
         artificialAnalysis: {
             type: "llm",
             slug: "gemini-3-1-flash-lite-preview"
         },
+        releaseOrder: 20260507,
+        adapters: googleTextAdapters("gemini-3.1-flash-lite"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
+        defaultReasoningEffort: "minimal",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        prototypeCreditTier: "basic"
+    },
+    {
+        id: "gemini-3.1-flash-lite-preview",
+        name: "Gemini 3.1 Flash Lite Preview",
+        shortName: "3.1 Flash Lite Preview",
+        developer: "Google",
         releaseOrder: 20260303,
         adapters: googleTextAdapters("gemini-3.1-flash-lite-preview"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        prototypeCreditTier: "basic",
+        legacy: true,
+        sunsetOn: "2026-05-25",
+        replacementId: "gemini-3.1-flash-lite"
     },
     {
         id: "gemini-3.1-pro-preview",
@@ -120,7 +136,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-07-22",
-        replacementId: "gemini-3.1-flash-lite-preview"
+        replacementId: "gemini-3.1-flash-lite"
     },
     {
         id: "gemini-2.5-pro",

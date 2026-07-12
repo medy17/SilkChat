@@ -5,7 +5,7 @@ export const DefaultSettings = (userId: string) => ({
     coreAIProviders: {},
     customAIProviders: {},
     customModels: {},
-    titleGenerationModel: "gemini-3.1-flash-lite-preview",
+    titleGenerationModel: "gemini-3.1-flash-lite",
     toolCallLimitPerTurn: 3,
     customThemes: [],
     mcpServers: [],

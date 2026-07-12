@@ -1,4 +1,4 @@
-import type { SharedModel } from "@/convex/lib/models"
+import { MODELS_SHARED, type SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
     getDefaultReasoningEffortForModel,
@@ -426,5 +426,17 @@ describe("models-providers-shared OpenRouter visibility", () => {
         ]
 
         expect(getDefaultModelId(models)).toBe("gemini-4-flash-preview")
+    })
+
+    it("migrates the Gemini 3.1 Flash Lite preview id to the GA model", () => {
+        expect(
+            resolveModelReplacement("gemini-3.1-flash-lite-preview", MODELS_SHARED, {
+                date: "2026-05-25"
+            })
+        ).toMatchObject({
+            resolvedId: "gemini-3.1-flash-lite",
+            chain: ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite"],
+            reason: "replaced"
+        })
     })
 })

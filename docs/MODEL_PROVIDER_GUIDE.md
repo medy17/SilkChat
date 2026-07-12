@@ -144,7 +144,7 @@ Recent built-in additions that already follow this pattern:
 - Google:
   - `gemini-3-flash-preview`
   - `gemini-3.1-pro-preview`
-  - `gemini-3.1-flash-lite-preview`
+  - `gemini-3.1-flash-lite`
   - `gemini-3.1-flash-image-preview`
   - `gemini-3-pro-image-preview`
   - `imagen-4.0-generate-001`
