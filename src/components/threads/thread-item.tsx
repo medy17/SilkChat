@@ -8,6 +8,7 @@ import {
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
 import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -31,6 +32,8 @@ import { memo, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { ShareButton } from "../share-button"
 import type { Thread } from "./types"
+
+const THREAD_HINT_DELAY_MS = 1000
 
 interface ThreadItemProps {
     thread: Thread
@@ -116,6 +119,61 @@ export const ThreadItem = memo(
                       threadId: thread._id
                   }
               }
+
+        const renderPersonaAvatar = () => {
+            if (!showPersonaAvatar) return null
+
+            const avatar = (
+                <PersonaAvatar
+                    name={thread.personaName || thread.title}
+                    avatarKind={thread.personaAvatarKind}
+                    avatarValue={thread.personaAvatarValue}
+                    className="size-5 shrink-0"
+                />
+            )
+
+            if (!thread.personaName) return avatar
+
+            return (
+                <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex size-5 shrink-0">{avatar}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={6}>
+                        {thread.personaName}
+                    </TooltipContent>
+                </Tooltip>
+            )
+        }
+
+        const renderThreadTitleHint = () => (
+            <span className="relative min-w-0 flex-1">
+                <span
+                    className={cn(
+                        "block min-w-0 flex-1 truncate text-sm",
+                        "transition-all duration-500 ease-in-out",
+                        isRegeneratingTitle ? "opacity-40 blur-[2px]" : "opacity-100 blur-0"
+                    )}
+                >
+                    {thread.title}
+                </span>
+                <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
+                    <TooltipTrigger asChild>
+                        <span
+                            aria-label={thread.title}
+                            className="-translate-y-1/2 absolute top-1/2 right-0 left-0 h-9"
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent
+                        side="right"
+                        sideOffset={6}
+                        className="max-w-[min(22rem,calc(100vw-2rem))]"
+                    >
+                        {thread.title}
+                    </TooltipContent>
+                </Tooltip>
+            </span>
+        )
 
         const clearLongPressTimer = () => {
             if (longPressTimeoutRef.current !== null) {
@@ -416,25 +474,8 @@ export const ThreadItem = memo(
                                     {showBranchIcon ? (
                                         <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
                                     ) : null}
-                                    {showPersonaAvatar ? (
-                                        <PersonaAvatar
-                                            name={thread.personaName || thread.title}
-                                            avatarKind={thread.personaAvatarKind}
-                                            avatarValue={thread.personaAvatarValue}
-                                            className="size-5 shrink-0"
-                                        />
-                                    ) : null}
-                                    <span
-                                        className={cn(
-                                            "block min-w-0 flex-1 truncate text-sm",
-                                            "transition-all duration-500 ease-in-out",
-                                            isRegeneratingTitle
-                                                ? "opacity-40 blur-[2px]"
-                                                : "opacity-100 blur-0"
-                                        )}
-                                    >
-                                        {thread.title}
-                                    </span>
+                                    {renderPersonaAvatar()}
+                                    {renderThreadTitleHint()}
                                 </div>
                             </button>
                         ) : (
@@ -464,25 +505,8 @@ export const ThreadItem = memo(
                                     {showBranchIcon ? (
                                         <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
                                     ) : null}
-                                    {showPersonaAvatar ? (
-                                        <PersonaAvatar
-                                            name={thread.personaName || thread.title}
-                                            avatarKind={thread.personaAvatarKind}
-                                            avatarValue={thread.personaAvatarValue}
-                                            className="size-5 shrink-0"
-                                        />
-                                    ) : null}
-                                    <span
-                                        className={cn(
-                                            "block min-w-0 flex-1 truncate text-sm",
-                                            "transition-all duration-500 ease-in-out",
-                                            isRegeneratingTitle
-                                                ? "opacity-40 blur-[2px]"
-                                                : "opacity-100 blur-0"
-                                        )}
-                                    >
-                                        {thread.title}
-                                    </span>
+                                    {renderPersonaAvatar()}
+                                    {renderThreadTitleHint()}
                                 </div>
                             </Link>
                         )}
