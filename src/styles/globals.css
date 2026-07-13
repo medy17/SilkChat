@@ -479,6 +479,16 @@ html {
     }
 }
 
+/* iOS Safari auto-zooms the page when a focused form control's font size is
+   under 16px. Unlayered so it outrides Tailwind's layered text-* utilities. */
+@supports (-webkit-touch-callout: none) {
+    input,
+    select,
+    textarea {
+        font-size: max(16px, 1em);
+    }
+}
+
 /* Dev tools — only active when the dev dock sets these root markers. */
 [data-dev-no-animations],
 [data-dev-no-animations] *,
