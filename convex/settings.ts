@@ -15,8 +15,11 @@ import {
     type SharedModel,
     isModelSunset
 } from "./lib/models"
-import { getDeploymentSearchProviderApiKey, resolveToolAvailability } from "./lib/toolkit"
 import type { SearchProviderType } from "./lib/tools/adapters"
+import {
+    getDeploymentSearchProviderApiKey,
+    resolveToolAvailability
+} from "./lib/tools/availability"
 import type { UserSettings } from "./schema"
 import {
     ImageGenerationDefaults,

@@ -66,6 +66,8 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
+import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
+import { MemoryToolRenderer } from "./renderers/memory-tool"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
 import {
     AlertDialog,
@@ -365,11 +367,25 @@ const PartsRenderer = memo(
             }
             case "tool-web_search":
                 return <WebSearchToolRenderer toolInvocation={part} />
+            case "tool-search_memories":
+                return <MemoryRetrievalToolRenderer toolInvocation={part} mode="search" />
+            case "tool-get_memory_profile":
+                return <MemoryRetrievalToolRenderer toolInvocation={part} mode="profile" />
             case "tool-image_generation":
                 return <ImageGenerationToolRenderer toolInvocation={part} />
             case "tool-prepareImageGeneration":
                 return (
                     <ImageGenerationToolRenderer
+                        toolInvocation={part}
+                        threadId={threadId}
+                        messageId={messageId}
+                    />
+                )
+            case "tool-add_memory":
+            case "tool-update_memory":
+            case "tool-forget_memory":
+                return (
+                    <MemoryToolRenderer
                         toolInvocation={part}
                         threadId={threadId}
                         messageId={messageId}

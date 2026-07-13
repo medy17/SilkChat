@@ -132,7 +132,6 @@
         "sharp": "^0.34.5",
         "sonner": "^2.0.7",
         "streamdown": "^2.5.0",
-        "supermemory": "^3.14.0",
         "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.3.2",
         "tailwindcss-safe-area": "^0.6.0",

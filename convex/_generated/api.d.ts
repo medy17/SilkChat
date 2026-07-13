@@ -21,6 +21,7 @@ import type * as chat_http_prompt from "../chat_http/prompt.js";
 import type * as chat_http_shared from "../chat_http/shared.js";
 import type * as credits from "../credits.js";
 import type * as crons from "../crons.js";
+import type * as fal_billing_node from "../fal_billing_node.js";
 import type * as fal_webhooks from "../fal_webhooks.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
@@ -33,12 +34,16 @@ import type * as import_jobs_mirror_node from "../import_jobs_mirror_node.js";
 import type * as import_jobs_node from "../import_jobs_node.js";
 import type * as lemon_squeezy_http from "../lemon_squeezy_http.js";
 import type * as lib_account_deletion from "../lib/account_deletion.js";
+import type * as lib_account_deletion_gate from "../lib/account_deletion_gate.js";
+import type * as lib_account_deletion_restore from "../lib/account_deletion_restore.js";
+import type * as lib_account_deletion_status from "../lib/account_deletion_status.js";
 import type * as lib_backend_to_ui_messages from "../lib/backend_to_ui_messages.js";
 import type * as lib_context_limits from "../lib/context_limits.js";
 import type * as lib_credits from "../lib/credits.js";
 import type * as lib_db_to_core_messages from "../lib/db_to_core_messages.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_file_constants from "../lib/file_constants.js";
+import type * as lib_file_listing from "../lib/file_listing.js";
 import type * as lib_google_auth from "../lib/google_auth.js";
 import type * as lib_google_provider from "../lib/google_provider.js";
 import type * as lib_identity from "../lib/identity.js";
@@ -75,6 +80,8 @@ import type * as lib_openrouter_attribution from "../lib/openrouter_attribution.
 import type * as lib_personas from "../lib/personas.js";
 import type * as lib_provider_factory from "../lib/provider_factory.js";
 import type * as lib_resumable_stream_context from "../lib/resumable_stream_context.js";
+import type * as lib_supermemory_api from "../lib/supermemory_api.js";
+import type * as lib_supermemory_memory_change from "../lib/supermemory_memory_change.js";
 import type * as lib_thread_import_core from "../lib/thread_import_core.js";
 import type * as lib_toolkit from "../lib/toolkit.js";
 import type * as lib_tools_adapters_brave_search_adapter from "../lib/tools/adapters/brave_search_adapter.js";
@@ -89,6 +96,7 @@ import type * as lib_tools_image_generation from "../lib/tools/image_generation.
 import type * as lib_tools_mcp_adapter from "../lib/tools/mcp_adapter.js";
 import type * as lib_tools_supermemory from "../lib/tools/supermemory.js";
 import type * as lib_tools_web_search from "../lib/tools/web_search.js";
+import type * as lib_usage_metering from "../lib/usage_metering.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as model_provider_metadata from "../model_provider_metadata.js";
@@ -118,6 +126,7 @@ import type * as schema_usage from "../schema/usage.js";
 import type * as settings from "../settings.js";
 import type * as speech_to_text from "../speech_to_text.js";
 import type * as streams from "../streams.js";
+import type * as supermemory_node from "../supermemory_node.js";
 import type * as threads from "../threads.js";
 
 import type {
@@ -140,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   "chat_http/shared": typeof chat_http_shared;
   credits: typeof credits;
   crons: typeof crons;
+  fal_billing_node: typeof fal_billing_node;
   fal_webhooks: typeof fal_webhooks;
   folders: typeof folders;
   http: typeof http;
@@ -152,12 +162,16 @@ declare const fullApi: ApiFromModules<{
   import_jobs_node: typeof import_jobs_node;
   lemon_squeezy_http: typeof lemon_squeezy_http;
   "lib/account_deletion": typeof lib_account_deletion;
+  "lib/account_deletion_gate": typeof lib_account_deletion_gate;
+  "lib/account_deletion_restore": typeof lib_account_deletion_restore;
+  "lib/account_deletion_status": typeof lib_account_deletion_status;
   "lib/backend_to_ui_messages": typeof lib_backend_to_ui_messages;
   "lib/context_limits": typeof lib_context_limits;
   "lib/credits": typeof lib_credits;
   "lib/db_to_core_messages": typeof lib_db_to_core_messages;
   "lib/encryption": typeof lib_encryption;
   "lib/file_constants": typeof lib_file_constants;
+  "lib/file_listing": typeof lib_file_listing;
   "lib/google_auth": typeof lib_google_auth;
   "lib/google_provider": typeof lib_google_provider;
   "lib/identity": typeof lib_identity;
@@ -194,6 +208,8 @@ declare const fullApi: ApiFromModules<{
   "lib/personas": typeof lib_personas;
   "lib/provider_factory": typeof lib_provider_factory;
   "lib/resumable_stream_context": typeof lib_resumable_stream_context;
+  "lib/supermemory_api": typeof lib_supermemory_api;
+  "lib/supermemory_memory_change": typeof lib_supermemory_memory_change;
   "lib/thread_import_core": typeof lib_thread_import_core;
   "lib/toolkit": typeof lib_toolkit;
   "lib/tools/adapters/brave_search_adapter": typeof lib_tools_adapters_brave_search_adapter;
@@ -208,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tools/mcp_adapter": typeof lib_tools_mcp_adapter;
   "lib/tools/supermemory": typeof lib_tools_supermemory;
   "lib/tools/web_search": typeof lib_tools_web_search;
+  "lib/usage_metering": typeof lib_usage_metering;
   messages: typeof messages;
   migrations: typeof migrations;
   model_provider_metadata: typeof model_provider_metadata;
@@ -237,6 +254,7 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   speech_to_text: typeof speech_to_text;
   streams: typeof streams;
+  supermemory_node: typeof supermemory_node;
   threads: typeof threads;
 }>;
 

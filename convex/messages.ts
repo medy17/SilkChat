@@ -217,6 +217,191 @@ export const claimPreparedImageGenerationCard = internalMutation({
     }
 })
 
+const MEMORY_CHANGE_TOOL_NAMES = new Set(["add_memory", "update_memory", "forget_memory"])
+
+export const patchPreparedMemoryChangeToolResult = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string(),
+        update: v.any()
+    },
+    handler: async ({ db }, { threadId, messageId, toolCallId, cardId, update }) => {
+        const msgs = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const msg = msgs.find((candidate) => candidate.threadId === threadId)
+        if (!msg) return null
+
+        let didPatch = false
+        const parts = msg.parts.map((part) => {
+            if (
+                part.type !== "tool-invocation" ||
+                !MEMORY_CHANGE_TOOL_NAMES.has(part.toolInvocation.toolName) ||
+                part.toolInvocation.toolCallId !== toolCallId ||
+                part.toolInvocation.state !== "result" ||
+                typeof part.toolInvocation.result !== "object" ||
+                part.toolInvocation.result === null
+            ) {
+                return part
+            }
+
+            const currentResult = part.toolInvocation.result as Record<string, unknown>
+            if (
+                currentResult.kind !== "prepared_memory_change" ||
+                currentResult.cardId !== cardId
+            ) {
+                return part
+            }
+
+            didPatch = true
+            return {
+                ...part,
+                toolInvocation: {
+                    ...part.toolInvocation,
+                    result: {
+                        ...currentResult,
+                        ...(update as Record<string, unknown>)
+                    }
+                }
+            }
+        })
+
+        if (!didPatch) return null
+
+        await db.patch(msg._id as Id<"messages">, {
+            parts,
+            updatedAt: Date.now()
+        })
+        await db.patch(threadId, {
+            updatedAt: Date.now()
+        })
+
+        return { success: true }
+    }
+})
+
+// Claims a pending memory mutation before the external write. Convex mutations are
+// transactional, so only one tab can transition a card out of pending confirmation.
+export const claimPreparedMemoryChangeCard = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async ({ db }, { threadId, messageId, toolCallId, cardId }) => {
+        const msgs = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const msg = msgs.find((candidate) => candidate.threadId === threadId)
+        if (!msg || msg.role !== "assistant") {
+            return { ok: false as const, reason: "not_found" as const }
+        }
+
+        const part = msg.parts.find(
+            (candidate) =>
+                candidate.type === "tool-invocation" &&
+                MEMORY_CHANGE_TOOL_NAMES.has(candidate.toolInvocation.toolName) &&
+                candidate.toolInvocation.toolCallId === toolCallId &&
+                candidate.toolInvocation.state === "result" &&
+                typeof candidate.toolInvocation.result === "object" &&
+                candidate.toolInvocation.result !== null &&
+                (candidate.toolInvocation.result as Record<string, unknown>).kind ===
+                    "prepared_memory_change" &&
+                (candidate.toolInvocation.result as Record<string, unknown>).cardId === cardId
+        )
+        if (!part || part.type !== "tool-invocation") {
+            return { ok: false as const, reason: "not_found" as const }
+        }
+
+        const currentResult = part.toolInvocation.result as Record<string, unknown>
+        if (currentResult.status !== "pending_confirmation") {
+            return { ok: false as const, reason: "not_pending" as const }
+        }
+
+        const parts = msg.parts.map((candidate) =>
+            candidate === part
+                ? {
+                      ...candidate,
+                      toolInvocation: {
+                          ...candidate.toolInvocation,
+                          result: { ...currentResult, status: "executing" }
+                      }
+                  }
+                : candidate
+        )
+
+        await db.patch(msg._id as Id<"messages">, {
+            parts,
+            updatedAt: Date.now()
+        })
+        await db.patch(threadId, {
+            updatedAt: Date.now()
+        })
+
+        return { ok: true as const, result: currentResult }
+    }
+})
+
+export const cancelPreparedMemoryChangeCard = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async ({ db }, args) => {
+        const msgs = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", args.messageId))
+            .collect()
+        const msg = msgs.find((candidate) => candidate.threadId === args.threadId)
+        if (!msg || msg.role !== "assistant") return { ok: false as const }
+
+        let cancelled = false
+        const parts = msg.parts.map((part) => {
+            if (
+                part.type !== "tool-invocation" ||
+                !MEMORY_CHANGE_TOOL_NAMES.has(part.toolInvocation.toolName) ||
+                part.toolInvocation.toolCallId !== args.toolCallId ||
+                part.toolInvocation.state !== "result" ||
+                typeof part.toolInvocation.result !== "object" ||
+                part.toolInvocation.result === null
+            ) {
+                return part
+            }
+
+            const result = part.toolInvocation.result as Record<string, unknown>
+            if (
+                result.kind !== "prepared_memory_change" ||
+                result.cardId !== args.cardId ||
+                result.status !== "pending_confirmation"
+            ) {
+                return part
+            }
+
+            cancelled = true
+            return {
+                ...part,
+                toolInvocation: {
+                    ...part.toolInvocation,
+                    result: { ...result, status: "cancelled" }
+                }
+            }
+        })
+
+        if (!cancelled) return { ok: false as const }
+
+        await db.patch(msg._id as Id<"messages">, { parts, updatedAt: Date.now() })
+        await db.patch(args.threadId, { updatedAt: Date.now() })
+        return { ok: true as const }
+    }
+})
+
 export const patchMessage = internalMutation({
     args: {
         threadId: v.id("threads"),

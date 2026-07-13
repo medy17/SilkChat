@@ -1,5 +1,6 @@
 import { internal } from "./_generated/api"
 import { type ActionCtx, httpAction } from "./_generated/server"
+import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
 import { decryptKey } from "./lib/encryption"
 import { getGoogleAccessToken } from "./lib/google_auth"
 import {
@@ -7,7 +8,6 @@ import {
     getGoogleVertexConfig,
     hasInternalGoogleVertexConfig
 } from "./lib/google_provider"
-import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
 import { getUserIdentity } from "./lib/identity"
 
 const DEFAULT_SPEECH_LOCATION = "us"

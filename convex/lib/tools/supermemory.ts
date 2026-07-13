@@ -1,42 +1,85 @@
 import { tool } from "ai"
-import supermemory from "supermemory"
 import { z } from "zod"
 import { internal } from "../../_generated/api"
+import {
+    type SupermemoryMemorySearchResponse,
+    type SupermemoryProfileResponse,
+    supermemoryRequest
+} from "../supermemory_api"
 import type { ToolAdapter } from "../toolkit"
+
+const memoryMetadataSchema = z
+    .object({
+        title: z.string().nullable().optional().describe("A concise title for this memory."),
+        category: z.string().nullable().optional().describe("An optional organisational category."),
+        tags: z
+            .array(z.string())
+            .nullable()
+            .optional()
+            .describe("Optional tags that make this memory easier to find.")
+    })
+    .nullable()
+    .optional()
+
+const normalizeMetadata = (
+    metadata:
+        | {
+              title?: string | null
+              category?: string | null
+              tags?: string[] | null
+          }
+        | null
+        | undefined
+) => ({
+    ...(metadata?.title?.trim() ? { title: metadata.title.trim() } : {}),
+    ...(metadata?.category?.trim() ? { category: metadata.category.trim() } : {}),
+    ...(metadata?.tags?.length
+        ? { tags: metadata.tags.map((tag) => tag.trim()).filter(Boolean) }
+        : {})
+})
 
 export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userSettings }) => {
     if (!enabledTools.includes("supermemory")) return {}
 
-    return {
-        add_memory: tool({
-            description: "Add content to supermemory for future recall and reference",
-            inputSchema: z.object({
-                content: z.string().describe("The content to store in memory"),
-                metadata: z
-                    .object({
-                        title: z.union([
-                            z.string().describe("A title for this memory. Optional."),
-                            z.null()
-                        ]),
-                        category: z.union([
-                            z.string().describe("Category to organize this memory. Optional."),
-                            z.null()
-                        ]),
-                        tags: z.union([
-                            z
-                                .array(z.string())
-                                .describe("Tags to help find this memory later. Optional."),
-                            z.null()
-                        ])
-                    })
-                    .describe("Optional metadata to organize the memory")
-            }),
-            execute: async ({ content, metadata }) => {
-                try {
-                    const apiKey = await ctx.runQuery(internal.settings.getSupermemoryKey, {
-                        userId: userSettings.userId
-                    })
+    const getApiKey = () =>
+        ctx.runQuery(internal.settings.getSupermemoryKey, {
+            userId: userSettings.userId
+        })
 
+    // One adapter is constructed per turn. This prevents a model from creating duplicate
+    // confirmation cards for the same mutation while still allowing distinct changes.
+    const preparedChangeKeys = new Set<string>()
+    const prepareChange = (change: Record<string, unknown>) => {
+        const cardKey = JSON.stringify(change)
+        if (preparedChangeKeys.has(cardKey)) {
+            return {
+                success: false,
+                code: "duplicate_memory_change",
+                error: "An identical memory change is already awaiting confirmation this turn."
+            }
+        }
+        preparedChangeKeys.add(cardKey)
+
+        return {
+            success: true,
+            kind: "prepared_memory_change" as const,
+            status: "pending_confirmation" as const,
+            cardId: crypto.randomUUID(),
+            ...change
+        }
+    }
+
+    return {
+        get_memory_profile: tool({
+            description: [
+                "Retrieve the user's broad memory profile: stable facts and recent context.",
+                'Use this for broad questions such as "What do you know or remember about me?"',
+                "Do not use a broad search_memories query as a substitute for this profile."
+            ].join("\n"),
+            inputSchema: z.object({}),
+            execute: async () => {
+                try {
+                    const apiKey = await getApiKey()
                     if (!apiKey) {
                         return {
                             success: false,
@@ -44,68 +87,117 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         }
                     }
 
-                    const client = new supermemory({
-                        apiKey
-                    })
-
-                    const containerTags = [userSettings.userId]
-                    if (metadata?.category) {
-                        containerTags.push(`category:${metadata.category}`)
-                    }
-                    if (metadata?.tags) {
-                        containerTags.push(...metadata.tags.map((tag) => `tag:${tag}`))
-                    }
-
-                    const response = await client.memories.add({
-                        content,
-                        containerTags,
-                        metadata: {
-                            ...(metadata?.title && { title: metadata.title }),
-                            ...(metadata?.category && { category: metadata.category }),
-                            ...(metadata?.tags && { tags: metadata.tags.join(", ") }),
-                            addedAt: new Date().toISOString()
+                    const response = await supermemoryRequest<SupermemoryProfileResponse>(
+                        apiKey,
+                        "/v4/profile",
+                        {
+                            body: { containerTag: userSettings.userId }
                         }
-                    })
+                    )
+                    const stableFacts = response.profile.static ?? []
+                    const recentContext = response.profile.dynamic ?? []
 
                     return {
                         success: true,
-                        memoryId: response.id,
-                        message: `Memory added successfully${metadata?.title ? ` with title "${metadata.title}"` : ""}`
+                        profile: { stableFacts, recentContext },
+                        message:
+                            stableFacts.length + recentContext.length === 0
+                                ? "The memory profile is currently empty."
+                                : "Retrieved the user's memory profile."
                     }
                 } catch (error) {
-                    console.error("Error adding memory:", error)
+                    console.error("Error retrieving memory profile:", error)
                     return {
                         success: false,
-                        error: `Failed to add memory: ${error instanceof Error ? error.message : "Unknown error"}`
+                        error: `Failed to retrieve memory profile: ${error instanceof Error ? error.message : "Unknown error"}`
                     }
                 }
             }
         }),
 
-        search_memories: tool({
-            description: "Search through stored memories to find relevant information",
+        add_memory: tool({
+            description: [
+                "Prepare a durable memory for the user to review and confirm.",
+                "This does not save anything immediately. A successful result is a pending confirmation card.",
+                "Use concise, factual, self-contained content that remains useful without the current conversation."
+            ].join("\n"),
             inputSchema: z.object({
-                query: z.string().describe("The search query to find relevant memories"),
+                content: z.string().min(1).describe("The exact concise memory to store."),
+                metadata: memoryMetadataSchema
+            }),
+            execute: async ({ content, metadata }) =>
+                prepareChange({
+                    operation: "add",
+                    content: content.trim(),
+                    metadata: normalizeMetadata(metadata)
+                })
+        }),
+
+        update_memory: tool({
+            description: [
+                "Prepare a correction or replacement for an existing memory.",
+                "Search first to obtain the exact memory id and current content.",
+                "This does not update anything immediately. A successful result is a pending confirmation card."
+            ].join("\n"),
+            inputSchema: z.object({
+                memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
+                currentContent: z.string().min(1).describe("The existing memory being replaced."),
+                newContent: z.string().min(1).describe("The corrected replacement memory."),
+                metadata: memoryMetadataSchema
+            }),
+            execute: async ({ memoryId, currentContent, newContent, metadata }) =>
+                prepareChange({
+                    operation: "update",
+                    memoryId,
+                    currentContent: currentContent.trim(),
+                    newContent: newContent.trim(),
+                    metadata: normalizeMetadata(metadata)
+                })
+        }),
+
+        forget_memory: tool({
+            description: [
+                "Prepare removal of an existing memory for the user to review and confirm.",
+                "Search first to obtain the exact memory id and content.",
+                "This does not forget anything immediately. A successful result is a pending confirmation card."
+            ].join("\n"),
+            inputSchema: z.object({
+                memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
+                content: z.string().min(1).describe("The existing memory that will be forgotten."),
+                reason: z
+                    .string()
+                    .nullable()
+                    .optional()
+                    .describe("Why this memory should be forgotten.")
+            }),
+            execute: async ({ memoryId, content, reason }) =>
+                prepareChange({
+                    operation: "forget",
+                    memoryId,
+                    content: content.trim(),
+                    ...(reason?.trim() ? { reason: reason.trim() } : {})
+                })
+        }),
+
+        search_memories: tool({
+            description:
+                "Search the user's stored memories for relevant cross-conversation context.",
+            inputSchema: z.object({
+                query: z
+                    .string()
+                    .min(1)
+                    .describe("A focused semantic query for the missing context."),
                 limit: z
                     .number()
+                    .int()
                     .min(1)
                     .max(10)
                     .default(5)
-                    .describe("Maximum number of memories to return. Default is 5."),
-                category: z.union([
-                    z.string().describe("Filter by specific category. Optional."),
-                    z.null()
-                ]),
-                tags: z.union([
-                    z.array(z.string()).describe("Filter by specific tags. Optional."),
-                    z.null()
-                ])
+                    .describe("Maximum number of memories to return.")
             }),
-            execute: async ({ query, limit = 5, category, tags }) => {
+            execute: async ({ query, limit = 5 }) => {
                 try {
-                    const apiKey = await ctx.runQuery(internal.settings.getSupermemoryKey, {
-                        userId: userSettings.userId
-                    })
+                    const apiKey = await getApiKey()
 
                     if (!apiKey) {
                         return {
@@ -114,44 +206,37 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         }
                     }
 
-                    const client = new supermemory({
-                        apiKey
-                    })
-
-                    const containerTags = [userSettings.userId]
-                    if (category) {
-                        containerTags.push(`category:${category}`)
-                    }
-                    if (tags) {
-                        containerTags.push(...tags.map((tag) => `tag:${tag}`))
-                    }
-
-                    const response = await client.search.execute({
-                        q: query,
-                        limit,
-                        containerTags: containerTags.length > 1 ? containerTags : undefined
-                    })
-
-                    if (!response.results || response.results.length === 0) {
-                        return {
-                            success: true,
-                            results: [],
-                            message: "No memories found matching your search."
+                    const response = await supermemoryRequest<SupermemoryMemorySearchResponse>(
+                        apiKey,
+                        "/v4/search",
+                        {
+                            body: {
+                                q: query,
+                                limit,
+                                threshold: 0.5,
+                                containerTag: userSettings.userId,
+                                searchMode: "memories"
+                            }
                         }
-                    }
+                    )
 
-                    const memories = response.results.map((result) => ({
-                        content: result.content,
-                        score: result.score,
-                        metadata: result.metadata,
-                        memoryId: result.documentId,
-                        createdAt: result.createdAt
-                    }))
+                    const memories = response.results
+                        .filter((result) => Boolean(result.memory))
+                        .map((result) => ({
+                            content: result.memory,
+                            score: result.similarity,
+                            metadata: result.metadata,
+                            memoryId: result.id,
+                            updatedAt: result.updatedAt
+                        }))
 
                     return {
                         success: true,
                         results: memories,
-                        message: `Found ${memories.length} relevant ${memories.length === 1 ? "memory" : "memories"}`
+                        message:
+                            memories.length === 0
+                                ? "No memories found matching this search."
+                                : `Found ${memories.length} relevant ${memories.length === 1 ? "memory" : "memories"}.`
                     }
                 } catch (error) {
                     console.error("Error searching memories:", error)
