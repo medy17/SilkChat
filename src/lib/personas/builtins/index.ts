@@ -17,7 +17,12 @@ export const MAX_PERSONA_AVATAR_BYTES = 100 * 1024
 export const MIN_PERSONA_STARTERS = 2
 export const MAX_PERSONA_STARTERS = 5
 
-export type { BuiltInPersona, BuiltInPersonaDoc } from "./types"
+export type { BuiltInPersona, BuiltInPersonaDoc, BuiltInPersonaOpening } from "./types"
+export {
+    SYNTHETIC_PERSONA_OPENING_ID,
+    getBuiltInPersonaOpenings,
+    getSyntheticPersonaOpening
+} from "./types"
 
 export const BUILT_IN_PERSONAS = [
     broodingStrangerPersona,

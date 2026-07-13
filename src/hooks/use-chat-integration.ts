@@ -6,6 +6,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { type ChatMessage, useChatStore } from "@/lib/chat-store"
+import { createChatTransportFetch } from "@/lib/chat-transport-fetch"
 import { getActiveDevContextOverride } from "@/lib/dev-overrides"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
@@ -254,7 +255,8 @@ export function useChatIntegration<IsShared extends boolean>({
     // of another client's stream. Lets the sender count as "local" without
     // depending on the thread subscription having caught up.
     const streamOriginRef = useRef<"send" | "resume" | null>(null)
-    const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery } = useChatStore()
+    const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery, triggerRerender } =
+        useChatStore()
     const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
     const hasPendingLocalStream = useChatStore((state) =>
         threadId && state.pendingStreams[threadId] === true
@@ -336,6 +338,7 @@ export function useChatIntegration<IsShared extends boolean>({
             ? undefined
             : new DefaultChatTransport<ChatMessage>({
                   api: `${browserEnv("VITE_CONVEX_API_URL")}/chat`,
+                  fetch: createChatTransportFetch(),
                   async prepareSendMessagesRequest({ body, messages }) {
                       const currentContext = latestRequestContextRef.current
                       const {
@@ -344,7 +347,7 @@ export function useChatIntegration<IsShared extends boolean>({
                           reasoningEffort,
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
-                      const { selectedPersona } = useChatStore.getState()
+                      const { selectedPersona, pendingPersonaOpening } = useChatStore.getState()
                       const jwt = await resolveJwtToken(currentContext.token, {
                           forceRefresh: true
                       })
@@ -398,6 +401,16 @@ export function useChatIntegration<IsShared extends boolean>({
                               personaSelection: currentContext.threadId
                                   ? undefined
                                   : selectedPersona,
+                              personaOpening:
+                                  !currentContext.threadId &&
+                                  selectedPersona.source !== "default" &&
+                                  pendingPersonaOpening?.source === selectedPersona.source &&
+                                  pendingPersonaOpening.personaId === selectedPersona.id
+                                      ? {
+                                            openingId: pendingPersonaOpening.openingId,
+                                            messageId: pendingPersonaOpening.messageId
+                                        }
+                                      : undefined,
                               devContextOverride: getActiveDevContextOverride()
                           }
                       }
@@ -638,7 +651,7 @@ export function useChatIntegration<IsShared extends boolean>({
         }
 
         streamOriginRef.current = "resume"
-        void chatHelpers.resumeStream()
+        return chatHelpers.resumeStream()
     }, [
         chatHelpers.setMessages,
         chatHelpers.resumeStream,
@@ -684,7 +697,8 @@ export function useChatIntegration<IsShared extends boolean>({
         threadMessages,
         clientId,
         streamActivityKey,
-        stopLocalStream: chatHelpers.stop
+        localChatId: chatHelpers.id,
+        restartLocalChat: triggerRerender
     })
 
     return {

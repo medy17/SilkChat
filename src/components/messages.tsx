@@ -893,6 +893,7 @@ type MessageRowProps = {
     footerMetadataKey?: string
     isStreamingMessage: boolean
     isEditing: boolean
+    isFirstMessage: boolean
     hasActiveTarget: boolean
     onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
     onSwitchModel?: (modelId: string) => void
@@ -913,6 +914,7 @@ const MessageRowComponent = ({
     message,
     isStreamingMessage,
     isEditing,
+    isFirstMessage,
     hasActiveTarget,
     onRetry,
     onSwitchModel,
@@ -997,6 +999,10 @@ const MessageRowComponent = ({
                     MESSAGE_MARKDOWN_CLASS,
                     "group prose-img:mx-auto prose-img:my-4 prose-pre:grid prose-code:before:hidden prose-code:after:hidden",
                     "mb-8",
+                    // User bubbles bring their own top margin; an assistant message
+                    // opening the thread (persona speaks first) needs the same gap
+                    // below the header.
+                    message.role === "assistant" && isFirstMessage && "mt-12",
                     message.role === "user" &&
                         !isEditing &&
                         "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground",
@@ -1121,6 +1127,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.footerMetadataKey === nextProps.footerMetadataKey &&
     previousProps.isStreamingMessage === nextProps.isStreamingMessage &&
     previousProps.isEditing === nextProps.isEditing &&
+    previousProps.isFirstMessage === nextProps.isFirstMessage &&
     previousProps.hasActiveTarget === nextProps.hasActiveTarget &&
     previousProps.onRetry === nextProps.onRetry &&
     previousProps.onSwitchModel === nextProps.onSwitchModel &&
@@ -1390,7 +1397,7 @@ export const Messages = forwardRef<
         )
         const messageRows = useMemo(
             () =>
-                messages.map((message) => {
+                messages.map((message, index) => {
                     const isStreamingMessage =
                         status === "streaming" && message.id === lastMessage?.id
                     const isEditing = targetFromMessageId === message.id && targetMode === "edit"
@@ -1398,6 +1405,7 @@ export const Messages = forwardRef<
 
                     return {
                         message,
+                        isFirstMessage: index === 0,
                         renderFingerprint:
                             renderFingerprints[message.id] ?? `${message.role}:${message.id}`,
                         liveRenderFingerprint: shouldUseLiveFingerprint
@@ -1642,6 +1650,7 @@ export const Messages = forwardRef<
                                         footerMetadataKey={row.footerMetadataKey}
                                         isStreamingMessage={row.isStreamingMessage}
                                         isEditing={row.isEditing}
+                                        isFirstMessage={row.isFirstMessage}
                                         hasActiveTarget={row.hasActiveTarget}
                                         onRetry={onRetry}
                                         onSwitchModel={handleSwitchModel}

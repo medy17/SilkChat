@@ -191,7 +191,11 @@ vi.mock("../../convex/lib/models", () => ({
 }))
 
 import { ChatError } from "@/lib/errors"
-import { buildPreparedImageReferences, chatPOST } from "../../convex/chat_http/post.route"
+import {
+    buildPreparedImageReferences,
+    chatPOST,
+    resolvePersonaOpeningForRequest
+} from "../../convex/chat_http/post.route"
 
 const chatPOSTHandler = chatPOST as unknown as (
     ctx: {
@@ -203,6 +207,41 @@ const chatPOSTHandler = chatPOST as unknown as (
 ) => Promise<Response>
 
 type ChatPostCtx = Parameters<typeof chatPOSTHandler>[0]
+
+describe("resolvePersonaOpeningForRequest", () => {
+    it("resolves an authored opening by stable id instead of trusting client text", async () => {
+        const opening = await resolvePersonaOpeningForRequest(
+            {} as Parameters<typeof resolvePersonaOpeningForRequest>[0],
+            "user-1",
+            { source: "builtin", id: "elara-adventurer" },
+            { openingId: "summoned-arrival", messageId: "opening-message-1" },
+            "assistant-1"
+        )
+
+        expect(opening).toEqual({
+            role: "assistant",
+            messageId: "opening-message-1",
+            parts: [
+                {
+                    type: "text",
+                    text: "*A winged woman drops out of a tree, entirely too pleased.* You're one of them, aren't you? A summoned one."
+                }
+            ]
+        })
+    })
+
+    it("rejects an unknown authored opening id", async () => {
+        const opening = await resolvePersonaOpeningForRequest(
+            {} as Parameters<typeof resolvePersonaOpeningForRequest>[0],
+            "user-1",
+            { source: "builtin", id: "elara-adventurer" },
+            { openingId: "not-authored", messageId: "opening-message-1" },
+            "assistant-1"
+        )
+
+        expect(opening).toBeInstanceOf(ChatError)
+    })
+})
 
 describe("buildPreparedImageReferences", () => {
     it("labels generated SilkScreen variants distinctly", () => {

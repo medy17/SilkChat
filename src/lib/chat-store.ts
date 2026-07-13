@@ -43,6 +43,15 @@ export type PersonaSelection =
           id: string
       }
 
+export type PendingPersonaOpening = {
+    source: "builtin" | "user"
+    personaId: string
+    openingId: string
+    messageId: string
+    text: string
+    suggestedReplies: string[]
+}
+
 export type PendingBranchRetry = {
     threadId: string
     messageId: string
@@ -70,6 +79,7 @@ interface ChatState {
     targetMode: "normal" | "edit" | "retry"
     uploading: boolean
     selectedPersona: PersonaSelection
+    pendingPersonaOpening: PendingPersonaOpening | undefined
     lastLocalMutationAt: number
     pendingBranchRetry: PendingBranchRetry | undefined
     pendingBranchHydration: PendingBranchHydration | undefined
@@ -94,6 +104,7 @@ interface ChatActions {
     setUploading: (uploading: boolean) => void
     setRerenderTrigger: (rerenderTrigger: string) => void
     setSelectedPersona: (persona: PersonaSelection) => void
+    setPendingPersonaOpening: (opening: PendingPersonaOpening | undefined) => void
     setLastLocalMutationAt: (time: number) => void
     setPendingBranchRetry: (pendingBranchRetry: PendingBranchRetry | undefined) => void
     setPendingBranchHydration: (pendingBranchHydration: PendingBranchHydration | undefined) => void
@@ -115,6 +126,7 @@ const initialState: ChatState = {
     targetMode: "normal",
     uploading: false,
     selectedPersona: { source: "default" },
+    pendingPersonaOpening: undefined,
     lastLocalMutationAt: 0,
     pendingBranchRetry: undefined,
     pendingBranchHydration: undefined,
@@ -140,6 +152,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     setUploading: (uploading) => set({ uploading }),
     setRerenderTrigger: (rerenderTrigger) => set({ rerenderTrigger }),
     setSelectedPersona: (selectedPersona) => set({ selectedPersona }),
+    setPendingPersonaOpening: (pendingPersonaOpening) => set({ pendingPersonaOpening }),
     setLastLocalMutationAt: (lastLocalMutationAt) => set({ lastLocalMutationAt }),
     setPendingBranchRetry: (pendingBranchRetry) => set({ pendingBranchRetry }),
     setPendingBranchHydration: (pendingBranchHydration) => set({ pendingBranchHydration }),

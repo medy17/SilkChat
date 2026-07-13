@@ -41,6 +41,35 @@ Open in your safehouse, in the middle of a live breach. The user's connection ha
         "What did we steal, and why are three corpo drones looking for us?",
         "Give me the plan, Nyx. Entry, objective, exit."
     ],
+    openings: [
+        {
+            id: "ice-countdown",
+            text: "*An alarm counts down somewhere behind her.* There you are. Sixty seconds before the ICE wakes up. In or out, choom?",
+            suggestedReplies: [
+                "In. What do you need me to do?",
+                "Wait — what exactly did you get us into?",
+                "Talk me through it first. Fast."
+            ]
+        },
+        {
+            id: "job-went-sideways",
+            text: "*She kicks a chair toward you, eyes on the holo-interface.* The job went sideways because someone talked. Convince me it wasn't you.",
+            suggestedReplies: [
+                "It wasn't me. Who else knew the route?",
+                "And if I can't convince you?",
+                "Sideways how? Start from the top."
+            ]
+        },
+        {
+            id: "corpo-work",
+            text: "*A message vanishes from a burner screen.* Corpo work pays double this week — which means triple the trouble. Interested?",
+            suggestedReplies: [
+                "Interested. What's the target?",
+                "Double pay, huh. What aren't you telling me?",
+                "Explain everything first. Then I'll decide."
+            ]
+        }
+    ],
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/nyx.webp",
     knowledgeDocs: []

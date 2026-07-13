@@ -21,6 +21,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
 import { Check, ChevronDown, Plus, Sparkles } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { nanoid } from "nanoid"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -31,6 +32,11 @@ type PersonaOption = {
     shortName: string
     description: string
     conversationStarters: string[]
+    openings?: Array<{
+        id: string
+        text: string
+        suggestedReplies: string[]
+    }>
     defaultModelId: string
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
@@ -72,7 +78,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const [isPickerOpen, setIsPickerOpen] = useState(false)
     const [canRevalidatePickerOptions, setCanRevalidatePickerOptions] = useState(true)
     const { selectedModel, setSelectedModel } = useModelStore()
-    const { selectedPersona, setSelectedPersona } = useChatStore()
+    const { selectedPersona, setSelectedPersona, setPendingPersonaOpening } = useChatStore()
     const thread = useQuery(
         api.threads.getThread,
         threadId && session.user?.id && !auth.isLoading
@@ -165,6 +171,19 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
         // Manual choice wins over any pending onboarding handoff.
         clearPersonaOnboardingHandoff()
         setSelectedPersona({ source: option.source, id: option.id })
+        const opening = option.openings?.[0]
+        setPendingPersonaOpening(
+            opening
+                ? {
+                      source: option.source,
+                      personaId: option.id,
+                      openingId: opening.id,
+                      messageId: nanoid(),
+                      text: opening.text,
+                      suggestedReplies: opening.suggestedReplies
+                  }
+                : undefined
+        )
 
         const replacement = resolveAvailableModelReplacement({
             modelId: option.defaultModelId,
@@ -256,6 +275,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                     onClick={() => {
                                         clearPersonaOnboardingHandoff()
                                         setSelectedPersona({ source: "default" })
+                                        setPendingPersonaOpening(undefined)
                                         setIsPickerOpen(false)
                                     }}
                                 >

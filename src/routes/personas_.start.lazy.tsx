@@ -20,7 +20,13 @@ import { useAvatarAccent } from "@/hooks/use-avatar-accent"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { PERSONA_ONBOARDING_PATH, setPersonaOnboardingHandoff } from "@/lib/persona-onboarding"
-import { BUILT_IN_PERSONAS, type BuiltInPersona } from "@/lib/personas/builtins"
+import {
+    BUILT_IN_PERSONAS,
+    type BuiltInPersona,
+    type BuiltInPersonaOpening,
+    getBuiltInPersonaOpenings,
+    getSyntheticPersonaOpening
+} from "@/lib/personas/builtins"
 import { cn } from "@/lib/utils"
 import { useConvexMutation } from "@convex-dev/react-query"
 import { Link, Navigate, createLazyFileRoute, useNavigate } from "@tanstack/react-router"
@@ -35,12 +41,16 @@ import {
     Upload
 } from "lucide-react"
 import { AnimatePresence, MotionConfig, motion } from "motion/react"
+import { nanoid } from "nanoid"
 import { type CSSProperties, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createLazyFileRoute("/personas_/start")({
     component: PersonaOnboarding
 })
+
+// Openings carry *action* markdown that renders in chat; keep it out of the picker.
+const stripSceneMarkup = (text: string) => text.replace(/\*/g, "")
 
 const FEATURED_PERSONA_IDS = [
     "elara-adventurer",
@@ -212,7 +222,7 @@ function PersonaOnboarding() {
         "--persona-accent": avatarAccent
     } as CSSProperties
     const [selectedStarter, setSelectedStarter] = useState(
-        selectedPersona?.conversationStarters[0] ?? ""
+        selectedPersona ? (getBuiltInPersonaOpenings(selectedPersona)[0]?.text ?? "") : ""
     )
 
     useEffect(
@@ -241,7 +251,7 @@ function PersonaOnboarding() {
     const selectPersona = (persona: BuiltInPersona) => {
         setIsCreating(false)
         setSelectedPersonaId(persona.id)
-        setSelectedStarter(persona.conversationStarters[0] ?? "")
+        setSelectedStarter(getBuiltInPersonaOpenings(persona)[0]?.text ?? "")
     }
 
     const canCreate =
@@ -274,13 +284,21 @@ function PersonaOnboarding() {
 
     const finishOnboarding = async (
         handoff: { source: "builtin" | "user"; id: string; defaultModelId: string },
-        starter: string
+        opening: BuiltInPersonaOpening
     ) => {
-        setPersonaOnboardingHandoff(handoff)
-        if (starter) localStorage.setItem("user-input", starter)
         // Persona onboarding replaces the generic dialog for this acquisition path.
-        // Complete it before entering chat so the regular onboarding cannot flash.
+        // The selected opening stays local until the user replies, so abandoning
+        // this screen does not leave an empty thread behind.
         await completeOnboarding({})
+        setPersonaOnboardingHandoff({
+            ...handoff,
+            opening: {
+                id: opening.id,
+                messageId: nanoid(),
+                text: opening.text,
+                suggestedReplies: opening.suggestedReplies
+            }
+        })
         void navigate({ to: "/" })
     }
 
@@ -294,7 +312,9 @@ function PersonaOnboarding() {
                     id: selectedPersona.id,
                     defaultModelId: selectedPersona.defaultModelId
                 },
-                selectedStarter
+                getBuiltInPersonaOpenings(selectedPersona).find(
+                    (opening) => opening.text === selectedStarter
+                ) ?? getBuiltInPersonaOpenings(selectedPersona)[0]
             )
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to start persona chat")
@@ -329,7 +349,7 @@ function PersonaOnboarding() {
                     id: personaId,
                     defaultModelId: selectedPersona.defaultModelId
                 },
-                createForm.starters[0]?.trim() ?? ""
+                getSyntheticPersonaOpening(createForm.starters.map((starter) => starter.trim()))
             )
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to create persona")
@@ -640,8 +660,8 @@ function PersonaOnboarding() {
                                                     Choose your opening
                                                 </p>
                                                 <div className="mt-3 border-border border-y">
-                                                    {selectedPersona.conversationStarters.map(
-                                                        (starter) => {
+                                                    {getBuiltInPersonaOpenings(selectedPersona).map(
+                                                        ({ text: starter }) => {
                                                             const selected =
                                                                 starter === selectedStarter
                                                             return (
@@ -674,7 +694,7 @@ function PersonaOnboarding() {
                                                                                 : undefined
                                                                         }
                                                                     />
-                                                                    “{starter}”
+                                                                    “{stripSceneMarkup(starter)}”
                                                                 </button>
                                                             )
                                                         }

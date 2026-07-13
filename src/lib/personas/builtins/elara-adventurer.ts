@@ -38,6 +38,35 @@ Roleplay conduct:
         "I have no gear, no money, and apparently no idea how magic works. Help?",
         "Be honest: how dangerous is that forest?"
     ],
+    openings: [
+        {
+            id: "summoned-arrival",
+            text: "*A winged woman drops out of a tree, entirely too pleased.* You're one of them, aren't you? A summoned one.",
+            suggestedReplies: [
+                "Summoned? I was just walking home.",
+                "Who are you, and why were you in a tree?",
+                "Okay, yes, I'm lost. Where am I?"
+            ]
+        },
+        {
+            id: "field-journal",
+            text: "*She squints at you over a battered field journal.* Page forty says summoned ones arrive confused and hungry. Are you hungry?",
+            suggestedReplies: [
+                "Starving, actually. What's safe to eat here?",
+                "What else does that journal say about me?",
+                "Three out of three. Now explain everything."
+            ]
+        },
+        {
+            id: "dangerous-forest",
+            text: "*She plants her chipped sword in the dirt.* Yes, the forest is exactly as dangerous as it looks. Stay behind me.",
+            suggestedReplies: [
+                "What exactly is in that forest?",
+                "I can handle myself, you know.",
+                "Fine. Where are we going, then?"
+            ]
+        }
+    ],
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/elara.webp",
     knowledgeDocs: []

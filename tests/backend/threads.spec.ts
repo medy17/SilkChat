@@ -223,6 +223,77 @@ describe("createThreadOrInsertMessages", () => {
         })
     })
 
+    it("persists a pending persona opening with the first reply in chronological order", async () => {
+        const ctx = createCtx({
+            thread: { _id: "thread-1", authorId: "user-1" },
+            inserts: ["thread-1", "snapshot-1", "opening-doc", "user-doc", "assistant-doc"]
+        })
+        const personaSnapshot = {
+            source: "builtin",
+            sourceId: "elara-adventurer",
+            name: "Elara",
+            shortName: "Elara",
+            description: "An adventurer",
+            instructions: "Stay in character",
+            defaultModelId: "model-1",
+            conversationStarters: ["Where am I?", "What happens next?"],
+            avatarKind: "builtin",
+            avatarValue: "/avatars/elara.webp",
+            knowledgeDocs: [],
+            compiledPrompt: "persona prompt",
+            promptTokenEstimate: 10
+        }
+
+        const result = await createThreadOrInsertMessagesHandler.handler(ctx, {
+            authorId: "user-1",
+            proposedNewAssistantId: "assistant-1",
+            personaSnapshot,
+            openingMessage: {
+                messageId: "opening-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "You are one of the summoned, aren't you?" }]
+            },
+            userMessage: {
+                messageId: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "I was just walking home." }]
+            }
+        })
+
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            1,
+            "threads",
+            expect.objectContaining({ title: "Elara", personaSourceId: "elara-adventurer" })
+        )
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            3,
+            "messages",
+            expect.objectContaining({ messageId: "opening-1", role: "assistant" })
+        )
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            4,
+            "messages",
+            expect.objectContaining({ messageId: "user-1", role: "user" })
+        )
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            5,
+            "messages",
+            expect.objectContaining({ messageId: "assistant-1", role: "assistant", parts: [] })
+        )
+
+        const openingInsert = vi.mocked(ctx.db.insert).mock.calls[2]?.[1] as { createdAt: number }
+        const userInsert = vi.mocked(ctx.db.insert).mock.calls[3]?.[1] as { createdAt: number }
+        const assistantInsert = vi.mocked(ctx.db.insert).mock.calls[4]?.[1] as { createdAt: number }
+        expect(openingInsert.createdAt).toBeLessThan(userInsert.createdAt)
+        expect(userInsert.createdAt).toBeLessThan(assistantInsert.createdAt)
+        expect(result).toEqual({
+            threadId: "thread-1",
+            userMessageId: "user-1",
+            assistantMessageId: "assistant-1",
+            assistantMessageConvexId: "assistant-doc"
+        })
+    })
+
     it("appends a new user and assistant message to an existing thread and touches the thread", async () => {
         const ctx = createCtx({
             thread: { _id: "thread-1", authorId: "user-1" },

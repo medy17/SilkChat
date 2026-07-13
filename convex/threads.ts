@@ -302,7 +302,8 @@ export const createThreadOrInsertMessages = internalMutation({
         targetFromMessageId: v.optional(v.string()),
         targetMode: v.optional(v.union(v.literal("normal"), v.literal("edit"), v.literal("retry"))),
         folderId: v.optional(v.id("projects")),
-        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
+        openingMessage: v.optional(HTTPAIMessage)
     },
     handler: async (
         ctx,
@@ -314,10 +315,14 @@ export const createThreadOrInsertMessages = internalMutation({
             targetFromMessageId,
             targetMode,
             folderId,
-            personaSnapshot
+            personaSnapshot,
+            openingMessage
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
+        if (openingMessage && openingMessage.role !== "assistant") {
+            return new ChatError("bad_request:chat")
+        }
 
         const findExistingMessageById = async (
             messageId: string | undefined,
@@ -374,30 +379,33 @@ export const createThreadOrInsertMessages = internalMutation({
         }
 
         if (!threadId) {
+            const now = Date.now()
             const userMessageId_new = userMessage.messageId || nanoid()
             const newUserMessage_new = {
                 messageId: userMessageId_new,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
+                createdAt: now + (openingMessage ? 1 : 0),
+                updatedAt: now + (openingMessage ? 1 : 0),
                 metadata: {},
                 parts: userMessage.parts,
                 role: userMessage.role
             }
             const newAssistantMessage_new = {
                 messageId: proposedNewAssistantId,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
+                createdAt: now + (openingMessage ? 2 : 1),
+                updatedAt: now + (openingMessage ? 2 : 1),
                 metadata: {},
                 parts: [],
                 role: "assistant" as const
             }
-            const initialTitle = getInitialThreadTitle(userMessage)
+            const initialTitle = openingMessage
+                ? (personaSnapshot?.name ?? getInitialThreadTitle(userMessage))
+                : getInitialThreadTitle(userMessage)
 
             const newId = await ctx.db.insert("threads", {
                 authorId,
                 title: initialTitle,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
+                createdAt: now,
+                updatedAt: newAssistantMessage_new.updatedAt,
                 projectId: folderId, // Set the project ID if creating from a folder
                 personaSource: personaSnapshot?.source,
                 personaSourceId: personaSnapshot?.sourceId,
@@ -413,12 +421,23 @@ export const createThreadOrInsertMessages = internalMutation({
                 await ctx.db.insert("threadPersonaSnapshots", {
                     threadId: newId,
                     ...personaSnapshot,
-                    createdAt: Date.now()
+                    createdAt: now
                 })
             }
 
             // Thread count will be automatically updated by aggregate triggers
 
+            if (openingMessage) {
+                await ctx.db.insert("messages", {
+                    threadId: newId,
+                    messageId: openingMessage.messageId || nanoid(),
+                    createdAt: now,
+                    updatedAt: now,
+                    metadata: {},
+                    parts: openingMessage.parts,
+                    role: "assistant"
+                })
+            }
             await ctx.db.insert("messages", {
                 threadId: newId,
                 ...newUserMessage_new

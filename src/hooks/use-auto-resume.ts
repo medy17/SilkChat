@@ -7,7 +7,30 @@ import { useEffect, useRef } from "react"
 
 const MAX_RESUME_ATTEMPTS_PER_ACTIVITY_WINDOW = 5
 const MIN_RESUME_RETRY_INTERVAL_MS = 750
+const RESUME_ATTEMPT_WINDOW_MS = 30_000
 const STALE_ACTIVE_STREAM_MS = 8_000
+
+type ResumeAttempt = {
+    streamId?: string
+    attempts: number
+    firstAttemptAt: number
+    lastAttemptAt: number
+    lastActivityKey?: string
+    lastActivityAt: number
+    resumeInFlight: boolean
+    restartRequested: boolean
+}
+
+const createResumeAttempt = (): ResumeAttempt => ({
+    streamId: undefined,
+    attempts: 0,
+    firstAttemptAt: 0,
+    lastAttemptAt: 0,
+    lastActivityKey: undefined,
+    lastActivityAt: 0,
+    resumeInFlight: false,
+    restartRequested: false
+})
 
 export interface AutoResumeProps {
     autoResume: boolean
@@ -18,7 +41,8 @@ export interface AutoResumeProps {
     threadMessages?: readonly unknown[] | { error: unknown }
     clientId?: string
     streamActivityKey?: string
-    stopLocalStream?: () => void
+    localChatId?: string
+    restartLocalChat?: () => void
 }
 
 export function useAutoResume({
@@ -30,7 +54,8 @@ export function useAutoResume({
     threadMessages,
     clientId,
     streamActivityKey = "",
-    stopLocalStream
+    localChatId,
+    restartLocalChat
 }: AutoResumeProps) {
     const pending = useChatStore((s) =>
         threadId && s.pendingStreams[threadId] === true
@@ -42,29 +67,14 @@ export function useAutoResume({
     const manuallyStopped = useChatStore((s) =>
         threadId ? s.manuallyStoppedThreads[threadId] : false
     )
-    const resumeAttemptRef = useRef<{
-        streamId?: string
-        attempts: number
-        lastAttemptAt: number
-        lastActivityKey?: string
-        lastActivityAt: number
-    }>({
-        streamId: undefined,
-        attempts: 0,
-        lastAttemptAt: 0,
-        lastActivityKey: undefined,
-        lastActivityAt: 0
-    })
+    const resumeAttemptRef = useRef<ResumeAttempt>(createResumeAttempt())
+    const resumeGenerationKey = `${threadId ?? ""}:${localChatId ?? ""}`
+    const resumeGenerationRef = useRef(resumeGenerationKey)
 
-    useEffect(() => {
-        resumeAttemptRef.current = {
-            streamId: undefined,
-            attempts: 0,
-            lastAttemptAt: 0,
-            lastActivityKey: undefined,
-            lastActivityAt: 0
-        }
-    }, [threadId])
+    if (resumeGenerationRef.current !== resumeGenerationKey) {
+        resumeGenerationRef.current = resumeGenerationKey
+        resumeAttemptRef.current = createResumeAttempt()
+    }
 
     useEffect(() => {
         if (!autoResume) return
@@ -86,14 +96,18 @@ export function useAutoResume({
             resumeAttemptRef.current = {
                 streamId: currentStreamId,
                 attempts: 0,
+                firstAttemptAt: 0,
                 lastAttemptAt: 0,
                 lastActivityKey: streamActivityKey,
-                lastActivityAt: Date.now()
+                lastActivityAt: Date.now(),
+                resumeInFlight: false,
+                restartRequested: false
             }
         } else if (attempt.lastActivityKey !== streamActivityKey) {
             resumeAttemptRef.current = {
                 ...attempt,
                 attempts: 0,
+                firstAttemptAt: 0,
                 lastAttemptAt: 0,
                 lastActivityKey: streamActivityKey,
                 lastActivityAt: Date.now()
@@ -101,6 +115,8 @@ export function useAutoResume({
         }
 
         const attemptResume = () => {
+            if (resumeGenerationRef.current !== resumeGenerationKey) return
+
             const currentAttempt = resumeAttemptRef.current
 
             if (currentAttempt.streamId !== currentStreamId) return
@@ -111,35 +127,67 @@ export function useAutoResume({
             const isStaleActiveStream =
                 isActiveLocally && attemptNow - lastActivityAt >= STALE_ACTIVE_STREAM_MS
 
-            if (isActiveLocally && !isStaleActiveStream) return
-            if (currentAttempt.attempts >= MAX_RESUME_ATTEMPTS_PER_ACTIVITY_WINDOW) return
+            if (isActiveLocally) {
+                if (!isStaleActiveStream || currentAttempt.restartRequested) return
+
+                // A resumed AI SDK stream is not wired to stop()'s AbortSignal.
+                // Recreate the local Chat before reconnecting so makeRequest calls
+                // can never overlap on the same SDK instance.
+                resumeAttemptRef.current = {
+                    ...currentAttempt,
+                    restartRequested: true
+                }
+                restartLocalChat?.()
+                return
+            }
+
+            if (currentAttempt.resumeInFlight) return
+
+            const attemptWindowExpired =
+                currentAttempt.firstAttemptAt > 0 &&
+                attemptNow - currentAttempt.firstAttemptAt >= RESUME_ATTEMPT_WINDOW_MS
+            const attempts = attemptWindowExpired ? 0 : currentAttempt.attempts
+            const firstAttemptAt = attemptWindowExpired ? 0 : currentAttempt.firstAttemptAt
+
+            if (attempts >= MAX_RESUME_ATTEMPTS_PER_ACTIVITY_WINDOW) return
             if (attemptNow - currentAttempt.lastAttemptAt < MIN_RESUME_RETRY_INTERVAL_MS) return
 
-            resumeAttemptRef.current = {
+            const activeAttempt = {
                 streamId: currentStreamId,
-                attempts: currentAttempt.attempts + 1,
+                attempts: attempts + 1,
+                firstAttemptAt: firstAttemptAt || attemptNow,
                 lastAttemptAt: attemptNow,
                 lastActivityKey: streamActivityKey,
-                lastActivityAt
+                lastActivityAt,
+                resumeInFlight: true,
+                restartRequested: false
             }
+            resumeAttemptRef.current = activeAttempt
 
             console.log("[AR:resume]", {
                 t: threadId,
                 current: currentStreamId.slice(0, 5),
                 msgsCount: threadMessages.length,
                 attempt: resumeAttemptRef.current.attempts,
-                reason: isStaleActiveStream
-                    ? "stale_local_stream_for_mounted_chat"
-                    : "live_stream_for_mounted_chat"
+                reason: "live_stream_for_mounted_chat"
             })
 
-            if (isStaleActiveStream) {
-                // Kill the possibly-dead local stream before re-attaching so
-                // two streams never feed the same message concurrently.
-                stopLocalStream?.()
+            try {
+                void Promise.resolve(experimental_resume()).finally(() => {
+                    if (resumeAttemptRef.current !== activeAttempt) return
+                    resumeAttemptRef.current = {
+                        ...activeAttempt,
+                        resumeInFlight: false
+                    }
+                })
+            } catch {
+                if (resumeAttemptRef.current === activeAttempt) {
+                    resumeAttemptRef.current = {
+                        ...activeAttempt,
+                        resumeInFlight: false
+                    }
+                }
             }
-
-            void experimental_resume()
         }
 
         const initialDelay = resumeAttemptRef.current.attempts === 0 ? 150 : 0
@@ -166,6 +214,7 @@ export function useAutoResume({
         status,
         threadMessages,
         streamActivityKey,
-        stopLocalStream
+        resumeGenerationKey,
+        restartLocalChat
     ])
 }

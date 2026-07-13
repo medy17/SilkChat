@@ -2,6 +2,11 @@
 
 import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
+import {
+    SYNTHETIC_PERSONA_OPENING_ID,
+    getBuiltInPersonaOpenings,
+    getSyntheticPersonaOpening
+} from "@/lib/personas/builtins"
 import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import {
@@ -343,6 +348,56 @@ type PersonaSelection = {
     id?: string
 }
 
+type PersonaOpeningRequest = {
+    openingId: string
+    messageId: string
+}
+
+export const resolvePersonaOpeningForRequest = async (
+    ctx: ActionCtx,
+    userId: string,
+    selection: PersonaSelection | undefined,
+    request: PersonaOpeningRequest | undefined,
+    fallbackMessageId: string
+): Promise<Infer<typeof HTTPAIMessage> | null | ChatError> => {
+    if (!selection || selection.source === "default") return null
+
+    if (selection.source === "builtin") {
+        const persona = getBuiltInPersonaDefinition(selection.id ?? "")
+        if (!persona) return new ChatError("bad_request:chat", "Persona not found.")
+
+        const openings = getBuiltInPersonaOpenings(persona)
+        const opening = request
+            ? openings.find((candidate) => candidate.id === request.openingId)
+            : openings[0]
+        if (!opening) return new ChatError("bad_request:chat", "Persona opening not found.")
+
+        return {
+            role: "assistant",
+            messageId: request?.messageId ?? `${fallbackMessageId}:opening`,
+            parts: [{ type: "text", text: opening.text }]
+        }
+    }
+
+    if (!selection.id) return new ChatError("bad_request:chat", "Persona not found.")
+    const persona = await ctx.runQuery(internal.personas.getUserPersonaByIdInternal, {
+        personaId: selection.id as Id<"userPersonas">
+    })
+    if (!persona || persona.authorId !== userId) {
+        return new ChatError("forbidden:chat", "Persona not found.")
+    }
+
+    if (request && request.openingId !== SYNTHETIC_PERSONA_OPENING_ID) {
+        return new ChatError("bad_request:chat", "Persona opening not found.")
+    }
+    const opening = getSyntheticPersonaOpening(persona.conversationStarters)
+    return {
+        role: "assistant",
+        messageId: request?.messageId ?? `${fallbackMessageId}:opening`,
+        parts: [{ type: "text", text: opening.text }]
+    }
+}
+
 const fetchPersonaDocumentText = async (key: string) => {
     const fileUrl = await r2.getUrl(key)
     const response = await fetch(fileUrl)
@@ -579,12 +634,14 @@ const buildProspectiveMessages = ({
     existingMessages,
     threadId,
     userMessage,
+    openingMessage,
     targetFromMessageId,
     targetMode
 }: {
     existingMessages: StoredMessage[]
     threadId?: string
     userMessage: Infer<typeof HTTPAIMessage>
+    openingMessage?: Infer<typeof HTTPAIMessage>
     targetFromMessageId?: string
     targetMode?: "normal" | "edit" | "retry"
 }) => {
@@ -594,7 +651,14 @@ const buildProspectiveMessages = ({
     })
 
     if (!targetFromMessageId) {
-        return [pendingUserMessage, ...existingMessages]
+        const pendingOpeningMessage = openingMessage
+            ? toPendingUserMessage({ threadId, message: openingMessage })
+            : null
+        return [
+            pendingUserMessage,
+            ...(pendingOpeningMessage ? [pendingOpeningMessage] : []),
+            ...existingMessages
+        ]
     }
 
     const chronologicalMessages = sortMessagesChronologically(existingMessages)
@@ -715,6 +779,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
+        personaOpening?: PersonaOpeningRequest
         clientId?: string
         devContextOverride?: { hostedInputLimit?: number; modelInputLimit?: number }
     }
@@ -822,6 +887,20 @@ export const chatPOST = httpAction(async (ctx, req) => {
         return personaSnapshot.toResponse()
     }
 
+    const personaOpening = !body.id
+        ? await resolvePersonaOpeningForRequest(
+              ctx,
+              user.id,
+              body.personaSelection,
+              body.personaOpening,
+              body.proposedNewAssistantId
+          )
+        : null
+
+    if (personaOpening instanceof ChatError) {
+        return personaOpening.toResponse()
+    }
+
     const assistantRequestMessageId = body.proposedNewAssistantId
     const modelCreditMessageKey = `${assistantRequestMessageId}:model`
     const toolBudgetMessageKey = `${assistantRequestMessageId}:tool-budget`
@@ -892,6 +971,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 existingMessages,
                 threadId: body.id,
                 userMessage: body.message,
+                openingMessage: personaOpening ?? undefined,
                 targetFromMessageId: body.targetFromMessageId,
                 targetMode: body.targetMode
             })
@@ -990,7 +1070,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 targetFromMessageId: body.targetFromMessageId,
                 targetMode: body.targetMode,
                 folderId: body.folderId,
-                personaSnapshot: personaSnapshot ?? undefined
+                personaSnapshot: personaSnapshot ?? undefined,
+                openingMessage: personaOpening ?? undefined
             })
         } catch (error) {
             console.error("[cvx][chat] Failed to create or append messages", error)

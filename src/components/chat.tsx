@@ -15,7 +15,7 @@ import {
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
-import { type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ThreadPersonaInfo, usePublishThreadDiagnostics } from "@/lib/dev-thread-diagnostics"
@@ -140,7 +140,32 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         folderId
     })
     const { status, composerStatus, messages, ...chatHelpers } = chat
-    const deferredMessages = useDeferredValue(messages)
+    const {
+        resetChat,
+        selectedPersona,
+        setSelectedPersona,
+        pendingPersonaOpening,
+        setPendingPersonaOpening
+    } = useChatStore()
+    const syntheticOpeningMessage = useMemo<ChatMessage | undefined>(() => {
+        if (!pendingPersonaOpening || threadId) return undefined
+        return {
+            id: pendingPersonaOpening.messageId,
+            role: "assistant",
+            parts: [{ type: "text", text: pendingPersonaOpening.text }]
+        }
+    }, [pendingPersonaOpening, threadId])
+    const displayMessages = useMemo(
+        () =>
+            syntheticOpeningMessage
+                ? [
+                      syntheticOpeningMessage,
+                      ...messages.filter((message) => message.id !== syntheticOpeningMessage.id)
+                  ]
+                : messages,
+        [messages, syntheticOpeningMessage]
+    )
+    const deferredMessages = useDeferredValue(displayMessages)
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
     const setMessagesRef = useRef(chatHelpers.setMessages)
 
@@ -185,6 +210,14 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         messagesRef.current?.scrollToBottom("smooth")
     }
 
+    // The opening is display-only until the user replies. The first send carries
+    // its authoritative id to the server, which persists it with the reply.
+    const awaitingFirstReply =
+        Boolean(pendingPersonaOpening) && !threadId && messages.length === 0 && status === "ready"
+    const suggestedReplies = awaitingFirstReply
+        ? (pendingPersonaOpening?.suggestedReplies ?? [])
+        : []
+
     const handleFileDrop = useCallback((files: File[]) => {
         multimodalInputRef.current?.handleFileUpload(files)
     }, [])
@@ -193,7 +226,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         multimodalInputRef.current?.insertQuote(selection)
     }, [])
 
-    const isEmpty = messages.length === 0 && !threadId
+    const isEmpty = displayMessages.length === 0 && !threadId
     const personaOptions = useDiskCachedQuery(
         api.personas.listPersonaPickerOptions,
         {
@@ -211,8 +244,6 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         localStorage.setItem("DISK_CACHE:user-name", session.user.name)
     }, [session?.user?.name, isPending])
 
-    const { resetChat, selectedPersona, setSelectedPersona } = useChatStore()
-
     // Handoff from /personas/start. Re-applied (not one-shot) because resetChat
     // wipes selectedPersona on any ChatContent remount; it stays active until a
     // thread starts, the user picks a persona manually, or it expires. Waits for
@@ -220,19 +251,25 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     // persona selector does.
     useEffect(() => {
         if (!isActiveRoute || !session?.user?.id) return
-        if (threadId) {
-            // A conversation exists — the handoff has served its purpose.
-            clearPersonaOnboardingHandoff()
-            return
-        }
         if (availableModels.length === 0) return
         const handoff = peekPersonaOnboardingHandoff()
         if (!handoff) return
-        if (selectedPersona.source === handoff.source && selectedPersona.id === handoff.id) {
-            return
-        }
 
-        setSelectedPersona({ source: handoff.source, id: handoff.id })
+        if (threadId) {
+            clearPersonaOnboardingHandoff()
+        } else {
+            if (selectedPersona.source !== handoff.source || selectedPersona.id !== handoff.id) {
+                setSelectedPersona({ source: handoff.source, id: handoff.id })
+            }
+            setPendingPersonaOpening({
+                source: handoff.source,
+                personaId: handoff.id,
+                openingId: handoff.opening.id,
+                messageId: handoff.opening.messageId,
+                text: handoff.opening.text,
+                suggestedReplies: handoff.opening.suggestedReplies
+            })
+        }
 
         if (!handoff.defaultModelId) return
         const availableModelIds = new Set(availableModels.map((model) => model.id))
@@ -261,10 +298,17 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         session?.user?.id,
         selectedPersona,
         setSelectedPersona,
+        setPendingPersonaOpening,
         availableModels,
         sharedModels,
         setSelectedModel
     ])
+
+    useEffect(() => {
+        if (!threadId) return
+        clearPersonaOnboardingHandoff()
+        setPendingPersonaOpening(undefined)
+    }, [setPendingPersonaOpening, threadId])
     const selectedPersonaOption =
         selectedPersona.source === "default" || "error" in personaOptions
             ? null
@@ -349,6 +393,10 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     const resetAll = useCallback(() => {
         console.log("[chat] resetAll")
+        // A deliberate New Chat leaves persona onboarding behind. Clear the
+        // durable handoff before resetting Zustand so the handoff effect cannot
+        // immediately restore the synthetic opening.
+        clearPersonaOnboardingHandoff()
         setMessagesRef.current([])
         resetChat()
     }, [resetChat])
@@ -486,8 +534,22 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 20 }}
                             transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="pointer-events-none absolute inset-x-0 bottom-full mb-2 flex justify-center"
+                            className="pointer-events-none absolute inset-x-0 bottom-full mb-2 flex flex-col items-center gap-2"
                         >
+                            {suggestedReplies.length > 0 && (
+                                <div className="pointer-events-auto flex max-w-3xl flex-wrap justify-center gap-2 px-4">
+                                    {suggestedReplies.map((reply) => (
+                                        <button
+                                            key={reply}
+                                            type="button"
+                                            className="rounded-[var(--radius-xl)] border border-border bg-background/70 px-3 py-1.5 text-left text-sm backdrop-blur transition-colors hover:bg-accent"
+                                            onClick={() => handleInputSubmitWithScroll(reply, [])}
+                                        >
+                                            {reply}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <div className="pointer-events-auto">
                                 <StickToBottomButton
                                     isAtBottom={isAtBottom}

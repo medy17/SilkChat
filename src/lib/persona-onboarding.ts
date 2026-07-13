@@ -10,6 +10,12 @@ export type PersonaOnboardingHandoff = {
     source: "builtin" | "user"
     id: string
     defaultModelId?: string
+    opening: {
+        id: string
+        messageId: string
+        text: string
+        suggestedReplies: string[]
+    }
 }
 
 export function setPersonaOnboardingHandoff(handoff: PersonaOnboardingHandoff) {
@@ -34,13 +40,24 @@ export function peekPersonaOnboardingHandoff(): PersonaOnboardingHandoff | null 
         }
         if (
             (parsed?.source === "builtin" || parsed?.source === "user") &&
-            typeof parsed?.id === "string"
+            typeof parsed?.id === "string" &&
+            typeof parsed?.opening?.id === "string" &&
+            typeof parsed?.opening?.messageId === "string" &&
+            typeof parsed?.opening?.text === "string" &&
+            Array.isArray(parsed?.opening?.suggestedReplies) &&
+            parsed.opening.suggestedReplies.every((reply: unknown) => typeof reply === "string")
         ) {
             return {
                 source: parsed.source,
                 id: parsed.id,
                 defaultModelId:
-                    typeof parsed.defaultModelId === "string" ? parsed.defaultModelId : undefined
+                    typeof parsed.defaultModelId === "string" ? parsed.defaultModelId : undefined,
+                opening: {
+                    id: parsed.opening.id,
+                    messageId: parsed.opening.messageId,
+                    text: parsed.opening.text,
+                    suggestedReplies: parsed.opening.suggestedReplies
+                }
             }
         }
         sessionStorage.removeItem(HANDOFF_KEY)

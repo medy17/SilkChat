@@ -138,6 +138,8 @@ const resetChatStore = () => {
         targetFromMessageId: undefined,
         targetMode: "normal",
         uploading: false,
+        selectedPersona: { source: "default" },
+        pendingPersonaOpening: undefined,
         pendingBranchRetry: undefined,
         pendingBranchHydration: undefined,
         pendingBranchGenerations: {}
@@ -361,6 +363,57 @@ describe("useChatIntegration", () => {
 
         expect(useChatStore.getState().shouldUpdateQuery).toBe(false)
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(false)
+    })
+
+    it("sends the pending opening identity with the first persona reply", async () => {
+        useConvexQueryMock.mockReturnValue(undefined)
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: "ready",
+                messages: [],
+                setMessages: vi.fn(),
+                resumeStream: vi.fn()
+            }
+        })
+        nanoidMock.mockReturnValueOnce("client-1").mockReturnValueOnce("assistant-1")
+        useChatStore.setState({
+            selectedPersona: { source: "builtin", id: "elara-adventurer" },
+            pendingPersonaOpening: {
+                source: "builtin",
+                personaId: "elara-adventurer",
+                openingId: "summoned-arrival",
+                messageId: "opening-message-1",
+                text: "You are one of the summoned, aren't you?",
+                suggestedReplies: ["I was just walking home."]
+            }
+        })
+
+        renderHook(() => useChatIntegration({ threadId: undefined }))
+
+        const sendRequest = await transportConfigs[0].prepareSendMessagesRequest({
+            body: {},
+            messages: [
+                {
+                    id: "user-message-1",
+                    role: "user",
+                    parts: [{ type: "text", text: "I was just walking home." }]
+                }
+            ]
+        })
+
+        expect(sendRequest).toEqual(
+            expect.objectContaining({
+                body: expect.objectContaining({
+                    id: undefined,
+                    personaSelection: { source: "builtin", id: "elara-adventurer" },
+                    personaOpening: {
+                        openingId: "summoned-arrival",
+                        messageId: "opening-message-1"
+                    }
+                })
+            })
+        )
     })
 
     it("uses shared thread data without creating a transport", () => {

@@ -39,7 +39,7 @@ describe("useAutoResume", () => {
         vi.spyOn(console, "log").mockImplementation(() => {})
     })
 
-    it("retries resumable live streams up to the capped attempt count", () => {
+    it("rate-limits resume attempts and opens a new retry window", async () => {
         const experimentalResume = vi.fn()
 
         renderHook(() =>
@@ -53,14 +53,51 @@ describe("useAutoResume", () => {
             })
         )
 
-        vi.advanceTimersByTime(149)
+        await vi.advanceTimersByTimeAsync(149)
         expect(experimentalResume).not.toHaveBeenCalled()
 
-        vi.advanceTimersByTime(1)
+        await vi.advanceTimersByTimeAsync(1)
         expect(experimentalResume).toHaveBeenCalledTimes(1)
 
-        vi.advanceTimersByTime(5_000)
+        await vi.advanceTimersByTimeAsync(5_000)
         expect(experimentalResume).toHaveBeenCalledTimes(5)
+
+        await vi.advanceTimersByTimeAsync(24_000)
+        expect(experimentalResume).toHaveBeenCalledTimes(5)
+
+        await vi.advanceTimersByTimeAsync(2_000)
+        expect(experimentalResume).toHaveBeenCalledTimes(6)
+    })
+
+    it("does not overlap reconnect attempts while one is still pending", async () => {
+        let finishResume: (() => void) | undefined
+        const experimentalResume = vi.fn(
+            () =>
+                new Promise<void>((resolve) => {
+                    finishResume = resolve
+                })
+        )
+
+        renderHook(() =>
+            useAutoResume({
+                autoResume: true,
+                threadId: "thread-1",
+                thread: liveThread,
+                experimental_resume: experimentalResume,
+                status: "idle",
+                threadMessages: [{ _id: "message-1" }],
+                localChatId: "chat-1"
+            })
+        )
+
+        await vi.advanceTimersByTimeAsync(5_000)
+        expect(experimentalResume).toHaveBeenCalledTimes(1)
+
+        finishResume?.()
+        await Promise.resolve()
+        await vi.advanceTimersByTimeAsync(900)
+
+        expect(experimentalResume).toHaveBeenCalledTimes(2)
     })
 
     it("does not resume while the store still marks the thread as pending", () => {
@@ -137,32 +174,44 @@ describe("useAutoResume", () => {
         expect(experimentalResume).toHaveBeenCalledTimes(1)
     })
 
-    it("reconnects a stale local stream while the backend stream is still live", () => {
+    it("recreates a stale local chat before reconnecting its live backend stream", async () => {
         const experimentalResume = vi.fn()
-        const stopLocalStream = vi.fn()
+        const restartLocalChat = vi.fn()
 
-        renderHook(() =>
-            useAutoResume({
-                autoResume: true,
-                threadId: "thread-1",
-                thread: liveThread,
-                experimental_resume: experimentalResume,
-                status: "streaming",
-                threadMessages: [{ _id: "message-1" }],
-                streamActivityKey: "assistant:partial-content",
-                stopLocalStream
-            })
+        const { rerender } = renderHook(
+            (props: { localChatId: string; status: string }) =>
+                useAutoResume({
+                    autoResume: true,
+                    threadId: "thread-1",
+                    thread: liveThread,
+                    experimental_resume: experimentalResume,
+                    status: props.status,
+                    threadMessages: [{ _id: "message-1" }],
+                    streamActivityKey: "assistant:partial-content",
+                    localChatId: props.localChatId,
+                    restartLocalChat
+                }),
+            {
+                initialProps: {
+                    localChatId: "chat-1",
+                    status: "streaming"
+                }
+            }
         )
 
-        vi.advanceTimersByTime(7_999)
+        await vi.advanceTimersByTimeAsync(7_999)
         expect(experimentalResume).not.toHaveBeenCalled()
-        expect(stopLocalStream).not.toHaveBeenCalled()
+        expect(restartLocalChat).not.toHaveBeenCalled()
 
-        vi.advanceTimersByTime(101)
+        await vi.advanceTimersByTimeAsync(101)
+        expect(restartLocalChat).toHaveBeenCalledTimes(1)
+        expect(experimentalResume).not.toHaveBeenCalled()
+
+        rerender({ localChatId: "chat-2", status: "idle" })
+        await vi.advanceTimersByTimeAsync(150)
+
         expect(experimentalResume).toHaveBeenCalledTimes(1)
-        // The stale local stream is torn down before re-attaching so two
-        // streams never feed the same message.
-        expect(stopLocalStream).toHaveBeenCalledTimes(1)
+        expect(restartLocalChat).toHaveBeenCalledTimes(1)
     })
 
     it("does not resume when the thread was manually stopped by the user", () => {

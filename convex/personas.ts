@@ -6,7 +6,9 @@ import {
     MAX_PERSONA_PROMPT_TOKENS,
     MAX_PERSONA_STARTERS,
     MIN_PERSONA_STARTERS,
-    getBuiltInPersonaById
+    getBuiltInPersonaById,
+    getBuiltInPersonaOpenings,
+    getSyntheticPersonaOpening
 } from "@/lib/personas/builtins"
 import { type Infer, v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
@@ -230,6 +232,7 @@ export const listBuiltInPersonas = query({
             shortName: persona.shortName,
             description: persona.description,
             conversationStarters: persona.conversationStarters,
+            openings: getBuiltInPersonaOpenings(persona),
             defaultModelId: persona.defaultModelId,
             avatarKind: "builtin" as const,
             avatarValue: persona.avatarPath,
@@ -264,6 +267,7 @@ export const listPersonaPickerOptions = query({
                     shortName: persona.shortName,
                     description: persona.description,
                     conversationStarters: persona.conversationStarters,
+                    openings: getBuiltInPersonaOpenings(persona),
                     defaultModelId: persona.defaultModelId,
                     avatarKind: "builtin" as const,
                     avatarValue: persona.avatarPath
@@ -286,6 +290,7 @@ export const listPersonaPickerOptions = query({
                 shortName: persona.shortName,
                 description: persona.description,
                 conversationStarters: persona.conversationStarters,
+                openings: getBuiltInPersonaOpenings(persona),
                 defaultModelId: persona.defaultModelId,
                 avatarKind: "builtin" as const,
                 avatarValue: persona.avatarPath
@@ -297,6 +302,7 @@ export const listPersonaPickerOptions = query({
                 shortName: persona.shortName || persona.name.slice(0, 10),
                 description: persona.description,
                 conversationStarters: persona.conversationStarters,
+                openings: [getSyntheticPersonaOpening(persona.conversationStarters)],
                 defaultModelId: persona.defaultModelId,
                 avatarKind: persona.avatarKey ? ("r2" as const) : undefined,
                 avatarValue: persona.avatarKey,
