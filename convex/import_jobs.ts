@@ -13,6 +13,7 @@ import {
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 import { ImportJobAttachmentMode, ImportJobParsedMessage } from "./schema/import_job"
+import { ThreadPersonaSnapshotInput } from "./schema/persona"
 
 const MAX_RECENT_JOB_MESSAGES = 5
 const MAX_RECENT_JOB_MESSAGE_LENGTH = 220
@@ -423,6 +424,7 @@ export const savePreparedImportJobThreads = internalMutation({
                 title: v.string(),
                 messages: v.array(ImportJobParsedMessage),
                 parseWarnings: v.array(v.string()),
+                personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
                 sourceMetadata: v.object({
                     service: v.union(v.literal("t3chat"), v.literal("chatgptexporter")),
                     format: v.union(v.literal("markdown"), v.literal("json")),
@@ -448,6 +450,7 @@ export const savePreparedImportJobThreads = internalMutation({
                 title: thread.title,
                 messages: thread.messages,
                 parseWarnings: thread.parseWarnings,
+                personaSnapshot: thread.personaSnapshot,
                 sourceMetadata: thread.sourceMetadata,
                 status: "pending",
                 createdAt: now,

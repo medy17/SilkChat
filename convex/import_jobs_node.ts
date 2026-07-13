@@ -231,6 +231,7 @@ export const prepareImportJob = internalAction({
                         metadata: message.metadata
                     })),
                     parseWarnings: entry.parsed.parseWarnings,
+                    personaSnapshot: entry.parsed.personaSnapshot,
                     sourceMetadata: {
                         service: entry.parsed.source.service,
                         format: entry.parsed.source.format,
@@ -388,7 +389,8 @@ export const processImportJobThread = internalAction({
                 messages: preparedMessages,
                 projectId: job.projectId,
                 sourceCreatedAt: importJobThread.sourceMetadata.createdAt,
-                sourceUpdatedAt: importJobThread.sourceMetadata.updatedAt
+                sourceUpdatedAt: importJobThread.sourceMetadata.updatedAt,
+                personaSnapshot: importJobThread.personaSnapshot
             })
 
             if (!result || "error" in result) {

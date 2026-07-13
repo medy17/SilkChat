@@ -39,6 +39,27 @@ export interface ExportableThread {
     createdAt: number
     updatedAt: number
     projectId?: string
+    personaSnapshot?: ExportablePersonaSnapshot
+}
+
+export interface ExportablePersonaSnapshot {
+    source: "builtin" | "user"
+    sourceId: string
+    name: string
+    shortName?: string
+    description: string
+    instructions: string
+    defaultModelId: string
+    conversationStarters: string[]
+    avatarKind?: "builtin" | "r2"
+    avatarValue?: string
+    avatarMimeType?: string
+    knowledgeDocs: Array<{
+        fileName: string
+        tokenCount: number
+    }>
+    compiledPrompt: string
+    promptTokenEstimate: number
 }
 
 export interface ExportableMessage {
@@ -384,6 +405,12 @@ const buildThreadFrontmatter = ({
 
     if (thread.projectId) {
         lines.push(`project_id: ${escapeFrontmatterString(thread.projectId)}`)
+    }
+
+    if (thread.personaSnapshot) {
+        lines.push(
+            `persona_snapshot: ${escapeFrontmatterString(JSON.stringify(thread.personaSnapshot))}`
+        )
     }
 
     lines.push("---")

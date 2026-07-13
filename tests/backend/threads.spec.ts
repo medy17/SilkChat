@@ -606,4 +606,53 @@ describe("importPreparedThread", () => {
             importedMessages: 3
         })
     })
+
+    it("restores Persona thread fields and the immutable snapshot", async () => {
+        const ctx = createCtx({
+            thread: { _id: "thread-import-persona", authorId: "user-1" },
+            inserts: ["thread-import-persona", "snapshot-1", "msg-1"]
+        })
+        const personaSnapshot = {
+            source: "builtin",
+            sourceId: "ada",
+            name: "Ada",
+            shortName: "Ada",
+            description: "A precise programming guide",
+            instructions: "Explain programs with small, correct examples.",
+            defaultModelId: "openai:gpt-5.4",
+            conversationStarters: ["Review this function", "Explain this algorithm"],
+            avatarKind: "builtin",
+            avatarValue: "/personas/ada.webp",
+            knowledgeDocs: [{ fileName: "style.md", tokenCount: 42 }],
+            compiledPrompt: "## Active Persona\nName: Ada",
+            promptTokenEstimate: 18
+        }
+
+        await importPreparedThreadHandler.handler(ctx, {
+            authorId: "user-1",
+            title: "Persona Chat",
+            messages: [{ role: "user", parts: [{ type: "text", text: "Hello Ada" }] }],
+            personaSnapshot
+        })
+
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            1,
+            "threads",
+            expect.objectContaining({
+                personaSource: "builtin",
+                personaSourceId: "ada",
+                personaName: "Ada",
+                personaAvatarKind: "builtin",
+                personaAvatarValue: "/personas/ada.webp"
+            })
+        )
+        expect(ctx.db.insert).toHaveBeenNthCalledWith(
+            2,
+            "threadPersonaSnapshots",
+            expect.objectContaining({
+                threadId: "thread-import-persona",
+                ...personaSnapshot
+            })
+        )
+    })
 })

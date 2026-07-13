@@ -20,10 +20,31 @@ export interface ParsedThreadImportMessage {
     }
 }
 
+export interface ParsedThreadPersonaSnapshot {
+    source: "builtin" | "user"
+    sourceId: string
+    name: string
+    shortName?: string
+    description: string
+    instructions: string
+    defaultModelId: string
+    conversationStarters: string[]
+    avatarKind?: "builtin" | "r2"
+    avatarValue?: string
+    avatarMimeType?: string
+    knowledgeDocs: Array<{
+        fileName: string
+        tokenCount: number
+    }>
+    compiledPrompt: string
+    promptTokenEstimate: number
+}
+
 export interface ParsedThreadImportDocument {
     title: string
     messages: ParsedThreadImportMessage[]
     parseWarnings: string[]
+    personaSnapshot?: ParsedThreadPersonaSnapshot
     source: {
         format: ThreadImportFormat
         service: ThreadImportService

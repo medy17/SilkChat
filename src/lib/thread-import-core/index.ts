@@ -85,5 +85,6 @@ export type {
     ImportedMessageRole,
     ParsedAttachmentReference,
     ParsedThreadImportDocument,
-    ParsedThreadImportMessage
+    ParsedThreadImportMessage,
+    ParsedThreadPersonaSnapshot
 } from "./types"

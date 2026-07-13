@@ -17,6 +17,39 @@ const T3HeaderSchema = z.object({
     modelName: z.string().optional()
 })
 
+const PersonaSnapshotSchema = z.object({
+    source: z.enum(["builtin", "user"]),
+    sourceId: z.string().min(1),
+    name: z.string().min(1),
+    shortName: z.string().optional(),
+    description: z.string(),
+    instructions: z.string(),
+    defaultModelId: z.string(),
+    conversationStarters: z.array(z.string()),
+    avatarKind: z.enum(["builtin", "r2"]).optional(),
+    avatarValue: z.string().optional(),
+    avatarMimeType: z.string().optional(),
+    knowledgeDocs: z.array(
+        z.object({
+            fileName: z.string(),
+            tokenCount: z.number()
+        })
+    ),
+    compiledPrompt: z.string(),
+    promptTokenEstimate: z.number()
+})
+
+const parsePersonaSnapshot = (value: unknown) => {
+    if (typeof value !== "string" || !value.trim()) return undefined
+
+    try {
+        const parsed = PersonaSnapshotSchema.safeParse(JSON.parse(value))
+        return parsed.success ? parsed.data : undefined
+    } catch {
+        return undefined
+    }
+}
+
 const extractTitle = (markdown: string) => {
     const headingMatch = markdown.match(/^#\s+(.+)$/m)
     if (headingMatch?.[1]) {
@@ -96,11 +129,17 @@ export const tryParseT3ChatMarkdown = (markdown: string): ParsedThreadImportDocu
             : typeof frontmatter.id === "string"
               ? frontmatter.id
               : undefined
+    const personaSnapshot = parsePersonaSnapshot(frontmatter.persona_snapshot)
+
+    if (frontmatter.persona_snapshot && !personaSnapshot) {
+        parseWarnings.push("Skipped malformed Persona metadata from markdown export")
+    }
 
     return {
         title: titleFromFrontmatter || normalizeTitle(title) || "Imported Chat",
         messages,
         parseWarnings,
+        ...(personaSnapshot ? { personaSnapshot } : {}),
         source: {
             service: "t3chat",
             format: "markdown",

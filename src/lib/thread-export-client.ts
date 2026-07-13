@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import {
     type ExportableMessage,
+    type ExportablePersonaSnapshot,
     type ExportableThread,
     buildThreadsExportArchiveName,
     buildZipArchive,
@@ -19,6 +20,13 @@ type RawThreadRecord = {
     createdAt: number
     updatedAt: number
     projectId?: string
+}
+
+type RawPersonaSnapshot = ExportablePersonaSnapshot & {
+    _id: string
+    _creationTime: number
+    threadId: string
+    createdAt: number
 }
 
 type RawMessageRecord = {
@@ -39,13 +47,40 @@ const toExportableMessage = (value: RawMessageRecord): ExportableMessage => ({
     metadata: value.metadata
 })
 
-const toExportableThread = (value: RawThreadRecord): ExportableThread => ({
+const toExportableThread = (
+    value: RawThreadRecord,
+    personaSnapshot: ExportablePersonaSnapshot | undefined
+): ExportableThread => ({
     _id: value._id,
     title: value.title,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
-    projectId: value.projectId
+    projectId: value.projectId,
+    personaSnapshot
 })
+
+const toExportablePersonaSnapshot = (
+    value: RawPersonaSnapshot | null
+): ExportablePersonaSnapshot | undefined => {
+    if (!value) return undefined
+
+    return {
+        source: value.source,
+        sourceId: value.sourceId,
+        name: value.name,
+        shortName: value.shortName,
+        description: value.description,
+        instructions: value.instructions,
+        defaultModelId: value.defaultModelId,
+        conversationStarters: value.conversationStarters,
+        avatarKind: value.avatarKind,
+        avatarValue: value.avatarValue,
+        avatarMimeType: value.avatarMimeType,
+        knowledgeDocs: value.knowledgeDocs,
+        compiledPrompt: value.compiledPrompt,
+        promptTokenEstimate: value.promptTokenEstimate
+    }
+}
 
 const loadThreadExportData = async ({
     convex,
@@ -54,9 +89,10 @@ const loadThreadExportData = async ({
     convex: ConvexQueryClient
     threadId: string
 }) => {
-    const [threadResult, messagesResult] = await Promise.all([
+    const [threadResult, messagesResult, personaSnapshotResult] = await Promise.all([
         convex.query(api.threads.getThread, { threadId }),
-        convex.query(api.threads.getThreadMessages, { threadId })
+        convex.query(api.threads.getThreadMessages, { threadId }),
+        convex.query(api.personas.getThreadPersonaSnapshot, { threadId })
     ])
 
     if (!threadResult || Array.isArray(threadResult)) {
@@ -72,7 +108,10 @@ const loadThreadExportData = async ({
     }
 
     return {
-        thread: toExportableThread(threadResult as RawThreadRecord),
+        thread: toExportableThread(
+            threadResult as RawThreadRecord,
+            toExportablePersonaSnapshot(personaSnapshotResult as RawPersonaSnapshot | null)
+        ),
         messages: (messagesResult as RawMessageRecord[]).map(toExportableMessage)
     }
 }

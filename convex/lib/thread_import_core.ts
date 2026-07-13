@@ -20,10 +20,28 @@ export interface ParsedThreadImportMessage {
     }
 }
 
+export interface ParsedThreadPersonaSnapshot {
+    source: "builtin" | "user"
+    sourceId: string
+    name: string
+    shortName?: string
+    description: string
+    instructions: string
+    defaultModelId: string
+    conversationStarters: string[]
+    avatarKind?: "builtin" | "r2"
+    avatarValue?: string
+    avatarMimeType?: string
+    knowledgeDocs: Array<{ fileName: string; tokenCount: number }>
+    compiledPrompt: string
+    promptTokenEstimate: number
+}
+
 export interface ParsedThreadImportDocument {
     title: string
     messages: ParsedThreadImportMessage[]
     parseWarnings: string[]
+    personaSnapshot?: ParsedThreadPersonaSnapshot
     source: {
         format: ThreadImportFormat
         service: ThreadImportService
@@ -134,6 +152,23 @@ const T3HeaderSchema = z.object({
     modelName: z.string().optional()
 })
 
+const PersonaSnapshotSchema = z.object({
+    source: z.enum(["builtin", "user"]),
+    sourceId: z.string().min(1),
+    name: z.string().min(1),
+    shortName: z.string().optional(),
+    description: z.string(),
+    instructions: z.string(),
+    defaultModelId: z.string(),
+    conversationStarters: z.array(z.string()),
+    avatarKind: z.enum(["builtin", "r2"]).optional(),
+    avatarValue: z.string().optional(),
+    avatarMimeType: z.string().optional(),
+    knowledgeDocs: z.array(z.object({ fileName: z.string(), tokenCount: z.number() })),
+    compiledPrompt: z.string(),
+    promptTokenEstimate: z.number()
+})
+
 export const normalizeSpacing = (value: string) =>
     value
         .replace(/\r\n/g, "\n")
@@ -146,6 +181,61 @@ export const normalizeTitle = (value: string) =>
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 100)
+
+const extractLeadingFrontmatter = (value: string) => {
+    const normalized = value.replace(/\r\n/g, "\n")
+    const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---\n?/)
+
+    if (!frontmatterMatch) {
+        return { body: normalized, frontmatter: {} as Record<string, string> }
+    }
+
+    const frontmatter = Object.fromEntries(
+        frontmatterMatch[1]
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+                const separatorIndex = line.indexOf(":")
+                if (separatorIndex === -1) return null
+
+                const key = line.slice(0, separatorIndex).trim()
+                const rawValue = line.slice(separatorIndex + 1).trim()
+                if (!key) return null
+
+                if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+                    try {
+                        return [key, JSON.parse(rawValue) as string]
+                    } catch {
+                        return [key, rawValue.slice(1, -1)]
+                    }
+                }
+
+                if (rawValue.startsWith("'") && rawValue.endsWith("'")) {
+                    return [key, rawValue.slice(1, -1)]
+                }
+
+                return [key, rawValue]
+            })
+            .filter((entry): entry is [string, string] => Boolean(entry))
+    )
+
+    return {
+        body: normalized.slice(frontmatterMatch[0].length),
+        frontmatter
+    }
+}
+
+const parsePersonaSnapshot = (value: unknown) => {
+    if (typeof value !== "string" || !value.trim()) return undefined
+
+    try {
+        const parsed = PersonaSnapshotSchema.safeParse(JSON.parse(value))
+        return parsed.success ? parsed.data : undefined
+    } catch {
+        return undefined
+    }
+}
 
 const normalizeKeySegment = (value: string | number | undefined) =>
     String(value ?? "")
@@ -569,7 +659,8 @@ const tryParseT3ChatThreadsJson = (content: string): ParsedThreadImportDocument[
 }
 
 const tryParseT3ChatMarkdown = (markdown: string): ParsedThreadImportDocument | null => {
-    const normalizedMarkdown = markdown.replace(/\r\n/g, "\n")
+    const { body, frontmatter } = extractLeadingFrontmatter(markdown)
+    const normalizedMarkdown = body.replace(/\r\n/g, "\n")
     const sectionMatches = Array.from(normalizedMarkdown.matchAll(T3_MARKDOWN_HEADER_REGEX))
 
     if (sectionMatches.length === 0) return null
@@ -614,13 +705,33 @@ const tryParseT3ChatMarkdown = (markdown: string): ParsedThreadImportDocument | 
 
     if (messages.length === 0) return null
 
+    const titleFromFrontmatter =
+        typeof frontmatter.title === "string" ? normalizeTitle(frontmatter.title) : ""
+    const sourceCreatedAt = parseImportTimestamp(frontmatter.created_at ?? frontmatter.createdAt)
+    const sourceUpdatedAt = parseImportTimestamp(frontmatter.updated_at ?? frontmatter.updatedAt)
+    const conversationId =
+        typeof frontmatter.thread_id === "string"
+            ? frontmatter.thread_id
+            : typeof frontmatter.id === "string"
+              ? frontmatter.id
+              : undefined
+    const personaSnapshot = parsePersonaSnapshot(frontmatter.persona_snapshot)
+
+    if (frontmatter.persona_snapshot && !personaSnapshot) {
+        parseWarnings.push("Skipped malformed Persona metadata from markdown export")
+    }
+
     return {
-        title: normalizeTitle(title) || "Imported Chat",
+        title: titleFromFrontmatter || normalizeTitle(title) || "Imported Chat",
         messages,
         parseWarnings,
+        ...(personaSnapshot ? { personaSnapshot } : {}),
         source: {
             service: "t3chat",
-            format: "markdown"
+            format: "markdown",
+            conversationId,
+            createdAt: sourceCreatedAt,
+            updatedAt: sourceUpdatedAt ?? sourceCreatedAt
         }
     }
 }

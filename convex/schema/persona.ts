@@ -35,8 +35,7 @@ export const UserPersona = v.object({
     updatedAt: v.number()
 })
 
-export const ThreadPersonaSnapshot = v.object({
-    threadId: v.id("threads"),
+export const ThreadPersonaSnapshotFields = {
     source: PersonaSource,
     sourceId: v.string(),
     name: v.string(),
@@ -55,6 +54,13 @@ export const ThreadPersonaSnapshot = v.object({
         })
     ),
     compiledPrompt: v.string(),
-    promptTokenEstimate: v.number(),
+    promptTokenEstimate: v.number()
+}
+
+export const ThreadPersonaSnapshotInput = v.object(ThreadPersonaSnapshotFields)
+
+export const ThreadPersonaSnapshot = v.object({
+    threadId: v.id("threads"),
+    ...ThreadPersonaSnapshotFields,
     createdAt: v.number()
 })

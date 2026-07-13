@@ -6,6 +6,8 @@ import {
     buildZipArchive,
     serializeThreadToMarkdown
 } from "@/lib/thread-export"
+import { parseThreadImportContent } from "@/lib/thread-import-core"
+import { parseThreadImportContents as parseBackendThreadImportContents } from "../../convex/lib/thread_import_core"
 
 describe("thread-export", () => {
     it("serializes messages in chronological order and resolves internal attachments", () => {
@@ -119,6 +121,59 @@ describe("thread-export", () => {
         )
         expect(exported.markdown).not.toContain("/r2?key=")
         expect(exported.markdown).toContain("#### Donkey Eating Sand")
+    })
+
+    it("preserves Persona metadata across an export and re-import", () => {
+        const personaSnapshot = {
+            source: "user" as const,
+            sourceId: "persona-123",
+            name: "Ada",
+            shortName: "Ada",
+            description: "A precise programming guide",
+            instructions: "Explain programs with small, correct examples.",
+            defaultModelId: "openai:gpt-5.4",
+            conversationStarters: ["Review this function", "Explain this algorithm"],
+            avatarKind: "r2" as const,
+            avatarValue: "persona-avatars/user/ada.png",
+            avatarMimeType: "image/png",
+            knowledgeDocs: [{ fileName: "style.md", tokenCount: 42 }],
+            compiledPrompt: "## Active Persona\nName: Ada\n\n### Instructions\nBe precise.",
+            promptTokenEstimate: 18
+        }
+        const exported = serializeThreadToMarkdown({
+            thread: {
+                _id: "thread-persona",
+                title: "Persona Chat",
+                createdAt: Date.UTC(2026, 2, 28, 10, 0, 0),
+                updatedAt: Date.UTC(2026, 2, 28, 10, 5, 0),
+                personaSnapshot
+            },
+            messages: [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    createdAt: 1,
+                    updatedAt: 1,
+                    parts: [{ type: "text", text: "Hello Ada" }]
+                }
+            ],
+            convexApiUrl: "https://convex.example.com"
+        })
+
+        const imported = parseThreadImportContent({
+            content: exported.markdown,
+            fileName: exported.fileName,
+            mimeType: "text/markdown"
+        })
+
+        expect(imported.personaSnapshot).toEqual(personaSnapshot)
+        expect(
+            parseBackendThreadImportContents({
+                content: exported.markdown,
+                fileName: exported.fileName,
+                mimeType: "text/markdown"
+            })[0]?.personaSnapshot
+        ).toEqual(personaSnapshot)
     })
 
     it("falls back to the Convex proxy for generated assets when no public base url is set", () => {

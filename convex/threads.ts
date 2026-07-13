@@ -28,6 +28,7 @@ import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
 import { HTTPAIMessage, type Message } from "./schema/message"
 import { MessagePart } from "./schema/parts"
+import { ThreadPersonaSnapshotInput } from "./schema/persona"
 
 type ThreadDoc = Infer<typeof Thread>
 
@@ -122,28 +123,6 @@ const ImportedMessage = v.object({
     metadata: v.optional(MessageMetadata)
 })
 
-const ThreadPersonaSnapshotInput = v.object({
-    source: v.union(v.literal("builtin"), v.literal("user")),
-    sourceId: v.string(),
-    name: v.string(),
-    shortName: v.optional(v.string()),
-    description: v.string(),
-    instructions: v.string(),
-    defaultModelId: v.string(),
-    conversationStarters: v.array(v.string()),
-    avatarKind: v.optional(v.union(v.literal("builtin"), v.literal("r2"))),
-    avatarValue: v.optional(v.string()),
-    avatarMimeType: v.optional(v.string()),
-    knowledgeDocs: v.array(
-        v.object({
-            fileName: v.string(),
-            tokenCount: v.number()
-        })
-    ),
-    compiledPrompt: v.string(),
-    promptTokenEstimate: v.number()
-})
-
 const normalizeImportedThreadTimestamps = ({
     sourceCreatedAt,
     sourceUpdatedAt,
@@ -202,7 +181,8 @@ const performThreadImport = async (
         messages,
         projectId,
         sourceCreatedAt,
-        sourceUpdatedAt
+        sourceUpdatedAt,
+        personaSnapshot
     }: {
         authorId: string
         title: string
@@ -210,6 +190,7 @@ const performThreadImport = async (
         projectId?: Id<"projects">
         sourceCreatedAt?: number
         sourceUpdatedAt?: number
+        personaSnapshot?: Infer<typeof ThreadPersonaSnapshotInput>
     }
 ) => {
     const sanitizedMessages = messages.filter((message) => message.parts.length > 0)
@@ -246,12 +227,26 @@ const performThreadImport = async (
         title: normalizedTitle || "Imported Chat",
         createdAt: threadTimestamps.createdAt,
         updatedAt: threadTimestamps.updatedAt,
-        projectId
+        projectId,
+        personaSource: personaSnapshot?.source,
+        personaSourceId: personaSnapshot?.sourceId,
+        personaName: personaSnapshot?.name,
+        personaAvatarKind: personaSnapshot?.avatarKind,
+        personaAvatarValue: personaSnapshot?.avatarValue,
+        personaAvatarMimeType: personaSnapshot?.avatarMimeType
     })
 
     const threadDoc = await ctx.db.get(threadId)
     if (threadDoc) {
         await aggregrateThreadsByFolder.insert(ctx, threadDoc)
+    }
+
+    if (personaSnapshot) {
+        await ctx.db.insert("threadPersonaSnapshots", {
+            threadId,
+            ...personaSnapshot,
+            createdAt: now
+        })
     }
 
     let timestamp = threadTimestamps.createdAt
@@ -1100,9 +1095,13 @@ export const importThread = mutation({
         messages: v.array(ImportedMessage),
         projectId: v.optional(v.id("projects")),
         sourceCreatedAt: v.optional(v.number()),
-        sourceUpdatedAt: v.optional(v.number())
+        sourceUpdatedAt: v.optional(v.number()),
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
     },
-    handler: async (ctx, { title, messages, projectId, sourceCreatedAt, sourceUpdatedAt }) => {
+    handler: async (
+        ctx,
+        { title, messages, projectId, sourceCreatedAt, sourceUpdatedAt, personaSnapshot }
+    ) => {
         const user = await getUserIdentity(ctx.auth, {
             allowAnons: false
         })
@@ -1116,7 +1115,8 @@ export const importThread = mutation({
             messages,
             projectId,
             sourceCreatedAt,
-            sourceUpdatedAt
+            sourceUpdatedAt,
+            personaSnapshot
         })
     }
 })
@@ -1128,11 +1128,12 @@ export const importPreparedThread = internalMutation({
         messages: v.array(ImportedMessage),
         projectId: v.optional(v.id("projects")),
         sourceCreatedAt: v.optional(v.number()),
-        sourceUpdatedAt: v.optional(v.number())
+        sourceUpdatedAt: v.optional(v.number()),
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
     },
     handler: async (
         ctx,
-        { authorId, title, messages, projectId, sourceCreatedAt, sourceUpdatedAt }
+        { authorId, title, messages, projectId, sourceCreatedAt, sourceUpdatedAt, personaSnapshot }
     ) => {
         return await performThreadImport(ctx, {
             authorId,
@@ -1140,7 +1141,8 @@ export const importPreparedThread = internalMutation({
             messages,
             projectId,
             sourceCreatedAt,
-            sourceUpdatedAt
+            sourceUpdatedAt,
+            personaSnapshot
         })
     }
 })

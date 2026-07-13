@@ -1,4 +1,5 @@
 import { v } from "convex/values"
+import { ThreadPersonaSnapshotInput } from "./persona"
 
 export const ImportJobAttachmentMode = v.union(
     v.literal("mirror"),
@@ -91,6 +92,7 @@ export const ImportJobThread = v.object({
     title: v.string(),
     messages: v.array(ImportJobParsedMessage),
     parseWarnings: v.array(v.string()),
+    personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
     sourceMetadata: v.object({
         service: v.union(v.literal("t3chat"), v.literal("chatgptexporter")),
         format: v.union(v.literal("markdown"), v.literal("json")),

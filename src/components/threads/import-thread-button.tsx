@@ -912,7 +912,8 @@ export function ImportThreadDialog({
             messages: preparedMessages,
             projectId,
             sourceCreatedAt: item.parsed.source.createdAt,
-            sourceUpdatedAt: item.parsed.source.updatedAt
+            sourceUpdatedAt: item.parsed.source.updatedAt,
+            personaSnapshot: item.parsed.personaSnapshot
         })
 
         if (!result || "error" in result) {
