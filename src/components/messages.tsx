@@ -1104,12 +1104,14 @@ const MessageRowComponent = ({
                                     requiresNativePdfForModelSelection
                                 }
                             />
-                        ) : !hasActiveTarget && message.role === "assistant" ? (
+                        ) : !hasActiveTarget &&
+                          message.role === "assistant" &&
+                          !isStreamingMessage ? (
                             <ChatActions
                                 role={message.role}
                                 message={message}
                                 onRetry={undefined}
-                                onBranch={isStreamingMessage ? undefined : onBranch}
+                                onBranch={onBranch}
                                 onEdit={undefined}
                             />
                         ) : null}
