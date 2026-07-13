@@ -22,7 +22,7 @@ export function ChatLoadingOverlay({
             aria-busy="true"
             aria-label={ariaLabel}
             className={cn(
-                "absolute inset-0 z-20 flex items-center justify-center overflow-hidden bg-background backdrop-blur-3xl",
+                "absolute inset-0 z-20 flex items-center justify-center overflow-hidden bg-background",
                 className
             )}
             style={{

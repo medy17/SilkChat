@@ -15,6 +15,7 @@ import {
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
+import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -166,6 +167,16 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         [messages, syntheticOpeningMessage]
     )
     const deferredMessages = useDeferredValue(displayMessages)
+    // Signal the route-transition overlay once the deferred message render has
+    // caught up with the live list for this chat. Keyed off the route props so it
+    // matches the key `_chat.tsx` derives from the current route target.
+    const hydrationKey = routeThreadId ?? folderId?.toString() ?? "chat"
+    const isHydrationSettled = deferredMessages === displayMessages
+    useEffect(() => {
+        useChatHydrationStore
+            .getState()
+            .setHydratedChatKey(isHydrationSettled ? hydrationKey : null)
+    }, [hydrationKey, isHydrationSettled])
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
     const setMessagesRef = useRef(chatHelpers.setMessages)
 

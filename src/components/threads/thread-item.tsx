@@ -324,9 +324,15 @@ export const ThreadItem = memo(
             setOpenMobile(false)
 
             let didNavigate = false
+            let fallbackTimeoutId: number | null = null
             const doNavigate = () => {
                 if (didNavigate) return
                 didNavigate = true
+                window.removeEventListener("popstate", doNavigate)
+                if (fallbackTimeoutId !== null) {
+                    window.clearTimeout(fallbackTimeoutId)
+                    fallbackTimeoutId = null
+                }
                 if (folderId) {
                     void navigate({
                         to: "/folder/$folderId/thread/$threadId",
@@ -342,7 +348,7 @@ export const ThreadItem = memo(
             }
 
             window.addEventListener("popstate", doNavigate, { once: true })
-            window.setTimeout(doNavigate, 150)
+            fallbackTimeoutId = window.setTimeout(doNavigate, 150)
         }
 
         const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {

@@ -4,8 +4,8 @@ import {
     useLocation,
     useParams
 } from "@tanstack/react-router"
-import { motion } from "motion/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "motion/react"
+import { startTransition, useEffect, useMemo, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
 import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
@@ -25,6 +25,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
 import {
     isRestorableChatPath,
@@ -42,6 +43,7 @@ import {
     shouldMigrateToDefaultTheme,
     useThemeStore
 } from "@/lib/theme-store"
+import { cn } from "@/lib/utils"
 import { LibraryView } from "./_chat.library"
 
 export const Route = createFileRoute("/_chat")({
@@ -52,6 +54,17 @@ const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
 const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
 const CHAT_TRANSITION_MIN_SPINNER_MS = 500
 const CHAT_TRANSITION_SWAP_DELAY_MS = 180
+// On mobile the sidebar sheet is still animating out (300ms) when a thread is picked.
+// Hold the heavy content swap until the sheet has fully exited so the commit never
+// competes with the exit animation, and keep the spinner up past the swap.
+const MOBILE_CHAT_TRANSITION_MIN_SPINNER_MS = 700
+const MOBILE_CHAT_TRANSITION_SWAP_DELAY_MS = 360
+// Slightly longer than the fade-in's duration-300 so the class is removed only
+// after the enter animation has finished.
+const CHAT_CONTENT_ENTER_FADE_MS = 350
+// Hard cap on how long the transition overlay may wait for hydration. Error
+// states or views that never report settled must not strand the spinner.
+const CHAT_TRANSITION_MAX_SPINNER_MS = 2000
 
 const areStringArraysEqual = (left: string[], right: string[]) =>
     left.length === right.length && left.every((value, index) => value === right[index])
@@ -139,6 +152,20 @@ const areCachedChatTargetsEqual = (
             )
         case "shared":
             return left.sharedThreadId === (right.kind === "shared" ? right.sharedThreadId : "")
+    }
+}
+
+// Mirrors the hydration key Chat publishes to useChatHydrationStore. Targets that
+// don't render <Chat> (folder overview, shared threads) return null: no wait.
+const getChatTargetHydrationKey = (target: CachedChatTarget | null) => {
+    switch (target?.kind) {
+        case "thread":
+        case "folderThread":
+            return target.threadId
+        case "root":
+            return "chat"
+        default:
+            return null
     }
 }
 
@@ -230,6 +257,11 @@ function ChatLayout() {
         () => currentChatTarget ?? cachedChatTarget
     )
     const [isChatTransitionOverlayVisible, setIsChatTransitionOverlayVisible] = useState(false)
+    const [hasChatTransitionMinSpinnerElapsed, setHasChatTransitionMinSpinnerElapsed] =
+        useState(true)
+    const [isChatContentEntering, setIsChatContentEntering] = useState(false)
+    const [hasChatTransitionMaxWaitElapsed, setHasChatTransitionMaxWaitElapsed] = useState(false)
+    const hydratedChatKey = useChatHydrationStore((state) => state.hydratedChatKey)
     // Once the Library/Chat cross-fade finishes, the losing pane is taken out of the render
     // budget with `content-visibility: hidden` (see below) and the Library grid defers its
     // heavy content until now. It starts settled so the initial inactive pane is skipped from
@@ -241,6 +273,7 @@ function ChatLayout() {
     )
     const chatTransitionHideTimeoutRef = useRef<number | null>(null)
     const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
+    const chatTransitionMaxWaitTimeoutRef = useRef<number | null>(null)
     const hasLoadedLibraryGridRef = useRef(false)
 
     // Reset the settle flag synchronously when a toggle starts (render-phase, not an effect) so
@@ -331,6 +364,11 @@ function ChatLayout() {
             chatTransitionSwapTimeoutRef.current = null
         }
 
+        if (chatTransitionMaxWaitTimeoutRef.current !== null) {
+            window.clearTimeout(chatTransitionMaxWaitTimeoutRef.current)
+            chatTransitionMaxWaitTimeoutRef.current = null
+        }
+
         if (isLibraryRoute) {
             setIsChatTransitionOverlayVisible(false)
             return
@@ -361,18 +399,36 @@ function ChatLayout() {
         }
 
         setIsChatTransitionOverlayVisible(true)
-        chatTransitionSwapTimeoutRef.current = window.setTimeout(() => {
-            setDisplayedChatTarget((previous) =>
-                areCachedChatTargetsEqual(previous, currentChatTarget)
-                    ? previous
-                    : currentChatTarget
-            )
-            chatTransitionSwapTimeoutRef.current = null
-        }, CHAT_TRANSITION_SWAP_DELAY_MS)
-        chatTransitionHideTimeoutRef.current = window.setTimeout(() => {
-            setIsChatTransitionOverlayVisible(false)
-            chatTransitionHideTimeoutRef.current = null
-        }, CHAT_TRANSITION_MIN_SPINNER_MS)
+        setHasChatTransitionMinSpinnerElapsed(false)
+        setIsChatContentEntering(false)
+        chatTransitionSwapTimeoutRef.current = window.setTimeout(
+            () => {
+                // Cached threads hydrate synchronously, which makes this commit heavy on
+                // revisits. A transition lets React time-slice it instead of blocking the
+                // spinner and any still-running exit animations.
+                startTransition(() => {
+                    setDisplayedChatTarget((previous) =>
+                        areCachedChatTargetsEqual(previous, currentChatTarget)
+                            ? previous
+                            : currentChatTarget
+                    )
+                })
+                chatTransitionSwapTimeoutRef.current = null
+            },
+            isMobile ? MOBILE_CHAT_TRANSITION_SWAP_DELAY_MS : CHAT_TRANSITION_SWAP_DELAY_MS
+        )
+        chatTransitionHideTimeoutRef.current = window.setTimeout(
+            () => {
+                setHasChatTransitionMinSpinnerElapsed(true)
+                chatTransitionHideTimeoutRef.current = null
+            },
+            isMobile ? MOBILE_CHAT_TRANSITION_MIN_SPINNER_MS : CHAT_TRANSITION_MIN_SPINNER_MS
+        )
+        setHasChatTransitionMaxWaitElapsed(false)
+        chatTransitionMaxWaitTimeoutRef.current = window.setTimeout(() => {
+            setHasChatTransitionMaxWaitElapsed(true)
+            chatTransitionMaxWaitTimeoutRef.current = null
+        }, CHAT_TRANSITION_MAX_SPINNER_MS)
 
         return () => {
             if (chatTransitionHideTimeoutRef.current !== null) {
@@ -384,8 +440,53 @@ function ChatLayout() {
                 window.clearTimeout(chatTransitionSwapTimeoutRef.current)
                 chatTransitionSwapTimeoutRef.current = null
             }
+
+            if (chatTransitionMaxWaitTimeoutRef.current !== null) {
+                window.clearTimeout(chatTransitionMaxWaitTimeoutRef.current)
+                chatTransitionMaxWaitTimeoutRef.current = null
+            }
         }
-    }, [currentChatTarget, isLibraryRoute])
+    }, [currentChatTarget, isLibraryRoute, isMobile])
+
+    // The overlay exits only once the minimum spinner time has passed, the new
+    // thread has committed, AND its deferred message render has settled — so slow
+    // markdown hydrations never flash stale or half-rendered content. The max-wait
+    // cap dismisses unconditionally so a view that never settles can't strand it.
+    useEffect(() => {
+        if (!isChatTransitionOverlayVisible) return
+
+        const expectedHydrationKey = getChatTargetHydrationKey(currentChatTarget)
+        const isHydrationSettled =
+            expectedHydrationKey === null || hydratedChatKey === expectedHydrationKey
+        const isReady =
+            hasChatTransitionMinSpinnerElapsed &&
+            areCachedChatTargetsEqual(displayedChatTarget, currentChatTarget) &&
+            isHydrationSettled
+
+        if (!isReady && !hasChatTransitionMaxWaitElapsed) return
+
+        setIsChatTransitionOverlayVisible(false)
+        // The content fades in as the spinner fades out instead of appearing fully
+        // formed the instant the overlay is gone.
+        setIsChatContentEntering(true)
+    }, [
+        isChatTransitionOverlayVisible,
+        hasChatTransitionMinSpinnerElapsed,
+        hasChatTransitionMaxWaitElapsed,
+        hydratedChatKey,
+        displayedChatTarget,
+        currentChatTarget
+    ])
+
+    useEffect(() => {
+        if (!isChatContentEntering) return
+
+        const timeoutId = window.setTimeout(() => {
+            setIsChatContentEntering(false)
+        }, CHAT_CONTENT_ENTER_FADE_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [isChatContentEntering])
 
     useEffect(() => {
         if (isLibraryRoute) {
@@ -493,15 +594,28 @@ function ChatLayout() {
                                         contentVisibility: chatContentHidden ? "hidden" : "visible"
                                     }}
                                 >
-                                    <PersistentChatView
-                                        target={chatTargetToRender}
-                                        isActiveRoute={isRenderedChatActiveRoute}
-                                    />
+                                    <div
+                                        className={cn(
+                                            "flex min-h-0 flex-1 flex-col",
+                                            isChatContentEntering &&
+                                                "fade-in-0 animate-in duration-300"
+                                        )}
+                                    >
+                                        <PersistentChatView
+                                            target={chatTargetToRender}
+                                            isActiveRoute={isRenderedChatActiveRoute}
+                                        />
+                                    </div>
                                 </motion.div>
                             ) : null}
-                            {isChatTransitionOverlayVisible && !isLibraryRoute ? (
-                                <ChatLoadingOverlay label="Loading conversation" />
-                            ) : null}
+                            <AnimatePresence>
+                                {isChatTransitionOverlayVisible && !isLibraryRoute ? (
+                                    <ChatLoadingOverlay
+                                        key="chat-route-transition"
+                                        label="Loading conversation"
+                                    />
+                                ) : null}
+                            </AnimatePresence>
                             {!isLibraryRoute ? <MobileBranchGenerationOverlay /> : null}
                         </div>
                     </div>
