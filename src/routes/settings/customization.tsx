@@ -109,10 +109,10 @@ export function BehaviorSettingsContent() {
         <div className="space-y-8">
             <div className="space-y-4">
                 <div>
-                    <h3 className="font-semibold text-foreground">Assistant Defaults</h3>
-                    <p className="mt-1 text-muted-foreground text-sm">
+                    <h3 className="font-semibold text-foreground">Personalization</h3>
+                    {/* <p className="mt-1 text-muted-foreground text-sm">
                         Set the baseline context and communication style for the assistant.
-                    </p>
+                    </p> */}
                 </div>
 
                 <div className="space-y-6">
@@ -125,9 +125,9 @@ export function BehaviorSettingsContent() {
                             placeholder="How should the AI address you?"
                             maxLength={100}
                         />
-                        <p className="text-muted-foreground text-xs">
+                        {/* <p className="text-muted-foreground text-xs">
                             This helps the AI address you personally in conversations.
-                        </p>
+                        </p> */}
                     </div>
 
                     <div className="space-y-2">
@@ -140,9 +140,9 @@ export function BehaviorSettingsContent() {
                             rows={4}
                             maxLength={2000}
                         />
-                        <p className="text-muted-foreground text-xs">
+                        {/* <p className="text-muted-foreground text-xs">
                             Shape the AI's communication style and personality.
-                        </p>
+                        </p> */}
                     </div>
 
                     <div className="space-y-2">
@@ -155,19 +155,19 @@ export function BehaviorSettingsContent() {
                             rows={4}
                             maxLength={2000}
                         />
-                        <p className="text-muted-foreground text-xs">
+                        {/* <p className="text-muted-foreground text-xs">
                             Provide context that helps the AI give you more relevant responses.
-                        </p>
+                        </p> */}
                     </div>
 
                     {!isMobile ? (
                         <div className="space-y-4">
                             <div>
                                 <h3 className="font-semibold text-foreground">Composer</h3>
-                                <p className="mt-1 text-muted-foreground text-sm">
+                                {/* <p className="mt-1 text-muted-foreground text-sm">
                                     Control how the main chat composer handles sending and line
                                     breaks.
-                                </p>
+                                </p> */}
                             </div>
 
                             <Card className="p-4">
