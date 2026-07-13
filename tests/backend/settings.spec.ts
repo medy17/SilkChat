@@ -607,6 +607,50 @@ describe("settings", () => {
         )
     })
 
+    it("removes cleared personalization fields through partial settings updates", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            searchProvider: "firecrawl",
+            searchIncludeSourcesByDefault: false,
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            toolCallLimitPerTurn: 3,
+            customThemes: [],
+            mcpServers: [],
+            invertSendNewlineBehavior: false,
+            generalProviders: {
+                supermemory: undefined,
+                firecrawl: undefined,
+                tavily: undefined,
+                brave: undefined,
+                serper: undefined
+            },
+            customization: {
+                name: "Ahmed",
+                aiPersonality: "Be concise",
+                additionalContext: "I write TypeScript"
+            },
+            onboardingCompleted: false
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            customization: { aiPersonality: null }
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                customization: {
+                    name: "Ahmed",
+                    additionalContext: "I write TypeScript"
+                }
+            })
+        )
+    })
+
     it("persists tool call limits through partial settings updates", async () => {
         const ctx = createCtx({
             _id: "settings-id",

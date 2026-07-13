@@ -723,9 +723,9 @@ export const updateUserSettingsPartial = mutation({
         imageGenerationDefaults: v.optional(ImageGenerationDefaults),
         customization: v.optional(
             v.object({
-                name: v.optional(v.string()),
-                aiPersonality: v.optional(v.string()),
-                additionalContext: v.optional(v.string())
+                name: v.optional(v.union(v.string(), v.null())),
+                aiPersonality: v.optional(v.union(v.string(), v.null())),
+                additionalContext: v.optional(v.union(v.string(), v.null()))
             })
         ),
 
@@ -853,10 +853,19 @@ export const updateUserSettingsPartial = mutation({
             }
         }
         if (args.customization !== undefined) {
-            newSettings.customization = {
-                ...newSettings.customization,
-                ...args.customization
+            const customization = { ...newSettings.customization }
+
+            for (const field of ["name", "aiPersonality", "additionalContext"] as const) {
+                const value = args.customization[field]
+                if (value === null) {
+                    delete customization[field]
+                } else if (value !== undefined) {
+                    customization[field] = value
+                }
             }
+
+            newSettings.customization =
+                Object.keys(customization).length > 0 ? customization : undefined
         }
 
         // Update core AI providers

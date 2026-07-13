@@ -54,9 +54,9 @@ export function BehaviorSettingsContent() {
         try {
             await updateSettings({
                 customization: {
-                    name: nameRef.current?.value || undefined,
-                    aiPersonality: personalityRef.current?.value || undefined,
-                    additionalContext: contextRef.current?.value || undefined
+                    name: nameRef.current?.value.trim() || null,
+                    aiPersonality: personalityRef.current?.value.trim() || null,
+                    additionalContext: contextRef.current?.value.trim() || null
                 }
             })
             toast.success("Customization settings saved")
