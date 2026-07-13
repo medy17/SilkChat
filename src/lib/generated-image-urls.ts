@@ -234,6 +234,29 @@ export const getLibraryImageSources = ({
     }
 }
 
+const FILE_THUMBNAIL_SIZE = 48
+
+export const getFileThumbnailSources = (storageKey: string) => ({
+    src: getOptimizedGeneratedImageUrl({
+        storageKey,
+        longEdge: FILE_THUMBNAIL_SIZE * 2,
+        quality: 76
+    }),
+    srcSet: [
+        `${getOptimizedGeneratedImageUrl({
+            storageKey,
+            longEdge: FILE_THUMBNAIL_SIZE,
+            quality: 80
+        })} ${FILE_THUMBNAIL_SIZE}w`,
+        `${getOptimizedGeneratedImageUrl({
+            storageKey,
+            longEdge: FILE_THUMBNAIL_SIZE * 2,
+            quality: 76
+        })} ${FILE_THUMBNAIL_SIZE * 2}w`
+    ].join(", "),
+    sizes: `${FILE_THUMBNAIL_SIZE}px`
+})
+
 // The chat tool card renders a single image up to max-w-md (448px CSS), which is
 // much larger than a Library grid tile. Reusing the grid's library sources here
 // advertised `20vw`-style `sizes` and capped the long edge at 720px, so browsers

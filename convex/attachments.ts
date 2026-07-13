@@ -1,5 +1,6 @@
 // convex/attachments.ts
 import { R2 } from "@convex-dev/r2"
+import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { components } from "./_generated/api"
 import { httpAction, mutation, query } from "./_generated/server"
@@ -17,6 +18,13 @@ import {
     getFileTypeInfo,
     isSupportedFile
 } from "./lib/file_constants"
+import {
+    type FileSort,
+    type FileTypeFilter,
+    filterAndSortFiles,
+    getFilePaginationOffset,
+    getUserVisibleFilePrefixes
+} from "./lib/file_listing"
 import { getUserIdentity } from "./lib/identity"
 
 const sanitizeKeySegment = (name: string) =>
@@ -418,19 +426,66 @@ export const deleteFile = mutation({
 // List files for current user only
 export const listFiles = query({
     args: {
-        limit: v.optional(v.number())
+        paginationOpts: paginationOptsValidator,
+        type: v.optional(
+            v.union(
+                v.literal("all"),
+                v.literal("image"),
+                v.literal("pdf"),
+                v.literal("text"),
+                v.literal("other")
+            )
+        ),
+        sort: v.optional(v.union(v.literal("newest"), v.literal("oldest")))
     },
     handler: async (ctx, args) => {
         try {
             const user = await getUserIdentity(ctx.auth, { allowAnons: false })
             if ("error" in user) {
-                return []
+                return { page: [], isDone: true, continueCursor: "" }
             }
 
-            return await r2.listMetadata(ctx, user.id, args.limit || 50)
+            const files: Awaited<ReturnType<typeof r2.listMetadata>>["page"] = []
+            for (const keyPrefix of getUserVisibleFilePrefixes(user.id)) {
+                const seenCursors = new Set<string>()
+                let cursor: string | null = null
+
+                while (true) {
+                    const result = await r2.listMetadata(ctx, user.id, 200, cursor, keyPrefix)
+                    files.push(...result.page)
+
+                    if (result.isDone) break
+                    if (seenCursors.has(result.continueCursor)) {
+                        console.warn(
+                            `[attachments.listFiles] Repeated pagination cursor for ${keyPrefix}`
+                        )
+                        break
+                    }
+
+                    seenCursors.add(result.continueCursor)
+                    cursor = result.continueCursor
+                }
+            }
+
+            const filteredFiles = filterAndSortFiles(
+                files,
+                (args.type ?? "all") as FileTypeFilter,
+                (args.sort ?? "newest") as FileSort
+            )
+            const startIndex = getFilePaginationOffset(args.paginationOpts.cursor)
+            const pageSize = Math.max(1, Math.min(args.paginationOpts.numItems, 100))
+            const page = filteredFiles.slice(startIndex, startIndex + pageSize)
+            const nextOffset = startIndex + page.length
+            const isDone = nextOffset >= filteredFiles.length
+
+            return {
+                page,
+                isDone,
+                continueCursor: isDone ? "" : String(nextOffset)
+            }
         } catch (error) {
             console.error("Error listing files:", error)
-            return []
+            return { page: [], isDone: true, continueCursor: "" }
         }
     }
 })

@@ -32,6 +32,7 @@ import {
     getChatImageCardSources,
     getCloudflareTransformedImageUrl,
     getExpandedImageUrl,
+    getFileThumbnailSources,
     getGeneratedImageCopyUrl,
     getGeneratedImageProxyUrl,
     getLibraryImageSources,
@@ -91,6 +92,17 @@ describe("generated-image-urls", () => {
         ).toBe(
             "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-1"
         )
+    })
+
+    it("builds optimized 1x and 2x sources for file thumbnails", () => {
+        expect(getFileThumbnailSources("attachments/user/image.png")).toEqual({
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=96,quality=76,format=auto/https://r2.silkchat.dev/attachments/user/image.png",
+            srcSet: [
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=48,quality=80,format=auto/https://r2.silkchat.dev/attachments/user/image.png 48w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=96,quality=76,format=auto/https://r2.silkchat.dev/attachments/user/image.png 96w"
+            ].join(", "),
+            sizes: "48px"
+        })
     })
 
     it("bypasses Cloudflare image optimization on localhost", () => {
