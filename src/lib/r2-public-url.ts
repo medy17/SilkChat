@@ -29,6 +29,15 @@ export const getPublicR2AssetUrl = (key: string) => {
     return getRequiredPublicR2AssetUrl(key)
 }
 
+export const resolvePublicR2AssetReference = (value: string) => {
+    if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
+        return value
+    }
+
+    const key = extractR2KeyFromUrl(value)
+    return getPublicR2AssetUrl(key ?? value)
+}
+
 export const extractR2KeyFromUrl = (url: string) => {
     if (url.startsWith("data:")) return null
 

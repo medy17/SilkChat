@@ -26,7 +26,8 @@ import {
     getPublicR2AssetUrl,
     getR2ProxyUrl,
     getRequiredPublicR2AssetUrl,
-    resolvePublicFileUrl
+    resolvePublicFileUrl,
+    resolvePublicR2AssetReference
 } from "@/lib/r2-public-url"
 
 describe("r2-public-url", () => {
@@ -61,6 +62,17 @@ describe("r2-public-url", () => {
     it("builds required direct public asset URLs for strict callers", () => {
         expect(getRequiredPublicR2AssetUrl("generations/user-1/image key.png")).toBe(
             "https://r2.silkchat.dev/generations/user-1/image%20key.png"
+        )
+    })
+
+    it("preserves absolute cross-deployment asset URLs while resolving legacy keys", () => {
+        expect(
+            resolvePublicR2AssetReference(
+                "https://r2.silkchat.app/persona-avatars/user-1/avatar.webp"
+            )
+        ).toBe("https://r2.silkchat.app/persona-avatars/user-1/avatar.webp")
+        expect(resolvePublicR2AssetReference("persona-avatars/user-1/avatar.webp")).toBe(
+            "https://r2.silkchat.dev/persona-avatars/user-1/avatar.webp"
         )
     })
 

@@ -157,7 +157,8 @@ describe("thread-export", () => {
                     parts: [{ type: "text", text: "Hello Ada" }]
                 }
             ],
-            convexApiUrl: "https://convex.example.com"
+            convexApiUrl: "https://convex.example.com",
+            publicAssetBaseUrl: "https://r2-dev.silkchat.example"
         })
 
         const imported = parseThreadImportContent({
@@ -166,14 +167,20 @@ describe("thread-export", () => {
             mimeType: "text/markdown"
         })
 
-        expect(imported.personaSnapshot).toEqual(personaSnapshot)
+        expect(imported.personaSnapshot).toEqual({
+            ...personaSnapshot,
+            avatarValue: "https://r2-dev.silkchat.example/persona-avatars/user/ada.png"
+        })
         expect(
             parseBackendThreadImportContents({
                 content: exported.markdown,
                 fileName: exported.fileName,
                 mimeType: "text/markdown"
             })[0]?.personaSnapshot
-        ).toEqual(personaSnapshot)
+        ).toEqual({
+            ...personaSnapshot,
+            avatarValue: "https://r2-dev.silkchat.example/persona-avatars/user/ada.png"
+        })
     })
 
     it("falls back to the Convex proxy for generated assets when no public base url is set", () => {

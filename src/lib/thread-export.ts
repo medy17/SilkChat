@@ -388,10 +388,14 @@ const buildMessageBlock = ({
 
 const buildThreadFrontmatter = ({
     thread,
-    exportedAt
+    exportedAt,
+    convexApiUrl,
+    publicAssetBaseUrl
 }: {
     thread: ExportableThread
     exportedAt: number
+    convexApiUrl: string
+    publicAssetBaseUrl?: string
 }) => {
     const lines = [
         "---",
@@ -408,9 +412,18 @@ const buildThreadFrontmatter = ({
     }
 
     if (thread.personaSnapshot) {
-        lines.push(
-            `persona_snapshot: ${escapeFrontmatterString(JSON.stringify(thread.personaSnapshot))}`
-        )
+        const personaSnapshot =
+            thread.personaSnapshot.avatarKind === "r2" && thread.personaSnapshot.avatarValue
+                ? {
+                      ...thread.personaSnapshot,
+                      avatarValue: resolveExportAssetUrl({
+                          value: thread.personaSnapshot.avatarValue,
+                          convexApiUrl,
+                          publicAssetBaseUrl
+                      })
+                  }
+                : thread.personaSnapshot
+        lines.push(`persona_snapshot: ${escapeFrontmatterString(JSON.stringify(personaSnapshot))}`)
     }
 
     lines.push("---")
@@ -472,7 +485,7 @@ export const serializeThreadToMarkdown = ({
 
     const title = normalizeTitle(thread.title) || "Exported Chat"
     const markdown = [
-        buildThreadFrontmatter({ thread, exportedAt }),
+        buildThreadFrontmatter({ thread, exportedAt, convexApiUrl, publicAssetBaseUrl }),
         "",
         `# ${title}`,
         "",

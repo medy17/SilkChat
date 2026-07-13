@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
+import { resolvePublicR2AssetReference } from "@/lib/r2-public-url"
 import { cn } from "@/lib/utils"
 
 const getInitials = (name: string) =>
@@ -13,7 +13,7 @@ const getInitials = (name: string) =>
 export const getPersonaAvatarSrc = (avatarKind?: "builtin" | "r2", avatarValue?: string) => {
     if (!avatarKind || !avatarValue) return undefined
     if (avatarKind === "builtin") return avatarValue
-    return getPublicR2AssetUrl(avatarValue)
+    return resolvePublicR2AssetReference(avatarValue)
 }
 
 export function PersonaAvatar({
