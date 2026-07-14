@@ -234,7 +234,7 @@ export const buildFalImageInput = (descriptor: FalImageDescriptor, request: FalI
     }
 
     if (descriptor.usesQuality && descriptor.defaultQuality) {
-        input.quality = descriptor.defaultQuality
+        input.quality = request.quality ?? descriptor.defaultQuality
     }
 
     if (request.referenceImages.length > 0) {

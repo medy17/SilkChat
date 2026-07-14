@@ -30,6 +30,7 @@ export type FalImageRequest = {
     imageResolution?: ImageResolution
     referenceImages: FalReferenceImage[]
     maxAssets?: number
+    quality?: "low" | "medium" | "high"
 }
 
 export type FalGeneratedImage = {

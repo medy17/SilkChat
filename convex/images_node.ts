@@ -349,7 +349,8 @@ const submitImageGenerationJob = async (
         sourceToolCallId,
         sourceCardId,
         creditEventKey,
-        reservedMicrousd: providedReservedMicrousd
+        reservedMicrousd: providedReservedMicrousd,
+        quality
     }: {
         userId: string
         prompt: string
@@ -365,6 +366,7 @@ const submitImageGenerationJob = async (
         sourceCardId?: string
         creditEventKey?: string
         reservedMicrousd?: number
+        quality?: "low" | "medium" | "high"
     }
 ) => {
     const referenceSources = references ?? []
@@ -419,7 +421,8 @@ const submitImageGenerationJob = async (
             imageSize: validated.aspectRatio,
             imageResolution: validated.resolution,
             referenceImages,
-            maxAssets: 1
+            maxAssets: 1,
+            quality
         })
         const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
             internal.image_generation_jobs.createImageGenerationJob,
@@ -497,6 +500,7 @@ export const generateStandaloneImage = action({
         clientRequestId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
+        quality: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
         referenceImageIds: v.optional(v.array(v.string()))
     },
     handler: async (ctx, args) => {
@@ -511,6 +515,10 @@ export const generateStandaloneImage = action({
             clientRequestId: args.clientRequestId,
             aspectRatio: args.aspectRatio,
             resolution: args.resolution,
+            quality:
+                process.env.DEV_CREDIT_LAB_ENABLED === "1" && args.modelId === "gpt-5.4-image-2"
+                    ? args.quality
+                    : undefined,
             references: toReferenceSources(args.referenceImageIds)
         })
 

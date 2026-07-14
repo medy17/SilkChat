@@ -62,7 +62,7 @@ type FileSort = "newest" | "oldest"
 
 const PAGE_SIZE = 20
 
-const FILE_FILTERS: { value: FileTypeFilter; label: string }[] = [
+export const FILE_FILTERS: { value: FileTypeFilter; label: string }[] = [
     { value: "all", label: "All files" },
     { value: "image", label: "Images" },
     { value: "pdf", label: "PDF documents" },

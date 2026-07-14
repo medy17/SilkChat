@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
@@ -174,6 +175,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const imageRunTotalMaxOverride = useDevOverridesStore((state) => state.imageRunTotalMax)
     const aspectRatioOverride = useDevOverridesStore((state) => state.aspectRatioOverride)
     const disableImageCompression = useDevOverridesStore((state) => state.disableImageCompression)
+    const gptImage2Quality = useDevOverridesStore((state) => state.gptImage2Quality)
     const setImageVariantMax = useDevOverridesStore((state) => state.setImageVariantMax)
     const setImageReferenceMax = useDevOverridesStore((state) => state.setImageReferenceMax)
     const setImageRunTotalMax = useDevOverridesStore((state) => state.setImageRunTotalMax)
@@ -181,6 +183,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const setDisableImageCompression = useDevOverridesStore(
         (state) => state.setDisableImageCompression
     )
+    const setGptImage2Quality = useDevOverridesStore((state) => state.setGptImage2Quality)
 
     const resolveVariantMax = (model: SharedModel) =>
         resolveDevCapOverride(
@@ -921,6 +924,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                     clientRequestId: id,
                                     aspectRatio: effectiveAspectRatio,
                                     referenceImageIds: uploadedReferenceKeys,
+                                    ...(isDevMode && modelId === "gpt-5.4-image-2"
+                                        ? { quality: gptImage2Quality }
+                                        : {}),
                                     ...(supportsResolution ? { resolution } : {})
                                 })
                             } finally {
@@ -1224,45 +1230,91 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             </button>
 
                                             {isSelected && (
-                                                <div className="mt-2 flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
-                                                    <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
-                                                        Variants
-                                                    </span>
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                updateModelCount(
-                                                                    model.id,
-                                                                    modelCount - 1
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                modelPlanLocked || modelCount <= 1
-                                                            }
-                                                            className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                        >
-                                                            <Minus className="h-3 w-3" />
-                                                        </button>
-                                                        <span className="min-w-8 text-center font-medium text-foreground text-xs">
-                                                            {modelCount}
+                                                <div className="mt-2 space-y-1">
+                                                    <div className="flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                        <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
+                                                            Variants
                                                         </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                updateModelCount(
-                                                                    model.id,
-                                                                    modelCount + 1
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                modelPlanLocked || !canIncrement
-                                                            }
-                                                            className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                        >
-                                                            <Plus className="h-3 w-3" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    updateModelCount(
+                                                                        model.id,
+                                                                        modelCount - 1
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    modelPlanLocked ||
+                                                                    modelCount <= 1
+                                                                }
+                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <Minus className="h-3 w-3" />
+                                                            </button>
+                                                            <span className="min-w-8 text-center font-medium text-foreground text-xs">
+                                                                {modelCount}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    updateModelCount(
+                                                                        model.id,
+                                                                        modelCount + 1
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    modelPlanLocked || !canIncrement
+                                                                }
+                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <Plus className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
                                                     </div>
+                                                    {isDevMode &&
+                                                        model.id === "gpt-5.4-image-2" && (
+                                                            <div className="flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                                <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
+                                                                    Quality
+                                                                </span>
+                                                                <Tabs
+                                                                    value={gptImage2Quality}
+                                                                    onValueChange={(value) => {
+                                                                        if (
+                                                                            value === "low" ||
+                                                                            value === "medium" ||
+                                                                            value === "high"
+                                                                        ) {
+                                                                            setGptImage2Quality(
+                                                                                value
+                                                                            )
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <TabsList
+                                                                        className="h-7"
+                                                                        aria-label="GPT Image 2 quality"
+                                                                    >
+                                                                        {(
+                                                                            [
+                                                                                "low",
+                                                                                "medium",
+                                                                                "high"
+                                                                            ] as const
+                                                                        ).map((quality) => (
+                                                                            <TabsTrigger
+                                                                                key={quality}
+                                                                                value={quality}
+                                                                                className="px-2 text-[0.625rem] capitalize"
+                                                                            >
+                                                                                {quality}
+                                                                            </TabsTrigger>
+                                                                        ))}
+                                                                    </TabsList>
+                                                                </Tabs>
+                                                            </div>
+                                                        )}
                                                 </div>
                                             )}
                                         </div>
@@ -1439,6 +1491,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         setImageReferenceMax(null)
                                         setAspectRatioOverride(null)
                                         setDisableImageCompression(false)
+                                        setGptImage2Quality("low")
                                     }}
                                 >
                                     Reset
