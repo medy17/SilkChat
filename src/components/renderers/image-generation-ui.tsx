@@ -1,4 +1,4 @@
-import { formatEstimatedImageCost } from "@/components/image-cost-indicator"
+import { ImageCostEstimateIndicator } from "@/components/image-cost-indicator"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,6 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    Coins,
     Image as ImageIcon,
     Loader2,
     RotateCcw,
@@ -147,11 +146,6 @@ const resolveImageAssetUrl = (value: string) => {
 
     return getPublicR2AssetUrl(value)
 }
-
-const getEstimatedCostLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) =>
-    typeof credits?.estimatedUsd === "number"
-        ? `Estimated ${formatEstimatedImageCost(credits.estimatedUsd)}`
-        : null
 
 function RevealBlock({
     show,
@@ -638,7 +632,7 @@ export const ImageGenerationToolRenderer = memo(
                     })
                 }
             }
-            const estimatedCost = getEstimatedCostLabel(output.estimatedCredits)
+            const estimatedUsd = output.estimatedCredits?.estimatedUsd
             const title = output.title?.trim() || "SilkScreen"
             const prompt = output.prompt ?? ""
             const modelLabel = output.modelName ?? output.modelId ?? "Image model"
@@ -663,16 +657,14 @@ export const ImageGenerationToolRenderer = memo(
                                 <span className="truncate">{title}</span>
                             </span>
                         </TooltipIconPill>
-                        {estimatedCost && (
-                            <TooltipIconPill
-                                tooltip="Estimated cost based on model, resolution, variants, and references"
-                                className="pointer-events-auto shrink-0"
-                            >
-                                <span className="flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
-                                    <Coins className="size-3" aria-hidden="true" />
-                                    {estimatedCost}
-                                </span>
-                            </TooltipIconPill>
+                        {typeof estimatedUsd === "number" && (
+                            <span className="pointer-events-auto flex shrink-0 items-center rounded-[var(--radius-md)] bg-background/75 px-2 py-1 shadow-sm backdrop-blur-md">
+                                <ImageCostEstimateIndicator
+                                    totalUsd={estimatedUsd}
+                                    variants={output.variants}
+                                    referenceCount={output.references?.length}
+                                />
+                            </span>
                         )}
                     </div>
 

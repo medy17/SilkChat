@@ -66,6 +66,28 @@ function CostGlyph({ estimate }: { estimate: ImageCostEstimate }) {
     )
 }
 
+export function ImageCostEstimateIndicator({
+    totalUsd,
+    variants = 1,
+    referenceCount = 0
+}: {
+    totalUsd: number
+    variants?: number
+    referenceCount?: number
+}) {
+    const normalizedVariants = Math.max(1, Math.trunc(variants))
+    return (
+        <CostGlyph
+            estimate={{
+                totalUsd,
+                usdPerImage: totalUsd / normalizedVariants,
+                variants: normalizedVariants,
+                referenceCount: Math.max(0, Math.trunc(referenceCount))
+            }}
+        />
+    )
+}
+
 export function ImageCostIndicator({
     model,
     aspectRatio,
