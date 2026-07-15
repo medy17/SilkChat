@@ -1505,6 +1505,7 @@ export function ModelSelector({
                                 : selectedModelData.name}
                         </span>
                         <span className="hidden md:block">{selectedModelData.name}</span>
+                        {selectedSharedModel && <ModelCostIndicator model={selectedSharedModel} />}
                         {showByokContextHint && byokContextHint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>

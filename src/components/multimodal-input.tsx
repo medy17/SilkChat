@@ -1091,7 +1091,7 @@ export function ComposerDesktopActions({
                 duration: 0.2,
                 ease: [0.16, 1, 0.3, 1]
             }}
-            className="hidden items-center gap-2 md:flex"
+            className="@3xl:flex hidden items-center gap-2"
         >
             {state.isImageModel ? null : (
                 <>
@@ -1146,7 +1146,7 @@ export function ComposerMobileMenu({
     }
 
     return (
-        <div className="shrink-0 md:hidden">
+        <div className="@3xl:hidden shrink-0">
             <MobileOverflowMenu
                 open={open}
                 onOpenChange={setOpen}
@@ -1960,7 +1960,7 @@ export const MultimodalInput = forwardRef<
                         <motion.div
                             layout
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-2 sm:overflow-visible"
+                            className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible"
                         >
                             {selectedModel && (
                                 <motion.div

@@ -228,7 +228,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                             <PopoverTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 sm:min-w-[13.75rem] sm:text-sm min-[390px]:gap-2 min-[390px]:px-2"
+                                    className="flex h-8 @3xl:min-w-[13.75rem] min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
                                     aria-label="Select persona"
                                     title="Select persona"
                                 >

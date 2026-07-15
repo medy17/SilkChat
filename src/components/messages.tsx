@@ -630,7 +630,7 @@ const EditableMessage = memo(
         return (
             <>
                 <div
-                    className="border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
+                    className="@container border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
                     style={{ borderRadius: "var(--radius-lg)" }}
                 >
                     <Textarea
@@ -792,7 +792,7 @@ const EditableMessage = memo(
                     )}
 
                     <div className="flex items-center gap-2 border-border/70 border-t pt-3">
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-2 sm:overflow-visible">
+                        <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
                             {selectedModel && (
                                 <ModelSelector
                                     selectedModel={selectedModel}
