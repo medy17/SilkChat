@@ -16,6 +16,7 @@ import {
     XiaomiIcon,
     ZAIIcon
 } from "@/components/brand-icons"
+import { ModelCostIndicator } from "@/components/model-cost-indicator"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -952,6 +953,9 @@ const ModelCard = React.memo(function ModelCard({
                                     <span className="truncate font-medium text-sm sm:text-base">
                                         {model.name}
                                     </span>
+                                    {!("isCustom" in model && model.isCustom) && (
+                                        <ModelCostIndicator model={model as SharedModel} />
+                                    )}
                                     {badgeLabel && (
                                         <Badge
                                             variant={badgeVariant}

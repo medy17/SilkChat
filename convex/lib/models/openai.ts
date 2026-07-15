@@ -1,9 +1,9 @@
 import type { RegistryKey, SharedModel } from "./types"
 
-const openAiTextAdapters = (modelId: string): RegistryKey[] => [
+const openAiTextAdapters = (modelId: string, openRouterModelId = modelId): RegistryKey[] => [
     `i3-openai:${modelId}`,
     `openai:${modelId}`,
-    `openrouter:openai/${modelId}`
+    `openrouter:openai/${openRouterModelId}`
 ]
 
 const FREE_ACCESS = {
@@ -153,7 +153,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         name: "GPT 5.3",
         shortName: "5.3",
         releaseOrder: 20261019,
-        adapters: openAiTextAdapters("gpt-5.3"),
+        adapters: openAiTextAdapters("gpt-5.3", "gpt-5.3-chat"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,

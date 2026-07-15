@@ -102,6 +102,7 @@ vi.mock("../../convex/schema/settings", () => ({
 }))
 
 import { ChatError } from "@/lib/errors"
+import { MODELS_SHARED as SETTINGS_TEST_MODELS } from "../../convex/lib/models"
 import {
     getSearchProviderAvailability,
     getSharedModels,
@@ -345,6 +346,48 @@ describe("settings", () => {
             "shared-text",
             "admin-text"
         ])
+    })
+
+    it("adds synchronized OpenRouter pricing to the shared model catalog", async () => {
+        const sharedModel = SETTINGS_TEST_MODELS[0]
+        const originalInputPrice = sharedModel.inputUsdPer1MTokens
+        const originalOutputPrice = sharedModel.outputUsdPer1MTokens
+        sharedModel.inputUsdPer1MTokens = undefined
+        sharedModel.outputUsdPer1MTokens = undefined
+
+        const ctx = createCtx(null)
+        ctx.db.query = vi.fn((tableName: string) => ({
+            withIndex: vi.fn().mockReturnValue({
+                first: vi.fn().mockImplementation(async () => {
+                    if (tableName === "userAccess") return null
+                    if (tableName === "modelProviderMetadata") {
+                        return {
+                            provider: "openrouter",
+                            providerModelId: "or-shared",
+                            inputUsdPer1MTokens: 0.5,
+                            outputUsdPer1MTokens: 3,
+                            fetchedAt: 456,
+                            source: "openrouter"
+                        }
+                    }
+                    return null
+                })
+            })
+        }))
+
+        try {
+            const result = await getSharedModelsHandler.handler(ctx, {})
+
+            expect(result.version).toBe("test-version:456")
+            expect(result.models[0]).toMatchObject({
+                id: "shared-text",
+                inputUsdPer1MTokens: 0.5,
+                outputUsdPer1MTokens: 3
+            })
+        } finally {
+            sharedModel.inputUsdPer1MTokens = originalInputPrice
+            sharedModel.outputUsdPer1MTokens = originalOutputPrice
+        }
     })
 
     it("normalizes legacy custom-model pdf abilities to native_pdf in the registry", async () => {

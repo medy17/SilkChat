@@ -25,16 +25,22 @@
 :root {
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(48 96% 89%);
+    --model-cost-affordable: oklch(0.52 0.15 160);
+    --model-cost-expensive: var(--destructive);
 }
 
 .dark {
     --warning: hsl(48 96% 89%);
     --warning-foreground: hsl(38 92% 50%);
+    --model-cost-affordable: oklch(0.72 0.16 160);
+    --model-cost-expensive: var(--destructive);
 }
 
 @theme inline {
     --color-warning: var(--warning);
     --color-warning-foreground: var(--warning-foreground);
+    --color-model-cost-affordable: var(--model-cost-affordable);
+    --color-model-cost-expensive: var(--model-cost-expensive);
 }
 
 @keyframes root-logo-fill {

@@ -1,10 +1,16 @@
 import type { RegistryKey, SharedModel } from "./types"
 
-const anthropicTextAdapters = (modelId: string): RegistryKey[] => [
-    `i3-anthropic:${modelId}`,
-    `anthropic:${modelId}`,
-    `openrouter:anthropic/${modelId}`
-]
+const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
+    // Anthropic uses hyphenated version numbers while OpenRouter's canonical
+    // slugs use a decimal point for Claude 4.x releases.
+    const openRouterModelId = modelId.replace(/-(4)-(\d)$/, "-$1.$2")
+
+    return [
+        `i3-anthropic:${modelId}`,
+        `anthropic:${modelId}`,
+        `openrouter:anthropic/${openRouterModelId}`
+    ]
+}
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {

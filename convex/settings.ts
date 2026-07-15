@@ -136,6 +136,37 @@ type OpenRouterMetadataRecord = {
     maxCompletionTokens?: number
     inputUsdPer1MTokens?: number
     outputUsdPer1MTokens?: number
+    fetchedAt?: number
+}
+
+const getOpenRouterMetadataByProviderModelId = async (
+    ctx: QueryCtx,
+    models: readonly Pick<SharedModel, "adapters">[]
+) => {
+    const providerModelIds = Array.from(
+        new Set(models.map(getOpenRouterProviderModelId).filter((id): id is string => Boolean(id)))
+    )
+    const metadataEntries = await Promise.all(
+        providerModelIds.map(async (providerModelId) => {
+            const metadata = await ctx.db
+                .query("modelProviderMetadata")
+                .withIndex("byProviderModel", (q) =>
+                    q.eq("provider", "openrouter").eq("providerModelId", providerModelId)
+                )
+                .first()
+
+            return metadata ? ([providerModelId, metadata] as const) : null
+        })
+    )
+
+    const metadataByProviderModelId: Record<string, OpenRouterMetadataRecord> = {}
+    for (const entry of metadataEntries) {
+        if (!entry) continue
+        const [providerModelId, metadata] = entry
+        metadataByProviderModelId[providerModelId] = metadata
+    }
+
+    return metadataByProviderModelId
 }
 
 const overlayOpenRouterMetadata = <
@@ -236,18 +267,28 @@ export const getSharedModels = query({
     args: {},
     handler: async (ctx) => {
         const hasAdminModelAccess = await resolveCurrentUserAdminModelAccess(ctx)
+        const sharedModels = getSharedModelsForUser(hasAdminModelAccess)
+        const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
+            ctx,
+            sharedModels
+        )
+        const pricingVersion = Math.max(
+            0,
+            ...Object.values(metadataByProviderModelId).map((metadata) => metadata.fetchedAt ?? 0)
+        )
 
         return {
-            version: SHARED_MODELS_VERSION,
-            models: getSharedModelsForUser(hasAdminModelAccess)
+            version: `${SHARED_MODELS_VERSION}:${pricingVersion}`,
+            models: sharedModels.map((model) =>
+                overlayOpenRouterMetadata(model, metadataByProviderModelId)
+            )
         }
     }
 })
 
 /**
- * Dev-only: the real resolved context limits for a model, computed with OpenRouter pricing
- * metadata (which the client never receives, so client-side resolution always hits the 32k
- * fallback). Returns null in production — gated by the same flag as the dev credit lab.
+ * Dev-only: the resolved context limits for a model, computed with OpenRouter pricing metadata.
+ * Returns null in production — gated by the same flag as the dev credit lab.
  */
 export const getDevModelContextLimits = query({
     args: { modelId: v.string() },
@@ -295,27 +336,10 @@ export const getUserRegistryInternal = internalQuery({
         const sharedModelsForUser = getSharedModelsForUser(hasAdminModelAccess).filter(
             (model) => !isModelSunset(model)
         )
-        const openRouterProviderModelIds = sharedModelsForUser
-            .map(getOpenRouterProviderModelId)
-            .filter((id): id is string => Boolean(id))
-        const metadataEntries = await Promise.all(
-            openRouterProviderModelIds.map(async (providerModelId) => {
-                const metadata = await ctx.db
-                    .query("modelProviderMetadata")
-                    .withIndex("byProviderModel", (q) =>
-                        q.eq("provider", "openrouter").eq("providerModelId", providerModelId)
-                    )
-                    .first()
-
-                return metadata ? ([providerModelId, metadata] as const) : null
-            })
+        const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
+            ctx,
+            sharedModelsForUser
         )
-        const metadataByProviderModelId: Record<string, OpenRouterMetadataRecord> = {}
-        for (const entry of metadataEntries) {
-            if (!entry) continue
-            const [providerModelId, metadata] = entry
-            metadataByProviderModelId[providerModelId] = metadata
-        }
 
         const providers: Record<
             string,

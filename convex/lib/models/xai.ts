@@ -66,7 +66,7 @@ export const XAI_MODELS: SharedModel[] = [
             "i3-xai:grok-4.20-0309-reasoning",
             "xai:grok-4.20-0309-non-reasoning",
             "xai:grok-4.20-0309-reasoning",
-            "openrouter:x-ai/grok-4.20-beta"
+            "openrouter:x-ai/grok-4.20"
         ],
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,

@@ -27,6 +27,9 @@ vi.mock("../../convex/_generated/api", () => ({
     }
 }))
 
+import { ANTHROPIC_MODELS } from "../../convex/lib/models/anthropic"
+import { OPENAI_MODELS } from "../../convex/lib/models/openai"
+import { XAI_MODELS } from "../../convex/lib/models/xai"
 import { upsertOpenRouterModelMetadataInternal } from "../../convex/model_provider_metadata"
 import { syncOpenRouterModelMetadata } from "../../convex/model_provider_metadata_node"
 
@@ -87,6 +90,21 @@ describe("model_provider_metadata", () => {
                 })
             ]
         })
+    })
+
+    it("uses canonical OpenRouter slugs for versioned Anthropic and xAI models", () => {
+        expect(
+            ANTHROPIC_MODELS.find((model) => model.id === "claude-opus-4.8")?.adapters
+        ).toContain("openrouter:anthropic/claude-opus-4.8")
+        expect(
+            ANTHROPIC_MODELS.find((model) => model.id === "claude-haiku-4.5")?.adapters
+        ).toContain("openrouter:anthropic/claude-haiku-4.5")
+        expect(XAI_MODELS.find((model) => model.id === "grok-4.20-0309")?.adapters).toContain(
+            "openrouter:x-ai/grok-4.20"
+        )
+        expect(OPENAI_MODELS.find((model) => model.id === "gpt-5.3")?.adapters).toContain(
+            "openrouter:openai/gpt-5.3-chat"
+        )
     })
 
     it("upserts existing metadata rows and inserts new ones", async () => {
