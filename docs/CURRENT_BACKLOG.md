@@ -1,8 +1,5 @@
 # CURRENT BACKLOG
 
-### Chores:
-- Update documentation and clear-up stale plans.
-
 ### Bug Fixes:
 - MCP feature is lagging behind and cannot use most modern MCP offerings.
 - Consolidate web search feature to reduce token heavy usage and user confusion. 
