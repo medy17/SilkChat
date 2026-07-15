@@ -269,7 +269,6 @@ describe("account deletion helpers", () => {
             plan: "free",
             creditPeriodAnchorAt: anchorAt,
             carriedForPeriodKey: periodKey,
-            carriedBasicUnits: 20,
             carriedUsageMicrousd: 725_000
         })
     })
@@ -311,7 +310,6 @@ describe("account deletion helpers", () => {
             plan: "free",
             creditPeriodAnchorAt: anchorAt,
             carriedForPeriodKey: undefined,
-            carriedBasicUnits: undefined,
             carriedUsageMicrousd: undefined
         })
     })

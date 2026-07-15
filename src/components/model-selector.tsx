@@ -51,7 +51,6 @@ import {
     getAllowedReasoningEffortsForModel,
     getModelDescription,
     getModelShortDescription,
-    getPrototypeCreditTierForModel,
     getProviderDisplayName,
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
@@ -72,7 +71,6 @@ import {
     ChevronDown,
     ChevronUp,
     CircleHelp,
-    Crown,
     ExternalLink,
     Globe,
     GraduationCap,
@@ -910,8 +908,7 @@ const ModelCard = React.memo(function ModelCard({
     disabled,
     disabledReason,
     badgeLabel,
-    badgeVariant = "secondary",
-    usesProCredits
+    badgeVariant = "secondary"
 }: {
     model: DisplayModel
     selectedModel: string
@@ -922,7 +919,6 @@ const ModelCard = React.memo(function ModelCard({
     disabledReason?: string
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
-    usesProCredits?: boolean
 }) {
     const isSelected = model.id === selectedModel
     const modelAbilities = getModelAbilities(model)
@@ -953,17 +949,6 @@ const ModelCard = React.memo(function ModelCard({
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 pr-10 sm:pr-0">
                                 <div className="flex items-center gap-2">
-                                    {usesProCredits && (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Crown
-                                                    className="size-3.5 shrink-0"
-                                                    aria-label="Requires Pro plan"
-                                                />
-                                            </TooltipTrigger>
-                                            <TooltipContent>Requires Pro plan</TooltipContent>
-                                        </Tooltip>
-                                    )}
                                     <span className="truncate font-medium text-sm sm:text-base">
                                         {model.name}
                                     </span>
@@ -1426,11 +1411,6 @@ export function ModelSelector({
         [currentProviders, selectedModelData, sharedModels]
     )
     const showByokContextHint = Boolean(byokContextHint && !activeRuntimeProvider?.isByok)
-    const selectedModelUsesProCredits =
-        creditPlan === "pro" &&
-        selectedModelData !== undefined &&
-        getPrototypeCreditTierForModel(selectedModelData, "off") === "pro"
-
     const visibleSectionModels = React.useMemo(() => {
         if (!visibleSection) return []
         if (expandedLegacySections[visibleSection.id]) return visibleSection.models
@@ -1468,10 +1448,6 @@ export function ModelSelector({
                         requiresNativePdf && !modelSupportsNativePdf(model)
                             ? "warning"
                             : "secondary"
-                    }
-                    usesProCredits={
-                        creditPlan === "pro" &&
-                        getPrototypeCreditTierForModel(model, "off") === "pro"
                     }
                 />
             ))}
@@ -1518,17 +1494,6 @@ export function ModelSelector({
                 {selectedModelData && (
                     <div className="flex items-center gap-2">
                         <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
-                        {selectedModelUsesProCredits && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Crown
-                                        className="size-3.5 shrink-0"
-                                        aria-label="Requires Pro plan"
-                                    />
-                                </TooltipTrigger>
-                                <TooltipContent>Requires Pro plan</TooltipContent>
-                            </Tooltip>
-                        )}
                         <span className="hidden md:hidden min-[390px]:block">
                             {preferShortName
                                 ? (selectedModelData as SharedModel)?.shortName ||

@@ -239,19 +239,4 @@ describe("computeSuggestedModels", () => {
 
         expect(result).toHaveLength(2)
     })
-
-    it("falls back to the credit tier when price is unavailable", () => {
-        const result = suggest([
-            makeCandidate("pro-tier", {
-                inputUsdPer1MTokens: undefined,
-                prototypeCreditTier: "pro"
-            }),
-            makeCandidate("basic-tier", {
-                inputUsdPer1MTokens: undefined,
-                prototypeCreditTier: "basic"
-            })
-        ])
-
-        expect(result.map((model) => model.id)).toEqual(["basic-tier", "pro-tier"])
-    })
 })

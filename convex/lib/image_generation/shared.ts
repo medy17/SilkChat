@@ -4,7 +4,7 @@ import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import type { DataModel } from "../../_generated/dataModel"
 import { r2 } from "../../attachments"
-import { resolvePrototypeCreditCharge, resolveRequiredPlanForModelAccess } from "../credits"
+import { resolveRequiredPlanForModelAccess } from "../credits"
 import { MODELS_SHARED } from "../models"
 import type { ImageResolution, ImageSize, SharedModel } from "../models"
 import {
@@ -28,9 +28,6 @@ export type PreparedImageReference = ImageReferenceSource & {
 }
 
 export type ImageCreditEstimate = {
-    bucket: "basic" | "pro" | "none"
-    units: number
-    counted: boolean
     requiredPlan: "free" | "pro"
 }
 
@@ -43,24 +40,11 @@ export const getImageModelById = (modelId: string) =>
 export const getImageModelMaxPerMessage = (model: SharedModel) => model.maxPerMessage ?? 1
 
 export const getImageModelCreditEstimate = (model: SharedModel): ImageCreditEstimate => {
-    const requiredPlan = resolveRequiredPlanForModelAccess({
-        reasoningEffort: "off",
-        availableToPickFor: model.availableToPickFor
-    })
-    const creditCharge = resolvePrototypeCreditCharge({
-        providerSource: "internal",
-        modelMode: "image",
-        enabledTools: [],
-        reasoningEffort: "off",
-        prototypeCreditTier: model.prototypeCreditTier,
-        prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
-    })
-
     return {
-        bucket: creditCharge.bucket,
-        units: creditCharge.units,
-        counted: creditCharge.counted,
-        requiredPlan
+        requiredPlan: resolveRequiredPlanForModelAccess({
+            reasoningEffort: "off",
+            availableToPickFor: model.availableToPickFor
+        })
     }
 }
 

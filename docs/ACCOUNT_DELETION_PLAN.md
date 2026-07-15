@@ -49,14 +49,14 @@ We want a self-service "delete my account" flow that:
 
 ## 2. Key facts from the codebase (grounding)
 
-Status: **Partly stale line references, still conceptually accurate.** The key implementation facts remain: `userId` changes across deletion/recreation, credit windows are anchored, and carry-in must be modeled as usage rather than a permanent limit change.
+Status: **Partly stale line references, still conceptually accurate.** The key implementation facts remain: `userId` changes across deletion/recreation, usage windows are anchored, and carry-in must be modeled as usage rather than a permanent limit change.
 
 - Identity id used everywhere (`authorId` / `userId`) is a **fresh string per signup**; deleting the Better Auth user and re-logging-in mints a **new** id. So `userId` is useless as a fraud key. (`convex/lib/identity.ts:30`)
-- Free allowance is a **rolling anchored monthly window**, not a calendar month:
+- Included usage is tracked in a **rolling anchored monthly window**, not a calendar month:
   - `creditPeriodAnchorAt` is stamped at account creation or restored from a tombstone on return (`convex/credits.ts` `ensureCreditAccountRecord`; `convex/lib/account_deletion_restore.ts`).
   - Window bounds via `getAnchoredMonthlyCreditPeriodBounds`; `periodKey = "{startISO}/{endISO}"` (`convex/lib/credits.ts:116,143`).
-- "Used this window" = sum of `prototypeCreditEvents.units` where `counted && bucket` matches, filtered by `byUserPeriod (userId, periodKey)`, plus outstanding reservations (`convex/credits.ts:281-311`). Free basic limit = 20 (`MONTHLY_CREDITS_FREE`) (`convex/lib/credits.ts:24,42`).
-- `monthlyBasicCredits` is a **static whole-window limit**, re-read every period with no per-period reset (`convex/credits.ts:134`). **Mutating it to model carry-in would penalize the user forever.**
+- "Used this window" is the settled metered amount plus outstanding metered reservations. Historical Basic/Pro bucket fields remain stored for old accounting records but no longer participate in enforcement.
+- Account-deletion restoration carries metered usage forward for the active window; it does not rewrite historical Basic/Pro values.
 - Pro window anchors to the billing cycle `renewsAt` when present; else falls back to the account anchor (`convex/credits.ts:69-97`).
 - A **cancelled** subscription is still `plan:"pro"` until it expires — `"cancelled"` ∈ `PRO_SUBSCRIPTION_STATUSES` (`convex/lib/lemon_squeezy.ts:32`). `endsAt` is the paid-through date.
 - The LS webhook no longer blindly trusts `custom_data.user_id`; it first resolves via `billingSubscriptionLinks` and tombstones (`convex/billing.ts`). Refund events (`subscription_payment_refunded`) are handled events (`convex/lib/lemon_squeezy.ts`).
@@ -179,34 +179,32 @@ accountDeletionJobs:
 
 Write-heavy paths must reject new user work while a non-completed job exists for `userId`.
 
-### 5.4 New optional fields on `prototypeCreditAccounts`
+### 5.4 Optional carry field on `prototypeCreditAccounts`
 ```
-carriedForPeriodKey:  optional string   # period this carry-in applies to
-carriedBasicUnits:    optional number   # pre-existing basic consumption
-carriedProUnits:      optional number   # pre-existing pro consumption
+carriedForPeriodKey:   optional string   # period this carry-in applies to
+carriedUsageMicrousd:  optional number   # pre-existing metered consumption
 ```
-All optional → no backfill; absent = zero carry-in.
+The historical Basic/Pro carry fields remain in the schema for old records but are not used by current enforcement. All fields are optional, so no backfill is required.
 
 ---
 
-## 6. Carry-in credit accounting (the anti-reset core)
+## 6. Carry-in usage accounting (the anti-reset core)
 
-Status: **Implemented and tested.** Summary, usage, credit reservation/consumption, and tool-call reservation paths all count carry-in for the matching period.
+Status: **Implemented and tested.** Metered usage and reservation paths count carry-in for the matching period.
 
 **Principle:** carry-in is resolved **once at signup** (from the tombstone) and materialized onto the account row. The credit hot path never reads the tombstone — it reads the carry-in fields off the account doc it **already fetches**, so marginal read cost ≈ one extra field. This directly answers the "extra reads" concern.
 
-**Application rule** (in a shared credit usage helper — must cover `getMyCreditSummary`, `getMyCreditUsageSummary`, `getCreditUsageForUserInternal`, `consumeCreditForMessage`, `reserveCreditForMessage`, and `reserveToolCallBudget`, or display and gating diverge):
+**Application rule:**
 ```
-carriedBasic = (account.carriedForPeriodKey == currentPeriodKey) ? account.carriedBasicUnits : 0
-carriedPro   = (account.carriedForPeriodKey == currentPeriodKey) ? account.carriedProUnits   : 0
-effectiveBasicUsed = eventUnits(basic) + reservations(basic) + carriedBasic
-effectiveProUsed   = eventUnits(pro)   + reservations(pro)   + carriedPro
-remaining = max(0, limit - effectiveUsed)
+carriedUsage = (account.carriedForPeriodKey == currentPeriodKey)
+  ? account.carriedUsageMicrousd
+  : 0
+effectiveUsage = settledUsageMicrousd + reservedUsageMicrousd + carriedUsage
 ```
 
 Properties:
-- **Self-expiring:** once the anchored window rolls, `currentPeriodKey` changes → carry-in stops applying → full fresh allowance. No scheduled restore job. No permanent penalty (this is why we do NOT shrink `monthlyBasicCredits`).
-- **Treated as consumption, not a smaller limit** — semantically honest and works for both buckets.
+- **Self-expiring:** once the anchored window rolls, `currentPeriodKey` changes, so carry-in stops applying. No scheduled restore job or permanent limit change is needed.
+- **Treated as consumption, not a smaller limit**, matching the current metered-usage model.
 
 ---
 
@@ -338,7 +336,7 @@ Status: **Implemented for minimized tombstones; retention cleanup deferred.** To
 ## 14. Open decisions / config
 
 Status: **Still open except for free anti-reset behavior.** The stable pepper, annual-sub anchoring, refund-abuse policy, pruning policy, and Pro resume UX remain product/ops decisions.
-1. Env `IDENTITY_FINGERPRINT_PEPPER` (stable secret) + `MONTHLY_CREDITS_FREE` interplay confirmed.
+1. Stable `IDENTITY_FINGERPRINT_PEPPER` secret and metered-usage carry-forward behavior confirmed.
 2. Annual-sub monthly-reset handling (scenario I) — anchor strategy through a distant `endsAt`.
 3. Refund-abuse policy: how much to restrict free grants when `refundCount > 0`.
 4. Retention TTLs for tombstone pruning cron.

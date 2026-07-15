@@ -33,9 +33,7 @@ vi.mock("../../convex/lib/models", () => ({
             name: "Shared Text",
             mode: "text",
             abilities: ["reasoning"],
-            adapters: ["openrouter:or-shared"],
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: "pro"
+            adapters: ["openrouter:or-shared"]
         },
         {
             id: "legacy-internal-text",

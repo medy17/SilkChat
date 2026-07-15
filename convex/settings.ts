@@ -385,9 +385,7 @@ export const getUserRegistryInternal = internalQuery({
                 supportedImageResolutions: model.supportedImageResolutions,
                 availableToPickFor: model.availableToPickFor,
                 availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts,
-                requiredRole: model.requiredRole,
-                prototypeCreditTier: model.prototypeCreditTier,
-                prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
+                requiredRole: model.requiredRole
             }
         }
 

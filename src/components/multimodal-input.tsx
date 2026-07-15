@@ -52,7 +52,6 @@ import {
 import { useModelStore } from "@/lib/model-store"
 import {
     getAllowedReasoningEffortsForModel,
-    getPrototypeCreditTierForModel,
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
@@ -83,7 +82,6 @@ import {
     ChevronDown,
     ChevronUp,
     Code,
-    Crown,
     FileType,
     Globe,
     Image as ImageIcon,
@@ -289,14 +287,6 @@ export const ReasoningEffortSelector = ({
         setReasoningEffort
     ])
     const isReasoningOff = isInstantReasoningEffortForModel(selectedSharedModel, reasoningEffort)
-    const selectedModelBaseUsesProCredits =
-        selectedSharedModel !== undefined &&
-        getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
-    const selectedEffortUsesProCredits =
-        resolvedCreditPlan === "pro" &&
-        selectedSharedModel !== undefined &&
-        !selectedModelBaseUsesProCredits &&
-        getPrototypeCreditTierForModel(selectedSharedModel, reasoningEffort) === "pro"
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
 
@@ -317,16 +307,10 @@ export const ReasoningEffortSelector = ({
                 >
                     <div className="hidden items-center gap-1.5 sm:flex">
                         <ReasoningIcon className="size-4" />
-                        {selectedEffortUsesProCredits && (
-                            <Crown className="size-3.5 shrink-0" aria-label="Requires Pro plan" />
-                        )}
                         <span>{reasoningLabel}</span>
                     </div>
                     <span className="flex items-center gap-1 sm:hidden">
                         <ReasoningIcon className="size-4" />
-                        {selectedEffortUsesProCredits && (
-                            <Crown className="size-2.5 shrink-0" aria-label="Requires Pro plan" />
-                        )}
                     </span>
                 </SelectTrigger>
                 <SelectContent>
@@ -336,12 +320,6 @@ export const ReasoningEffortSelector = ({
                             resolvedCreditPlan === "free" &&
                             selectedSharedModel !== undefined &&
                             getRequiredPlanToPickModel(selectedSharedModel, effort) === "pro"
-                        const effortUsesProCredits =
-                            resolvedCreditPlan === "pro" &&
-                            selectedSharedModel !== undefined &&
-                            !selectedModelBaseUsesProCredits &&
-                            getPrototypeCreditTierForModel(selectedSharedModel, effort) === "pro"
-
                         return (
                             <SelectItem
                                 key={effort}
@@ -363,12 +341,6 @@ export const ReasoningEffortSelector = ({
                                         <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[0.625rem] text-primary uppercase">
                                             Pro
                                         </span>
-                                    )}
-                                    {effortUsesProCredits && (
-                                        <Crown
-                                            className="size-3.5 shrink-0"
-                                            aria-label="Requires Pro plan"
-                                        />
                                     )}
                                 </span>
                             </SelectItem>
@@ -508,14 +480,6 @@ function MobileOverflowMenu({
     const [reasoningExpanded, setReasoningExpanded] = useState(false)
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
-    const selectedModelBaseUsesProCredits =
-        selectedSharedModel !== undefined &&
-        getPrototypeCreditTierForModel(selectedSharedModel, "off") === "pro"
-    const selectedEffortUsesProCredits =
-        creditPlan === "pro" &&
-        selectedSharedModel !== undefined &&
-        !selectedModelBaseUsesProCredits &&
-        getPrototypeCreditTierForModel(selectedSharedModel, reasoningEffort) === "pro"
     const webSearchEnabled = enabledTools.includes("web_search")
     const supermemoryEnabled = enabledTools.includes("supermemory")
     const hasMcpServers = mcpServers.length > 0
@@ -553,12 +517,6 @@ function MobileOverflowMenu({
                                 onClick={() => setReasoningExpanded((expanded) => !expanded)}
                             >
                                 <ReasoningIcon className="size-4 shrink-0" />
-                                {selectedEffortUsesProCredits && (
-                                    <Crown
-                                        className="size-3.5 shrink-0"
-                                        aria-label="Requires Pro plan"
-                                    />
-                                )}
                                 <span className="min-w-0 flex-1 truncate">
                                     Reasoning: {reasoningLabel}
                                 </span>
@@ -587,15 +545,6 @@ function MobileOverflowMenu({
                                                 selectedSharedModel,
                                                 effort
                                             ) === "pro"
-                                        const effortUsesProCredits =
-                                            creditPlan === "pro" &&
-                                            selectedSharedModel !== undefined &&
-                                            !selectedModelBaseUsesProCredits &&
-                                            getPrototypeCreditTierForModel(
-                                                selectedSharedModel,
-                                                effort
-                                            ) === "pro"
-
                                         return (
                                             <button
                                                 key={effort}
@@ -617,12 +566,6 @@ function MobileOverflowMenu({
                                                     <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[0.625rem] text-primary uppercase">
                                                         Pro
                                                     </span>
-                                                )}
-                                                {effortUsesProCredits && (
-                                                    <Crown
-                                                        className="size-3.5 shrink-0"
-                                                        aria-label="Requires Pro plan"
-                                                    />
                                                 )}
                                                 {isSelected && (
                                                     <Check className="size-4 shrink-0" />

@@ -178,8 +178,6 @@ export const getModel = async (
         runtimeProvider,
         runtimeApiKey: undefined,
         availableToPickFor: model.availableToPickFor,
-        availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts,
-        prototypeCreditTier: model.prototypeCreditTier,
-        prototypeCreditTierWithReasoning: model.prototypeCreditTierWithReasoning
+        availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts
     }
 }

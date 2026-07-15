@@ -118,14 +118,6 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         suppression,
         currentFreePeriodKey
     })
-    const existingCarryBasic =
-        existingAccount?.carriedForPeriodKey === seed.carriedForPeriodKey
-            ? (existingAccount?.carriedBasicUnits ?? 0)
-            : 0
-    const existingCarryPro =
-        existingAccount?.carriedForPeriodKey === seed.carriedForPeriodKey
-            ? (existingAccount?.carriedProUnits ?? 0)
-            : 0
     const existingCarryUsageMicrousd =
         existingAccount?.carriedForPeriodKey === seed.carriedForPeriodKey
             ? (existingAccount?.carriedUsageMicrousd ?? 0)
@@ -138,14 +130,8 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         monthlyProCredits: existingAccount?.monthlyProCredits,
         creditPeriodAnchorAt: seed.creditPeriodAnchorAt,
         carriedForPeriodKey: seed.carriedForPeriodKey ?? existingAccount?.carriedForPeriodKey,
-        carriedBasicUnits:
-            seed.carriedForPeriodKey || existingAccount?.carriedForPeriodKey
-                ? Math.max(existingCarryBasic, seed.carriedBasicUnits ?? 0)
-                : undefined,
-        carriedProUnits:
-            seed.carriedForPeriodKey || existingAccount?.carriedForPeriodKey
-                ? Math.max(existingCarryPro, seed.carriedProUnits ?? 0)
-                : undefined,
+        carriedBasicUnits: existingAccount?.carriedBasicUnits,
+        carriedProUnits: existingAccount?.carriedProUnits,
         carriedUsageMicrousd:
             seed.carriedForPeriodKey || existingAccount?.carriedForPeriodKey
                 ? Math.max(existingCarryUsageMicrousd, seed.carriedUsageMicrousd ?? 0)
@@ -202,8 +188,6 @@ export const restoreDeletedAccountCreditsForIdentity = async (
         restored: true as const,
         suppressionId: suppression._id,
         carriedForPeriodKey: nextAccount.carriedForPeriodKey,
-        carriedBasicUnits: nextAccount.carriedBasicUnits ?? 0,
-        carriedProUnits: nextAccount.carriedProUnits ?? 0,
         carriedUsageMicrousd: nextAccount.carriedUsageMicrousd ?? 0,
         plan: nextAccount.plan
     }

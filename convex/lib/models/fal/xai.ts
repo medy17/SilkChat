@@ -37,8 +37,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         maxReferenceImages: 3,
         customIcon: "xai",
         supportedImageSizes: [...GROK_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K"],
-        prototypeCreditTier: "pro"
+        supportedImageResolutions: ["1K", "2K"]
     },
     {
         id: "grok-imagine-image",
@@ -57,8 +56,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         maxReferenceImages: 3,
         customIcon: "xai",
         supportedImageSizes: [...GROK_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K"],
-        prototypeCreditTier: "pro"
+        supportedImageResolutions: ["1K", "2K"]
     }
 ]
 

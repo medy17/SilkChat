@@ -368,25 +368,6 @@ export const getModelDescription = (model: DisplayModel) => {
     return getModelShortDescription(model)
 }
 
-export const getPrototypeCreditTierForModel = (
-    model: DisplayModel,
-    reasoningEffort: ReasoningEffort = "off"
-): "basic" | "pro" => {
-    if ("isCustom" in model && model.isCustom) {
-        return "basic"
-    }
-
-    const sharedModel = model as SharedModel
-
-    if (reasoningEffort !== "off" && sharedModel.prototypeCreditTierWithReasoning) {
-        return sharedModel.prototypeCreditTierWithReasoning
-    }
-
-    return (
-        sharedModel.prototypeCreditTier ?? (isImageGenerationCapableModel(model) ? "pro" : "basic")
-    )
-}
-
 export const getRequiredPlanToPickModel = (
     model: DisplayModel,
     reasoningEffort: ReasoningEffort = "off"

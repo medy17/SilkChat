@@ -64,9 +64,6 @@ type PreparedImageGenerationOutput = {
     variants?: number
     references?: Array<{ id: string; label: string; source?: string }>
     estimatedCredits?: {
-        bucket: "basic" | "pro" | "none"
-        units: number
-        counted: boolean
         requiredPlan: "free" | "pro"
     }
     jobIds?: Id<"imageGenerationJobs">[]
@@ -150,7 +147,7 @@ const resolveImageAssetUrl = (value: string) => {
 }
 
 const getCreditLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) => {
-    if (!credits || credits.bucket === "none" || credits.units <= 0) return null
+    if (!credits) return null
     return "Included usage"
 }
 

@@ -9,7 +9,6 @@ import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     getAllowedReasoningEffortsForModel,
-    getPrototypeCreditTierForModel,
     getProviderDisplayName,
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
@@ -414,12 +413,6 @@ export function RetryMenu({
                                                   "pro")
                                         const isNativePdfBlocked =
                                             requiresNativePdf && !modelSupportsNativePdf(model)
-                                        const usesProCredits =
-                                            creditPlan === "pro" &&
-                                            getPrototypeCreditTierForModel(
-                                                model,
-                                                defaultRetryEffort ?? "off"
-                                            ) === "pro"
                                         const disabledReason = getDisabledReason(
                                             isModelLocked,
                                             isNativePdfBlocked
@@ -466,12 +459,6 @@ export function RetryMenu({
                                                         )}
                                                     >
                                                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                            {usesProCredits && (
-                                                                <Crown
-                                                                    className="size-3.5 shrink-0"
-                                                                    aria-label="Requires Pro plan"
-                                                                />
-                                                            )}
                                                             <span className="truncate font-medium text-sm">
                                                                 {model.name}
                                                             </span>
@@ -639,12 +626,6 @@ export function RetryMenu({
                                                 )}
                                             >
                                                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                    {usesProCredits && (
-                                                        <Crown
-                                                            className="size-3.5 shrink-0"
-                                                            aria-label="Requires Pro plan"
-                                                        />
-                                                    )}
                                                     <span className="truncate font-medium text-sm">
                                                         {model.name}
                                                     </span>

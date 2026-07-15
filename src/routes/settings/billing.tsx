@@ -78,7 +78,6 @@ function BillingSettingsRoute() {
         summary: creditSummary,
         isLoading: isCreditSummaryLoading,
         isRefreshing,
-        isUpdatingCreditPlan,
         devCreditState,
         isUpdatingDevCreditState,
         refreshCredits,
@@ -302,12 +301,10 @@ function BillingSettingsRoute() {
                     isLoading={isCreditSummaryLoading}
                     isRefreshing={isRefreshing}
                     shouldShowDevCreditPlanToggle={false}
-                    isUpdatingCreditPlan={isUpdatingCreditPlan}
                     devCreditState={devCreditState}
                     isUpdatingDevCreditState={isUpdatingDevCreditState}
                     onSetDevCreditState={setDevCreditState}
                     onRefresh={refreshCredits}
-                    upgradeUrl={proCheckoutUrl}
                 />
             </div>
         </SettingsLayout>

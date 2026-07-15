@@ -57,16 +57,6 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
         }
     }
 
-    if (detail?.kind === "credits_exhausted") {
-        return {
-            icon: CreditCard,
-            title: "Monthly plan limit reached",
-            description:
-                "You've depleted this billing period's allowance for the selected request. It renews next period, or you can upgrade your plan or continue with BYOK.",
-            primaryCta: { label: "Manage plan", to: "/settings/billing" }
-        }
-    }
-
     if (detail?.kind === "usage_limit_exceeded") {
         const isFiveHour = detail.window === "five_hour"
         const recovery =

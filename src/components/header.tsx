@@ -41,7 +41,6 @@ export function Header() {
         summary: prototypeCreditSummary,
         isLoading: isCreditsLoading,
         isRefreshing: isRefreshingCredits,
-        isUpdatingCreditPlan,
         devCreditState,
         isUpdatingDevCreditState,
         refreshCredits,
@@ -172,12 +171,10 @@ export function Header() {
                                     isLoading={isCreditsLoading}
                                     isRefreshing={isRefreshingCredits}
                                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                                    isUpdatingCreditPlan={isUpdatingCreditPlan}
                                     devCreditState={devCreditState}
                                     isUpdatingDevCreditState={isUpdatingDevCreditState}
                                     onSetDevCreditState={setDevCreditState}
                                     onRefresh={refreshCredits}
-                                    upgradeUrl="/settings/billing"
                                 />
                             )}
                             {!isMobile && <SidebarShortcutsHelper />}

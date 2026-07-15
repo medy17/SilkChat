@@ -112,23 +112,19 @@ function PrototypeCreditsBody({
     summary,
     devCreditState,
     shouldShowDevCreditPlanToggle,
-    isUpdatingCreditPlan,
     isUpdatingDevCreditState,
     onSetDevCreditState,
     onRefresh,
     isRefreshing,
-    upgradeUrl,
     className
 }: {
     summary: PrototypeCreditSummary | null
     devCreditState: PrototypeCreditDevState | null
     shouldShowDevCreditPlanToggle: boolean
-    isUpdatingCreditPlan: boolean
     isUpdatingDevCreditState: boolean
     onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
     isRefreshing: boolean
-    upgradeUrl?: string | null
     className?: string
 }) {
     const periodLabel = useMemo(() => {
@@ -163,12 +159,8 @@ function PrototypeCreditsBody({
         return <PrototypeCreditsEmptyState />
     }
 
-    const basicProgress =
-        summary.basic.limit > 0 ? (summary.basic.used / summary.basic.limit) * 100 : 0
-    const proProgress = summary.pro.limit > 0 ? (summary.pro.used / summary.pro.limit) * 100 : 0
     const PlanIcon = summary.plan === "pro" ? Crown : Wallet
     const shouldAnimateRefresh = isRefreshing || isRefreshAnimating
-    const shouldShowProUpsell = summary.plan === "free"
     const usageMetering = summary.usageMetering
 
     const handleRefresh = async () => {
@@ -217,108 +209,41 @@ function PrototypeCreditsBody({
                 </Button>
             </div>
 
-            {usageMetering ? (
-                <div className="space-y-2.5 md:space-y-3">
-                    {(
-                        [
-                            ["5h limit", usageMetering.fiveHour, usageMetering.fiveHour.recoversAt],
-                            ["Monthly", usageMetering.monthly, summary.periodEndsAt]
-                        ] as const
-                    ).map(([label, window, resetsAt]) => {
-                        const remainingPercent =
-                            window.limitUsd > 0 ? (window.remainingUsd / window.limitUsd) * 100 : 0
-                        return (
-                            <div key={label} className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">{label}</span>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                                aria-label={`${Math.max(0, Math.min(100, Math.round(remainingPercent)))}% remaining`}
-                                            >
-                                                <Clock className="size-3" />
-                                                <span>
-                                                    {formatUsageCountdown(resetsAt, clockNow)}
-                                                </span>
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            {Math.max(
-                                                0,
-                                                Math.min(100, Math.round(remainingPercent))
-                                            )}
-                                            % remaining
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                                <Progress value={remainingPercent} className="h-2" />
-                                {/* <div className="text-[11px] text-muted-foreground sm:text-xs">
-                                    {window.remainingUsd > 0
-                                        ? "Included usage available"
-                                        : "Limit reached"}
-                                </div> */}
-                            </div>
-                        )
-                    })}
-                </div>
-            ) : (
-                <div className="space-y-2.5 md:space-y-3">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Basic</span>
-                            <span>
-                                {summary.basic.used}/{summary.basic.limit}
-                            </span>
-                        </div>
-                        <Progress value={basicProgress} className="h-2" />
-                        <div className="text-[11px] text-muted-foreground sm:text-xs">
-                            {summary.basic.remaining} remaining
-                        </div>
-                    </div>
-                    {shouldShowProUpsell ? (
-                        <div className="rounded-[var(--radius-lg)] border bg-muted/30 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 space-y-0.5">
-                                    <div className="flex items-center gap-1.5 font-medium text-xs">
-                                        <Crown className="size-3.5 shrink-0" />
-                                        <span>Pro access</span>
-                                    </div>
-                                    <p className="text-muted-foreground text-xs">
-                                        Upgrade for image generation and premium models.
-                                    </p>
-                                </div>
-                                <Button
-                                    size="sm"
-                                    className="h-8 shrink-0 rounded-[var(--radius-md)]"
-                                    asChild={Boolean(upgradeUrl)}
-                                    disabled={!upgradeUrl}
-                                >
-                                    {upgradeUrl ? (
-                                        <a href={upgradeUrl}>Upgrade</a>
-                                    ) : (
-                                        <span>Upgrade</span>
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="space-y-1.5">
+            <div className="space-y-2.5 md:space-y-3">
+                {(
+                    [
+                        ["5h limit", usageMetering.fiveHour, usageMetering.fiveHour.recoversAt],
+                        ["Monthly", usageMetering.monthly, summary.periodEndsAt]
+                    ] as const
+                ).map(([label, window, resetsAt]) => {
+                    const remainingPercent =
+                        window.limitUsd > 0 ? (window.remainingUsd / window.limitUsd) * 100 : 0
+                    return (
+                        <div key={label} className="space-y-1.5">
                             <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Pro</span>
-                                <span>
-                                    {summary.pro.used}/{summary.pro.limit}
-                                </span>
+                                <span className="text-muted-foreground">{label}</span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                            aria-label={`${Math.max(0, Math.min(100, Math.round(remainingPercent)))}% remaining`}
+                                        >
+                                            <Clock className="size-3" />
+                                            <span>{formatUsageCountdown(resetsAt, clockNow)}</span>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {Math.max(0, Math.min(100, Math.round(remainingPercent)))}%
+                                        remaining
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
-                            <Progress value={proProgress} className="h-2" />
-                            <div className="text-[11px] text-muted-foreground sm:text-xs">
-                                {summary.pro.remaining} remaining
-                            </div>
+                            <Progress value={remainingPercent} className="h-2" />
                         </div>
-                    )}
-                </div>
-            )}
+                    )
+                })}
+            </div>
 
             <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground sm:text-xs">
                 <span>{summary.requestCounts.internal} internal</span>
@@ -332,26 +257,13 @@ function PrototypeCreditsBody({
                 <PrototypeCreditDevLab
                     summary={summary}
                     devCreditState={devCreditState}
-                    disabled={isUpdatingCreditPlan || isUpdatingDevCreditState}
+                    disabled={isUpdatingDevCreditState}
                     onSetDevCreditState={onSetDevCreditState}
                 />
             )}
         </div>
     )
 }
-
-const usagePresetActions: Array<{
-    label: string
-    payload: PrototypeCreditDevStatePayload
-}> = [
-    { label: "Reset", payload: { usageScenario: "normal_empty" } },
-    { label: "Basic 0", payload: { usageScenario: "basic_remaining_zero" } },
-    { label: "Basic near", payload: { usageScenario: "basic_near_limit" } },
-    { label: "Pro 0", payload: { usageScenario: "pro_remaining_zero" } },
-    { label: "Pro near", payload: { usageScenario: "pro_near_limit" } },
-    { label: "BYOK heavy", payload: { usageScenario: "byok_heavy" } },
-    { label: "Internal heavy", payload: { usageScenario: "internal_heavy" } }
-]
 
 const hostedUsagePresetActions: Array<{
     label: string
@@ -400,22 +312,6 @@ function PrototypeCreditDevLab({
                 disabled={disabled}
                 onSetCreditPlan={(plan) => onSetDevCreditState({ plan })}
             />
-
-            <div className="grid grid-cols-2 gap-2">
-                {usagePresetActions.map((action) => (
-                    <Button
-                        key={action.label}
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 rounded-[var(--radius-md)] text-xs"
-                        disabled={disabled}
-                        onClick={() => void onSetDevCreditState(action.payload)}
-                    >
-                        {action.label}
-                    </Button>
-                ))}
-            </div>
 
             <div className="grid grid-cols-2 gap-2">
                 {hostedUsagePresetActions.map((action) => (
@@ -501,23 +397,19 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
     isLoading,
     isRefreshing,
     shouldShowDevCreditPlanToggle,
-    isUpdatingCreditPlan,
     devCreditState,
     isUpdatingDevCreditState,
     onSetDevCreditState,
-    onRefresh,
-    upgradeUrl
+    onRefresh
 }: {
     summary: PrototypeCreditSummary | null
     isLoading: boolean
     isRefreshing: boolean
     shouldShowDevCreditPlanToggle: boolean
-    isUpdatingCreditPlan: boolean
     devCreditState: PrototypeCreditDevState | null
     isUpdatingDevCreditState: boolean
     onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
-    upgradeUrl?: string | null
 }) {
     return (
         <ResponsivePopover
@@ -552,12 +444,10 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                         summary={summary}
                         devCreditState={devCreditState}
                         shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                        isUpdatingCreditPlan={isUpdatingCreditPlan}
                         isUpdatingDevCreditState={isUpdatingDevCreditState}
                         onSetDevCreditState={onSetDevCreditState}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
-                        upgradeUrl={upgradeUrl}
                         className="px-4 pt-5 pb-4 md:p-0"
                     />
                 )}
@@ -571,24 +461,20 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isLoading,
     isRefreshing,
     shouldShowDevCreditPlanToggle,
-    isUpdatingCreditPlan,
     devCreditState,
     isUpdatingDevCreditState,
     onSetDevCreditState,
     onRefresh,
-    upgradeUrl,
     className
 }: {
     summary: PrototypeCreditSummary | null
     isLoading: boolean
     isRefreshing: boolean
     shouldShowDevCreditPlanToggle: boolean
-    isUpdatingCreditPlan: boolean
     devCreditState: PrototypeCreditDevState | null
     isUpdatingDevCreditState: boolean
     onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
-    upgradeUrl?: string | null
     className?: string
 }) {
     return (
@@ -605,12 +491,10 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
                         summary={summary}
                         devCreditState={devCreditState}
                         shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                        isUpdatingCreditPlan={isUpdatingCreditPlan}
                         isUpdatingDevCreditState={isUpdatingDevCreditState}
                         onSetDevCreditState={onSetDevCreditState}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
-                        upgradeUrl={upgradeUrl}
                     />
                 )}
             </CardContent>

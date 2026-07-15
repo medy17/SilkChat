@@ -35,8 +35,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {
         id: "gemini-3-flash-preview",
@@ -54,8 +53,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-3-flash-preview"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
-        ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {
         id: "gemini-3.1-flash-lite",
@@ -74,8 +72,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic"
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {
         id: "gemini-3.1-flash-lite-preview",
@@ -88,7 +85,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-05-25",
         replacementId: "gemini-3.1-flash-lite"
@@ -107,8 +103,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260219,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
-        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        prototypeCreditTier: "pro"
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
     },
     {
         id: "gemini-2.5-flash",
@@ -119,7 +114,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-06-17",
         replacementId: "gemini-3-flash-preview"
@@ -133,7 +127,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
-        prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-07-22",
         replacementId: "gemini-3.1-flash-lite"
@@ -145,7 +138,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20250617,
         adapters: googleTextAdapters("gemini-2.5-pro"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-06-17",
         replacementId: "gemini-3.1-pro-preview"
@@ -158,7 +150,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-2.0-flash"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-06-01",
         replacementId: "gemini-2.5-flash"
@@ -171,7 +162,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-2.0-flash-lite"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        prototypeCreditTier: "basic",
         legacy: true,
         sunsetOn: "2026-06-01",
         replacementId: "gemini-2.5-flash-lite"
@@ -184,7 +174,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         adapters: googleTextAdapters("gemini-3-pro-preview"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-03-09",
         replacementId: "gemini-3.1-pro-preview"

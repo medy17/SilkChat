@@ -75,9 +75,7 @@ vi.mock("../../convex/lib/models", () => ({
             supportsReferenceImages: true,
             openrouterImageModalities: undefined,
             supportedImageSizes: ["1:1"],
-            supportedImageResolutions: ["1K"],
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: "pro"
+            supportedImageResolutions: ["1K"]
         },
         {
             id: "admin-text",

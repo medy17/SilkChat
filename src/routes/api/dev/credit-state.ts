@@ -4,12 +4,6 @@ import { createFileRoute } from "@tanstack/react-router"
 
 const usageScenarios = new Set([
     "normal_empty",
-    "basic_remaining_zero",
-    "basic_near_limit",
-    "pro_remaining_zero",
-    "pro_near_limit",
-    "byok_heavy",
-    "internal_heavy",
     "staff_with_limits",
     "staff_with_bypass_limits",
     "usage_5h_reset",
@@ -24,8 +18,6 @@ const periodAnchorPresets = new Set(["default", "ending_today", "ending_tomorrow
 
 type DevCreditStatePayload = {
     plan?: "free" | "pro"
-    monthlyBasicCredits?: number
-    monthlyProCredits?: number
     isStaff?: boolean
     bypassLimits?: boolean
     usageScenario?: string
@@ -36,9 +28,6 @@ const isDevelopmentRoute = () => process.env.NODE_ENV === "development"
 
 const isValidCreditPlan = (value: unknown): value is "free" | "pro" =>
     value === "free" || value === "pro"
-
-const isNonNegativeInteger = (value: unknown): value is number =>
-    typeof value === "number" && Number.isInteger(value) && value >= 0
 
 const validatePayload = (body: unknown): DevCreditStatePayload | { error: string } => {
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -51,20 +40,6 @@ const validatePayload = (body: unknown): DevCreditStatePayload | { error: string
     if ("plan" in input) {
         if (!isValidCreditPlan(input.plan)) return { error: "Invalid plan" }
         payload.plan = input.plan
-    }
-
-    if ("monthlyBasicCredits" in input) {
-        if (!isNonNegativeInteger(input.monthlyBasicCredits)) {
-            return { error: "Invalid monthlyBasicCredits" }
-        }
-        payload.monthlyBasicCredits = input.monthlyBasicCredits
-    }
-
-    if ("monthlyProCredits" in input) {
-        if (!isNonNegativeInteger(input.monthlyProCredits)) {
-            return { error: "Invalid monthlyProCredits" }
-        }
-        payload.monthlyProCredits = input.monthlyProCredits
     }
 
     if ("isStaff" in input) {

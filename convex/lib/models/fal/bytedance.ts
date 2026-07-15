@@ -29,8 +29,7 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
         supportsReferenceImages: true,
         openrouterImageModalities: ["image"],
         supportedImageSizes: [...SEEDREAM_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro"
+        supportedImageResolutions: ["1K", "2K", "4K"]
     }
 ]
 

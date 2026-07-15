@@ -42,7 +42,6 @@ export function usePrototypeCredits({
         [planCacheKey]
     )
 
-    const [isUpdatingCreditPlan, setIsUpdatingCreditPlan] = useState(false)
     const [isUpdatingDevCreditState, setIsUpdatingDevCreditState] = useState(false)
     const [isRefreshingPlan, setIsRefreshingPlan] = useState(false)
     const [devCreditState, setDevCreditState] = useState<PrototypeCreditDevState | null>(null)
@@ -172,39 +171,6 @@ export function usePrototypeCredits({
         return () => window.removeEventListener("focus", handleFocus)
     }, [isAuthLoading, refreshPlanSummary, userId])
 
-    const handleSetCreditPlan = useCallback(
-        async (plan: "free" | "pro") => {
-            if (!userId || isUpdatingCreditPlan) {
-                return
-            }
-
-            try {
-                setIsUpdatingCreditPlan(true)
-                const response = await fetch("/api/dev/credit-plan", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        plan
-                    })
-                })
-
-                if (!response.ok) {
-                    throw new Error(`Failed to update plan (${response.status})`)
-                }
-
-                await refreshPlanSummary({ force: true })
-            } catch (error) {
-                console.error("Failed to update prototype credit plan:", error)
-                toast.error("Failed to update credit plan")
-            } finally {
-                setIsUpdatingCreditPlan(false)
-            }
-        },
-        [isUpdatingCreditPlan, refreshPlanSummary, userId]
-    )
-
     const refreshDevCreditState = useCallback(async () => {
         if (!userId || isAuthLoading || !enableDevCreditState || !import.meta.env.DEV) {
             setDevCreditState(null)
@@ -272,12 +238,10 @@ export function usePrototypeCredits({
         summary: computedSummary ?? hydratedSummary,
         isLoading: !computedSummary && !hydratedSummary && Boolean(userId),
         isRefreshing: isRefreshingPlan,
-        isUpdatingCreditPlan,
         refreshCredits: async () => {
             await refreshPlanSummary({ force: true })
             await refreshDevCreditState()
         },
-        setCreditPlan: handleSetCreditPlan,
         devCreditState,
         isUpdatingDevCreditState,
         setDevCreditState: handleSetDevCreditState

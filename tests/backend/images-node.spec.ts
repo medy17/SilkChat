@@ -179,8 +179,6 @@ describe("images_node", () => {
                 modelId: "gpt-5.4-image-2",
                 providerSource: "internal",
                 feature: "image",
-                bucket: "pro",
-                units: 1,
                 counted: true,
                 requiredPlan: "pro"
             })

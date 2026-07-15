@@ -490,11 +490,11 @@ Targets:
 
 - `src/routes/api/credit-summary.ts`
   - unauthorized response
-  - plan/limits response shape
-- `src/routes/api/dev/credit-plan.ts`
+  - plan/metered-limit response shape
+- `src/routes/api/dev/credit-state.ts`
   - dev-only gating
   - invalid JSON handling
-  - invalid plan handling
+  - invalid state payload handling
 - `src/routes/api/phr/$.ts`
   - host header stripping
   - body forwarding

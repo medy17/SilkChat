@@ -24,7 +24,6 @@ vi.mock("@/lib/auth-server", () => ({
 }))
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
-import { Route as DevCreditPlanRoute } from "@/routes/api/dev/credit-plan"
 import { Route as DevCreditStateRoute } from "@/routes/api/dev/credit-state"
 import { Route as PosthogProxyRoute } from "@/routes/api/phr/$"
 
@@ -38,7 +37,6 @@ type RouteHandlers = {
 }
 
 const creditSummaryHandlers = (CreditSummaryRoute as unknown as RouteHandlers).server.handlers
-const devCreditPlanHandlers = (DevCreditPlanRoute as unknown as RouteHandlers).server.handlers
 const devCreditStateHandlers = (DevCreditStateRoute as unknown as RouteHandlers).server.handlers
 const posthogProxyHandlers = (PosthogProxyRoute as unknown as RouteHandlers).server.handlers
 
@@ -55,23 +53,9 @@ describe("API routes", () => {
         fetchAuthQueryMock.mockResolvedValueOnce({
             enabled: true,
             plan: "pro",
-            periodKey: "2026-05",
-            periodStartsAt: 1,
-            periodEndsAt: 2,
-            basic: {
-                limit: 1500,
-                used: 10,
-                remaining: 1490
-            },
-            pro: {
-                limit: 100,
-                used: 1,
-                remaining: 99
-            },
-            requestCounts: {
-                internal: 11,
-                byok: 0,
-                total: 11
+            usageMetering: {
+                fiveHourLimitUsd: 5,
+                monthlyLimitUsd: 50
             }
         })
 
@@ -83,102 +67,22 @@ describe("API routes", () => {
         await expect(response.json()).resolves.toEqual({
             enabled: true,
             plan: "pro",
-            periodKey: "2026-05",
-            periodStartsAt: 1,
-            periodEndsAt: 2,
-            basic: {
-                limit: 1500,
-                used: 10,
-                remaining: 1490
-            },
-            pro: {
-                limit: 100,
-                used: 1,
-                remaining: 99
-            },
-            requestCounts: {
-                internal: 11,
-                byok: 0,
-                total: 11
+            usageMetering: {
+                fiveHourLimitUsd: 5,
+                monthlyLimitUsd: 50
             }
-        })
-    })
-
-    it("enforces auth and dev-only constraints on the credit-plan route", async () => {
-        process.env.NODE_ENV = "production"
-
-        const prodResponse = await devCreditPlanHandlers.POST!({
-            request: new Request("https://example.com/api/dev/credit-plan", {
-                method: "POST",
-                body: JSON.stringify({ plan: "pro" })
-            })
-        })
-
-        expect(prodResponse.status).toBe(404)
-
-        process.env.NODE_ENV = "development"
-        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
-        const invalidPlanResponse = await devCreditPlanHandlers.POST!({
-            request: new Request("https://example.com/api/dev/credit-plan", {
-                method: "POST",
-                body: JSON.stringify({ plan: "enterprise" })
-            })
-        })
-
-        expect(invalidPlanResponse.status).toBe(400)
-        await expect(invalidPlanResponse.json()).resolves.toEqual({
-            error: "Invalid plan"
-        })
-    })
-
-    it("updates the credit plan in development for authenticated users", async () => {
-        process.env.NODE_ENV = "development"
-        fetchAuthQueryMock.mockResolvedValueOnce({ id: "user-1" })
-        fetchAuthMutationMock.mockResolvedValueOnce({
-            account: {
-                plan: "free"
-            }
-        })
-
-        const response = await devCreditPlanHandlers.POST!({
-            request: new Request("https://example.com/api/dev/credit-plan", {
-                method: "POST",
-                body: JSON.stringify({ plan: "free" })
-            })
-        })
-
-        expect(fetchAuthMutationMock).toHaveBeenCalledWith(expect.anything(), {
-            plan: "free"
-        })
-        expect(response.status).toBe(200)
-        await expect(response.json()).resolves.toEqual({
-            ok: true,
-            plan: "free"
         })
     })
 
     it("returns 401 from auth-dependent routes when the Convex auth user is missing", async () => {
         fetchAuthQueryMock.mockResolvedValueOnce(null)
         getSessionMock.mockResolvedValueOnce(null)
-        fetchAuthMutationMock.mockRejectedValueOnce(new Error("Unauthenticated"))
-        process.env.NODE_ENV = "development"
-
         const creditSummaryResponse = await creditSummaryHandlers.GET!({
             request: new Request("https://example.com/api/credit-summary")
-        })
-        const devPlanResponse = await devCreditPlanHandlers.POST!({
-            request: new Request("https://example.com/api/dev/credit-plan", {
-                method: "POST",
-                body: JSON.stringify({ plan: "free" })
-            })
         })
 
         expect(creditSummaryResponse.status).toBe(401)
         await expect(creditSummaryResponse.json()).resolves.toEqual({
-            error: "Unauthorized"
-        })
-        expect(devPlanResponse.status).toBe(401)
-        await expect(devPlanResponse.json()).resolves.toEqual({
             error: "Unauthorized"
         })
     })
@@ -236,9 +140,7 @@ describe("API routes", () => {
         fetchAuthMutationMock.mockResolvedValueOnce({
             ok: true,
             account: {
-                plan: "pro",
-                monthlyBasicCredits: 10,
-                monthlyProCredits: 5
+                plan: "pro"
             },
             access: {
                 isStaff: true,
@@ -251,8 +153,6 @@ describe("API routes", () => {
                 method: "POST",
                 body: JSON.stringify({
                     plan: "pro",
-                    monthlyBasicCredits: 10,
-                    monthlyProCredits: 5,
                     isStaff: true,
                     bypassLimits: false,
                     usageScenario: "usage_5h_exhausted",
@@ -263,8 +163,6 @@ describe("API routes", () => {
 
         expect(fetchAuthMutationMock).toHaveBeenCalledWith(expect.anything(), {
             plan: "pro",
-            monthlyBasicCredits: 10,
-            monthlyProCredits: 5,
             isStaff: true,
             bypassLimits: false,
             usageScenario: "usage_5h_exhausted",

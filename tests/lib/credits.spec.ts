@@ -2,26 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import {
     getAnchoredMonthlyCreditPeriodBounds,
-    getConfiguredCreditLimits,
     getCreditPeriodBounds,
     getCreditPeriodKeyFromBounds,
     getCurrentCreditPeriodKey,
-    resolvePrototypeCreditCharge,
-    resolvePrototypeToolCreditCharge,
-    resolveRequiredPlanForModelAccess,
-    resolveRequiredPlanForPrototypeModel
+    resolveRequiredPlanForModelAccess
 } from "../../convex/lib/credits"
 
 describe("credits", () => {
-    it("uses configured monthly limits when environment values are valid", () => {
-        process.env.MONTHLY_CREDITS_FREE = "42"
-        process.env.MONTHLY_CREDITS_PRO = "900"
-        process.env.MONTHLY_PRO_CREDITS = "15"
-
-        expect(getConfiguredCreditLimits("free")).toEqual({ basic: 42, pro: 0 })
-        expect(getConfiguredCreditLimits("pro")).toEqual({ basic: 900, pro: 15 })
-    })
-
     it("calculates UTC credit period keys and bounds", () => {
         const timestamp = Date.UTC(2026, 2, 31, 23, 59, 59, 999)
 
@@ -59,108 +46,7 @@ describe("credits", () => {
         })
     })
 
-    it("charges model usage independently from tool availability", () => {
-        expect(
-            resolvePrototypeCreditCharge({
-                providerSource: "internal",
-                modelMode: "text",
-                enabledTools: [],
-                reasoningEffort: "high",
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: "pro"
-            })
-        ).toEqual({
-            bucket: "pro",
-            feature: "chat",
-            counted: true,
-            units: 1
-        })
-
-        expect(
-            resolvePrototypeCreditCharge({
-                providerSource: "internal",
-                modelMode: "text",
-                enabledTools: ["web_search"],
-                reasoningEffort: "off",
-                prototypeCreditTier: "basic"
-            })
-        ).toEqual({
-            bucket: "basic",
-            feature: "chat",
-            counted: true,
-            units: 1
-        })
-    })
-
-    it("charges deployment-funded tool calls as basic credits", () => {
-        expect(
-            resolvePrototypeToolCreditCharge({
-                fundingSource: "deployment"
-            })
-        ).toEqual({
-            providerSource: "internal",
-            bucket: "basic",
-            feature: "tool",
-            counted: true,
-            units: 1
-        })
-
-        expect(
-            resolvePrototypeToolCreditCharge({
-                fundingSource: "byok"
-            })
-        ).toEqual({
-            providerSource: "byok",
-            bucket: "none",
-            feature: "tool",
-            counted: false,
-            units: 0
-        })
-    })
-
-    it("does not count BYOK requests against prototype credits", () => {
-        expect(
-            resolvePrototypeCreditCharge({
-                providerSource: "byok",
-                modelMode: "image",
-                enabledTools: [],
-                reasoningEffort: "off"
-            })
-        ).toEqual({
-            bucket: "none",
-            feature: "image",
-            counted: false,
-            units: 0
-        })
-    })
-
-    it("resolves required plans from prototype model tiers", () => {
-        expect(
-            resolveRequiredPlanForPrototypeModel({
-                modelMode: "text",
-                reasoningEffort: "off",
-                prototypeCreditTier: "basic"
-            })
-        ).toBe("free")
-
-        expect(
-            resolveRequiredPlanForPrototypeModel({
-                modelMode: "image",
-                reasoningEffort: "off"
-            })
-        ).toBe("pro")
-
-        expect(
-            resolveRequiredPlanForPrototypeModel({
-                modelMode: "text",
-                reasoningEffort: "high",
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: "pro"
-            })
-        ).toBe("pro")
-    })
-
-    it("resolves picker access separately from credit buckets", () => {
+    it("resolves picker access from plan availability metadata", () => {
         expect(
             resolveRequiredPlanForModelAccess({
                 reasoningEffort: "off",

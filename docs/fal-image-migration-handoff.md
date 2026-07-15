@@ -222,7 +222,7 @@ The library UI is already mostly model metadata-driven. Preserve these fields on
 - `supportedImageResolutions`
 - `defaultImageQuality` or replacement metadata
 - `legacy`, `sunsetOn`, `replacementId`
-- plan/credit tier fields
+- plan-access fields
 
 Webhook mode means local-only pending placeholders are insufficient. Add server-backed job state so pending generations survive refresh/navigation.
 

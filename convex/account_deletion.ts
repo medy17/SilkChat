@@ -270,11 +270,7 @@ const deletionCreditSnapshotValidator = v.object({
     periodKey: v.string(),
     periodStartsAt: v.number(),
     periodEndsAt: v.number(),
-    consumedBasicUnits: v.number(),
-    consumedProUnits: v.number(),
     consumedUsageMicrousd: v.number(),
-    carriedBasicUnits: v.number(),
-    carriedProUnits: v.number(),
     carriedUsageMicrousd: v.number()
 })
 
@@ -283,11 +279,7 @@ type DeletionCreditSnapshot = {
     periodKey: string
     periodStartsAt: number
     periodEndsAt: number
-    consumedBasicUnits: number
-    consumedProUnits: number
     consumedUsageMicrousd: number
-    carriedBasicUnits: number
-    carriedProUnits: number
     carriedUsageMicrousd: number
 }
 
@@ -297,10 +289,6 @@ export const getAccountDeletionCreditPeriodInternal = internalQuery({
         const account = await getCreditAccount(ctx, userId)
         const period = await getUserCreditPeriod(ctx, userId, account, timestamp)
         const anchorAt = account?.creditPeriodAnchorAt ?? account?._creationTime ?? period.startsAt
-        const carriedBasicUnits =
-            account?.carriedForPeriodKey === period.periodKey ? (account.carriedBasicUnits ?? 0) : 0
-        const carriedProUnits =
-            account?.carriedForPeriodKey === period.periodKey ? (account.carriedProUnits ?? 0) : 0
         const carriedUsageMicrousd =
             account?.carriedForPeriodKey === period.periodKey
                 ? (account.carriedUsageMicrousd ?? 0)
@@ -311,8 +299,6 @@ export const getAccountDeletionCreditPeriodInternal = internalQuery({
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,
-            carriedBasicUnits,
-            carriedProUnits,
             carriedUsageMicrousd
         }
     }
@@ -403,11 +389,6 @@ export const prepareAccountDeletion = internalMutation({
                 startsAt: creditSnapshot.periodStartsAt,
                 endsAt: creditSnapshot.periodEndsAt
             }
-            const consumedBasic =
-                creditSnapshot.consumedBasicUnits + creditSnapshot.carriedBasicUnits
-            const consumedProBasic =
-                creditSnapshot.consumedBasicUnits + creditSnapshot.carriedBasicUnits
-            const consumedPro = creditSnapshot.consumedProUnits + creditSnapshot.carriedProUnits
             const consumedUsageMicrousd =
                 creditSnapshot.consumedUsageMicrousd + creditSnapshot.carriedUsageMicrousd
             const emailMatches = await ctx.db
@@ -470,12 +451,9 @@ export const prepareAccountDeletion = internalMutation({
                 googleSubHash: fingerprint.googleSubHash ?? canonicalDoc?.googleSubHash,
                 emailHash: fingerprint.emailHash,
                 freeAnchorAt: creditSnapshot.anchorAt,
-                freePeriodKey: freePeriod.periodKey,
-                freePeriodEndsAt: freePeriod.endsAt,
-                freeConsumedBasicUnits:
-                    canonicalDoc?.freePeriodKey === freePeriod.periodKey
-                        ? Math.max(consumedBasic, merged?.freeConsumedBasicUnits ?? 0)
-                        : consumedBasic,
+                freePeriodKey: canonicalDoc?.freePeriodKey ?? freePeriod.periodKey,
+                freePeriodEndsAt: canonicalDoc?.freePeriodEndsAt ?? freePeriod.endsAt,
+                freeConsumedBasicUnits: canonicalDoc?.freeConsumedBasicUnits ?? 0,
                 usagePeriodKey: freePeriod.periodKey,
                 consumedUsageMicrousd:
                     canonicalDoc?.usagePeriodKey === freePeriod.periodKey
@@ -486,11 +464,9 @@ export const prepareAccountDeletion = internalMutation({
                     proEntitlementEndsAt ??
                     canonicalDoc?.proEntitlementEndsAt ??
                     merged?.proEntitlementEndsAt,
-                proPeriodKey: everWasPro ? freePeriod.periodKey : canonicalDoc?.proPeriodKey,
-                proConsumedBasicUnits: everWasPro
-                    ? consumedProBasic
-                    : canonicalDoc?.proConsumedBasicUnits,
-                proConsumedProUnits: everWasPro ? consumedPro : canonicalDoc?.proConsumedProUnits,
+                proPeriodKey: canonicalDoc?.proPeriodKey,
+                proConsumedBasicUnits: canonicalDoc?.proConsumedBasicUnits,
+                proConsumedProUnits: canonicalDoc?.proConsumedProUnits,
                 lemonSqueezyCustomerId:
                     subscription?.lemonSqueezyCustomerId ?? canonicalDoc?.lemonSqueezyCustomerId,
                 lemonSqueezySubscriptionId:
@@ -1199,8 +1175,6 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
             timestamp
         }
     )
-    let consumedBasicUnits = 0
-    let consumedProUnits = 0
     let consumedUsageMicrousd = 0
 
     let cursor: string | null = null
@@ -1213,19 +1187,12 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
                 paginationOpts: { numItems: ACCOUNT_DELETION_BATCH_SIZE, cursor }
             }
         )) as PaginatedPage<{
-            counted: boolean
-            bucket: "basic" | "pro" | "none"
-            units: number
             accountingKind?: "usage"
             reservedMicrousd?: number
             settledMicrousd?: number
         }>
 
         for (const event of result.page) {
-            if (event.counted) {
-                if (event.bucket === "basic") consumedBasicUnits += event.units
-                if (event.bucket === "pro") consumedProUnits += event.units
-            }
             if (event.accountingKind === "usage") {
                 consumedUsageMicrousd += Math.max(
                     0,
@@ -1249,19 +1216,12 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
             }
         )) as PaginatedPage<{
             active: boolean
-            counted: boolean
-            bucket: "basic" | "pro" | "none"
-            units: number
             accountingKind?: "usage"
             reservedMicrousd?: number
         }>
 
         for (const reservation of result.page) {
             if (!reservation.active) continue
-            if (reservation.counted) {
-                if (reservation.bucket === "basic") consumedBasicUnits += reservation.units
-                if (reservation.bucket === "pro") consumedProUnits += reservation.units
-            }
             if (reservation.accountingKind === "usage") {
                 consumedUsageMicrousd += Math.max(0, reservation.reservedMicrousd ?? 0)
             }
@@ -1282,15 +1242,15 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
             }
         )) as PaginatedPage<{
             active: boolean
-            reservedBasicCredits: number
-            consumedBasicCredits: number
+            reservedMicrousd?: number
+            consumedMicrousd?: number
         }>
 
         for (const reservation of result.page) {
             if (!reservation.active) continue
-            consumedBasicUnits += Math.max(
+            consumedUsageMicrousd += Math.max(
                 0,
-                reservation.reservedBasicCredits - reservation.consumedBasicCredits
+                (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0)
             )
         }
 
@@ -1303,11 +1263,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
         periodKey: period.periodKey,
         periodStartsAt: period.periodStartsAt,
         periodEndsAt: period.periodEndsAt,
-        consumedBasicUnits,
-        consumedProUnits,
         consumedUsageMicrousd,
-        carriedBasicUnits: period.carriedBasicUnits,
-        carriedProUnits: period.carriedProUnits,
         carriedUsageMicrousd: period.carriedUsageMicrousd
     }
 }

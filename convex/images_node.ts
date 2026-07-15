@@ -395,9 +395,7 @@ const submitImageGenerationJob = async (
         modelId,
         providerSource: "internal",
         feature: "image",
-        bucket: validated.creditEstimate.bucket,
-        units: validated.creditEstimate.units,
-        counted: validated.creditEstimate.counted,
+        counted: true,
         reservedMicrousd,
         pricingSource: "fal_manual",
         requiredPlan: validated.creditEstimate.requiredPlan
@@ -650,9 +648,7 @@ export const confirmPreparedChatImageGeneration = action({
                     modelId: result.modelId,
                     providerSource: "internal",
                     feature: "image",
-                    bucket: validated.creditEstimate.bucket,
-                    units: validated.creditEstimate.units,
-                    counted: validated.creditEstimate.counted,
+                    counted: true,
                     reservedMicrousd,
                     pricingSource: "fal_manual",
                     requiredPlan: validated.creditEstimate.requiredPlan

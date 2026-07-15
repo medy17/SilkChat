@@ -196,10 +196,7 @@ export const getPrepareImageGenerationTool = ({
                             source: reference.source,
                             generatedImageId: reference.generatedImageId
                         })),
-                        estimatedCredits: {
-                            ...validated.creditEstimate,
-                            units: validated.creditEstimate.units * validated.variants
-                        },
+                        estimatedCredits: validated.creditEstimate,
                         validSelectionsVersion: imageModels.map((model) => model.id).join(",")
                     }
                 } catch (error) {

@@ -41,7 +41,6 @@ import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summar
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
 import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-state'
-import { Route as ApiDevCreditPlanRouteImport } from './routes/api/dev/credit-plan'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
@@ -250,11 +249,6 @@ const ApiDevCreditStateRoute = ApiDevCreditStateRouteImport.update({
   path: '/api/dev/credit-state',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiDevCreditPlanRoute = ApiDevCreditPlanRouteImport.update({
-  id: '/api/dev/credit-plan',
-  path: '/api/dev/credit-plan',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -306,7 +300,6 @@ export interface FileRoutesByFullPath {
   '/personas/start': typeof PersonasStartLazyRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
@@ -347,7 +340,6 @@ export interface FileRoutesByTo {
   '/': typeof ChatIndexRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
@@ -390,7 +382,6 @@ export interface FileRoutesById {
   '/_chat/': typeof ChatIndexRoute
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/dev/credit-plan': typeof ApiDevCreditPlanRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
   '/api/phr/$': typeof ApiPhrSplatRoute
   '/_chat/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
@@ -433,7 +424,6 @@ export interface FileRouteTypes {
     | '/personas/start'
     | '/thread/$threadId'
     | '/api/auth/$'
-    | '/api/dev/credit-plan'
     | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/folder/$folderId'
@@ -474,7 +464,6 @@ export interface FileRouteTypes {
     | '/'
     | '/thread/$threadId'
     | '/api/auth/$'
-    | '/api/dev/credit-plan'
     | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/folder/$folderId'
@@ -516,7 +505,6 @@ export interface FileRouteTypes {
     | '/_chat/'
     | '/_chat/thread/$threadId'
     | '/api/auth/$'
-    | '/api/dev/credit-plan'
     | '/api/dev/credit-state'
     | '/api/phr/$'
     | '/_chat/folder/$folderId'
@@ -542,7 +530,6 @@ export interface RootRouteChildren {
   AuthPathnameRoute: typeof AuthPathnameRoute
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiDevCreditPlanRoute: typeof ApiDevCreditPlanRoute
   ApiDevCreditStateRoute: typeof ApiDevCreditStateRoute
   ApiPhrSplatRoute: typeof ApiPhrSplatRoute
 }
@@ -801,13 +788,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDevCreditStateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/dev/credit-plan': {
-      id: '/api/dev/credit-plan'
-      path: '/api/dev/credit-plan'
-      fullPath: '/api/dev/credit-plan'
-      preLoaderRoute: typeof ApiDevCreditPlanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -920,7 +900,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthPathnameRoute: AuthPathnameRoute,
   PersonasStartLazyRoute: PersonasStartLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiDevCreditPlanRoute: ApiDevCreditPlanRoute,
   ApiDevCreditStateRoute: ApiDevCreditStateRoute,
   ApiPhrSplatRoute: ApiPhrSplatRoute,
 }

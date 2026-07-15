@@ -159,24 +159,11 @@ export const buildSuppressedCreditAccountSeed = ({
         suppression.everWasPro &&
         (suppression.proEntitlementEndsAt ?? 0) > now &&
         suppression.refundCount === 0
-    const freeCarry =
-        suppression.freePeriodKey === currentFreePeriodKey
-            ? Math.max(0, suppression.freeConsumedBasicUnits)
-            : 0
-    const proBasicCarry =
-        hasActiveProEntitlement && suppression.proPeriodKey === currentFreePeriodKey
-            ? Math.max(0, suppression.proConsumedBasicUnits ?? 0)
-            : 0
-    const proCarry =
-        hasActiveProEntitlement && suppression.proPeriodKey === currentFreePeriodKey
-            ? Math.max(0, suppression.proConsumedProUnits ?? 0)
-            : 0
-    const carriedBasicUnits = Math.max(freeCarry, proBasicCarry)
     const usageCarryMicrousd =
         suppression.usagePeriodKey === currentFreePeriodKey
             ? Math.max(0, suppression.consumedUsageMicrousd ?? 0)
             : 0
-    const hasCarry = carriedBasicUnits > 0 || proCarry > 0 || usageCarryMicrousd > 0
+    const hasCarry = usageCarryMicrousd > 0
 
     return {
         userId,
@@ -184,8 +171,6 @@ export const buildSuppressedCreditAccountSeed = ({
         plan: hasActiveProEntitlement ? ("pro" as const) : ("free" as const),
         creditPeriodAnchorAt: suppression.freeAnchorAt,
         carriedForPeriodKey: hasCarry ? currentFreePeriodKey : undefined,
-        carriedBasicUnits: hasCarry ? carriedBasicUnits : undefined,
-        carriedProUnits: hasCarry ? proCarry : undefined,
         carriedUsageMicrousd: hasCarry ? usageCarryMicrousd : undefined,
         updatedAt: now
     }

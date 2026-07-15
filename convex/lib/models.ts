@@ -63,8 +63,6 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.availableToPickFor,
         model.availableToPickForReasoningEfforts,
         model.requiredRole,
-        model.prototypeCreditTier,
-        model.prototypeCreditTierWithReasoning,
         model.legacy,
         model.sunsetOn,
         model.replacementId

@@ -35,11 +35,7 @@ import {
     resolveContextLimits,
     resolveMaxOutputTokens
 } from "../lib/context_limits"
-import {
-    resolvePrototypeCreditCharge,
-    resolvePrototypeToolCreditCharge,
-    resolveRequiredPlanForModelAccess
-} from "../lib/credits"
+import { resolveRequiredPlanForModelAccess } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { getUserIdentity } from "../lib/identity"
 import {
@@ -150,6 +146,11 @@ const resolveDisplayProvider = (
 
     return normalizeDisplayProvider(runtimeProvider)
 }
+
+const resolveModelCreditCharge = (modelType: string, providerSource: string) => ({
+    feature: modelType === "image" ? ("image" as const) : ("chat" as const),
+    counted: providerSource === "internal"
+})
 
 const buildOpenRouterProviderOptions = (
     modelId: string,
@@ -753,7 +754,6 @@ const resolveSuggestedModels = async (
                     inputUsdPer1MTokens: model.inputUsdPer1MTokens,
                     outputUsdPer1MTokens: model.outputUsdPer1MTokens,
                     hostedContextLength: model.hostedContextLength,
-                    prototypeCreditTier: model.prototypeCreditTier,
                     developer: shared?.developer,
                     releaseOrder: shared?.releaseOrder,
                     legacy: shared?.legacy
@@ -870,14 +870,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         availableToPickForReasoningEfforts: modelData.availableToPickForReasoningEfforts
     })
 
-    let modelCreditCharge = resolvePrototypeCreditCharge({
-        providerSource: modelData.providerSource,
-        modelMode: model.modelType,
-        enabledTools: body.enabledTools,
-        reasoningEffort: effectiveReasoningEffort,
-        prototypeCreditTier: modelData.prototypeCreditTier,
-        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
-    })
+    let modelCreditCharge = resolveModelCreditCharge(model.modelType, modelData.providerSource)
 
     const personaSnapshot = !body.id
         ? await resolvePersonaSnapshotForRequest(ctx, user.id, body.personaSelection)
@@ -1040,14 +1033,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 modelName = modelData.modelName
                 displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
                 maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
-                modelCreditCharge = resolvePrototypeCreditCharge({
-                    providerSource: modelData.providerSource,
-                    modelMode: model.modelType,
-                    enabledTools: body.enabledTools,
-                    reasoningEffort: effectiveReasoningEffort,
-                    prototypeCreditTier: modelData.prototypeCreditTier,
-                    prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
-                })
+                modelCreditCharge = resolveModelCreditCharge(
+                    model.modelType,
+                    modelData.providerSource
+                )
                 contextRouting = {
                     mode: "byok_fallback",
                     reason: contextViolationReason ?? "thread",
@@ -1180,8 +1169,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
         modelId: body.model,
         providerSource: modelData.providerSource,
         feature: modelCreditCharge.feature,
-        bucket: modelCreditCharge.bucket,
-        units: modelCreditCharge.units,
         counted: modelCreditCharge.counted,
         ...(getUsageReservationMicrousd() !== undefined
             ? {
@@ -1222,14 +1209,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     modelName = modelData.modelName
                     displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
                     maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
-                    modelCreditCharge = resolvePrototypeCreditCharge({
-                        providerSource: modelData.providerSource,
-                        modelMode: model.modelType,
-                        enabledTools: body.enabledTools,
-                        reasoningEffort: effectiveReasoningEffort,
-                        prototypeCreditTier: modelData.prototypeCreditTier,
-                        prototypeCreditTierWithReasoning: modelData.prototypeCreditTierWithReasoning
-                    })
+                    modelCreditCharge = resolveModelCreditCharge(
+                        model.modelType,
+                        modelData.providerSource
+                    )
                     creditReservation = await ctx.runMutation(
                         internal.credits.reserveCreditForMessage,
                         {
@@ -1240,8 +1223,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             modelId: body.model,
                             providerSource: modelData.providerSource,
                             feature: modelCreditCharge.feature,
-                            bucket: modelCreditCharge.bucket,
-                            units: modelCreditCharge.units,
                             counted: modelCreditCharge.counted,
                             ...(getUsageReservationMicrousd() !== undefined
                                 ? {
@@ -1271,17 +1252,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     }
                 ).toResponse()
             }
-            return new ChatError(
-                "rate_limit:chat",
-                "Monthly plan limit reached for the selected request.",
-                {
-                    kind: "credits_exhausted",
-                    bucket: creditReservation.bucket,
-                    used: creditReservation.used,
-                    limit: creditReservation.limit,
-                    remaining: creditReservation.remaining
-                }
-            ).toResponse()
+            console.error("[cvx][chat] Unexpected credit reservation refusal", creditReservation)
+            throw new Error("Unexpected credit reservation refusal")
         }
     }
 
@@ -1644,9 +1616,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const paidTools = hasPaidCallableTools
                 ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
                       consumeToolCall: async ({ toolName, toolCallId }) => {
-                          const toolCreditCharge = resolvePrototypeToolCreditCharge({
-                              fundingSource: getToolFundingSource(toolName)
-                          })
+                          const toolIsDeploymentFunded =
+                              getToolFundingSource(toolName) === "deployment"
 
                           return await ctx.runMutation(internal.credits.consumeReservedToolCall, {
                               userId: user.id,
@@ -1657,12 +1628,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                               toolCallId,
                               toolName,
                               modelId: body.model,
-                              providerSource: toolCreditCharge.providerSource,
-                              feature: toolCreditCharge.feature,
-                              bucket: toolCreditCharge.bucket,
-                              units: toolCreditCharge.units,
-                              counted: toolCreditCharge.counted,
-                              ...(toolCreditCharge.counted
+                              providerSource: toolIsDeploymentFunded ? "internal" : "byok",
+                              feature: "tool",
+                              counted: toolIsDeploymentFunded,
+                              ...(toolIsDeploymentFunded
                                   ? { chargedMicrousd: getConfiguredToolUsageMicrousd(toolName) }
                                   : {})
                           })
@@ -1824,9 +1793,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
                     estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                     creditProviderSource: modelData.providerSource,
-                    creditBucket: modelCreditCharge.bucket,
+                    creditBucket: "none",
                     creditFeature: modelCreditCharge.feature,
-                    creditUnits: modelCreditCharge.units,
+                    creditUnits: 0,
                     creditCounted: modelCreditCharge.counted,
                     serverDurationMs: Date.now() - streamStartTime,
                     timeToFirstVisibleMs: getTimeToFirstVisibleMs(),

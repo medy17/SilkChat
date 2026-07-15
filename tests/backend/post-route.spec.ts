@@ -580,9 +580,7 @@ describe("chatPOST", () => {
                     }
                 }
             },
-            availableToPickFor: "pro",
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            availableToPickFor: "pro"
         })
 
         const ctx = createCtx()
@@ -638,7 +636,7 @@ describe("chatPOST", () => {
         )
     })
 
-    it("returns rate_limit when the monthly bucket is exhausted", async () => {
+    it("returns rate_limit when monthly included usage is exhausted", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
@@ -651,9 +649,7 @@ describe("chatPOST", () => {
                         abilities: []
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         const ctx = createCtx()
@@ -662,7 +658,11 @@ describe("chatPOST", () => {
                 case "reserveCreditForMessage":
                     return {
                         allowed: false,
-                        reason: "quota"
+                        reason: "usage",
+                        window: "monthly",
+                        usedUsd: 10,
+                        limitUsd: 10,
+                        remainingUsd: 0
                     }
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
@@ -701,7 +701,7 @@ describe("chatPOST", () => {
         expect(response.status).toBe(429)
         await expect(response.json()).resolves.toMatchObject({
             code: "rate_limit:chat",
-            cause: "Monthly plan limit reached for the selected request."
+            cause: "Included usage limit reached for the selected request."
         })
         expect(ctx.runMutation).not.toHaveBeenCalledWith(
             "createThreadOrInsertMessages",
@@ -729,9 +729,7 @@ describe("chatPOST", () => {
                             inputUsdPer1MTokens: 200
                         }
                     }
-                },
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: undefined
+                }
             })
             .mockResolvedValueOnce(new ChatError("bad_model:api"))
         dbMessagesToCoreMock.mockResolvedValueOnce([
@@ -883,9 +881,7 @@ describe("chatPOST", () => {
                 runtimeProvider: "openrouter",
                 providerSource: "internal",
                 abilities: [],
-                registry,
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: undefined
+                registry
             })
             .mockResolvedValueOnce({
                 model: { modelType: "text" },
@@ -894,9 +890,7 @@ describe("chatPOST", () => {
                 runtimeProvider: "openrouter",
                 providerSource: "openrouter",
                 abilities: [],
-                registry,
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: undefined
+                registry
             })
         dbMessagesToCoreMock
             .mockResolvedValueOnce([
@@ -944,153 +938,11 @@ describe("chatPOST", () => {
             "reserveCreditForMessage",
             expect.objectContaining({
                 providerSource: "openrouter",
-                counted: false,
-                units: 0
+                counted: false
             })
         )
         expect(responseText).toContain('"mode":"byok_fallback"')
         expect(responseText).toContain('"reason":"message"')
-    })
-
-    it("falls back to OpenRouter BYOK when hosted model credits are exhausted", async () => {
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string, args: Record<string, unknown>) => {
-            switch (name) {
-                case "reserveCreditForMessage":
-                    return args.providerSource === "internal"
-                        ? {
-                              allowed: false,
-                              reason: "quota",
-                              bucket: "basic",
-                              used: 100,
-                              limit: 100,
-                              remaining: 0
-                          }
-                        : {
-                              allowed: true,
-                              bypassed: false,
-                              existing: false,
-                              committed: false
-                          }
-                case "createThreadOrInsertMessages":
-                    return {
-                        threadId: "thread-1",
-                        assistantMessageId: "assistant-1",
-                        assistantMessageConvexId: 42
-                    }
-                case "appendStreamId":
-                    return "stream-1"
-                case "updateThreadStreamingState":
-                case "patchMessage":
-                case "releaseReservedCreditForMessage":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
-            }
-        })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return []
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
-
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        const registry = {
-            models: {
-                "shared-text": {
-                    abilities: [],
-                    contextLength: 100_000,
-                    maxTokens: 10_000,
-                    inputUsdPer1MTokens: 1
-                }
-            }
-        }
-        getModelMock
-            .mockResolvedValueOnce({
-                model: { modelType: "text" },
-                modelId: "shared-text",
-                modelName: "Shared Text",
-                runtimeProvider: "openai",
-                providerSource: "internal",
-                abilities: [],
-                registry,
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: undefined
-            })
-            .mockResolvedValueOnce({
-                model: { modelType: "text" },
-                modelId: "shared-text",
-                modelName: "Shared Text",
-                runtimeProvider: "openrouter",
-                providerSource: "openrouter",
-                abilities: [],
-                registry,
-                prototypeCreditTier: "basic",
-                prototypeCreditTierWithReasoning: undefined
-            })
-        dbMessagesToCoreMock
-            .mockResolvedValueOnce([
-                {
-                    role: "user",
-                    content: "hello"
-                }
-            ])
-            .mockResolvedValueOnce([
-                {
-                    role: "user",
-                    content: "hello"
-                }
-            ])
-        manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
-        streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
-            finishReason: Promise.resolve("stop")
-        })
-
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: [],
-                reasoningEffort: "off"
-            })
-        )
-
-        expect(response.status).toBe(200)
-        await response.text()
-        expect(getModelMock).toHaveBeenLastCalledWith(
-            expect.anything(),
-            "shared-text",
-            expect.objectContaining({ openRouterByokOnly: true })
-        )
-        expect(ctx.runMutation).toHaveBeenCalledWith(
-            "reserveCreditForMessage",
-            expect.objectContaining({
-                providerSource: "openrouter",
-                counted: false,
-                units: 0
-            })
-        )
-        expect(streamTextMock).toHaveBeenCalled()
     })
 
     it("allows BYOK requests to bypass hosted context limits", async () => {
@@ -1157,9 +1009,7 @@ describe("chatPOST", () => {
                         inputUsdPer1MTokens: 10
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
@@ -1204,9 +1054,7 @@ describe("chatPOST", () => {
                         inputUsdPer1MTokens: 10
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         const ctx = createCtx()
@@ -1277,9 +1125,7 @@ describe("chatPOST", () => {
                         abilities: ["function_calling"]
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         const ctx = createCtx()
@@ -1360,9 +1206,7 @@ describe("chatPOST", () => {
                         abilities: ["function_calling"]
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         const ctx = createCtx()
@@ -1459,9 +1303,7 @@ describe("chatPOST", () => {
                         abilities: []
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         ctx.runQuery.mockImplementation(async (name: string) => {
             switch (name) {
@@ -1577,9 +1419,7 @@ describe("chatPOST", () => {
                         maxTokens: 2048
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: "pro"
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(
             (
@@ -1744,8 +1584,8 @@ describe("chatPOST", () => {
                 estimatedCompletionCostUsd: 0.000795,
                 creditProviderSource: "internal",
                 creditFeature: "chat",
-                creditBucket: "pro",
-                creditUnits: 1,
+                creditBucket: "none",
+                creditUnits: 0,
                 creditCounted: true,
                 timeToFirstVisibleMs: expect.any(Number)
             })
@@ -1763,8 +1603,6 @@ describe("chatPOST", () => {
                 modelId: "shared-text",
                 providerSource: "internal",
                 feature: "chat",
-                bucket: "pro",
-                units: 1,
                 counted: true,
                 reservedMicrousd: expect.any(Number),
                 pricingSource: "openrouter_estimate",
@@ -1863,9 +1701,7 @@ describe("chatPOST", () => {
                         maxTokens: 2048
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(
             (
@@ -2031,9 +1867,7 @@ describe("chatPOST", () => {
                         maxTokens: 2048
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(
             (
@@ -2158,9 +1992,7 @@ describe("chatPOST", () => {
                         abilities: []
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         streamTextMock.mockReturnValueOnce({
@@ -2284,9 +2116,7 @@ describe("chatPOST", () => {
                         abilities: []
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
 
         streamTextMock.mockImplementationOnce(() => ({
@@ -2399,9 +2229,7 @@ describe("chatPOST", () => {
                         abilities: []
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         getResumableStreamContextMock.mockReturnValueOnce({
             createNewResumableStream
@@ -2505,9 +2333,7 @@ describe("chatPOST", () => {
                         supportsDisablingReasoning: true
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
@@ -2608,9 +2434,7 @@ describe("chatPOST", () => {
                         supportsDisablingReasoning: true
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
@@ -2722,9 +2546,7 @@ describe("chatPOST", () => {
                         reasoningEfforts: ["minimal", "low", "medium", "high"]
                     }
                 }
-            },
-            prototypeCreditTier: "pro",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         const pdfMappedMessages = [
             {
@@ -2868,9 +2690,7 @@ describe("chatPOST", () => {
                         supportsDisablingReasoning: true
                     }
                 }
-            },
-            prototypeCreditTier: "basic",
-            prototypeCreditTierWithReasoning: undefined
+            }
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({

@@ -26,8 +26,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        defaultImageQuality: "low",
-        prototypeCreditTier: "pro"
+        defaultImageQuality: "low"
     },
     {
         id: "gpt-5-image-mini",
@@ -41,7 +40,6 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
-        prototypeCreditTier: "pro",
         legacy: true,
         replacementId: "gpt-5.4-image-2"
     },
@@ -57,7 +55,6 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
-        prototypeCreditTier: "pro",
         legacy: true,
         replacementId: "gpt-5.4-image-2"
     }

@@ -160,23 +160,19 @@ authenticated user, and `400` on invalid payloads.
 - `GET` returns the current user's dev credit state via `api.credits.getMyDevCreditState`.
 - `POST` validates the body and applies it via `api.credits.setMyDevCreditState`.
 
-`src/routes/api/dev/credit-plan.ts` remains as a compatibility wrapper for the older
-plan-only concept.
-
 ### Backend
 
 `convex/credits.ts` implements `getMyDevCreditState` / `setMyDevCreditState`, both gated by
 `DEV_CREDIT_LAB_ENABLED === "1"` and scoped to the current user only. Settable fields:
 
 - `plan: "free" | "pro"`
-- `monthlyBasicCredits`, `monthlyProCredits`
 - `isStaff` and `bypassLimits` (independent — `isStaff` is access metadata; `bypassLimits`
   is the actual enforcement bypass; turning on `isStaff` must not enable `bypassLimits`)
 - `usageScenario` — a deterministic preset that resets current-period test state and inserts
   dev-labeled synthetic events (`dev-credit-lab:` message-key prefix). Presets:
-  `normal_empty`, `basic_remaining_zero`, `basic_near_limit`, `pro_remaining_zero`,
-  `pro_near_limit`, `byok_heavy`, `internal_heavy`, `staff_with_limits`,
-  `staff_with_bypass_limits`
+  `normal_empty`, `usage_5h_reset`, `usage_5h_near_limit`, `usage_5h_exhausted`,
+  `usage_5h_expired`, `usage_monthly_near_limit`, `usage_monthly_exhausted`,
+  `staff_with_limits`, `staff_with_bypass_limits`
 - `periodAnchorPreset` — `default`, `ending_today`, `ending_tomorrow` (adjusts
   `creditPeriodAnchorAt`; an active pro renewal may control the period instead)
 
@@ -208,7 +204,7 @@ override map keyed by model id instead of the single global pair.
 - `src/lib/dev-theme-audit.ts`: pure theme-token violation detection and DOM audit
 - `src/components/dev/dev-utility-dock.tsx`: the floating dock UI + corner-snap drag
 - `src/components/dev/dev-runtime.tsx`: global dev side-effects
-- `src/routes/api/dev/credit-state.ts`, `src/routes/api/dev/credit-plan.ts`: dev API routes
+- `src/routes/api/dev/credit-state.ts`: dev usage-state API route
 - `convex/credits.ts`, `convex/settings.ts`, `convex/chat_http/post.route.ts`,
   `convex/lib/context_limits.ts`: backend Credit State Lab and context-override honoring
 - `src/styles/globals.css`: `data-dev-no-animations` and `.dev-theme-violation` styles
@@ -238,9 +234,9 @@ Tests live under `tests/lib/dev-*.spec.ts` and `tests/backend/*` and follow
 - Override cap-resolution helpers.
 - Repro bundle serialization and theme-audit detection.
 - Credit-state route: `404` in production, `401` unauthenticated, rejects invalid payloads,
-  applies plan/limits/`isStaff`/`bypassLimits`.
-- Credit lab scenarios produce the expected remaining basic/pro credits, and `bypassLimits`
-  bypasses enforcement while `isStaff` alone does not.
+  applies plan/metered-usage scenarios/`isStaff`/`bypassLimits`.
+- Credit lab scenarios produce the expected five-hour and monthly metered usage, and
+  `bypassLimits` bypasses enforcement while `isStaff` alone does not.
 
 ## Gating Rules (do not break)
 

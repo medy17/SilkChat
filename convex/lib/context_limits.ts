@@ -205,7 +205,6 @@ export type ModelSuggestionCandidate = ContextLimitPolicyModel & {
     developer?: string
     releaseOrder?: number
     legacy?: boolean
-    prototypeCreditTier?: "basic" | "pro"
 }
 
 /**
@@ -217,8 +216,7 @@ export type ModelSuggestionCandidate = ContextLimitPolicyModel & {
  * price-derived it doubles as the "cheap enough" gate.
  *
  * Ordering is "cheapest of latest": the user's provider first, then cheapest
- * input price (coarse credit tier as a fallback when price is unknown), then
- * newest generation as a tiebreak between same-priced siblings.
+ * input price, then newest generation as a tiebreak between same-priced siblings.
  */
 export const computeSuggestedModels = ({
     currentModelId,
@@ -244,9 +242,8 @@ export const computeSuggestedModels = ({
     const costKey = (candidate: ModelSuggestionCandidate) => {
         const price = candidate.inputUsdPer1MTokens
         if (typeof price === "number" && Number.isFinite(price) && price >= 0) return price
-        // Unknown price: keep cheaper-tier models ahead of premium ones, but
-        // behind any model we actually have a price for.
-        return candidate.prototypeCreditTier === "pro" ? 2e9 : 1e9
+        // Keep models without known pricing behind models with explicit pricing.
+        return 1e9
     }
 
     return candidates

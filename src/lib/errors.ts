@@ -23,17 +23,9 @@ export type SuggestedModel = {
 
 /**
  * Machine-readable detail attached to a chat error so the client can render a
- * specific, actionable message (e.g. "out of Pro credits") instead of a generic
- * "something went wrong" block.
+ * specific, actionable message instead of a generic "something went wrong" block.
  */
 export type ChatErrorDetail =
-    | {
-          kind: "credits_exhausted"
-          bucket: "pro" | "basic"
-          used?: number
-          limit?: number
-          remaining?: number
-      }
     | {
           kind: "usage_limit_exceeded"
           window: "five_hour" | "monthly"

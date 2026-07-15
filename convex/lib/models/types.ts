@@ -42,7 +42,6 @@ export type ImageResolution = ("1K" | "2K" | "4K") & {}
 export type ImageQuality = ("low" | "medium" | "high" | "auto") & {}
 
 export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"
-export type PrototypeCreditTier = "basic" | "pro"
 export type PrototypeAccessPlan = "free" | "pro"
 export type ModelRequiredRole = "admin"
 type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
@@ -116,8 +115,6 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     availableToPickFor?: PrototypeAccessPlan
     availableToPickForReasoningEfforts?: EffortTierMap<PrototypeAccessPlan>
     requiredRole?: ModelRequiredRole
-    prototypeCreditTier?: PrototypeCreditTier
-    prototypeCreditTierWithReasoning?: PrototypeCreditTier
     legacy?: boolean
     sunsetOn?: string
     replacementId?: string

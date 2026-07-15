@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, renderHook, waitFor } from "@testing-library/react"
+import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { useDiskCachedQueryMock, toastErrorMock } = vi.hoisted(() => ({
@@ -23,22 +23,18 @@ import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 const freshPlan = {
     enabled: true,
     plan: "free" as const,
-    basic: {
-        limit: 100
-    },
-    pro: {
-        limit: 20
+    usageMetering: {
+        fiveHourLimitUsd: 1,
+        monthlyLimitUsd: 10
     }
 }
 
 const proPlan = {
     enabled: true,
     plan: "pro" as const,
-    basic: {
-        limit: 200
-    },
-    pro: {
-        limit: 80
+    usageMetering: {
+        fiveHourLimitUsd: 2,
+        monthlyLimitUsd: 20
     }
 }
 
@@ -46,11 +42,16 @@ const usageSummary = {
     periodKey: "2026-05",
     periodStartsAt: 1,
     periodEndsAt: 2,
-    basic: {
-        used: 12
-    },
-    pro: {
-        used: 3
+    usageMetering: {
+        fiveHour: {
+            usedUsd: 0.75,
+            remainingUsd: 1.25,
+            recoversAt: 3
+        },
+        monthly: {
+            usedUsd: 4,
+            remainingUsd: 16
+        }
     },
     requestCounts: {
         internal: 10,
@@ -65,15 +66,18 @@ const cachedSummary = {
     periodKey: "2026-05",
     periodStartsAt: 1,
     periodEndsAt: 2,
-    basic: {
-        limit: 100,
-        used: 8,
-        remaining: 92
-    },
-    pro: {
-        limit: 20,
-        used: 2,
-        remaining: 18
+    usageMetering: {
+        fiveHour: {
+            limitUsd: 1,
+            usedUsd: 0.25,
+            remainingUsd: 0.75,
+            recoversAt: 3
+        },
+        monthly: {
+            limitUsd: 10,
+            usedUsd: 2,
+            remainingUsd: 8
+        }
     },
     requestCounts: {
         internal: 7,
@@ -153,15 +157,18 @@ describe("usePrototypeCredits", () => {
                 periodKey: "2026-05",
                 periodStartsAt: 1,
                 periodEndsAt: 2,
-                basic: {
-                    limit: 200,
-                    used: 12,
-                    remaining: 188
-                },
-                pro: {
-                    limit: 80,
-                    used: 3,
-                    remaining: 77
+                usageMetering: {
+                    fiveHour: {
+                        limitUsd: 2,
+                        usedUsd: 0.75,
+                        remainingUsd: 1.25,
+                        recoversAt: 3
+                    },
+                    monthly: {
+                        limitUsd: 20,
+                        usedUsd: 4,
+                        remainingUsd: 16
+                    }
                 },
                 requestCounts: {
                     internal: 10,
@@ -174,48 +181,5 @@ describe("usePrototypeCredits", () => {
         expect(
             JSON.parse(localStorage.getItem("hosted-usage-summary:v2:user-1") || "null").value
         ).toEqual(result.current.summary)
-    })
-
-    it("posts dev plan changes and refreshes the visible summary", async () => {
-        localStorage.setItem(
-            "hosted-usage-plan:v2:user-1",
-            JSON.stringify({
-                value: freshPlan,
-                savedAt: Date.now()
-            })
-        )
-        useDiskCachedQueryMock.mockReturnValue(usageSummary)
-        vi.mocked(global.fetch)
-            .mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({})
-            } as Response)
-            .mockResolvedValueOnce({
-                ok: true,
-                json: async () => proPlan
-            } as Response)
-
-        const { result } = renderHook(() =>
-            usePrototypeCredits({
-                userId: "user-1",
-                isAuthLoading: false
-            })
-        )
-
-        await act(async () => {
-            await result.current.setCreditPlan("pro")
-        })
-
-        expect(global.fetch).toHaveBeenNthCalledWith(
-            1,
-            "/api/dev/credit-plan",
-            expect.objectContaining({
-                method: "POST"
-            })
-        )
-
-        await waitFor(() => {
-            expect(result.current.summary?.plan).toBe("pro")
-        })
     })
 })

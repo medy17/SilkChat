@@ -30,8 +30,7 @@ export const FAL_BLACK_FOREST_LABS_IMAGE_MODELS: SharedModel[] = [
         supportsReferenceImages: false,
         openrouterImageModalities: ["image"],
         customIcon: "bflabs",
-        supportedImageSizes: [...FLUX_IMAGE_SIZES],
-        prototypeCreditTier: "pro"
+        supportedImageSizes: [...FLUX_IMAGE_SIZES]
     }
 ]
 

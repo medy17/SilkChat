@@ -31,7 +31,6 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro",
         legacy: true,
         sunsetOn: "2026-10-02",
         replacementId: "gemini-3.1-flash-image-preview"
@@ -53,8 +52,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro"
+        supportedImageResolutions: ["1K", "2K", "4K"]
     },
     {
         id: "gemini-3.1-flash-lite-image",
@@ -68,8 +66,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         supportsReferenceImages: true,
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
-        supportedImageSizes: [...GEMINI_IMAGE_SIZES],
-        prototypeCreditTier: "pro"
+        supportedImageSizes: [...GEMINI_IMAGE_SIZES]
     },
     {
         id: "gemini-3-pro-image-preview",
@@ -84,8 +81,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K", "4K"],
-        prototypeCreditTier: "pro"
+        supportedImageResolutions: ["1K", "2K", "4K"]
     }
 ]
 

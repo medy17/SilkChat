@@ -1,13 +1,7 @@
 export type PrototypeCreditPlanSummary = {
     enabled: boolean
     plan: "free" | "pro"
-    basic: {
-        limit: number
-    }
-    pro: {
-        limit: number
-    }
-    usageMetering?: {
+    usageMetering: {
         fiveHourLimitUsd: number
         monthlyLimitUsd: number
     }
@@ -17,13 +11,7 @@ export type PrototypeCreditUsageSummary = {
     periodKey: string
     periodStartsAt: number
     periodEndsAt: number
-    basic: {
-        used: number
-    }
-    pro: {
-        used: number
-    }
-    usageMetering?: {
+    usageMetering: {
         fiveHour: {
             usedUsd: number
             remainingUsd: number
@@ -47,17 +35,7 @@ export type PrototypeCreditSummary = {
     periodKey: string
     periodStartsAt: number
     periodEndsAt: number
-    basic: {
-        limit: number
-        used: number
-        remaining: number
-    }
-    pro: {
-        limit: number
-        used: number
-        remaining: number
-    }
-    usageMetering?: {
+    usageMetering: {
         fiveHour: {
             limitUsd: number
             usedUsd: number
@@ -81,8 +59,6 @@ export type PrototypeCreditDevState = {
     account: {
         enabled: boolean
         plan: "free" | "pro"
-        monthlyBasicCredits: number
-        monthlyProCredits: number
         creditPeriodAnchorAt: number | null
     }
     access: {
@@ -99,18 +75,10 @@ export type PrototypeCreditDevState = {
 
 export type PrototypeCreditDevStatePayload = {
     plan?: "free" | "pro"
-    monthlyBasicCredits?: number
-    monthlyProCredits?: number
     isStaff?: boolean
     bypassLimits?: boolean
     usageScenario?:
         | "normal_empty"
-        | "basic_remaining_zero"
-        | "basic_near_limit"
-        | "pro_remaining_zero"
-        | "pro_near_limit"
-        | "byok_heavy"
-        | "internal_heavy"
         | "staff_with_limits"
         | "staff_with_bypass_limits"
         | "usage_5h_reset"
@@ -137,30 +105,16 @@ export function buildPrototypeCreditSummary(
         periodKey: usageSummary.periodKey,
         periodStartsAt: usageSummary.periodStartsAt,
         periodEndsAt: usageSummary.periodEndsAt,
-        basic: {
-            limit: planSummary.basic.limit,
-            used: usageSummary.basic.used,
-            remaining: Math.max(0, planSummary.basic.limit - usageSummary.basic.used)
+        usageMetering: {
+            fiveHour: {
+                limitUsd: planSummary.usageMetering.fiveHourLimitUsd,
+                ...usageSummary.usageMetering.fiveHour
+            },
+            monthly: {
+                limitUsd: planSummary.usageMetering.monthlyLimitUsd,
+                ...usageSummary.usageMetering.monthly
+            }
         },
-        pro: {
-            limit: planSummary.pro.limit,
-            used: usageSummary.pro.used,
-            remaining: Math.max(0, planSummary.pro.limit - usageSummary.pro.used)
-        },
-        ...(planSummary.usageMetering && usageSummary.usageMetering
-            ? {
-                  usageMetering: {
-                      fiveHour: {
-                          limitUsd: planSummary.usageMetering.fiveHourLimitUsd,
-                          ...usageSummary.usageMetering.fiveHour
-                      },
-                      monthly: {
-                          limitUsd: planSummary.usageMetering.monthlyLimitUsd,
-                          ...usageSummary.usageMetering.monthly
-                      }
-                  }
-              }
-            : {}),
         requestCounts: usageSummary.requestCounts
     }
 }

@@ -264,10 +264,9 @@ describe("models-providers-shared OpenRouter visibility", () => {
         expect(getReasoningEffortForPlan(model, "off", "pro")).toBe("minimal")
     })
 
-    it("resolves picker access from availability metadata instead of credit buckets", () => {
-        const proGatedBasicModel = createModel({
-            availableToPickFor: "pro",
-            prototypeCreditTier: "basic"
+    it("resolves picker access from availability metadata", () => {
+        const proGatedModel = createModel({
+            availableToPickFor: "pro"
         })
         const freeWithoutReasoningModel = createModel({
             availableToPickFor: "free",
@@ -275,19 +274,17 @@ describe("models-providers-shared OpenRouter visibility", () => {
                 low: "pro",
                 medium: "pro",
                 high: "pro"
-            },
-            prototypeCreditTier: "basic"
+            }
         })
         const freeUpToLowReasoningModel = createModel({
             availableToPickFor: "free",
             availableToPickForReasoningEfforts: {
                 medium: "pro",
                 high: "pro"
-            },
-            prototypeCreditTier: "basic"
+            }
         })
 
-        expect(getRequiredPlanToPickModel(proGatedBasicModel, "off")).toBe("pro")
+        expect(getRequiredPlanToPickModel(proGatedModel, "off")).toBe("pro")
         expect(getRequiredPlanToPickModel(freeWithoutReasoningModel, "off")).toBe("free")
         expect(getRequiredPlanToPickModel(freeWithoutReasoningModel, "low")).toBe("pro")
         expect(getRequiredPlanToPickModel(freeUpToLowReasoningModel, "low")).toBe("free")

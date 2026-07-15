@@ -90,7 +90,6 @@ export function AccountSettingsContent() {
         summary: prototypeCreditSummary,
         isLoading: isCreditsLoading,
         isRefreshing: isRefreshingCredits,
-        isUpdatingCreditPlan,
         devCreditState,
         isUpdatingDevCreditState,
         refreshCredits,
@@ -375,12 +374,10 @@ export function AccountSettingsContent() {
                     isLoading={isCreditsLoading}
                     isRefreshing={isRefreshingCredits}
                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                    isUpdatingCreditPlan={isUpdatingCreditPlan}
                     devCreditState={devCreditState}
                     isUpdatingDevCreditState={isUpdatingDevCreditState}
                     onSetDevCreditState={setDevCreditState}
                     onRefresh={refreshCredits}
-                    upgradeUrl="/settings/billing"
                 />
             </div>
 
