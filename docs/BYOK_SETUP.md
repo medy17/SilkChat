@@ -23,7 +23,7 @@ Production chat BYOK is OpenRouter-only:
 
 - `openrouter`
 
-Direct OpenAI, Anthropic, Google, xAI, and Groq provider identities may still exist in settings or registry metadata for compatibility. Built-in production chat runtime uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
+Direct provider identities in settings and registry metadata support provider grouping and stored preferences. Built-in production chat uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
 
 ## Internal Provider Environment Variables
 
@@ -39,7 +39,7 @@ GROQ_API_KEY=
 FAL_KEY=
 ```
 
-`OPENROUTER_API_KEY` is required for hosted built-in chat models. Legacy direct inference keys such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Google model keys, `XAI_API_KEY`, and `AI_GATEWAY_API_KEY` are not used by the built-in chat runtime. Image generation uses fal through the library generator. Speech-to-text may use Groq depending on voice-input configuration.
+`OPENROUTER_API_KEY` is required for hosted built-in chat models. Built-in chat does not read `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Google model keys, `XAI_API_KEY`, or `AI_GATEWAY_API_KEY`. Image generation uses fal. Speech-to-text uses Google or Groq according to configuration.
 
 ## How Provider Resolution Works
 
@@ -65,7 +65,7 @@ That means OpenRouter can be configured in Convex and still hidden in the UI.
 
 - Never commit provider keys.
 - Never store user BYOK secrets in plain text.
-- Rotate `ENCRYPTION_KEY` carefully. If you change it, previously encrypted stored keys will become unreadable.
+- Rotate `ENCRYPTION_KEY` only with a key-migration strategy. Stored keys require the encryption key that produced their ciphertext.
 
 ## Related Docs
 

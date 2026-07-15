@@ -1,6 +1,6 @@
 # Convex Runtime Notes
 
-This folder is the application backend, not a stock Convex starter anymore.
+This folder contains the application backend.
 
 ## What Lives Here
 
@@ -23,25 +23,26 @@ This folder is the application backend, not a stock Convex starter anymore.
 
 ## Commands
 
-Run Convex locally:
+Run the repository's normal cloud-dev loop from the root:
 
 ```bash
-bunx convex dev
+bun run dev
 ```
 
-Deploy Convex functions:
+Push changed Convex code to cloud dev:
 
 ```bash
-bunx convex deploy
+bun run cloud:dev:push
 ```
 
-Set a Convex environment variable:
+For staging and production, use the synchronized deploy commands from the matching clean branch:
 
 ```bash
-bunx convex env set OPENROUTER_API_KEY your-key
+bun run staging:deploy
+bun run prod:deploy
 ```
 
-List Convex environment variables:
+Direct `bunx convex` commands are appropriate for targeted inspection or setup, for example:
 
 ```bash
 bunx convex env list
@@ -84,10 +85,10 @@ Hosted chat models are controlled in two places:
 
 That means OpenRouter can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
 
-`OPENROUTER_API_KEY` is required for hosted built-in chat models. Legacy direct model keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used by the built-in chat runtime. Image generation uses the fal-backed library generator, and speech-to-text may use Groq or Google depending on voice-input configuration.
+`OPENROUTER_API_KEY` is required for hosted built-in chat models. Built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys. Image generation uses fal, and speech-to-text uses Groq or Google according to voice-input configuration.
 
 ## Where To Read More
 
-- [Setup Guide](../SETUP_GUIDE.md)
-- [Model & Provider Guide](../MODEL_PROVIDER_GUIDE.md)
-- [BYOK Setup](../BYOK_SETUP.md)
+- [Setup Guide](../docs/SETUP_GUIDE.md)
+- [Model & Provider Guide](../docs/MODEL_PROVIDER_GUIDE.md)
+- [BYOK Setup](../docs/BYOK_SETUP.md)

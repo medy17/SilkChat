@@ -29,7 +29,7 @@ If a test mainly proves that one mocked function called another mocked function 
 - Large “happy path” orchestration tests that assert every payload field.
 - Vendor-specific request-body snapshots unless that exact payload is the contract.
 - UI tests that only verify heavily mocked assembly details.
-- One-off migration regression tests that no longer protect active behavior.
+- Regression tests for inputs outside the supported product contract.
 - Brittle call-order assertions when set membership or behavior is enough.
 
 ## How to recognise a bad test
@@ -65,11 +65,11 @@ Delete without replacement only when the test was mostly mock choreography and t
 - Avoid tests that require mocking half the app just to verify a label or icon.
 - If the interesting part is grouping, filtering, formatting, or selection logic, move that logic into a helper and test the helper instead.
 
-## Migrations And Compatibility
+## Compatibility
 
-- Keep migration tests only while the migrated state is still a real supported input.
-- Remove tests for dead aliases, old themes, old model IDs, and one-time incident workarounds once they stop carrying product risk.
-- If compatibility is still required, cover the compatibility rule once, not through many vendor- or era-specific cases.
+- Test every supported compatibility input through its user-visible contract.
+- Remove tests for inputs outside the supported contract.
+- Cover each compatibility rule once rather than duplicating it across provider-specific fixtures.
 
 ## Good Signs
 
@@ -83,7 +83,7 @@ Delete without replacement only when the test was mostly mock choreography and t
 - The file spends more effort mocking dependencies than exercising logic.
 - Most assertions are `toHaveBeenCalledWith(...)` on mocked internals.
 - The test breaks whenever implementation details change but user behavior does not.
-- The test is protecting an old migration path no one should hit anymore.
+- The test protects an input outside the supported product contract.
 
 ## Practical Rule
 

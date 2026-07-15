@@ -6,18 +6,18 @@ This guide documents how built-in models are wired in this repo and what has to 
 
 ### Built-in model registry
 
-Built-in models live in:
+The model registry is assembled in:
 
 ```text
 convex/lib/models.ts
 ```
 
-Each entry defines:
+Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descriptors live in `convex/lib/models/fal/*.ts`. Each entry defines:
 
 - `id`: the app-facing model ID
 - `name` and optional `shortName`
 - `adapters`: provider identity and runtime targets like `i3-openai:gpt-4o`, `openai:gpt-4o`, `openrouter:openai/gpt-4o`, or `fal:fal-ai/...`
-- `legacy`: marks an older model that remains callable but should be hidden behind legacy UI affordances
+- `legacy`: keeps a callable model behind the legacy-model UI affordance
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
 - `abilities`: feature flags used by the runtime and UI
@@ -27,11 +27,11 @@ Each entry defines:
 
 ### Adapter prefixes
 
-- `i3-openai:*`, `i3-anthropic:*`, `i3-google:*`, etc.: legacy internal provider identity aliases. Built-in chat no longer executes these providers directly; when an internal hosted model is selected, it resolves through the matching `openrouter:*` adapter.
-- `openai:*`, `anthropic:*`, `google:*`, `xai:*`, etc.: user-provider identities used by settings and legacy/direct-provider affordances. Built-in chat does not use these directly unless legacy direct inference is explicitly re-enabled.
+- `i3-openai:*`, `i3-anthropic:*`, `i3-google:*`, etc.: internal provider identity aliases used for metadata and grouping. Hosted execution resolves through the matching `openrouter:*` adapter.
+- `openai:*`, `anthropic:*`, `google:*`, `xai:*`, etc.: user-provider identities used by settings and provider affordances. Built-in chat execution uses OpenRouter.
 - `openrouter:*`: built-in chat/text runtime routing. Production chat uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
 - `fal:*`: library image generation through `convex/lib/models/fal` and the fal client.
-- `groq:*`: Groq identity; currently used for speech-to-text and legacy/direct-provider metadata.
+- `groq:*`: Groq identity used by speech-to-text and provider metadata.
 
 Built-in chat/text execution is routed through `openrouter:*` adapters. Keep provider-specific adapter aliases only when they are needed for provider identity, grouping, settings, or stored preferences.
 
@@ -51,7 +51,7 @@ These flags are not decorative. They change runtime behavior.
 
 ### 1. Add the model entry
 
-Edit `convex/lib/models.ts` and define:
+Edit the matching provider module under `convex/lib/models/` and define:
 
 - the model ID
 - adapters
@@ -88,7 +88,7 @@ For built-in chat/text providers, preserve provider identity in the registry and
 2. `src/lib/models-providers-shared.ts`
 3. provider icons in the UI
 
-Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` if the provider changes the supported runtime transports. Image generation is handled separately through fal-backed library models, not through chat.
+Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` if the provider changes the supported chat runtime transports. Image generation uses the shared fal job system from the library and chat tool.
 
 ## Provider-Specific Notes
 
@@ -97,15 +97,15 @@ Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` 
 - hosted chat/text models use `OPENROUTER_API_KEY`
 - user BYOK chat/text models use the user's OpenRouter key
 - OpenRouter attribution headers and app metadata are applied in `convex/lib/provider_factory.ts`
-- legacy direct inference keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used for built-in chat runtime
+- built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys
 
 ### Custom OpenAI-compatible providers
 
-User-defined custom providers can still be resolved from stored provider settings. They are treated as OpenAI-compatible chat endpoints and are not part of the built-in provider catalog.
+User-defined custom providers resolve from stored provider settings. They are OpenAI-compatible chat endpoints outside the built-in provider catalog.
 
 ### fal image models
 
-Image generation lives outside chat. Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` adapters consumed by the fal client.
+Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` adapters consumed by the library generator and chat image tool.
 
 ### Groq speech-to-text
 
@@ -124,33 +124,34 @@ Image models must set:
 - `mode: "image"`
 - `supportedImageSizes`
 
-Runtime image generation flows through the library image generator and fal client, with model definitions under:
+Runtime image generation flows through the shared fal queue/job system from both the library and chat image tool, with model definitions under:
 
 ```text
 convex/lib/models/fal
 ```
 
-Chat rejects image models. If a fal endpoint needs special input mapping, patch the fal-backed image generation path rather than the chat route.
+The chat model selector rejects image models; chat can invoke image generation through its tool. If a fal endpoint needs special input mapping, update its fal descriptor and shared image-generation path.
 
-## Current Recent Additions
+## Model Examples
 
-Recent built-in additions that already follow this pattern:
+Built-in models following this pattern include:
 
 - OpenAI:
   - `gpt-5.4`
   - `gpt-5.4-mini`
   - `gpt-5.4-nano`
-  - `gpt-image-1.5-2025-12-16`
+  - `gpt-5.4-image-2`
+  - `gpt-5-image`
 - Google:
   - `gemini-3-flash-preview`
   - `gemini-3.1-pro-preview`
   - `gemini-3.1-flash-lite`
   - `gemini-3.1-flash-image-preview`
+  - `gemini-3.1-flash-lite-image`
   - `gemini-3-pro-image-preview`
-  - `imagen-4.0-generate-001`
-  - `imagen-4.0-ultra-generate-001`
-  - `imagen-4.0-fast-generate-001`
 - xAI:
+  - `grok-4.5`
+  - `grok-4.3`
   - `grok-4-1-fast`
   - `grok-4.20-0309`
 
@@ -163,8 +164,8 @@ Before pushing model/provider changes:
 3. test one real request locally
 4. test reasoning if the model supports `effort_control`
 5. test library image generation if `mode: "image"`
-6. deploy Convex for backend/runtime changes
-7. deploy Vercel only if the browser app or app env changed
+6. run `bun run check-types` and `bun run test`
+7. use the synchronized staging or production deploy command from the matching branch
 
 ## Common Failure Modes
 

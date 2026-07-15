@@ -2,7 +2,7 @@
 
 ## Overview
 
-The voice input functionality has been fully implemented with the following features:
+Voice input provides:
 - 🎤 Mic button appears when input is empty (replaces send button)
 - 🌊 Real-time waveform visualization during recording
 - ⏱️ Recording timer display
@@ -13,7 +13,17 @@ The voice input functionality has been fully implemented with the following feat
 
 ## Required Configuration
 
-### 1. Choose the speech-to-text provider
+### 1. Enable the browser control
+
+Set this in the app/Vercel environment:
+
+```bash
+VITE_ENABLE_VOICE_INPUT=true
+```
+
+The microphone control is hidden unless this value is exactly `true`.
+
+### 2. Choose the speech-to-text provider
 
 Voice input is controlled by the Convex env var `STT_PROVIDER`.
 
@@ -24,7 +34,7 @@ Supported values:
 
 If unset, the app defaults to `google`.
 
-### 2. Google setup
+### 3. Google setup
 
 When `STT_PROVIDER=google`, voice input uses Google Cloud Speech-to-Text V2 with `chirp_3`. It uses auto language detection by default, so you do not need to force Kiswahili or another locale.
 
@@ -40,9 +50,9 @@ You have two supported Google configuration paths:
 
    **For Development / Production:**
    ```bash
-   npx convex env set STT_PROVIDER google
-   npx convex env set GOOGLE_VERTEX_CREDENTIALS_JSON '{"type":"service_account",...}'
-   npx convex env set GOOGLE_SPEECH_LOCATION us
+   bunx convex env set STT_PROVIDER google
+   bunx convex env set GOOGLE_VERTEX_CREDENTIALS_JSON '{"type":"service_account",...}'
+   bunx convex env set GOOGLE_SPEECH_LOCATION us
    ```
 
    **Or via Convex Dashboard:**
@@ -53,7 +63,7 @@ You have two supported Google configuration paths:
 
 `GOOGLE_SPEECH_LOCATION` is intentionally separate from `GOOGLE_VERTEX_LOCATION`. Speech-to-Text V2 uses speech regions such as `us` or `eu`, while Vertex model inference often uses locations like `us-central1`.
 
-### 3. Groq setup
+### 4. Groq setup
 
 When `STT_PROVIDER=groq`, voice input uses Groq `whisper-large-v3-turbo`.
 
@@ -67,18 +77,14 @@ You can configure Groq either way:
 2. **Or configure internal Convex environment variables**
 
    ```bash
-   npx convex env set STT_PROVIDER groq
-   npx convex env set GROQ_API_KEY your-groq-api-key
+   bunx convex env set STT_PROVIDER groq
+   bunx convex env set GROQ_API_KEY your-groq-api-key
    ```
 
 ## Testing the Feature
 
-1. **Start your development server** (if not already running):
-   ```bash
-   bun run dev
-   ```
-
-2. **Test the voice input:**
+1. Open the running development app.
+2. Test the voice input:
    - Open the chat interface
    - Make sure the input field is empty
    - You should see a mic icon instead of the send button
@@ -112,7 +118,7 @@ The implementation automatically detects and uses the best supported format:
 ## File Size Limits
 
 - Maximum audio file size: **25MB**
-- Recordings are automatically chunked and optimized
+- MediaRecorder chunks are combined into one upload when recording stops
 
 ## Troubleshooting
 
@@ -151,7 +157,7 @@ The implementation automatically detects and uses the best supported format:
 
 1. **Check environment variable:**
    ```bash
-   npx convex env list
+   bunx convex env list
    ```
 
 2. **Check browser console** for any error messages
@@ -187,9 +193,9 @@ The implementation follows security best practices with proper authentication, e
 
 ## iOS Safari Compatibility
 
-The voice input implementation has been updated based on [kaliatech's web-audio-recording-tests](https://github.com/kaliatech/web-audio-recording-tests) to ensure iOS Safari compatibility:
+Voice recording uses browser MediaRecorder with an analyser graph for waveform display:
 
-- **Audio Graph Architecture**: Uses `createMediaStreamDestination()` instead of raw getUserMedia stream for MediaRecorder
-- **Proper Audio Routing**: Creates gain nodes and audio analysis before getUserMedia call
-- **Enhanced Cleanup**: Comprehensive resource cleanup to prevent iOS Safari stability issues
-- **Stream Management**: Always uses fresh audio streams for each recording session
+- **Recording source**: MediaRecorder receives the microphone stream directly
+- **Visualization**: Web Audio analyser data drives the waveform
+- **Cleanup**: recorder, stream tracks, animation frames, and audio context are released after each recording
+- **Stream management**: each recording requests a fresh microphone stream

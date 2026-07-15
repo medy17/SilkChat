@@ -4,7 +4,7 @@ This repo uses a small shared font override system for theme-level font changes.
 
 The source of truth is:
 
-- [src/lib/theme-font-config.ts](/home/ahmed/WebstormProjects/intern3-chat/src/lib/theme-font-config.ts:1)
+- [`src/lib/theme-font-config.ts`](../src/lib/theme-font-config.ts)
 
 That file owns:
 
@@ -95,13 +95,13 @@ This is intentionally separate from built-in tweakcn overrides so the global def
 
 ## Files Involved
 
-- [src/lib/theme-font-config.ts](/home/ahmed/WebstormProjects/intern3-chat/src/lib/theme-font-config.ts:1): font registry, theme exception map, generated font CSS/preload data
-- [src/lib/theme-store.ts](/home/ahmed/WebstormProjects/intern3-chat/src/lib/theme-store.ts:1): default theme preset uses the shared default font stack
-- [src/lib/theme-utils.ts](/home/ahmed/WebstormProjects/intern3-chat/src/lib/theme-utils.ts:1): applies built-in tweakcn theme font overrides
-- [src/components/theme-font-styles.tsx](/home/ahmed/WebstormProjects/intern3-chat/src/components/theme-font-styles.tsx:1): injects generated `@font-face`
-- [src/routes/__root.tsx](/home/ahmed/WebstormProjects/intern3-chat/src/routes/__root.tsx:1): preloads local font assets
-- [src/lib/theme-font-loader.ts](/home/ahmed/WebstormProjects/intern3-chat/src/lib/theme-font-loader.ts:1): skips Google Fonts loading for local theme fonts
-- [src/components/theme-script.tsx](/home/ahmed/WebstormProjects/intern3-chat/src/components/theme-script.tsx:1): same local-font skip logic during first-paint bootstrap
+- [`src/lib/theme-font-config.ts`](../src/lib/theme-font-config.ts): font registry, theme exception map, generated font CSS/preload data
+- [`src/lib/theme-store.ts`](../src/lib/theme-store.ts): default theme preset uses the shared default font stack
+- [`src/lib/theme-utils.ts`](../src/lib/theme-utils.ts): applies built-in tweakcn theme font overrides
+- [`src/components/theme-font-styles.tsx`](../src/components/theme-font-styles.tsx): injects generated `@font-face`
+- [`src/routes/__root.tsx`](../src/routes/__root.tsx): preloads local font assets
+- [`src/lib/theme-font-loader.ts`](../src/lib/theme-font-loader.ts): skips Google Fonts loading for local theme fonts
+- [`src/components/theme-script.tsx`](../src/components/theme-script.tsx): applies local-font rules during first-paint bootstrap
 
 ## Practical Rule
 

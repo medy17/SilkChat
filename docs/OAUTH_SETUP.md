@@ -1,6 +1,6 @@
 # OAuth Configuration
 
-This app currently uses Better Auth with Google OAuth plus email OTP. Better Auth now runs in Convex, while the app keeps `/api/auth/*` stable by proxying that path to the Convex site URL.
+This app uses Better Auth with Google OAuth. Better Auth runs in Convex, while the app exposes `/api/auth/*` by proxying that path to the Convex site URL.
 
 ## Required Environment Variables
 
@@ -54,7 +54,7 @@ The current auth implementation depends on these details:
 
 ### OAuth URL contains `%0D%0A` or Google says the request is malformed
 
-Your OAuth envs likely contain trailing newline characters. Re-save them cleanly in Vercel. The app trims them now, but the source values should still be corrected.
+Your OAuth variables likely contain trailing newline characters. Re-save the source values without surrounding whitespace.
 
 ### Sign-in succeeds, then the UI falls back to logged out
 

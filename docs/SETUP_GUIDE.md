@@ -1,283 +1,151 @@
-# Setup Guide
+# Setup and Deployment Guide
 
-This guide documents the current working setup for local development, production deployment, auth, and faster debugging.
+This guide describes the repository’s current cloud-dev, staging, and production workflows. Commands here assume Bun; do not substitute npm.
 
-## Architecture Overview
+## Runtime Architecture
 
-The app is split across three runtime layers:
+SilkChat has two deployed runtime layers:
 
-1. `Vercel app`
-   - serves the TanStack Start app
-   - proxies `/api/auth/*` to Convex
-2. `Convex`
-   - runs Better Auth, chat, tools, file routes, speech-to-text, search, and model execution
+1. The TanStack Start app runs on Vercel. It serves the UI and proxies `/api/auth/*` to Convex.
+2. Convex runs Better Auth, chat streaming, tools, storage coordination, billing, usage metering, speech-to-text, and image-generation jobs.
 
-Convex issues and validates Better Auth JWTs itself. The app keeps `/api/auth/*` stable by proxying that path to the Convex site URL.
+The browser connects to the Convex deployment URL. Better Auth itself runs in Convex and uses the application origin as its public base URL.
 
-## Local Development
+## Environment Files
 
-### Recommended flow
+Local scripts read ignored files under `envs/`:
 
-1. Copy `.env.example` to `envs/.env.local`.
-2. Fill in the local/provider values you need.
-3. Create `envs/.env.cloud-dev` for the portable cloud dev deployment.
-4. Run the local app against cloud dev:
+| File | Purpose |
+| --- | --- |
+| `.env.local` | local app and shared developer values |
+| `.env.cloud-dev` | cloud-dev deployment selector and public URLs |
+| `.env.staging` | staging deployment selector |
+| `.env.convex.prod` | production Convex deployment selector |
+| `.env.convex` | shared Convex runtime variables |
+| `.env.convex.cloud-dev` | cloud-dev Convex overrides |
+| `.env.convex.staging` | staging Convex overrides |
+| `.env.convex.production` | production Convex overrides |
 
-```bash
-bun run dev
-```
+Start from `.env.example`. Never commit populated environment files.
 
-This runs the same app path as `bun run cloud:dev:app`.
+## Local Development Against Cloud Dev
 
-### Local app + cloud dev Convex
-
-Use this when you want fast local UI iteration with Convex data that lives in
-the cloud instead of being tied to one machine's local deployment.
-
-Create a cloud dev deployment once:
+Create a portable development deployment once if needed:
 
 ```bash
 bunx convex deployment create dev/cloud-dev --type dev
 ```
 
-Create `envs/.env.cloud-dev`:
+Set its selector and URLs in `envs/.env.cloud-dev`, then run:
 
 ```bash
-CLOUD_DEV_CONVEX_DEPLOYMENT="dev:your-cloud-dev-deployment"
-CLOUD_DEV_CONVEX_URL="https://your-cloud-dev-deployment.convex.cloud"
-CLOUD_DEV_CONVEX_API_URL="https://your-cloud-dev-deployment.convex.site"
-CLOUD_DEV_CONVEX_SITE_URL="https://your-cloud-dev-deployment.convex.site"
-VITE_R2_PUBLIC_BASE_URL="https://your-cloud-dev-r2-public-host"
+bun run dev
 ```
 
-Run the local app against cloud dev:
+`dev` and `cloud:dev:app` are the same application path. They start Vite on port 3000 and a local Sharp-backed image optimizer. Uploads stay in the cloud-dev R2 bucket; local image transforms are cached locally to avoid Cloudflare transform usage during iteration.
 
-```bash
-bun run cloud:dev:app
-```
-
-This starts Vite and the local image optimizer. Cloud-dev uploads live in R2,
-but local browsing uses the optimizer to mock Cloudflare image transforms and
-avoid spending transform quota during normal iteration.
-
-Push Convex code to cloud dev:
+Convex cloud dev does not hot-reload from local source. Push backend or schema changes explicitly:
 
 ```bash
 bun run cloud:dev:push
 ```
 
-### Push local code to staging (`knowing-falcon-519`)
-
-Preferred (cross-platform):
+If Convex environment values changed, push the merged shared and cloud-dev files:
 
 ```bash
-bun run staging:push
+bun run env:convex:cloud-dev:push
 ```
 
-This only pushes code to the existing Convex deployment. It does not require an
-extra auth step on every run.
+## Staging Deployment
 
-`JWKS` is deployment-instance state. You only need to set or refresh it when:
-
-- you create a brand new Convex deployment instance
-- you intentionally rotate Better Auth keys for an existing deployment
-
-Manual shell-specific variants:
-
-```powershell
-$env:CONVEX_DEPLOYMENT="dev:knowing-falcon-519"
-bunx convex dev --once --codegen disable --typecheck disable
-Remove-Item Env:CONVEX_DEPLOYMENT
-```
+Normal staging deployment must be run from a clean `staging` branch:
 
 ```bash
-CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex dev --once --codegen disable --typecheck disable
+bun run staging:deploy
 ```
 
-These push Convex functions to staging but keep your local default unchanged.
+The command checks the branch and worktree, runs typecheck and the full test suite, pushes Convex staging, then pushes `origin/staging`. The staging branch push drives the matching frontend deployment.
 
-### Deploy the Vercel staging app
-
-When browser app code or Vercel runtime envs change, deploy a Preview build and
-alias the staging domains to that Preview deployment:
+Use these lower-level commands only when intentionally operating one layer:
 
 ```bash
-bun run staging:vercel:deploy
+bun run env:convex:staging:push  # sync Convex staging environment values
+bun run staging:push             # push Convex staging code only
+bun run staging:vercel:deploy    # manual Vercel Preview deployment and aliasing
 ```
 
-This keeps `silkchat-staging.xyz` and `img.silkchat-staging.xyz` on Preview envs
-instead of accidentally serving the production deployment.
-
-### Push Convex code to production (`fearless-bobcat-351`)
-
-Production deploys use `envs/.env.convex.prod`:
-
-```bash
-CONVEX_DEPLOYMENT="prod:fearless-bobcat-351"
-```
-
-Dry-run first:
-
-```bash
-bun run prod:push -- --dry-run
-```
-
-Then deploy:
-
-```bash
-bun run prod:push
-```
-
-Convex runtime environment values live in `envs/.env.convex`. Push them
-explicitly:
-
-```bash
-bun run env:convex:prod:push
-```
-
-Use target-specific Convex override files for values that differ by environment:
-
-- `envs/.env.convex.staging`
-- `envs/.env.convex.cloud-dev`
-- `envs/.env.convex.production`
-
-For staging auth and storage, `envs/.env.convex.staging` should include:
-
-```bash
-VITE_BETTER_AUTH_URL="https://silkchat-staging.xyz"
-R2_BUCKET="silkchat-staging"
-R2_ENDPOINT="https://..."
-R2_FORCE_PATH_STYLE="true"
-R2_PUBLIC_BASE_URL="https://r2.silkchat-staging.xyz"
-R2_SECRET_ACCESS_KEY="..."
-R2_ACCESS_KEY_ID="..."
-```
-
-Then push the appropriate target-specific envs with the matching `env:convex:*:push` script.
-
-### Fastest debug loop
-
-Use a local app first. Repeated Vercel builds are too slow for auth and provider debugging.
-
-Good local loops:
-
-- local app + cloud dev Convex
-- local app + the Convex staging deployment
-
-Only switch back to Vercel when you already have a likely fix.
+`envs/.env.staging` supplies `STAGING_CONVEX_DEPLOYMENT`. Target-specific auth origins and R2 buckets belong in `envs/.env.convex.staging`.
 
 ## Production Deployment
 
-### Vercel owns
+Normal production deployment must be run from a clean `main` branch:
 
-- `BETTER_AUTH_SECRET`
-- `VITE_BETTER_AUTH_URL`
-- `VITE_CONVEX_SITE_URL`
-  - local default site port is `3211`, not `3210`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+```bash
+bun run prod:deploy
+```
+
+It performs the same verification and ordering as staging: typecheck, tests, Convex production deployment, then `origin/main` push. This keeps Convex and the frontend revision aligned.
+
+Lower-level production operations are available for deliberate manual work:
+
+```bash
+bun run env:convex:prod:push      # sync Convex production environment values
+bun run prod:push -- --dry-run   # preview the Convex production deployment
+bun run prod:push                 # deploy Convex production code only
+```
+
+`envs/.env.convex.prod` selects the production deployment. Production-specific runtime overrides belong in `envs/.env.convex.production`.
+
+## Environment Ownership
+
+### App and Vercel
+
+The app runtime needs values used by Vite, server-side proxy routes, analytics, email, and checkout links. The core connection values are:
+
 - `VITE_CONVEX_URL`
 - `VITE_CONVEX_API_URL`
+- `VITE_CONVEX_SITE_URL`
 - `VITE_ENABLED_INTERNAL_PROVIDERS`
+- `VITE_ENABLE_VOICE_INPUT`
 
-### Convex owns
+### Convex
 
-- `OPENROUTER_API_KEY` for hosted built-in chat models
-- search provider secrets
-- encryption key
-- storage credentials
-- optional static `JWKS` for Better Auth / Convex JWT validation
+Convex must receive backend secrets and configuration, including:
 
-Use:
+- `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `VITE_BETTER_AUTH_URL`, `VITE_CONVEX_SITE_URL`, and optional `JWKS`
+- `OPENROUTER_API_KEY`, `ENCRYPTION_KEY`, `IDENTITY_FINGERPRINT_PEPPER`
+- fal, speech-to-text, search, R2, billing, and metering values
 
-```bash
-bunx convex env set NAME value
-bunx convex deploy
-vercel --prod
-```
+Some public `VITE_*` values appear in both layers because Convex-hosted auth also needs to know its public app and site origins. A value configured only in Vercel is not automatically available to Convex.
 
-## Auth-Specific Notes
+## Auth and Static JWKS
 
-### Better Auth details that matter in this repo
+The public auth path remains `/api/auth/*` on the app origin. `src/lib/auth-server.ts` forwards requests to Convex, where `convex/auth.ts` runs Better Auth.
 
-- the browser still talks to `/api/auth/*` on the app origin
-- the app route proxies those requests to the Convex site URL
-- Convex validates JWTs against its own issuer and JWKS:
-  - issuer: `CONVEX_SITE_URL`
-  - JWKS: `${CONVEX_SITE_URL}/api/auth/convex/jwks`
-  - application ID: `convex`
-- this repo can optionally use static JWKS from the Convex env var `JWKS`
-  instead of the live `/api/auth/convex/jwks` endpoint
-
-### Static JWKS workflow
-
-For a brand new Convex deployment instance, or after an intentional auth key
-rotation, run:
+For a new Convex deployment, or after intentionally rotating auth keys, generate and store static JWKS for that deployment:
 
 ```bash
 bunx convex run auth:rotateKeys | bunx convex env set JWKS
 ```
 
-Examples:
+`JWKS` is deployment state, not something to refresh on every code push. Ensure the command targets the intended deployment before running it.
 
-```bash
-CONVEX_DEPLOYMENT=dev:knowing-falcon-519 bunx convex run auth:rotateKeys | bunx convex env set JWKS
-```
-
-```bash
-bunx convex run auth:rotateKeys | bunx convex env set JWKS
-```
-
-The first example targets a specific cloud deployment. The second uses whatever
-deployment your local Convex CLI is currently pointed at.
-
-### Session mismatch symptom
-
-If the UI briefly looks signed in and then drops back to signed out, inspect:
+If sign-in appears to succeed and then disappears, inspect:
 
 - `GET /api/auth/get-session`
 - `GET /api/auth/convex/jwks`
 
-If either one returns `500`, the auth state will look inconsistent even when the OAuth callback itself succeeded.
+For provider-specific auth setup, see [OAuth Configuration](./OAUTH_SETUP.md).
 
-## Google OAuth Notes
+## Change Workflow
 
-- keep Google envs free of trailing whitespace
-- make redirect URIs match exactly
-- use:
-  - local: `http://localhost:3000/api/auth/callback/google`
-  - production: `https://your-domain/api/auth/callback/google`
+For normal changes:
 
-## Internal Provider Setup
+1. Make and verify the change locally.
+2. Run `bun run check-types` and `bun run test`.
+3. Push Convex changes to cloud dev when needed.
+4. Commit the complete revision.
+5. Use `staging:deploy` or `prod:deploy` from the matching clean branch.
 
-The browser only shows hosted internal chat providers listed in:
-
-```bash
-VITE_ENABLED_INTERNAL_PROVIDERS
-```
-
-Use `VITE_ENABLED_INTERNAL_PROVIDERS="openrouter"` for the normal hosted chat setup. The backend requires `OPENROUTER_API_KEY` in Convex for built-in chat models. Legacy direct model keys such as OpenAI, Anthropic, Google model inference, xAI, and AI Gateway keys are not used by the built-in chat runtime.
-
-Both must be correct.
-
-## Suggested Change Workflow
-
-### Setup/auth changes
-
-1. reproduce locally
-2. fix locally
-3. verify `/api/auth/get-session` and `/api/auth/convex/jwks`
-   - for local Convex, the direct JWKS check should use `http://127.0.0.1:3211/api/auth/convex/jwks`
-4. deploy Convex if backend code changed
-5. deploy Vercel if app code or app env changed
-
-### Model/provider changes
-
-1. add or update the model registry
-2. patch provider factory or routing logic if the provider is new
-3. verify internal provider env configuration
-4. test locally with a real request
-5. deploy Convex
-6. deploy Vercel only if the browser app or app env changed
-
-For the detailed model workflow, see [MODEL_PROVIDER_GUIDE.md](./MODEL_PROVIDER_GUIDE.md).
+Backend/schema changes require a Convex push. Browser/server-app changes deploy through the Git branch. Changes spanning both must use the synchronized deploy command.
