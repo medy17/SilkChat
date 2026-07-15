@@ -14,6 +14,7 @@ import {
     notifyModelReplacement,
     resolveAvailableModelReplacement
 } from "@/hooks/use-model-lifecycle-migration"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareChatAttachmentForUpload } from "@/lib/chat-attachments"
@@ -43,6 +44,14 @@ import { useGenerationStore } from "./generation-store"
 const DEFAULT_VARIANTS_PER_MODEL = 1
 const MAX_TOTAL_GENERATIONS_PER_RUN = 10
 const LEGACY_IMAGE_MODEL_MIGRATION_KEY_PREFIX = "legacy-image-model-migrated"
+const MIN_PROMPT_HEIGHT = 112
+const MAX_PROMPT_VIEWPORT_RATIO = 0.4
+
+export const getResizedLibraryPromptHeight = (
+    startHeight: number,
+    pointerDeltaY: number,
+    maxHeight: number
+) => Math.min(maxHeight, Math.max(MIN_PROMPT_HEIGHT, startHeight + pointerDeltaY))
 
 // ConvexError carries the clean, user-facing message in `data`; plain action
 // errors arrive wrapped in Convex's "[CONVEX A(...)] Server Error ..." banner.
@@ -147,6 +156,7 @@ const getFileSha256 = async (file: File) => {
 
 export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolean }) {
     const { token } = useToken()
+    const isTouchDevice = useIsTouchDevice()
     const { models } = useSharedModels()
     const imageModels = useMemo<SharedModel[]>(
         () => (models as SharedModel[]).filter((m) => m.mode === "image" && !isModelSunset(m)),
@@ -213,10 +223,19 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
     const [creditPlan, setCreditPlan] = useState<"free" | "pro" | null>(null)
     const [expandedLegacyModels, setExpandedLegacyModels] = useState(false)
+    const [promptHeight, setPromptHeight] = useState<number | null>(null)
+    const [isResizingPrompt, setIsResizingPrompt] = useState(false)
     const [sessionRevealedLegacyModelIds, setSessionRevealedLegacyModelIds] = useState<Set<string>>(
         () => new Set()
     )
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
+    const promptResizeRef = useRef<{
+        pointerId: number
+        startY: number
+        startHeight: number
+        maxHeight: number
+    } | null>(null)
     const referenceFilesRef = useRef(referenceFiles)
     const seenLegacyMigrationKeysRef = useRef<Set<string>>(new Set())
     const sessionRevealedLegacyModelIdsRef = useRef<Set<string>>(new Set())
@@ -251,6 +270,64 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             cancelled = true
         }
     }, [])
+
+    useEffect(() => {
+        if (!isResizingPrompt) return
+
+        const previousCursor = document.body.style.cursor
+        const previousUserSelect = document.body.style.userSelect
+        document.body.style.cursor = "ns-resize"
+        document.body.style.userSelect = "none"
+
+        return () => {
+            document.body.style.cursor = previousCursor
+            document.body.style.userSelect = previousUserSelect
+        }
+    }, [isResizingPrompt])
+
+    const handlePromptResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
+        if (isTouchDevice || event.button !== 0) return
+
+        const textarea = promptTextareaRef.current
+        if (!textarea) return
+
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        promptResizeRef.current = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startHeight: textarea.getBoundingClientRect().height,
+            maxHeight: Math.max(
+                MIN_PROMPT_HEIGHT,
+                Math.floor(window.innerHeight * MAX_PROMPT_VIEWPORT_RATIO)
+            )
+        }
+        setIsResizingPrompt(true)
+    }
+
+    const handlePromptResizeMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+        const resize = promptResizeRef.current
+        if (!resize || resize.pointerId !== event.pointerId) return
+
+        setPromptHeight(
+            getResizedLibraryPromptHeight(
+                resize.startHeight,
+                event.clientY - resize.startY,
+                resize.maxHeight
+            )
+        )
+    }
+
+    const handlePromptResizeEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+        const resize = promptResizeRef.current
+        if (!resize || resize.pointerId !== event.pointerId) return
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        promptResizeRef.current = null
+        setIsResizingPrompt(false)
+    }
 
     const lockedModelIds = useMemo(
         () =>
@@ -1030,13 +1107,35 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     <div className="flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
                         <Sparkles className="h-3.5 w-3.5" /> PROMPT
                     </div>
-                    <Textarea
-                        placeholder="Describe your image..."
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        onPaste={handlePaste}
-                        className="field-sizing-fixed max-h-[24dvh] min-h-[7rem] resize-none overflow-y-auto rounded-md border-0 bg-muted/30 px-4 py-3 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
-                    />
+                    <div className="overflow-hidden rounded-md bg-muted/30 focus-within:ring-1 focus-within:ring-primary/30">
+                        <Textarea
+                            ref={promptTextareaRef}
+                            placeholder="Describe your image..."
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            onPaste={handlePaste}
+                            style={promptHeight === null ? undefined : { height: promptHeight }}
+                            className="field-sizing-fixed max-h-[40dvh] min-h-[7rem] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-4 py-3 text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+                        />
+                        {!isTouchDevice ? (
+                            <button
+                                type="button"
+                                aria-label="Resize prompt vertically"
+                                onPointerDown={handlePromptResizeStart}
+                                onPointerMove={handlePromptResizeMove}
+                                onPointerUp={handlePromptResizeEnd}
+                                onPointerCancel={handlePromptResizeEnd}
+                                className="group flex h-4 w-full cursor-ns-resize touch-none items-center justify-center"
+                            >
+                                <span
+                                    className={cn(
+                                        "h-0.5 w-8 rounded-[var(--radius-sm)] bg-muted-foreground/25 transition-colors group-hover:bg-muted-foreground/60 group-focus-visible:bg-muted-foreground/60",
+                                        isResizingPrompt && "bg-muted-foreground/60"
+                                    )}
+                                />
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
 
                 {/* References Section */}
