@@ -1,3 +1,4 @@
+import { ImageCostIndicator } from "@/components/image-cost-indicator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
@@ -1188,14 +1189,29 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                 className="flex w-full items-center justify-between p-1 text-left disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex min-w-0 flex-col">
-                                                    <span
-                                                        className={cn(
-                                                            "truncate font-medium",
-                                                            isSelected ? "text-foreground" : ""
-                                                        )}
-                                                    >
-                                                        {model.name}
-                                                    </span>
+                                                    <div className="flex min-w-0 items-center gap-1.5">
+                                                        <span
+                                                            className={cn(
+                                                                "truncate font-medium",
+                                                                isSelected ? "text-foreground" : ""
+                                                            )}
+                                                        >
+                                                            {model.name}
+                                                        </span>
+                                                        <ImageCostIndicator
+                                                            model={model}
+                                                            aspectRatio={effectiveAspectRatio}
+                                                            resolution={resolution}
+                                                            quality={
+                                                                isDevMode &&
+                                                                model.id === "gpt-5.4-image-2"
+                                                                    ? gptImage2Quality
+                                                                    : undefined
+                                                            }
+                                                            variants={modelCount}
+                                                            referenceCount={referenceFiles.length}
+                                                        />
+                                                    </div>
                                                     <span className="mt-0.5 text-[0.625rem] opacity-70">
                                                         {modelPlanLocked
                                                             ? "Pro plan required"

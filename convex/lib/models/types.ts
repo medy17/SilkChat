@@ -41,6 +41,21 @@ export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
 export type ImageQuality = ("low" | "medium" | "high" | "auto") & {}
 
+export type ImagePricing = {
+    source: "fal"
+    kind: "fixed" | "output_megapixel"
+    usdPerImage?: number
+    usdPerImageByResolution?: Partial<Record<ImageResolution, number>>
+    usdPerImageByQualityAndResolution?: Partial<
+        Record<ImageQuality, Partial<Record<ImageResolution, number>>>
+    >
+    usdPerOutputMegapixel?: number
+    minimumBillableOutputMegapixels?: number
+    roundOutputMegapixelsUp?: boolean
+    usdPerReferenceImage?: number
+    usdPerReferenceImageByQuality?: Partial<Record<ImageQuality, number>>
+}
+
 export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"
 export type PrototypeAccessPlan = "free" | "pro"
 export type ModelRequiredRole = "admin"
@@ -107,6 +122,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
     defaultImageQuality?: ImageQuality
+    imagePricing?: ImagePricing
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean
     reasoningEfforts?: ReasoningEffortTier[]

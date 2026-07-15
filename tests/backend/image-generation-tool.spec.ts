@@ -55,6 +55,9 @@ describe("prepareImageGeneration tool", () => {
             success: true,
             status: "pending_confirmation",
             title: "Walking logo screenshot",
+            estimatedCredits: {
+                estimatedUsd: expect.any(Number)
+            },
             referenceIds: ["image_ref_1"],
             referenceSources: [
                 {

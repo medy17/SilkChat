@@ -32,6 +32,7 @@ export {
     FAL_IMAGE_SAFETY_MESSAGE,
     buildFalImageInput,
     getFalEndpointForRequest,
+    getFalOutputImageDimensions,
     isFalImageSafetyReason,
     isFalImageSizeSupported,
     normalizeFalImageErrorMessage,

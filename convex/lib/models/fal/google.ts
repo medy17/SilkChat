@@ -31,6 +31,11 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.039, "2K": 0.039, "4K": 0.039 }
+        },
         legacy: true,
         sunsetOn: "2026-10-02",
         replacementId: "gemini-3.1-flash-image-preview"
@@ -52,7 +57,12 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K", "4K"]
+        supportedImageResolutions: ["1K", "2K", "4K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.08, "2K": 0.12, "4K": 0.16 }
+        }
     },
     {
         id: "gemini-3.1-flash-lite-image",
@@ -66,7 +76,12 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         supportsReferenceImages: true,
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
-        supportedImageSizes: [...GEMINI_IMAGE_SIZES]
+        supportedImageSizes: [...GEMINI_IMAGE_SIZES],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImage: 0.05
+        }
     },
     {
         id: "gemini-3-pro-image-preview",
@@ -81,7 +96,12 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K", "4K"]
+        supportedImageResolutions: ["1K", "2K", "4K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.15, "2K": 0.15, "4K": 0.3 }
+        }
     }
 ]
 

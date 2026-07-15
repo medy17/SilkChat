@@ -26,7 +26,21 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        defaultImageQuality: "low"
+        defaultImageQuality: "low",
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByQualityAndResolution: {
+                low: { "1K": 0.006, "2K": 0.007, "4K": 0.012 },
+                medium: { "1K": 0.053, "2K": 0.056, "4K": 0.101 },
+                high: { "1K": 0.211, "2K": 0.222, "4K": 0.401 }
+            },
+            usdPerReferenceImageByQuality: {
+                low: 0.009,
+                medium: 0.008,
+                high: 0.008
+            }
+        }
     },
     {
         id: "gpt-5-image-mini",
@@ -40,6 +54,17 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
+        defaultImageQuality: "auto",
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByQualityAndResolution: {
+                auto: { "1K": 0.005 },
+                low: { "1K": 0.005 },
+                medium: { "1K": 0.011 },
+                high: { "1K": 0.036 }
+            }
+        },
         legacy: true,
         replacementId: "gpt-5.4-image-2"
     },
@@ -55,6 +80,16 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
+        defaultImageQuality: "high",
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByQualityAndResolution: {
+                low: { "1K": 0.009 },
+                medium: { "1K": 0.034 },
+                high: { "1K": 0.133 }
+            }
+        },
         legacy: true,
         replacementId: "gpt-5.4-image-2"
     }

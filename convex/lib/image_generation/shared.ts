@@ -12,6 +12,7 @@ import {
     getFalImageDescriptor,
     isFalImageSizeSupported
 } from "../models/fal"
+import { estimateImageCost } from "./cost"
 
 export const MAX_TOTAL_IMAGE_GENERATIONS_PER_RUN = 10
 
@@ -29,6 +30,7 @@ export type PreparedImageReference = ImageReferenceSource & {
 
 export type ImageCreditEstimate = {
     requiredPlan: "free" | "pro"
+    estimatedUsd?: number
 }
 
 export const getSelectableImageModels = () =>
@@ -166,7 +168,16 @@ export const validatePreparedImageRequest = ({
         aspectRatio: selectedAspectRatio,
         resolution: selectedResolution,
         variants: selectedVariants,
-        creditEstimate: getImageModelCreditEstimate(model)
+        creditEstimate: {
+            ...getImageModelCreditEstimate(model),
+            estimatedUsd: estimateImageCost({
+                model,
+                aspectRatio: selectedAspectRatio,
+                resolution: selectedResolution,
+                variants: selectedVariants,
+                referenceCount
+            })?.totalUsd
+        }
     }
 }
 

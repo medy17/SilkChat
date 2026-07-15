@@ -180,6 +180,24 @@ const toLegacyOpenAiImageSize = (imageSize: ImageSize) => {
     return LEGACY_OPENAI_IMAGE_SIZE_MAP[imageSize]
 }
 
+export const getFalOutputImageDimensions = (
+    descriptor: FalImageDescriptor,
+    imageSize: ImageSize,
+    imageResolution?: ImageResolution
+) => {
+    if (descriptor.imageSizeMode === "standard") {
+        return toStandardFalImageSize(imageSize, imageResolution)
+    }
+    if (descriptor.imageSizeMode === "seedream") {
+        return toSeedreamFalImageSize(imageSize, imageResolution)
+    }
+    if (descriptor.imageSizeMode === "legacyOpenAi") {
+        const size = toLegacyOpenAiImageSize(imageSize) ?? "1024x1024"
+        return parseImageSize(size)
+    }
+    return undefined
+}
+
 const toAspectRatio = (imageSize: ImageSize) =>
     imageSize.includes(":") ? imageSize.replace("-hd", "") : undefined
 

@@ -1,3 +1,4 @@
+import { formatEstimatedImageCost } from "@/components/image-cost-indicator"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
@@ -65,6 +66,7 @@ type PreparedImageGenerationOutput = {
     references?: Array<{ id: string; label: string; source?: string }>
     estimatedCredits?: {
         requiredPlan: "free" | "pro"
+        estimatedUsd?: number
     }
     jobIds?: Id<"imageGenerationJobs">[]
     generatedImageIds?: Id<"generatedImages">[]
@@ -146,10 +148,10 @@ const resolveImageAssetUrl = (value: string) => {
     return getPublicR2AssetUrl(value)
 }
 
-const getCreditLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) => {
-    if (!credits) return null
-    return "Included usage"
-}
+const getEstimatedCostLabel = (credits?: PreparedImageGenerationOutput["estimatedCredits"]) =>
+    typeof credits?.estimatedUsd === "number"
+        ? `Estimated ${formatEstimatedImageCost(credits.estimatedUsd)}`
+        : null
 
 function RevealBlock({
     show,
@@ -636,7 +638,7 @@ export const ImageGenerationToolRenderer = memo(
                     })
                 }
             }
-            const credits = getCreditLabel(output.estimatedCredits)
+            const estimatedCost = getEstimatedCostLabel(output.estimatedCredits)
             const title = output.title?.trim() || "SilkScreen"
             const prompt = output.prompt ?? ""
             const modelLabel = output.modelName ?? output.modelId ?? "Image model"
@@ -661,14 +663,14 @@ export const ImageGenerationToolRenderer = memo(
                                 <span className="truncate">{title}</span>
                             </span>
                         </TooltipIconPill>
-                        {credits && (
+                        {estimatedCost && (
                             <TooltipIconPill
-                                tooltip="Counts toward included usage"
+                                tooltip="Estimated cost based on model, resolution, variants, and references"
                                 className="pointer-events-auto shrink-0"
                             >
                                 <span className="flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
                                     <Coins className="size-3" aria-hidden="true" />
-                                    {credits}
+                                    {estimatedCost}
                                 </span>
                             </TooltipIconPill>
                         )}

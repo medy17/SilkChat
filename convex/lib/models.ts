@@ -56,6 +56,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.supportedImageSizes,
         model.supportedImageResolutions,
         model.defaultImageQuality,
+        model.imagePricing,
         model.customIcon,
         model.supportsDisablingReasoning,
         model.reasoningEfforts,

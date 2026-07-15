@@ -37,7 +37,13 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         maxReferenceImages: 3,
         customIcon: "xai",
         supportedImageSizes: [...GROK_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K"]
+        supportedImageResolutions: ["1K", "2K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.05, "2K": 0.07 },
+            usdPerReferenceImage: 0.01
+        }
     },
     {
         id: "grok-imagine-image",
@@ -56,7 +62,13 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         maxReferenceImages: 3,
         customIcon: "xai",
         supportedImageSizes: [...GROK_IMAGE_SIZES],
-        supportedImageResolutions: ["1K", "2K"]
+        supportedImageResolutions: ["1K", "2K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.02, "2K": 0.02 },
+            usdPerReferenceImage: 0.002
+        }
     }
 ]
 
