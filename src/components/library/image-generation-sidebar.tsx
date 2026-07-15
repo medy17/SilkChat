@@ -1098,7 +1098,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             <fieldset
                 disabled={generationPanelDisabled}
                 className={cn(
-                    "flex h-full w-full flex-col",
+                    "flex h-full w-full min-w-0 flex-col",
                     generationPanelDisabled && "opacity-50"
                 )}
             >
@@ -1285,9 +1285,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                 type="button"
                                                 onClick={() => toggleModel(model.id)}
                                                 disabled={modelDisabled}
-                                                className="flex w-full items-center justify-between p-1 text-left disabled:cursor-not-allowed"
+                                                className="flex w-full items-center justify-between gap-2 p-1 text-left disabled:cursor-not-allowed"
                                             >
-                                                <div className="flex min-w-0 flex-col">
+                                                <div className="flex min-w-0 max-w-[calc(100%-1.5rem)] flex-1 flex-col">
                                                     <div className="flex min-w-0 items-center gap-1.5">
                                                         <span
                                                             className={cn(

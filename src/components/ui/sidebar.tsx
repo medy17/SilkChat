@@ -30,11 +30,14 @@ import { cn } from "@/lib/utils";
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_WIDTH_COOKIE_NAME = "sidebar:width";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH = "19rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 //* new constants for sidebar resizing
-const MIN_SIDEBAR_WIDTH = "14rem";
+// The full aspect-ratio row needs 16rem, with another 3rem consumed by the
+// library section and inset-shell padding. Model rows fit within the same floor
+// while retaining a dedicated checkmark lane.
+const MIN_SIDEBAR_WIDTH = "19rem";
 const MAX_SIDEBAR_WIDTH = "22rem";
 
 type SidebarContext = {
@@ -213,7 +216,9 @@ const SidebarProvider = React.forwardRef<
 						style={
 							{
 								// * update '--sidebar-width' to use the new width state
-								"--sidebar-width": width,
+								// Mirror the composer's container-aware sizing: let CSS enforce
+								// the content-safe bounds, including for older saved widths.
+								"--sidebar-width": `clamp(${MIN_SIDEBAR_WIDTH}, ${width}, ${MAX_SIDEBAR_WIDTH})`,
 								"--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
 								...style,
 							} as React.CSSProperties
