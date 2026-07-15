@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Loader2, Save } from "lucide-react"
@@ -33,7 +33,7 @@ function LegacyCustomizationRedirect() {
 
 export function BehaviorSettingsContent() {
     const session = useSession()
-    const isMobile = useIsMobile()
+    const isTouchDevice = useIsTouchDevice()
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
         session.user?.id ? {} : "skip"
@@ -160,7 +160,7 @@ export function BehaviorSettingsContent() {
                         </p> */}
                     </div>
 
-                    {!isMobile ? (
+                    {!isTouchDevice ? (
                         <div className="space-y-4">
                             <div>
                                 <h3 className="font-semibold text-foreground">Composer</h3>

@@ -17,7 +17,7 @@ import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession, useToken } from "@/hooks/auth-hooks"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import {
@@ -1195,7 +1195,7 @@ export const MultimodalInput = forwardRef<
     const auth = useConvexAuth()
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
     const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
-    const isMobile = useIsMobile()
+    const isTouchDevice = useIsTouchDevice()
     const composerToolbar = useComposerToolbarState(threadId)
     const {
         userSettings,
@@ -1933,7 +1933,7 @@ export const MultimodalInput = forwardRef<
                 <PromptInput
                     ref={promptInputRef}
                     onSubmit={handleSubmit}
-                    disableKeyboardSubmit={isMobile}
+                    disableKeyboardSubmit={isTouchDevice}
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={240}
                     className={cn(
