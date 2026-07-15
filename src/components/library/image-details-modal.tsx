@@ -33,6 +33,7 @@ import {
 } from "@/lib/generated-image-recovery"
 import {
     getExpandedImageUrl,
+    getFileThumbnailSources,
     getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
@@ -148,6 +149,53 @@ function fitAspectRatioBox({
     }
 
     return { width, height }
+}
+
+function ReferenceImageThumbnails({
+    referenceImageKeys,
+    className
+}: {
+    referenceImageKeys?: string[]
+    className?: string
+}) {
+    if (!referenceImageKeys?.length) return null
+
+    return (
+        <div className={cn("border-border/60 border-t pt-5", className)}>
+            <h4 className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
+                References
+            </h4>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {referenceImageKeys.map((storageKey, index) => {
+                    const thumbnailSources = getFileThumbnailSources(storageKey)
+                    const fullResolutionUrl =
+                        getGeneratedImageDirectUrl(storageKey) ||
+                        getGeneratedImageProxyUrl(storageKey)
+
+                    return (
+                        <a
+                            key={`${storageKey}-${index}`}
+                            href={fullResolutionUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block size-12 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-border/70 bg-muted outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label={`Open reference image ${index + 1}`}
+                        >
+                            <img
+                                src={thumbnailSources.src}
+                                srcSet={thumbnailSources.srcSet}
+                                sizes={thumbnailSources.sizes}
+                                alt={`Reference ${index + 1}`}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        </a>
+                    )
+                })}
+            </div>
+        </div>
+    )
 }
 
 export const ImageDetailsModal = memo(function ImageDetailsModal({
@@ -935,6 +983,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                             <p className="font-medium text-xs">{formattedDate}</p>
                                         </div>
                                     </div>
+                                    <ReferenceImageThumbnails
+                                        referenceImageKeys={localImage.referenceImageKeys}
+                                    />
                                 </div>
                                 <div className="border-border/60 border-t bg-background px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
                                     <div className="flex flex-nowrap items-center gap-2">
@@ -1163,6 +1214,10 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                     <p className="text-sm">{formattedDate}</p>
                                 </div>
                             </div>
+                            <ReferenceImageThumbnails
+                                referenceImageKeys={localImage.referenceImageKeys}
+                                className="mt-6"
+                            />
                         </div>
 
                         <div className="border-border/60 border-t p-4">
