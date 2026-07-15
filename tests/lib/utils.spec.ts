@@ -2,7 +2,53 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { copyImageUrlToClipboard } from "@/lib/utils"
+import { copyImageUrlToClipboard, downloadUrl } from "@/lib/utils"
+
+describe("downloadUrl", () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+        vi.unstubAllGlobals()
+    })
+
+    it("downloads a fetched file without navigating to it", async () => {
+        const clickMock = vi.fn()
+        const removeMock = vi.fn()
+        const revokeObjectUrlMock = vi.fn()
+        const anchor = {
+            href: "",
+            download: "",
+            hidden: false,
+            click: clickMock,
+            remove: removeMock
+        }
+
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                blob: async () => new Blob(["image"], { type: "image/webp" })
+            })
+        )
+        vi.stubGlobal("URL", {
+            createObjectURL: vi.fn(() => "blob:download"),
+            revokeObjectURL: revokeObjectUrlMock
+        })
+        vi.spyOn(document, "createElement").mockReturnValue(anchor as unknown as HTMLAnchorElement)
+        vi.spyOn(document.body, "appendChild").mockImplementation((node) => node)
+
+        await downloadUrl({ url: "https://cdn.example.com/image.webp", fileName: "image.webp" })
+
+        expect(anchor).toMatchObject({
+            href: "blob:download",
+            download: "image.webp",
+            hidden: true
+        })
+        expect(clickMock).toHaveBeenCalledOnce()
+        expect(removeMock).toHaveBeenCalledOnce()
+        expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:download")
+    })
+})
 
 describe("copyImageUrlToClipboard", () => {
     afterEach(() => {

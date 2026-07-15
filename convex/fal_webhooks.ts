@@ -3,7 +3,11 @@ import type { Id } from "./_generated/dataModel"
 import { httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
 import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
-import { type FalGeneratedImage, parseFalImagePayload } from "./lib/models/fal"
+import {
+    type FalGeneratedImage,
+    doesFalModelSettleAfterSafetyRejection,
+    parseFalImagePayload
+} from "./lib/models/fal"
 
 const FAL_JWKS_URL = "https://rest.fal.ai/.well-known/jwks.json"
 const FAL_JWKS_CACHE_MS = 24 * 60 * 60 * 1000
@@ -135,6 +139,25 @@ const getFalRequestId = (payload: unknown) => {
         getString(asObject(root?.payload)?.request_id) ??
         getString(asObject(root?.data)?.request_id)
     )
+}
+
+export const getFalNonImageBillingDisposition = (
+    kind: "refusal" | "error" | "unknown",
+    appModelId: string
+): {
+    status: "failed" | "refunded" | "unknown"
+    shouldReconcileUsage: boolean
+} => {
+    if (kind === "refusal") {
+        return doesFalModelSettleAfterSafetyRejection(appModelId)
+            ? { status: "failed", shouldReconcileUsage: true }
+            : { status: "refunded", shouldReconcileUsage: false }
+    }
+
+    return {
+        status: kind === "error" ? "failed" : "unknown",
+        shouldReconcileUsage: false
+    }
 }
 
 const getExtensionFromContentType = (contentType?: string) => {
@@ -320,12 +343,31 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
 
     const result = parseFalImagePayload(payload)
     if (result.kind !== "images") {
-        const status =
-            result.kind === "error" ? "failed" : result.kind === "refusal" ? "refunded" : "unknown"
-        await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
-            userId: job.userId,
-            messageKey: job.creditEventKey
-        })
+        const { status, shouldReconcileUsage } = getFalNonImageBillingDisposition(
+            result.kind,
+            job.appModelId
+        )
+        if (shouldReconcileUsage) {
+            // fal bills some safety refusals (notably Grok image models) and adds
+            // their cost metadata asynchronously, just as it does for successful
+            // generations. Commit the reservation so reconciliation has an event
+            // to settle, then poll for the provider-reported amount.
+            await ctx.runMutation(internal.credits.commitReservedCreditForMessage, {
+                userId: job.userId,
+                messageKey: job.creditEventKey,
+                providerRequestId: falRequestId
+            })
+            await ctx.scheduler.runAfter(0, internal.fal_billing_node.reconcileFalUsageCost, {
+                userId: job.userId,
+                messageKey: job.creditEventKey,
+                requestId: falRequestId
+            })
+        } else {
+            await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+                userId: job.userId,
+                messageKey: job.creditEventKey
+            })
+        }
         await ctx.runMutation(internal.image_generation_jobs.finalizeImageGenerationJob, {
             falRequestId,
             status,

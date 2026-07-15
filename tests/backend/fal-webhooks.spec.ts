@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { downloadFalImage, verifyFalWebhookSignature } from "../../convex/fal_webhooks"
+import {
+    downloadFalImage,
+    getFalNonImageBillingDisposition,
+    verifyFalWebhookSignature
+} from "../../convex/fal_webhooks"
 
 const bytesToHex = (bytes: ArrayBuffer) =>
     Array.from(new Uint8Array(bytes))
@@ -71,6 +75,29 @@ describe("fal webhooks", () => {
         })
 
         expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it("reconciles only Grok safety refusals", () => {
+        expect(getFalNonImageBillingDisposition("refusal", "grok-imagine-image")).toEqual({
+            status: "failed",
+            shouldReconcileUsage: true
+        })
+        expect(getFalNonImageBillingDisposition("refusal", "grok-imagine-image-pro")).toEqual({
+            status: "failed",
+            shouldReconcileUsage: true
+        })
+        expect(getFalNonImageBillingDisposition("refusal", "gpt-5.4-image-2")).toEqual({
+            status: "refunded",
+            shouldReconcileUsage: false
+        })
+        expect(getFalNonImageBillingDisposition("error", "grok-imagine-image")).toEqual({
+            status: "failed",
+            shouldReconcileUsage: false
+        })
+        expect(getFalNonImageBillingDisposition("unknown", "grok-imagine-image")).toEqual({
+            status: "unknown",
+            shouldReconcileUsage: false
+        })
     })
 
     it("verifies fal webhook signatures against JWKS public keys", async () => {

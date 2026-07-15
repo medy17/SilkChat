@@ -24,6 +24,28 @@ export const copyToClipboard = async (text: string) => {
     }
 }
 
+export const downloadUrl = async ({ url, fileName }: { url: string; fileName: string }) => {
+    const response = await fetch(url)
+
+    if (!response.ok) {
+        throw new Error(`Download request failed (${response.status})`)
+    }
+
+    const objectUrl = URL.createObjectURL(await response.blob())
+    const anchor = document.createElement("a")
+    anchor.href = objectUrl
+    anchor.download = fileName
+    anchor.hidden = true
+    document.body.appendChild(anchor)
+
+    try {
+        anchor.click()
+    } finally {
+        anchor.remove()
+        URL.revokeObjectURL(objectUrl)
+    }
+}
+
 const drawBlobToCanvas = async (blob: Blob, canvas: HTMLCanvasElement) => {
     const context = canvas.getContext("2d")
     if (!context) {

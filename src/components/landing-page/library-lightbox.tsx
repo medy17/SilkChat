@@ -28,7 +28,8 @@ import {
     DrawerHeader,
     DrawerTitle
 } from "@/components/ui/drawer"
-import { cn } from "@/lib/utils"
+import { cn, downloadUrl } from "@/lib/utils"
+import { toast } from "sonner"
 
 const DESKTOP_BREAKPOINT = 1100
 const DESKTOP_GAP = 24
@@ -373,6 +374,22 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
         }
     }
 
+    const handleDownload = async () => {
+        if (!renderedImageUrl || !localImage) return
+
+        try {
+            await downloadUrl({
+                url: renderedImageUrl,
+                fileName:
+                    new URL(renderedImageUrl, window.location.href).pathname.split("/").pop() ||
+                    `${localImage.id}.webp`
+            })
+        } catch (error) {
+            console.error("Failed to download image:", error)
+            toast.error("Failed to download image")
+        }
+    }
+
     const handleCopyPrompt = () => {
         const prompt = localImage?.prompt?.trim()
         if (!prompt) return
@@ -555,7 +572,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                 variant="secondary"
                 size="icon"
                 className="h-10 w-10 shrink-0"
-                onClick={handleViewFullResolution}
+                onClick={handleDownload}
                 aria-label="Download image"
             >
                 <Download className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import type { SharedModel } from "../types"
-import type { FalImageDescriptor } from "./types"
+import { type FalImageDescriptor, SETTLES_AFTER_SAFETY_REJECTION } from "./types"
 
 const falImageAdapters = (endpoint: string): SharedModel["adapters"] => [`fal:${endpoint}`]
 
@@ -80,6 +80,7 @@ export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         usesAspectRatio: true,
         resolutionMode: "lowercase",
+        ...SETTLES_AFTER_SAFETY_REJECTION,
         safety: {}
     },
     {
@@ -89,6 +90,7 @@ export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         usesAspectRatio: true,
         resolutionMode: "lowercase",
+        ...SETTLES_AFTER_SAFETY_REJECTION,
         safety: {}
     }
 ]

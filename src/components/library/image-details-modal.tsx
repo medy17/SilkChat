@@ -39,7 +39,7 @@ import {
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
-import { cn } from "@/lib/utils"
+import { cn, downloadUrl } from "@/lib/utils"
 import { useAction, useConvex, useMutation } from "convex/react"
 import {
     Archive,
@@ -470,8 +470,18 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         setLoadState("loading")
     }
 
-    const handleDownload = () => {
-        window.open(fullResolutionUrl, "_blank")
+    const handleDownload = async () => {
+        if (!localImage) return
+
+        try {
+            await downloadUrl({
+                url: fullResolutionUrl,
+                fileName: localImage.storageKey.split("/").pop() || "silkchat-image"
+            })
+        } catch (error) {
+            console.error("Failed to download image:", error)
+            toast.error("Failed to download image")
+        }
     }
 
     const handleViewFullResolution = () => {

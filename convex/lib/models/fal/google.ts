@@ -42,7 +42,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3.1-flash-image-preview",
-        name: "Gemini 3.1 Flash Image Preview",
+        name: "Gemini 3.1 Flash Image",
         shortName: "3.1 Flash Image",
         artificialAnalysis: {
             type: "text-to-image",
@@ -85,7 +85,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3-pro-image-preview",
-        name: "Gemini 3 Pro Image Preview",
+        name: "Gemini 3 Pro Image",
         shortName: "3 Pro Image",
         releaseOrder: 20251120,
         adapters: falImageAdapters("fal-ai/gemini-3-pro-image-preview"),

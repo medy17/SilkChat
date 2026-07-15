@@ -5,6 +5,10 @@ export type FalSafetyMode = {
     safetyTolerance?: "1"
 }
 
+export const SETTLES_AFTER_SAFETY_REJECTION = {
+    settlesAfterSafetyRejection: true
+} as const
+
 export type FalImageDescriptor = {
     appModelId: string
     endpoint: string
@@ -17,6 +21,7 @@ export type FalImageDescriptor = {
     defaultQuality?: string
     usesMaxImages?: boolean
     safety: FalSafetyMode
+    settlesAfterSafetyRejection?: boolean
 }
 
 export type FalReferenceImage = {

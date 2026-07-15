@@ -206,6 +206,12 @@ describe("fal image model payloads", () => {
         expect(sharedModel("grok-imagine-image-pro").maxReferenceImages).toBe(3)
     })
 
+    it("marks Grok models as settling after safety rejection", () => {
+        expect(descriptor("grok-imagine-image").settlesAfterSafetyRejection).toBe(true)
+        expect(descriptor("grok-imagine-image-pro").settlesAfterSafetyRejection).toBe(true)
+        expect(descriptor("gemini-3-pro-image-preview").settlesAfterSafetyRejection).toBeUndefined()
+    })
+
     it("uses FLUX 2 Flex image_size and does not advertise a fal edit endpoint", () => {
         const model = descriptor("flux-2-flex")
         const input = buildFalImageInput(model, {

@@ -28,6 +28,9 @@ const FAL_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
 export const getFalImageDescriptor = (appModelId: string) =>
     FAL_IMAGE_DESCRIPTORS.find((descriptor) => descriptor.appModelId === appModelId)
 
+export const doesFalModelSettleAfterSafetyRejection = (appModelId: string) =>
+    getFalImageDescriptor(appModelId)?.settlesAfterSafetyRejection === true
+
 export {
     FAL_IMAGE_SAFETY_MESSAGE,
     buildFalImageInput,
@@ -46,3 +49,4 @@ export type {
     FalReferenceImage,
     FalSafetyMode
 } from "./types"
+export { SETTLES_AFTER_SAFETY_REJECTION } from "./types"
