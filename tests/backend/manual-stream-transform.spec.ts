@@ -312,6 +312,36 @@ describe("manualStreamTransform", () => {
         ])
     })
 
+    it("uses upstream inference cost when OpenRouter BYOK reports zero credit cost", async () => {
+        const result = await collectChunks([
+            {
+                type: "finish-step",
+                finishReason: "stop",
+                usage: {
+                    inputTokens: 3567,
+                    outputTokens: 12,
+                    outputTokenDetails: {},
+                    totalTokens: 3579,
+                    raw: {
+                        cost: 0,
+                        is_byok: true,
+                        cost_details: {
+                            upstream_inference_cost: 0.011313,
+                            upstream_inference_prompt_cost: 0.0111,
+                            upstream_inference_completions_cost: 0.000213
+                        }
+                    }
+                }
+            }
+        ])
+
+        expect(result.totalTokenUsage).toMatchObject({
+            estimatedCostUsd: 0.011313,
+            estimatedPromptCostUsd: 0.0111,
+            estimatedCompletionCostUsd: 0.000213
+        })
+    })
+
     it("drops redacted and blank reasoning chunks entirely", async () => {
         const result = await collectChunks([
             { type: "reasoning-start", id: "r-1" },

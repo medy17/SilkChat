@@ -196,9 +196,17 @@ export const manualStreamTransform = (
         if (!costDetails || typeof costDetails !== "object") return undefined
         return costDetails
     }
-    const getRawTotalCost = (raw: unknown) => {
-        if (!raw || typeof raw !== "object" || !("cost" in raw)) return undefined
-        return raw.cost
+    const getRawTotalCost = (raw: unknown, upstreamInferenceCost: unknown) => {
+        if (!raw || typeof raw !== "object") return upstreamInferenceCost
+
+        const reportedCost = "cost" in raw ? raw.cost : undefined
+        const isOpenRouterByok = "is_byok" in raw && raw.is_byok === true
+
+        if (isOpenRouterByok || reportedCost === 0) {
+            return isValidCost(upstreamInferenceCost) ? upstreamInferenceCost : reportedCost
+        }
+
+        return reportedCost ?? upstreamInferenceCost
     }
 
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK stream chunks are provider-polymorphic here
@@ -458,7 +466,7 @@ export const manualStreamTransform = (
                         (chunk.usage.inputTokens || 0) + (chunk.usage.outputTokens || 0)
                     appendCost(
                         "estimatedCostUsd",
-                        getRawTotalCost(chunk.usage.raw) ?? rawCostDetails?.upstream_inference_cost
+                        getRawTotalCost(chunk.usage.raw, rawCostDetails?.upstream_inference_cost)
                     )
                     appendCost(
                         "estimatedPromptCostUsd",
