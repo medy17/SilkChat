@@ -151,16 +151,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                             </div>
                             <div className="flex flex-wrap gap-1">
                                 <Badge variant="secondary" className="text-xs">
-                                    Brave Search
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                    Firecrawl
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                    Tavily
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                    Serper
+                                    Live web sources
                                 </Badge>
                             </div>
                         </div>
@@ -169,9 +160,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                 <div className="space-y-3">
                     <h3 className="font-semibold text-xl tracking-tight">Real-time Web Search</h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                        Access up-to-date information from the web. Choose from multiple search
-                        providers and get comprehensive answers backed by real sources. Works with
-                        nearly any model!
+                        Access up-to-date information from the web and get comprehensive answers
+                        backed by real sources. Works with nearly any model!
                     </p>
                 </div>
             </div>

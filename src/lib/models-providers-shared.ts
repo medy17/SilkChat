@@ -1,5 +1,4 @@
 import {
-    BraveIcon,
     ClaudeIcon,
     FalAIIcon,
     GeminiIcon,
@@ -9,8 +8,6 @@ import {
     ReasoningHighIcon,
     ReasoningLowIcon,
     ReasoningMediumIcon,
-    SerperDevIcon,
-    TavilyIcon,
     VercelIcon,
     XAIIcon
 } from "@/components/brand-icons"
@@ -474,45 +471,6 @@ export const getReasoningEffortIcon = (effort: ReasoningEffort, model?: SharedMo
             return ReasoningHighIcon
     }
 }
-
-export type SearchProviderInfo = {
-    id: "firecrawl" | "brave" | "tavily" | "serper"
-    name: string
-    description: string
-    placeholder: string
-    icon: React.ComponentType<{ className?: string }> | string
-}
-
-export const SEARCH_PROVIDERS: SearchProviderInfo[] = [
-    {
-        id: "firecrawl",
-        name: "Firecrawl",
-        description: "Advanced web scraping with content extraction and markdown support",
-        placeholder: "fc-...",
-        icon: "🔥"
-    },
-    {
-        id: "brave",
-        name: "Brave Search",
-        description: "Fast, privacy-focused search results from Brave's independent index",
-        placeholder: "BSA...",
-        icon: BraveIcon
-    },
-    {
-        id: "tavily",
-        name: "Tavily",
-        description: "AI-powered search with advanced content chunking and source analysis",
-        placeholder: "tvly-...",
-        icon: TavilyIcon
-    },
-    {
-        id: "serper",
-        name: "Serper",
-        description: "Google-powered search with smart content scraping and context management",
-        placeholder: "...",
-        icon: SerperDevIcon
-    }
-]
 
 export function useAvailableModels(userSettings: Infer<typeof UserSettings> | undefined) {
     const { models: sharedModels } = useSharedModels()

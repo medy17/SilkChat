@@ -81,7 +81,7 @@ export const estimateOpenRouterReservationMicrousd = ({
 // Flat per-call upstream cost for deployment-funded tools. Only tools with a
 // non-zero default (or an env override) are metered; everything else is BYOK.
 const DEFAULT_TOOL_USAGE_USD: Record<string, number> = {
-    web_search: 0.004
+    web_search: 0.005
 }
 
 export const getConfiguredToolUsageMicrousd = (toolName: string) => {

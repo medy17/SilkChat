@@ -1,80 +1,36 @@
 import { tool } from "ai"
 import { z } from "zod"
-import { internal } from "../../_generated/api"
 import type { ToolAdapter } from "../toolkit"
-import { SearchProvider, type SearchProviderType } from "./adapters"
-import { getDeploymentSearchProviderApiKey } from "./availability"
+import { PerplexitySearchAdapter } from "./adapters"
+import { getDeploymentSearchApiKey } from "./availability"
 
 export const WebSearchAdapter: ToolAdapter = async (params) => {
     if (!params.enabledTools.includes("web_search")) return {}
+    if (!params.toolAvailability.web_search.enabled) return {}
 
-    const { userSettings, ctx } = params
-    const webSearchAvailability = params.toolAvailability.web_search
-    if (!webSearchAvailability.enabled) return {}
-    const searchProviderId =
-        webSearchAvailability.provider ?? (userSettings.searchProvider as SearchProviderType)
-
-    const byokProvider = userSettings.generalProviders?.[searchProviderId]
-    let apiKey: string | undefined
-
-    if (
-        webSearchAvailability.fundingSource === "byok" &&
-        byokProvider?.enabled &&
-        byokProvider.encryptedKey
-    ) {
-        const decryptedKey = await ctx.runQuery(internal.settings.getDecryptedGeneralProviderKey, {
-            providerId: searchProviderId,
-            userId: userSettings.userId
-        })
-        if (decryptedKey) {
-            apiKey = decryptedKey
-        }
-    }
-
-    if (!apiKey && webSearchAvailability.fundingSource === "deployment") {
-        apiKey = getDeploymentSearchProviderApiKey(searchProviderId)
-    }
-
+    const apiKey = getDeploymentSearchApiKey()
     if (!apiKey) return {}
 
     return {
         web_search: tool({
             description:
-                "Search the web for information. Optionally scrape content from results for detailed information.",
+                "Search the web for current information and return concise, source-linked results.",
             inputSchema: z.object({
-                query: z.string().describe("The search query"),
-                scrapeContent: z
-                    .boolean()
-                    .describe("Whether to scrape and include content from search results")
+                query: z.string().min(1).describe("A focused web search query")
             }),
-            execute: async ({ query, scrapeContent }) => {
-                // Use the user's default setting if scrapeContent is not provided
-                const shouldScrapeContent =
-                    scrapeContent ?? userSettings.searchIncludeSourcesByDefault
+            execute: async ({ query }) => {
                 try {
-                    const searchProvider = new SearchProvider({
-                        provider: searchProviderId,
-                        apiKey
-                    })
-
-                    console.log(`Searching for ${query} with provider ${searchProviderId}...`)
-
-                    const results = await searchProvider.search(query, {
-                        limit: 5,
-                        scrapeContent: shouldScrapeContent,
-                        formats: shouldScrapeContent ? ["markdown", "links"] : []
+                    const search = new PerplexitySearchAdapter({ apiKey })
+                    const results = await search.search(query, {
+                        limit: 8,
+                        maxTokens: 4000,
+                        maxTokensPerPage: 600
                     })
 
                     return {
                         success: true,
                         query,
-                        results: results.map((result) => ({
-                            title: result.title,
-                            url: result.url,
-                            description: result.description,
-                            ...(result.content && { content: result.content }),
-                            ...(result.markdown && { markdown: result.markdown })
-                        })),
+                        results,
                         count: results.length
                     }
                 } catch (error) {

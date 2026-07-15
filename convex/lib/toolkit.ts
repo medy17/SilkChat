@@ -113,5 +113,5 @@ export const getToolkit = async (
 }
 
 export { resolveToolAvailability, sanitizeEnabledTools }
-export { getDeploymentSearchProviderApiKey } from "./tools/availability"
+export { getDeploymentSearchApiKey } from "./tools/availability"
 export type { ResolvedToolAvailabilityMap, ToolFundingSource } from "./tools/availability"

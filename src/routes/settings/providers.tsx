@@ -1,5 +1,4 @@
 import { Logo } from "@/components/logo"
-import { BYOKSearchProviderCard } from "@/components/settings/search-provider-card"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
     AlertDialog,
@@ -31,7 +30,6 @@ import { useSession } from "@/hooks/auth-hooks"
 import {
     CORE_PROVIDERS,
     type CoreProviderInfo,
-    SEARCH_PROVIDERS,
     shouldShowCoreInferenceProvider,
     useAvailableModels
 } from "@/lib/models-providers-shared"
@@ -684,44 +682,6 @@ export function ProvidersSettingsContent() {
         userSettings && !("error" in userSettings) ? userSettings : undefined
     )
 
-    // Helper function to get current search provider state
-    const getCurrentSearchProviders = () => {
-        if (!userSettings || "error" in userSettings) return {}
-        return userSettings.generalProviders || {}
-    }
-
-    const handleSaveSearchProvider = async (
-        providerId: string,
-        config: {
-            enabled: boolean
-            newKey?: string
-            country?: string
-            searchLang?: string
-            safesearch?: "off" | "moderate" | "strict"
-            language?: string
-        }
-    ) => {
-        if (!session.user?.id) return
-        if (providerId === "fal") {
-            return handleSaveProvider(providerId, config.enabled, config.newKey)
-        }
-        setLoading(true)
-        try {
-            await updateSettings({
-                generalProviderUpdates: {
-                    [providerId]: config
-                }
-            })
-            toast.success(`${SEARCH_PROVIDERS.find((p) => p.id === providerId)?.name} BYOK updated`)
-        } catch (error) {
-            toast.error("Failed to save search provider settings")
-            console.error(error)
-            throw error
-        } finally {
-            setLoading(false)
-        }
-    }
-
     const handleSaveProvider = async (
         providerId: string,
         enabled: boolean,
@@ -841,8 +801,6 @@ export function ProvidersSettingsContent() {
         return <p className="text-muted-foreground text-sm">Loading provider settings...</p>
     }
 
-    const currentSearchProviders = getCurrentSearchProviders()
-
     return (
         <div className="space-y-6">
             <div className="space-y-1.5">
@@ -875,7 +833,7 @@ export function ProvidersSettingsContent() {
                     </div>
                 </Card>
 
-                {/* Built-in Web Search Provider */}
+                {/* Built-in web search */}
                 <Card className="p-4 shadow-xs">
                     <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
@@ -885,13 +843,13 @@ export function ProvidersSettingsContent() {
                             <div>
                                 <h4 className="font-semibold text-sm">Web Search</h4>
                                 <p className="mt-0.5 text-muted-foreground text-xs">
-                                    4 search providers available from server
+                                    Managed real-time search with concise source extracts
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span className="text-muted-foreground text-xs">Active</span>
+                            <span className="text-muted-foreground text-xs">Built-in</span>
                         </div>
                     </div>
                 </Card>
@@ -911,25 +869,6 @@ export function ProvidersSettingsContent() {
                         provider={provider}
                         currentProvider={currentProviders.core[provider.id]}
                         onSave={handleSaveProvider}
-                        loading={loading}
-                    />
-                ))}
-            </div>
-
-            <div className="space-y-1.5">
-                <div className="space-y-0.25">
-                    <h3 className="font-semibold text-base">BYOK Search Providers</h3>
-                    <p className="text-muted-foreground text-xs">
-                        Your keys take priority over server keys when available
-                    </p>
-                </div>
-
-                {SEARCH_PROVIDERS.map((provider) => (
-                    <BYOKSearchProviderCard
-                        key={provider.id}
-                        provider={provider}
-                        currentConfig={currentSearchProviders[provider.id]}
-                        onSave={handleSaveSearchProvider}
                         loading={loading}
                     />
                 ))}
@@ -1119,7 +1058,7 @@ function ProvidersSettingsPage() {
     return (
         <SettingsLayout
             title="Providers"
-            description="Manage AI and search provider credentials. Keys are encrypted and stored securely."
+            description="Manage AI provider credentials. Keys are encrypted and stored securely."
         >
             <ProvidersSettingsContent />
         </SettingsLayout>

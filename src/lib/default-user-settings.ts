@@ -1,7 +1,5 @@
 export const DefaultSettings = (userId: string) => ({
     userId,
-    searchProvider: "firecrawl" as const,
-    searchIncludeSourcesByDefault: false,
     coreAIProviders: {},
     customAIProviders: {},
     customModels: {},
@@ -12,11 +10,7 @@ export const DefaultSettings = (userId: string) => ({
     invertSendNewlineBehavior: false,
     imageGenerationDefaults: undefined,
     generalProviders: {
-        supermemory: undefined,
-        firecrawl: undefined,
-        tavily: undefined,
-        brave: undefined,
-        serper: undefined
+        supermemory: undefined
     },
     customization: undefined,
     onboardingCompleted: false

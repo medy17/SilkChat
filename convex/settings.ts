@@ -15,11 +15,7 @@ import {
     type SharedModel,
     isModelSunset
 } from "./lib/models"
-import type { SearchProviderType } from "./lib/tools/adapters"
-import {
-    getDeploymentSearchProviderApiKey,
-    resolveToolAvailability
-} from "./lib/tools/availability"
+import { resolveToolAvailability } from "./lib/tools/availability"
 import type { UserSettings } from "./schema"
 import {
     ImageGenerationDefaults,
@@ -27,31 +23,7 @@ import {
     StoredModelAbilitySchema
 } from "./schema/settings"
 
-type GeneralProviderUpdate = {
-    enabled: boolean
-    newKey?: string
-    country?: string
-    searchLang?: string
-    safesearch?: "off" | "moderate" | "strict"
-    language?: string
-}
-
 type CoreProviderUsageMode = "priority" | "fallback"
-
-type StoredGeneralProvider = {
-    enabled: boolean
-    encryptedKey: string
-}
-
-type BasicGeneralProviderId = "supermemory" | "firecrawl" | "tavily"
-
-const setStoredGeneralProvider = (
-    generalProviders: Infer<typeof UserSettings>["generalProviders"],
-    providerId: BasicGeneralProviderId,
-    provider: StoredGeneralProvider
-) => {
-    generalProviders[providerId] = provider
-}
 
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
@@ -232,34 +204,6 @@ export const getToolAvailability = query({
 
         const settings = await getSettings(ctx, user.id)
         return resolveToolAvailability(settings)
-    }
-})
-
-const SEARCH_PROVIDER_IDS: SearchProviderType[] = ["firecrawl", "brave", "tavily", "serper"]
-
-export const getSearchProviderAvailability = query({
-    args: {},
-    handler: async (ctx) => {
-        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) return null
-
-        const settings = await getSettings(ctx, user.id)
-        return Object.fromEntries(
-            SEARCH_PROVIDER_IDS.map((providerId) => {
-                const byokConfig = settings.generalProviders?.[providerId]
-                const hasByok = byokConfig?.enabled === true && Boolean(byokConfig.encryptedKey)
-                const hasDeployment = Boolean(getDeploymentSearchProviderApiKey(providerId))
-
-                return [
-                    providerId,
-                    {
-                        available: hasByok || hasDeployment,
-                        byok: hasByok,
-                        deployment: hasDeployment
-                    }
-                ]
-            })
-        )
     }
 })
 
@@ -454,37 +398,6 @@ export const updateUserSettings = mutation({
                         enabled: v.boolean(),
                         newKey: v.optional(v.string())
                     })
-                ),
-                firecrawl: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string())
-                    })
-                ),
-                tavily: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string())
-                    })
-                ),
-                brave: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string()),
-                        country: v.optional(v.string()),
-                        searchLang: v.optional(v.string()),
-                        safesearch: v.optional(
-                            v.union(v.literal("off"), v.literal("moderate"), v.literal("strict"))
-                        )
-                    })
-                ),
-                serper: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string()),
-                        language: v.optional(v.string()),
-                        country: v.optional(v.string())
-                    })
                 )
             })
         ),
@@ -566,49 +479,12 @@ export const updateUserSettings = mutation({
             }
         }
 
-        // Handle general providers (new structure)
-        if (args.generalProviders) {
-            for (const [providerId, providerData] of Object.entries(args.generalProviders)) {
-                if (providerData) {
-                    const existingProvider =
-                        settings.generalProviders?.[
-                            providerId as keyof typeof settings.generalProviders
-                        ]
-
-                    if (providerId === "brave") {
-                        const braveProviderData = providerData as GeneralProviderUpdate
-                        newSettings.generalProviders.brave = {
-                            enabled: providerData.enabled,
-                            encryptedKey: providerData.newKey
-                                ? await encryptKey(providerData.newKey)
-                                : existingProvider?.encryptedKey || "",
-                            country: braveProviderData.country,
-                            searchLang: braveProviderData.searchLang,
-                            safesearch: braveProviderData.safesearch
-                        }
-                    } else if (providerId === "serper") {
-                        const serperProviderData = providerData as GeneralProviderUpdate
-                        newSettings.generalProviders.serper = {
-                            enabled: providerData.enabled,
-                            encryptedKey: providerData.newKey
-                                ? await encryptKey(providerData.newKey)
-                                : existingProvider?.encryptedKey || "",
-                            language: serperProviderData.language,
-                            country: serperProviderData.country
-                        }
-                    } else {
-                        setStoredGeneralProvider(
-                            newSettings.generalProviders,
-                            providerId as BasicGeneralProviderId,
-                            {
-                                enabled: providerData.enabled,
-                                encryptedKey: providerData.newKey
-                                    ? await encryptKey(providerData.newKey)
-                                    : existingProvider?.encryptedKey || ""
-                            }
-                        )
-                    }
-                }
+        if (args.generalProviders?.supermemory) {
+            newSettings.generalProviders.supermemory = {
+                enabled: args.generalProviders.supermemory.enabled,
+                encryptedKey: args.generalProviders.supermemory.newKey
+                    ? await encryptKey(args.generalProviders.supermemory.newKey)
+                    : settings.generalProviders?.supermemory?.encryptedKey || ""
             }
         }
 
@@ -706,42 +582,9 @@ export const getSupermemoryKey = internalQuery({
     }
 })
 
-export const getDecryptedGeneralProviderKey = internalQuery({
-    args: {
-        providerId: v.string(),
-        userId: v.string()
-    },
-    handler: async (ctx, args): Promise<string | null> => {
-        const settings = await getSettings(ctx, args.userId)
-
-        const providerConfig =
-            settings.generalProviders?.[args.providerId as keyof typeof settings.generalProviders]
-
-        if (!providerConfig?.enabled || !providerConfig.encryptedKey) {
-            return null
-        }
-
-        try {
-            return await decryptKey(providerConfig.encryptedKey)
-        } catch (error) {
-            console.error(`Failed to decrypt ${args.providerId} key:`, error)
-            return null
-        }
-    }
-})
-
 export const updateUserSettingsPartial = mutation({
     args: {
         // Base settings (partial)
-        searchProvider: v.optional(
-            v.union(
-                v.literal("firecrawl"),
-                v.literal("brave"),
-                v.literal("tavily"),
-                v.literal("serper")
-            )
-        ),
-        searchIncludeSourcesByDefault: v.optional(v.boolean()),
         titleGenerationModel: v.optional(v.string()),
         toolCallLimitPerTurn: v.optional(v.number()),
         invertSendNewlineBehavior: v.optional(v.boolean()),
@@ -774,33 +617,14 @@ export const updateUserSettingsPartial = mutation({
             )
         ),
         generalProviderUpdates: v.optional(
-            v.record(
-                v.string(),
-                v.union(
-                    // Supermemory, firecrawl, tavily
+            v.object({
+                supermemory: v.optional(
                     v.object({
                         enabled: v.boolean(),
                         newKey: v.optional(v.string())
-                    }),
-                    // Brave with additional fields
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string()),
-                        country: v.optional(v.string()),
-                        searchLang: v.optional(v.string()),
-                        safesearch: v.optional(
-                            v.union(v.literal("off"), v.literal("moderate"), v.literal("strict"))
-                        )
-                    }),
-                    // Serper with additional fields
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string()),
-                        language: v.optional(v.string()),
-                        country: v.optional(v.string())
                     })
                 )
-            )
+            })
         ),
 
         // Custom models
@@ -855,12 +679,6 @@ export const updateUserSettingsPartial = mutation({
         const newSettings: Infer<typeof UserSettings> = { ...settings }
 
         // Update base settings
-        if (args.searchProvider !== undefined) {
-            newSettings.searchProvider = args.searchProvider
-        }
-        if (args.searchIncludeSourcesByDefault !== undefined) {
-            newSettings.searchIncludeSourcesByDefault = args.searchIncludeSourcesByDefault
-        }
         if (args.titleGenerationModel !== undefined) {
             newSettings.titleGenerationModel = args.titleGenerationModel
         }
@@ -934,59 +752,13 @@ export const updateUserSettingsPartial = mutation({
             }
         }
 
-        // Update general providers (search, memory)
-        if (args.generalProviderUpdates) {
-            // Ensure generalProviders exists
-            if (!newSettings.generalProviders) {
-                newSettings.generalProviders = {
-                    supermemory: undefined,
-                    firecrawl: undefined,
-                    tavily: undefined,
-                    brave: undefined,
-                    serper: undefined
-                }
-            }
-
-            for (const [providerId, update] of Object.entries(args.generalProviderUpdates)) {
-                const existingProvider =
-                    settings.generalProviders?.[
-                        providerId as keyof typeof settings.generalProviders
-                    ]
-
-                if (providerId === "brave") {
-                    const braveUpdate = update as GeneralProviderUpdate
-                    newSettings.generalProviders.brave = {
-                        enabled: update.enabled,
-                        encryptedKey: update.newKey
-                            ? await encryptKey(update.newKey)
-                            : existingProvider?.encryptedKey || "",
-                        country: braveUpdate.country,
-                        searchLang: braveUpdate.searchLang,
-                        safesearch: braveUpdate.safesearch
-                    }
-                } else if (providerId === "serper") {
-                    const serperUpdate = update as GeneralProviderUpdate
-                    newSettings.generalProviders.serper = {
-                        enabled: update.enabled,
-                        encryptedKey: update.newKey
-                            ? await encryptKey(update.newKey)
-                            : existingProvider?.encryptedKey || "",
-                        language: serperUpdate.language,
-                        country: serperUpdate.country
-                    }
-                } else {
-                    // supermemory, firecrawl, tavily
-                    setStoredGeneralProvider(
-                        newSettings.generalProviders,
-                        providerId as BasicGeneralProviderId,
-                        {
-                            enabled: update.enabled,
-                            encryptedKey: update.newKey
-                                ? await encryptKey(update.newKey)
-                                : existingProvider?.encryptedKey || ""
-                        }
-                    )
-                }
+        const supermemoryUpdate = args.generalProviderUpdates?.supermemory
+        if (supermemoryUpdate) {
+            newSettings.generalProviders.supermemory = {
+                enabled: supermemoryUpdate.enabled,
+                encryptedKey: supermemoryUpdate.newKey
+                    ? await encryptKey(supermemoryUpdate.newKey)
+                    : settings.generalProviders?.supermemory?.encryptedKey || ""
             }
         }
 

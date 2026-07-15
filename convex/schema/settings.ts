@@ -80,13 +80,17 @@ export const CustomModel = v.object({
 
 export const NonSensitiveUserSettings = v.object({
     userId: v.string(),
-    searchProvider: v.union(
-        v.literal("firecrawl"),
-        v.literal("brave"),
-        v.literal("tavily"),
-        v.literal("serper")
+    // Transitional storage compatibility. Search is now deployment-funded through
+    // Perplexity; these fields can be removed after existing settings are migrated.
+    searchProvider: v.optional(
+        v.union(
+            v.literal("firecrawl"),
+            v.literal("brave"),
+            v.literal("tavily"),
+            v.literal("serper")
+        )
     ),
-    searchIncludeSourcesByDefault: v.boolean(),
+    searchIncludeSourcesByDefault: v.optional(v.boolean()),
     customModels: v.record(v.string(), CustomModel),
     titleGenerationModel: v.string(),
     toolCallLimitPerTurn: v.optional(v.number()),
@@ -124,6 +128,7 @@ export const UserSettings = v.object({
     customAIProviders: v.record(v.string(), CustomAIProvider),
     generalProviders: v.object({
         supermemory: v.optional(GeneralProviderConfig),
+        // Transitional storage compatibility for retired search BYOK keys.
         firecrawl: v.optional(GeneralProviderConfig),
         tavily: v.optional(GeneralProviderConfig),
         brave: v.optional(BraveProviderConfig),

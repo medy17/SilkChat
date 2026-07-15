@@ -138,22 +138,15 @@ vi.mock("../../convex/lib/toolkit", () => ({
             | undefined
         >
     ) => {
-        const searchProvider =
-            typeof settings.searchProvider === "string" ? settings.searchProvider : "firecrawl"
         const generalProviders = settings.generalProviders as
             | Record<string, { enabled?: boolean; encryptedKey?: string } | undefined>
             | undefined
-        const searchProviderConfig = generalProviders?.[searchProvider]
-        const hasSearchByok =
-            searchProviderConfig?.enabled === true && Boolean(searchProviderConfig.encryptedKey)
-        const hasSearchDeployment =
-            searchProvider === "firecrawl" && Boolean(process.env.FIRECRAWL_API_KEY)
+        const hasSearchDeployment = Boolean(process.env.PERPLEXITY_API_KEY)
 
         return {
             web_search: {
-                enabled: hasSearchByok || hasSearchDeployment,
-                fundingSource: hasSearchByok ? "byok" : hasSearchDeployment ? "deployment" : "none",
-                provider: searchProvider
+                enabled: hasSearchDeployment,
+                fundingSource: hasSearchDeployment ? "deployment" : "none"
             },
             supermemory: {
                 enabled:
@@ -459,10 +452,7 @@ describe("chatPOST", () => {
         smoothStreamMock.mockReset().mockReturnValue("smooth-transform")
         stepCountIsMock.mockReset().mockReturnValue("stop-after-100")
         streamTextMock.mockReset()
-        Reflect.deleteProperty(process.env, "FIRECRAWL_API_KEY")
-        Reflect.deleteProperty(process.env, "BRAVE_API_KEY")
-        Reflect.deleteProperty(process.env, "TAVILY_API_KEY")
-        Reflect.deleteProperty(process.env, "SERPER_API_KEY")
+        Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
         vi.spyOn(console, "error").mockImplementation(() => {})
     })
 
@@ -1112,7 +1102,7 @@ describe("chatPOST", () => {
     })
 
     it("releases the reserved model charge when tool budget reservation fails", async () => {
-        process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
+        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
@@ -1193,7 +1183,7 @@ describe("chatPOST", () => {
     })
 
     it("releases the reserved model charge and returns bad_request when reserving tool budget throws", async () => {
-        process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
+        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
@@ -1345,7 +1335,7 @@ describe("chatPOST", () => {
     })
 
     it("streams a text response, patches the assistant message, and records credits on the happy path", async () => {
-        process.env.FIRECRAWL_API_KEY = "server-firecrawl-key"
+        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
@@ -1623,7 +1613,7 @@ describe("chatPOST", () => {
             messageId: "assistant-1",
             messageKey: "assistant-1:tool-budget",
             reservedCalls: 3,
-            reservedMicrousd: 12_000
+            reservedMicrousd: 15_000
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("finalizeToolCallBudget", {
             userId: "user-1",

@@ -104,7 +104,6 @@ vi.mock("../../convex/schema/settings", () => ({
 import { ChatError } from "@/lib/errors"
 import { MODELS_SHARED as SETTINGS_TEST_MODELS } from "../../convex/lib/models"
 import {
-    getSearchProviderAvailability,
     getSharedModels,
     getUserRegistryInternal,
     updateUserSettings,
@@ -115,9 +114,6 @@ const getUserRegistryInternalHandler = getUserRegistryInternal as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const getSharedModelsHandler = getSharedModels as unknown as {
-    handler: (ctx: any, args: any) => Promise<any>
-}
-const getSearchProviderAvailabilityHandler = getSearchProviderAvailability as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const updateUserSettingsHandler = updateUserSettings as unknown as {
@@ -160,10 +156,7 @@ describe("settings", () => {
         encryptKeyMock.mockReset().mockImplementation(async (value: string) => `enc:${value}`)
         getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" })
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
-        Reflect.deleteProperty(process.env, "FIRECRAWL_API_KEY")
-        Reflect.deleteProperty(process.env, "BRAVE_API_KEY")
-        Reflect.deleteProperty(process.env, "TAVILY_API_KEY")
-        Reflect.deleteProperty(process.env, "SERPER_API_KEY")
+        Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
     })
 
     it("builds a registry with enabled BYOK providers, internal providers, and custom models", async () => {
@@ -424,56 +417,6 @@ describe("settings", () => {
         })
     })
 
-    it("reports search provider availability without exposing deployment keys", async () => {
-        process.env.BRAVE_API_KEY = "deployment-brave-key"
-
-        const result = await getSearchProviderAvailabilityHandler.handler(
-            createCtx({
-                userId: "user-1",
-                searchProvider: "firecrawl",
-                generalProviders: {
-                    firecrawl: {
-                        enabled: true,
-                        encryptedKey: "encrypted-firecrawl-key"
-                    },
-                    tavily: {
-                        enabled: false,
-                        encryptedKey: "encrypted-tavily-key"
-                    },
-                    brave: undefined,
-                    serper: undefined,
-                    supermemory: undefined
-                }
-            }),
-            {}
-        )
-
-        expect(result).toMatchObject({
-            firecrawl: {
-                available: true,
-                byok: true,
-                deployment: false
-            },
-            brave: {
-                available: true,
-                byok: false,
-                deployment: true
-            },
-            tavily: {
-                available: false,
-                byok: false,
-                deployment: false
-            },
-            serper: {
-                available: false,
-                byok: false,
-                deployment: false
-            }
-        })
-        expect(JSON.stringify(result)).not.toContain("deployment-brave-key")
-        expect(JSON.stringify(result)).not.toContain("encrypted-firecrawl-key")
-    })
-
     it("preserves existing encrypted keys when updates omit newKey values", async () => {
         const ctx = createCtx({
             _id: "settings-id",
@@ -539,11 +482,8 @@ describe("settings", () => {
                 }
             },
             generalProviders: {
-                brave: {
-                    enabled: true,
-                    country: "my",
-                    searchLang: "ms",
-                    safesearch: "strict"
+                supermemory: {
+                    enabled: true
                 }
             }
         })
@@ -577,9 +517,9 @@ describe("settings", () => {
                     brave: {
                         enabled: true,
                         encryptedKey: "existing-brave-key",
-                        country: "my",
-                        searchLang: "ms",
-                        safesearch: "strict"
+                        country: "us",
+                        searchLang: "en",
+                        safesearch: "moderate"
                     }
                 })
             })

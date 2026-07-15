@@ -16,3 +16,20 @@ export const backfillUserThreadsAggregatesMigration = migrations.define({
 export const runAggregateBackfill = migrations.runner([
     internal.migrations.backfillUserThreadsAggregatesMigration
 ])
+
+export const retireLegacySearchSettingsMigration = migrations.define({
+    table: "settings",
+    migrateOne: async (ctx, doc) => {
+        await ctx.db.patch(doc._id, {
+            searchProvider: undefined,
+            searchIncludeSourcesByDefault: undefined,
+            generalProviders: {
+                supermemory: doc.generalProviders?.supermemory
+            }
+        })
+    }
+})
+
+export const runLegacySearchSettingsCleanup = migrations.runner([
+    internal.migrations.retireLegacySearchSettingsMigration
+])

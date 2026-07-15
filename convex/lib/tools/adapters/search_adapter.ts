@@ -1,15 +1,15 @@
 export interface SearchResult {
     url: string
     title: string
-    description: string
-    content?: string
-    markdown?: string
+    snippet: string
+    date?: string
+    lastUpdated?: string
 }
 
 export interface SearchOptions {
     limit?: number
-    scrapeContent?: boolean
-    formats?: string[]
+    maxTokens?: number
+    maxTokensPerPage?: number
 }
 
 export interface SearchAdapter {

@@ -25,7 +25,6 @@ import {
     MAX_DEFAULT_VARIANTS
 } from "@/lib/image-generation-defaults"
 import { useModelStore } from "@/lib/model-store"
-import { SEARCH_PROVIDERS } from "@/lib/models-providers-shared"
 import type { AbilityId } from "@/lib/tool-abilities"
 import {
     DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
@@ -35,7 +34,7 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, ExternalLink, Globe, Image, Settings2 } from "lucide-react"
+import { CircleHelp, Globe, Image, Settings2 } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -49,20 +48,9 @@ type ToolSelectorPopoverProps = {
     tone?: "default" | "on-primary"
 }
 
-type SearchProviderId = "firecrawl" | "brave" | "tavily" | "serper"
-
-const getSearchProviderName = (providerId: string | undefined) =>
-    SEARCH_PROVIDERS.find((provider) => provider.id === providerId)?.name ?? "Unknown"
-
 function WebSearchInfoContent({
-    selectedProviderName,
-    configuredProvidersLabel,
-    fundingLabel,
     available
 }: {
-    selectedProviderName: string
-    configuredProvidersLabel: string
-    fundingLabel: string
     available: boolean
 }) {
     return (
@@ -70,53 +58,27 @@ function WebSearchInfoContent({
             <div>
                 <div className="font-medium text-foreground">Web Search</div>
                 <p className="mt-1 text-muted-foreground text-xs">
-                    Web Search uses only the selected provider.
+                    Searches the live web and returns concise results with source links.
                 </p>
             </div>
 
             <div className="space-y-1 text-xs">
                 <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Selected provider</span>
-                    <span className="font-medium text-foreground">{selectedProviderName}</span>
-                </div>
-                <div className="flex justify-between gap-4">
                     <span className="text-muted-foreground">Status</span>
                     <span className="font-medium text-foreground">
-                        {available ? fundingLabel : "Not configured"}
-                    </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Configured keys</span>
-                    <span className="max-w-40 truncate text-right font-medium text-foreground">
-                        {configuredProvidersLabel}
+                        {available ? "Available" : "Unavailable"}
                     </span>
                 </div>
             </div>
-
-            {!available && (
-                <a
-                    href="/settings/ai-setup?tab=providers"
-                    className="inline-flex items-center gap-1 text-primary text-xs underline"
-                >
-                    Configure provider key
-                    <ExternalLink className="size-3" />
-                </a>
-            )}
         </div>
     )
 }
 
 function WebSearchInfoButton({
     isMobile,
-    selectedProviderName,
-    configuredProvidersLabel,
-    fundingLabel,
     available
 }: {
     isMobile: boolean
-    selectedProviderName: string
-    configuredProvidersLabel: string
-    fundingLabel: string
     available: boolean
 }) {
     const [open, setOpen] = useState(false)
@@ -138,14 +100,7 @@ function WebSearchInfoButton({
         </button>
     )
 
-    const content = (
-        <WebSearchInfoContent
-            selectedProviderName={selectedProviderName}
-            configuredProvidersLabel={configuredProvidersLabel}
-            fundingLabel={fundingLabel}
-            available={available}
-        />
-    )
+    const content = <WebSearchInfoContent available={available} />
 
     if (isMobile) {
         return (
@@ -334,24 +289,6 @@ export const ToolSelectorPopover = memo(
         const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
         const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
-        const selectedSearchProvider = userSettings?.searchProvider as SearchProviderId | undefined
-        const selectedSearchProviderName = getSearchProviderName(selectedSearchProvider)
-        const configuredSearchProviders =
-            userSettings?.generalProviders === undefined
-                ? []
-                : SEARCH_PROVIDERS.filter((provider) => {
-                      const config =
-                          userSettings.generalProviders?.[provider.id as SearchProviderId]
-                      return config?.enabled === true && Boolean(config.encryptedKey)
-                  }).map((provider) => provider.name)
-        const configuredSearchProvidersLabel =
-            configuredSearchProviders.length > 0 ? configuredSearchProviders.join(", ") : "None"
-        const webSearchFundingLabel =
-            toolAvailability?.web_search.fundingSource === "byok"
-                ? "BYOK"
-                : toolAvailability?.web_search.fundingSource === "deployment"
-                  ? "server"
-                  : "not configured"
         const imageDefaults = userSettings?.imageGenerationDefaults
         const defaultImageResolution: ImageDefaultResolution =
             (imageDefaults?.resolution as ImageDefaultResolution | undefined) ?? "1K"
@@ -510,11 +447,6 @@ export const ToolSelectorPopover = memo(
                                             <span className="text-sm">Web Search</span>
                                             <WebSearchInfoButton
                                                 isMobile={isMobile}
-                                                selectedProviderName={selectedSearchProviderName}
-                                                configuredProvidersLabel={
-                                                    configuredSearchProvidersLabel
-                                                }
-                                                fundingLabel={webSearchFundingLabel}
                                                 available={webSearchAvailable}
                                             />
                                         </div>
