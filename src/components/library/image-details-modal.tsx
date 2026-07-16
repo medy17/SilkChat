@@ -1,4 +1,8 @@
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
+import {
+    ImageMetadataPanel,
+    ReferenceImageThumbnails
+} from "@/components/library/image-metadata-panel"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import {
     AlertDialog,
@@ -33,10 +37,10 @@ import {
 } from "@/lib/generated-image-recovery"
 import {
     getExpandedImageUrl,
-    getFileThumbnailSources,
     getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
+import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
@@ -102,101 +106,6 @@ const MOBILE_SWIPE_TAP_SLOP = 10
 const MOBILE_SWIPE_MAX_OFFSET = 220
 const DESKTOP_NAV_BUTTON_SPACE = 176
 const loadedDetailImageUrls = new Set<string>()
-
-function getAspectRatioValue(aspectRatio: string) {
-    if (aspectRatio.includes("x")) {
-        const [width, height] = aspectRatio.split("x").map(Number)
-        return width > 0 && height > 0 ? width / height : 1
-    }
-
-    if (aspectRatio.includes(":")) {
-        const [width, height] = aspectRatio.replace("-hd", "").split(":").map(Number)
-        return width > 0 && height > 0 ? width / height : 1
-    }
-
-    return 1
-}
-
-function fitAspectRatioBox({
-    aspectRatioValue,
-    maxWidth,
-    maxHeight,
-    minWidth = 0,
-    minHeight = 0
-}: {
-    aspectRatioValue: number
-    maxWidth: number
-    maxHeight: number
-    minWidth?: number
-    minHeight?: number
-}) {
-    let width = maxWidth
-    let height = width / aspectRatioValue
-
-    if (height > maxHeight) {
-        height = maxHeight
-        width = height * aspectRatioValue
-    }
-
-    if (width < minWidth) {
-        width = minWidth
-        height = width / aspectRatioValue
-    }
-
-    if (height < minHeight) {
-        height = minHeight
-        width = height * aspectRatioValue
-    }
-
-    return { width, height }
-}
-
-function ReferenceImageThumbnails({
-    referenceImageKeys,
-    className
-}: {
-    referenceImageKeys?: string[]
-    className?: string
-}) {
-    if (!referenceImageKeys?.length) return null
-
-    return (
-        <div className={cn("border-border/60 border-t pt-5", className)}>
-            <h4 className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                References
-            </h4>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-                {referenceImageKeys.map((storageKey, index) => {
-                    const thumbnailSources = getFileThumbnailSources(storageKey)
-                    const fullResolutionUrl =
-                        getGeneratedImageDirectUrl(storageKey) ||
-                        getGeneratedImageProxyUrl(storageKey)
-
-                    return (
-                        <a
-                            key={`${storageKey}-${index}`}
-                            href={fullResolutionUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block size-12 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-border/70 bg-muted outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"
-                            aria-label={`Open reference image ${index + 1}`}
-                        >
-                            <img
-                                src={thumbnailSources.src}
-                                srcSet={thumbnailSources.srcSet}
-                                sizes={thumbnailSources.sizes}
-                                alt={`Reference ${index + 1}`}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        </a>
-                    )
-                })}
-            </div>
-        </div>
-    )
-}
 
 export const ImageDetailsModal = memo(function ImageDetailsModal({
     image,
@@ -297,7 +206,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         return "1/1"
     }, [aspectRatio])
 
-    const aspectRatioValue = useMemo(() => getAspectRatioValue(aspectRatio), [aspectRatio])
+    const aspectRatioValue = useMemo(() => getImageAspectRatioValue(aspectRatio), [aspectRatio])
     const optimizedImageUrl = localImage
         ? getExpandedImageUrl({
               storageKey: localImage.storageKey,
@@ -432,7 +341,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             }
         }
 
-        const fullscreenImage = fitAspectRatioBox({
+        const fullscreenImage = fitImageAspectRatioBox({
             aspectRatioValue,
             maxWidth: Math.max(280, viewportSize.width - MOBILE_HORIZONTAL_CHROME),
             maxHeight: Math.max(240, viewportSize.height - MOBILE_FULLSCREEN_IMAGE_CHROME)
@@ -454,7 +363,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 MOBILE_PREVIEW_GAP_ABOVE_DRAWER -
                 MOBILE_BOTTOM_ACTION_SAFE_SPACE
         )
-        const previewImage = fitAspectRatioBox({
+        const previewImage = fitImageAspectRatioBox({
             aspectRatioValue,
             maxWidth: Math.max(220, viewportSize.width - MOBILE_HORIZONTAL_CHROME),
             maxHeight: mobilePreviewMaxHeight
@@ -1170,57 +1079,15 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         )}
                     </div>
 
-                    <div
-                        className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-md"
+                    <ImageMetadataPanel
+                        image={localImage}
+                        modelName={model?.name || localImage.modelId || "Unknown"}
                         style={{
                             width: layout.infoWidth,
                             height: layout.isDesktop ? layout.infoHeight : undefined,
                             minHeight: layout.isDesktop ? layout.infoHeight : undefined
                         }}
-                    >
-                        <div className="flex-1 overflow-y-auto p-6">
-                            <div className="mb-6">
-                                <h3 className="mb-3 font-semibold text-2xl">Prompt</h3>
-                                <p className="whitespace-pre-wrap text-base text-muted-foreground leading-7">
-                                    {localImage.prompt || "No prompt available."}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-border/60 border-t pt-6">
-                                <div>
-                                    <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                                        Model
-                                    </h4>
-                                    <p className="text-sm">
-                                        {model?.name || localImage.modelId || "Unknown"}
-                                    </p>
-                                </div>
-                                <div>
-                                    <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                                        Aspect Ratio
-                                    </h4>
-                                    <p className="text-sm">{localImage.aspectRatio || "Unknown"}</p>
-                                </div>
-                                <div>
-                                    <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                                        Resolution
-                                    </h4>
-                                    <p className="text-sm">{resolutionLabel}</p>
-                                </div>
-                                <div>
-                                    <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                                        Date
-                                    </h4>
-                                    <p className="text-sm">{formattedDate}</p>
-                                </div>
-                            </div>
-                            <ReferenceImageThumbnails
-                                referenceImageKeys={localImage.referenceImageKeys}
-                                className="mt-6"
-                            />
-                        </div>
-
-                        <div className="border-border/60 border-t p-4">
+                        footer={
                             <div className="flex flex-nowrap items-center gap-3">
                                 <Button
                                     variant="outline"
@@ -1280,8 +1147,8 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
-                        </div>
-                    </div>
+                        }
+                    />
                 </div>
             </DialogContent>
             {sharedAlertDialog}

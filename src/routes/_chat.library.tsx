@@ -1,5 +1,6 @@
 import { useDesktopLibraryChromeStore } from "@/components/library/desktop-library-chrome-store"
 import { useGenerationStore } from "@/components/library/generation-store"
+import { ImageComparisonModal } from "@/components/library/image-comparison-modal"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -113,6 +114,7 @@ import {
     Filter,
     Image as ImageIcon,
     ImageOff,
+    Images,
     PlusCircle,
     RotateCcw,
     Search,
@@ -536,6 +538,7 @@ const GeneratedImageItem = memo(
         onBulkDownload,
         onBulkArchive,
         onBulkRestore,
+        onCompareSelected,
         isImageHidden = false,
         onToggleImageHidden,
         isArchivedView = false,
@@ -556,6 +559,7 @@ const GeneratedImageItem = memo(
         onBulkDownload?: () => void
         onBulkArchive?: () => void
         onBulkRestore?: () => void
+        onCompareSelected?: () => void
         isImageHidden?: boolean
         onToggleImageHidden?: () => void
         isArchivedView?: boolean
@@ -1056,6 +1060,12 @@ const GeneratedImageItem = memo(
 
                     {isSelectionMode && selectedCount > 0 ? (
                         <>
+                            {onCompareSelected && selectedCount === 2 && (
+                                <ContextMenuItem onClick={onCompareSelected}>
+                                    <Images className="mr-2 h-4 w-4" />
+                                    Compare Selected
+                                </ContextMenuItem>
+                            )}
                             {onBulkDownload && (
                                 <ContextMenuItem onClick={onBulkDownload}>
                                     <Download className="mr-2 h-4 w-4" />
@@ -1396,6 +1406,9 @@ export function LibraryView({
     const [hiddenImageIds, setHiddenImageIds] = useState<Set<string>>(new Set())
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
+    const [comparisonImages, setComparisonImages] = useState<
+        [Doc<"generatedImages">, Doc<"generatedImages">] | null
+    >(null)
     const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
     const bulkDeleteCancelRef = useRef<HTMLButtonElement>(null)
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
@@ -1755,6 +1768,23 @@ export function LibraryView({
         setSelectedImageIds(new Set())
         setIsSelectionMode(false)
     }, [])
+
+    const handleCompareSelected = useCallback(() => {
+        if (selectedImageIds.size !== 2) return
+
+        const imageById = new Map(images.map((image) => [image._id, image]))
+        const selected = Array.from(selectedImageIds)
+            .map((id) => imageById.get(id))
+            .filter((image): image is Doc<"generatedImages"> => image !== undefined)
+
+        if (selected.length !== 2) {
+            toast.error("Both selected images must be on the current page")
+            return
+        }
+
+        setComparisonImages([selected[0], selected[1]])
+        handleClearSelection()
+    }, [handleClearSelection, images, selectedImageIds])
 
     const allVisibleImagesSelected =
         images.length > 0 && images.every((image) => selectedImageIds.has(image._id))
@@ -2432,6 +2462,7 @@ export function LibraryView({
                                                         }
                                                         onBulkArchive={handleBulkArchive}
                                                         onBulkRestore={handleBulkRestore}
+                                                        onCompareSelected={handleCompareSelected}
                                                         selectedCount={selectedImageIds.size}
                                                         onBulkDelete={handleRequestBulkDelete}
                                                         isImageHidden={isImageHidden}
@@ -2515,6 +2546,19 @@ export function LibraryView({
                             className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border border-border/70 bg-background/90 p-1.5 shadow-2xl backdrop-blur-xl sm:gap-1.5"
                             style={{ borderRadius: "var(--radius-xl)" }}
                         >
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Compare selected images"
+                                className="rounded-[var(--radius-md)] px-2 sm:px-3"
+                                disabled={selectedImageIds.size !== 2}
+                                onClick={handleCompareSelected}
+                            >
+                                <Images className="size-4" />
+                                <span className="hidden sm:inline">Compare</span>
+                            </Button>
+
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -2633,6 +2677,11 @@ export function LibraryView({
                     onDeleteStart={handleHideImageLocally}
                     onArchiveStart={handleHideImageLocally}
                     onRestoreStart={handleHideImageLocally}
+                />
+                <ImageComparisonModal
+                    images={comparisonImages}
+                    isOpen={comparisonImages !== null}
+                    onClose={() => setComparisonImages(null)}
                 />
             </motion.div>
         </AnimatePresence>

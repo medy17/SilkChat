@@ -77,3 +77,51 @@ export const getCommonSelectableImageAspectRatios = (
 
     return intersection
 }
+
+export const getImageAspectRatioValue = (aspectRatio: string): number => {
+    if (aspectRatio.includes("x")) {
+        const [width, height] = aspectRatio.split("x").map(Number)
+        return width > 0 && height > 0 ? width / height : 1
+    }
+
+    if (aspectRatio.includes(":")) {
+        const [width, height] = aspectRatio.replace("-hd", "").split(":").map(Number)
+        return width > 0 && height > 0 ? width / height : 1
+    }
+
+    return 1
+}
+
+export const fitImageAspectRatioBox = ({
+    aspectRatioValue,
+    maxWidth,
+    maxHeight,
+    minWidth = 0,
+    minHeight = 0
+}: {
+    aspectRatioValue: number
+    maxWidth: number
+    maxHeight: number
+    minWidth?: number
+    minHeight?: number
+}) => {
+    let width = maxWidth
+    let height = width / aspectRatioValue
+
+    if (height > maxHeight) {
+        height = maxHeight
+        width = height * aspectRatioValue
+    }
+
+    if (width < minWidth) {
+        width = minWidth
+        height = width / aspectRatioValue
+    }
+
+    if (height < minHeight) {
+        height = minHeight
+        width = height * aspectRatioValue
+    }
+
+    return { width, height }
+}
