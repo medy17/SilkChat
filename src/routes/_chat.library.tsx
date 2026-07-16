@@ -3,6 +3,16 @@ import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -106,6 +116,7 @@ import {
     PlusCircle,
     RotateCcw,
     Search,
+    SquareMinus,
     Trash2,
     X
 } from "lucide-react"
@@ -1385,6 +1396,8 @@ export function LibraryView({
     const [hiddenImageIds, setHiddenImageIds] = useState<Set<string>>(new Set())
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
+    const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
+    const bulkDeleteCancelRef = useRef<HTMLButtonElement>(null)
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
     const reprocessImageAsset = useAction(
         api.image_generation_jobs.reprocessImageGenerationJobAsset
@@ -1694,6 +1707,9 @@ export function LibraryView({
     useEffect(() => {
         void scrollResetKey
         galleryRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+        setIsBulkDeleteDialogOpen(false)
     }, [scrollResetKey])
 
     useEffect(() => {
@@ -1734,6 +1750,53 @@ export function LibraryView({
             return next
         })
     }, [])
+
+    const handleClearSelection = useCallback(() => {
+        setSelectedImageIds(new Set())
+        setIsSelectionMode(false)
+    }, [])
+
+    const allVisibleImagesSelected =
+        images.length > 0 && images.every((image) => selectedImageIds.has(image._id))
+
+    const handleToggleSelectVisible = useCallback(() => {
+        if (allVisibleImagesSelected) {
+            setSelectedImageIds(new Set())
+            setIsSelectionMode(false)
+            return
+        }
+
+        setSelectedImageIds(new Set(images.map((image) => image._id)))
+        setIsSelectionMode(images.length > 0)
+    }, [allVisibleImagesSelected, images])
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (isBulkDeleteDialogOpen || selectedImage) return
+
+            if (event.key === "Escape" && isSelectionMode) {
+                handleClearSelection()
+                return
+            }
+
+            if (event.key.toLowerCase() !== "a" || (!event.ctrlKey && !event.metaKey)) return
+
+            const target = event.target
+            const isEditableTarget =
+                target instanceof HTMLElement &&
+                (target.isContentEditable ||
+                    target.closest("input, textarea, [contenteditable='true']") !== null)
+
+            if (isEditableTarget || images.length === 0) return
+
+            event.preventDefault()
+            setSelectedImageIds(new Set(images.map((image) => image._id)))
+            setIsSelectionMode(true)
+        }
+
+        window.addEventListener("keydown", handleKeyDown)
+        return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [handleClearSelection, images, isBulkDeleteDialogOpen, isSelectionMode, selectedImage])
 
     const hideImageLocally = useCallback((imageId: Id<"generatedImages">) => {
         setHiddenImageIds((prev) => new Set(prev).add(imageId))
@@ -1792,10 +1855,16 @@ export function LibraryView({
         setSelectedImage(images[selectedImageIndex + 1] ?? null)
     }, [canNavigateSelectedImageNext, images, selectedImageIndex])
 
-    const handleBulkDelete = useCallback(() => {
+    const handleRequestBulkDelete = useCallback(() => {
+        if (selectedImageIds.size === 0) return
+        setIsBulkDeleteDialogOpen(true)
+    }, [selectedImageIds.size])
+
+    const handleConfirmBulkDelete = useCallback(() => {
         if (selectedImageIds.size === 0) return
 
         const idsToDelete = Array.from(selectedImageIds)
+        setIsBulkDeleteDialogOpen(false)
         setHiddenImageIds((prev) => {
             const next = new Set(prev)
             idsToDelete.forEach((id) => next.add(id))
@@ -2225,7 +2294,12 @@ export function LibraryView({
                 )}
 
                 {/* Scrollable Gallery Area */}
-                <div className="px-3 pt-1 pb-3 sm:px-4 sm:pt-2 sm:pb-4 lg:px-6 lg:pb-6">
+                <div
+                    className={cn(
+                        "px-3 pt-1 pb-3 sm:px-4 sm:pt-2 sm:pb-4 lg:px-6 lg:pb-6",
+                        isSelectionMode && "pb-28 sm:pb-28 lg:pb-28"
+                    )}
+                >
                     {deferHeavyContent || !resolvedImagePage ? (
                         <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
                             {Array.from({ length: 12 }).map((_, i) => (
@@ -2359,7 +2433,7 @@ export function LibraryView({
                                                         onBulkArchive={handleBulkArchive}
                                                         onBulkRestore={handleBulkRestore}
                                                         selectedCount={selectedImageIds.size}
-                                                        onBulkDelete={handleBulkDelete}
+                                                        onBulkDelete={handleRequestBulkDelete}
                                                         isImageHidden={isImageHidden}
                                                         onToggleImageHidden={() =>
                                                             toggleImageVisibility(image._id)
@@ -2428,6 +2502,123 @@ export function LibraryView({
                         </>
                     )}
                 </div>
+
+                <AnimatePresence>
+                    {isSelectionMode && selectedImageIds.size > 0 && (
+                        <motion.div
+                            role="toolbar"
+                            aria-label="Selected image actions"
+                            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 16, scale: 0.97 }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border border-border/70 bg-background/90 p-1.5 shadow-2xl backdrop-blur-xl sm:gap-1.5"
+                            style={{ borderRadius: "var(--radius-xl)" }}
+                        >
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label={
+                                    allVisibleImagesSelected
+                                        ? "Clear page selection"
+                                        : "Select current page"
+                                }
+                                aria-pressed={allVisibleImagesSelected}
+                                className="rounded-[var(--radius-md)] px-2.5 font-semibold sm:px-3"
+                                onClick={handleToggleSelectVisible}
+                            >
+                                {allVisibleImagesSelected ? (
+                                    <CheckSquare2 className="size-4" />
+                                ) : (
+                                    <SquareMinus className="size-4" />
+                                )}
+                                <span>{selectedImageIds.size} selected</span>
+                            </Button>
+
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label={
+                                    isArchivedView
+                                        ? "Restore selected images"
+                                        : "Archive selected images"
+                                }
+                                className="rounded-[var(--radius-md)] px-2 sm:px-3"
+                                onClick={isArchivedView ? handleBulkRestore : handleBulkArchive}
+                            >
+                                {isArchivedView ? (
+                                    <RotateCcw className="size-4" />
+                                ) : (
+                                    <Archive className="size-4" />
+                                )}
+                                <span className="hidden sm:inline">
+                                    {isArchivedView ? "Restore" : "Archive"}
+                                </span>
+                            </Button>
+
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Delete selected images"
+                                className="rounded-[var(--radius-md)] px-2 text-destructive hover:bg-destructive/10 hover:text-destructive sm:px-3"
+                                onClick={handleRequestBulkDelete}
+                            >
+                                <Trash2 className="size-4" />
+                                <span className="hidden sm:inline">Delete</span>
+                            </Button>
+
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Cancel image selection"
+                                className="rounded-[var(--radius-md)] px-2 text-muted-foreground sm:px-3"
+                                onClick={handleClearSelection}
+                            >
+                                Cancel
+                            </Button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+                    <AlertDialogContent
+                        className="rounded-[var(--radius-xl)]"
+                        onOpenAutoFocus={() => {
+                            window.requestAnimationFrame(() => bulkDeleteCancelRef.current?.focus())
+                        }}
+                    >
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>
+                                Delete {selectedImageIds.size}{" "}
+                                {selectedImageIds.size === 1 ? "image" : "images"}?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This permanently removes the selected
+                                {selectedImageIds.size === 1 ? " image" : " images"} and stored
+                                {selectedImageIds.size === 1 ? " file" : " files"}. This cannot be
+                                undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel
+                                ref={bulkDeleteCancelRef}
+                                className="rounded-[var(--radius-md)]"
+                            >
+                                Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                                className="rounded-[var(--radius-md)] bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={handleConfirmBulkDelete}
+                            >
+                                Delete permanently
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 <ImageDetailsModal
                     image={selectedImage}
