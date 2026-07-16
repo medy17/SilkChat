@@ -44,6 +44,14 @@ import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
 import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
+import {
+    DEFAULT_FAVORITE_MODEL_IDS,
+    FAVORITES_SECTION_ID,
+    getFavoriteToggleAction,
+    getModelFavoritesStorageKey,
+    reconcileFavoriteModelIds,
+    resolveFavoriteModelIds
+} from "@/lib/model-favorites"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     type DisplayModel,
@@ -65,6 +73,7 @@ import {
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
+import { Link } from "@tanstack/react-router"
 import {
     Archive,
     Calculator,
@@ -78,10 +87,12 @@ import {
     Image,
     Key,
     Search,
+    Star,
     Terminal,
     Trophy
 } from "lucide-react"
 import * as React from "react"
+import { toast } from "sonner"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
@@ -337,6 +348,8 @@ export const getProviderSectionIcon = (
     }
 
     switch (providerId) {
+        case FAVORITES_SECTION_ID:
+            return <Star className={className} />
         case "openai":
             return <OpenAIIcon className={className} />
         case "anthropic":
@@ -900,6 +913,100 @@ const ModelInfoFlyout = ({
     )
 }
 
+const FavoriteToggle = ({
+    model,
+    isFavorite,
+    onToggleFavorite,
+    useToastConfirmation = false
+}: {
+    model: DisplayModel
+    isFavorite: boolean
+    onToggleFavorite: (modelId: string) => void
+    useToastConfirmation?: boolean
+}) => {
+    const [isRemovalArmed, setIsRemovalArmed] = React.useState(false)
+    const [tooltipOpen, setTooltipOpen] = React.useState(false)
+    const resetTimerRef = React.useRef<number | null>(null)
+    const confirmationToastId = `favorite-removal:${model.id}`
+
+    const clearRemovalTimer = React.useCallback(() => {
+        if (resetTimerRef.current !== null) {
+            window.clearTimeout(resetTimerRef.current)
+            resetTimerRef.current = null
+        }
+    }, [])
+
+    const resetRemoval = React.useCallback(() => {
+        clearRemovalTimer()
+        setIsRemovalArmed(false)
+        setTooltipOpen(false)
+    }, [clearRemovalTimer])
+
+    React.useEffect(() => clearRemovalTimer, [clearRemovalTimer])
+
+    React.useEffect(() => {
+        if (!isFavorite) resetRemoval()
+    }, [isFavorite, resetRemoval])
+
+    const handleToggle = () => {
+        const action = getFavoriteToggleAction({ isFavorite, isRemovalArmed })
+        if (action === "arm-removal") {
+            setIsRemovalArmed(true)
+            setTooltipOpen(true)
+            if (useToastConfirmation) {
+                toast("Tap again to remove from favorites", {
+                    description: model.name,
+                    duration: 2500,
+                    id: confirmationToastId
+                })
+            }
+            resetTimerRef.current = window.setTimeout(resetRemoval, 2500)
+            return
+        }
+
+        if (useToastConfirmation) toast.dismiss(confirmationToastId)
+        resetRemoval()
+        onToggleFavorite(model.id)
+    }
+
+    return (
+        <Tooltip
+            open={tooltipOpen}
+            onOpenChange={(nextOpen) => setTooltipOpen(isRemovalArmed ? true : nextOpen)}
+        >
+            <TooltipTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        "size-7 rounded-[var(--radius-md)] border text-muted-foreground",
+                        isFavorite && "border-transparent bg-accent text-primary"
+                    )}
+                    aria-label={
+                        isRemovalArmed
+                            ? `Confirm removal of ${model.name} from favorites`
+                            : isFavorite
+                              ? `Remove ${model.name} from favorites`
+                              : `Add ${model.name} to favorites`
+                    }
+                    aria-pressed={isFavorite}
+                    onClick={handleToggle}
+                >
+                    <Star className={cn("size-4", isFavorite && "fill-primary text-primary")} />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+                {isRemovalArmed
+                    ? "Click again to confirm"
+                    : isFavorite
+                      ? "Tap to Remove"
+                      : "Add to favorites"}
+            </TooltipContent>
+        </Tooltip>
+    )
+}
+
 const ModelCard = React.memo(function ModelCard({
     model,
     selectedModel,
@@ -908,6 +1015,8 @@ const ModelCard = React.memo(function ModelCard({
     currentProviders,
     disabled,
     disabledReason,
+    isFavorite,
+    onToggleFavorite,
     badgeLabel,
     badgeVariant = "secondary"
 }: {
@@ -918,6 +1027,8 @@ const ModelCard = React.memo(function ModelCard({
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     disabled?: boolean
     disabledReason?: string
+    isFavorite: boolean
+    onToggleFavorite: (modelId: string) => void
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
 }) {
@@ -948,7 +1059,7 @@ const ModelCard = React.memo(function ModelCard({
                 <div className="flex items-start">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 pr-10 sm:pr-0">
+                            <div className="min-w-0 pr-20 sm:pr-0">
                                 <div className="flex items-center gap-2">
                                     <span className="truncate font-medium text-sm sm:text-base">
                                         {model.name}
@@ -978,7 +1089,7 @@ const ModelCard = React.memo(function ModelCard({
                                     </p>
                                 )}
                             </div>
-                            <div className="hidden shrink-0 flex-col items-end gap-2 pr-10 sm:flex">
+                            <div className="hidden shrink-0 flex-col items-end gap-2 pr-20 sm:flex">
                                 {modelAbilities.length > 0 && (
                                     <div className="flex flex-wrap justify-end gap-1">
                                         {modelAbilities.slice(0, 4).map((ability) => (
@@ -1010,10 +1121,21 @@ const ModelCard = React.memo(function ModelCard({
                     </div>
                 </div>
             </button>
-            <div className="absolute top-3 right-3 hidden sm:block">
+            <div className="absolute top-3 right-3 hidden items-center gap-1 sm:flex">
+                <FavoriteToggle
+                    model={model}
+                    isFavorite={isFavorite}
+                    onToggleFavorite={onToggleFavorite}
+                />
                 <ModelInfoFlyout model={model} currentProviders={currentProviders} />
             </div>
-            <div className="absolute right-3 bottom-3 sm:hidden">
+            <div className="absolute right-3 bottom-3 flex items-center gap-1 sm:hidden">
+                <FavoriteToggle
+                    model={model}
+                    isFavorite={isFavorite}
+                    onToggleFavorite={onToggleFavorite}
+                    useToastConfirmation
+                />
                 <ModelInfoFlyout model={model} currentProviders={currentProviders} />
             </div>
         </div>
@@ -1076,6 +1198,10 @@ export function ModelSelector({
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
+    const [favoriteModelIds, setFavoriteModelIds] = React.useState<string[]>(() => [
+        ...DEFAULT_FAVORITE_MODEL_IDS
+    ])
+    const [loadedFavoritesKey, setLoadedFavoritesKey] = React.useState<string | null>(null)
     const [canScrollUp, setCanScrollUp] = React.useState(false)
     const [canScrollDown, setCanScrollDown] = React.useState(false)
     const leftPanelRef = React.useRef<HTMLDivElement>(null)
@@ -1114,6 +1240,72 @@ export function ModelSelector({
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
     const { models: sharedModels } = useSharedModels()
+    const favoritesStorageKey = session.user?.id
+        ? getModelFavoritesStorageKey(session.user.id)
+        : null
+
+    React.useEffect(() => {
+        if (!favoritesStorageKey) {
+            setFavoriteModelIds([...DEFAULT_FAVORITE_MODEL_IDS])
+            setLoadedFavoritesKey(null)
+            return
+        }
+
+        let storedValue: string | null = null
+        try {
+            storedValue = window.localStorage.getItem(favoritesStorageKey)
+        } catch {}
+
+        setFavoriteModelIds(resolveFavoriteModelIds(storedValue))
+        setLoadedFavoritesKey(favoritesStorageKey)
+    }, [favoritesStorageKey])
+
+    React.useEffect(() => {
+        if (
+            !favoritesStorageKey ||
+            loadedFavoritesKey !== favoritesStorageKey ||
+            sharedModels.length === 0
+        ) {
+            return
+        }
+
+        const availableModelIds = new Set(availableModels.map((model) => model.id))
+        setFavoriteModelIds((currentIds) => {
+            const reconciledIds = reconcileFavoriteModelIds({
+                favoriteModelIds: currentIds,
+                sharedModels,
+                availableModelIds
+            })
+            const unchanged =
+                reconciledIds.length === currentIds.length &&
+                reconciledIds.every((modelId, index) => modelId === currentIds[index])
+            if (unchanged) return currentIds
+
+            try {
+                window.localStorage.setItem(favoritesStorageKey, JSON.stringify(reconciledIds))
+            } catch {}
+            return reconciledIds
+        })
+    }, [availableModels, favoritesStorageKey, loadedFavoritesKey, sharedModels])
+
+    const toggleFavorite = React.useCallback(
+        (modelId: string) => {
+            setFavoriteModelIds((currentIds) => {
+                const nextIds = currentIds.includes(modelId)
+                    ? currentIds.filter((id) => id !== modelId)
+                    : [...currentIds, modelId]
+
+                if (favoritesStorageKey) {
+                    try {
+                        window.localStorage.setItem(favoritesStorageKey, JSON.stringify(nextIds))
+                    } catch {}
+                }
+
+                return nextIds
+            })
+        },
+        [favoritesStorageKey]
+    )
 
     React.useEffect(() => {
         if (!session.user?.id || auth.isLoading) {
@@ -1164,7 +1356,7 @@ export function ModelSelector({
             return acc
         }, {})
 
-        return Object.entries(grouped)
+        const sections = Object.entries(grouped)
             .map(([providerId, models]) => {
                 const label = getProviderSectionLabel(providerId, currentProviders, models)
                 return {
@@ -1200,7 +1392,24 @@ export function ModelSelector({
                 }
                 return left.label.localeCompare(right.label)
             })
-    }, [availableModels, currentProviders])
+
+        const modelsById = new Map(textModels.map((model) => [model.id, model]))
+        const favoriteModels = favoriteModelIds.flatMap((modelId) => {
+            const model = modelsById.get(modelId)
+            return model ? [model] : []
+        })
+
+        return [
+            {
+                id: FAVORITES_SECTION_ID,
+                label: "Favorites",
+                compactLabel: "Favorites",
+                models: favoriteModels,
+                icon: getProviderSectionIcon(FAVORITES_SECTION_ID)
+            },
+            ...sections
+        ]
+    }, [availableModels, currentProviders, favoriteModelIds])
 
     const selectedModelData = React.useMemo(
         () => availableModels.find((model) => model.id === selectedModel),
@@ -1277,12 +1486,13 @@ export function ModelSelector({
         setReasoningEffort
     ])
 
-    const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
+    const [activeProvider, setActiveProvider] = React.useState<string | null>(FAVORITES_SECTION_ID)
 
     React.useEffect(() => {
         if (!open) {
             setSearchValue("")
             setExpandedLegacySections({})
+            setActiveProvider(FAVORITES_SECTION_ID)
         }
     }, [open])
 
@@ -1428,55 +1638,60 @@ export function ModelSelector({
         return visibleSection.models.length - visibleSectionModels.length
     }, [expandedLegacySections, visibleSection, visibleSectionModels.length])
 
-    const modelList = visibleSection ? (
-        <div className="space-y-2 pb-3">
-            {visibleSectionModels.map((model) => (
-                <ModelCard
-                    key={model.id}
-                    model={model}
-                    selectedModel={selectedModel}
-                    onModelChange={onModelChange}
-                    onClose={() => setOpen(false)}
-                    currentProviders={currentProviders}
-                    disabled={isModelDisabled(model)}
-                    disabledReason={getModelDisabledReason(model)}
-                    badgeLabel={
-                        requiresNativePdf && !modelSupportsNativePdf(model)
-                            ? "PDF Required"
-                            : creditPlan === "free" &&
-                                getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
-                              ? "Pro"
-                              : undefined
-                    }
-                    badgeVariant={
-                        requiresNativePdf && !modelSupportsNativePdf(model)
-                            ? "warning"
-                            : "secondary"
-                    }
-                />
-            ))}
-            {hiddenLegacyCount > 0 && (
-                <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full justify-center gap-2 text-muted-foreground text-sm hover:text-foreground"
-                    onClick={() =>
-                        setExpandedLegacySections((prev) => ({
-                            ...prev,
-                            [visibleSection.id]: true
-                        }))
-                    }
-                >
-                    <Archive className="size-4" />
-                    Show legacy models
-                </Button>
-            )}
-        </div>
-    ) : (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground text-sm">
-            No models match your search.
-        </div>
-    )
+    const modelList =
+        visibleSection && visibleSectionModels.length > 0 ? (
+            <div className="space-y-2 pb-3">
+                {visibleSectionModels.map((model) => (
+                    <ModelCard
+                        key={model.id}
+                        model={model}
+                        selectedModel={selectedModel}
+                        onModelChange={onModelChange}
+                        onClose={() => setOpen(false)}
+                        currentProviders={currentProviders}
+                        disabled={isModelDisabled(model)}
+                        disabledReason={getModelDisabledReason(model)}
+                        isFavorite={favoriteModelIds.includes(model.id)}
+                        onToggleFavorite={toggleFavorite}
+                        badgeLabel={
+                            requiresNativePdf && !modelSupportsNativePdf(model)
+                                ? "PDF Required"
+                                : creditPlan === "free" &&
+                                    getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
+                                  ? "Pro"
+                                  : undefined
+                        }
+                        badgeVariant={
+                            requiresNativePdf && !modelSupportsNativePdf(model)
+                                ? "warning"
+                                : "secondary"
+                        }
+                    />
+                ))}
+                {hiddenLegacyCount > 0 && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-center gap-2 text-muted-foreground text-sm hover:text-foreground"
+                        onClick={() =>
+                            setExpandedLegacySections((prev) => ({
+                                ...prev,
+                                [visibleSection.id]: true
+                            }))
+                        }
+                    >
+                        <Archive className="size-4" />
+                        Show legacy models
+                    </Button>
+                )}
+            </div>
+        ) : (
+            <div className="flex flex-1 items-center justify-center rounded-[var(--radius-xl)] border border-dashed text-center text-muted-foreground text-sm">
+                {visibleSection?.id === FAVORITES_SECTION_ID && !searchValue
+                    ? "Favorite models to see them here."
+                    : "No models match your search."}
+            </div>
+        )
 
     const trigger = (
         <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
@@ -1547,6 +1762,19 @@ export function ModelSelector({
 
     const selectorContent = (
         <>
+            {creditPlan === "free" && (
+                <div className="flex shrink-0 items-center justify-between gap-4 border-primary/15 border-b bg-primary/10 px-4 py-3">
+                    <div className="min-w-0">
+                        <p className="truncate font-semibold text-sm">Unlock all models</p>
+                        <p className="font-medium text-primary text-xs">$8.99/month</p>
+                    </div>
+                    <Button asChild size="sm" className="shrink-0 rounded-[var(--radius-md)]">
+                        <Link to="/settings/billing" onClick={() => setOpen(false)}>
+                            Upgrade
+                        </Link>
+                    </Button>
+                </div>
+            )}
             {isMobile ? (
                 <>
                     <DrawerHeader className="shrink-0 pb-0">
@@ -1753,7 +1981,7 @@ export function ModelSelector({
                         )}
                         overlayClassName="z-[80]"
                     >
-                        {selectorContent}
+                        <div className="flex min-h-0 flex-1 flex-col pt-2">{selectorContent}</div>
                     </DrawerContent>
                 </Drawer>
             </>
