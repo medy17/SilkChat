@@ -71,54 +71,6 @@ class FakeAudioContext {
         return Promise.resolve()
     }
 
-    decodeAudioData() {
-        return Promise.resolve({
-            numberOfChannels: 2,
-            length: 4,
-            sampleRate: 48_000,
-            duration: 4 / 48_000,
-            getChannelData(channel: number) {
-                if (channel === 0) {
-                    return new Float32Array([0, 0.5, -0.5, 0.25])
-                }
-
-                return new Float32Array([0.25, -0.25, 0.5, -0.5])
-            }
-        } as unknown as AudioBuffer)
-    }
-}
-
-class FakeOfflineAudioContext {
-    destination = {}
-
-    constructor(
-        public channels: number,
-        public length: number,
-        public sampleRate: number
-    ) {}
-
-    createBuffer() {
-        return {
-            copyToChannel: vi.fn()
-        } as unknown as AudioBuffer
-    }
-
-    createBufferSource() {
-        return {
-            buffer: null,
-            connect: vi.fn(),
-            start: vi.fn()
-        } as unknown as AudioBufferSourceNode
-    }
-
-    startRendering() {
-        return Promise.resolve({
-            sampleRate: this.sampleRate,
-            getChannelData() {
-                return new Float32Array([0.125, 0.125, 0, -0.125])
-            }
-        } as unknown as AudioBuffer)
-    }
 }
 
 type RecorderMode = "success" | "permission-error"
@@ -141,6 +93,10 @@ class FakeMediaRecorder {
         public options: MediaRecorderOptions = {}
     ) {
         FakeMediaRecorder.instances.push(this)
+    }
+
+    get mimeType() {
+        return this.options.mimeType || FakeMediaRecorder.supportedType
     }
 
     start() {}
@@ -181,16 +137,11 @@ const installRecorderEnvironment = (options?: {
         configurable: true,
         value: FakeAudioContext
     })
-    Object.defineProperty(window, "OfflineAudioContext", {
-        configurable: true,
-        value: FakeOfflineAudioContext
-    })
     Object.defineProperty(window, "MediaRecorder", {
         configurable: true,
         value: FakeMediaRecorder
     })
     vi.stubGlobal("MediaRecorder", FakeMediaRecorder)
-    vi.stubGlobal("OfflineAudioContext", FakeOfflineAudioContext)
 
     return {
         mediaStream,
@@ -292,6 +243,7 @@ describe("useVoiceRecorder", () => {
 
         expect(result.current.state.isRecording).toBe(true)
         expect(FakeMediaRecorder.instances[0].options.mimeType).toBe("audio/webm")
+        expect(FakeMediaRecorder.instances[0].options.audioBitsPerSecond).toBe(32_000)
 
         act(() => {
             vi.advanceTimersByTime(1_000)
@@ -319,6 +271,50 @@ describe("useVoiceRecorder", () => {
         expect(result.current.state.isTranscribing).toBe(false)
         expect(result.current.state.recordingDuration).toBe(0)
         expect(mediaTrack.stop).toHaveBeenCalledTimes(1)
+    })
+
+    it("freezes the recording timer while transcription is pending", async () => {
+        installRecorderEnvironment()
+        let resolveFetch: ((response: { ok: boolean; json: () => Promise<{ text: string }> }) => void) | undefined
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(
+                () =>
+                    new Promise((resolve) => {
+                        resolveFetch = resolve
+                    })
+            )
+        )
+
+        const { result } = renderHook(() =>
+            useVoiceRecorder({
+                onTranscript: vi.fn()
+            })
+        )
+
+        await act(async () => {
+            await result.current.startRecording()
+        })
+        act(() => {
+            vi.advanceTimersByTime(2_000)
+            result.current.stopRecording()
+        })
+
+        expect(result.current.state.recordingDuration).toBe(2)
+        expect(result.current.state.isTranscribing).toBe(true)
+
+        act(() => {
+            vi.advanceTimersByTime(5_000)
+        })
+        expect(result.current.state.recordingDuration).toBe(2)
+
+        await act(async () => {
+            resolveFetch?.({
+                ok: true,
+                json: async () => ({ text: "done" })
+            })
+            await flushAsyncWork()
+        })
     })
 
     it("cancels recording without attempting transcription", async () => {
@@ -406,7 +402,7 @@ describe("useVoiceRecorder", () => {
         )
     })
 
-    it("normalizes iOS Safari mp4 recordings to wav before upload", async () => {
+    it("keeps iOS Safari recordings compressed for upload", async () => {
         setNavigatorIdentity({
             userAgent:
                 "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
@@ -419,7 +415,7 @@ describe("useVoiceRecorder", () => {
         const onTranscript = vi.fn()
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => ({ text: "normalized transcript" })
+            json: async () => ({ text: "compressed transcript" })
         })
         vi.stubGlobal("fetch", fetchMock)
 
@@ -434,7 +430,7 @@ describe("useVoiceRecorder", () => {
         })
 
         expect(FakeMediaRecorder.instances[0].options.mimeType).toBe("audio/mp4")
-        expect(FakeMediaRecorder.instances[0].options.audioBitsPerSecond).toBe(128000)
+        expect(FakeMediaRecorder.instances[0].options.audioBitsPerSecond).toBe(32_000)
 
         act(() => {
             result.current.stopRecording()
@@ -447,8 +443,8 @@ describe("useVoiceRecorder", () => {
         const formData = fetchMock.mock.calls[0]?.[1]?.body as FormData
         const audioFile = formData.get("audio") as Blob & { name?: string }
 
-        expect(audioFile.type).toBe("audio/wav")
-        expect(audioFile.name).toBe("audio.wav")
-        expect(onTranscript).toHaveBeenCalledWith("normalized transcript")
+        expect(audioFile.type).toBe("audio/mp4")
+        expect(audioFile.name).toBe("audio.mp4")
+        expect(onTranscript).toHaveBeenCalledWith("compressed transcript")
     })
 })

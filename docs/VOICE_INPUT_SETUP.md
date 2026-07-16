@@ -117,8 +117,10 @@ The implementation automatically detects and uses the best supported format:
 
 ## File Size Limits
 
-- Maximum audio file size: **25MB**
-- MediaRecorder chunks are combined into one upload when recording stops
+- Recordings use a speech-optimized target bitrate of **32kbps** and remain in the browser's compressed MP4/AAC, WebM/Opus, or Ogg/Opus format.
+- Maximum upload size: **25MB**.
+- In Groq mode, the upload size is the practical recording limit. At the target bitrate, 25MB contains roughly 100 minutes of audio before container overhead.
+- Google mode uses synchronous Speech-to-Text recognition and is limited to audio shorter than 60 seconds, regardless of compression. Longer Google transcripts require a Cloud Storage-backed asynchronous batch integration.
 
 ## Troubleshooting
 
