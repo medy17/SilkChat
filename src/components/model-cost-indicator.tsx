@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { SharedModel } from "@/convex/lib/models"
+import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getModelCostLevel } from "@/lib/model-cost"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,7 @@ const formatPrice = (price: number) =>
     }).format(price)
 
 export function ModelCostIndicator({ model }: { model: SharedModel }) {
+    const footerMode = useMessageFooterStore((state) => state.footerMode)
     const level = getModelCostLevel(model)
     if (level === null) return null
 
@@ -21,9 +23,12 @@ export function ModelCostIndicator({ model }: { model: SharedModel }) {
     const dollars = "$".repeat(filledCount)
     const dots = "·".repeat(3 - filledCount)
     const isExcessive = level === 4
+    const showDetailedPricing = footerMode !== "simple"
     const inputPrice = model.inputUsdPer1MTokens as number
     const outputPrice = model.outputUsdPer1MTokens as number
-    const ariaLabel = `${COST_LABELS[level]} model cost: ${formatPrice(inputPrice)} input and ${formatPrice(outputPrice)} output per million tokens`
+    const ariaLabel = showDetailedPricing
+        ? `${COST_LABELS[level]} model cost: ${formatPrice(inputPrice)} input and ${formatPrice(outputPrice)} output per million tokens`
+        : `${COST_LABELS[level]} model cost`
 
     return (
         <Tooltip>
@@ -51,10 +56,12 @@ export function ModelCostIndicator({ model }: { model: SharedModel }) {
             <TooltipContent>
                 <div className="space-y-0.5">
                     <p>{COST_LABELS[level]} model cost</p>
-                    <p className="text-xs opacity-80">
-                        {formatPrice(inputPrice)} input · {formatPrice(outputPrice)} output / 1M
-                        tokens
-                    </p>
+                    {showDetailedPricing && (
+                        <p className="text-xs opacity-80">
+                            {formatPrice(inputPrice)} input · {formatPrice(outputPrice)} output / 1M
+                            tokens
+                        </p>
+                    )}
                 </div>
             </TooltipContent>
         </Tooltip>

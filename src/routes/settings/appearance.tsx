@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useThemeManagement } from "@/hooks/use-theme-management"
 import { useChatWidthStore } from "@/lib/chat-width-store"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
@@ -268,72 +267,90 @@ function AppearanceSettings() {
 
                 <div className="space-y-4">
                     <div>
-                        <h3 className="font-semibold text-foreground">Assistant Message Footer</h3>
+                        <h3 className="font-semibold text-foreground">Information Density</h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            Choose how much metadata to show at the end of assistant messages. This
-                            preference is saved only in this browser.
+                            Choose how much behind-the-scenes detail SilkChat surfaces while you chat.
                         </p>
                     </div>
 
-                    <div className="max-w-xl">
-                        <RadioGroup
-                            value={footerMode}
-                            onValueChange={(value) => setFooterMode(value as typeof footerMode)}
-                            className="gap-3"
-                        >
-                            <label
-                                htmlFor="assistant-footer-simple"
-                                className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40"
-                            >
-                                <RadioGroupItem
-                                    id="assistant-footer-simple"
-                                    value="simple"
-                                    className="mt-0.5"
-                                />
-                                <div className="space-y-1">
-                                    <div className="font-medium text-sm">Model only</div>
-                                    <p className="text-muted-foreground text-xs leading-5">
-                                        Keep the current compact footer with just the model name.
-                                    </p>
-                                </div>
-                            </label>
+                    <div
+                        className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3"
+                        role="radiogroup"
+                        aria-label="Information density"
+                    >
+                        {(
+                            [
+                                {
+                                    value: "simple",
+                                    label: "Model only",
+                                    description: "Show the model and its relative cost range.",
+                                    previewWidths: ["w-20"]
+                                },
+                                {
+                                    value: "nerd",
+                                    label: "Stats for Nerds",
+                                    description:
+                                        "Add tokens, speed, timing, and input/output costs.",
+                                    previewWidths: ["w-14", "w-12", "w-16", "w-10"]
+                                },
+                                {
+                                    value: "extra-nerdy",
+                                    label: "Extra Nerdy",
+                                    description: "Add regular and reasoning token breakdowns to Stats for Nerds.",
+                                    previewWidths: ["w-12", "w-9", "w-14", "w-11", "w-16", "w-10"]
+                                }
+                            ] as const
+                        ).map((option) => {
+                            const isSelected = footerMode === option.value
 
-                            <label
-                                htmlFor="assistant-footer-nerd"
-                                className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40"
-                            >
-                                <RadioGroupItem
-                                    id="assistant-footer-nerd"
-                                    value="nerd"
-                                    className="mt-0.5"
-                                />
-                                <div className="space-y-1">
-                                    <div className="font-medium text-sm">Stats for nerds</div>
-                                    <p className="text-muted-foreground text-xs leading-5">
-                                        Show model, total tokens, input/output counts, throughput,
-                                        and time-to-first-token details.
-                                    </p>
-                                </div>
-                            </label>
-
-                            <label
-                                htmlFor="assistant-footer-extra-nerdy"
-                                className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40"
-                            >
-                                <RadioGroupItem
-                                    id="assistant-footer-extra-nerdy"
-                                    value="extra-nerdy"
-                                    className="mt-0.5"
-                                />
-                                <div className="space-y-1">
-                                    <div className="font-medium text-sm">Extra nerdy</div>
-                                    <p className="text-muted-foreground text-xs leading-5">
-                                        Add the full reasoning-versus-regular token breakdown on top
-                                        of the standard stats.
-                                    </p>
-                                </div>
-                            </label>
-                        </RadioGroup>
+                            return (
+                                <label
+                                    key={option.value}
+                                    className={cn(
+                                        "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
+                                        isSelected
+                                            ? "bg-primary/5 ring-1 ring-primary/20"
+                                            : "hover:ring-1 hover:ring-border"
+                                    )}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="assistant-footer-mode"
+                                        value={option.value}
+                                        checked={isSelected}
+                                        onChange={() => setFooterMode(option.value)}
+                                        className="sr-only"
+                                    />
+                                    <div className="flex items-start gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="cursor-pointer font-medium text-foreground">
+                                                    {option.label}
+                                                </Label>
+                                                {isSelected && (
+                                                    <CheckCircle className="ml-auto size-4 shrink-0 text-primary" />
+                                                )}
+                                            </div>
+                                            <p className="mt-1 min-h-10 text-muted-foreground text-xs leading-5">
+                                                {option.description}
+                                            </p>
+                                            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                                {option.previewWidths.map((width, index) => (
+                                                    <div
+                                                        key={`${option.value}-${index}`}
+                                                        className={cn(
+                                                            "h-2 rounded-[var(--radius-sm)] bg-muted",
+                                                            width,
+                                                            index > 1 && "bg-muted/60"
+                                                        )}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            )
+                        })}
                     </div>
                 </div>
 
