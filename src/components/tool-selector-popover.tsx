@@ -34,7 +34,7 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, Globe, Image, Settings2 } from "lucide-react"
+import { CircleHelp, Globe, Image, Settings2, SquareTerminal } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -287,6 +287,7 @@ export const ToolSelectorPopover = memo(
         const webSearchEnabled = enabledTools.includes("web_search")
         const silkScreenAvailable = modelSupportsFunctionCalling && modelSupportsVision
         const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
+        const codeExecutionAvailable = Boolean(toolAvailability?.code_execution?.enabled)
         const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
         const imageDefaults = userSettings?.imageGenerationDefaults
@@ -375,6 +376,16 @@ export const ToolSelectorPopover = memo(
             )
         }
 
+        const handleCodeExecutionToggle = () => {
+            if (!modelSupportsFunctionCalling || !codeExecutionAvailable) return
+
+            onEnabledToolsChange(
+                enabledTools.includes("code_execution")
+                    ? enabledTools.filter((tool) => tool !== "code_execution")
+                    : [...enabledTools, "code_execution"]
+            )
+        }
+
         const handleMcpServerToggle = (serverName: string, enabled: boolean) => {
             if (threadId) {
                 // Set thread-specific override
@@ -388,6 +399,7 @@ export const ToolSelectorPopover = memo(
         const getActiveToolsCount = () => {
             let count = 0
             if (webSearchAvailable && enabledTools.includes("web_search")) count++
+            if (codeExecutionAvailable && enabledTools.includes("code_execution")) count++
             if (supermemoryAvailable && enabledTools.includes("supermemory")) count++
             if (hasMcpServers) {
                 // Count enabled MCP servers for this thread
@@ -457,6 +469,24 @@ export const ToolSelectorPopover = memo(
                                             }
                                             onCheckedChange={handleWebSearchToggle}
                                             disabled={webSearchDisabled}
+                                        />
+                                    </CommandItem>
+
+                                    <CommandItem className="flex items-center justify-between p-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <SquareTerminal className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm">Code Execution</span>
+                                        </div>
+                                        <Switch
+                                            checked={
+                                                codeExecutionAvailable &&
+                                                enabledTools.includes("code_execution")
+                                            }
+                                            onCheckedChange={handleCodeExecutionToggle}
+                                            disabled={
+                                                !modelSupportsFunctionCalling ||
+                                                !codeExecutionAvailable
+                                            }
                                         />
                                     </CommandItem>
 

@@ -4,7 +4,7 @@ import { z } from "zod"
 const AIConfigSchema = z.object({
     selectedModel: z.string().nullable(),
     enabledTools: z
-        .array(z.enum(ABILITIES as readonly ["web_search", "supermemory", "mcp"]))
+        .array(z.enum(ABILITIES as readonly ["web_search", "code_execution", "supermemory", "mcp"]))
         .default([]),
     selectedImageSize: z.string().optional().default("1:1"),
     selectedImageResolution: z.string().optional().default("1K"),

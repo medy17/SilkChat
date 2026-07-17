@@ -917,6 +917,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const resolvedEnabledTools = sanitizeEnabledTools(requestedEnabledTools, toolAvailability)
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
+        if (toolName === "execute_code") return toolAvailability.code_execution.fundingSource
         return "byok"
     }
     const hasPaidCallableTools =
@@ -927,12 +928,19 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
         hasEnabledTools: hasPaidCallableTools
     })
-    const reservedToolMicrousd =
-        hasPaidCallableTools &&
+    const deploymentFundedToolRates = [
         resolvedEnabledTools.includes("web_search") &&
         toolAvailability.web_search.fundingSource === "deployment"
-            ? effectiveToolCallLimitPerTurn * getConfiguredToolUsageMicrousd("web_search")
+            ? getConfiguredToolUsageMicrousd("web_search")
+            : 0,
+        resolvedEnabledTools.includes("code_execution") &&
+        toolAvailability.code_execution.fundingSource === "deployment"
+            ? getConfiguredToolUsageMicrousd("execute_code")
             : 0
+    ]
+    const reservedToolMicrousd = hasPaidCallableTools
+        ? effectiveToolCallLimitPerTurn * Math.max(0, ...deploymentFundedToolRates)
+        : 0
     const resolveGeneratedImageContext = (storageKey: string) =>
         ctx.runAction(
             internal.lib.image_generation.context_images_node.resolveGeneratedImageContext,

@@ -19,6 +19,9 @@ const createSettings = (overrides: Record<string, unknown> = {}) =>
 describe("tool availability", () => {
     beforeEach(() => {
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
+        Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
+        Reflect.deleteProperty(process.env, "VERCEL_PROJECT_ID")
+        Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
     })
 
     it("enables web search only when Perplexity is deployment-configured", () => {
@@ -51,6 +54,23 @@ describe("tool availability", () => {
         expect(result.web_search).toEqual({
             enabled: false,
             fundingSource: "none"
+        })
+    })
+
+    it("enables code execution only with complete deployment credentials", () => {
+        process.env.VERCEL_TEAM_ID = "team-1"
+        process.env.VERCEL_PROJECT_ID = "project-1"
+
+        expect(resolveToolAvailability(createSettings()).code_execution).toEqual({
+            enabled: false,
+            fundingSource: "none"
+        })
+
+        process.env.VERCEL_TOKEN = "token-1"
+
+        expect(resolveToolAvailability(createSettings()).code_execution).toEqual({
+            enabled: true,
+            fundingSource: "deployment"
         })
     })
 

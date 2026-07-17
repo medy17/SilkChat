@@ -13,6 +13,13 @@ export type ResolvedToolAvailabilityMap = Record<AbilityId, ResolvedToolAvailabi
 
 export const getDeploymentSearchApiKey = () => process.env.PERPLEXITY_API_KEY?.trim()
 
+const hasVercelSandboxCredentials = () =>
+    Boolean(
+        process.env.VERCEL_TEAM_ID?.trim() &&
+            process.env.VERCEL_PROJECT_ID?.trim() &&
+            process.env.VERCEL_TOKEN?.trim()
+    )
+
 const hasEnabledProviderKey = (provider: { enabled: boolean; encryptedKey: string } | undefined) =>
     provider?.enabled === true && Boolean(provider.encryptedKey)
 
@@ -20,6 +27,7 @@ export const resolveToolAvailability = (
     userSettings: Infer<typeof UserSettings>
 ): ResolvedToolAvailabilityMap => {
     const hasSearchDeployment = Boolean(getDeploymentSearchApiKey())
+    const hasCodeExecutionDeployment = hasVercelSandboxCredentials()
     const hasSupermemoryByok = hasEnabledProviderKey(userSettings.generalProviders?.supermemory)
     const hasMcpServers = (userSettings.mcpServers ?? []).some((server) => server.enabled !== false)
 
@@ -27,6 +35,10 @@ export const resolveToolAvailability = (
         web_search: {
             enabled: hasSearchDeployment,
             fundingSource: hasSearchDeployment ? "deployment" : "none"
+        },
+        code_execution: {
+            enabled: hasCodeExecutionDeployment,
+            fundingSource: hasCodeExecutionDeployment ? "deployment" : "none"
         },
         supermemory: {
             enabled: hasSupermemoryByok,

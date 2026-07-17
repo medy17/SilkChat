@@ -367,6 +367,13 @@ const PartsRenderer = memo(
             }
             case "tool-web_search":
                 return <WebSearchToolRenderer toolInvocation={part} />
+            case "tool-execute_code":
+                return (
+                    <GenericToolRenderer
+                        toolInvocation={part as UIToolInvocation<Tool>}
+                        toolName="Code Execution"
+                    />
+                )
             case "tool-search_memories":
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="search" />
             case "tool-get_memory_profile":

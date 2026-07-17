@@ -20,6 +20,7 @@ describe("WebSearchAdapter", () => {
             enabledTools: ["web_search"],
             toolAvailability: {
                 web_search: { enabled: true, fundingSource: "deployment" },
+                code_execution: { enabled: false, fundingSource: "none" },
                 supermemory: { enabled: false, fundingSource: "none" },
                 mcp: { enabled: false, fundingSource: "none" }
             },

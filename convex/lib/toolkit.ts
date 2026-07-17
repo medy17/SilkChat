@@ -9,12 +9,18 @@ import {
     resolveToolAvailability,
     sanitizeEnabledTools
 } from "./tools/availability"
+import { CodeExecutionAdapter } from "./tools/code_execution"
 import { MCPAdapter } from "./tools/mcp_adapter"
 import { SupermemoryAdapter } from "./tools/supermemory"
 import { WebSearchAdapter } from "./tools/web_search"
 
 export type ToolAdapter = (params: ConditionalToolParams) => Promise<Partial<Record<string, Tool>>>
-export const TOOL_ADAPTERS = [WebSearchAdapter, SupermemoryAdapter, MCPAdapter]
+export const TOOL_ADAPTERS = [
+    WebSearchAdapter,
+    CodeExecutionAdapter,
+    SupermemoryAdapter,
+    MCPAdapter
+]
 export { ABILITIES }
 export type { AbilityId }
 

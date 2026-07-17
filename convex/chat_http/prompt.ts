@@ -69,6 +69,7 @@ export const buildPrompt = ({
     imageGenerationTool
 }: BuildPromptOptions) => {
     const hasWebSearch = enabledTools.includes("web_search")
+    const hasCodeExecution = enabledTools.includes("code_execution")
     const hasSupermemory = enabledTools.includes("supermemory")
     const hasMCP = enabledTools.includes("mcp")
 
@@ -176,6 +177,18 @@ Use web search for:
 - Real-time data verification
 - Technology updates beyond your training data
 - When you need to confirm current facts`
+        )
+
+    if (hasCodeExecution)
+        layers.push(
+            dedent`
+## Code Execution Tool
+You can execute JavaScript or Python in an isolated, ephemeral Linux sandbox with public internet access.
+- Use code execution for calculations, data processing, testing code, and tasks where an actual runtime materially improves correctness.
+- Put required npm or Python packages in the dependencies field instead of writing package-install commands in the code.
+- Keep executions focused and bounded. The filesystem is discarded after each call, so include all code needed for that execution.
+- Treat stdout, stderr, and exitCode as the authoritative result. If execution fails, explain the failure or make one meaningfully corrected retry when useful.
+- The sandbox has public network access but receives no SilkChat or provider credentials. Do not probe private systems, evade access controls, send abusive traffic, or claim access to authenticated services.`
         )
 
     if (hasSupermemory)

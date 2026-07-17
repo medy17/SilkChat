@@ -57,6 +57,17 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("This turn has 5 allocated tool calls maximum.")
     })
 
+    it("describes the ephemeral network-enabled code execution contract", () => {
+        const prompt = buildPrompt({
+            enabledTools: ["code_execution"]
+        })
+
+        expect(prompt).toContain("## Code Execution Tool")
+        expect(prompt).toContain("public internet access")
+        expect(prompt).toContain("filesystem is discarded after each call")
+        expect(prompt).toContain("receives no SilkChat or provider credentials")
+    })
+
     it("states the user's image defaults in the SilkScreen section", () => {
         const prompt = buildPrompt({
             enabledTools: [],

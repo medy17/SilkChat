@@ -436,6 +436,7 @@ function MobileOverflowMenu({
     selectedSharedModel,
     creditPlan,
     webSearchAvailable,
+    codeExecutionAvailable,
     hasSupermemory,
     mcpServers,
     currentMcpOverrides,
@@ -460,6 +461,7 @@ function MobileOverflowMenu({
     selectedSharedModel?: SharedModel
     creditPlan: CreditPlan | null
     webSearchAvailable: boolean
+    codeExecutionAvailable: boolean
     hasSupermemory: boolean
     mcpServers: Array<{ name: string }>
     currentMcpOverrides: Record<string, boolean>
@@ -481,6 +483,7 @@ function MobileOverflowMenu({
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
     const webSearchEnabled = enabledTools.includes("web_search")
+    const codeExecutionEnabled = enabledTools.includes("code_execution")
     const supermemoryEnabled = enabledTools.includes("supermemory")
     const hasMcpServers = mcpServers.length > 0
 
@@ -576,6 +579,26 @@ function MobileOverflowMenu({
                                 </div>
                             )}
                         </>
+                    )}
+
+                    {!isImageModel && (
+                        <button
+                            type="button"
+                            className={cn(
+                                mobileMenuRowClassName,
+                                (!modelSupportsFunctionCalling || !codeExecutionAvailable) &&
+                                    "cursor-not-allowed opacity-50"
+                            )}
+                            disabled={!modelSupportsFunctionCalling || !codeExecutionAvailable}
+                            onClick={() => onToggleTool("code_execution")}
+                        >
+                            <MobileMenuIcon slashed={!codeExecutionEnabled}>
+                                <Code className="size-4" />
+                            </MobileMenuIcon>
+                            <span className="min-w-0 flex-1 truncate">
+                                Code execution {codeExecutionEnabled ? "enabled" : "disabled"}
+                            </span>
+                        </button>
                     )}
 
                     {!isImageModel && (
@@ -933,6 +956,7 @@ export function useComposerToolbarState(threadId?: string) {
     }, [modelSupportsReasoningControl, reasoningEffort, setReasoningEffort])
 
     const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
+    const codeExecutionAvailable = Boolean(toolAvailability?.code_execution?.enabled)
     const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
     const mcpServers = (userSettings.mcpServers || []).filter((server) => server.enabled !== false)
     const hasMcpServers = mcpServers.length > 0
@@ -942,6 +966,8 @@ export function useComposerToolbarState(threadId?: string) {
     useEffect(() => {
         const unavailableTools = new Set<AbilityId>()
         if (!modelSupportsFunctionCalling || !webSearchAvailable) unavailableTools.add("web_search")
+        if (!modelSupportsFunctionCalling || !codeExecutionAvailable)
+            unavailableTools.add("code_execution")
         if (!hasSupermemory) unavailableTools.add("supermemory")
         if (!hasMcpServers) unavailableTools.add("mcp")
 
@@ -952,6 +978,7 @@ export function useComposerToolbarState(threadId?: string) {
     }, [
         modelSupportsFunctionCalling,
         webSearchAvailable,
+        codeExecutionAvailable,
         hasSupermemory,
         hasMcpServers,
         enabledTools,
@@ -963,6 +990,7 @@ export function useComposerToolbarState(threadId?: string) {
         : { ...defaultMcpOverrides }
     const activeToolCount = [
         webSearchAvailable && enabledTools.includes("web_search"),
+        codeExecutionAvailable && enabledTools.includes("code_execution"),
         hasSupermemory && enabledTools.includes("supermemory"),
         hasMcpServers && mcpServers.some((server) => currentMcpOverrides[server.name] !== false)
     ].filter(Boolean).length
@@ -976,6 +1004,8 @@ export function useComposerToolbarState(threadId?: string) {
 
     const handleToolToggle = (tool: AbilityId) => {
         if (tool === "web_search" && (!modelSupportsFunctionCalling || !webSearchAvailable)) return
+        if (tool === "code_execution" && (!modelSupportsFunctionCalling || !codeExecutionAvailable))
+            return
         if (tool === "supermemory" && !hasSupermemory) return
         if (tool === "mcp" && !hasMcpServers) return
 
@@ -1054,6 +1084,7 @@ export function useComposerToolbarState(threadId?: string) {
         modelSupportsNativePdf,
         isImageModel,
         webSearchAvailable,
+        codeExecutionAvailable,
         hasSupermemory,
         mcpServers,
         currentMcpOverrides,
@@ -1159,6 +1190,7 @@ export function ComposerMobileMenu({
                 selectedSharedModel={state.selectedSharedModel}
                 creditPlan={state.creditPlan}
                 webSearchAvailable={state.webSearchAvailable}
+                codeExecutionAvailable={state.codeExecutionAvailable}
                 hasSupermemory={state.hasSupermemory}
                 mcpServers={state.mcpServers}
                 currentMcpOverrides={state.currentMcpOverrides}
