@@ -1,6 +1,10 @@
-import { LOCAL_THEME_FONT_FAMILY_NAMES } from "@/lib/theme-font-config"
+import {
+    GOOGLE_THEME_FONT_AXES,
+    LOCAL_THEME_FONT_FAMILY_NAMES,
+    WEB_SAFE_FONT_FAMILY_NAMES
+} from "@/lib/theme-font-config"
 
-const DEFAULT_FONT_WEIGHTS = ["400"]
+const DEFAULT_FONT_AXES = "wght@400"
 
 const SYSTEM_FONTS = new Set([
     "ui-sans-serif",
@@ -11,7 +15,8 @@ const SYSTEM_FONTS = new Set([
     "serif",
     "monospace",
     "cursive",
-    "fantasy"
+    "fantasy",
+    ...WEB_SAFE_FONT_FAMILY_NAMES
 ])
 
 const LOCAL_FONTS = new Set(LOCAL_THEME_FONT_FAMILY_NAMES.map((family) => family.toLowerCase()))
@@ -42,14 +47,15 @@ function extractFontFamily(fontFamilyValue?: string | null) {
     return cleanFont
 }
 
-function buildFontCssUrl(family: string, weights = DEFAULT_FONT_WEIGHTS) {
+function buildFontCssUrl(family: string) {
     const normalizedFamily = family.trim().replace(/\s+/g, "+")
-    const weightsParam = weights.join(";")
-    return `https://fonts.googleapis.com/css2?family=${normalizedFamily}:wght@${weightsParam}&display=swap`
+    const axes = GOOGLE_THEME_FONT_AXES[family.trim().toLowerCase()] ?? DEFAULT_FONT_AXES
+    const familyParam = axes ? `${normalizedFamily}:${axes}` : normalizedFamily
+    return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`
 }
 
-function ensureFontStylesheet(family: string, weights = DEFAULT_FONT_WEIGHTS) {
-    const href = buildFontCssUrl(family, weights)
+function ensureFontStylesheet(family: string) {
+    const href = buildFontCssUrl(family)
     const existing = document.querySelector(
         `link[data-theme-font="${family}"], link[href="${href}"]`
     )

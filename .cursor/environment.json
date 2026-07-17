@@ -1,6 +1,0 @@
-{
-    "snapshot": "snapshot-20250613-e34959ca-be17-40cc-8e11-9c1917cceda9",
-    "install": "curl -fsSL https://bun.sh/install | bash && source ~/.bashrc",
-    "start": "bun install",
-    "terminals": []
-}

@@ -1,4 +1,8 @@
-import { LOCAL_THEME_FONT_FAMILY_NAMES } from "@/lib/theme-font-config"
+import {
+    GOOGLE_THEME_FONT_AXES,
+    LOCAL_THEME_FONT_FAMILY_NAMES,
+    WEB_SAFE_FONT_FAMILY_NAMES
+} from "@/lib/theme-font-config"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 
 export function ThemeScript() {
@@ -8,7 +12,8 @@ export function ThemeScript() {
       const root = document.documentElement;
       const defaultThemePreset = ${JSON.stringify(DEFAULT_THEME_PRESET)};
       const legacyGreenThemePreset = ${JSON.stringify(LEGACY_GREEN_THEME_PRESET)};
-      const DEFAULT_FONT_WEIGHTS = ["400"];
+      const DEFAULT_FONT_AXES = "wght@400";
+      const GOOGLE_FONT_AXES = ${JSON.stringify(GOOGLE_THEME_FONT_AXES)};
       const SYSTEM_FONTS = new Set([
         "ui-sans-serif",
         "ui-serif",
@@ -18,7 +23,8 @@ export function ThemeScript() {
         "serif",
         "monospace",
         "cursive",
-        "fantasy"
+        "fantasy",
+        ...${JSON.stringify(WEB_SAFE_FONT_FAMILY_NAMES)}
       ]);
       const LOCAL_FONTS = new Set(${JSON.stringify(
           LOCAL_THEME_FONT_FAMILY_NAMES.map((family) => family.toLowerCase())
@@ -39,15 +45,15 @@ export function ThemeScript() {
         return cleanFont;
       }
 
-      function buildFontCssUrl(family, weights) {
-        weights = weights || DEFAULT_FONT_WEIGHTS;
+      function buildFontCssUrl(family) {
         const normalizedFamily = family.trim().replace(/\\s+/g, "+");
-        const weightsParam = weights.join(";");
-        return \`https://fonts.googleapis.com/css2?family=\${normalizedFamily}:wght@\${weightsParam}&display=swap\`;
+        const axes = GOOGLE_FONT_AXES[family.trim().toLowerCase()] ?? DEFAULT_FONT_AXES;
+        const familyParam = axes ? \`\${normalizedFamily}:\${axes}\` : normalizedFamily;
+        return \`https://fonts.googleapis.com/css2?family=\${familyParam}&display=swap\`;
       }
 
-      function ensureFontStylesheet(family, weights) {
-        const href = buildFontCssUrl(family, weights);
+      function ensureFontStylesheet(family) {
+        const href = buildFontCssUrl(family);
         const existing = document.querySelector(\`link[data-theme-font="\${family}"], link[href="\${href}"]\`);
         if (existing) return;
 

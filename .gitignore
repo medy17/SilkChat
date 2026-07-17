@@ -1,6 +1,6 @@
 # System
 .DS_Store
-temp
+temp/
 
 # Dependency directories
 node_modules
@@ -8,14 +8,17 @@ node_modules
 # Build
 .vinxi
 .output
+.tanstack
+.nitro
+.vercel
+dist
 convex/_generated/
+app.config.timestamp_*
 
 # Environment Variables
+.env
 .env.*
 !.env.example
-
-# Others
-app.config.timestamp_*
 
 # Logs
 logs
@@ -25,31 +28,32 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Optional npm cache directory
+# Caches
 .npm
-
-.env.*
-.env
-!.env.example
-
-.tanstack
-yarn.lock
-.vercel
-dist
-.env.local
-
-.nitro
-
-temp/
-
-.codex
 .optimised-image-cache/
 
-test-*.html
-test-*.tsx
+# Lockfiles (Only bun.lock is committed to the repo, others are ignored)
+yarn.lock
+skills-lock.json
+package-lock.json
+pnpm-lock.yaml
 
-.vscode/
-
+# Backups
 backups/
 backup/
 convex-backups/
+
+# Test files
+test-*.html
+test-*.tsx
+
+# Editors / IDEs
+.vscode/
+.idea/
+.devcontainer/
+.cursor/
+
+# AI tools
+.agents/
+.claude/
+.codex

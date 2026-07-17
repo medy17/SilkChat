@@ -1,4 +1,8 @@
-import { DEFAULT_THEME_SANS_FONT_STACK } from "@/lib/theme-font-config"
+import {
+    DEFAULT_THEME_MONO_FONT_STACK,
+    DEFAULT_THEME_SANS_FONT_STACK,
+    DEFAULT_THEME_SERIF_FONT_STACK
+} from "@/lib/theme-font-config"
 import isEqual from "fast-deep-equal"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
@@ -43,8 +47,8 @@ export const VERCEL_THEME_PRESET = {
     cssVars: {
         theme: {
             "font-sans": DEFAULT_THEME_SANS_FONT_STACK,
-            "font-mono": "Geist Mono, monospace",
-            "font-serif": "Georgia, serif",
+            "font-mono": DEFAULT_THEME_MONO_FONT_STACK,
+            "font-serif": DEFAULT_THEME_SERIF_FONT_STACK,
             radius: "0.5rem",
             "tracking-tighter": "calc(var(--tracking-normal) - 0.05em)",
             "tracking-tight": "calc(var(--tracking-normal) - 0.025em)",
@@ -87,8 +91,8 @@ export const VERCEL_THEME_PRESET = {
             "sidebar-border": "oklch(0.9400 0 0)",
             "sidebar-ring": "oklch(0 0 0)",
             "font-sans": DEFAULT_THEME_SANS_FONT_STACK,
-            "font-serif": "Georgia, serif",
-            "font-mono": "Geist Mono, monospace",
+            "font-serif": DEFAULT_THEME_SERIF_FONT_STACK,
+            "font-mono": DEFAULT_THEME_MONO_FONT_STACK,
             "shadow-color": "hsl(0 0% 0%)",
             "shadow-opacity": "0.18",
             "shadow-blur": "2px",
@@ -146,8 +150,8 @@ export const VERCEL_THEME_PRESET = {
             "sidebar-border": "oklch(0.3200 0 0)",
             "sidebar-ring": "oklch(0.7200 0 0)",
             "font-sans": DEFAULT_THEME_SANS_FONT_STACK,
-            "font-serif": "Georgia, serif",
-            "font-mono": "Geist Mono, monospace",
+            "font-serif": DEFAULT_THEME_SERIF_FONT_STACK,
+            "font-mono": DEFAULT_THEME_MONO_FONT_STACK,
             "shadow-color": "hsl(0 0% 0%)",
             "shadow-opacity": "0.18",
             "shadow-blur": "2px",
