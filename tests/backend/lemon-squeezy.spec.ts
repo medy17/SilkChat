@@ -205,6 +205,44 @@ describe("Lemon Squeezy billing", () => {
         )
     })
 
+    it("marks subscriptions created by the signup webhook for the Pro welcome", async () => {
+        const ctx = createCtx()
+        const payload = createSubscriptionPayload()
+        payload.meta.event_name = "subscription_created"
+
+        await recordLemonSqueezyWebhookHandler.handler(ctx, { payload })
+
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "lemonSqueezySubscriptions",
+            expect.objectContaining({
+                lemonSqueezySubscriptionId: "sub-1",
+                createdAt: expect.any(Number)
+            })
+        )
+    })
+
+    it("backfills the Pro welcome marker when subscription_created arrives second", async () => {
+        const ctx = createCtx({
+            existingSubscription: {
+                _id: "sub-record-1",
+                userId: "user-1",
+                status: "active"
+            }
+        })
+        const payload = createSubscriptionPayload()
+        payload.meta.event_name = "subscription_created"
+
+        await recordLemonSqueezyWebhookHandler.handler(ctx, { payload })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "sub-record-1",
+            expect.objectContaining({
+                lemonSqueezySubscriptionId: "sub-1",
+                createdAt: expect.any(Number)
+            })
+        )
+    })
+
     it("resolves stale webhook custom data through the subscription link", async () => {
         const ctx = createCtx({
             existingLink: {

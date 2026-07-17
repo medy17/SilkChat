@@ -1,5 +1,9 @@
 import { CommandK } from "@/components/commandk"
-import { openDevOnboarding } from "@/components/onboarding/dev-onboarding"
+import {
+    openDevOnboarding,
+    openDevProWelcome,
+    openDevRenewalNudge
+} from "@/components/onboarding/dev-onboarding"
 import { Button } from "@/components/ui/button"
 import {
     Sidebar,
@@ -98,12 +102,20 @@ function EmptyState({ message }: { message: string }) {
     )
 }
 
-function DevToolsGroup({ onShowOnboarding }: { onShowOnboarding: () => void }) {
+function DevToolsGroup({
+    onShowOnboarding,
+    onShowProWelcome,
+    onShowRenewalNudge
+}: {
+    onShowOnboarding: () => void
+    onShowProWelcome: () => void
+    onShowRenewalNudge: () => void
+}) {
     return (
         <SidebarGroup>
             <SidebarGroupLabel>Dev</SidebarGroupLabel>
             <SidebarGroupContent>
-                <div className="px-2">
+                <div className="space-y-2 px-2">
                     <Button
                         type="button"
                         size="sm"
@@ -113,6 +125,26 @@ function DevToolsGroup({ onShowOnboarding }: { onShowOnboarding: () => void }) {
                     >
                         <PlayCircle className="h-4 w-4" />
                         Show onboarding
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-full justify-start"
+                        onClick={onShowRenewalNudge}
+                    >
+                        <PlayCircle className="h-4 w-4" />
+                        Show renewal nudge
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-full justify-start"
+                        onClick={onShowProWelcome}
+                    >
+                        <PlayCircle className="h-4 w-4" />
+                        Show Pro welcome
                     </Button>
                 </div>
             </SidebarGroupContent>
@@ -736,6 +768,16 @@ export function ThreadsSidebar() {
         openDevOnboarding()
     })
 
+    const handleShowRenewalNudgeClick = useFunction(() => {
+        setOpenMobile(false)
+        openDevRenewalNudge()
+    })
+
+    const handleShowProWelcomeClick = useFunction(() => {
+        setOpenMobile(false)
+        openDevProWelcome()
+    })
+
     const renderContent = () => {
         if (isLoading) {
             return <LoadingSkeleton />
@@ -865,7 +907,11 @@ export function ThreadsSidebar() {
                         )}
                     >
                         {shouldShowDevTools && (
-                            <DevToolsGroup onShowOnboarding={handleShowOnboardingClick} />
+                            <DevToolsGroup
+                                onShowOnboarding={handleShowOnboardingClick}
+                                onShowProWelcome={handleShowProWelcomeClick}
+                                onShowRenewalNudge={handleShowRenewalNudgeClick}
+                            />
                         )}
                         {renderContent()}
                     </SidebarContent>

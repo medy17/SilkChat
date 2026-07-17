@@ -1,5 +1,6 @@
 # CURRENT BACKLOG
 
+- Add Kimi K3 & Meta Muse Spark 1.1
 - MCP feature is lagging behind and cannot use most modern MCP offerings.
 - Improve composer styling and effects (thinking of floating composer on the bottom for mobile and keeping docked for desktop).
 - Switch mobile model picker to vertical rail.

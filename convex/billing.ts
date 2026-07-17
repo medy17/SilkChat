@@ -66,6 +66,7 @@ export const getMyBillingSummary = query({
                       trialEndsAt: subscription.trialEndsAt,
                       lemonSqueezySubscriptionId: subscription.lemonSqueezySubscriptionId,
                       lemonSqueezyCustomerId: subscription.lemonSqueezyCustomerId,
+                      createdAt: subscription.createdAt,
                       updatedAt: subscription.updatedAt
                   }
                 : null
@@ -175,9 +176,17 @@ export const recordLemonSqueezyWebhook = internalMutation({
         }
 
         if (existingSubscription?._id) {
-            await ctx.db.patch(existingSubscription._id, nextSubscription)
+            await ctx.db.patch(existingSubscription._id, {
+                ...nextSubscription,
+                ...(summary.eventName === "subscription_created" && !existingSubscription.createdAt
+                    ? { createdAt: now }
+                    : {})
+            })
         } else {
-            await ctx.db.insert("lemonSqueezySubscriptions", nextSubscription)
+            await ctx.db.insert("lemonSqueezySubscriptions", {
+                ...nextSubscription,
+                createdAt: summary.eventName === "subscription_created" ? now : undefined
+            })
         }
 
         const existingAccount = await getCreditAccount(ctx, resolvedUserId)

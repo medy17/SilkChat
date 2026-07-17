@@ -14,6 +14,7 @@ export const LemonSqueezySubscription = v.object({
     renewsAt: v.optional(v.string()),
     endsAt: v.optional(v.string()),
     trialEndsAt: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
     updatedAt: v.number(),
     lastEventId: v.string()
 })
