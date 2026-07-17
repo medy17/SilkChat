@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest"
 import {
     getVercelSandboxCredentials,
+    resolveCodeSandbox,
     truncateCodeExecutionOutput
 } from "../../convex/lib/tools/code_execution_node"
 
@@ -33,6 +34,40 @@ describe("code execution helpers", () => {
         expect(truncateCodeExecutionOutput("0123456789abcdef", 10)).toEqual({
             value: "0123456789\n[output truncated]",
             truncated: true
+        })
+    })
+
+    it("forces compatible executions into an active persistent sandbox", () => {
+        expect(
+            resolveCodeSandbox({
+                requestedMode: "ephemeral",
+                runtime: "python3.13",
+                activeSandbox: {
+                    status: "active",
+                    runtime: "python3.13",
+                    sandboxName: "persistent-1",
+                    expiresAt: 20_000
+                },
+                now: 10_000
+            })
+        ).toEqual({ mode: "persistent", sandboxName: "persistent-1" })
+    })
+
+    it("blocks an ephemeral runtime escape while a different persistent runtime is active", () => {
+        expect(
+            resolveCodeSandbox({
+                requestedMode: "ephemeral",
+                runtime: "node24",
+                activeSandbox: {
+                    status: "active",
+                    runtime: "python3.13",
+                    sandboxName: "persistent-1",
+                    expiresAt: 20_000
+                },
+                now: 10_000
+            })
+        ).toEqual({
+            error: "The active persistent sandbox uses python3.13; node24 execution cannot use an ephemeral sandbox until the active sandbox is killed."
         })
     })
 })

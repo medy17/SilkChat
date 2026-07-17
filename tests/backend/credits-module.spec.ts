@@ -32,6 +32,7 @@ import {
     consumeReservedToolCall,
     getMyCreditUsageSummary,
     getMyDevCreditState,
+    reconcileSettledToolUsageCost,
     reconcileSettledUsageCost,
     releaseReservedCreditForMessage,
     reserveCreditForMessage,
@@ -56,6 +57,9 @@ const releaseReservedCreditForMessageHandler = releaseReservedCreditForMessage a
     handler: (ctx: any, args: any) => Promise<any>
 }
 const reconcileSettledUsageCostHandler = reconcileSettledUsageCost as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const reconcileSettledToolUsageCostHandler = reconcileSettledToolUsageCost as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const reserveToolCallBudgetHandler = reserveToolCallBudget as unknown as {
@@ -693,6 +697,33 @@ describe("credits module", () => {
                 reservedMicrousd: 4_000,
                 settledMicrousd: 4_000,
                 pricingSource: "tool_flat"
+            })
+        )
+    })
+
+    it("reconciles a provisional code-execution charge to measured sandbox usage", async () => {
+        const ctx = createCtx({
+            existingEvent: {
+                _id: "tool-event-1",
+                accountingKind: "usage",
+                settledMicrousd: 5_000,
+                pricingSource: "tool_flat"
+            }
+        })
+
+        const result = await reconcileSettledToolUsageCostHandler.handler(ctx, {
+            userId: "user-1",
+            messageKey: "assistant-1:tool:call-1",
+            settledMicrousd: 1_234,
+            pricingSource: "sandbox_reported"
+        })
+
+        expect(result).toEqual({ reconciled: true, settledMicrousd: 1_234 })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "tool-event-1",
+            expect.objectContaining({
+                settledMicrousd: 1_234,
+                pricingSource: "sandbox_reported"
             })
         )
     })

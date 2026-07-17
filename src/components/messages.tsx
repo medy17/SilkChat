@@ -68,6 +68,7 @@ import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
+import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
 import {
     AlertDialog,
@@ -372,6 +373,14 @@ const PartsRenderer = memo(
                     <GenericToolRenderer
                         toolInvocation={part as UIToolInvocation<Tool>}
                         toolName="Code Execution"
+                    />
+                )
+            case "tool-request_persistent_sandbox":
+                return (
+                    <PersistentSandboxCard
+                        toolInvocation={part as UIToolInvocation<Tool>}
+                        threadId={threadId}
+                        messageId={messageId}
                     />
                 )
             case "tool-search_memories":

@@ -60,9 +60,21 @@ import {
     resolveSelectedDisplayModel
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
+import {
+    type PastedTextDisposition,
+    classifyPastedText,
+    getPastedTextNames,
+    mergePastedTextIntoDraft
+} from "@/lib/pasted-text"
 import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
 import { appendQuotedSelection } from "@/lib/quote-selection"
 import { useSharedModels } from "@/lib/shared-models"
+import {
+    clearThreadDraft,
+    getThreadDraftKey,
+    loadThreadDraft,
+    saveThreadDraft
+} from "@/lib/thread-drafts"
 import type { AbilityId } from "@/lib/tool-abilities"
 import {
     DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
@@ -75,7 +87,7 @@ import { type ImageDimensions, estimateImageInputTokens } from "@/lib/vision-tok
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
 import type { UIMessage } from "ai"
-import { useConvexAuth, useMutation } from "convex/react"
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react"
 import {
     ArrowUp,
     Check,
@@ -89,6 +101,7 @@ import {
     Mic,
     Minus,
     MoreHorizontal,
+    OctagonX,
     Paperclip,
     Plus,
     Square,
@@ -153,6 +166,16 @@ interface LocalUploadingFile {
     status: "uploading" | "success" | "error"
     previewUrl?: string
     error?: string
+    abortController: AbortController
+    pastedText?: string
+    displayName?: string
+    contextDelivery?: Exclude<PastedTextDisposition, "inline">
+}
+
+type PastedTextUploadSource = {
+    text: string
+    displayName: string
+    contextDelivery: Exclude<PastedTextDisposition, "inline">
 }
 
 const isPositiveFiniteNumber = (value: unknown): value is number =>
@@ -1214,18 +1237,32 @@ export const MultimodalInput = forwardRef<
         onSubmit: (input?: string, files?: UploadedFile[]) => void
         status: ReturnType<typeof useChat>["status"]
         threadId?: string
+        folderId?: string
         isActive?: boolean
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
     }
 >(function MultimodalInput(
-    { onSubmit, status, threadId, isActive = true, threadHasPdfAttachments = false, messages = [] },
+    {
+        onSubmit,
+        status,
+        threadId,
+        folderId,
+        isActive = true,
+        threadHasPdfAttachments = false,
+        messages = []
+    },
     ref
 ) {
     const { token } = useToken()
     const session = useSession()
     const auth = useConvexAuth()
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
+    const killPersistentSandbox = useAction(api.persistent_sandboxes_node.killMyPersistentSandbox)
+    const activePersistentSandbox = useQuery(
+        api.persistent_sandboxes.getMyActivePersistentSandbox,
+        session.user?.id && !auth.isLoading ? {} : "skip"
+    )
     const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
     const isTouchDevice = useIsTouchDevice()
     const composerToolbar = useComposerToolbarState(threadId)
@@ -1239,8 +1276,14 @@ export const MultimodalInput = forwardRef<
     } = composerToolbar
 
     const { selectedModel, setSelectedModel } = useModelStore()
-    const { uploadedFiles, addUploadedFile, removeUploadedFile, uploading, setUploading } =
-        useChatStore()
+    const {
+        uploadedFiles,
+        setUploadedFiles,
+        addUploadedFile,
+        removeUploadedFile,
+        uploading,
+        setUploading
+    } = useChatStore()
     const { chatWidthState } = useChatWidthStore()
 
     const isLoading = status === "streaming"
@@ -1251,6 +1294,10 @@ export const MultimodalInput = forwardRef<
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const promptInputRef = useRef<PromptInputRef>(null)
     const composerViewportRef = useRef<HTMLDivElement>(null)
+    const pastedTextCounterRef = useRef(0)
+    const pastedTextUploadSourcesRef = useRef(new WeakMap<File, PastedTextUploadSource>())
+    const draftScope = useMemo(() => ({ threadId, folderId }), [folderId, threadId])
+    const draftKey = getThreadDraftKey(draftScope)
 
     const [fileContents, setFileContents] = useState<Record<string, string>>({})
     const [fileImageDimensions, setFileImageDimensions] = useState<Record<string, ImageDimensions>>(
@@ -1264,6 +1311,26 @@ export const MultimodalInput = forwardRef<
     } | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
     const [extendedFiles, setExtendedFiles] = useState<ExtendedUploadedFile[]>([])
+    const [isKillingPersistentSandbox, setIsKillingPersistentSandbox] = useState(false)
+
+    const handleKillPersistentSandbox = async () => {
+        if (!activePersistentSandbox) return
+        setIsKillingPersistentSandbox(true)
+        try {
+            await killPersistentSandbox({ sandboxId: activePersistentSandbox._id })
+            toast.success("Persistent sandbox killed")
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : "Failed to kill persistent sandbox"
+            )
+        } finally {
+            setIsKillingPersistentSandbox(false)
+        }
+    }
+
+    useEffect(() => {
+        setUploading(localUploadingFiles.length > 0)
+    }, [localUploadingFiles.length, setUploading])
 
     const {
         state: voiceState,
@@ -1275,7 +1342,6 @@ export const MultimodalInput = forwardRef<
                 const currentValue = promptInputRef.current.getValue()
                 const newValue = currentValue ? `${currentValue} ${text}` : text
                 promptInputRef.current.setValue(newValue)
-                localStorage.setItem("user-input", newValue)
                 promptInputRef.current.focus()
                 setInputValue(newValue)
             }
@@ -1342,12 +1408,13 @@ export const MultimodalInput = forwardRef<
         }
 
         promptInputRef.current?.clear()
-        localStorage.removeItem("user-input")
         setInputValue("")
+        clearThreadDraft(draftScope)
         onSubmit(inputValue, uploadedFiles)
     }
 
     const [inputValue, setInputValue] = useState("")
+    const [hydratedDraftKey, setHydratedDraftKey] = useState<string>()
     const isInputEmpty = !inputValue.trim()
     const voiceInputEnabled = optionalBrowserEnv("VITE_ENABLE_VOICE_INPUT") === "true"
     const predictedByokContextRouting = useMemo(() => {
@@ -1415,13 +1482,37 @@ export const MultimodalInput = forwardRef<
     ])
 
     useEffect(() => {
+        const draft = loadThreadDraft(draftScope)
+        const text = draft?.text ?? ""
+        promptInputRef.current?.setValue(text)
+        setInputValue(text)
+        setUploadedFiles(draft?.attachments ?? [])
+        pastedTextCounterRef.current = (draft?.attachments ?? []).filter(
+            (file) => file.source === "pasted-text"
+        ).length
+        setHydratedDraftKey(draftKey)
+    }, [draftKey, draftScope, setUploadedFiles])
+
+    useEffect(() => {
+        if (hydratedDraftKey !== draftKey) return
+
+        const timeout = window.setTimeout(() => {
+            saveThreadDraft({
+                ...draftScope,
+                key: draftKey,
+                text: inputValue,
+                attachments: uploadedFiles,
+                updatedAt: Date.now()
+            })
+        }, 400)
+        return () => window.clearTimeout(timeout)
+    }, [draftKey, draftScope, hydratedDraftKey, inputValue, uploadedFiles])
+
+    useEffect(() => {
         const checkInputValue = () => {
             const value = promptInputRef.current?.getValue() || ""
             setInputValue(value)
         }
-
-        const initialValue = localStorage.getItem("user-input") || ""
-        setInputValue(initialValue)
 
         const interval = setInterval(checkInputValue, 200)
         return () => clearInterval(interval)
@@ -1442,7 +1533,8 @@ export const MultimodalInput = forwardRef<
     const uploadFileWithProgress = useCallback(
         async (
             file: File,
-            onProgress: (progress: number) => void
+            onProgress: (progress: number) => void,
+            signal?: AbortSignal
         ): Promise<ExtendedUploadedFile> => {
             const jwt = await resolveJwtToken(token)
             if (!jwt) {
@@ -1455,7 +1547,8 @@ export const MultimodalInput = forwardRef<
                 uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
                 policyVersion,
                 onPolicyVersionMismatch: invalidateUploadPolicy,
-                onProgress
+                onProgress,
+                signal
             })
         },
         [invalidateUploadPolicy, policyVersion, token]
@@ -1498,6 +1591,7 @@ export const MultimodalInput = forwardRef<
 
             const newLocalFiles = validFiles.map((file) => {
                 const id = Math.random().toString(36).substring(7)
+                const pastedTextSource = pastedTextUploadSourcesRef.current.get(file)
                 let previewUrl: string | undefined
 
                 if (
@@ -1513,12 +1607,15 @@ export const MultimodalInput = forwardRef<
                     file,
                     progress: 0,
                     status: "uploading" as const,
-                    previewUrl
+                    previewUrl,
+                    abortController: new AbortController(),
+                    pastedText: pastedTextSource?.text,
+                    displayName: pastedTextSource?.displayName,
+                    contextDelivery: pastedTextSource?.contextDelivery
                 }
             })
 
             setLocalUploadingFiles((prev) => [...prev, ...newLocalFiles])
-            setUploading(true)
 
             newLocalFiles.forEach(async (localFile) => {
                 try {
@@ -1527,11 +1624,23 @@ export const MultimodalInput = forwardRef<
                         uploadPolicy
                     )
 
-                    const result = await uploadFileWithProgress(fileToUpload, (progress) => {
-                        setLocalUploadingFiles((prev) =>
-                            prev.map((f) => (f.id === localFile.id ? { ...f, progress } : f))
-                        )
-                    })
+                    const result = await uploadFileWithProgress(
+                        fileToUpload,
+                        (progress) => {
+                            setLocalUploadingFiles((prev) =>
+                                prev.map((f) => (f.id === localFile.id ? { ...f, progress } : f))
+                            )
+                        },
+                        localFile.abortController.signal
+                    )
+
+                    if (localFile.abortController.signal.aborted) {
+                        await deleteFileMutation({ key: result.key }).catch(console.error)
+                        setLocalUploadingFiles((prev) => {
+                            return prev.filter((f) => f.id !== localFile.id)
+                        })
+                        return
+                    }
 
                     setLocalUploadingFiles((prev) =>
                         prev.map((f) => (f.id === localFile.id ? { ...f, progress: 100 } : f))
@@ -1567,20 +1676,41 @@ export const MultimodalInput = forwardRef<
 
                     await new Promise((resolve) => setTimeout(resolve, 500))
 
-                    addUploadedFile(result)
+                    if (localFile.abortController.signal.aborted) {
+                        await deleteFileMutation({ key: result.key }).catch(console.error)
+                        setLocalUploadingFiles((prev) => {
+                            return prev.filter((f) => f.id !== localFile.id)
+                        })
+                        return
+                    }
+
+                    const uploadedResult: ExtendedUploadedFile = localFile.pastedText
+                        ? {
+                              ...result,
+                              source: "pasted-text",
+                              displayName: localFile.displayName,
+                              contextDelivery: localFile.contextDelivery,
+                              pastedText: localFile.pastedText
+                          }
+                        : result
+
+                    addUploadedFile(uploadedResult)
 
                     if (localFile.previewUrl) {
                         URL.revokeObjectURL(localFile.previewUrl)
                     }
 
                     setLocalUploadingFiles((prev) => {
-                        const next = prev.filter((f) => f.id !== localFile.id)
-                        if (next.length === 0) {
-                            setUploading(false)
-                        }
-                        return next
+                        return prev.filter((f) => f.id !== localFile.id)
                     })
                 } catch (error) {
+                    if (error instanceof DOMException && error.name === "AbortError") {
+                        setLocalUploadingFiles((prev) => {
+                            return prev.filter((f) => f.id !== localFile.id)
+                        })
+                        return
+                    }
+
                     const errorMessage = error instanceof Error ? error.message : "Upload failed"
                     toast.error(errorMessage)
 
@@ -1597,11 +1727,7 @@ export const MultimodalInput = forwardRef<
                             URL.revokeObjectURL(localFile.previewUrl)
                         }
                         setLocalUploadingFiles((prev) => {
-                            const next = prev.filter((f) => f.id !== localFile.id)
-                            if (next.length === 0) {
-                                setUploading(false)
-                            }
-                            return next
+                            return prev.filter((f) => f.id !== localFile.id)
                         })
                     }, 2000)
                 }
@@ -1614,7 +1740,7 @@ export const MultimodalInput = forwardRef<
         [
             uploadFileWithProgress,
             addUploadedFile,
-            setUploading,
+            deleteFileMutation,
             modelSupportsVision,
             modelSupportsNativePdf,
             uploadPolicy
@@ -1627,7 +1753,6 @@ export const MultimodalInput = forwardRef<
             handleFileUpload,
             setValue: (value: string) => {
                 promptInputRef.current?.setValue(value)
-                localStorage.setItem("user-input", value)
                 setInputValue(value)
             },
             insertQuote: (selection: string) => {
@@ -1640,7 +1765,6 @@ export const MultimodalInput = forwardRef<
 
                 promptInputRef.current?.setValue(nextValue)
                 promptInputRef.current?.focus()
-                localStorage.setItem("user-input", nextValue)
                 setInputValue(nextValue)
             }
         }),
@@ -1677,11 +1801,37 @@ export const MultimodalInput = forwardRef<
             })
     }
 
+    const showPastedTextInComposer = useCallback((pastedText: string) => {
+        const currentValue = promptInputRef.current?.getValue() || ""
+        const nextValue = mergePastedTextIntoDraft(currentValue, pastedText)
+        promptInputRef.current?.setValue(nextValue)
+        promptInputRef.current?.focus()
+        setInputValue(nextValue)
+    }, [])
+
+    const handleShowUploadingPastedText = (localFile: LocalUploadingFile) => {
+        if (!localFile.pastedText) return
+
+        localFile.abortController.abort()
+        setLocalUploadingFiles((prev) => {
+            return prev.filter((file) => file.id !== localFile.id)
+        })
+        showPastedTextInComposer(localFile.pastedText)
+    }
+
+    const handleShowUploadedPastedText = (uploadedFile: ExtendedUploadedFile) => {
+        const pastedText = uploadedFile.pastedText
+        if (!pastedText) return
+
+        handleRemoveFile(uploadedFile.key)
+        showPastedTextInComposer(pastedText)
+    }
+
     const handlePaste = useCallback(
         async (e: ClipboardEvent) => {
             const items = Array.from(e.clipboardData?.items || [])
             const files: File[] = []
-            let hasText = false
+            const pastedText = e.clipboardData?.getData("text/plain") ?? ""
 
             for (const item of items) {
                 if (item.kind === "file") {
@@ -1690,18 +1840,32 @@ export const MultimodalInput = forwardRef<
                         files.push(file)
                         e.preventDefault()
                     }
-                } else if (item.kind === "string" && item.type === "text/plain") {
-                    hasText = true
                 }
             }
 
             if (files.length > 0) {
                 await handleFileUpload(files)
+                return
             }
 
-            if (!hasText && files.length === 0) {
+            if (!pastedText) {
                 e.preventDefault()
+                return
             }
+
+            const decision = classifyPastedText(pastedText)
+            if (decision.disposition === "inline") return
+
+            e.preventDefault()
+            pastedTextCounterRef.current += 1
+            const names = getPastedTextNames(pastedTextCounterRef.current)
+            const pastedFile = new File([pastedText], names.fileName, { type: "text/plain" })
+            pastedTextUploadSourcesRef.current.set(pastedFile, {
+                text: pastedText,
+                displayName: names.displayName,
+                contextDelivery: decision.disposition
+            })
+            await handleFileUpload([pastedFile])
         },
         [handleFileUpload]
     )
@@ -1737,7 +1901,8 @@ export const MultimodalInput = forwardRef<
                 <div
                     className={cn(
                         "relative flex h-12 max-w-[12.5rem] items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-colors",
-                        isImage ? "w-12" : "w-auto min-w-[5rem]"
+                        isImage ? "w-12" : "w-auto min-w-[5rem]",
+                        localFile.pastedText && "h-auto min-h-12 py-1"
                     )}
                     style={{ borderRadius: "var(--radius)" }}
                 >
@@ -1787,7 +1952,7 @@ export const MultimodalInput = forwardRef<
                             </div>
                             <div className="flex min-w-0 flex-col items-start overflow-hidden">
                                 <span className="w-full truncate text-ellipsis text-left">
-                                    {localFile.file.name}
+                                    {localFile.displayName ?? localFile.file.name}
                                 </span>
                                 {localFile.status === "uploading" ? (
                                     <div className="mt-1 flex w-full items-center gap-2">
@@ -1813,6 +1978,15 @@ export const MultimodalInput = forwardRef<
                                         Error
                                     </span>
                                 )}
+                                {localFile.pastedText && (
+                                    <button
+                                        type="button"
+                                        className="mt-0.5 truncate text-left text-primary text-xs hover:underline"
+                                        onClick={() => handleShowUploadingPastedText(localFile)}
+                                    >
+                                        Show as text
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1827,43 +2001,57 @@ export const MultimodalInput = forwardRef<
 
         return (
             <div key={uploadedFile.key} className="group relative">
-                <button
-                    type="button"
-                    onClick={() => {
-                        setDialogFile({
-                            content,
-                            fileName: uploadedFile.fileName,
-                            fileType: uploadedFile.fileType
-                        })
-                        setDialogOpen(true)
-                    }}
+                <div
                     className={cn(
-                        "relative flex h-12 max-w-[12.5rem] items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-colors hover:bg-secondary/80",
-                        isImage ? "w-12" : "w-auto"
+                        "relative flex max-w-[12.5rem] flex-col overflow-hidden border-2 border-border bg-secondary/50 transition-colors hover:bg-secondary/80",
+                        isImage ? "h-12 w-12" : "min-h-12 w-auto"
                     )}
                     style={{ borderRadius: "var(--radius)" }}
                 >
-                    {content && isImage ? (
-                        <img
-                            src={content}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            style={{ borderRadius: "calc(var(--radius) - 2px)" }}
-                        />
-                    ) : (
-                        <div className="flex w-full items-center justify-start gap-2 px-2 font-medium text-sm">
-                            <div className="shrink-0">{getFileIcon(uploadedFile)}</div>
-                            <div className="flex min-w-0 flex-col items-start overflow-hidden">
-                                <span className="w-full truncate text-ellipsis text-left">
-                                    {uploadedFile.fileName}
-                                </span>
-                                <span className="truncate text-ellipsis text-muted-foreground text-xs">
-                                    {formatFileSize(uploadedFile.fileSize)}
-                                </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setDialogFile({
+                                content,
+                                fileName: uploadedFile.fileName,
+                                fileType: uploadedFile.fileType
+                            })
+                            setDialogOpen(true)
+                        }}
+                        className="flex h-12 w-full items-center justify-center"
+                    >
+                        {content && isImage ? (
+                            <img
+                                src={content}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                style={{ borderRadius: "calc(var(--radius) - 2px)" }}
+                            />
+                        ) : (
+                            <div className="flex w-full items-center justify-start gap-2 px-2 font-medium text-sm">
+                                <div className="shrink-0">{getFileIcon(uploadedFile)}</div>
+                                <div className="flex min-w-0 flex-col items-start overflow-hidden">
+                                    <span className="w-full truncate text-ellipsis text-left">
+                                        {uploadedFile.displayName ?? uploadedFile.fileName}
+                                    </span>
+                                    <span className="truncate text-ellipsis text-muted-foreground text-xs">
+                                        {formatFileSize(uploadedFile.fileSize)}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
+                        )}
+                    </button>
+
+                    {uploadedFile.source === "pasted-text" && uploadedFile.pastedText && (
+                        <button
+                            type="button"
+                            onClick={() => handleShowUploadedPastedText(uploadedFile)}
+                            className="max-w-full truncate px-2 pb-1 text-left text-primary text-xs hover:underline"
+                        >
+                            Show as text
+                        </button>
                     )}
-                </button>
+                </div>
 
                 <Button
                     type="button"
@@ -2036,6 +2224,34 @@ export const MultimodalInput = forwardRef<
                             state={composerToolbar}
                             onAttachClick={() => uploadInputRef.current?.click()}
                         />
+
+                        {activePersistentSandbox && (
+                            <PromptInputAction tooltip="Kill persistent sandbox">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
+                                    style={{ borderRadius: "var(--radius-md)" }}
+                                    disabled={
+                                        isKillingPersistentSandbox ||
+                                        activePersistentSandbox.status === "stopping"
+                                    }
+                                    onClick={() => void handleKillPersistentSandbox()}
+                                    type="button"
+                                >
+                                    {isKillingPersistentSandbox ||
+                                    activePersistentSandbox.status === "stopping" ? (
+                                        <Loader2
+                                            className="size-4 animate-spin"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <OctagonX className="size-4" aria-hidden="true" />
+                                    )}
+                                    <span className="@4xl:inline hidden">Kill sandbox</span>
+                                </Button>
+                            </PromptInputAction>
+                        )}
 
                         <PromptInputAction
                             tooltip={

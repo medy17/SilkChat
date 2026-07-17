@@ -182,7 +182,8 @@ export const uploadChatAttachment = async ({
     uploadUrl,
     policyVersion,
     onProgress,
-    onPolicyVersionMismatch
+    onPolicyVersionMismatch,
+    signal
 }: {
     file: File
     jwt: string
@@ -190,6 +191,7 @@ export const uploadChatAttachment = async ({
     policyVersion?: string
     onProgress?: (progress: number) => void
     onPolicyVersionMismatch?: (serverPolicyVersion: string) => void
+    signal?: AbortSignal
 }): Promise<UploadedFileWithSource> => {
     const formData = new FormData()
     formData.append("file", file)
@@ -202,7 +204,8 @@ export const uploadChatAttachment = async ({
                 Authorization: `Bearer ${jwt}`,
                 ...(policyVersion ? { [UPLOAD_POLICY_HEADER]: policyVersion } : {})
             },
-            body: formData
+            body: formData,
+            signal
         })
 
         const serverPolicyVersion = response.headers.get(UPLOAD_POLICY_HEADER)
@@ -222,7 +225,14 @@ export const uploadChatAttachment = async ({
     }
 
     return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            reject(new DOMException("Upload cancelled", "AbortError"))
+            return
+        }
+
         const xhr = new XMLHttpRequest()
+        const abortUpload = () => xhr.abort()
+        const cleanup = () => signal?.removeEventListener("abort", abortUpload)
         xhr.open("POST", uploadUrl)
         xhr.setRequestHeader("Authorization", `Bearer ${jwt}`)
         if (policyVersion) {
@@ -237,6 +247,7 @@ export const uploadChatAttachment = async ({
         }
 
         xhr.onload = () => {
+            cleanup()
             const serverPolicyVersion = xhr.getResponseHeader(UPLOAD_POLICY_HEADER)
             if (serverPolicyVersion && serverPolicyVersion !== policyVersion) {
                 onPolicyVersionMismatch?.(serverPolicyVersion)
@@ -263,9 +274,16 @@ export const uploadChatAttachment = async ({
         }
 
         xhr.onerror = () => {
+            cleanup()
             reject(new Error("Upload failed due to a network error"))
         }
 
+        xhr.onabort = () => {
+            cleanup()
+            reject(new DOMException("Upload cancelled", "AbortError"))
+        }
+
+        signal?.addEventListener("abort", abortUpload, { once: true })
         xhr.send(formData)
     })
 }

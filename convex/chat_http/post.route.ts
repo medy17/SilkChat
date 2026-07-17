@@ -37,6 +37,7 @@ import {
 } from "../lib/context_limits"
 import { resolveRequiredPlanForModelAccess } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
+import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION } from "../lib/file_constants"
 import { getUserIdentity } from "../lib/identity"
 import {
     type PreparedImageReference,
@@ -56,6 +57,7 @@ import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import {
     type AbilityId,
     type ToolFundingSource,
+    enforceToolIdentityPolicy,
     getToolkit,
     resolveToolAvailability,
     sanitizeEnabledTools
@@ -808,6 +810,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         return new ChatError("bad_request:chat").toResponse()
     }
 
+    const attachmentReferer = req.headers.get("origin") ?? req.headers.get("referer") ?? undefined
+
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
 
@@ -914,7 +918,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
         requestedEnabledTools.push("mcp")
     }
     const toolAvailability = resolveToolAvailability(filteredSettings)
-    const resolvedEnabledTools = sanitizeEnabledTools(requestedEnabledTools, toolAvailability)
+    const resolvedEnabledTools = enforceToolIdentityPolicy(
+        sanitizeEnabledTools(requestedEnabledTools, toolAvailability),
+        { isAnonymous: user.isAnonymous }
+    )
+    const canReferenceLongTextAttachments =
+        resolvedEnabledTools.includes("code_execution") &&
+        modelData.abilities.includes("function_calling")
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
         if (toolName === "execute_code") return toolAvailability.code_execution.fundingSource
@@ -981,7 +991,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 modelData.abilities,
                 {
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
-                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext
+                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext,
+                    referenceLongTextAttachments: canReferenceLongTextAttachments,
+                    maxInlineTextAttachmentTokens:
+                        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+                    attachmentReferer
                 }
             )
             const promptMessages: ModelMessage[] = [
@@ -1372,7 +1386,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 modelData.abilities,
                 {
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
-                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext
+                    resolveGeneratedImageContextUrl: resolveGeneratedImageContext,
+                    referenceLongTextAttachments: canReferenceLongTextAttachments,
+                    maxInlineTextAttachmentTokens:
+                        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+                    attachmentReferer
                 }
             )
 
@@ -1643,6 +1661,17 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                   ? { chargedMicrousd: getConfiguredToolUsageMicrousd(toolName) }
                                   : {})
                           })
+                      },
+                      settleToolCall: async ({ toolCallId, settledMicrousd, pricingSource }) => {
+                          return await ctx.runMutation(
+                              internal.credits.reconcileSettledToolUsageCost,
+                              {
+                                  userId: user.id,
+                                  messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                  settledMicrousd,
+                                  pricingSource
+                              }
+                          )
                       }
                   })
                 : {}

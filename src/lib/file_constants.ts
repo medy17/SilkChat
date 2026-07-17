@@ -102,7 +102,12 @@ export const ALL_SUPPORTED_EXTENSIONS = [
 export const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024 // 5MB stored-image target
 export const MAX_CHAT_IMAGE_DIMENSION = 2048
-export const MAX_TOKENS_PER_FILE = 32000 // 32k tokens
+export const LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD = 5_000
+export const MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION = 32_000
+// Long text attachments above 5k estimated tokens are routed to code execution by URL,
+// so this is an upload abuse guard rather than a model-context limit. The 15 MB byte
+// limit remains the effective ceiling for ordinary text files.
+export const MAX_TOKENS_PER_FILE = 8_000_000
 export const MAX_ATTACHMENTS_PER_THREAD = 100
 export const formatFileSizeLimit = (bytes: number) => `${bytes / 1024 / 1024}MB`
 

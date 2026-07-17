@@ -63,8 +63,15 @@ describe("buildPrompt", () => {
         })
 
         expect(prompt).toContain("## Code Execution Tool")
+        expect(prompt).toContain("Node.js 24")
+        expect(prompt).toContain("Python 3.13")
+        expect(prompt).toContain("No third-party library is guaranteed")
+        expect(prompt).toContain("Request(url, headers=requestHeaders)")
+        expect(prompt).toContain("excerpts of at most 1,000 characters each")
         expect(prompt).toContain("public internet access")
         expect(prompt).toContain("filesystem is discarded after each call")
+        expect(prompt).toContain("call release_persistent_sandbox")
+        expect(prompt).toContain("suspend automatically")
         expect(prompt).toContain("receives no SilkChat or provider credentials")
     })
 

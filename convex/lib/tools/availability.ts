@@ -58,3 +58,9 @@ export const sanitizeEnabledTools = (
     const uniqueTools = Array.from(new Set(enabledTools))
     return uniqueTools.filter((tool) => availability[tool]?.enabled)
 }
+
+export const enforceToolIdentityPolicy = (
+    enabledTools: AbilityId[],
+    { isAnonymous }: { isAnonymous: boolean }
+): AbilityId[] =>
+    isAnonymous ? enabledTools.filter((tool) => tool !== "code_execution") : enabledTools

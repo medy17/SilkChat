@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { resolveToolAvailability } from "../../convex/lib/tools/availability"
+import {
+    enforceToolIdentityPolicy,
+    resolveToolAvailability
+} from "../../convex/lib/tools/availability"
 
 const createSettings = (overrides: Record<string, unknown> = {}) =>
     ({
@@ -88,5 +91,12 @@ describe("tool availability", () => {
             enabled: false,
             fundingSource: "none"
         })
+    })
+
+    it("withholds code execution from anonymous sessions", () => {
+        const tools = ["web_search", "code_execution"] as const
+
+        expect(enforceToolIdentityPolicy([...tools], { isAnonymous: true })).toEqual(["web_search"])
+        expect(enforceToolIdentityPolicy([...tools], { isAnonymous: false })).toEqual(tools)
     })
 })
