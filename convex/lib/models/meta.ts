@@ -6,7 +6,19 @@ const groqTextAdapters = (modelId: string, openRouterModelId?: string): Registry
     ...(openRouterModelId ? ([`openrouter:${openRouterModelId}`] as RegistryKey[]) : [])
 ]
 
+const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:${modelId}`]
+
 export const META_MODELS: SharedModel[] = [
+    {
+        id: "muse-spark-1.1",
+        name: "Muse Spark 1.1",
+        shortName: "Muse Spark 1.1",
+        releaseOrder: 20260716,
+        adapters: openRouterTextAdapters("meta/muse-spark-1.1"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        developer: "Meta",
+        customIcon: "meta"
+    },
     {
         id: "llama-4-scout-17b-16e-instruct",
         name: "Llama 4 Scout 17B 16E",

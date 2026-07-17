@@ -109,6 +109,8 @@ const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
             return <XiaomiIcon className={className} />
         case "MiniMax":
             return <MiniMaxIcon className={className} />
+        case "Meta":
+            return <MetaIcon className={className} />
         default:
             return null
     }

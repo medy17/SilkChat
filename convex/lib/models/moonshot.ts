@@ -4,6 +4,15 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const MOONSHOT_MODELS: SharedModel[] = [
     {
+        id: "kimi-k3",
+        name: "Kimi K3",
+        shortName: "K3",
+        releaseOrder: 20260716,
+        adapters: openRouterTextAdapters("moonshotai/kimi-k3"),
+        abilities: ["reasoning", "vision", "function_calling"],
+        developer: "Moonshot AI"
+    },
+    {
         id: "kimi-k2.6",
         name: "Kimi K2.6",
         shortName: "K2.6",
