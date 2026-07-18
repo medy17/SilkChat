@@ -1270,13 +1270,15 @@ export const MultimodalInput = forwardRef<
     const {
         userSettings,
         selectedSharedModel,
+        modelSupportsFunctionCalling,
         modelSupportsVision,
         modelSupportsNativePdf,
+        codeExecutionAvailable,
         isImageModel,
         invertSendNewlineBehavior
     } = composerToolbar
 
-    const { selectedModel, setSelectedModel } = useModelStore()
+    const { selectedModel, setSelectedModel, enabledTools } = useModelStore()
     const {
         uploadedFiles,
         setUploadedFiles,
@@ -1854,7 +1856,12 @@ export const MultimodalInput = forwardRef<
                 return
             }
 
-            const decision = classifyPastedText(pastedText)
+            const decision = classifyPastedText(pastedText, {
+                canReferenceLongTextAttachments:
+                    modelSupportsFunctionCalling &&
+                    codeExecutionAvailable &&
+                    enabledTools.includes("code_execution")
+            })
             if (decision.disposition === "inline") return
 
             e.preventDefault()
@@ -1868,7 +1875,7 @@ export const MultimodalInput = forwardRef<
             })
             await handleFileUpload([pastedFile])
         },
-        [handleFileUpload]
+        [codeExecutionAvailable, enabledTools, handleFileUpload, modelSupportsFunctionCalling]
     )
 
     const formatFileSize = (bytes: number): string => {

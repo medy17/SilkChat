@@ -1,22 +1,37 @@
-import { LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD, estimateTokenCount } from "@/lib/file_constants"
+import {
+    LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD,
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+    estimateTokenCount
+} from "@/lib/file_constants"
 
 export { LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD }
 
-export type PastedTextDisposition = "inline" | "url"
+export type PastedTextDisposition = "inline" | "url" | "attachment"
 
 export type PastedTextDecision = {
     disposition: PastedTextDisposition
     estimatedTokens: number
 }
 
-export const classifyPastedText = (text: string): PastedTextDecision => {
+export const classifyPastedText = (
+    text: string,
+    { canReferenceLongTextAttachments }: { canReferenceLongTextAttachments: boolean }
+): PastedTextDecision => {
     const estimatedTokens = estimateTokenCount(text)
 
     if (estimatedTokens <= LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD) {
         return { disposition: "inline", estimatedTokens }
     }
 
-    return { disposition: "url", estimatedTokens }
+    if (canReferenceLongTextAttachments) {
+        return { disposition: "url", estimatedTokens }
+    }
+
+    if (estimatedTokens <= MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION) {
+        return { disposition: "inline", estimatedTokens }
+    }
+
+    return { disposition: "attachment", estimatedTokens }
 }
 
 export const getPastedTextNames = (index: number) => {

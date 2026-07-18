@@ -266,6 +266,34 @@ describe("dbMessagesToCore", () => {
         expect(context).not.toContain("word word word")
     })
 
+    it("applies the safe inline ceiling when the caller omits it", async () => {
+        const text = "word ".repeat(30_000)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/huge.txt",
+                            filename: "huge.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            { publicAssetBaseUrl: "https://r2.example.com" }
+        )
+
+        const context = (result[0].content[0] as { text: string }).text
+        expect(context).toContain("too large to inline safely")
+        expect(context).not.toContain("word word word")
+    })
+
     it("rewrites absolute proxy attachment URLs to direct public asset URLs", async () => {
         const result = await dbMessagesToCore(
             [

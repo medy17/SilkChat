@@ -33,7 +33,7 @@ export interface UploadedFile {
     uploadedAt: number
     source?: "upload" | "pasted-text"
     displayName?: string
-    contextDelivery?: "url"
+    contextDelivery?: "url" | "attachment"
     pastedText?: string
 }
 

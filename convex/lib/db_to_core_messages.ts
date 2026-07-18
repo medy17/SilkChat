@@ -15,6 +15,7 @@ import type { Message } from "../schema/message"
 import type { ModelAbility } from "../schema/settings"
 import {
     LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD,
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
     estimateTokenCount,
     getFileTypeInfo
 } from "./file_constants"
@@ -108,6 +109,9 @@ export const dbMessagesToCore = async (
     }
 ): Promise<CoreMessage[]> => {
     const mapped_messages: CoreMessage[] = []
+    const maxInlineTextAttachmentTokens =
+        options?.maxInlineTextAttachmentTokens ??
+        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION
     for await (const message of messages) {
         const to_commit_messages: CoreMessage[] = []
         if (message.role === "user") {
@@ -185,10 +189,7 @@ export const dbMessagesToCore = async (
                                             requestHeaders
                                         })}\nUse code execution to fetch and inspect this attachment programmatically. Do not print the entire file into the conversation.</long-attachment>`
                                     })
-                                } else if (
-                                    options?.maxInlineTextAttachmentTokens !== undefined &&
-                                    estimatedTokens > options.maxInlineTextAttachmentTokens
-                                ) {
+                                } else if (estimatedTokens > maxInlineTextAttachmentTokens) {
                                     mapped_content.push({
                                         type: "text",
                                         text: `<internal-system-error>The text attachment "${filename}" is too large to inline safely (${estimatedTokens.toLocaleString()} estimated tokens), and code execution is unavailable. Ask the user to enable code execution or choose a function-calling model before analyzing this file.</internal-system-error>`
