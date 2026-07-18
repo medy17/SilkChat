@@ -899,6 +899,7 @@ const MESSAGE_KEEP_MOUNTED_TAIL_COUNT = 40
 const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
 const BOTTOM_SCROLL_THRESHOLD_PX = 4
+const STREAMING_ANCHOR_TOP_GAP_PX = 16
 const MESSAGE_MARKDOWN_CLASS =
     "prose relative max-w-none prose-pre:bg-transparent prose-pre:p-0 font-claude-message prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
 const REASONING_MARKDOWN_CLASS =
@@ -918,6 +919,14 @@ type QuoteSelectionState = {
     x: number
     y: number
     placement: "above" | "below"
+}
+
+const getMessagePartKey = (messageId: string, part: UIMessage["parts"][number], index: number) => {
+    if ("toolCallId" in part && typeof part.toolCallId === "string" && part.toolCallId.length > 0) {
+        return `${messageId}-tool-${part.toolCallId}`
+    }
+
+    return `${messageId}-${part.type}-${index}`
 }
 
 type MessageRowProps = {
@@ -1026,7 +1035,7 @@ const MessageRowComponent = ({
     })
 
     return (
-        <div className="pb-3">
+        <div className="pb-3" data-message-id={message.id} data-message-role={message.role}>
             <div
                 ref={bubbleRef}
                 className={cn(
@@ -1084,10 +1093,10 @@ const MessageRowComponent = ({
 
                             {inlineParts.map((part, index) => (
                                 <PartsRenderer
-                                    key={`${message.id}-text-${index}`}
+                                    key={getMessagePartKey(message.id, part, index)}
                                     part={part}
                                     markdown={true}
-                                    id={`${message.id}-text-${index}`}
+                                    id={getMessagePartKey(message.id, part, index)}
                                     threadId={
                                         ((message.metadata as { threadId?: string } | undefined)
                                             ?.threadId as string | undefined) ?? threadId
@@ -1223,6 +1232,7 @@ export const Messages = forwardRef<
         const virtualizerRef = useRef<VirtualizerHandle>(null)
         const isAtBottomRef = useRef(true)
         const shouldStickToBottomRef = useRef(true)
+        const allowUnboundedStreamingFollowRef = useRef(false)
 
         const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
         const [previewDownloadPending, setPreviewDownloadPending] = useState(false)
@@ -1396,6 +1406,7 @@ export const Messages = forwardRef<
 
         const scrollToBottom = useCallback(
             (behavior: ScrollBehavior = "auto") => {
+                allowUnboundedStreamingFollowRef.current = true
                 shouldStickToBottomRef.current = true
                 updateBottomState(true)
 
@@ -1412,6 +1423,42 @@ export const Messages = forwardRef<
             [updateBottomState]
         )
 
+        const scrollToStreamingEdge = useCallback(() => {
+            const scroller = scrollerRef.current
+            if (!scroller) return
+
+            const bottomScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+            let targetScrollTop = bottomScrollTop
+
+            if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
+                const userMessages = contentContainerRef.current?.querySelectorAll<HTMLElement>(
+                    '[data-message-role="user"]'
+                )
+                const latestUserMessage = userMessages?.[userMessages.length - 1]
+
+                if (latestUserMessage) {
+                    const scrollerRect = scroller.getBoundingClientRect()
+                    const userMessageRect = latestUserMessage.getBoundingClientRect()
+                    const userMessageTop =
+                        scroller.scrollTop + userMessageRect.top - scrollerRect.top
+                    const maximumFollowScrollTop = Math.max(
+                        0,
+                        userMessageTop - STREAMING_ANCHOR_TOP_GAP_PX
+                    )
+
+                    targetScrollTop = Math.min(bottomScrollTop, maximumFollowScrollTop)
+                }
+            }
+
+            const reachedStreamingLimit = targetScrollTop < bottomScrollTop
+            if (reachedStreamingLimit) {
+                shouldStickToBottomRef.current = false
+                updateBottomState(false)
+            }
+
+            scroller.scrollTo({ top: targetScrollTop, behavior: "auto" })
+        }, [status, updateBottomState])
+
         useImperativeHandle(
             ref,
             () => ({
@@ -1424,6 +1471,11 @@ export const Messages = forwardRef<
             () => [...messages].reverse().find((message) => message.role === "user"),
             [messages]
         )
+
+        useEffect(() => {
+            void lastUserMessage?.id
+            allowUnboundedStreamingFollowRef.current = false
+        }, [lastUserMessage?.id])
         const handleSwitchModel = useMemo(
             () =>
                 lastUserMessage
@@ -1496,8 +1548,8 @@ export const Messages = forwardRef<
                 return
             }
 
-            scrollToBottom("auto")
-        }, [lastMessage?.id, messages.length, scrollToBottom, status])
+            scrollToStreamingEdge()
+        }, [lastMessage?.id, messages.length, scrollToStreamingEdge, status])
 
         useEffect(() => {
             updateBottomState(true)
@@ -1522,6 +1574,7 @@ export const Messages = forwardRef<
             void threadKey
 
             shouldStickToBottomRef.current = true
+            allowUnboundedStreamingFollowRef.current = false
             updateBottomState(true)
 
             const frameId = requestAnimationFrame(() => {
@@ -1550,7 +1603,7 @@ export const Messages = forwardRef<
                 }
 
                 frameId = requestAnimationFrame(() => {
-                    scrollToBottom("auto")
+                    scrollToStreamingEdge()
                 })
             })
 
@@ -1562,7 +1615,7 @@ export const Messages = forwardRef<
                 }
                 observer.disconnect()
             }
-        }, [scrollToBottom])
+        }, [scrollToStreamingEdge])
 
         useEffect(() => {
             if (!onQuoteSelection) {
