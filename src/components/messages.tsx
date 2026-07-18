@@ -1384,6 +1384,23 @@ export const Messages = forwardRef<
             [onBottomStateChange]
         )
 
+        const getStreamingAnchorMaxScrollTop = useCallback(() => {
+            const scroller = scrollerRef.current
+            if (!scroller) return null
+
+            const userMessages = contentContainerRef.current?.querySelectorAll<HTMLElement>(
+                '[data-message-role="user"]'
+            )
+            const latestUserMessage = userMessages?.[userMessages.length - 1]
+            if (!latestUserMessage) return null
+
+            const scrollerRect = scroller.getBoundingClientRect()
+            const userMessageRect = latestUserMessage.getBoundingClientRect()
+            const userMessageTop = scroller.scrollTop + userMessageRect.top - scrollerRect.top
+
+            return Math.max(0, userMessageTop - STREAMING_ANCHOR_TOP_GAP_PX)
+        }, [])
+
         const syncBottomStateFromOffset = useCallback(
             (offset?: number) => {
                 const handle = virtualizerRef.current
@@ -1398,10 +1415,20 @@ export const Messages = forwardRef<
                 )
                 const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
 
+                if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
+                    const maximumFollowScrollTop = getStreamingAnchorMaxScrollTop()
+                    if (
+                        maximumFollowScrollTop !== null &&
+                        scrollOffset > maximumFollowScrollTop + BOTTOM_SCROLL_THRESHOLD_PX
+                    ) {
+                        allowUnboundedStreamingFollowRef.current = true
+                    }
+                }
+
                 shouldStickToBottomRef.current = isAtBottom
                 updateBottomState(isAtBottom)
             },
-            [updateBottomState]
+            [getStreamingAnchorMaxScrollTop, status, updateBottomState]
         )
 
         const scrollToBottom = useCallback(
@@ -1431,21 +1458,8 @@ export const Messages = forwardRef<
             let targetScrollTop = bottomScrollTop
 
             if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
-                const userMessages = contentContainerRef.current?.querySelectorAll<HTMLElement>(
-                    '[data-message-role="user"]'
-                )
-                const latestUserMessage = userMessages?.[userMessages.length - 1]
-
-                if (latestUserMessage) {
-                    const scrollerRect = scroller.getBoundingClientRect()
-                    const userMessageRect = latestUserMessage.getBoundingClientRect()
-                    const userMessageTop =
-                        scroller.scrollTop + userMessageRect.top - scrollerRect.top
-                    const maximumFollowScrollTop = Math.max(
-                        0,
-                        userMessageTop - STREAMING_ANCHOR_TOP_GAP_PX
-                    )
-
+                const maximumFollowScrollTop = getStreamingAnchorMaxScrollTop()
+                if (maximumFollowScrollTop !== null) {
                     targetScrollTop = Math.min(bottomScrollTop, maximumFollowScrollTop)
                 }
             }
@@ -1457,7 +1471,7 @@ export const Messages = forwardRef<
             }
 
             scroller.scrollTo({ top: targetScrollTop, behavior: "auto" })
-        }, [status, updateBottomState])
+        }, [getStreamingAnchorMaxScrollTop, status, updateBottomState])
 
         useImperativeHandle(
             ref,
