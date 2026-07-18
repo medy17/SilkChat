@@ -105,6 +105,7 @@ import {
     Paperclip,
     Plus,
     Square,
+    SquareTerminal,
     X
 } from "lucide-react"
 import { motion } from "motion/react"
@@ -616,7 +617,7 @@ function MobileOverflowMenu({
                             onClick={() => onToggleTool("code_execution")}
                         >
                             <MobileMenuIcon slashed={!codeExecutionEnabled}>
-                                <Code className="size-4" />
+                                <SquareTerminal className="size-4" />
                             </MobileMenuIcon>
                             <span className="min-w-0 flex-1 truncate">
                                 Code execution {codeExecutionEnabled ? "enabled" : "disabled"}

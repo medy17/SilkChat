@@ -38,6 +38,7 @@ import {
     Image as ImageIcon,
     Quote,
     RotateCcw,
+    SquareTerminal,
     Trash2,
     X
 } from "lucide-react"
@@ -64,6 +65,7 @@ import {
     ComposerMobileMenu,
     useComposerToolbarState
 } from "./multimodal-input"
+import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
@@ -83,7 +85,7 @@ import {
     AlertDialogTitle
 } from "./ui/alert-dialog"
 import { Button } from "./ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Loader } from "./ui/loader"
 import { Textarea } from "./ui/textarea"
 
@@ -375,6 +377,7 @@ const PartsRenderer = memo(
                     <GenericToolRenderer
                         toolInvocation={part as UIToolInvocation<Tool>}
                         toolName="Code Execution"
+                        icon={SquareTerminal}
                     />
                 )
             case "tool-request_persistent_sandbox":
@@ -1305,13 +1308,15 @@ export const Messages = forwardRef<
                         />
                     )}
 
-                    {((isText && !isTabular) || isPdf) && (
+                    {isText && !isTabular && (
                         <iframe
                             src={resolvedPreviewUrl}
                             className="h-[69dvh] w-full rounded border-0"
                             title={fileName}
                         />
                     )}
+
+                    {isPdf && <PdfFilePreview url={resolvedPreviewUrl} filename={fileName} />}
 
                     {!isImage && !isText && !isPdf && !isTabular && (
                         <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-sm">
@@ -1742,13 +1747,18 @@ export const Messages = forwardRef<
                         }
                     }}
                 >
-                    <DialogContent className="md:!max-w-[min(90vw,60rem)] grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+                    <DialogContent
+                        showCloseButton={false}
+                        className="md:!max-w-[min(90vw,60rem)] grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-3 sm:gap-4 sm:p-6"
+                    >
                         {previewFile && (
                             <>
-                                <DialogHeader>
-                                    <div className="flex items-center justify-between gap-3 pr-8">
-                                        <DialogTitle className="flex min-w-0 items-center gap-2">
-                                            {getFileIcon(previewFile)}
+                                <DialogHeader className="min-w-0">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                                            <span className="shrink-0">
+                                                {getFileIcon(previewFile)}
+                                            </span>
                                             <span className="truncate">
                                                 {fileName || "Unknown file"}
                                             </span>
@@ -1759,14 +1769,29 @@ export const Messages = forwardRef<
                                             size="sm"
                                             disabled={previewDownloadPending}
                                             onClick={() => void handlePreviewDownload()}
+                                            className="size-8 shrink-0 px-0 sm:h-8 sm:w-auto sm:px-3"
+                                            aria-label={`Download ${fileName || "file"}`}
+                                            title="Download"
                                         >
                                             {previewDownloadPending ? (
-                                                <Loader size="sm" className="mr-2" />
+                                                <Loader size="sm" className="sm:mr-2" />
                                             ) : (
-                                                <Download className="mr-2 size-4" />
+                                                <Download className="size-4 sm:mr-2" />
                                             )}
-                                            Download
+                                            <span className="hidden sm:inline">Download</span>
                                         </Button>
+                                        <DialogClose asChild>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 shrink-0"
+                                                aria-label="Close preview"
+                                                title="Close"
+                                            >
+                                                <X className="size-4" />
+                                            </Button>
+                                        </DialogClose>
                                     </div>
                                 </DialogHeader>
                                 {renderFilePreview()}

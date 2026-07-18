@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { ChevronDown, Loader2, Wrench } from "lucide-react"
+import type { ComponentType } from "react"
 import { memo, useEffect, useRef, useState } from "react"
 import { Codeblock } from "../codeblock"
 
@@ -10,7 +11,15 @@ type GenericToolInvocation = UIToolInvocation<{
 }>
 
 export const GenericToolRenderer = memo(
-    ({ toolInvocation, toolName }: { toolInvocation: GenericToolInvocation; toolName: string }) => {
+    ({
+        toolInvocation,
+        toolName,
+        icon: ToolIcon = Wrench
+    }: {
+        toolInvocation: GenericToolInvocation
+        toolName: string
+        icon?: ComponentType<{ className?: string }>
+    }) => {
         const [isExpanded, setIsExpanded] = useState(false)
         const contentRef = useRef<HTMLDivElement>(null)
         const innerRef = useRef<HTMLDivElement>(null)
@@ -47,22 +56,22 @@ export const GenericToolRenderer = memo(
                     disabled={isLoading}
                 >
                     <div className="flex flex-1 items-center gap-2">
-                        {isLoading ? (
-                            <Loader2 className="size-4 animate-spin text-primary" />
-                        ) : (
-                            <Wrench className="size-4 text-primary" />
-                        )}
+                        <ToolIcon className="size-4 text-primary" />
                         <span className="font-medium text-primary">{toolName}</span>
 
-                        {!isLoading && hasResults && (
-                            <div
-                                className={cn(
-                                    "ml-auto transform transition-transform",
-                                    isExpanded ? "rotate-180" : ""
-                                )}
-                            >
-                                <ChevronDown className="size-4 text-foreground" />
-                            </div>
+                        {isLoading ? (
+                            <Loader2 className="ml-auto size-4 animate-spin text-primary" />
+                        ) : (
+                            hasResults && (
+                                <div
+                                    className={cn(
+                                        "ml-auto transform transition-transform",
+                                        isExpanded ? "rotate-180" : ""
+                                    )}
+                                >
+                                    <ChevronDown className="size-4 text-foreground" />
+                                </div>
+                            )
                         )}
                     </div>
                 </button>

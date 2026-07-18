@@ -24,7 +24,7 @@ import { optionalBrowserEnv } from "@/lib/browser-env"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { useSharedModels } from "@/lib/shared-models"
 import type { Infer } from "convex/values"
-import { Brain, Code, Eye, File, Key, Zap } from "lucide-react"
+import { Brain, Eye, File, Key, SquareTerminal, Zap } from "lucide-react"
 
 export type DisplayModel =
     | SharedModel
@@ -561,7 +561,7 @@ export const getAbilityIcon = (ability: ModelAbility | "pdf") => {
         case "reasoning":
             return Brain
         case "function_calling":
-            return Code
+            return SquareTerminal
         case "native_pdf":
             return File
         default:
