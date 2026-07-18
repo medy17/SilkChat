@@ -49,7 +49,7 @@ export const SUPPORTED_CODE_EXTENSIONS = [
 ] as const
 
 // Supported plain text file extensions
-export const SUPPORTED_PLAIN_TEXT_EXTENSIONS = [".md", ".mdx", ".txt"] as const
+export const SUPPORTED_PLAIN_TEXT_EXTENSIONS = [".md", ".mdx", ".txt", ".csv", ".tsv"] as const
 
 // Combined text extensions (code + plain text)
 export const SUPPORTED_TEXT_EXTENSIONS = [
@@ -86,6 +86,8 @@ export const SUPPORTED_TEXT_MIME_TYPES = [
     "text/javascript",
     "text/xml",
     "text/yaml",
+    "text/csv",
+    "text/tab-separated-values",
     "application/json",
     "application/javascript",
     "application/typescript"

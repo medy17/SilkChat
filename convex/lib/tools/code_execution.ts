@@ -86,8 +86,12 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
             }
         }),
         execute_code: tool({
-            description:
-                "Execute JavaScript (Node.js 24) or Python 3.13 in an isolated ephemeral Linux sandbox with public internet access. Standard libraries are available; declare third-party npm or PyPI packages in dependencies.",
+            description: [
+                "Execute JavaScript (Node.js 24) or Python 3.13 in an isolated Linux sandbox with public internet access.",
+                "Standard libraries are available; declare third-party npm or PyPI packages in dependencies.",
+                "To give the user downloadable files, write them under the directory in SILKCHAT_ARTIFACT_DIR. Supported outputs include PDF, CSV/TSV, JSON/text/Markdown, XLSX/DOCX/PPTX, ZIP, SQLite, Parquet, PNG, JPEG, and WebP. Do not print binary data or base64.",
+                "Successful artifacts are attached to the response automatically. Refer to them by filename in prose. If a Markdown link is genuinely useful, copy the artifact's returned HTTPS url exactly; never link to a sandbox:, file:, /vercel/sandbox, or other local path."
+            ].join("\n"),
             inputSchema: z.object({
                 language: z.enum(["javascript", "python"]),
                 code: z.string().min(1).max(100_000),

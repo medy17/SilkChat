@@ -14,7 +14,10 @@ const AIConfigSchema = z.object({
 export type AIConfig = z.infer<typeof AIConfigSchema>
 
 const AI_CONFIG_KEY = "ai-config"
+const MODEL_STORAGE_KEY = "model-storage"
 const USER_INPUT_KEY = "user-input"
+const LUNA_DEFAULT_MODEL_ID = "gpt-5.6-luna"
+export const LUNA_DEFAULT_MODEL_MIGRATION_KEY = "default-model-gpt-5.6-luna:v1"
 const LEGACY_REASONING_VARIANT_MODEL_IDS: Record<
     string,
     {
@@ -46,6 +49,44 @@ const defaultAIConfig = (): AIConfig => ({
     selectedImageResolution: "1K",
     reasoningEffort: "off"
 })
+
+export const setDefaultModelToLunaOnce = (storage: Storage): void => {
+    try {
+        if (storage.getItem(LUNA_DEFAULT_MODEL_MIGRATION_KEY) === "true") return
+
+        const storedConfig = storage.getItem(AI_CONFIG_KEY)
+        const storedModelState = storage.getItem(MODEL_STORAGE_KEY)
+
+        if (!storedConfig && !storedModelState) {
+            storage.setItem(LUNA_DEFAULT_MODEL_MIGRATION_KEY, "true")
+            return
+        }
+
+        const config = storedConfig
+            ? { ...defaultAIConfig(), ...JSON.parse(storedConfig) }
+            : defaultAIConfig()
+        config.selectedModel = LUNA_DEFAULT_MODEL_ID
+        storage.setItem(AI_CONFIG_KEY, JSON.stringify(AIConfigSchema.parse(config)))
+
+        const modelState = storedModelState ? JSON.parse(storedModelState) : {}
+        storage.setItem(
+            MODEL_STORAGE_KEY,
+            JSON.stringify({
+                ...modelState,
+                state: {
+                    ...(modelState.state ?? {}),
+                    selectedModel: LUNA_DEFAULT_MODEL_ID
+                },
+                version: modelState.version ?? 0
+            })
+        )
+
+        storage.setItem(LUNA_DEFAULT_MODEL_MIGRATION_KEY, "true")
+    } catch {
+        // localStorage can be unavailable or contain malformed legacy state. Without the
+        // marker, a later load can retry after the existing recovery paths clean it up.
+    }
+}
 
 const isOldDefaultWebSearchConfig = (config: Partial<AIConfig>) =>
     config.selectedModel === null &&

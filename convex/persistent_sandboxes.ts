@@ -511,6 +511,7 @@ export const finalizePersistentSandboxStop = internalMutation({
         ingressBytes: v.optional(v.number()),
         egressBytes: v.optional(v.number()),
         snapshotByteMs: v.optional(v.number()),
+        creations: v.optional(v.number()),
         sessionCount: v.optional(v.number())
     },
     handler: async (ctx, args) => {
@@ -528,6 +529,7 @@ export const finalizePersistentSandboxStop = internalMutation({
             ingressBytes: args.ingressBytes,
             egressBytes: args.egressBytes,
             snapshotByteMs: args.snapshotByteMs,
+            creations: args.creations,
             sessionCount: args.sessionCount,
             completedAt: now,
             updatedAt: now

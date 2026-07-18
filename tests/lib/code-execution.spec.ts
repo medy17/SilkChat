@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest"
 import {
+    buildCodeExecutionArtifactPublicUrl,
+    detectCodeExecutionArtifactMediaType,
+    getCodeExecutionArtifactsFromToolOutput,
+    sanitizeCodeExecutionArtifactFilename
+} from "../../convex/lib/tools/code_execution_artifacts"
+import {
     getVercelSandboxCredentials,
     resolveCodeSandbox,
     truncateCodeExecutionOutput
@@ -35,6 +41,85 @@ describe("code execution helpers", () => {
             value: "0123456789\n[output truncated]",
             truncated: true
         })
+    })
+
+    it("accepts supported artifact signatures and rejects disguised active content", () => {
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "report.pdf",
+                new TextEncoder().encode("%PDF-1.7\nreport")
+            )
+        ).toBe("application/pdf")
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "table.csv",
+                new TextEncoder().encode("date,value\n2026-07-18,42\n")
+            )
+        ).toBe("text/csv")
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "fake.pdf",
+                new TextEncoder().encode("<html><script>alert(1)</script></html>")
+            )
+        ).toBeNull()
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "report.html",
+                new TextEncoder().encode("<h1>Report</h1>")
+            )
+        ).toBeNull()
+    })
+
+    it("sanitizes artifact display names and only accepts owned durable tool output", () => {
+        expect(sanitizeCodeExecutionArtifactFilename("../../charts/summary.pdf\u0000")).toBe(
+            "summary.pdf"
+        )
+
+        expect(
+            getCodeExecutionArtifactsFromToolOutput(
+                {
+                    artifacts: [
+                        {
+                            key: "generations/user-1/code/one-report.pdf",
+                            filename: "report.pdf",
+                            mediaType: "application/pdf",
+                            size: 1234
+                        },
+                        {
+                            key: "generations/another-user/code/stolen.pdf",
+                            filename: "stolen.pdf",
+                            mediaType: "application/pdf",
+                            size: 1234
+                        }
+                    ]
+                },
+                "user-1"
+            )
+        ).toEqual([
+            {
+                key: "generations/user-1/code/one-report.pdf",
+                filename: "report.pdf",
+                mediaType: "application/pdf",
+                size: 1234
+            }
+        ])
+    })
+
+    it("builds a direct public artifact URL without exposing a sandbox-local path", () => {
+        expect(
+            buildCodeExecutionArtifactPublicUrl(
+                "generations/user-1/code/report with spaces.pdf",
+                "https://assets.example.com/bucket/"
+            )
+        ).toBe(
+            "https://assets.example.com/bucket/generations/user-1/code/report%20with%20spaces.pdf"
+        )
+        expect(
+            buildCodeExecutionArtifactPublicUrl(
+                "generations/user-1/code/report.pdf",
+                "javascript:alert(1)"
+            )
+        ).toBeUndefined()
     })
 
     it("forces compatible executions into an active persistent sandbox", () => {

@@ -25,13 +25,14 @@ import {
 import { useModelStore } from "@/lib/model-store"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
-import { cn } from "@/lib/utils"
+import { isTabularTextFile } from "@/lib/tabular-file-preview"
+import { cn, downloadUrl } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
 import { useMutation } from "convex/react"
 import {
     Code,
-    ExternalLink,
+    Download,
     FileType,
     FileType2,
     Image as ImageIcon,
@@ -70,6 +71,7 @@ import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
 import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
+import { TabularFilePreview } from "./tabular-file-preview"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -1207,6 +1209,7 @@ export const Messages = forwardRef<
         const shouldStickToBottomRef = useRef(true)
 
         const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+        const [previewDownloadPending, setPreviewDownloadPending] = useState(false)
         const [previewFile, setPreviewFile] = useState<{
             url: string
             filename?: string
@@ -1250,16 +1253,27 @@ export const Messages = forwardRef<
 
         const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
 
+        const handlePreviewDownload = useCallback(async () => {
+            if (!previewFile || previewDownloadPending) return
+            setPreviewDownloadPending(true)
+            try {
+                await downloadUrl({
+                    url: resolvePublicFileUrl(previewFile.url),
+                    fileName: fileName || "download"
+                })
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Download failed")
+            } finally {
+                setPreviewDownloadPending(false)
+            }
+        }, [fileName, previewDownloadPending, previewFile])
+
         const renderFilePreview = () => {
             if (!previewFile) return null
 
             const resolvedPreviewUrl = resolvePublicFileUrl(previewFile.url)
             const { isImage, isText, isPdf } = getFileTypeInfo(fileName, previewFile.mediaType)
-            const isExternalPreviewUrl =
-                resolvedPreviewUrl.startsWith("http://") ||
-                resolvedPreviewUrl.startsWith("https://")
-            const shouldUseGenericExternalPreview =
-                !isImage && !isText && !isPdf && isExternalPreviewUrl
+            const isTabular = isTabularTextFile(fileName, previewFile.mediaType)
 
             return (
                 <div
@@ -1283,7 +1297,15 @@ export const Messages = forwardRef<
                         />
                     )}
 
-                    {(isText || isPdf) && (
+                    {isTabular && (
+                        <TabularFilePreview
+                            url={resolvedPreviewUrl}
+                            filename={fileName}
+                            mediaType={previewFile.mediaType}
+                        />
+                    )}
+
+                    {((isText && !isTabular) || isPdf) && (
                         <iframe
                             src={resolvedPreviewUrl}
                             className="h-[69dvh] w-full rounded border-0"
@@ -1291,33 +1313,11 @@ export const Messages = forwardRef<
                         />
                     )}
 
-                    {shouldUseGenericExternalPreview && (
-                        <div className="space-y-3">
-                            <iframe
-                                src={resolvedPreviewUrl}
-                                className="h-[69dvh] w-full rounded border-0"
-                                title={fileName}
-                            />
-                            <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-muted-foreground text-sm">
-                                    Preview type could not be detected from this external URL. If
-                                    the embed is blank, open the source directly.
-                                </p>
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={resolvedPreviewUrl} target="_blank" rel="noreferrer">
-                                        <ExternalLink className="mr-2 size-4" />
-                                        Open Original
-                                    </a>
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {!isImage && !isText && !isPdf && !shouldUseGenericExternalPreview && (
-                        <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                    {!isImage && !isText && !isPdf && !isTabular && (
+                        <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-sm">
                             <p className="font-medium">Preview unavailable</p>
                             <p className="mt-1 text-muted-foreground">
-                                This file type could not be detected for inline preview.
+                                This file type cannot be previewed safely. Use Download to save it.
                             </p>
                         </div>
                     )}
@@ -1746,10 +1746,28 @@ export const Messages = forwardRef<
                         {previewFile && (
                             <>
                                 <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2">
-                                        {getFileIcon(previewFile)}
-                                        {fileName || "Unknown file"}
-                                    </DialogTitle>
+                                    <div className="flex items-center justify-between gap-3 pr-8">
+                                        <DialogTitle className="flex min-w-0 items-center gap-2">
+                                            {getFileIcon(previewFile)}
+                                            <span className="truncate">
+                                                {fileName || "Unknown file"}
+                                            </span>
+                                        </DialogTitle>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={previewDownloadPending}
+                                            onClick={() => void handlePreviewDownload()}
+                                        >
+                                            {previewDownloadPending ? (
+                                                <Loader size="sm" className="mr-2" />
+                                            ) : (
+                                                <Download className="mr-2 size-4" />
+                                            )}
+                                            Download
+                                        </Button>
+                                    </div>
                                 </DialogHeader>
                                 {renderFilePreview()}
                             </>

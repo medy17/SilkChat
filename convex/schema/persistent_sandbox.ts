@@ -39,6 +39,7 @@ export const PersistentSandbox = v.object({
     ingressBytes: v.optional(v.number()),
     egressBytes: v.optional(v.number()),
     snapshotByteMs: v.optional(v.number()),
+    creations: v.optional(v.number()),
     sessionCount: v.optional(v.number()),
     terminationReason: v.optional(
         v.union(v.literal("user"), v.literal("model"), v.literal("expired"))

@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { loadAIConfig, loadUserInput, saveAIConfig, saveUserInput } from "@/lib/persistence"
+import {
+    LUNA_DEFAULT_MODEL_MIGRATION_KEY,
+    loadAIConfig,
+    loadUserInput,
+    saveAIConfig,
+    saveUserInput,
+    setDefaultModelToLunaOnce
+} from "@/lib/persistence"
 
 type StorageState = Record<string, string>
 
@@ -145,5 +152,61 @@ describe("persistence", () => {
 
         saveUserInput("   ")
         expect(storage.removeItem).toHaveBeenCalledWith("user-input")
+    })
+
+    it("sets both persisted model selections to Luna exactly once", () => {
+        const storage = createStorageMock({
+            "ai-config": JSON.stringify({
+                selectedModel: "gemini-3-flash-preview",
+                enabledTools: ["web_search"],
+                selectedImageSize: "16:9",
+                selectedImageResolution: "2K",
+                reasoningEffort: "low"
+            }),
+            "model-storage": JSON.stringify({
+                state: {
+                    selectedModel: "gemini-3-flash-preview",
+                    enabledTools: ["web_search"]
+                },
+                version: 0
+            })
+        })
+
+        setDefaultModelToLunaOnce(storage as unknown as Storage)
+
+        const migrated = storage.snapshot()
+        expect(JSON.parse(migrated["ai-config"])).toMatchObject({
+            selectedModel: "gpt-5.6-luna",
+            enabledTools: ["web_search"],
+            selectedImageSize: "16:9"
+        })
+        expect(JSON.parse(migrated["model-storage"])).toMatchObject({
+            state: {
+                selectedModel: "gpt-5.6-luna",
+                enabledTools: ["web_search"]
+            },
+            version: 0
+        })
+        expect(migrated[LUNA_DEFAULT_MODEL_MIGRATION_KEY]).toBe("true")
+
+        storage.setItem(
+            "model-storage",
+            JSON.stringify({ state: { selectedModel: "gpt-5.6-sol" }, version: 0 })
+        )
+        setDefaultModelToLunaOnce(storage as unknown as Storage)
+
+        expect(JSON.parse(storage.snapshot()["model-storage"]).state.selectedModel).toBe(
+            "gpt-5.6-sol"
+        )
+    })
+
+    it("leaves new-user model storage untouched", () => {
+        const storage = createStorageMock()
+
+        setDefaultModelToLunaOnce(storage as unknown as Storage)
+
+        expect(storage.snapshot()).toEqual({
+            [LUNA_DEFAULT_MODEL_MIGRATION_KEY]: "true"
+        })
     })
 })

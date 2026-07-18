@@ -32,6 +32,7 @@ import {
     claimPersistentSandboxIdleStop,
     claimPersistentSandboxRequest,
     claimPersistentSandboxStop,
+    finalizePersistentSandboxStop,
     finishPersistentSandboxExecution,
     markPersistentSandboxProvisioningFailed
 } from "../../convex/persistent_sandboxes"
@@ -52,6 +53,9 @@ const claimIdleStopHandler = claimPersistentSandboxIdleStop as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const claimStopHandler = claimPersistentSandboxStop as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const finalizeStopHandler = finalizePersistentSandboxStop as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
@@ -278,5 +282,39 @@ describe("persistent sandbox lifecycle", () => {
 
         expect(result).toBeNull()
         expect(patch).not.toHaveBeenCalled()
+    })
+
+    it("persists the complete provider usage shape when cleanup finishes", async () => {
+        const { ctx, records } = createCtx()
+        records.set("sandbox-1", {
+            _id: "sandbox-1",
+            userId: "user-1",
+            status: "stopping",
+            sourceThreadId: "thread-1",
+            sourceMessageId: "assistant-1",
+            sourceToolCallId: "tool-1",
+            sourceCardId: "card-1"
+        })
+
+        const result = await finalizeStopHandler.handler(ctx, {
+            sandboxId: "sandbox-1",
+            reason: "model",
+            settledMicrousd: 10_197,
+            activeCpuDurationMs: 19_008,
+            provisionedMemoryGbMs: 131_550,
+            ingressBytes: 57_861_829,
+            egressBytes: 444_822,
+            snapshotByteMs: 1_184_645_697_500,
+            creations: 1,
+            sessionCount: 1
+        })
+
+        expect(result).toBe("sandbox-1")
+        expect(records.get("sandbox-1")).toMatchObject({
+            status: "stopped",
+            creations: 1,
+            settledMicrousd: 10_197,
+            error: undefined
+        })
     })
 })

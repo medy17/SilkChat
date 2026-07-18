@@ -18,6 +18,7 @@ import {
     estimatePersistentSandboxReservationMicrousd,
     sandboxSessionNeedsStop
 } from "./lib/sandbox_billing"
+import { isMissingSandboxError } from "./lib/sandbox_errors"
 import { getVercelSandboxCredentials } from "./lib/tools/code_execution_node"
 
 const SNAPSHOT_EXPIRATION_MS = 24 * 60 * 60 * 1000
@@ -26,11 +27,6 @@ const MAX_CLEANUP_ATTEMPTS = 5
 
 const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "Persistent sandbox operation failed"
-
-const isMissingSandboxError = (error: unknown) => {
-    const message = getErrorMessage(error).toLowerCase()
-    return message.includes("not found") || message.includes("not_found")
-}
 
 const deleteVercelSandboxByName = async (sandboxName: string) => {
     const credentials = getVercelSandboxCredentials()
@@ -73,27 +69,32 @@ const sweepOverageProviderSandboxes = async (now: number) => {
     const credentials = getVercelSandboxCredentials()
     if (!credentials) return { checked: 0, deleted: 0, failed: 0 }
 
-    const listed = await Sandbox.list({
-        ...credentials,
-        tags: { app: "silkchat", feature: "persistent-code" },
-        sortBy: "createdAt",
-        sortOrder: "asc"
-    })
-    const overdue: string[] = []
-    let checked = 0
-    for await (const sandbox of listed) {
-        checked += 1
-        if (sandbox.persistent && isPastPersistentSandboxLifetime(sandbox.createdAt, now)) {
-            overdue.push(sandbox.name)
-        }
-    }
+    try {
+        // Vercel's API currently rejects the SDK's tag-filter query with HTTP 400 for this
+        // deployment, so list the project and apply the exact ownership tags locally.
+        const listed = await Sandbox.list(credentials)
 
-    const results = await Promise.allSettled(overdue.map(deleteVercelSandboxByName))
-    const failed = results.filter((result) => result.status === "rejected").length
-    if (failed > 0) {
-        console.error("Failed to delete overdue persistent sandboxes", { failed })
+        const overdue: string[] = []
+        let checked = 0
+        for await (const sandbox of listed) {
+            const tags = sandbox.tags ?? {}
+            if (tags.app !== "silkchat" || tags.feature !== "persistent-code") continue
+            checked += 1
+            if (sandbox.persistent && isPastPersistentSandboxLifetime(sandbox.createdAt, now)) {
+                overdue.push(sandbox.name)
+            }
+        }
+
+        const results = await Promise.allSettled(overdue.map(deleteVercelSandboxByName))
+        const failed = results.filter((result) => result.status === "rejected").length
+        if (failed > 0) {
+            console.error("Failed to delete overdue persistent sandboxes", { failed })
+        }
+        return { checked, deleted: results.length - failed, failed }
+    } catch (error) {
+        console.error("Failed to sweep overdue persistent sandboxes", error)
+        return { checked: 0, deleted: 0, failed: 1 }
     }
-    return { checked, deleted: results.length - failed, failed }
 }
 
 const cleanupPersistentSandbox = async (

@@ -1,16 +1,34 @@
 "use node"
 
+import { posix } from "node:path"
 import { Sandbox } from "@vercel/sandbox"
+import type { GenericActionCtx } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "../../_generated/api"
+import type { DataModel } from "../../_generated/dataModel"
 import type { Id } from "../../_generated/dataModel"
 import { internalAction } from "../../_generated/server"
+import { r2 } from "../../attachments"
 import { PERSISTENT_SANDBOX_IDLE_SUSPEND_MS } from "../persistent_sandbox_policy"
 import {
     calculateSandboxUsageMicrousd,
     collectSandboxBillableUsage,
     sandboxSessionNeedsStop
 } from "../sandbox_billing"
+import {
+    CODE_EXECUTION_ARTIFACT_DIRECTORY_ENV,
+    type CodeExecutionArtifact,
+    type CodeExecutionArtifactError,
+    MAX_CODE_EXECUTION_ARTIFACTS,
+    MAX_CODE_EXECUTION_ARTIFACT_BYTES,
+    MAX_CODE_EXECUTION_ARTIFACT_DEPTH,
+    MAX_CODE_EXECUTION_ARTIFACT_SCAN_ENTRIES,
+    MAX_CODE_EXECUTION_ARTIFACT_TOTAL_BYTES,
+    buildCodeExecutionArtifactPublicUrl,
+    detectCodeExecutionArtifactMediaType,
+    sanitizeCodeExecutionArtifactFilename,
+    sanitizeCodeExecutionArtifactStorageSegment
+} from "./code_execution_artifacts"
 
 const DEPENDENCY_INSTALL_TIMEOUT_MS = 30_000
 const SANDBOX_SESSION_TIMEOUT_MS = 70_000
@@ -18,6 +36,7 @@ const MAX_OUTPUT_CHARS_PER_STREAM = 32_000
 const MAX_CODE_CHARS = 100_000
 const MAX_DEPENDENCIES = 10
 const PACKAGE_SPECIFIER = /^[a-zA-Z0-9@._+\-/\[\],=<>!~^]+$/
+const SANDBOX_ARTIFACT_ROOT = "/vercel/sandbox/.silkchat/artifacts"
 
 export const getVercelSandboxCredentials = () => {
     const teamId = process.env.VERCEL_TEAM_ID?.trim()
@@ -51,6 +70,173 @@ const collectCommandOutput = async (command: {
         stderr: stderr.value,
         outputTruncated: stdout.truncated || stderr.truncated
     }
+}
+
+const readSandboxFileBounded = async (sandbox: Sandbox, path: string) => {
+    const stream = await sandbox.readFile({ path })
+    if (!stream) throw new Error("Artifact disappeared before it could be exported")
+
+    const chunks: Buffer[] = []
+    let size = 0
+    try {
+        for await (const rawChunk of stream as NodeJS.ReadableStream & AsyncIterable<unknown>) {
+            const chunk = Buffer.isBuffer(rawChunk)
+                ? rawChunk
+                : typeof rawChunk === "string"
+                  ? Buffer.from(rawChunk)
+                  : Buffer.from(rawChunk as Uint8Array)
+            size += chunk.byteLength
+            if (size > MAX_CODE_EXECUTION_ARTIFACT_BYTES) {
+                throw new Error("Artifact exceeds the 15 MB per-file limit")
+            }
+            chunks.push(chunk)
+        }
+    } catch (error) {
+        if ("destroy" in stream && typeof stream.destroy === "function") stream.destroy()
+        throw error
+    }
+
+    return Buffer.concat(chunks, size)
+}
+
+const exportSandboxArtifacts = async ({
+    sandbox,
+    artifactDirectory,
+    userId,
+    ctx
+}: {
+    sandbox: Sandbox
+    artifactDirectory: string
+    userId: string
+    ctx: GenericActionCtx<DataModel>
+}): Promise<{
+    artifacts: CodeExecutionArtifact[]
+    artifactErrors: CodeExecutionArtifactError[]
+}> => {
+    const artifacts: CodeExecutionArtifact[] = []
+    const artifactErrors: CodeExecutionArtifactError[] = []
+    const candidates: Array<{ path: string; relativePath: string; size: number }> = []
+    let scannedEntries = 0
+
+    const addError = (filename: string, error: string) => {
+        if (artifactErrors.length < 20) artifactErrors.push({ filename, error })
+    }
+
+    const walk = async (directory: string, relativeDirectory: string, depth: number) => {
+        const entries = await sandbox.fs.readdir(directory, { withFileTypes: true })
+        entries.sort((left, right) => left.name.localeCompare(right.name))
+
+        for (const entry of entries) {
+            scannedEntries += 1
+            if (scannedEntries > MAX_CODE_EXECUTION_ARTIFACT_SCAN_ENTRIES) {
+                addError(
+                    "artifact directory",
+                    "Too many output-directory entries; only 100 are scanned"
+                )
+                return
+            }
+
+            const path = posix.join(directory, entry.name)
+            const relativePath = relativeDirectory
+                ? posix.join(relativeDirectory, entry.name)
+                : entry.name
+            const stats = await sandbox.fs.lstat(path)
+
+            if (stats.isSymbolicLink()) {
+                addError(relativePath, "Symbolic links cannot be exported")
+                continue
+            }
+            if (stats.isDirectory()) {
+                if (depth >= MAX_CODE_EXECUTION_ARTIFACT_DEPTH) {
+                    addError(
+                        relativePath,
+                        "Artifact directories may be nested at most three levels"
+                    )
+                    continue
+                }
+                await walk(path, relativePath, depth + 1)
+                continue
+            }
+            if (!stats.isFile()) {
+                addError(relativePath, "Only regular files can be exported")
+                continue
+            }
+
+            const realPath = await sandbox.fs.realpath(path)
+            if (!realPath.startsWith(`${artifactDirectory}/`)) {
+                addError(relativePath, "Artifact resolves outside the output directory")
+                continue
+            }
+            if (stats.size > MAX_CODE_EXECUTION_ARTIFACT_BYTES) {
+                addError(relativePath, "Artifact exceeds the 15 MB per-file limit")
+                continue
+            }
+            candidates.push({ path, relativePath, size: stats.size })
+        }
+    }
+
+    try {
+        await walk(artifactDirectory, "", 0)
+    } catch (error) {
+        addError(
+            "artifact directory",
+            error instanceof Error ? error.message : "Failed to inspect generated artifacts"
+        )
+        return { artifacts, artifactErrors }
+    }
+
+    let totalBytes = 0
+    for (const candidate of candidates) {
+        if (artifacts.length >= MAX_CODE_EXECUTION_ARTIFACTS) {
+            addError(candidate.relativePath, "Only five artifacts can be exported per execution")
+            continue
+        }
+        if (totalBytes + candidate.size > MAX_CODE_EXECUTION_ARTIFACT_TOTAL_BYTES) {
+            addError(candidate.relativePath, "Artifacts exceed the 25 MB aggregate limit")
+            continue
+        }
+
+        try {
+            const bytes = await readSandboxFileBounded(sandbox, candidate.path)
+            if (totalBytes + bytes.byteLength > MAX_CODE_EXECUTION_ARTIFACT_TOTAL_BYTES) {
+                addError(candidate.relativePath, "Artifacts exceed the 25 MB aggregate limit")
+                continue
+            }
+
+            const filename = sanitizeCodeExecutionArtifactFilename(candidate.relativePath)
+            const mediaType = detectCodeExecutionArtifactMediaType(filename, bytes)
+            if (!mediaType) {
+                addError(candidate.relativePath, "Unsupported file type or invalid file signature")
+                continue
+            }
+
+            const key = `generations/${userId}/code/${Date.now()}-${crypto.randomUUID()}-${sanitizeCodeExecutionArtifactStorageSegment(filename)}`
+            const storedKey = await r2.store(ctx, bytes, {
+                authorId: userId,
+                key,
+                type: mediaType
+            })
+            const url = buildCodeExecutionArtifactPublicUrl(
+                storedKey,
+                process.env.R2_PUBLIC_BASE_URL
+            )
+            artifacts.push({
+                key: storedKey,
+                filename,
+                mediaType,
+                size: bytes.byteLength,
+                ...(url ? { url } : {})
+            })
+            totalBytes += bytes.byteLength
+        } catch (error) {
+            addError(
+                candidate.relativePath,
+                error instanceof Error ? error.message : "Failed to export artifact"
+            )
+        }
+    }
+
+    return { artifacts, artifactErrors }
 }
 
 const validateExecutionInput = (code: string, dependencies: string[]) => {
@@ -137,7 +323,9 @@ export const executeCode = internalAction({
 
         const runtime = language === "javascript" ? "node24" : "python3.13"
         const extension = language === "javascript" ? "mjs" : "py"
-        const filename = `main-${crypto.randomUUID()}.${extension}`
+        const executionId = crypto.randomUUID()
+        const filename = `main-${executionId}.${extension}`
+        const artifactDirectory = `${SANDBOX_ARTIFACT_ROOT}/${executionId}`
         let sandbox: Sandbox | undefined
         let persistent = false
         let effectiveSandboxMode: "ephemeral" | "persistent" = sandboxMode
@@ -152,6 +340,9 @@ export const executeCode = internalAction({
             const ephemeralSandbox = sandbox
             sandbox = undefined
             try {
+                await ephemeralSandbox.fs
+                    .rm(artifactDirectory, { recursive: true, force: true })
+                    .catch(() => undefined)
                 if (sandboxSessionNeedsStop(ephemeralSandbox.status)) {
                     await ephemeralSandbox.stop()
                 }
@@ -230,6 +421,7 @@ export const executeCode = internalAction({
             }
 
             if (!sandbox) throw new Error("Sandbox failed to initialize")
+            await sandbox.fs.mkdir(artifactDirectory, { recursive: true })
             await sandbox.writeFiles([{ path: filename, content: Buffer.from(code) }])
 
             if (dependencies.length > 0) {
@@ -273,7 +465,14 @@ export const executeCode = internalAction({
             const result = await sandbox.runCommand({
                 cmd: language === "javascript" ? "node" : "python",
                 args: [filename],
+                env: { [CODE_EXECUTION_ARTIFACT_DIRECTORY_ENV]: artifactDirectory },
                 timeoutMs: Math.min(30_000, Math.max(1_000, Math.round(timeoutMs)))
+            })
+            const artifactResult = await exportSandboxArtifacts({
+                sandbox,
+                artifactDirectory,
+                userId,
+                ctx
             })
 
             return {
@@ -286,6 +485,7 @@ export const executeCode = internalAction({
                 exitCode: result.exitCode,
                 durationMs: result.durationMs,
                 ...(await collectCommandOutput(result)),
+                ...artifactResult,
                 __toolBilling: await finalizeToolBilling()
             }
         } catch (error) {
@@ -298,6 +498,13 @@ export const executeCode = internalAction({
                 __toolBilling: await finalizeToolBilling()
             }
         } finally {
+            if (sandbox && persistent) {
+                await sandbox.fs
+                    .rm(artifactDirectory, { recursive: true, force: true })
+                    .catch((error) =>
+                        console.error("Failed to clean persistent artifact directory", error)
+                    )
+            }
             if (persistentSandboxId && activityLeaseId) {
                 let scheduledIdleStopId: Id<"_scheduled_functions"> | undefined
                 try {

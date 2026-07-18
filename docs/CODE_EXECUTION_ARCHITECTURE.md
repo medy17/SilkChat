@@ -140,6 +140,20 @@ No SilkChat, database, model-provider, or storage credentials are placed in the 
 
 Output is a combined bounded budget, collected while streaming rather than fetched fully and truncated afterward. The result includes exit status, duration, truncation status, and a small stdout/stderr payload. Scripts that produce large or binary results write artifacts; SilkChat uploads those artifacts and returns attachment handles instead of model-context bytes.
 
+Each execution receives a unique directory through `SILKCHAT_ARTIFACT_DIR`. Files written beneath it are treated as untrusted staging output and are exported before the sandbox is stopped, deleted, suspended, or released. Persistent workspaces receive a fresh directory for every call so files from an earlier execution are never republished implicitly.
+
+The export bridge:
+
+1. walks only that execution's output directory, with bounded depth and entry count;
+2. rejects links, non-regular files, unsupported formats, invalid signatures, and files outside the size budgets;
+3. uploads accepted bytes to the existing `generations/{userId}/code/` R2 namespace;
+4. returns compact artifact metadata and a direct public R2 URL to the model rather than file bytes; and
+5. projects that metadata into ordinary assistant `file` parts for durable download and message replay.
+
+The initial limits are five files per execution, 15 MB per file, and 25 MB total. Supported outputs are PDF, CSV/TSV, JSON and text formats, XLSX/DOCX/PPTX, ZIP, SQLite, Parquet, PNG, JPEG, and WebP. Active document formats such as HTML and SVG are not exported. No signed URL mechanism is introduced.
+
+The assistant should normally refer to the automatically attached file by filename. If it emits a Markdown link, it must use the returned HTTPS URL exactly. Sandbox-local and `file:` URLs are never user-facing and remain blocked by the Markdown renderer.
+
 Before deletion, stop the sandbox and record active CPU, per-session provisioned memory duration, ingress, egress, snapshot byte-duration, session count, runtime, VCPU count, and creation outcome. Convert those provider metrics to microdollars before deleting the sandbox and settling its usage reservation.
 
 ### Billing policy

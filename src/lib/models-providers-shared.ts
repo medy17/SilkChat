@@ -284,7 +284,7 @@ export const getDefaultModelId = (sharedModels: SharedModel[]) => {
                 (adapter.startsWith("openrouter:") && enabledProviderEntries.has("openrouter"))
         )
 
-    const preferredResolution = resolveModelReplacement("gemini-3-flash-preview", sharedModels, {
+    const preferredResolution = resolveModelReplacement("gpt-5.6-luna", sharedModels, {
         isCandidateAllowed: (model) => !isModelSunset(model) && hasInternalProvider(model)
     })
 
