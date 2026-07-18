@@ -55,7 +55,7 @@ The first implementation uses the existing client-side `estimateTokenCount` help
 - Up to `LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD`: leave the paste in the textarea and send it directly in model context, without a chip.
 - Above the long-attachment threshold: create a `Pasted Text N.txt` attachment chip, upload the content, and route it to the model as a scoped URL/reference that must be inspected with code execution.
 
-The initial threshold is 5,000 estimated tokens. It is a policy constant and can be tuned from real usage.
+The current threshold is 16,000 estimated tokens. It is a policy constant and can be tuned from real usage.
 
 URL references are emitted only when code execution is enabled and the selected model supports function calling. Without that route, text remains inline up to the former 32,000-token ceiling; larger text is withheld with a model-visible instruction to ask the user to enable execution or select a capable model.
 
@@ -227,7 +227,7 @@ The UI can continue using the provisional flat credit reservation while the feat
 
 ### Phase 1 — Pasted-text UX
 
-- Classify plain-text paste as inline or an execution-backed URL at 5,000 estimated tokens.
+- Classify plain-text paste as inline or an execution-backed URL at 16,000 estimated tokens.
 - Render the URL-backed paste in the normal attachment area.
 - Support converting a pasted attachment back into textarea content.
 - Abort or delete the backing upload during conversion.

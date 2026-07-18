@@ -1,7 +1,8 @@
 import type { AbilityId } from "@/lib/tool-abilities"
 import type { Infer } from "convex/values"
 import dedent from "ts-dedent"
-import type { UserSettings } from "../schema/settings"
+import type { ResolvedToolAvailabilityMap } from "../lib/tools/availability"
+import type { ModelAbility, UserSettings } from "../schema/settings"
 
 type BuildPromptOptions = {
     enabledTools: AbilityId[]
@@ -19,6 +20,14 @@ type BuildPromptOptions = {
 }
 
 type TemporalContextOptions = Pick<BuildPromptOptions, "userTimezone" | "clientTimestampMs">
+
+type CapabilityContextOptions = {
+    requestedTools: AbilityId[]
+    enabledTools: AbilityId[]
+    toolAvailability: ResolvedToolAvailabilityMap
+    modelAbilities: readonly ModelAbility[]
+    isAnonymous: boolean
+}
 
 const formatDateInTimeZone = (date: Date, timeZone: string) => {
     const parts = new Intl.DateTimeFormat("en", {
@@ -56,6 +65,78 @@ export const buildTemporalContext = ({
     return dedent`
 ## Current Date
 UTC date: ${utcDate}.${userTimeInfo}`
+}
+
+export const buildCapabilityContext = ({
+    requestedTools,
+    enabledTools,
+    toolAvailability,
+    modelAbilities,
+    isAnonymous
+}: CapabilityContextOptions) => {
+    const supportsFunctionCalling = modelAbilities.includes("function_calling")
+    const limits: string[] = []
+
+    const addToolLimit = (tool: AbilityId, label: string, unavailableReason: string) => {
+        if (enabledTools.includes(tool)) return
+
+        if (tool === "code_execution" && isAnonymous) {
+            limits.push(
+                `- ${label}: unavailable in anonymous chats. The user must sign in before it can be enabled; you cannot use it in this chat.`
+            )
+            return
+        }
+
+        if (!toolAvailability[tool].enabled) {
+            limits.push(`- ${label}: ${unavailableReason}`)
+            return
+        }
+
+        if (!requestedTools.includes(tool)) {
+            limits.push(
+                `- ${label}: not enabled by the user. You may ask them to enable it in Tools when it is needed; until then, do not claim or attempt to use it.`
+            )
+        }
+    }
+
+    if (!supportsFunctionCalling) {
+        limits.push(
+            "- Tool calling: unavailable because the selected model does not support it. Do not request or claim to use tools; the user must choose a function-calling model."
+        )
+    } else {
+        addToolLimit(
+            "web_search",
+            "Web search",
+            "unavailable because SilkChat has no search backend configured. Do not ask the user to toggle it; it cannot be used until an administrator configures the deployment."
+        )
+        addToolLimit(
+            "code_execution",
+            "Code execution",
+            "unavailable because SilkChat has no sandbox backend configured. Do not ask the user to toggle it; it cannot be used until an administrator configures the deployment."
+        )
+        addToolLimit(
+            "supermemory",
+            "Memory",
+            "unavailable because the user has no enabled Supermemory BYOK key. You may suggest configuring one in Settings, but you cannot use or request memory now."
+        )
+        addToolLimit(
+            "mcp",
+            "MCP tools",
+            "unavailable because the user has no enabled MCP server for this chat. You may suggest configuring or enabling a server, but you cannot use or request MCP tools now."
+        )
+    }
+
+    if (!modelAbilities.includes("vision")) {
+        limits.push(
+            "- Vision and image tools: unavailable because the selected model has no vision capability. The user must choose a vision-capable model; you cannot inspect images with the current model."
+        )
+    }
+
+    if (limits.length === 0) return ""
+
+    return dedent`
+    ## Current Capability Limits
+    ${limits.join("\n")}`
 }
 
 export const buildPrompt = ({

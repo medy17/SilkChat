@@ -68,6 +68,7 @@ function usePromptInput() {
 
 export type PromptInputRef = {
     getValue: () => string
+    getElement: () => HTMLTextAreaElement | null
     setValue: (value: string) => void
     clear: () => void
     focus: () => void
@@ -129,6 +130,7 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
             ref,
             () => ({
                 getValue: () => textareaRef.current?.value || "",
+                getElement: () => textareaRef.current,
                 setValue: (value: string) => {
                     if (textareaRef.current) {
                         textareaRef.current.value = value

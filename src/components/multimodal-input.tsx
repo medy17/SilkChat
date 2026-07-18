@@ -34,6 +34,7 @@ import {
 } from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
+import { isComposerPasteTarget } from "@/lib/composer-paste"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import {
@@ -63,6 +64,7 @@ import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import {
     type PastedTextDisposition,
     classifyPastedText,
+    getEnabledToolsForPastedText,
     getPastedTextNames,
     mergePastedTextIntoDraft
 } from "@/lib/pasted-text"
@@ -1278,7 +1280,7 @@ export const MultimodalInput = forwardRef<
         invertSendNewlineBehavior
     } = composerToolbar
 
-    const { selectedModel, setSelectedModel, enabledTools } = useModelStore()
+    const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
     const {
         uploadedFiles,
         setUploadedFiles,
@@ -1804,6 +1806,11 @@ export const MultimodalInput = forwardRef<
             })
     }
 
+    const handleRemoveUploadingFile = (localFile: LocalUploadingFile) => {
+        localFile.abortController.abort()
+        setLocalUploadingFiles((current) => current.filter((file) => file.id !== localFile.id))
+    }
+
     const showPastedTextInComposer = useCallback((pastedText: string) => {
         const currentValue = promptInputRef.current?.getValue() || ""
         const nextValue = mergePastedTextIntoDraft(currentValue, pastedText)
@@ -1858,13 +1865,16 @@ export const MultimodalInput = forwardRef<
 
             const decision = classifyPastedText(pastedText, {
                 canReferenceLongTextAttachments:
-                    modelSupportsFunctionCalling &&
-                    codeExecutionAvailable &&
-                    enabledTools.includes("code_execution")
+                    modelSupportsFunctionCalling && codeExecutionAvailable
             })
             if (decision.disposition === "inline") return
 
             e.preventDefault()
+            const nextEnabledTools = getEnabledToolsForPastedText(decision, enabledTools)
+            if (nextEnabledTools !== enabledTools) {
+                setEnabledTools(nextEnabledTools)
+                toast.info("Code execution enabled for this long paste")
+            }
             pastedTextCounterRef.current += 1
             const names = getPastedTextNames(pastedTextCounterRef.current)
             const pastedFile = new File([pastedText], names.fileName, { type: "text/plain" })
@@ -1875,7 +1885,13 @@ export const MultimodalInput = forwardRef<
             })
             await handleFileUpload([pastedFile])
         },
-        [codeExecutionAvailable, enabledTools, handleFileUpload, modelSupportsFunctionCalling]
+        [
+            codeExecutionAvailable,
+            enabledTools,
+            handleFileUpload,
+            modelSupportsFunctionCalling,
+            setEnabledTools
+        ]
     )
 
     const formatFileSize = (bytes: number): string => {
@@ -1999,6 +2015,18 @@ export const MultimodalInput = forwardRef<
                         </div>
                     )}
                 </div>
+
+                <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    onClick={() => handleRemoveUploadingFile(localFile)}
+                    title="Remove attachment"
+                    className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
+                    style={{ borderRadius: "var(--radius-xl)" }}
+                >
+                    <X className="size-3.5" />
+                </Button>
             </div>
         )
     }
@@ -2063,15 +2091,17 @@ export const MultimodalInput = forwardRef<
 
                 <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
+                    variant="secondary"
+                    size="icon"
                     onClick={(e) => {
                         e.stopPropagation()
                         handleRemoveFile(uploadedFile.key)
                     }}
-                    className="-top-2 -right-2 absolute h-5 w-5 rounded-full bg-destructive p-0 text-destructive-foreground opacity-0 transition-opacity hover:bg-destructive/80 group-hover:opacity-100"
+                    title="Remove attachment"
+                    className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
+                    style={{ borderRadius: "var(--radius-xl)" }}
                 >
-                    <X className="size-3" />
+                    <X className="size-3.5" />
                 </Button>
             </div>
         )
@@ -2123,11 +2153,14 @@ export const MultimodalInput = forwardRef<
 
         const handleGlobalPaste = (e: ClipboardEvent) => {
             if (
-                document.activeElement?.tagName === "TEXTAREA" ||
-                document.activeElement?.tagName === "INPUT"
+                !isComposerPasteTarget(
+                    document.activeElement,
+                    promptInputRef.current?.getElement() ?? null
+                )
             ) {
-                handlePaste(e)
+                return
             }
+            handlePaste(e)
         }
 
         document.addEventListener("paste", handleGlobalPaste)

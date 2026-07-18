@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const {
     buildPromptMock,
+    buildCapabilityContextMock,
     buildTemporalContextMock,
     createUIMessageStreamMock,
     dbMessagesToCoreMock,
@@ -17,6 +18,7 @@ const {
     streamTextMock
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
+    buildCapabilityContextMock: vi.fn(),
     buildTemporalContextMock: vi.fn(),
     createUIMessageStreamMock: vi.fn(),
     dbMessagesToCoreMock: vi.fn(),
@@ -179,6 +181,7 @@ vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
 }))
 
 vi.mock("../../convex/chat_http/prompt", () => ({
+    buildCapabilityContext: buildCapabilityContextMock,
     buildPrompt: buildPromptMock,
     buildTemporalContext: buildTemporalContextMock
 }))

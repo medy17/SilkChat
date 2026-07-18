@@ -566,6 +566,18 @@ const EditableMessage = memo(
             }
         }
 
+        const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+            const files = Array.from(event.clipboardData.items)
+                .filter((item) => item.kind === "file")
+                .map((item) => item.getAsFile())
+                .filter((file): file is File => file !== null)
+
+            if (files.length === 0) return
+
+            event.preventDefault()
+            void handleAddFiles(files)
+        }
+
         const removeAddedFile = (file: UploadedFile) => {
             setAddedFiles((current) => current.filter((addedFile) => addedFile.key !== file.key))
             deleteFileMutation({ key: file.key }).catch(console.error)
@@ -658,6 +670,7 @@ const EditableMessage = memo(
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
                         onKeyDown={handleKeyDown}
+                        onPaste={handlePaste}
                         className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
 

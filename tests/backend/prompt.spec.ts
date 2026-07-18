@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildPrompt } from "../../convex/chat_http/prompt"
+import { buildCapabilityContext, buildPrompt } from "../../convex/chat_http/prompt"
 
 describe("buildPrompt", () => {
     it("aligns math delimiter guidance with Streamdown defaults", () => {
@@ -73,6 +73,50 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("call release_persistent_sandbox")
         expect(prompt).toContain("suspend automatically")
         expect(prompt).toContain("receives no SilkChat or provider credentials")
+    })
+
+    it("explains whether a missing capability can be enabled by the user", () => {
+        const context = buildCapabilityContext({
+            requestedTools: [],
+            enabledTools: [],
+            toolAvailability: {
+                web_search: { enabled: true, fundingSource: "deployment" },
+                code_execution: { enabled: true, fundingSource: "deployment" },
+                supermemory: { enabled: false, fundingSource: "none" },
+                mcp: { enabled: false, fundingSource: "none" }
+            },
+            modelAbilities: ["function_calling", "vision"],
+            isAnonymous: false
+        })
+
+        expect(context).toContain("Code execution: not enabled by the user")
+        expect(context).toContain("ask them to enable it in Tools")
+        expect(context).toContain(
+            "Memory: unavailable because the user has no enabled Supermemory BYOK key"
+        )
+        expect(context).toContain("you cannot use or request memory now")
+    })
+
+    it("does not advertise callable tools to a model without function calling", () => {
+        const context = buildCapabilityContext({
+            requestedTools: ["code_execution"],
+            enabledTools: [],
+            toolAvailability: {
+                web_search: { enabled: true, fundingSource: "deployment" },
+                code_execution: { enabled: true, fundingSource: "deployment" },
+                supermemory: { enabled: true, fundingSource: "byok" },
+                mcp: { enabled: true, fundingSource: "byok" }
+            },
+            modelAbilities: [],
+            isAnonymous: false
+        })
+
+        expect(context).toContain(
+            "Tool calling: unavailable because the selected model does not support it"
+        )
+        expect(context).not.toContain("Code execution:")
+        expect(context).not.toContain("Memory:")
+        expect(context).toContain("Vision and image tools: unavailable")
     })
 
     it("states the user's image defaults in the SilkScreen section", () => {

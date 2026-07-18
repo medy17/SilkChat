@@ -107,10 +107,10 @@ describe("dbMessagesToCore", () => {
         ])
     })
 
-    it("replaces text above 5k estimated tokens with a public URL for code execution", async () => {
+    it("replaces text above 16k estimated tokens with a public URL for code execution", async () => {
         vi.stubGlobal(
             "fetch",
-            vi.fn().mockResolvedValue(new Response("word ".repeat(4_500), { status: 200 }))
+            vi.fn().mockResolvedValue(new Response("word ".repeat(14_000), { status: 200 }))
         )
 
         const result = await dbMessagesToCore(
@@ -166,7 +166,7 @@ describe("dbMessagesToCore", () => {
         expect(normalizeAttachmentReferer("not a URL")).toBeUndefined()
     })
 
-    it("keeps text below 5k estimated tokens directly in model context", async () => {
+    it("keeps text below 16k estimated tokens directly in model context", async () => {
         vi.stubGlobal(
             "fetch",
             vi.fn().mockResolvedValue(new Response("Short notes", { status: 200 }))
@@ -203,7 +203,7 @@ describe("dbMessagesToCore", () => {
     })
 
     it("keeps medium text inline when code execution is unavailable", async () => {
-        const text = "word ".repeat(4_500)
+        const text = "word ".repeat(14_000)
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
 
         const result = await dbMessagesToCore(

@@ -3,6 +3,7 @@ import {
     MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
     estimateTokenCount
 } from "@/lib/file_constants"
+import type { AbilityId } from "@/lib/tool-abilities"
 
 export { LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD }
 
@@ -42,6 +43,17 @@ export const getPastedTextNames = (index: number) => {
         displayName,
         fileName: `${displayName}.txt`
     }
+}
+
+export const getEnabledToolsForPastedText = (
+    decision: PastedTextDecision,
+    enabledTools: AbilityId[]
+): AbilityId[] => {
+    if (decision.disposition !== "url" || enabledTools.includes("code_execution")) {
+        return enabledTools
+    }
+
+    return [...enabledTools, "code_execution"]
 }
 
 export const mergePastedTextIntoDraft = (draft: string, pastedText: string) => {

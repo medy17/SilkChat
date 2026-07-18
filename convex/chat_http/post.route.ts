@@ -77,7 +77,7 @@ import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
-import { buildPrompt, buildTemporalContext } from "./prompt"
+import { buildCapabilityContext, buildPrompt, buildTemporalContext } from "./prompt"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     extraBody?: Record<string, unknown>
@@ -922,16 +922,28 @@ export const chatPOST = httpAction(async (ctx, req) => {
         sanitizeEnabledTools(requestedEnabledTools, toolAvailability),
         { isAnonymous: user.isAnonymous }
     )
-    const canReferenceLongTextAttachments =
-        resolvedEnabledTools.includes("code_execution") &&
-        modelData.abilities.includes("function_calling")
+    const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
+    const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
+    const buildCurrentTurnContext = () =>
+        [
+            buildCapabilityContext({
+                requestedTools: requestedEnabledTools,
+                enabledTools: callableEnabledTools,
+                toolAvailability,
+                modelAbilities: modelData.abilities,
+                isAnonymous: user.isAnonymous
+            }),
+            buildTemporalContext()
+        ]
+            .filter(Boolean)
+            .join("\n\n")
+    const canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
         if (toolName === "execute_code") return toolAvailability.code_execution.fundingSource
         return "byok"
     }
-    const hasPaidCallableTools =
-        modelData.abilities.includes("function_calling") && resolvedEnabledTools.length > 0
+    const hasPaidCallableTools = callableEnabledTools.length > 0
     const hasInternalImagePreparationTool =
         modelData.abilities.includes("function_calling") && modelData.abilities.includes("vision")
     const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
@@ -939,11 +951,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
         hasEnabledTools: hasPaidCallableTools
     })
     const deploymentFundedToolRates = [
-        resolvedEnabledTools.includes("web_search") &&
+        callableEnabledTools.includes("web_search") &&
         toolAvailability.web_search.fundingSource === "deployment"
             ? getConfiguredToolUsageMicrousd("web_search")
             : 0,
-        resolvedEnabledTools.includes("code_execution") &&
+        callableEnabledTools.includes("code_execution") &&
         toolAvailability.code_execution.fundingSource === "deployment"
             ? getConfiguredToolUsageMicrousd("execute_code")
             : 0
@@ -1002,7 +1014,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 {
                     role: "system",
                     content: buildPrompt({
-                        enabledTools: resolvedEnabledTools,
+                        enabledTools: callableEnabledTools,
                         toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
                         userSettings: settings,
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
@@ -1012,7 +1024,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 ...prospectiveMappedMessages,
                 {
                     role: "system",
-                    content: buildTemporalContext()
+                    content: buildCurrentTurnContext()
                 }
             ]
 
@@ -1640,7 +1652,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
             const usesOpenRouter = modelData.runtimeProvider === "openrouter"
             const paidTools = hasPaidCallableTools
-                ? await getToolkit(ctx, resolvedEnabledTools, filteredSettings, {
+                ? await getToolkit(ctx, callableEnabledTools, filteredSettings, {
                       consumeToolCall: async ({ toolName, toolCallId }) => {
                           const toolIsDeploymentFunded =
                               getToolFundingSource(toolName) === "deployment"
@@ -1710,7 +1722,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     {
                         role: "system",
                         content: buildPrompt({
-                            enabledTools: resolvedEnabledTools,
+                            enabledTools: callableEnabledTools,
                             toolCallLimitPerTurn: promptToolCallLimitPerTurn,
                             userSettings: settings,
                             personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
@@ -1729,7 +1741,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ...mapped_messages,
                     {
                         role: "system",
-                        content: buildTemporalContext()
+                        content: buildCurrentTurnContext()
                     }
                 ],
                 providerOptions: usesOpenRouter
