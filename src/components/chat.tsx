@@ -579,6 +579,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         onSubmit={handleInputSubmitWithScroll}
                         status={composerStatus}
                         threadId={threadId}
+                        folderId={folderId}
                         isActive={isActiveRoute}
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}

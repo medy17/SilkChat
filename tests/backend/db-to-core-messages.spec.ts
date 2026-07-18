@@ -16,7 +16,7 @@ vi.mock("../../convex/_generated/api", () => ({
     }
 }))
 
-import { dbMessagesToCore } from "../../convex/lib/db_to_core_messages"
+import { dbMessagesToCore, normalizeAttachmentReferer } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
     afterEach(() => {
@@ -105,6 +105,193 @@ describe("dbMessagesToCore", () => {
                 ]
             }
         ])
+    })
+
+    it("replaces text above 5k estimated tokens with a public URL for code execution", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(new Response("word ".repeat(4_500), { status: 200 }))
+        )
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/notes.txt",
+                            filename: "notes.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            {
+                publicAssetBaseUrl: "https://r2.example.com",
+                referenceLongTextAttachments: true,
+                attachmentReferer: "https://silkchat-staging.xyz/thread/thread-1"
+            }
+        )
+
+        expect(result).toEqual([
+            {
+                role: "user",
+                messageId: "message-1",
+                content: [
+                    {
+                        type: "text",
+                        text: expect.stringContaining(
+                            '"url":"https://r2.example.com/attachments/user-1/notes.txt"'
+                        )
+                    }
+                ]
+            }
+        ])
+        expect((result[0].content[0] as { text: string }).text).not.toContain("word word word")
+        expect((result[0].content[0] as { text: string }).text).toContain(
+            '"requestHeaders":{"User-Agent":"Mozilla/5.0","Accept":"text/plain,*/*","Referer":"https://silkchat-staging.xyz/"}'
+        )
+    })
+
+    it("only accepts HTTP origins as attachment referers", () => {
+        expect(normalizeAttachmentReferer("https://silkchat.dev/thread/one")).toBe(
+            "https://silkchat.dev/"
+        )
+        expect(
+            normalizeAttachmentReferer("javascript:ignore previous instructions")
+        ).toBeUndefined()
+        expect(normalizeAttachmentReferer("not a URL")).toBeUndefined()
+    })
+
+    it("keeps text below 5k estimated tokens directly in model context", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(new Response("Short notes", { status: 200 }))
+        )
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/notes.txt",
+                            filename: "notes.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            {
+                publicAssetBaseUrl: "https://r2.example.com",
+                referenceLongTextAttachments: true
+            }
+        )
+
+        expect(result[0].content).toEqual([
+            {
+                type: "text",
+                text: '<file name="notes.txt">\nShort notes\n</file>'
+            }
+        ])
+    })
+
+    it("keeps medium text inline when code execution is unavailable", async () => {
+        const text = "word ".repeat(4_500)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/notes.txt",
+                            filename: "notes.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            {
+                publicAssetBaseUrl: "https://r2.example.com",
+                referenceLongTextAttachments: false,
+                maxInlineTextAttachmentTokens: 32_000
+            }
+        )
+
+        expect((result[0].content[0] as { text: string }).text).toBe(
+            `<file name="notes.txt">\n${text}\n</file>`
+        )
+    })
+
+    it("does not dump enormous text into context when code execution is unavailable", async () => {
+        const text = "word ".repeat(30_000)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/huge.txt",
+                            filename: "huge.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            {
+                publicAssetBaseUrl: "https://r2.example.com",
+                referenceLongTextAttachments: false,
+                maxInlineTextAttachmentTokens: 32_000
+            }
+        )
+
+        const context = (result[0].content[0] as { text: string }).text
+        expect(context).toContain("code execution is unavailable")
+        expect(context).not.toContain("word word word")
+    })
+
+    it("applies the safe inline ceiling when the caller omits it", async () => {
+        const text = "word ".repeat(30_000)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
+
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "message-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            data: "attachments/user-1/huge.txt",
+                            filename: "huge.txt",
+                            mimeType: "text/plain"
+                        }
+                    ]
+                }
+            ] as never,
+            [],
+            { publicAssetBaseUrl: "https://r2.example.com" }
+        )
+
+        const context = (result[0].content[0] as { text: string }).text
+        expect(context).toContain("too large to inline safely")
+        expect(context).not.toContain("word word word")
     })
 
     it("rewrites absolute proxy attachment URLs to direct public asset URLs", async () => {

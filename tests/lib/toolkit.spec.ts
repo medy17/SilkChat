@@ -86,4 +86,59 @@ describe("wrapToolsWithExecutionLimits", () => {
             error: "boom"
         })
     })
+
+    it("allows sandbox release even after the ordinary tool budget is exhausted", async () => {
+        const execute = vi.fn().mockResolvedValue({ success: true, released: true })
+        const consumeToolCall = vi.fn().mockResolvedValue({ allowed: false, remainingCalls: 0 })
+        const tools = wrapToolsWithExecutionLimits(
+            {
+                release_persistent_sandbox: {
+                    description: "Release workspace",
+                    execute
+                } as any
+            },
+            { consumeToolCall }
+        )
+
+        const result = await tools.release_persistent_sandbox.execute?.({}, {
+            toolCallId: "release-1"
+        } as any)
+
+        expect(consumeToolCall).not.toHaveBeenCalled()
+        expect(execute).toHaveBeenCalled()
+        expect(result).toEqual({ success: true, released: true })
+    })
+
+    it("settles measured tool usage without exposing internal billing metadata", async () => {
+        const settleToolCall = vi.fn().mockResolvedValue({ reconciled: true })
+        const tools = wrapToolsWithExecutionLimits(
+            {
+                execute_code: {
+                    description: "Execute code",
+                    execute: vi.fn().mockResolvedValue({
+                        success: true,
+                        stdout: "done",
+                        __toolBilling: {
+                            settledMicrousd: 1_234,
+                            pricingSource: "sandbox_reported"
+                        }
+                    })
+                } as any
+            },
+            {
+                consumeToolCall: vi.fn().mockResolvedValue({ allowed: true }),
+                settleToolCall
+            }
+        )
+
+        const result = await tools.execute_code.execute?.({}, { toolCallId: "code-1" } as any)
+
+        expect(settleToolCall).toHaveBeenCalledWith({
+            toolName: "execute_code",
+            toolCallId: "code-1",
+            settledMicrousd: 1_234,
+            pricingSource: "sandbox_reported"
+        })
+        expect(result).toEqual({ success: true, stdout: "done" })
+    })
 })

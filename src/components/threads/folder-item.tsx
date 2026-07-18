@@ -41,6 +41,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
     DEFAULT_PROJECT_ICON,
@@ -147,6 +148,7 @@ export function FolderItem({
     const colorClasses = getProjectColorClasses(project.color as ProjectColorId)
     const updateProjectMutation = useMutation(api.folders.updateProject)
     const deleteProjectMutation = useMutation(api.folders.deleteProject)
+    const { deleteFolderDrafts } = useThreadDraftCleanup()
     const navigate = useNavigate()
     const isMobile = useIsMobile()
     const convex = useConvex()
@@ -290,6 +292,7 @@ export function FolderItem({
             } else if (result && "archived" in result && result.archived) {
                 toast.success("Folder archived (contains threads)")
             } else {
+                deleteFolderDrafts(project._id)
                 toast.success("Folder deleted successfully")
             }
             setShowDeleteDialog(false)

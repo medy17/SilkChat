@@ -53,7 +53,9 @@ export const PrototypeCreditEvent = v.object({
             v.literal("openrouter_reported"),
             v.literal("fal_manual"),
             v.literal("fal_reported"),
-            v.literal("tool_flat")
+            v.literal("tool_flat"),
+            v.literal("sandbox_estimate"),
+            v.literal("sandbox_reported")
         )
     ),
     providerRequestId: v.optional(v.string()),

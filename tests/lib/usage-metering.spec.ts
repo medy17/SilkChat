@@ -29,9 +29,13 @@ describe("hosted usage metering", () => {
 
     it("prices deployment-funded tool calls at the flat upstream rate", () => {
         expect(getConfiguredToolUsageMicrousd("web_search")).toBe(5_000)
+        expect(getConfiguredToolUsageMicrousd("execute_code")).toBe(5_000)
 
         process.env.TOOL_USAGE_USD_WEB_SEARCH = "0.01"
         expect(getConfiguredToolUsageMicrousd("web_search")).toBe(10_000)
+
+        process.env.TOOL_USAGE_USD_EXECUTE_CODE = "0.02"
+        expect(getConfiguredToolUsageMicrousd("execute_code")).toBe(20_000)
 
         expect(getConfiguredToolUsageMicrousd("unknown_tool")).toBe(0)
     })

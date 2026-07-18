@@ -1008,7 +1008,11 @@ export const reserveCreditForMessage = internalMutation({
         counted: v.boolean(),
         reservedMicrousd: v.optional(v.number()),
         pricingSource: v.optional(
-            v.union(v.literal("openrouter_estimate"), v.literal("fal_manual"))
+            v.union(
+                v.literal("openrouter_estimate"),
+                v.literal("fal_manual"),
+                v.literal("sandbox_estimate")
+            )
         ),
         providerRequestId: v.optional(v.string()),
         requiredPlan: v.optional(v.union(v.literal("free"), v.literal("pro")))
@@ -1113,7 +1117,11 @@ export const commitReservedCreditForMessage = internalMutation({
         messageId: v.optional(v.string()),
         settledMicrousd: v.optional(v.number()),
         pricingSource: v.optional(
-            v.union(v.literal("openrouter_reported"), v.literal("fal_reported"))
+            v.union(
+                v.literal("openrouter_reported"),
+                v.literal("fal_reported"),
+                v.literal("sandbox_reported")
+            )
         ),
         providerRequestId: v.optional(v.string())
     },
@@ -1222,6 +1230,32 @@ export const reconcileSettledUsageCost = internalMutation({
             settledAt: Date.now()
         })
 
+        return { reconciled: true, settledMicrousd }
+    }
+})
+
+export const reconcileSettledToolUsageCost = internalMutation({
+    args: {
+        userId: v.string(),
+        messageKey: v.string(),
+        settledMicrousd: v.number(),
+        pricingSource: v.literal("sandbox_reported")
+    },
+    handler: async (ctx, args) => {
+        const event = await ctx.db
+            .query("prototypeCreditEvents")
+            .withIndex("byUserMessageKey", (q) =>
+                q.eq("userId", args.userId).eq("messageKey", args.messageKey)
+            )
+            .first()
+        if (!event || event.accountingKind !== "usage") return { reconciled: false }
+
+        const settledMicrousd = Math.max(0, Math.round(args.settledMicrousd))
+        await ctx.db.patch(event._id, {
+            settledMicrousd,
+            pricingSource: args.pricingSource,
+            settledAt: Date.now()
+        })
         return { reconciled: true, settledMicrousd }
     }
 })

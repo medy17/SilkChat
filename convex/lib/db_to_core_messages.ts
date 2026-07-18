@@ -13,7 +13,12 @@ import type { Infer } from "convex/values"
 import { components } from "../_generated/api"
 import type { Message } from "../schema/message"
 import type { ModelAbility } from "../schema/settings"
-import { getFileTypeInfo } from "./file_constants"
+import {
+    LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD,
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+    estimateTokenCount,
+    getFileTypeInfo
+} from "./file_constants"
 import { supportsNativePdf } from "./model_abilities"
 
 export type CoreMessage = ModelMessage & {
@@ -26,6 +31,18 @@ const isExternalFileReference = (value: string) =>
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "")
 const trimLeadingSlash = (value: string) => value.replace(/^\/+/, "")
+
+export const normalizeAttachmentReferer = (value?: string | null) => {
+    if (!value) return undefined
+
+    try {
+        const url = new URL(value)
+        if (url.protocol !== "http:" && url.protocol !== "https:") return undefined
+        return `${url.origin}/`
+    } catch {
+        return undefined
+    }
+}
 
 const encodeKeyPath = (key: string) =>
     trimLeadingSlash(key)
@@ -86,9 +103,15 @@ export const dbMessagesToCore = async (
             url: string
             mediaType?: string
         }>
+        referenceLongTextAttachments?: boolean
+        maxInlineTextAttachmentTokens?: number
+        attachmentReferer?: string
     }
 ): Promise<CoreMessage[]> => {
     const mapped_messages: CoreMessage[] = []
+    const maxInlineTextAttachmentTokens =
+        options?.maxInlineTextAttachmentTokens ??
+        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION
     for await (const message of messages) {
         const to_commit_messages: CoreMessage[] = []
         if (message.role === "user") {
@@ -142,10 +165,41 @@ export const dbMessagesToCore = async (
 
                             if (data.ok) {
                                 const text = await data.text()
-                                mapped_content.push({
-                                    type: "text",
-                                    text: `<file name="${filename}">\n${text}\n</file>`
-                                })
+                                const estimatedTokens = estimateTokenCount(text)
+
+                                if (
+                                    options?.referenceLongTextAttachments &&
+                                    estimatedTokens > LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD
+                                ) {
+                                    const attachmentReferer = normalizeAttachmentReferer(
+                                        options.attachmentReferer
+                                    )
+                                    const requestHeaders = {
+                                        "User-Agent": "Mozilla/5.0",
+                                        Accept: "text/plain,*/*",
+                                        ...(attachmentReferer ? { Referer: attachmentReferer } : {})
+                                    }
+                                    mapped_content.push({
+                                        type: "text",
+                                        text: `<long-attachment>${JSON.stringify({
+                                            filename,
+                                            mediaType: p.mimeType || "text/plain",
+                                            url: fileUrl,
+                                            estimatedTokens,
+                                            requestHeaders
+                                        })}\nUse code execution to fetch and inspect this attachment programmatically. Do not print the entire file into the conversation.</long-attachment>`
+                                    })
+                                } else if (estimatedTokens > maxInlineTextAttachmentTokens) {
+                                    mapped_content.push({
+                                        type: "text",
+                                        text: `<internal-system-error>The text attachment "${filename}" is too large to inline safely (${estimatedTokens.toLocaleString()} estimated tokens), and code execution is unavailable. Ask the user to enable code execution or choose a function-calling model before analyzing this file.</internal-system-error>`
+                                    })
+                                } else {
+                                    mapped_content.push({
+                                        type: "text",
+                                        text: `<file name="${filename}">\n${text}\n</file>`
+                                    })
+                                }
                             } else {
                                 console.warn(
                                     `[cvx][chat] Failed to fetch text file ${p.data}: ${data.status} ${data.statusText}`

@@ -20,6 +20,7 @@ import { ImageGenerationJob } from "./schema/image_generation_job"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
 import { ModelProviderMetadata } from "./schema/model_provider_metadata"
+import { PersistentSandbox } from "./schema/persistent_sandbox"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
@@ -49,6 +50,7 @@ export {
     GeneratedImage,
     GeneratedImageFacets,
     ImageGenerationJob,
+    PersistentSandbox,
     UserAccess,
     LemonSqueezySubscription,
     LemonSqueezyWebhookEvent
@@ -250,5 +252,12 @@ export default defineSchema({
 
     imageGenerationJobs: defineTable(ImageGenerationJob)
         .index("byUserIdAndCreatedAt", ["userId", "createdAt"])
-        .index("byFalRequestId", ["falRequestId"])
+        .index("byFalRequestId", ["falRequestId"]),
+
+    persistentSandboxes: defineTable(PersistentSandbox)
+        .index("byUserIdAndUpdatedAt", ["userId", "updatedAt"])
+        .index("bySourceCardId", ["sourceCardId"])
+        .index("byExpiresAt", ["expiresAt"])
+        .index("byCreatedAt", ["createdAt"])
+        .index("byStatusAndUpdatedAt", ["status", "updatedAt"])
 })

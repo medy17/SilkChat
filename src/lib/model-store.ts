@@ -1,5 +1,10 @@
 import type { ImageResolution, ImageSize, ReasoningEffortTier } from "@/convex/lib/models"
-import { type AIConfig, loadAIConfig, saveAIConfig } from "@/lib/persistence"
+import {
+    type AIConfig,
+    loadAIConfig,
+    saveAIConfig,
+    setDefaultModelToLunaOnce
+} from "@/lib/persistence"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
@@ -30,6 +35,11 @@ export type ModelStore = {
     defaultMcpOverrides: Record<string, boolean>
     setDefaultMcpOverride: (serverName: string, enabled: boolean) => void
     getEffectiveMcpOverrides: (threadId?: string) => Record<string, boolean>
+}
+
+if (typeof window !== "undefined") {
+    // TODO(next commit): Remove this one-off existing-user migration and its tests/export.
+    setDefaultModelToLunaOnce(window.localStorage)
 }
 
 const initialConfig = loadAIConfig()

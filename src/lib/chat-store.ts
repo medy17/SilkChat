@@ -31,6 +31,10 @@ export interface UploadedFile {
     fileType: string
     fileSize: number
     uploadedAt: number
+    source?: "upload" | "pasted-text"
+    displayName?: string
+    contextDelivery?: "url" | "attachment"
+    pastedText?: string
 }
 
 export type PersonaSelection =

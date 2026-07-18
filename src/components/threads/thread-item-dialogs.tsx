@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { type ProjectColorId, getProjectColorClasses } from "@/lib/project-constants"
 import { cn } from "@/lib/utils"
 import { useNavigate, useParams } from "@tanstack/react-router"
@@ -74,6 +75,7 @@ export const ThreadItemDialogs = memo(
         const deleteThreadMutation = useMutation(api.threads.deleteThread)
         const renameThreadMutation = useMutation(api.threads.renameThread)
         const moveThreadMutation = useMutation(api.folders.moveThreadToProject)
+        const { deleteThreadDraft } = useThreadDraftCleanup()
 
         const params = useParams({ strict: false }) as { threadId?: string }
         const navigate = useNavigate()
@@ -114,7 +116,11 @@ export const ThreadItemDialogs = memo(
                 if (isActive) {
                     navigate({ to: "/", replace: true })
                 }
-                await deleteThreadMutation({ threadId: currentThread._id })
+                const result = await deleteThreadMutation({ threadId: currentThread._id })
+                if (result && "error" in result) {
+                    throw new Error(result.error)
+                }
+                deleteThreadDraft(currentThread._id)
                 onCloseDeleteDialog()
                 toast.success("Thread deleted successfully")
             } catch (error) {

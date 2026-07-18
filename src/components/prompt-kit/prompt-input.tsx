@@ -141,7 +141,6 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                         textareaRef.current.value = ""
                         resizeTextarea("")
                         scheduleResize("")
-                        localStorage.removeItem("user-input")
                     }
                 },
                 focus: () => {
@@ -242,8 +241,6 @@ function PromptInputTextarea({
 
             const target = e.target as HTMLTextAreaElement
             resizeTextarea(target)
-
-            localStorage.setItem("user-input", target.value)
         },
         [disableAutosize, resizeTextarea]
     )
@@ -255,9 +252,6 @@ function PromptInputTextarea({
 
     return (
         <Textarea
-            defaultValue={
-                typeof window !== "undefined" ? localStorage.getItem("user-input") || "" : ""
-            }
             ref={textareaRef}
             onKeyDown={handleKeyDown}
             onInput={handleInput}

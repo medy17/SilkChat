@@ -19,7 +19,13 @@ export const PrototypeCreditReservation = v.object({
     counted: v.boolean(),
     accountingKind: v.optional(v.literal("usage")),
     reservedMicrousd: v.optional(v.number()),
-    pricingSource: v.optional(v.union(v.literal("openrouter_estimate"), v.literal("fal_manual"))),
+    pricingSource: v.optional(
+        v.union(
+            v.literal("openrouter_estimate"),
+            v.literal("fal_manual"),
+            v.literal("sandbox_estimate")
+        )
+    ),
     providerRequestId: v.optional(v.string()),
     periodKey: v.string(),
     active: v.boolean(),

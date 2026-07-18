@@ -1,6 +1,7 @@
 {
     "$schema": "./node_modules/convex/schemas/convex.schema.json",
     "node": {
-        "externalPackages": ["sharp"]
+        "nodeVersion": "22",
+        "externalPackages": ["sharp", "@vercel/sandbox"]
     }
 }

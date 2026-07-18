@@ -25,18 +25,20 @@ import {
 import { useModelStore } from "@/lib/model-store"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
-import { cn } from "@/lib/utils"
+import { isTabularTextFile } from "@/lib/tabular-file-preview"
+import { cn, downloadUrl } from "@/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
 import { useMutation } from "convex/react"
 import {
     Code,
-    ExternalLink,
+    Download,
     FileType,
     FileType2,
     Image as ImageIcon,
     Quote,
     RotateCcw,
+    SquareTerminal,
     Trash2,
     X
 } from "lucide-react"
@@ -63,12 +65,15 @@ import {
     ComposerMobileMenu,
     useComposerToolbarState
 } from "./multimodal-input"
+import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
+import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
 import { WebSearchToolRenderer } from "./renderers/web-search-ui"
+import { TabularFilePreview } from "./tabular-file-preview"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -80,7 +85,7 @@ import {
     AlertDialogTitle
 } from "./ui/alert-dialog"
 import { Button } from "./ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Loader } from "./ui/loader"
 import { Textarea } from "./ui/textarea"
 
@@ -367,6 +372,22 @@ const PartsRenderer = memo(
             }
             case "tool-web_search":
                 return <WebSearchToolRenderer toolInvocation={part} />
+            case "tool-execute_code":
+                return (
+                    <GenericToolRenderer
+                        toolInvocation={part as UIToolInvocation<Tool>}
+                        toolName="Code Execution"
+                        icon={SquareTerminal}
+                    />
+                )
+            case "tool-request_persistent_sandbox":
+                return (
+                    <PersistentSandboxCard
+                        toolInvocation={part as UIToolInvocation<Tool>}
+                        threadId={threadId}
+                        messageId={messageId}
+                    />
+                )
             case "tool-search_memories":
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="search" />
             case "tool-get_memory_profile":
@@ -1191,6 +1212,7 @@ export const Messages = forwardRef<
         const shouldStickToBottomRef = useRef(true)
 
         const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+        const [previewDownloadPending, setPreviewDownloadPending] = useState(false)
         const [previewFile, setPreviewFile] = useState<{
             url: string
             filename?: string
@@ -1234,16 +1256,27 @@ export const Messages = forwardRef<
 
         const fileName = previewFile?.filename || extractFileName(previewFile?.url || "")
 
+        const handlePreviewDownload = useCallback(async () => {
+            if (!previewFile || previewDownloadPending) return
+            setPreviewDownloadPending(true)
+            try {
+                await downloadUrl({
+                    url: resolvePublicFileUrl(previewFile.url),
+                    fileName: fileName || "download"
+                })
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Download failed")
+            } finally {
+                setPreviewDownloadPending(false)
+            }
+        }, [fileName, previewDownloadPending, previewFile])
+
         const renderFilePreview = () => {
             if (!previewFile) return null
 
             const resolvedPreviewUrl = resolvePublicFileUrl(previewFile.url)
             const { isImage, isText, isPdf } = getFileTypeInfo(fileName, previewFile.mediaType)
-            const isExternalPreviewUrl =
-                resolvedPreviewUrl.startsWith("http://") ||
-                resolvedPreviewUrl.startsWith("https://")
-            const shouldUseGenericExternalPreview =
-                !isImage && !isText && !isPdf && isExternalPreviewUrl
+            const isTabular = isTabularTextFile(fileName, previewFile.mediaType)
 
             return (
                 <div
@@ -1267,7 +1300,15 @@ export const Messages = forwardRef<
                         />
                     )}
 
-                    {(isText || isPdf) && (
+                    {isTabular && (
+                        <TabularFilePreview
+                            url={resolvedPreviewUrl}
+                            filename={fileName}
+                            mediaType={previewFile.mediaType}
+                        />
+                    )}
+
+                    {isText && !isTabular && (
                         <iframe
                             src={resolvedPreviewUrl}
                             className="h-[69dvh] w-full rounded border-0"
@@ -1275,33 +1316,13 @@ export const Messages = forwardRef<
                         />
                     )}
 
-                    {shouldUseGenericExternalPreview && (
-                        <div className="space-y-3">
-                            <iframe
-                                src={resolvedPreviewUrl}
-                                className="h-[69dvh] w-full rounded border-0"
-                                title={fileName}
-                            />
-                            <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-muted-foreground text-sm">
-                                    Preview type could not be detected from this external URL. If
-                                    the embed is blank, open the source directly.
-                                </p>
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={resolvedPreviewUrl} target="_blank" rel="noreferrer">
-                                        <ExternalLink className="mr-2 size-4" />
-                                        Open Original
-                                    </a>
-                                </Button>
-                            </div>
-                        </div>
-                    )}
+                    {isPdf && <PdfFilePreview url={resolvedPreviewUrl} filename={fileName} />}
 
-                    {!isImage && !isText && !isPdf && !shouldUseGenericExternalPreview && (
-                        <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                    {!isImage && !isText && !isPdf && !isTabular && (
+                        <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-sm">
                             <p className="font-medium">Preview unavailable</p>
                             <p className="mt-1 text-muted-foreground">
-                                This file type could not be detected for inline preview.
+                                This file type cannot be previewed safely. Use Download to save it.
                             </p>
                         </div>
                     )}
@@ -1726,14 +1747,52 @@ export const Messages = forwardRef<
                         }
                     }}
                 >
-                    <DialogContent className="md:!max-w-[min(90vw,60rem)] grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+                    <DialogContent
+                        showCloseButton={false}
+                        className="md:!max-w-[min(90vw,60rem)] grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-3 sm:gap-4 sm:p-6"
+                    >
                         {previewFile && (
                             <>
-                                <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2">
-                                        {getFileIcon(previewFile)}
-                                        {fileName || "Unknown file"}
-                                    </DialogTitle>
+                                <DialogHeader className="min-w-0">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                                            <span className="shrink-0">
+                                                {getFileIcon(previewFile)}
+                                            </span>
+                                            <span className="truncate">
+                                                {fileName || "Unknown file"}
+                                            </span>
+                                        </DialogTitle>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={previewDownloadPending}
+                                            onClick={() => void handlePreviewDownload()}
+                                            className="size-8 shrink-0 px-0 sm:h-8 sm:w-auto sm:px-3"
+                                            aria-label={`Download ${fileName || "file"}`}
+                                            title="Download"
+                                        >
+                                            {previewDownloadPending ? (
+                                                <Loader size="sm" className="sm:mr-2" />
+                                            ) : (
+                                                <Download className="size-4 sm:mr-2" />
+                                            )}
+                                            <span className="hidden sm:inline">Download</span>
+                                        </Button>
+                                        <DialogClose asChild>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 shrink-0"
+                                                aria-label="Close preview"
+                                                title="Close"
+                                            >
+                                                <X className="size-4" />
+                                            </Button>
+                                        </DialogClose>
+                                    </div>
                                 </DialogHeader>
                                 {renderFilePreview()}
                             </>

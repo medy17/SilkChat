@@ -16,6 +16,18 @@ crons.interval(
 )
 
 crons.interval(
+    "reconcile persistent sandboxes",
+    { minutes: 1 },
+    internal.persistent_sandboxes_node.reconcilePersistentSandboxes
+)
+
+crons.interval(
+    "sweep orphaned persistent sandboxes",
+    { minutes: 5 },
+    internal.persistent_sandboxes_node.sweepOrphanedPersistentSandboxes
+)
+
+crons.interval(
     "sync openrouter model metadata",
     { hours: 12 },
     internal.model_provider_metadata_node.syncOpenRouterModelMetadata

@@ -408,21 +408,25 @@ describe("models-providers-shared OpenRouter visibility", () => {
         })
     })
 
+    it("defaults to GPT 5.6 Luna", () => {
+        expect(getDefaultModelId(MODELS_SHARED)).toBe("gpt-5.6-luna")
+    })
+
     it("uses an active replacement when the preferred default is sunset", () => {
         const models = [
             createModel({
-                id: "gemini-3-flash-preview",
-                adapters: ["i3-google:gemini-3-flash-preview"],
+                id: "gpt-5.6-luna",
+                adapters: ["openrouter:openai/gpt-5.6-luna"],
                 sunsetOn: "2026-01-01",
-                replacementId: "gemini-4-flash-preview"
+                replacementId: "gpt-5.7-luna"
             }),
             createModel({
-                id: "gemini-4-flash-preview",
-                adapters: ["i3-google:gemini-4-flash-preview"]
+                id: "gpt-5.7-luna",
+                adapters: ["openrouter:openai/gpt-5.7-luna"]
             })
         ]
 
-        expect(getDefaultModelId(models)).toBe("gemini-4-flash-preview")
+        expect(getDefaultModelId(models)).toBe("gpt-5.7-luna")
     })
 
     it("migrates the Gemini 3.1 Flash Lite preview id to the GA model", () => {

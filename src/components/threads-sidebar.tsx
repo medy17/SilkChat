@@ -21,6 +21,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useFunction } from "@/hooks/use-function"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
@@ -192,6 +193,12 @@ export function ThreadsSidebar() {
     const togglePinMutation = useMutation(api.threads.togglePinThread)
     const deleteThreadMutation = useMutation(api.threads.deleteThread)
     const moveThreadMutation = useMutation(api.folders.moveThreadToProject)
+    const { deleteThreadDraft, flushPendingDraftAttachments } = useThreadDraftCleanup()
+
+    useEffect(() => {
+        if (auth.isLoading || !session?.user?.id) return
+        void flushPendingDraftAttachments()
+    }, [auth.isLoading, flushPendingDraftAttachments, session?.user?.id])
 
     const importJobs = useQuery(
         api.import_jobs.listImportJobs,
@@ -669,11 +676,19 @@ export function ThreadsSidebar() {
                 navigate({ to: "/", replace: true })
             }
 
-            await Promise.all(
+            const results = await Promise.all(
                 selectedThreadIds.map((threadId) =>
                     deleteThreadMutation({ threadId: threadId as Id<"threads"> })
                 )
             )
+            results.forEach((result, index) => {
+                if (!result || !("error" in result)) {
+                    deleteThreadDraft(selectedThreadIds[index])
+                }
+            })
+            if (results.some((result) => result && "error" in result)) {
+                throw new Error("One or more threads could not be deleted")
+            }
             toast.success(
                 `Deleted ${selectedThreadsCount} thread${selectedThreadsCount === 1 ? "" : "s"}`
             )

@@ -3,6 +3,7 @@ import type { GenericActionCtx } from "convex/server"
 import type { Infer } from "convex/values"
 import type { DataModel } from "../_generated/dataModel"
 import { r2 } from "../attachments"
+import { getCodeExecutionArtifactsFromToolOutput } from "../lib/tools/code_execution_artifacts"
 import type { ErrorUIPart } from "../schema/parts"
 
 type StoredPart =
@@ -417,6 +418,31 @@ export const manualStreamTransform = (
                         toolCallId: chunk.toolCallId,
                         output: chunk.output
                     })
+
+                    if (resolvedToolName === "execute_code") {
+                        for (const artifact of getCodeExecutionArtifactsFromToolOutput(
+                            chunk.output,
+                            userId
+                        )) {
+                            const alreadyStored = parts.some(
+                                (part) => part.type === "file" && part.data === artifact.key
+                            )
+                            if (alreadyStored) continue
+
+                            parts.push({
+                                type: "file",
+                                data: artifact.key,
+                                filename: artifact.filename,
+                                mimeType: artifact.mediaType
+                            })
+                            notifyPartsChanged()
+                            controller.enqueue({
+                                type: "file",
+                                url: `/r2?key=${artifact.key}`,
+                                mediaType: artifact.mediaType
+                            })
+                        }
+                    }
                     markFirstVisible()
                     break
                 }

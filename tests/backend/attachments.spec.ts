@@ -183,8 +183,9 @@ describe("attachments", () => {
         })
     })
 
-    it("rejects text files whose estimated token count exceeds the limit", async () => {
+    it("accepts long text above the legacy 32k context-oriented upload limit", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        ;(r2.store as ReturnType<typeof vi.fn>).mockResolvedValueOnce("stored-key")
 
         const response = await uploadFileHandler(
             createHttpCtx(),
@@ -194,10 +195,8 @@ describe("attachments", () => {
             })
         )
 
-        expect(response.status).toBe(400)
-        await expect(response.json()).resolves.toMatchObject({
-            error: expect.stringContaining("exceeds 32,000 token limit")
-        })
+        expect(response.status).toBe(200)
+        expect(r2.store).toHaveBeenCalledOnce()
     })
 
     it("stores supported uploads with a normalized text MIME type", async () => {

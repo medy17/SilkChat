@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { resolveToolAvailability } from "../../convex/lib/tools/availability"
+import {
+    enforceToolIdentityPolicy,
+    resolveToolAvailability
+} from "../../convex/lib/tools/availability"
 
 const createSettings = (overrides: Record<string, unknown> = {}) =>
     ({
@@ -19,6 +22,9 @@ const createSettings = (overrides: Record<string, unknown> = {}) =>
 describe("tool availability", () => {
     beforeEach(() => {
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
+        Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
+        Reflect.deleteProperty(process.env, "VERCEL_PROJECT_ID")
+        Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
     })
 
     it("enables web search only when Perplexity is deployment-configured", () => {
@@ -54,6 +60,23 @@ describe("tool availability", () => {
         })
     })
 
+    it("enables code execution only with complete deployment credentials", () => {
+        process.env.VERCEL_TEAM_ID = "team-1"
+        process.env.VERCEL_PROJECT_ID = "project-1"
+
+        expect(resolveToolAvailability(createSettings()).code_execution).toEqual({
+            enabled: false,
+            fundingSource: "none"
+        })
+
+        process.env.VERCEL_TOKEN = "token-1"
+
+        expect(resolveToolAvailability(createSettings()).code_execution).toEqual({
+            enabled: true,
+            fundingSource: "deployment"
+        })
+    })
+
     it("keeps supermemory and mcp user-provisioned", () => {
         process.env.PERPLEXITY_API_KEY = "deployment-perplexity-key"
 
@@ -68,5 +91,12 @@ describe("tool availability", () => {
             enabled: false,
             fundingSource: "none"
         })
+    })
+
+    it("withholds code execution from anonymous sessions", () => {
+        const tools = ["web_search", "code_execution"] as const
+
+        expect(enforceToolIdentityPolicy([...tools], { isAnonymous: true })).toEqual(["web_search"])
+        expect(enforceToolIdentityPolicy([...tools], { isAnonymous: false })).toEqual(tools)
     })
 })

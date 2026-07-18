@@ -6,15 +6,22 @@ import type { DataModel } from "../_generated/dataModel"
 import type { UserSettings } from "../schema/settings"
 import {
     type ResolvedToolAvailabilityMap,
+    enforceToolIdentityPolicy,
     resolveToolAvailability,
     sanitizeEnabledTools
 } from "./tools/availability"
+import { CodeExecutionAdapter } from "./tools/code_execution"
 import { MCPAdapter } from "./tools/mcp_adapter"
 import { SupermemoryAdapter } from "./tools/supermemory"
 import { WebSearchAdapter } from "./tools/web_search"
 
 export type ToolAdapter = (params: ConditionalToolParams) => Promise<Partial<Record<string, Tool>>>
-export const TOOL_ADAPTERS = [WebSearchAdapter, SupermemoryAdapter, MCPAdapter]
+export const TOOL_ADAPTERS = [
+    WebSearchAdapter,
+    CodeExecutionAdapter,
+    SupermemoryAdapter,
+    MCPAdapter
+]
 export { ABILITIES }
 export type { AbilityId }
 
@@ -30,10 +37,18 @@ export type ToolCallBudgetController = {
         toolName: string
         toolCallId: string
     }) => Promise<{ allowed: boolean; remainingCalls?: number | null }>
+    settleToolCall?: (params: {
+        toolName: string
+        toolCallId: string
+        settledMicrousd: number
+        pricingSource: "sandbox_reported"
+    }) => Promise<unknown>
 }
 
 const toToolExecutionError = (error: unknown) =>
     error instanceof Error ? error.message : "Unknown error"
+
+const BUDGET_EXEMPT_TOOLS = new Set(["release_persistent_sandbox"])
 
 export const wrapToolsWithExecutionLimits = (
     tools: Record<string, Tool>,
@@ -51,22 +66,57 @@ export const wrapToolsWithExecutionLimits = (
                 execute: async (input: unknown, options: { toolCallId?: string } = {}) => {
                     const toolCallId =
                         typeof options.toolCallId === "string" ? options.toolCallId : toolName
-                    const reservation = await controller.consumeToolCall({
-                        toolName,
-                        toolCallId
-                    })
+                    if (!BUDGET_EXEMPT_TOOLS.has(toolName)) {
+                        const reservation = await controller.consumeToolCall({
+                            toolName,
+                            toolCallId
+                        })
 
-                    if (!reservation.allowed) {
-                        return {
-                            success: false,
-                            code: "tool_budget_exhausted",
-                            error: "No remaining tool calls for this turn.",
-                            remainingToolCalls: 0
+                        if (!reservation.allowed) {
+                            return {
+                                success: false,
+                                code: "tool_budget_exhausted",
+                                error: "No remaining tool calls for this turn.",
+                                remainingToolCalls: 0
+                            }
                         }
                     }
 
                     try {
-                        return await toolDefinition.execute?.(input, options as never)
+                        const result = await toolDefinition.execute?.(input, options as never)
+                        if (result && typeof result === "object" && "__toolBilling" in result) {
+                            const { __toolBilling, ...publicResult } = result as Record<
+                                string,
+                                unknown
+                            >
+                            if (
+                                __toolBilling &&
+                                typeof __toolBilling === "object" &&
+                                controller.settleToolCall
+                            ) {
+                                const billing = __toolBilling as {
+                                    settledMicrousd?: unknown
+                                    pricingSource?: unknown
+                                }
+                                if (
+                                    typeof billing.settledMicrousd === "number" &&
+                                    billing.pricingSource === "sandbox_reported"
+                                ) {
+                                    await controller
+                                        .settleToolCall({
+                                            toolName,
+                                            toolCallId,
+                                            settledMicrousd: billing.settledMicrousd,
+                                            pricingSource: billing.pricingSource
+                                        })
+                                        .catch((error) =>
+                                            console.error("Failed to settle tool call usage", error)
+                                        )
+                                }
+                            }
+                            return publicResult
+                        }
+                        return result
                     } catch (error) {
                         return {
                             success: false,
@@ -112,6 +162,6 @@ export const getToolkit = async (
     return wrapToolsWithExecutionLimits(tools, controller)
 }
 
-export { resolveToolAvailability, sanitizeEnabledTools }
+export { enforceToolIdentityPolicy, resolveToolAvailability, sanitizeEnabledTools }
 export { getDeploymentSearchApiKey } from "./tools/availability"
 export type { ResolvedToolAvailabilityMap, ToolFundingSource } from "./tools/availability"

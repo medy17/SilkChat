@@ -1,0 +1,158 @@
+import { afterEach, describe, expect, it } from "vitest"
+import {
+    buildCodeExecutionArtifactPublicUrl,
+    detectCodeExecutionArtifactMediaType,
+    getCodeExecutionArtifactsFromToolOutput,
+    sanitizeCodeExecutionArtifactFilename
+} from "../../convex/lib/tools/code_execution_artifacts"
+import {
+    getVercelSandboxCredentials,
+    resolveCodeSandbox,
+    truncateCodeExecutionOutput
+} from "../../convex/lib/tools/code_execution_node"
+
+afterEach(() => {
+    Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
+    Reflect.deleteProperty(process.env, "VERCEL_PROJECT_ID")
+    Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
+})
+
+describe("code execution helpers", () => {
+    it("requires the complete server-side credential set", () => {
+        process.env.VERCEL_TEAM_ID = "team-1"
+        process.env.VERCEL_PROJECT_ID = "project-1"
+
+        expect(getVercelSandboxCredentials()).toBeNull()
+
+        process.env.VERCEL_TOKEN = "token-1"
+        expect(getVercelSandboxCredentials()).toEqual({
+            teamId: "team-1",
+            projectId: "project-1",
+            token: "token-1"
+        })
+    })
+
+    it("bounds tool output and marks truncation", () => {
+        expect(truncateCodeExecutionOutput("short", 10)).toEqual({
+            value: "short",
+            truncated: false
+        })
+        expect(truncateCodeExecutionOutput("0123456789abcdef", 10)).toEqual({
+            value: "0123456789\n[output truncated]",
+            truncated: true
+        })
+    })
+
+    it("accepts supported artifact signatures and rejects disguised active content", () => {
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "report.pdf",
+                new TextEncoder().encode("%PDF-1.7\nreport")
+            )
+        ).toBe("application/pdf")
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "table.csv",
+                new TextEncoder().encode("date,value\n2026-07-18,42\n")
+            )
+        ).toBe("text/csv")
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "fake.pdf",
+                new TextEncoder().encode("<html><script>alert(1)</script></html>")
+            )
+        ).toBeNull()
+        expect(
+            detectCodeExecutionArtifactMediaType(
+                "report.html",
+                new TextEncoder().encode("<h1>Report</h1>")
+            )
+        ).toBeNull()
+    })
+
+    it("sanitizes artifact display names and only accepts owned durable tool output", () => {
+        expect(sanitizeCodeExecutionArtifactFilename("../../charts/summary.pdf\u0000")).toBe(
+            "summary.pdf"
+        )
+
+        expect(
+            getCodeExecutionArtifactsFromToolOutput(
+                {
+                    artifacts: [
+                        {
+                            key: "generations/user-1/code/one-report.pdf",
+                            filename: "report.pdf",
+                            mediaType: "application/pdf",
+                            size: 1234
+                        },
+                        {
+                            key: "generations/another-user/code/stolen.pdf",
+                            filename: "stolen.pdf",
+                            mediaType: "application/pdf",
+                            size: 1234
+                        }
+                    ]
+                },
+                "user-1"
+            )
+        ).toEqual([
+            {
+                key: "generations/user-1/code/one-report.pdf",
+                filename: "report.pdf",
+                mediaType: "application/pdf",
+                size: 1234
+            }
+        ])
+    })
+
+    it("builds a direct public artifact URL without exposing a sandbox-local path", () => {
+        expect(
+            buildCodeExecutionArtifactPublicUrl(
+                "generations/user-1/code/report with spaces.pdf",
+                "https://assets.example.com/bucket/"
+            )
+        ).toBe(
+            "https://assets.example.com/bucket/generations/user-1/code/report%20with%20spaces.pdf"
+        )
+        expect(
+            buildCodeExecutionArtifactPublicUrl(
+                "generations/user-1/code/report.pdf",
+                "javascript:alert(1)"
+            )
+        ).toBeUndefined()
+    })
+
+    it("forces compatible executions into an active persistent sandbox", () => {
+        expect(
+            resolveCodeSandbox({
+                requestedMode: "ephemeral",
+                runtime: "python3.13",
+                activeSandbox: {
+                    status: "active",
+                    runtime: "python3.13",
+                    sandboxName: "persistent-1",
+                    expiresAt: 20_000
+                },
+                now: 10_000
+            })
+        ).toEqual({ mode: "persistent", sandboxName: "persistent-1" })
+    })
+
+    it("blocks an ephemeral runtime escape while a different persistent runtime is active", () => {
+        expect(
+            resolveCodeSandbox({
+                requestedMode: "ephemeral",
+                runtime: "node24",
+                activeSandbox: {
+                    status: "active",
+                    runtime: "python3.13",
+                    sandboxName: "persistent-1",
+                    expiresAt: 20_000
+                },
+                now: 10_000
+            })
+        ).toEqual({
+            error: "The active persistent sandbox uses python3.13; node24 execution cannot use an ephemeral sandbox until the active sandbox is killed."
+        })
+    })
+})

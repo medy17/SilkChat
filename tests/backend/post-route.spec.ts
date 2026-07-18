@@ -129,6 +129,10 @@ vi.mock("../../convex/lib/image_generation/context_images_node", () => ({
 
 vi.mock("../../convex/lib/toolkit", () => ({
     getToolkit: getToolkitMock,
+    enforceToolIdentityPolicy: (
+        enabledTools: string[],
+        { isAnonymous }: { isAnonymous: boolean }
+    ) => (isAnonymous ? enabledTools.filter((tool) => tool !== "code_execution") : enabledTools),
     resolveToolAvailability: (
         settings: Record<
             string,

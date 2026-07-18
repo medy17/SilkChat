@@ -257,6 +257,52 @@ describe("manualStreamTransform", () => {
         ])
     })
 
+    it("turns code execution artifacts into durable assistant file parts", async () => {
+        const artifact = {
+            key: "generations/user-1/code/report.pdf",
+            filename: "analysis-report.pdf",
+            mediaType: "application/pdf",
+            size: 4096,
+            url: "https://assets.example.com/generations/user-1/code/report.pdf"
+        }
+        const result = await collectChunks([
+            {
+                type: "tool-call",
+                toolCallId: "call-code",
+                toolName: "execute_code",
+                input: { language: "python", code: "create_report()" }
+            },
+            {
+                type: "tool-result",
+                toolCallId: "call-code",
+                output: { success: true, artifacts: [artifact] }
+            }
+        ])
+
+        expect(result.parts).toEqual([
+            expect.objectContaining({
+                type: "tool-invocation",
+                toolInvocation: expect.objectContaining({
+                    state: "result",
+                    toolCallId: "call-code",
+                    toolName: "execute_code"
+                })
+            }),
+            {
+                type: "file",
+                data: artifact.key,
+                filename: artifact.filename,
+                mimeType: artifact.mediaType
+            }
+        ])
+        expect(result.output).toContainEqual({
+            type: "file",
+            url: `/r2?key=${artifact.key}`,
+            mediaType: artifact.mediaType
+        })
+        expect(r2StoreMock).not.toHaveBeenCalled()
+    })
+
     it("accumulates reasoning text and finish-step token usage", async () => {
         const result = await collectChunks([
             { type: "reasoning-start", id: "r-1" },
