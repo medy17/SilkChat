@@ -72,7 +72,7 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
-    it("preserves soft line breaks inside a paragraph", () => {
+    it("keeps soft line breaks inside one parsed paragraph", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {
                 content: "First line\nSecond line"
@@ -83,7 +83,6 @@ describe("MemoizedMarkdown", () => {
 
         expect(paragraph).toBeTruthy()
         expect(paragraph?.textContent).toBe("First line\nSecond line")
-        expect(paragraph?.className).toContain("whitespace-pre-wrap")
     })
 
     it("renders blank-line separated text as separate paragraphs", () => {
@@ -100,7 +99,36 @@ describe("MemoizedMarkdown", () => {
             "Second paragraph",
             "Third paragraph"
         ])
-        expect(paragraphs.every((paragraph) => paragraph.className.includes("my-3"))).toBe(true)
+    })
+
+    it("uses Streamdown's native list components outside the outer prose container", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "- Item 1\n  - subitem 1\n  - subitem 2\n- Item 2"
+            })
+        )
+
+        const markdown = container.querySelector(".markdown-content")
+        const outerList = markdown?.querySelector('[data-streamdown="unordered-list"]')
+        const outerItems = outerList ? Array.from(outerList.children) : []
+
+        expect(markdown?.classList.contains("not-prose")).toBe(true)
+        expect(outerItems).toHaveLength(2)
+        expect(outerItems[0]?.getAttribute("data-streamdown")).toBe("list-item")
+        expect(
+            outerItems[0]?.querySelector(':scope > [data-streamdown="unordered-list"]')
+        ).toBeTruthy()
+    })
+
+    it("uses Streamdown's direct animated update path while streaming", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "Streaming response",
+                isAnimating: true
+            })
+        )
+
+        expect(container.querySelector("[data-sd-animate]")?.textContent).toBe("Streaming")
     })
 
     it("renders inline code and previewable fenced blocks through Streamdown", () => {

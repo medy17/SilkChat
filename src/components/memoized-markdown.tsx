@@ -1,4 +1,5 @@
 import "katex/dist/katex.min.css"
+import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
@@ -57,7 +58,8 @@ export const MemoizedMarkdown = memo(
 
         return (
             <Streamdown
-                className="markdown-content space-y-0"
+                animated
+                className="markdown-content not-prose"
                 components={streamdownComponents}
                 controls={false}
                 isAnimating={isAnimating}

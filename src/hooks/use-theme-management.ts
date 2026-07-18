@@ -96,6 +96,26 @@ export function useThemeManagement() {
         setSelectedThemeUrl(resolvedSelectedThemeUrl)
     }, [resolvedSelectedThemeUrl, selectedThemeUrl, setSelectedThemeUrl])
 
+    useEffect(() => {
+        if (!selectedThemeUrl || !THEME_URLS.includes(selectedThemeUrl)) {
+            return
+        }
+
+        const selectedBuiltInTheme = fetchedThemes.find(
+            (theme) => theme.url === selectedThemeUrl && !("error" in theme && theme.error)
+        )
+
+        if (
+            selectedBuiltInTheme &&
+            !isEqual(selectedBuiltInTheme.preset.cssVars, themeState.cssVars)
+        ) {
+            setThemeState({
+                currentMode: themeState.currentMode,
+                cssVars: selectedBuiltInTheme.preset.cssVars
+            })
+        }
+    }, [fetchedThemes, selectedThemeUrl, setThemeState, themeState.currentMode, themeState.cssVars])
+
     const applyThemePreset = (preset: ThemePreset) => {
         setThemeState({
             currentMode: themeState.currentMode,

@@ -25,7 +25,9 @@ type LocalThemeFontDefinition = {
     style: string
 }
 
-type ThemeFontOverrideTokens = Partial<Record<"font-sans" | "font-serif" | "font-mono", string>>
+type ThemeOverrideTokens = Record<string, string>
+
+type BuiltInThemeOverride = Partial<Record<keyof ThemeCssVars, ThemeOverrideTokens>>
 
 export const LOCAL_THEME_FONTS = {
     proximaVara: {
@@ -106,11 +108,49 @@ export const WEB_SAFE_FONT_FAMILY_NAMES = [
     "verdana"
 ]
 
-export const BUILT_IN_THEME_FONT_OVERRIDES = {
+export const BUILT_IN_THEME_OVERRIDES = {
     [T3_CHAT_THEME_URL]: {
-        "font-sans": LOCAL_THEME_FONTS.proximaVara.stack
+        theme: {
+            "font-sans": LOCAL_THEME_FONTS.proximaVara.stack
+        },
+        light: {
+            foreground: "#492c61",
+            "card-foreground": "#492c61",
+            "popover-foreground": "#492c61",
+            primary: "#da006b",
+            "primary-foreground": "#ffffff",
+            "secondary-foreground": "#563271",
+            "muted-foreground": "#7b44ab",
+            "accent-foreground": "#563271",
+            border: "#d8c3ef",
+            input: "#d8c3ef",
+            ring: "#da006b",
+            "sidebar-foreground": "#492c61",
+            "sidebar-primary": "#da006b",
+            "sidebar-primary-foreground": "#ffffff",
+            "sidebar-accent-foreground": "#563271",
+            "sidebar-border": "#d8c3ef"
+        },
+        dark: {
+            foreground: "#f2ebfa",
+            "card-foreground": "#f2ebfa",
+            "popover-foreground": "#faf7fd",
+            primary: "#f472b6",
+            "primary-foreground": "#492c61",
+            "secondary-foreground": "#f2ebfa",
+            "muted-foreground": "#bf9be4",
+            "accent-foreground": "#faf7fd",
+            border: "#463854",
+            input: "#6d5d7f",
+            ring: "#f472b6",
+            "sidebar-foreground": "#f2ebfa",
+            "sidebar-primary": "#f472b6",
+            "sidebar-primary-foreground": "#492c61",
+            "sidebar-accent-foreground": "#faf7fd",
+            "sidebar-border": "#463854"
+        }
     }
-} as const satisfies Record<string, ThemeFontOverrideTokens>
+} as const satisfies Record<string, BuiltInThemeOverride>
 
 export const LOCAL_THEME_FONT_FAMILY_NAMES = Object.values(LOCAL_THEME_FONTS).map(
     (font) => font.family
@@ -125,7 +165,7 @@ export const LOCAL_THEME_FONT_PRELOADS = Object.values(LOCAL_THEME_FONTS).flatMa
 
 function applyOverrideTokens(
     section: Record<string, string>,
-    tokens?: ThemeFontOverrideTokens
+    tokens?: ThemeOverrideTokens
 ): Record<string, string> {
     if (!tokens) {
         return section
@@ -137,18 +177,18 @@ function applyOverrideTokens(
     }
 }
 
-export function applyThemeFontOverrides<T extends ThemePresetLike>(url: string, preset: T): T {
-    const overrideTokens = BUILT_IN_THEME_FONT_OVERRIDES[url]
-    if (!overrideTokens) {
+export function applyBuiltInThemeOverrides<T extends ThemePresetLike>(url: string, preset: T): T {
+    const override = BUILT_IN_THEME_OVERRIDES[url]
+    if (!override) {
         return preset
     }
 
     return {
         ...preset,
         cssVars: {
-            theme: applyOverrideTokens(preset.cssVars.theme, overrideTokens),
-            light: applyOverrideTokens(preset.cssVars.light, overrideTokens),
-            dark: applyOverrideTokens(preset.cssVars.dark, overrideTokens)
+            theme: applyOverrideTokens(preset.cssVars.theme, override.theme),
+            light: applyOverrideTokens(preset.cssVars.light, override.light),
+            dark: applyOverrideTokens(preset.cssVars.dark, override.dark)
         }
     }
 }

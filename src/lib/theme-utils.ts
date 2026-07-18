@@ -1,4 +1,4 @@
-import { T3_CHAT_THEME_URL, applyThemeFontOverrides } from "@/lib/theme-font-config"
+import { T3_CHAT_THEME_URL, applyBuiltInThemeOverrides } from "@/lib/theme-font-config"
 
 export const THEME_URLS = [
     "https://tweakcn.com/editor/theme?theme=mono",
@@ -76,7 +76,7 @@ export async function fetchThemeFromUrl(url: string): Promise<FetchedTheme> {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
         const themeData = await response.json()
-        const themePreset = applyThemeFontOverrides(url, convertToThemePreset(themeData))
+        const themePreset = applyBuiltInThemeOverrides(url, convertToThemePreset(themeData))
         const themeName = getThemeName(themeData, url)
         return {
             name: themeName,

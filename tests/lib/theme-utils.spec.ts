@@ -3,7 +3,7 @@ import {
     LOCAL_THEME_FONT_PRELOADS,
     T3_CHAT_THEME_URL,
     type ThemePresetLike,
-    applyThemeFontOverrides,
+    applyBuiltInThemeOverrides,
     getLocalThemeFontFaceCss
 } from "@/lib/theme-font-config"
 import { describe, expect, it } from "vitest"
@@ -28,21 +28,25 @@ function createPreset(fontSans: string): ThemePresetLike {
 }
 
 describe("applyBuiltInThemeOverrides", () => {
-    it("overrides t3-chat to use ProximaVara", () => {
+    it("maps the t3-chat identity onto the app theme tokens", () => {
         const preset = createPreset("system-ui, sans-serif")
 
-        const result = applyThemeFontOverrides(T3_CHAT_THEME_URL, preset)
+        const result = applyBuiltInThemeOverrides(T3_CHAT_THEME_URL, preset)
 
         expect(result.cssVars.theme["font-sans"]).toBe(LOCAL_THEME_FONTS.proximaVara.stack)
-        expect(result.cssVars.light["font-sans"]).toBe(LOCAL_THEME_FONTS.proximaVara.stack)
-        expect(result.cssVars.dark["font-sans"]).toBe(LOCAL_THEME_FONTS.proximaVara.stack)
+        expect(result.cssVars.light.primary).toBe("#da006b")
+        expect(result.cssVars.light.foreground).toBe("#492c61")
+        expect(result.cssVars.light["muted-foreground"]).toBe("#7b44ab")
+        expect(result.cssVars.dark.primary).toBe("#f472b6")
+        expect(result.cssVars.dark.foreground).toBe("#f2ebfa")
+        expect(result.cssVars.dark.border).toBe("#463854")
         expect(result.cssVars.theme.radius).toBe("0.5rem")
     })
 
     it("leaves other themes untouched", () => {
         const preset = createPreset("Geist Mono, monospace")
 
-        const result = applyThemeFontOverrides(
+        const result = applyBuiltInThemeOverrides(
             "https://tweakcn.com/editor/theme?theme=mono",
             preset
         )
