@@ -1,11 +1,44 @@
 // @vitest-environment jsdom
 
+import {
+    tableRowsToCsv,
+    tableRowsToMarkdown,
+    tableRowsToPlainText
+} from "@/components/markdown-table"
 import { MemoizedMarkdown, normalizeMarkdownMathDelimiters } from "@/components/memoized-markdown"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
 import { describe, expect, it } from "vitest"
 
+class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+Object.defineProperty(globalThis, "ResizeObserver", {
+    configurable: true,
+    value: ResizeObserverStub
+})
+
 describe("MemoizedMarkdown", () => {
+    it("serializes table downloads and copies without losing cell boundaries", () => {
+        const rows = [
+            ["Proposal", "Details"],
+            ["Ship, gradually", 'Use the "safe" path']
+        ]
+
+        expect(tableRowsToCsv(rows)).toBe(
+            'Proposal,Details\r\n"Ship, gradually","Use the ""safe"" path"'
+        )
+        expect(tableRowsToMarkdown(rows)).toBe(
+            '| Proposal | Details |\n| --- | --- |\n| Ship, gradually | Use the "safe" path |'
+        )
+        expect(tableRowsToPlainText(rows)).toBe(
+            'Proposal\tDetails\nShip, gradually\tUse the "safe" path'
+        )
+    })
+
     it("normalizes likely single-dollar math without touching currency", () => {
         expect(normalizeMarkdownMathDelimiters("Where $L_{0}$ and $k$ matter.")).toBe(
             "Where $$L_{0}$$ and $$k$$ matter."
@@ -83,7 +116,7 @@ describe("MemoizedMarkdown", () => {
         expect(screen.getAllByText("html").length).toBeGreaterThan(0)
     })
 
-    it("renders markdown tables without Streamdown's extra table wrapper", () => {
+    it("renders markdown tables in a scrollable viewport with table actions", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {
                 content:
@@ -91,7 +124,45 @@ describe("MemoizedMarkdown", () => {
             })
         )
 
-        expect(container.querySelector("table")).toBeTruthy()
+        const table = container.querySelector("table")
+        const tableFrame = container.querySelector("[data-markdown-table]")
+        const scroller = container.querySelector("[data-markdown-table-scroll]")
+
+        expect(table).toBeTruthy()
+        expect(table?.className).toContain("w-max")
+        expect(table?.className).toContain("min-w-full")
+        expect(tableFrame?.className).toContain("not-prose")
+        expect(container.querySelector("[data-markdown-table-viewport]")).toBeTruthy()
+        const scrollbar = container.querySelector("[data-markdown-table-scrollbar]")
+        expect(scrollbar?.className).toContain("h-2")
+        expect(scrollbar?.className).not.toContain("border-t")
+        expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("false")
+        expect(scroller?.className).toContain("[&_td>span]:truncate")
+        expect(screen.getByRole("button", { name: "Expand table rows" })).toBeTruthy()
+        expect(screen.getByRole("button", { name: "Download table" })).toBeTruthy()
+        expect(screen.getByRole("button", { name: "Copy table as Markdown" })).toBeTruthy()
         expect(container.querySelector("[data-streamdown='table-wrapper']")).toBeNull()
+    })
+
+    it("expands and collapses table row contents", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "| Grain | Origin |\n|---|---|\n| Wheat | Fertile Crescent |"
+            })
+        )
+
+        fireEvent.click(screen.getByRole("button", { name: "Expand table rows" }))
+
+        const tableFrame = container.querySelector("[data-markdown-table]")
+        const scroller = container.querySelector("[data-markdown-table-scroll]")
+
+        expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("true")
+        expect(scroller?.className).toContain("[&_td>span]:whitespace-normal")
+        expect(screen.getByRole("button", { name: "Collapse table rows" })).toBeTruthy()
+
+        fireEvent.click(screen.getByRole("button", { name: "Collapse table rows" }))
+
+        expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("false")
+        expect(scroller?.className).toContain("[&_td>span]:truncate")
     })
 })

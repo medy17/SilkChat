@@ -1,6 +1,27 @@
 import { cn } from "@/lib/utils"
 import type { SVGProps } from "react"
 
+export function MarkdownIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+            {...props}
+        >
+            <path d="m14 12 4 4 4-4" />
+            <path d="M18 16V7" />
+            <path d="M2 16V6l4.5 6L11 6v10" />
+        </svg>
+    )
+}
+
 export function GoogleIcon(props: SVGProps<SVGSVGElement>) {
     return (
         <svg
