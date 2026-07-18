@@ -1396,9 +1396,9 @@ export const Messages = forwardRef<
 
             const scrollerRect = scroller.getBoundingClientRect()
             const userMessageRect = latestUserMessage.getBoundingClientRect()
-            const userMessageTop = scroller.scrollTop + userMessageRect.top - scrollerRect.top
+            const userMessageBottom = scroller.scrollTop + userMessageRect.bottom - scrollerRect.top
 
-            return Math.max(0, userMessageTop - STREAMING_ANCHOR_TOP_GAP_PX)
+            return Math.max(0, userMessageBottom - STREAMING_ANCHOR_TOP_GAP_PX)
         }, [])
 
         const syncBottomStateFromOffset = useCallback(

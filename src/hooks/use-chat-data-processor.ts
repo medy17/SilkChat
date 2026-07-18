@@ -35,6 +35,7 @@ export function useChatDataProcessor({
     const navigate = useNavigate()
 
     useEffect(() => {
+        const latestMessage = messages[messages.length - 1]
         const latestAssistant = [...messages]
             .reverse()
             .find((message) => message.role === "assistant")
@@ -88,7 +89,11 @@ export function useChatDataProcessor({
                 })
             }
 
-            if (latestAssistant.metadata.streamId) {
+            if (
+                status === "streaming" &&
+                latestMessage?.id === latestAssistant.id &&
+                latestAssistant.metadata.streamId
+            ) {
                 const effectiveThreadId = latestAssistant.metadata.threadId ?? threadId
                 if (effectiveThreadId) {
                     const currentStreams = attachedStreamIds[effectiveThreadId] || []
