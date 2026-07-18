@@ -17,6 +17,7 @@ import {
 } from "../sandbox_billing"
 import {
     CODE_EXECUTION_ARTIFACT_DIRECTORY_ENV,
+    CODE_EXECUTION_ARTIFACT_STORAGE_ROOT,
     type CodeExecutionArtifact,
     type CodeExecutionArtifactError,
     MAX_CODE_EXECUTION_ARTIFACTS,
@@ -210,7 +211,7 @@ const exportSandboxArtifacts = async ({
                 continue
             }
 
-            const key = `generations/${userId}/code/${Date.now()}-${crypto.randomUUID()}-${sanitizeCodeExecutionArtifactStorageSegment(filename)}`
+            const key = `${CODE_EXECUTION_ARTIFACT_STORAGE_ROOT}/${userId}/${Date.now()}-${crypto.randomUUID()}-${sanitizeCodeExecutionArtifactStorageSegment(filename)}`
             const storedKey = await r2.store(ctx, bytes, {
                 authorId: userId,
                 key,

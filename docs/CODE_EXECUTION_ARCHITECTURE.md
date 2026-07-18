@@ -146,7 +146,7 @@ The export bridge:
 
 1. walks only that execution's output directory, with bounded depth and entry count;
 2. rejects links, non-regular files, unsupported formats, invalid signatures, and files outside the size budgets;
-3. uploads accepted bytes to the existing `generations/{userId}/code/` R2 namespace;
+3. uploads accepted bytes to the dedicated `code-artifacts/{userId}/` R2 namespace;
 4. returns compact artifact metadata and a direct public R2 URL to the model rather than file bytes; and
 5. projects that metadata into ordinary assistant `file` parts for durable download and message replay.
 

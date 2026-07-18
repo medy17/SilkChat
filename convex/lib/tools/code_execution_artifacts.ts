@@ -1,4 +1,5 @@
 export const CODE_EXECUTION_ARTIFACT_DIRECTORY_ENV = "SILKCHAT_ARTIFACT_DIR"
+export const CODE_EXECUTION_ARTIFACT_STORAGE_ROOT = "code-artifacts"
 export const MAX_CODE_EXECUTION_ARTIFACTS = 5
 export const MAX_CODE_EXECUTION_ARTIFACT_BYTES = 15 * 1024 * 1024
 export const MAX_CODE_EXECUTION_ARTIFACT_TOTAL_BYTES = 25 * 1024 * 1024
@@ -166,7 +167,7 @@ export const getCodeExecutionArtifactsFromToolOutput = (
     if (!output || typeof output !== "object" || !("artifacts" in output)) return []
     if (!Array.isArray(output.artifacts)) return []
 
-    const keyPrefix = `generations/${userId}/code/`
+    const keyPrefix = `${CODE_EXECUTION_ARTIFACT_STORAGE_ROOT}/${userId}/`
     const seen = new Set<string>()
     const artifacts: CodeExecutionArtifact[] = []
 

@@ -80,13 +80,13 @@ describe("code execution helpers", () => {
                 {
                     artifacts: [
                         {
-                            key: "generations/user-1/code/one-report.pdf",
+                            key: "code-artifacts/user-1/one-report.pdf",
                             filename: "report.pdf",
                             mediaType: "application/pdf",
                             size: 1234
                         },
                         {
-                            key: "generations/another-user/code/stolen.pdf",
+                            key: "code-artifacts/another-user/stolen.pdf",
                             filename: "stolen.pdf",
                             mediaType: "application/pdf",
                             size: 1234
@@ -97,7 +97,7 @@ describe("code execution helpers", () => {
             )
         ).toEqual([
             {
-                key: "generations/user-1/code/one-report.pdf",
+                key: "code-artifacts/user-1/one-report.pdf",
                 filename: "report.pdf",
                 mediaType: "application/pdf",
                 size: 1234
@@ -108,15 +108,13 @@ describe("code execution helpers", () => {
     it("builds a direct public artifact URL without exposing a sandbox-local path", () => {
         expect(
             buildCodeExecutionArtifactPublicUrl(
-                "generations/user-1/code/report with spaces.pdf",
+                "code-artifacts/user-1/report with spaces.pdf",
                 "https://assets.example.com/bucket/"
             )
-        ).toBe(
-            "https://assets.example.com/bucket/generations/user-1/code/report%20with%20spaces.pdf"
-        )
+        ).toBe("https://assets.example.com/bucket/code-artifacts/user-1/report%20with%20spaces.pdf")
         expect(
             buildCodeExecutionArtifactPublicUrl(
-                "generations/user-1/code/report.pdf",
+                "code-artifacts/user-1/report.pdf",
                 "javascript:alert(1)"
             )
         ).toBeUndefined()

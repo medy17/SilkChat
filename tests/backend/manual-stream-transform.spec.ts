@@ -259,11 +259,11 @@ describe("manualStreamTransform", () => {
 
     it("turns code execution artifacts into durable assistant file parts", async () => {
         const artifact = {
-            key: "generations/user-1/code/report.pdf",
+            key: "code-artifacts/user-1/report.pdf",
             filename: "analysis-report.pdf",
             mediaType: "application/pdf",
             size: 4096,
-            url: "https://assets.example.com/generations/user-1/code/report.pdf"
+            url: "https://assets.example.com/code-artifacts/user-1/report.pdf"
         }
         const result = await collectChunks([
             {
