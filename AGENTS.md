@@ -5,6 +5,8 @@
 
 - Do not run a dev server. Assume one is already running unless the user explicitly asks you to start/stop it.
 
+- Much of this app is Auth gated so do not attempt to perform any visual verification using browser MCPs, skills, or tools. It will NOT work. Check your code instead or ask the user to verify once at the END.
+
 - When writing/modifying UI, always use theme based variables. Do not hardcode radius values, use theme.radius.sm/md/lg/xl. IF YOU HARDCODE, YOUR WORK WILL BE AUTOMATICALLY REJECTED.
 
 - Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.

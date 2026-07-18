@@ -86,7 +86,8 @@ function WebSearchInfoButton({
         <button
             type="button"
             aria-label="Show Web Search configuration"
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            style={{ borderRadius: "var(--radius-xl)" }}
             onPointerDown={(event) => {
                 event.stopPropagation()
             }}
@@ -111,6 +112,147 @@ function WebSearchInfoButton({
                     overlayClassName="z-[90]"
                     title="Web Search"
                     description="Selected provider and configured keys"
+                >
+                    {content}
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120}>
+            <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+            <HoverCardContent align="start" side="right" sideOffset={12} className="w-80 p-0">
+                {content}
+            </HoverCardContent>
+        </HoverCard>
+    )
+}
+
+function CodeExecutionInfoButton({
+    isMobile,
+    available
+}: {
+    isMobile: boolean
+    available: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const trigger = (
+        <button
+            type="button"
+            aria-label="Show Code Execution details"
+            className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            style={{ borderRadius: "var(--radius-xl)" }}
+            onPointerDown={(event) => {
+                event.stopPropagation()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) setOpen(true)
+            }}
+        >
+            <CircleHelp className="size-3.5" />
+        </button>
+    )
+    const content = (
+        <div className="space-y-3 p-3 text-sm">
+            <div>
+                <div className="font-bold text-foreground">Code Execution</div>
+                <p className="mt-1 text-muted-foreground text-xs">
+                    Runs code to process data, edit code, and create downloadable files like PDFs
+                    and spreadsheets.
+                </p>
+                <p className="mt-2 font-bold text-destructive text-xs">
+                    Warning: May consume usage significantly faster. Use for research and code.
+                </p>
+            </div>
+            <div className="flex justify-between gap-4 text-xs">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium text-foreground">
+                    {available ? "Available" : "Unavailable"}
+                </span>
+            </div>
+        </div>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    overlayClassName="z-[90]"
+                    title="Code Execution"
+                    description="Sandbox capabilities and usage warning"
+                >
+                    {content}
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120}>
+            <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+            <HoverCardContent align="start" side="right" sideOffset={12} className="w-80 p-0">
+                {content}
+            </HoverCardContent>
+        </HoverCard>
+    )
+}
+
+function SupermemoryInfoButton({
+    isMobile,
+    available
+}: {
+    isMobile: boolean
+    available: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const trigger = (
+        <button
+            type="button"
+            aria-label="Show Supermemory details"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onPointerDown={(event) => {
+                event.stopPropagation()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) setOpen(true)
+            }}
+        >
+            <CircleHelp className="size-3.5" />
+        </button>
+    )
+    const content = (
+        <div className="space-y-3 p-3 text-sm">
+            <div>
+                <div className="font-medium text-foreground">Supermemory</div>
+                <p className="mt-1 text-muted-foreground text-xs">
+                    Remember details you share for personalisation and future reference.
+                </p>
+            </div>
+            <div className="flex justify-between gap-4 text-xs">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium text-foreground">
+                    {available ? "Available" : "Unavailable"}
+                </span>
+            </div>
+        </div>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    overlayClassName="z-[90]"
+                    title="Supermemory"
+                    description="Cross-conversation memory details"
                 >
                     {content}
                 </ResponsivePopoverContent>
@@ -180,8 +322,7 @@ function SilkScreenInfoButton({
             <div>
                 <div className="font-medium text-foreground">SilkScreen</div>
                 <p className="mt-1 text-muted-foreground text-xs">
-                    Prepares an image job card for confirmation. Included usage is only consumed
-                    after you tap Generate.
+                    In-chat image generation when you ask to create images.
                 </p>
             </div>
             <div className="space-y-1 text-xs">
@@ -476,6 +617,10 @@ export const ToolSelectorPopover = memo(
                                         <div className="flex min-w-0 items-center gap-3">
                                             <SquareTerminal className="h-4 w-4 shrink-0" />
                                             <span className="text-sm">Code Execution</span>
+                                            <CodeExecutionInfoButton
+                                                isMobile={isMobile}
+                                                available={codeExecutionAvailable}
+                                            />
                                         </div>
                                         <Switch
                                             checked={
@@ -496,6 +641,10 @@ export const ToolSelectorPopover = memo(
                                                 <SupermemoryIcon />
                                             </div>
                                             <span className="text-sm">Supermemory</span>
+                                            <SupermemoryInfoButton
+                                                isMobile={isMobile}
+                                                available={supermemoryAvailable}
+                                            />
                                         </div>
                                         <Switch
                                             checked={
