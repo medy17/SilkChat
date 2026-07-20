@@ -23,6 +23,7 @@ import {
     getMessageFooterMetadataKey,
     getMessageRenderFingerprint
 } from "@/lib/message-render-fingerprint"
+import { getMessageWebSearches } from "@/lib/message-web-searches"
 import { useModelStore } from "@/lib/model-store"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
@@ -73,7 +74,7 @@ import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
 import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
-import { WebSearchToolRenderer } from "./renderers/web-search-ui"
+import { WebSearchGroupRenderer } from "./renderers/web-search-ui"
 import { TabularFilePreview } from "./tabular-file-preview"
 import {
     AlertDialog,
@@ -371,8 +372,6 @@ const PartsRenderer = memo(
                     </Reasoning>
                 )
             }
-            case "tool-web_search":
-                return <WebSearchToolRenderer toolInvocation={part} />
             case "tool-request_persistent_sandbox":
                 return (
                     <PersistentSandboxCard
@@ -964,9 +963,35 @@ const MessageRowComponent = ({
 }: MessageRowProps) => {
     const reasoning = getMessageReasoningDetails(message)
     const codeExecutions = getMessageCodeExecutions(message)
-    const firstCodeExecutionId = codeExecutions[0]?.toolCallId
+    const webSearches = getMessageWebSearches(message)
+    const groupedToolOrder = [
+        ...(codeExecutions.length > 0
+            ? [
+                  {
+                      type: "code-execution" as const,
+                      firstPartIndex: message.parts.findIndex(
+                          (part) => part.type === "tool-execute_code"
+                      )
+                  }
+              ]
+            : []),
+        ...(webSearches.length > 0
+            ? [
+                  {
+                      type: "web-search" as const,
+                      firstPartIndex: message.parts.findIndex(
+                          (part) => part.type === "tool-web_search"
+                      )
+                  }
+              ]
+            : [])
+    ].sort((left, right) => left.firstPartIndex - right.firstPartIndex)
     const inlineParts = message.parts.filter(
-        (part) => part.type !== "file" && part.type !== "reasoning"
+        (part) =>
+            part.type !== "file" &&
+            part.type !== "reasoning" &&
+            part.type !== "tool-execute_code" &&
+            part.type !== "tool-web_search"
     )
     const fileParts = message.parts.filter((part) => part.type === "file")
     const cancelEditRequestRef = useRef<(() => void) | null>(null)
@@ -1086,35 +1111,36 @@ const MessageRowComponent = ({
                                 </Reasoning>
                             )}
 
-                            {inlineParts.map((part, index) => {
-                                if (part.type === "tool-execute_code") {
-                                    if (part.toolCallId !== firstCodeExecutionId) return null
-
-                                    return (
-                                        <CodeExecutionGroupRenderer
-                                            key={`${message.id}-code-executions`}
-                                            executions={codeExecutions}
-                                        />
-                                    )
-                                }
-
-                                return (
-                                    <PartsRenderer
-                                        key={getMessagePartKey(message.id, part, index)}
-                                        part={part}
-                                        markdown={true}
-                                        id={getMessagePartKey(message.id, part, index)}
-                                        threadId={
-                                            ((message.metadata as { threadId?: string } | undefined)
-                                                ?.threadId as string | undefined) ?? threadId
-                                        }
-                                        messageId={message.id}
-                                        onFilePreview={onFilePreview}
-                                        onSwitchModel={onSwitchModel}
-                                        isStreaming={isStreamingMessage}
+                            {groupedToolOrder.map((activity) =>
+                                activity.type === "code-execution" ? (
+                                    <CodeExecutionGroupRenderer
+                                        key={`${message.id}-code-executions`}
+                                        executions={codeExecutions}
+                                    />
+                                ) : (
+                                    <WebSearchGroupRenderer
+                                        key={`${message.id}-web-searches`}
+                                        searches={webSearches}
                                     />
                                 )
-                            })}
+                            )}
+
+                            {inlineParts.map((part, index) => (
+                                <PartsRenderer
+                                    key={getMessagePartKey(message.id, part, index)}
+                                    part={part}
+                                    markdown={true}
+                                    id={getMessagePartKey(message.id, part, index)}
+                                    threadId={
+                                        ((message.metadata as { threadId?: string } | undefined)
+                                            ?.threadId as string | undefined) ?? threadId
+                                    }
+                                    messageId={message.id}
+                                    onFilePreview={onFilePreview}
+                                    onSwitchModel={onSwitchModel}
+                                    isStreaming={isStreamingMessage}
+                                />
+                            ))}
                         </div>
 
                         {fileParts.length > 1 ? (

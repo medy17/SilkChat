@@ -1,19 +1,8 @@
+import { AnimatedCollapsible } from "@/components/ui/animated-collapsible"
+import type { MessageWebSearch, WebSearchResult } from "@/lib/message-web-searches"
 import { cn } from "@/lib/utils"
-import type { UIToolInvocation } from "ai"
-import { ChevronDown, ExternalLink, Globe, Loader2 } from "lucide-react"
-import { memo, useEffect, useRef, useState } from "react"
-
-type WebSearchResult = {
-    url?: string
-    title?: string
-    description?: string
-    snippet?: string
-}
-
-type WebSearchToolInvocation = UIToolInvocation<{
-    input: unknown
-    output: unknown | undefined
-}>
+import { Check, ChevronDown, CircleAlert, ExternalLink, Globe, Loader2 } from "lucide-react"
+import { memo, useEffect, useMemo, useState } from "react"
 
 function getFaviconUrl(url: string): string {
     try {
@@ -37,233 +26,200 @@ const FaviconWithLoader = memo(({ url }: { url: string }) => {
     const [imageLoaded, setImageLoaded] = useState(false)
 
     return (
-        <div className="relative flex aspect-square h-4 w-4 items-center justify-center rounded-full">
+        <div className="relative flex aspect-square size-4 items-center justify-center rounded-full">
             {!imageLoaded && (
-                <div className="absolute inset-0 animate-pulse bg-muted-foreground/10" />
+                <div className="absolute inset-0 animate-pulse rounded-full bg-muted-foreground/10" />
             )}
             <img
                 src={getFaviconUrl(url)}
                 alt=""
-                className={cn("h-4 w-4 rounded-full object-contain", !imageLoaded && "opacity-0")}
+                className={cn("size-4 rounded-full object-contain", !imageLoaded && "opacity-0")}
                 onLoad={() => setImageLoaded(true)}
-                onError={(e) => {
+                onError={(event) => {
                     setImageLoaded(true)
-                    const target = e.target as HTMLImageElement
+                    const target = event.currentTarget
                     target.src =
-                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='16'/%3E%3Cline x1='8' y1='12' x2='16' y2='12'/%3E%3C/svg%3E"
+                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='16'/%3E%3Cline x1='8' y1='12' x2='16'/%3E%3C/svg%3E"
                 }}
             />
         </div>
     )
 })
 
-export const WebSearchToolRenderer = memo(
-    ({ toolInvocation }: { toolInvocation: WebSearchToolInvocation }) => {
-        const [isExpanded, setIsExpanded] = useState(false)
-        const contentRef = useRef<HTMLDivElement>(null)
-        const innerRef = useRef<HTMLDivElement>(null)
+FaviconWithLoader.displayName = "FaviconWithLoader"
 
-        const isLoading =
-            toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
-        const hasResults =
-            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
+const SearchResultCard = memo(({ result }: { result: WebSearchResult }) => {
+    const label = result.title ?? result.url ?? "search result"
 
-        useEffect(() => {
-            if (!contentRef.current || !innerRef.current) return
-
-            const observer = new ResizeObserver(() => {
-                if (contentRef.current && innerRef.current && isExpanded) {
-                    contentRef.current.style.maxHeight = `${innerRef.current.scrollHeight}px`
-                }
-            })
-
-            observer.observe(innerRef.current)
-
-            if (isExpanded) {
-                contentRef.current.style.maxHeight = `${innerRef.current.scrollHeight}px`
-            }
-
-            return () => observer.disconnect()
-        }, [isExpanded])
-
-        return (
-            <div className="w-full">
-                <button
-                    type="button"
-                    className="flex w-full cursor-pointer flex-col gap-2 text-left md:flex-row md:items-center"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    disabled={isLoading}
-                >
-                    {/* Main row with icon, title, and chevron */}
-                    <div className="flex flex-1 items-center gap-2">
-                        {isLoading ? (
-                            <Loader2 className="size-4 animate-spin text-primary" />
-                        ) : (
-                            <Globe className="size-4 text-primary" />
-                        )}
-                        <span className="font-medium text-primary">Web Search</span>
-
-                        {/* Spacer to push chevron to the right on mobile */}
-                        <div className="flex-1 md:hidden" />
-
-                        {!isLoading && hasResults && (
-                            <div
-                                className={cn(
-                                    "transform transition-transform md:hidden",
-                                    isExpanded ? "rotate-180" : ""
-                                )}
-                            >
-                                <ChevronDown className="size-4 text-foreground" />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Query and results info */}
-                    {((toolInvocation.input as { query?: string } | undefined)?.query ||
-                        hasResults) && (
-                        <div className="flex items-center gap-2 md:ml-auto">
-                            <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1 text-muted-foreground text-sm">
-                                {(toolInvocation.input as { query?: string } | undefined)
-                                    ?.query && (
-                                    <span className="max-w-32 truncate text-muted-foreground text-sm md:max-w-48">
-                                        "{(toolInvocation.input as { query?: string }).query}"
-                                    </span>
-                                )}
-                                {hasResults && (
-                                    <span className="text-muted-foreground text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <div className="size-1 rounded-full bg-primary" />
-                                            <span className="truncate">
-                                                {
-                                                    (
-                                                        (
-                                                            toolInvocation.output as {
-                                                                results?: WebSearchResult[]
-                                                            }
-                                                        ).results ?? []
-                                                    ).length
-                                                }{" "}
-                                                results
-                                            </span>
-                                        </div>
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Desktop chevron */}
-                            {!isLoading && hasResults && (
-                                <div
-                                    className={cn(
-                                        "hidden transform transition-transform md:block",
-                                        isExpanded ? "rotate-180" : ""
-                                    )}
-                                >
-                                    <ChevronDown className="size-4 text-foreground" />
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </button>
-
-                <div
-                    ref={contentRef}
-                    className={cn(
-                        "overflow-hidden transition-[max-height] duration-150 ease-out",
-                        "my-4 rounded-lg border bg-muted/50"
-                    )}
-                    style={{
-                        maxHeight: isExpanded ? contentRef.current?.scrollHeight : "0px"
-                    }}
-                >
-                    <div ref={innerRef} className="text-muted-foreground">
-                        {hasResults && (
-                            <div className="relative w-full">
-                                <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border flex gap-4 overflow-x-auto p-4">
-                                    {(
-                                        toolInvocation.output as
-                                            | { results?: WebSearchResult[] }
-                                            | undefined
-                                    )?.results?.map((result, index) => (
-                                        <button
-                                            key={index}
-                                            type="button"
-                                            className={cn(
-                                                "group relative flex-shrink-0 rounded-lg border bg-card text-left",
-                                                "transition-all duration-200 hover:border-primary/20 hover:shadow-lg",
-                                                "hover:border-primary/20 hover:bg-accent/50",
-                                                "w-64 min-w-64 overflow-hidden"
-                                            )}
-                                            onClick={() =>
-                                                result.url && window.open(result.url, "_blank")
-                                            }
-                                            aria-label={`Open ${result.title} in new tab`}
-                                        >
-                                            {result.url && (
-                                                <div className="relative h-32 overflow-hidden bg-muted/30">
-                                                    <img
-                                                        src={getOpenGraphImage(result.url)}
-                                                        alt=""
-                                                        className="aspect-video h-full w-full object-cover"
-                                                        style={{
-                                                            margin: "0 auto",
-                                                            maxHeight: "100%"
-                                                        }}
-                                                        onError={(e) => {
-                                                            const target =
-                                                                e.target as HTMLImageElement
-                                                            target.style.display = "none"
-                                                            const fallback =
-                                                                target.nextElementSibling as HTMLDivElement
-                                                            if (fallback)
-                                                                fallback.style.display = "flex"
-                                                        }}
-                                                    />
-                                                    <div
-                                                        className="absolute inset-0 hidden items-center justify-center bg-muted/50"
-                                                        style={{ display: "none" }}
-                                                    >
-                                                        <Globe className="size-8 text-muted-foreground/50" />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2 p-4">
-                                                <div className="flex items-center gap-2">
-                                                    {result.url && (
-                                                        <FaviconWithLoader url={result.url} />
-                                                    )}
-
-                                                    <h1 className="leading m-0 mb-0 truncate font-semibold text-base text-foreground">
-                                                        {result.title}
-                                                    </h1>
-                                                </div>
-                                                <p className="line-clamp-3 text-muted-foreground text-sm leading-relaxed">
-                                                    {result.description || result.snippet}
-                                                </p>
-
-                                                {result.url && (
-                                                    <div className="flex items-center gap-1.5 border-border/50 border-t pt-2">
-                                                        <span className="flex-1 truncate text-muted-foreground/70 text-xs">
-                                                            {
-                                                                result.url
-                                                                    .replace(/^(https?:\/\/)/, "")
-                                                                    .split("/")[0]
-                                                            }
-                                                        </span>
-                                                        <ExternalLink className="size-3 flex-shrink-0 text-muted-foreground/50" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+    return (
+        <button
+            type="button"
+            className="group relative w-64 min-w-64 shrink-0 overflow-hidden rounded-[var(--radius-lg)] border bg-card text-left transition-all duration-200 hover:border-primary/20 hover:bg-accent/50 hover:shadow-lg"
+            onClick={() => result.url && window.open(result.url, "_blank", "noopener,noreferrer")}
+            disabled={!result.url}
+            aria-label={`Open ${label} in new tab`}
+        >
+            {result.url && (
+                <div className="relative h-32 overflow-hidden bg-muted/30">
+                    <img
+                        src={getOpenGraphImage(result.url)}
+                        alt=""
+                        className="mx-auto aspect-video h-full max-h-full w-full object-cover"
+                        onError={(event) => {
+                            const target = event.currentTarget
+                            target.style.display = "none"
+                            const fallback = target.nextElementSibling as HTMLDivElement | null
+                            if (fallback) fallback.style.display = "flex"
+                        }}
+                    />
+                    <div className="absolute inset-0 hidden items-center justify-center bg-muted/50">
+                        <Globe className="size-8 text-muted-foreground/50" />
                     </div>
                 </div>
-            </div>
-        )
-    }
-)
+            )}
 
-WebSearchToolRenderer.displayName = "WebSearchToolRenderer"
+            <div className="space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                    {result.url && <FaviconWithLoader url={result.url} />}
+                    <h4 className="m-0 truncate font-semibold text-base text-foreground">
+                        {result.title ?? result.url ?? "Untitled result"}
+                    </h4>
+                </div>
+                {(result.description || result.snippet) && (
+                    <p className="m-0 line-clamp-3 text-muted-foreground text-sm leading-relaxed">
+                        {result.description || result.snippet}
+                    </p>
+                )}
+
+                {result.url && (
+                    <div className="flex items-center gap-1.5 border-border/50 border-t pt-2">
+                        <span className="flex-1 truncate text-muted-foreground/70 text-xs">
+                            {result.url.replace(/^(https?:\/\/)/, "").split("/")[0]}
+                        </span>
+                        <ExternalLink className="size-3 shrink-0 text-muted-foreground/50" />
+                    </div>
+                )}
+            </div>
+        </button>
+    )
+})
+
+SearchResultCard.displayName = "SearchResultCard"
+
+const WebSearchStep = memo(({ search }: { search: MessageWebSearch }) => {
+    const [isOpen, setIsOpen] = useState(search.status === "running")
+
+    useEffect(() => {
+        if (search.status === "running") setIsOpen(true)
+    }, [search.status])
+
+    return (
+        <section className="border-border/70 border-t first:border-t-0">
+            <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                onClick={() => setIsOpen((open) => !open)}
+                aria-expanded={isOpen}
+            >
+                {search.status === "running" ? (
+                    <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                ) : search.status === "failed" ? (
+                    <CircleAlert className="size-3.5 shrink-0 text-destructive" />
+                ) : (
+                    <Check className="size-3.5 shrink-0 text-primary" />
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium text-sm">{search.query}</span>
+                {search.status !== "running" && (
+                    <span className="shrink-0 text-muted-foreground text-xs">
+                        {search.results.length} {search.results.length === 1 ? "result" : "results"}
+                    </span>
+                )}
+                <ChevronDown
+                    className={cn(
+                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                        isOpen && "rotate-180"
+                    )}
+                />
+            </button>
+
+            <AnimatedCollapsible open={isOpen}>
+                <div className="border-border/70 border-t bg-background/35">
+                    {search.status === "running" ? (
+                        <p className="m-0 px-4 py-4 text-muted-foreground text-sm">Searching…</p>
+                    ) : search.error ? (
+                        <p className="m-4 rounded-[var(--radius-md)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                            {search.error}
+                        </p>
+                    ) : search.results.length > 0 ? (
+                        <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border flex gap-4 overflow-x-auto p-4">
+                            {search.results.map((result, index) => (
+                                <SearchResultCard
+                                    key={`${result.url ?? result.title ?? "result"}-${index}`}
+                                    result={result}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="m-0 px-4 py-4 text-muted-foreground text-sm">
+                            No results returned.
+                        </p>
+                    )}
+                </div>
+            </AnimatedCollapsible>
+        </section>
+    )
+})
+
+WebSearchStep.displayName = "WebSearchStep"
+
+export const WebSearchGroupRenderer = memo(({ searches }: { searches: MessageWebSearch[] }) => {
+    const [isOpen, setIsOpen] = useState(false)
+    const summary = useMemo(() => {
+        const running = searches.filter((search) => search.status === "running").length
+        const failed = searches.filter((search) => search.status === "failed").length
+        const results = searches.reduce((total, search) => total + search.results.length, 0)
+        return { running, failed, results }
+    }, [searches])
+
+    if (searches.length === 0) return null
+
+    return (
+        <div className="not-prose mb-6 w-full">
+            <button
+                type="button"
+                className="flex w-full cursor-pointer items-center gap-2 text-left"
+                onClick={() => setIsOpen((open) => !open)}
+                aria-expanded={isOpen}
+            >
+                <Globe className="size-4 shrink-0 text-primary" />
+                <span className="font-medium text-primary">Web Search</span>
+                {summary.running > 0 && (
+                    <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                )}
+                <span className="ml-auto text-muted-foreground text-xs">
+                    {searches.length} {searches.length === 1 ? "search" : "searches"}
+                    {summary.running === 0 && summary.results > 0
+                        ? ` · ${summary.results} results`
+                        : ""}
+                    {summary.failed > 0 ? ` · ${summary.failed} failed` : ""}
+                </span>
+                <ChevronDown
+                    className={cn(
+                        "size-4 shrink-0 text-foreground transition-transform",
+                        isOpen && "rotate-180"
+                    )}
+                />
+            </button>
+
+            <AnimatedCollapsible open={isOpen}>
+                <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
+                    {searches.map((search) => (
+                        <WebSearchStep key={search.toolCallId} search={search} />
+                    ))}
+                </div>
+            </AnimatedCollapsible>
+        </div>
+    )
+})
+
+WebSearchGroupRenderer.displayName = "WebSearchGroupRenderer"

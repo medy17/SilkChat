@@ -1,5 +1,6 @@
 import { Codeblock } from "@/components/codeblock"
 import { HighlightedCodeblock } from "@/components/highlighted-codeblock"
+import { AnimatedCollapsible } from "@/components/ui/animated-collapsible"
 import type { MessageCodeExecution } from "@/lib/message-code-executions"
 import { cn } from "@/lib/utils"
 import { Check, ChevronDown, CircleAlert, Clock3, Loader2, SquareTerminal } from "lucide-react"
@@ -83,7 +84,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                 />
             </button>
 
-            {isOpen && (
+            <AnimatedCollapsible open={isOpen}>
                 <div className="space-y-4 border-border/70 border-t bg-background/35 px-3 py-4">
                     {input.code ? (
                         <section>
@@ -146,7 +147,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                                 />
                                 Details
                             </button>
-                            {showDetails && (
+                            <AnimatedCollapsible open={showDetails}>
                                 <dl className="mt-2 divide-y divide-border/60 rounded-[var(--radius-md)] border border-border/70 bg-muted/25 px-3 text-xs">
                                     <DetailItem
                                         label="Language"
@@ -195,11 +196,11 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                                         />
                                     )}
                                 </dl>
-                            )}
+                            </AnimatedCollapsible>
                         </section>
                     )}
                 </div>
-            )}
+            </AnimatedCollapsible>
         </section>
     )
 })
@@ -242,13 +243,13 @@ export const CodeExecutionGroupRenderer = memo(
                     />
                 </button>
 
-                {isOpen && (
+                <AnimatedCollapsible open={isOpen}>
                     <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
                         {executions.map((execution) => (
                             <ExecutionStep key={execution.toolCallId} execution={execution} />
                         ))}
                     </div>
-                )}
+                </AnimatedCollapsible>
             </div>
         )
     }
