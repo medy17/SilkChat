@@ -60,7 +60,7 @@ export const GenericToolRenderer = memo(
                         <span className="font-medium text-primary">{toolName}</span>
 
                         {isLoading ? (
-                            <Loader2 className="ml-auto size-4 animate-spin text-primary" />
+                            <Loader2 className="size-4 animate-spin text-primary" />
                         ) : (
                             hasResults && (
                                 <div

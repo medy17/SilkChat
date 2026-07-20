@@ -15,6 +15,7 @@ import {
     matchesCancelMessageEditShortcut,
     matchesSaveMessageEditShortcut
 } from "@/lib/keyboard-shortcuts"
+import { getMessageCodeExecutions } from "@/lib/message-code-executions"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getMessageReasoningDetails } from "@/lib/message-reasoning"
@@ -38,7 +39,6 @@ import {
     Image as ImageIcon,
     Quote,
     RotateCcw,
-    SquareTerminal,
     Trash2,
     X
 } from "lucide-react"
@@ -67,6 +67,7 @@ import {
 } from "./multimodal-input"
 import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
+import { CodeExecutionGroupRenderer } from "./renderers/code-execution-group"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
@@ -372,14 +373,6 @@ const PartsRenderer = memo(
             }
             case "tool-web_search":
                 return <WebSearchToolRenderer toolInvocation={part} />
-            case "tool-execute_code":
-                return (
-                    <GenericToolRenderer
-                        toolInvocation={part as UIToolInvocation<Tool>}
-                        toolName="Code Execution"
-                        icon={SquareTerminal}
-                    />
-                )
             case "tool-request_persistent_sandbox":
                 return (
                     <PersistentSandboxCard
@@ -970,6 +963,8 @@ const MessageRowComponent = ({
     threadId
 }: MessageRowProps) => {
     const reasoning = getMessageReasoningDetails(message)
+    const codeExecutions = getMessageCodeExecutions(message)
+    const firstCodeExecutionId = codeExecutions[0]?.toolCallId
     const inlineParts = message.parts.filter(
         (part) => part.type !== "file" && part.type !== "reasoning"
     )
@@ -1091,22 +1086,35 @@ const MessageRowComponent = ({
                                 </Reasoning>
                             )}
 
-                            {inlineParts.map((part, index) => (
-                                <PartsRenderer
-                                    key={getMessagePartKey(message.id, part, index)}
-                                    part={part}
-                                    markdown={true}
-                                    id={getMessagePartKey(message.id, part, index)}
-                                    threadId={
-                                        ((message.metadata as { threadId?: string } | undefined)
-                                            ?.threadId as string | undefined) ?? threadId
-                                    }
-                                    messageId={message.id}
-                                    onFilePreview={onFilePreview}
-                                    onSwitchModel={onSwitchModel}
-                                    isStreaming={isStreamingMessage}
-                                />
-                            ))}
+                            {inlineParts.map((part, index) => {
+                                if (part.type === "tool-execute_code") {
+                                    if (part.toolCallId !== firstCodeExecutionId) return null
+
+                                    return (
+                                        <CodeExecutionGroupRenderer
+                                            key={`${message.id}-code-executions`}
+                                            executions={codeExecutions}
+                                        />
+                                    )
+                                }
+
+                                return (
+                                    <PartsRenderer
+                                        key={getMessagePartKey(message.id, part, index)}
+                                        part={part}
+                                        markdown={true}
+                                        id={getMessagePartKey(message.id, part, index)}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
+                                        onFilePreview={onFilePreview}
+                                        onSwitchModel={onSwitchModel}
+                                        isStreaming={isStreamingMessage}
+                                    />
+                                )
+                            })}
                         </div>
 
                         {fileParts.length > 1 ? (

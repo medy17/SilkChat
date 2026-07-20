@@ -66,6 +66,7 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("Node.js 24")
         expect(prompt).toContain("Python 3.13")
         expect(prompt).toContain("No third-party library is guaranteed")
+        expect(prompt).toContain("Give every execute_code call a concise, user-facing purpose")
         expect(prompt).toContain("Request(url, headers=requestHeaders)")
         expect(prompt).toContain("excerpts of at most 1,000 characters each")
         expect(prompt).toContain("public internet access")

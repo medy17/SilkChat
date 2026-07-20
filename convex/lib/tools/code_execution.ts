@@ -93,6 +93,14 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                 "Successful artifacts are attached to the response automatically. Refer to them by filename in prose. If a Markdown link is genuinely useful, copy the artifact's returned HTTPS url exactly; never link to a sandbox:, file:, /vercel/sandbox, or other local path."
             ].join("\n"),
             inputSchema: z.object({
+                purpose: z
+                    .string()
+                    .trim()
+                    .min(1)
+                    .max(80)
+                    .describe(
+                        "A short user-facing active phrase describing this execution's purpose, such as 'Checking smaller candidates'. Do not claim an outcome that has not been established yet."
+                    ),
                 language: z.enum(["javascript", "python"]),
                 code: z.string().min(1).max(100_000),
                 dependencies: z.array(packageSchema).max(10).optional().default([]),
