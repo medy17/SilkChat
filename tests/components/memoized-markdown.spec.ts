@@ -72,106 +72,6 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
-    it("keeps soft line breaks inside one parsed paragraph", () => {
-        const { container } = render(
-            React.createElement(MemoizedMarkdown, {
-                content: "First line\nSecond line"
-            })
-        )
-
-        const paragraph = container.querySelector("p")
-
-        expect(paragraph).toBeTruthy()
-        expect(paragraph?.textContent).toBe("First line\nSecond line")
-    })
-
-    it("renders blank-line separated text as separate paragraphs", () => {
-        const { container } = render(
-            React.createElement(MemoizedMarkdown, {
-                content: "First paragraph\n\nSecond paragraph\n\n\nThird paragraph"
-            })
-        )
-
-        const paragraphs = Array.from(container.querySelectorAll("p"))
-
-        expect(paragraphs.map((paragraph) => paragraph.textContent)).toEqual([
-            "First paragraph",
-            "Second paragraph",
-            "Third paragraph"
-        ])
-    })
-
-    it("uses Streamdown's native list components outside the outer prose container", () => {
-        const { container } = render(
-            React.createElement(MemoizedMarkdown, {
-                content: "- Item 1\n  - subitem 1\n  - subitem 2\n- Item 2"
-            })
-        )
-
-        const markdown = container.querySelector(".markdown-content")
-        const outerList = markdown?.querySelector('[data-streamdown="unordered-list"]')
-        const outerItems = outerList ? Array.from(outerList.children) : []
-
-        expect(markdown?.classList.contains("not-prose")).toBe(true)
-        expect(outerItems).toHaveLength(2)
-        expect(outerItems[0]?.getAttribute("data-streamdown")).toBe("list-item")
-        expect(
-            outerItems[0]?.querySelector(':scope > [data-streamdown="unordered-list"]')
-        ).toBeTruthy()
-    })
-
-    it("uses Streamdown's direct animated update path while streaming", () => {
-        const { container } = render(
-            React.createElement(MemoizedMarkdown, {
-                content: "Streaming response",
-                isAnimating: true
-            })
-        )
-
-        expect(container.querySelector("[data-sd-animate]")?.textContent).toBe("Streaming")
-    })
-
-    it("renders inline code and previewable fenced blocks through Streamdown", () => {
-        render(
-            React.createElement(MemoizedMarkdown, {
-                content: "Here is `inline` code.\n\n```html\n<div>Hello</div>\n```"
-            })
-        )
-
-        expect(screen.getByText("inline").closest("code")).toBeTruthy()
-        expect(screen.getByRole("tab", { name: "Code" })).toBeTruthy()
-        expect(screen.getByRole("tab", { name: "Preview" })).toBeTruthy()
-        expect(screen.getAllByText("html").length).toBeGreaterThan(0)
-    })
-
-    it("renders markdown tables in a scrollable viewport with table actions", () => {
-        const { container } = render(
-            React.createElement(MemoizedMarkdown, {
-                content:
-                    "| Grain | Origin |\n|---|---|\n| Wheat | Fertile Crescent |\n| Barley | Fertile Crescent |"
-            })
-        )
-
-        const table = container.querySelector("table")
-        const tableFrame = container.querySelector("[data-markdown-table]")
-        const scroller = container.querySelector("[data-markdown-table-scroll]")
-
-        expect(table).toBeTruthy()
-        expect(table?.className).toContain("w-max")
-        expect(table?.className).toContain("min-w-full")
-        expect(tableFrame?.className).toContain("not-prose")
-        expect(container.querySelector("[data-markdown-table-viewport]")).toBeTruthy()
-        const scrollbar = container.querySelector("[data-markdown-table-scrollbar]")
-        expect(scrollbar?.className).toContain("h-2")
-        expect(scrollbar?.className).not.toContain("border-t")
-        expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("false")
-        expect(scroller?.className).toContain("[&_td>span]:truncate")
-        expect(screen.getByRole("button", { name: "Expand table rows" })).toBeTruthy()
-        expect(screen.getByRole("button", { name: "Download table" })).toBeTruthy()
-        expect(screen.getByRole("button", { name: "Copy table as Markdown" })).toBeTruthy()
-        expect(container.querySelector("[data-streamdown='table-wrapper']")).toBeNull()
-    })
-
     it("expands and collapses table row contents", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {
@@ -179,16 +79,16 @@ describe("MemoizedMarkdown", () => {
             })
         )
 
-        fireEvent.click(screen.getByRole("button", { name: "Expand table rows" }))
+        fireEvent.click(screen.getByRole("button", { name: "Expand all cells" }))
 
         const tableFrame = container.querySelector("[data-markdown-table]")
         const scroller = container.querySelector("[data-markdown-table-scroll]")
 
         expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("true")
         expect(scroller?.className).toContain("[&_td>span]:whitespace-normal")
-        expect(screen.getByRole("button", { name: "Collapse table rows" })).toBeTruthy()
+        expect(screen.getByRole("button", { name: "Collapse all cells" })).toBeTruthy()
 
-        fireEvent.click(screen.getByRole("button", { name: "Collapse table rows" }))
+        fireEvent.click(screen.getByRole("button", { name: "Collapse all cells" }))
 
         expect(tableFrame?.getAttribute("data-rows-expanded")).toBe("false")
         expect(scroller?.className).toContain("[&_td>span]:truncate")

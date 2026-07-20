@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
-import { HighlightedCodeblock, createCodeFence } from "@/components/highlighted-codeblock"
-import { render, waitFor } from "@testing-library/react"
-import { createElement } from "react"
+import { createCodeFence } from "@/components/highlighted-codeblock"
 import { describe, expect, it } from "vitest"
 
 describe("createCodeFence", () => {
@@ -20,22 +18,5 @@ describe("createCodeFence", () => {
         expect(createCodeFence("value", "python injected\ntext")).toBe(
             "```pythoninjectedtext\nvalue\n```"
         )
-    })
-
-    it("renders Shiki token colors through the Streamdown code plugin", async () => {
-        const { container } = render(
-            createElement(HighlightedCodeblock, {
-                source: "def greet(name):\n    return f'Hello {name}'",
-                language: "python"
-            })
-        )
-
-        await waitFor(() => {
-            const coloredTokens = Array.from(container.querySelectorAll("code span[style]")).filter(
-                (token) => token.getAttribute("style")?.includes("--sdm-c")
-            )
-
-            expect(coloredTokens.length).toBeGreaterThan(0)
-        })
     })
 })

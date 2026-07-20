@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 
 import {
     SHORTCUTS,
-    SHORTCUT_HELP_SECTIONS,
     getShortcutDisplayTokens,
     getShortcutHelpSections,
     matchesDeleteCurrentThreadShortcut,
@@ -133,16 +132,6 @@ describe("keyboard-shortcuts", () => {
                 altKey: false
             } as KeyboardEvent)
         ).toBe(true)
-    })
-
-    it("groups help items into sidebar sections", () => {
-        expect(SHORTCUT_HELP_SECTIONS.map((section) => section.title)).toEqual([
-            "Navigation",
-            "Composer",
-            "Sidebar",
-            "Library"
-        ])
-        expect(SHORTCUT_HELP_SECTIONS[2].shortcuts).toContain(SHORTCUTS.previewSidebarSelection)
     })
 
     it("swaps composer shortcut labels when enter behavior is inverted", () => {

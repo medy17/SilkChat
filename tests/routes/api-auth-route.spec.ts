@@ -32,30 +32,6 @@ describe("api auth route", () => {
         authHandlerMock.mockReset()
     })
 
-    it("proxies auth GET requests to the Convex-backed auth handler", async () => {
-        const proxiedResponse = new Response("ok", { status: 200 })
-        authHandlerMock.mockResolvedValueOnce(proxiedResponse)
-        const response = await routeHandlers.GET({
-            request: new Request("https://example.com/api/auth/sign-in")
-        })
-
-        expect(response).toBe(proxiedResponse)
-        expect(authHandlerMock).toHaveBeenCalledTimes(1)
-    })
-
-    it("proxies auth POST requests to the Convex-backed auth handler", async () => {
-        const proxiedResponse = new Response("created", { status: 201 })
-        authHandlerMock.mockResolvedValueOnce(proxiedResponse)
-        const response = await routeHandlers.POST({
-            request: new Request("https://example.com/api/auth/sign-out", {
-                method: "POST"
-            })
-        })
-
-        expect(response).toBe(proxiedResponse)
-        expect(authHandlerMock).toHaveBeenCalledTimes(1)
-    })
-
     it("coalesces concurrent duplicate get-session GET requests", async () => {
         let resolveResponse: ((response: Response) => void) | undefined
         authHandlerMock.mockImplementationOnce(

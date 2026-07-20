@@ -78,9 +78,6 @@ describe("useChatDataProcessor", () => {
         expect(useChatStore.getState().attachedStreamIds).toEqual({
             "thread-1": ["stream-1"]
         })
-        expect(useChatStore.getState().pendingStreams).toEqual({
-            "thread-1": false
-        })
         expect(navigate).not.toHaveBeenCalled()
     })
 

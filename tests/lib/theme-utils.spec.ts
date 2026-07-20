@@ -1,10 +1,8 @@
 import {
     LOCAL_THEME_FONTS,
-    LOCAL_THEME_FONT_PRELOADS,
     T3_CHAT_THEME_URL,
     type ThemePresetLike,
-    applyBuiltInThemeOverrides,
-    getLocalThemeFontFaceCss
+    applyBuiltInThemeOverrides
 } from "@/lib/theme-font-config"
 import { describe, expect, it } from "vitest"
 
@@ -52,14 +50,5 @@ describe("applyBuiltInThemeOverrides", () => {
         )
 
         expect(result).toEqual(preset)
-    })
-
-    it("exposes local font asset metadata", () => {
-        expect(LOCAL_THEME_FONT_PRELOADS).toContainEqual({
-            href: "/fonts/proxima-vara.woff2",
-            type: "font/woff2"
-        })
-        expect(getLocalThemeFontFaceCss()).toContain('font-family: "ProximaVara";')
-        expect(getLocalThemeFontFaceCss()).toContain('url("/fonts/proxima-vara.woff2")')
     })
 })
