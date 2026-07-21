@@ -23,6 +23,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.6-sol",
         name: "GPT 5.6 Sol",
+        addedOn: "2026-07-09",
         shortName: "5.6 Sol",
         shortDescription: "Flagship GPT-5.6 model for complex reasoning, coding, and agents",
         description:
@@ -40,6 +41,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.6-terra",
         name: "GPT 5.6 Terra",
+        addedOn: "2026-07-09",
         shortName: "5.6 Terra",
         shortDescription: "Balanced GPT-5.6 model for everyday coding, reasoning, and agents",
         description:
@@ -58,6 +60,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.6-luna",
         name: "GPT 5.6 Luna",
+        addedOn: "2026-07-09",
         shortName: "5.6 Luna",
         shortDescription: "Fast, cost-efficient GPT-5.6 model for high-volume workflows",
         description:
@@ -76,6 +79,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.5",
         name: "GPT 5.5",
+        addedOn: "2026-04-23",
         shortName: "5.5",
         shortDescription: "Premium OpenAI model for high-quality chat, multimodal input, and tools",
         description:

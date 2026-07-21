@@ -16,6 +16,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
     {
         id: "gpt-5.4-image-2",
         name: "GPT Image 2",
+        addedOn: "2026-04-21",
         shortName: "GPT Image 2",
         releaseOrder: 20261023,
         adapters: falImageAdapters("openai/gpt-image-2"),

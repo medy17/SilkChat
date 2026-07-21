@@ -6,6 +6,7 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
     {
         id: "deepseek-v4-pro",
         name: "DeepSeek V4 Pro",
+        addedOn: "2026-04-24",
         shortName: "DS V4 Pro",
         shortDescription: "Open-weight heavyweight for deep reasoning and long-running coding agents",
         description:
@@ -19,6 +20,7 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
     {
         id: "deepseek-v4-flash",
         name: "DeepSeek V4 Flash",
+        addedOn: "2026-04-24",
         shortName: "DS V4 Flash",
         shortDescription: "Quick, economical V4 reasoning with surprisingly capable agent instincts",
         description:

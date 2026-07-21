@@ -6,6 +6,7 @@ export const ZAI_MODELS: SharedModel[] = [
     {
         id: "glm-5.2",
         name: "GLM 5.2",
+        addedOn: "2026-06-16",
         shortName: "GLM 5.2",
         shortDescription: "Open flagship built to stay sharp through marathon engineering work",
         description:
@@ -19,6 +20,7 @@ export const ZAI_MODELS: SharedModel[] = [
     {
         id: "glm-5.1",
         name: "GLM 5.1",
+        addedOn: "2026-04-07",
         shortName: "GLM 5.1",
         shortDescription: "Persistent coding flagship for agents that have a long road ahead",
         description:
@@ -32,6 +34,7 @@ export const ZAI_MODELS: SharedModel[] = [
     {
         id: "glm-5v-turbo",
         name: "GLM 5V Turbo",
+        addedOn: "2026-04-01",
         shortName: "GLM 5V Turbo",
         shortDescription: "Multimodal coding model that can see the interface and fix it",
         description:
@@ -45,6 +48,7 @@ export const ZAI_MODELS: SharedModel[] = [
     {
         id: "glm-5",
         name: "GLM 5",
+        addedOn: "2026-02-12",
         shortName: "GLM 5",
         shortDescription: "Open engineering heavyweight for ambitious systems and autonomous agents",
         description:

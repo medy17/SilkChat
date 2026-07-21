@@ -6,6 +6,7 @@ export const XIAOMI_MODELS: SharedModel[] = [
     {
         id: "mimo-v2.5-pro",
         name: "MiMo V2.5 Pro",
+        addedOn: "2026-04-23",
         shortName: "MiMo V2.5 Pro",
         shortDescription: "Million-token reasoning specialist for codebases that sprawl and agents that roam",
         description:
@@ -20,6 +21,7 @@ export const XIAOMI_MODELS: SharedModel[] = [
     {
         id: "mimo-v2.5",
         name: "MiMo V2.5",
+        addedOn: "2026-04-23",
         shortName: "MiMo V2.5",
         shortDescription: "Visual all-rounder for reasoning, coding, and hands-on agent work",
         description:

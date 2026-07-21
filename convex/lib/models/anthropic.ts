@@ -16,6 +16,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
     {
         id: "claude-fable-5",
         name: "Claude Fable 5",
+        addedOn: "2026-06-09",
         shortName: "Fable 5",
         shortDescription:
             "Mythos-class Claude model for long-running autonomous coding and knowledge work",
@@ -35,6 +36,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
     {
         id: "claude-sonnet-5",
         name: "Claude Sonnet 5",
+        addedOn: "2026-06-30",
         shortName: "Sonnet 5",
         shortDescription: "Current Sonnet-class Claude model for agentic work and coding",
         description:
@@ -89,6 +91,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
     {
         id: "claude-opus-4.8",
         name: "Claude Opus 4.8",
+        addedOn: "2026-05-28",
         shortName: "Opus 4.8",
         shortDescription: "Highest-end Claude model for complex reasoning and agentic work",
         description:
@@ -139,6 +142,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
     {
         id: "claude-haiku-4.5",
         name: "Claude Haiku 4.5",
+        addedOn: "2025-10-15",
         shortName: "Haiku 4.5",
         shortDescription: "Fast Claude model for lightweight chat and drafting",
         description:

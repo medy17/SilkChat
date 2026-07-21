@@ -46,6 +46,7 @@ import {
     reconcileFavoriteModelIds,
     resolveFavoriteModelIds
 } from "@/lib/model-favorites"
+import { isNewModelRelease } from "@/lib/model-release"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     type DisplayModel,
@@ -82,6 +83,7 @@ import {
     Key,
     Search,
     Server,
+    Sparkle,
     Star,
     Terminal,
     Trophy
@@ -512,6 +514,15 @@ const AdminOnlyModelBadge = ({ className }: { className?: string }) => (
         className={cn("border border-border/70 text-[0.625rem] uppercase tracking-wide", className)}
     >
         Admin
+    </Badge>
+)
+
+const NewModelBadge = () => (
+    <Badge
+        variant="secondary"
+        className="shrink-0 border border-border/70 text-[0.625rem] uppercase tracking-wide"
+    >
+        New
     </Badge>
 )
 
@@ -1003,6 +1014,7 @@ const ModelCard = React.memo(function ModelCard({
     disabledReason,
     isFavorite,
     onToggleFavorite,
+    isNewRelease,
     badgeLabel,
     badgeVariant = "secondary"
 }: {
@@ -1015,6 +1027,7 @@ const ModelCard = React.memo(function ModelCard({
     disabledReason?: string
     isFavorite: boolean
     onToggleFavorite: (modelId: string) => void
+    isNewRelease: boolean
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
 }) {
@@ -1101,6 +1114,7 @@ const ModelCard = React.memo(function ModelCard({
                                             {badgeLabel}
                                         </Badge>
                                     )}
+                                    {isNewRelease && <NewModelBadge />}
                                     {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
                                 </div>
                                 <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
@@ -1216,6 +1230,7 @@ export function ModelSelector({
     const [loadedFavoritesKey, setLoadedFavoritesKey] = React.useState<string | null>(null)
     const [canScrollUp, setCanScrollUp] = React.useState(false)
     const [canScrollDown, setCanScrollDown] = React.useState(false)
+    const [newModelReferenceTime] = React.useState(() => Date.now())
     const leftPanelRef = React.useRef<HTMLDivElement>(null)
 
     const checkScroll = React.useCallback(() => {
@@ -1252,6 +1267,15 @@ export function ModelSelector({
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
     const { models: sharedModels } = useSharedModels()
+    const newModelIds = React.useMemo(
+        () =>
+            new Set(
+                availableModels
+                    .filter((model) => isNewModelRelease(model, newModelReferenceTime))
+                    .map((model) => model.id)
+            ),
+        [availableModels, newModelReferenceTime]
+    )
     const favoritesStorageKey = session.user?.id
         ? getModelFavoritesStorageKey(session.user.id)
         : null
@@ -1420,6 +1444,20 @@ export function ModelSelector({
             ...sections
         ]
     }, [availableModels, currentProviders, favoriteModelIds])
+
+    const newProviderSectionIds = React.useMemo(
+        () =>
+            new Set(
+                providerSections
+                    .filter(
+                        (section) =>
+                            section.id !== FAVORITES_SECTION_ID &&
+                            section.models.some((model) => newModelIds.has(model.id))
+                    )
+                    .map((section) => section.id)
+            ),
+        [newModelIds, providerSections]
+    )
 
     const selectedModelData = React.useMemo(
         () => availableModels.find((model) => model.id === selectedModel),
@@ -1663,6 +1701,7 @@ export function ModelSelector({
                         disabledReason={getModelDisabledReason(model)}
                         isFavorite={favoriteModelIds.includes(model.id)}
                         onToggleFavorite={toggleFavorite}
+                        isNewRelease={newModelIds.has(model.id)}
                         badgeLabel={
                             requiresNativePdf && !modelSupportsNativePdf(model)
                                 ? "PDF Required"
@@ -1839,6 +1878,7 @@ export function ModelSelector({
                             <div className="relative flex flex-col gap-1 py-2 pr-[1px] pl-2">
                                 {filteredSections.map((section) => {
                                     const isActive = section.id === visibleSection?.id
+                                    const hasNewModels = newProviderSectionIds.has(section.id)
                                     return (
                                         <Tooltip key={section.id}>
                                             <TooltipTrigger asChild>
@@ -1860,13 +1900,28 @@ export function ModelSelector({
                                                 >
                                                     <div
                                                         className={cn(
-                                                            "flex size-7 items-center justify-center rounded-md",
+                                                            "relative flex size-7 items-center justify-center rounded-md",
                                                             isActive
                                                                 ? "bg-secondary/70"
-                                                                : "bg-transparent"
+                                                                : "bg-transparent",
+                                                            hasNewModels && "overflow-hidden"
                                                         )}
                                                     >
-                                                        {section.icon}
+                                                        <span
+                                                            className={cn(
+                                                                "relative z-10 flex items-center justify-center",
+                                                                hasNewModels &&
+                                                                    "new-model-provider-logo-glow"
+                                                            )}
+                                                        >
+                                                            {section.icon}
+                                                        </span>
+                                                        {hasNewModels && (
+                                                            <>
+                                                                <Sparkle className="new-model-provider-twinkle absolute top-0.5 right-0.5 z-20 size-2.5" />
+                                                                <Sparkle className="new-model-provider-twinkle new-model-provider-twinkle-b absolute bottom-0.5 left-0.5 z-20 size-2" />
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </button>
                                             </TooltipTrigger>

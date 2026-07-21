@@ -12,6 +12,7 @@ export const META_MODELS: SharedModel[] = [
     {
         id: "muse-spark-1.1",
         name: "Muse Spark 1.1",
+        addedOn: "2026-07-09",
         shortName: "Muse Spark 1.1",
         shortDescription: "Fast multimodal agent that plans broadly, delegates well, and gets moving",
         description:
@@ -25,6 +26,7 @@ export const META_MODELS: SharedModel[] = [
     {
         id: "llama-4-scout-17b-16e-instruct",
         name: "Llama 4 Scout 17B 16E",
+        addedOn: "2025-04-05",
         shortName: "Llama 4 Scout 17B",
         shortDescription: "Compact multimodal scout with an almost absurd appetite for context",
         description:
@@ -40,6 +42,7 @@ export const META_MODELS: SharedModel[] = [
     {
         id: "llama-4-maverick-17b-128e-instruct",
         name: "Llama 4 Maverick 17B 128E Instruct",
+        addedOn: "2025-04-05",
         shortName: "Llama 4 Maverick 17B",
         shortDescription: "Creative multimodal workhorse with sharper reasoning and a larger expert bench",
         description:
@@ -55,6 +58,7 @@ export const META_MODELS: SharedModel[] = [
     {
         id: "llama-3-1-8b-instant",
         name: "Llama 3.1 8B Instant",
+        addedOn: "2024-07-23",
         shortName: "Llama 3.1 8B",
         shortDescription: "Small, speedy open model for straightforward chat and text work",
         description:
@@ -67,6 +71,7 @@ export const META_MODELS: SharedModel[] = [
     {
         id: "whisper-large-v3-turbo",
         name: "Whisper Large v3 Turbo",
+        addedOn: "2024-10-01",
         releaseOrder: 20240301,
         adapters: ["groq:whisper-large-v3-turbo"],
         abilities: [],

@@ -1,3 +1,37 @@
+@keyframes new-model-provider-twinkle {
+    0%,
+    55%,
+    100% {
+        opacity: 0.35;
+        transform: scale(0.82);
+    }
+
+    20% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+}
+
+.new-model-provider-logo-glow {
+    filter: drop-shadow(
+            0 0 0.3rem
+                color-mix(in oklab, var(--new-model-glow-colour, var(--chart-2)) 65%, transparent)
+        )
+        drop-shadow(
+            0 0 0.7rem
+                color-mix(in oklab, var(--new-model-glow-colour, var(--chart-2)) 35%, transparent)
+        );
+}
+
+.new-model-provider-twinkle {
+    color: var(--new-model-glow-colour, var(--chart-2));
+    animation: new-model-provider-twinkle 3.4s ease-in-out infinite;
+}
+
+.new-model-provider-twinkle-b {
+    animation-delay: -1.7s;
+}
+
 @keyframes selected-model-orbit-trace {
     0% {
         opacity: 0;
@@ -66,6 +100,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .new-model-provider-twinkle {
+        animation: none;
+    }
+
+    .new-model-provider-twinkle-b {
+        opacity: 0.55;
+    }
+
     .selected-model-orbit-laser {
         animation: none;
         opacity: 0.65;

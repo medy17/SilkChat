@@ -23,6 +23,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
     {
         id: "grok-imagine-image-pro",
         name: "Grok Imagine Image Pro",
+        addedOn: "2026-05-06",
         shortName: "Imagine Pro",
         artificialAnalysis: {
             type: "text-to-image",
@@ -48,6 +49,7 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
     {
         id: "grok-imagine-image",
         name: "Grok Imagine Image",
+        addedOn: "2026-01-28",
         shortName: "Imagine",
         artificialAnalysis: {
             type: "text-to-image",

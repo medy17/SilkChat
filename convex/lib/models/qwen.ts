@@ -6,6 +6,7 @@ export const QWEN_MODELS: SharedModel[] = [
     {
         id: "qwen3.6-plus",
         name: "Qwen3.6 Plus",
+        addedOn: "2026-04-02",
         shortName: "Qwen3.6 Plus",
         shortDescription: "Million-token coding agent with broad language fluency and steady hands",
         description:

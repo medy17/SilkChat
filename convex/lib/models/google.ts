@@ -24,6 +24,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3.5-flash",
         name: "Gemini 3.5 Flash",
+        addedOn: "2026-05-19",
         shortName: "3.5 Flash",
         shortDescription:
             "High-efficiency Gemini model tuned for fast multimodal reasoning and coding",
@@ -40,6 +41,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3-flash-preview",
         name: "Gemini 3 Flash",
+        addedOn: "2025-12-17",
         shortName: "3 Flash",
         shortDescription: "Lightning-fast Gemini model with strong everyday capability",
         description:
@@ -58,6 +60,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3.1-flash-lite",
         name: "Gemini 3.1 Flash Lite",
+        addedOn: "2026-03-03",
         shortName: "3.1 Flash Lite",
         shortDescription: "Lowest-latency Gemini 3.1 option for lightweight workloads",
         description:
@@ -95,6 +98,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3.1-pro-preview",
         name: "Gemini 3.1 Pro",
+        addedOn: "2026-02-19",
         shortName: "3.1 Pro",
         shortDescription: "Google flagship with advanced reasoning and multimodal depth",
         description:

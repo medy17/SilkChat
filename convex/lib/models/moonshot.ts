@@ -6,6 +6,7 @@ export const MOONSHOT_MODELS: SharedModel[] = [
     {
         id: "kimi-k3",
         name: "Kimi K3",
+        addedOn: "2026-07-16",
         shortName: "K3",
         shortDescription: "Massive multimodal thinker for deep work that refuses to stay small",
         description:
@@ -18,6 +19,7 @@ export const MOONSHOT_MODELS: SharedModel[] = [
     {
         id: "kimi-k2.6",
         name: "Kimi K2.6",
+        addedOn: "2026-04-20",
         shortName: "K2.6",
         shortDescription: "Multimodal agent with sharp code instincts and flexible thinking modes",
         description:
@@ -31,6 +33,7 @@ export const MOONSHOT_MODELS: SharedModel[] = [
     {
         id: "kimi-k2.5",
         name: "Kimi K2.5",
+        addedOn: "2026-01-27",
         shortName: "K2.5",
         shortDescription: "A versatile visual reasoning agent with a knack for real work",
         description:
@@ -44,6 +47,7 @@ export const MOONSHOT_MODELS: SharedModel[] = [
     {
         id: "kimi-k2-0905",
         name: "Kimi K2 0905",
+        addedOn: "2025-09-05",
         shortName: "K2 0905",
         shortDescription: "Fast open agent model with coding chops and little patience for ceremony",
         description:

@@ -20,6 +20,7 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
     {
         id: "seedream-4-5",
         name: "Seedream 4.5",
+        addedOn: "2025-12-03",
         shortName: "Seedream 4.5",
         releaseOrder: 20260330,
         adapters: falImageAdapters("fal-ai/bytedance/seedream/v4.5/text-to-image"),

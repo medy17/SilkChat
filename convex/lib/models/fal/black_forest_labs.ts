@@ -19,6 +19,7 @@ export const FAL_BLACK_FOREST_LABS_IMAGE_MODELS: SharedModel[] = [
     {
         id: "flux-2-flex",
         name: "FLUX 2 Flex",
+        addedOn: "2025-11-25",
         shortName: "Flux 2 Flex",
         releaseOrder: 20260331,
         adapters: falImageAdapters("fal-ai/flux-2-flex"),
