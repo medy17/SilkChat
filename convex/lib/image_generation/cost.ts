@@ -78,7 +78,11 @@ export const estimateImageCost = ({
         pricing.usdPerReferenceImageByQuality?.[normalizedQuality] ??
         pricing.usdPerReferenceImage ??
         0
-    const requestUsdPerImage = usdPerImage + referencePrice * normalizedReferenceCount
+    const billableReferenceCount = Math.max(
+        0,
+        normalizedReferenceCount - (pricing.freeReferenceImages ?? 0)
+    )
+    const requestUsdPerImage = usdPerImage + referencePrice * billableReferenceCount
 
     return {
         totalUsd: requestUsdPerImage * normalizedVariants,

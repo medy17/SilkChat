@@ -12,7 +12,10 @@ export const isFalImageSizeSupported = (descriptor: FalImageDescriptor, imageSiz
         return Boolean(toLegacyOpenAiImageSize(imageSize))
     }
 
-    if (descriptor.imageSizeMode === "standard") {
+    if (
+        descriptor.imageSizeMode === "standard" ||
+        descriptor.imageSizeMode === "seedreamPro"
+    ) {
         return isCustomSize || Boolean(STANDARD_FAL_IMAGE_SIZES["1K"][imageSize])
     }
 
@@ -185,7 +188,10 @@ export const getFalOutputImageDimensions = (
     imageSize: ImageSize,
     imageResolution?: ImageResolution
 ) => {
-    if (descriptor.imageSizeMode === "standard") {
+    if (
+        descriptor.imageSizeMode === "standard" ||
+        descriptor.imageSizeMode === "seedreamPro"
+    ) {
         return toStandardFalImageSize(imageSize, imageResolution)
     }
     if (descriptor.imageSizeMode === "seedream") {
@@ -208,8 +214,11 @@ export const buildFalImageInput = (descriptor: FalImageDescriptor, request: FalI
             : 1
     const input: Record<string, unknown> = {
         prompt: request.prompt,
-        num_images: maxAssets,
-        output_format: "png"
+        num_images: maxAssets
+    }
+
+    if (!descriptor.omitOutputFormat) {
+        input.output_format = "png"
     }
 
     if (descriptor.usesMaxImages) {
@@ -230,6 +239,11 @@ export const buildFalImageInput = (descriptor: FalImageDescriptor, request: FalI
                 request.referenceImages.length > 0
                     ? "auto"
                     : toStandardFalImageSize(request.imageSize, request.imageResolution)
+        } else if (descriptor.imageSizeMode === "seedreamPro") {
+            input.image_size = toStandardFalImageSize(
+                request.imageSize,
+                request.imageResolution
+            )
         } else if (descriptor.imageSizeMode === "legacyOpenAi") {
             input.image_size =
                 request.referenceImages.length > 0

@@ -16,7 +16,7 @@ export function ImageGallerySection() {
         <section id="gallery" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
                 <SectionHead title={<LibraryLogo className="h-10 w-auto md:h-12" />}>
-                    Envision your ideas with GPT Image 2, Seedream V4.5, Nano Banana Pro, FLUX.2
+                    Envision your ideas with GPT Image 2, Seedream 5 Pro, Nano Banana Pro, FLUX.2
                     [flex], and more in a First-Class library UI made for concurrent generation,
                     detailed parameters, and intuitive library management.
                 </SectionHead>

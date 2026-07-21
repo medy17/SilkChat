@@ -54,6 +54,7 @@ export type ImagePricing = {
     roundOutputMegapixelsUp?: boolean
     usdPerReferenceImage?: number
     usdPerReferenceImageByQuality?: Partial<Record<ImageQuality, number>>
+    freeReferenceImages?: number
 }
 
 export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"

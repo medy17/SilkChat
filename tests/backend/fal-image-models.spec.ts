@@ -32,6 +32,7 @@ describe("fal image model payloads", () => {
         ).toMatchObject({
             image_size: { width: 720, height: 1280 },
             quality: "low",
+            output_format: "png",
             enable_safety_checker: false
         })
     })
@@ -231,6 +232,21 @@ describe("fal image model payloads", () => {
         })
     })
 
+    it("keeps older Seedream versions callable as legacy models", () => {
+        expect(sharedModel("seedream-4")).toMatchObject({
+            legacy: true,
+            replacementId: "seedream-5-pro"
+        })
+        expect(sharedModel("seedream-4-5")).toMatchObject({
+            legacy: true,
+            replacementId: "seedream-5-pro"
+        })
+        expect(descriptor("seedream-4")).toMatchObject({
+            endpoint: "fal-ai/bytedance/seedream/v4/text-to-image",
+            editEndpoint: "fal-ai/bytedance/seedream/v4/edit"
+        })
+    })
+
     it("uses Seedream 4.5 text/edit endpoints and valid large image sizes", () => {
         const model = descriptor("seedream-4-5")
         const input = buildFalImageInput(model, {
@@ -249,7 +265,48 @@ describe("fal image model payloads", () => {
             max_images: 1,
             enable_safety_checker: false
         })
+        expect(input).not.toHaveProperty("output_format")
         expect(input).not.toHaveProperty("safety_tolerance")
+    })
+
+    it("registers Seedream 5 Lite with text and edit support through 4K", () => {
+        expect(sharedModel("seedream-5-lite").supportedImageResolutions).toEqual([
+            "1K",
+            "2K",
+            "4K"
+        ])
+        expect(descriptor("seedream-5-lite")).toMatchObject({
+            endpoint: "fal-ai/bytedance/seedream/v5/lite/text-to-image",
+            editEndpoint: "fal-ai/bytedance/seedream/v5/lite/edit"
+        })
+    })
+
+    it("uses Seedream 5 Pro endpoints and caps output sizing at 2K", () => {
+        const model = descriptor("seedream-5-pro")
+        const input = buildFalImageInput(model, {
+            prompt: "A test image",
+            imageSize: "16:9",
+            imageResolution: "2K",
+            referenceImages: [{ key: "reference", url: "https://example.com/reference.png" }],
+            maxAssets: 1
+        })
+
+        expect(sharedModel("seedream-5-pro")).toMatchObject({
+            supportedImageResolutions: ["1K", "2K"],
+            maxReferenceImages: 10
+        })
+        expect(sharedModel("seedream-5-pro").legacy).toBeUndefined()
+        expect(model).toMatchObject({
+            endpoint: "bytedance/seedream/v5/pro/text-to-image",
+            editEndpoint: "bytedance/seedream/v5/pro/edit"
+        })
+        expect(input).toMatchObject({
+            image_size: { width: 2048, height: 1152 },
+            image_urls: ["https://example.com/reference.png"],
+            enable_safety_checker: false
+        })
+        expect(input).not.toHaveProperty("output_format")
+        expect(input).not.toHaveProperty("max_images")
     })
 
     it("rejects malformed custom image sizes instead of silently falling back", () => {

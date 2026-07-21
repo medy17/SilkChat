@@ -14,12 +14,13 @@ export type FalImageDescriptor = {
     endpoint: string
     editEndpoint?: string
     supportsReferences?: boolean
-    imageSizeMode?: "standard" | "legacyOpenAi" | "seedream"
+    imageSizeMode?: "standard" | "legacyOpenAi" | "seedream" | "seedreamPro"
     usesAspectRatio?: boolean
     resolutionMode?: "uppercase" | "lowercase"
     usesQuality?: boolean
     defaultQuality?: string
     usesMaxImages?: boolean
+    omitOutputFormat?: boolean
     safety: FalSafetyMode
     settlesAfterSafetyRejection?: boolean
 }

@@ -46,6 +46,23 @@ describe("image cost estimates", () => {
         expect(estimate).toMatchObject({ usdPerImage: 0.1, totalUsd: 0.2 })
     })
 
+    it("does not charge for provider-included reference images", () => {
+        const estimate = estimateImageCost({
+            model: imageModel({
+                imagePricing: {
+                    source: "fal",
+                    kind: "fixed",
+                    usdPerImage: 0.0675,
+                    usdPerReferenceImage: 0.0045,
+                    freeReferenceImages: 1
+                }
+            }),
+            referenceCount: 3
+        })
+
+        expect(estimate).toMatchObject({ usdPerImage: 0.0765, totalUsd: 0.0765 })
+    })
+
     it("rounds megapixel billing up using the actual output dimensions", () => {
         const estimate = estimateImageCost({
             model: imageModel({
