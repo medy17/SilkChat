@@ -7,7 +7,8 @@ import {
 import {
     getBuiltInThemeUrl,
     getThemeResourceUrl,
-    isMissingImportedThemeSelection
+    isMissingImportedThemeSelection,
+    normalizeThemeImportUrl
 } from "@/lib/theme-utils"
 import { describe, expect, it } from "vitest"
 
@@ -59,6 +60,24 @@ describe("applyBuiltInThemeOverrides", () => {
 })
 
 describe("theme URL identity", () => {
+    it("accepts and normalizes the supported tweakcn import URL shapes", () => {
+        expect(
+            normalizeThemeImportUrl(" https://tweakcn.com/themes/cmndaz3pj000604js33fr1gsk ")
+        ).toBe("https://tweakcn.com/themes/cmndaz3pj000604js33fr1gsk")
+        expect(normalizeThemeImportUrl("https://tweakcn.com/editor/theme?theme=vercel")).toBe(
+            "https://tweakcn.com/editor/theme?theme=vercel"
+        )
+    })
+
+    it("rejects unsupported theme hosts and URL shapes", () => {
+        expect(normalizeThemeImportUrl("https://example.com/themes/theme-id")).toBeNull()
+        expect(normalizeThemeImportUrl("https://tweakcn.com/r/themes/vercel.json")).toBeNull()
+        expect(normalizeThemeImportUrl("https://tweakcn.com/themes/theme-id/extra")).toBeNull()
+        expect(
+            normalizeThemeImportUrl("https://tweakcn.com/editor/theme?theme=vercel&preview=true")
+        ).toBeNull()
+    })
+
     it("recognizes alternate tweakcn URLs for a built-in theme", () => {
         expect(getThemeResourceUrl("https://tweakcn.com/editor/theme?theme=mono")).toBe(
             "https://tweakcn.com/r/themes/mono.json"

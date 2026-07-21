@@ -756,7 +756,7 @@ describe("settings", () => {
         expect(ctx.db.patch).not.toHaveBeenCalled()
     })
 
-    it("does not consume a synced slot for an alternate URL of a built-in theme", async () => {
+    it("does not consume a saved slot when importing a built-in theme", async () => {
         const ctx = createCtx({
             _id: "settings-id",
             userId: "user-1",
@@ -768,9 +768,25 @@ describe("settings", () => {
         })
 
         await addUserThemeHandler.handler(ctx, {
-            url: "https://tweakcn.com/r/themes/mono.json"
+            url: "https://tweakcn.com/editor/theme?theme=vercel"
         })
 
+        expect(ctx.db.patch).not.toHaveBeenCalled()
+    })
+
+    it("rejects unsupported theme URLs", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            customThemes: []
+        })
+
+        await expect(
+            addUserThemeHandler.handler(ctx, {
+                url: "https://example.com/themes/theme-id"
+            })
+        ).rejects.toThrow("Enter a theme URL from tweakcn.com")
         expect(ctx.db.patch).not.toHaveBeenCalled()
     })
 

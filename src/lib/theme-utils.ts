@@ -62,6 +62,44 @@ export function getThemeName(themeData: ExternalTheme, url: string): string {
     return "Custom Theme"
 }
 
+const THEME_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]+$/
+
+export function normalizeThemeImportUrl(value: string): string | null {
+    try {
+        const parsedUrl = new URL(value.trim())
+        if (
+            parsedUrl.origin !== "https://tweakcn.com" ||
+            parsedUrl.username ||
+            parsedUrl.password ||
+            parsedUrl.hash
+        ) {
+            return null
+        }
+
+        const themePathMatch = parsedUrl.pathname.match(/^\/themes\/([A-Za-z0-9_-]+)$/)
+        if (themePathMatch && !parsedUrl.search) {
+            return `https://tweakcn.com/themes/${themePathMatch[1]}`
+        }
+
+        if (parsedUrl.pathname !== "/editor/theme") return null
+
+        const themeId = parsedUrl.searchParams.get("theme")
+        const queryKeys = Array.from(parsedUrl.searchParams.keys())
+        if (
+            !themeId ||
+            !THEME_IDENTIFIER_PATTERN.test(themeId) ||
+            queryKeys.length !== 1 ||
+            queryKeys[0] !== "theme"
+        ) {
+            return null
+        }
+
+        return `https://tweakcn.com/editor/theme?theme=${themeId}`
+    } catch {
+        return null
+    }
+}
+
 export function getThemeResourceUrl(url: string): string {
     try {
         const parsedUrl = new URL(url)

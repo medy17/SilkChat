@@ -1,7 +1,7 @@
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { ChatError } from "@/lib/errors"
 import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
-import { getBuiltInThemeUrl } from "@/lib/theme-utils"
+import { getBuiltInThemeUrl, normalizeThemeImportUrl } from "@/lib/theme-utils"
 import { type Infer, v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
@@ -35,7 +35,10 @@ const normalizeImportedThemeUrl = (url: string) => {
 }
 
 const addImportedTheme = (themes: string[], url: string) => {
-    const normalizedUrl = normalizeImportedThemeUrl(url)
+    const normalizedUrl = normalizeThemeImportUrl(url)
+    if (!normalizedUrl) {
+        throw new Error("Enter a theme URL from tweakcn.com")
+    }
     if (getBuiltInThemeUrl(normalizedUrl)) return themes
     if (themes.includes(normalizedUrl)) return themes
     if (themes.length >= MAX_IMPORTED_THEMES) {
@@ -46,10 +49,22 @@ const addImportedTheme = (themes: string[], url: string) => {
     return [...themes, normalizedUrl]
 }
 
-const normalizeImportedThemes = (themes: string[] | undefined) =>
-    (themes ?? []).reduce<string[]>((normalizedThemes, url) => {
-        return addImportedTheme(normalizedThemes, url)
-    }, [])
+const normalizeImportedThemes = (themes: string[] | undefined) => {
+    const normalizedThemes: string[] = []
+    for (const url of themes ?? []) {
+        const normalizedUrl = normalizeImportedThemeUrl(url)
+        if (getBuiltInThemeUrl(normalizedUrl) || normalizedThemes.includes(normalizedUrl)) {
+            continue
+        }
+        if (normalizedThemes.length >= MAX_IMPORTED_THEMES) {
+            throw new Error(
+                `You can save up to ${MAX_IMPORTED_THEMES} themes. Remove one to add another.`
+            )
+        }
+        normalizedThemes.push(normalizedUrl)
+    }
+    return normalizedThemes
+}
 
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
@@ -462,7 +477,7 @@ export const updateUserSettings = mutation({
         await assertAccountNotDeleting(ctx, user.id)
 
         const settings = await getSettings(ctx, args.userId)
-        const customThemes = normalizeImportedThemes(args.baseSettings.customThemes)
+        const customThemes = normalizeImportedThemes(settings.customThemes)
 
         const newSettings: Infer<typeof UserSettings> = {
             ...normalizeSettingsCustomModels(args.baseSettings),

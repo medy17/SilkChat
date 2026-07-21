@@ -1,5 +1,5 @@
 import { useIsMobile } from "@/hooks/use-mobile"
-import { type ThemePreset, fetchThemeFromUrl } from "@/lib/theme-utils"
+import { type ThemePreset, fetchThemeFromUrl, normalizeThemeImportUrl } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -22,8 +22,12 @@ import { Input } from "../ui/input"
 const formSchema = z.object({
     url: z
         .string()
+        .trim()
         .min(1, { message: "Theme URL is required" })
         .url({ message: "Please enter a valid URL" })
+        .refine((url) => normalizeThemeImportUrl(url) !== null, {
+            message: "Enter a theme URL from tweakcn.com"
+        })
 })
 
 type ThemeImportForm = z.infer<typeof formSchema>
@@ -80,8 +84,9 @@ export function ImportThemeDialog({
     })
 
     const onSubmit = (data: ThemeImportForm) => {
-        if (canImport && data.url.trim()) {
-            fetchAndApplyThemeMutation.mutate(data.url.trim())
+        const normalizedUrl = normalizeThemeImportUrl(data.url)
+        if (canImport && normalizedUrl) {
+            fetchAndApplyThemeMutation.mutate(normalizedUrl)
         }
     }
 
