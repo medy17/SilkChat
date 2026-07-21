@@ -38,7 +38,7 @@ const child = spawn(
     }
 )
 
-child.on("exit", (code) => {
+const restoreEnvLocal = () => {
     if (originalEnvLocal !== null && existsSync(envLocalPath)) {
         const current = readFileSync(envLocalPath, "utf8")
         if (current !== originalEnvLocal) {
@@ -49,5 +49,49 @@ child.on("exit", (code) => {
         unlinkSync(envLocalPath)
         console.log("[staging:push] Removed .env.local created by Convex CLI.")
     }
-    process.exit(code ?? 1)
+}
+
+child.on("error", (error) => {
+    restoreEnvLocal()
+    console.error(error)
+    process.exit(1)
+})
+
+child.on("exit", (code) => {
+    restoreEnvLocal()
+    if (code !== 0) {
+        process.exit(code ?? 1)
+        return
+    }
+
+    console.log("[staging:push] Syncing OpenRouter model metadata...")
+    const syncChild = spawn(
+        "bunx",
+        [
+            "convex",
+            "run",
+            "model_provider_metadata_node:syncOpenRouterModelMetadata",
+            "{}",
+            "--codegen",
+            "disable",
+            "--typecheck",
+            "disable"
+        ],
+        {
+            stdio: "inherit",
+            shell: process.platform === "win32",
+            env: {
+                ...process.env,
+                CONVEX_DEPLOYMENT: deployment.trim()
+            }
+        }
+    )
+
+    syncChild.on("error", (error) => {
+        console.error(error)
+        process.exit(1)
+    })
+    syncChild.on("exit", (syncCode) => {
+        process.exit(syncCode ?? 1)
+    })
 })
