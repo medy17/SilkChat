@@ -1,0 +1,74 @@
+@keyframes selected-model-orbit-trace {
+    0% {
+        opacity: 0;
+        offset-distance: var(--orbit-offset);
+    }
+
+    10% {
+        opacity: 1;
+        offset-distance: calc(var(--orbit-offset) + 6%);
+    }
+
+    52% {
+        opacity: 1;
+        offset-distance: calc(var(--orbit-offset) + 78%);
+    }
+
+    70% {
+        opacity: 0;
+        offset-distance: calc(var(--orbit-offset) + 96%);
+    }
+
+    74%,
+    100% {
+        opacity: 0;
+        offset-distance: calc(var(--orbit-offset) + 100%);
+    }
+}
+
+.selected-model-orbit-laser {
+    --orbit-offset: 0%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.25rem;
+    height: 0.125rem;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in oklab, var(--primary) 40%, transparent),
+        var(--primary),
+        color-mix(in oklab, var(--primary) 40%, transparent),
+        transparent
+    );
+    offset-anchor: center;
+    offset-distance: var(--orbit-offset);
+    offset-path: inset(0.125rem round var(--radius-lg));
+    offset-rotate: auto;
+    animation: selected-model-orbit-trace 6s linear infinite;
+    animation-play-state: paused;
+    filter: drop-shadow(0 0 0.25rem var(--primary));
+}
+
+.selected-model-orbit-laser-mirror {
+    --orbit-offset: 50%;
+}
+
+[data-selected-model-orbit-visible="true"] .selected-model-orbit-laser {
+    animation-play-state: running;
+}
+
+@media (min-width: 640px) {
+    .selected-model-orbit-laser {
+        width: 10rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .selected-model-orbit-laser {
+        animation: none;
+        opacity: 0.65;
+        offset-distance: var(--orbit-offset);
+    }
+}

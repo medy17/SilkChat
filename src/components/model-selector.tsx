@@ -19,13 +19,7 @@ import {
 import { ModelCostIndicator } from "@/components/model-cost-indicator"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerTitle
-} from "@/components/ui/drawer"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import {
@@ -77,7 +71,7 @@ import { Link } from "@tanstack/react-router"
 import {
     Archive,
     Calculator,
-    Check,
+    CheckCircle,
     ChevronDown,
     ChevronUp,
     CircleHelp,
@@ -87,12 +81,14 @@ import {
     Image,
     Key,
     Search,
+    Server,
     Star,
     Terminal,
     Trophy
 } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
+import "./model-selector.css"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
@@ -181,7 +177,6 @@ const getGrokModeIcon = (model: SharedModel, reasoningEffort: ReasoningEffort) =
 type ProviderSection = {
     id: string
     label: string
-    compactLabel: string
     models: DisplayModel[]
     icon: React.ReactNode
 }
@@ -367,7 +362,7 @@ export const getProviderSectionIcon = (
         case "openrouter":
             return <OpenRouterIcon className={className} />
         default:
-            return <Badge className="h-5 px-1 text-[0.625rem]">Custom</Badge>
+            return <Server className={className} />
     }
 }
 
@@ -399,21 +394,10 @@ const renderAbilityIcon = (ability: string, className: string) => {
     return <AbilityIcon className={className} />
 }
 
-const CapabilityPill = ({
-    ability,
-    emphasized = false
-}: {
-    ability: string
-    emphasized?: boolean
-}) => (
+const CapabilityPill = ({ ability }: { ability: string }) => (
     <Tooltip>
         <TooltipTrigger asChild>
-            <div
-                className={cn(
-                    "flex size-7 items-center justify-center rounded-md border text-muted-foreground",
-                    emphasized && "border-transparent bg-accent text-accent-foreground"
-                )}
-            >
+            <div className="flex size-7 items-center justify-center rounded-md border text-muted-foreground">
                 {renderAbilityIcon(ability, "size-4")}
             </div>
         </TooltipTrigger>
@@ -1035,7 +1019,31 @@ const ModelCard = React.memo(function ModelCard({
     badgeVariant?: "secondary" | "warning"
 }) {
     const isSelected = model.id === selectedModel
+    const cardRef = React.useRef<HTMLDivElement>(null)
+    const [isSelectedVisible, setIsSelectedVisible] = React.useState(false)
     const modelAbilities = getModelAbilities(model)
+
+    React.useEffect(() => {
+        if (!isSelected) {
+            setIsSelectedVisible(false)
+            return
+        }
+
+        const card = cardRef.current
+        if (!card || typeof IntersectionObserver === "undefined") {
+            setIsSelectedVisible(true)
+            return
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => setIsSelectedVisible(entry.isIntersecting),
+            { threshold: 0.35 }
+        )
+        observer.observe(card)
+
+        return () => observer.disconnect()
+    }, [isSelected])
+
     const selectModel = () => {
         if (disabled) return
         onModelChange(model.id)
@@ -1044,24 +1052,40 @@ const ModelCard = React.memo(function ModelCard({
 
     return (
         <div
+            ref={cardRef}
             className={cn(
-                "relative w-full rounded-xl border bg-background/60 p-3 text-left transition-colors",
+                "relative w-full rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left transition-colors",
                 "hover:border-accent hover:bg-accent/10",
-                isSelected && "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20",
+                isSelected &&
+                    "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10 ring-inset",
                 disabled &&
                     "cursor-not-allowed border-border/60 bg-muted/30 text-muted-foreground hover:border-border/60 hover:bg-muted/30"
             )}
         >
+            {isSelected && (
+                <div
+                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-[var(--radius-xl)]"
+                    data-selected-model-orbit-visible={isSelectedVisible}
+                    aria-hidden="true"
+                >
+                    <div className="absolute inset-px overflow-hidden rounded-[calc(var(--radius-xl)-1px)]">
+                        <div className="selected-model-orbit-laser" />
+                        <div className="selected-model-orbit-laser selected-model-orbit-laser-mirror" />
+                    </div>
+                    <div className="absolute inset-1 rounded-[var(--radius-lg)] border border-primary/25" />
+                </div>
+            )}
             <button
                 type="button"
                 disabled={disabled}
                 onClick={selectModel}
-                className="block w-full text-left focus-visible:outline-none"
+                aria-pressed={isSelected}
+                className="relative z-10 block w-full text-left focus-visible:outline-none"
             >
                 <div className="flex items-start">
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 pr-20 sm:pr-0">
+                        <div className="flex items-start">
+                            <div className="min-w-0 pr-10">
                                 <div className="flex items-center gap-2">
                                     <span className="truncate font-medium text-sm sm:text-base">
                                         {model.name}
@@ -1078,9 +1102,6 @@ const ModelCard = React.memo(function ModelCard({
                                         </Badge>
                                     )}
                                     {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
-                                    {isSelected && (
-                                        <Check className="size-4 shrink-0 text-primary" />
-                                    )}
                                 </div>
                                 <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
                                     {getModelShortDescription(model)}
@@ -1091,39 +1112,28 @@ const ModelCard = React.memo(function ModelCard({
                                     </p>
                                 )}
                             </div>
-                            <div className="hidden shrink-0 flex-col items-end gap-2 pr-20 sm:flex">
-                                {modelAbilities.length > 0 && (
-                                    <div className="flex flex-wrap justify-end gap-1">
-                                        {modelAbilities.slice(0, 4).map((ability) => (
-                                            <CapabilityPill
-                                                key={`${model.id}-${ability}`}
-                                                ability={ability}
-                                                emphasized={isSelected}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
                         </div>
-                        <div className="mt-2 flex items-center gap-3 pr-10 sm:hidden">
-                            {modelAbilities.length > 0 ? (
+                        <div className="mt-2 flex min-h-7 items-center gap-3 pr-20">
+                            {modelAbilities.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                     {modelAbilities.slice(0, 4).map((ability) => (
                                         <CapabilityPill
-                                            key={`${model.id}-mobile-${ability}`}
+                                            key={`${model.id}-${ability}`}
                                             ability={ability}
-                                            emphasized={isSelected}
                                         />
                                     ))}
                                 </div>
-                            ) : (
-                                <div />
                             )}
                         </div>
                     </div>
                 </div>
             </button>
-            <div className="absolute top-3 right-3 hidden items-center gap-1 sm:flex">
+            {isSelected && (
+                <div className="absolute top-3 right-3 z-10 flex size-7 items-center justify-center text-primary">
+                    <CheckCircle className="size-4" />
+                </div>
+            )}
+            <div className="absolute right-3 bottom-3 z-10 hidden items-center gap-1 sm:flex">
                 <FavoriteToggle
                     model={model}
                     isFavorite={isFavorite}
@@ -1131,7 +1141,7 @@ const ModelCard = React.memo(function ModelCard({
                 />
                 <ModelInfoFlyout model={model} currentProviders={currentProviders} />
             </div>
-            <div className="absolute right-3 bottom-3 flex items-center gap-1 sm:hidden">
+            <div className="absolute right-3 bottom-3 z-10 flex items-center gap-1 sm:hidden">
                 <FavoriteToggle
                     model={model}
                     isFavorite={isFavorite}
@@ -1226,7 +1236,7 @@ export function ModelSelector({
             }
             return () => resizeObserver.disconnect()
         }
-    }, [checkScroll, searchValue])
+    }, [checkScroll])
 
     const handleLeftPanelScroll = React.useCallback(() => {
         checkScroll()
@@ -1364,7 +1374,6 @@ export function ModelSelector({
                 return {
                     id: providerId,
                     label,
-                    compactLabel: providerId === "google" ? "Gemini" : label,
                     models: [...models].sort((left, right) => {
                         const legacyDelta =
                             Number(isLegacyModel(left)) - Number(isLegacyModel(right))
@@ -1405,7 +1414,6 @@ export function ModelSelector({
             {
                 id: FAVORITES_SECTION_ID,
                 label: "Favorites",
-                compactLabel: "Favorites",
                 models: favoriteModels,
                 icon: getProviderSectionIcon(FAVORITES_SECTION_ID)
             },
@@ -1778,23 +1786,17 @@ export function ModelSelector({
                 </div>
             )}
             {isMobile ? (
-                <>
-                    <DrawerHeader className="shrink-0 pb-0">
-                        <DrawerTitle>Select Model</DrawerTitle>
-                        <DrawerDescription>Choose a model for your conversation</DrawerDescription>
-                    </DrawerHeader>
-                    <div className="shrink-0 px-4 pt-3 pb-3">
-                        <div className="relative">
-                            <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
-                            <Input
-                                value={searchValue}
-                                onChange={(event) => setSearchValue(event.target.value)}
-                                placeholder="Search models..."
-                                className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
-                            />
-                        </div>
+                <div className="shrink-0 px-4 pt-3 pb-3">
+                    <div className="relative">
+                        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+                        <Input
+                            value={searchValue}
+                            onChange={(event) => setSearchValue(event.target.value)}
+                            placeholder="Search models..."
+                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                        />
                     </div>
-                </>
+                </div>
             ) : (
                 <div className="shrink-0 rounded-t-lg bg-muted/50 p-3 pb-2 md:rounded-none">
                     <div className="mb-3 px-1">
@@ -1815,61 +1817,9 @@ export function ModelSelector({
                 </div>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:max-h-[25rem] md:grid-cols-[5rem_minmax(0,1fr)] md:grid-rows-1">
-                <div
-                    className={cn(
-                        "flex min-h-0 min-w-0 flex-col",
-                        isMobile ? "bg-background" : "bg-muted/50 md:border-r"
-                    )}
-                >
-                    <div className="relative border-border border-b md:hidden">
-                        <div className="scrollbar-none -mb-[1px] flex w-full gap-1 overflow-x-auto overscroll-x-contain px-2 pt-2 pb-[1px]">
-                            {filteredSections.map((section) => {
-                                const isActive = section.id === visibleSection?.id
-                                return (
-                                    <button
-                                        key={section.id}
-                                        type="button"
-                                        onClick={() => setActiveProvider(section.id)}
-                                        className={cn(
-                                            "relative flex min-w-fit items-center gap-2 rounded-t-xl border-x border-t px-3 py-2 text-left transition-colors",
-                                            isActive
-                                                ? cn(
-                                                      "-mb-[1px] z-10 border-border text-foreground",
-                                                      isMobile ? "bg-secondary/70" : "bg-popover"
-                                                  )
-                                                : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
-                                        )}
-                                        aria-label={section.label}
-                                    >
-                                        <div
-                                            className={cn(
-                                                "flex size-7 items-center justify-center rounded-md",
-                                                isActive ? "bg-secondary/70" : "bg-transparent"
-                                            )}
-                                        >
-                                            {section.icon}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div
-                                                className={cn(
-                                                    "truncate font-medium text-sm",
-                                                    isActive ? "" : "opacity-80"
-                                                )}
-                                            >
-                                                {section.compactLabel}
-                                            </div>
-                                            <div className="truncate text-xs opacity-70">
-                                                {section.models.length} model
-                                                {section.models.length === 1 ? "" : "s"}
-                                            </div>
-                                        </div>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-                    <div className="-mr-[1px] relative hidden min-h-0 flex-1 overflow-hidden md:block">
+            <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:max-h-[25rem] md:grid-cols-[5rem_minmax(0,1fr)]">
+                <div className="flex min-h-0 min-w-0 flex-col border-r bg-muted/50">
+                    <div className="-mr-[1px] relative min-h-0 flex-1 overflow-hidden">
                         {canScrollUp && (
                             <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
                                 <button
@@ -1898,7 +1848,12 @@ export function ModelSelector({
                                                     className={cn(
                                                         "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
                                                         isActive
-                                                            ? "-mr-[1px] before:-z-10 before:-left-[1px] sticky top-0 bottom-0 z-20 border-border bg-popover text-foreground shadow-[0_6px_12px_-4px_rgba(0,0,0,0.15),0_-6px_12px_-4px_rgba(0,0,0,0.15)] before:absolute before:inset-0 before:rounded-l-xl before:bg-popover"
+                                                            ? cn(
+                                                                  "-mr-[1px] before:-z-10 before:-left-[1px] sticky top-0 bottom-0 z-20 border-border text-foreground ring-1 ring-border/50 ring-inset before:absolute before:inset-0 before:rounded-l-xl",
+                                                                  isMobile
+                                                                      ? "bg-background before:bg-background"
+                                                                      : "bg-popover before:bg-popover"
+                                                              )
                                                             : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
                                                     )}
                                                     aria-label={section.label}
@@ -1983,6 +1938,7 @@ export function ModelSelector({
                         )}
                         overlayClassName="z-[80]"
                     >
+                        <DrawerTitle className="sr-only">Select Model</DrawerTitle>
                         <div className="flex min-h-0 flex-1 flex-col pt-2">{selectorContent}</div>
                     </DrawerContent>
                 </Drawer>
