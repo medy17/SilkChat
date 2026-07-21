@@ -31,6 +31,7 @@ If a test mainly proves that one mocked function called another mocked function 
 - UI tests that only verify heavily mocked assembly details.
 - Regression tests for inputs outside the supported product contract.
 - Brittle call-order assertions when set membership or behavior is enough.
+- UI tests for non-logic dependent copy rendering.
 
 ## How to recognise a bad test
 

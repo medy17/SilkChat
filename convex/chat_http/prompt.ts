@@ -6,7 +6,6 @@ import type { ModelAbility, UserSettings } from "../schema/settings"
 
 type BuildPromptOptions = {
     enabledTools: AbilityId[]
-    toolCallLimitPerTurn?: number
     userTimezone?: string // e.g., "Asia/Kuala_Lumpur"
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
@@ -65,6 +64,16 @@ export const buildTemporalContext = ({
     return dedent`
 ## Current Date
 UTC date: ${utcDate}.${userTimeInfo}`
+}
+
+export const buildToolBudgetContext = (toolCallLimitPerTurn?: number) => {
+    if (!toolCallLimitPerTurn || toolCallLimitPerTurn <= 0) return ""
+
+    return dedent`
+## Tool Budget
+This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.
+- Use tools only when they are necessary to answer well.
+- If a tool budget error appears, continue the turn and answer with the information you already have.`
 }
 
 export const buildCapabilityContext = ({
@@ -141,7 +150,6 @@ export const buildCapabilityContext = ({
 
 export const buildPrompt = ({
     enabledTools,
-    toolCallLimitPerTurn,
     userTimezone,
     clientTimestampMs,
     userSettings,
@@ -389,16 +397,6 @@ ${selections}
 
 Available image reference ids:
 ${references}`)
-    }
-
-    if (enabledTools.length > 0 && toolCallLimitPerTurn && toolCallLimitPerTurn > 0) {
-        layers.push(
-            dedent`
-## Tool Budget
-This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.
-- Use tools only when they are necessary to answer well.
-- If a tool budget error appears, continue the turn and answer with the information you already have.`
-        )
     }
 
     if (personaPrompt?.trim()) {

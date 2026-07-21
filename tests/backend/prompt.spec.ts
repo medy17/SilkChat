@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { buildCapabilityContext, buildPrompt } from "../../convex/chat_http/prompt"
+import {
+    buildCapabilityContext,
+    buildPrompt,
+    buildToolBudgetContext
+} from "../../convex/chat_http/prompt"
 
 describe("buildPrompt", () => {
     it("aligns math delimiter guidance with Streamdown defaults", () => {
@@ -47,14 +51,20 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("- Additional context about the user: I write TypeScript.")
     })
 
-    it("includes the effective per-turn tool budget when tools are enabled", () => {
+    it("keeps the per-turn tool budget out of the stable prompt", () => {
         const prompt = buildPrompt({
-            enabledTools: ["web_search", "supermemory"],
-            toolCallLimitPerTurn: 5
+            enabledTools: ["web_search", "supermemory"]
         })
 
-        expect(prompt).toContain("## Tool Budget")
-        expect(prompt).toContain("This turn has 5 allocated tool calls maximum.")
+        expect(prompt).not.toContain("## Tool Budget")
+    })
+
+    it("builds the effective per-turn tool budget for the changing prompt suffix", () => {
+        const context = buildToolBudgetContext(5)
+
+        expect(context).toContain("## Tool Budget")
+        expect(context).toContain("This turn has 5 allocated tool calls maximum.")
+        expect(buildToolBudgetContext()).toBe("")
     })
 
     it("describes the ephemeral network-enabled code execution contract", () => {

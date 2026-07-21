@@ -77,7 +77,12 @@ import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
-import { buildCapabilityContext, buildPrompt, buildTemporalContext } from "./prompt"
+import {
+    buildCapabilityContext,
+    buildPrompt,
+    buildTemporalContext,
+    buildToolBudgetContext
+} from "./prompt"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     extraBody?: Record<string, unknown>
@@ -924,7 +929,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
-    const buildCurrentTurnContext = () =>
+    const buildCurrentTurnContext = (toolCallLimitPerTurn?: number) =>
         [
             buildCapabilityContext({
                 requestedTools: requestedEnabledTools,
@@ -933,7 +938,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 modelAbilities: modelData.abilities,
                 isAnonymous: user.isAnonymous
             }),
-            buildTemporalContext()
+            buildTemporalContext(),
+            buildToolBudgetContext(toolCallLimitPerTurn)
         ]
             .filter(Boolean)
             .join("\n\n")
@@ -1015,7 +1021,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     role: "system",
                     content: buildPrompt({
                         enabledTools: callableEnabledTools,
-                        toolCallLimitPerTurn: effectiveToolCallLimitPerTurn,
                         userSettings: settings,
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
                         includeTemporalContext: false
@@ -1024,7 +1029,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 ...prospectiveMappedMessages,
                 {
                     role: "system",
-                    content: buildCurrentTurnContext()
+                    content: buildCurrentTurnContext(effectiveToolCallLimitPerTurn)
                 }
             ]
 
@@ -1723,7 +1728,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         role: "system",
                         content: buildPrompt({
                             enabledTools: callableEnabledTools,
-                            toolCallLimitPerTurn: promptToolCallLimitPerTurn,
                             userSettings: settings,
                             personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
                             includeTemporalContext: false,
@@ -1741,7 +1745,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ...mapped_messages,
                     {
                         role: "system",
-                        content: buildCurrentTurnContext()
+                        content: buildCurrentTurnContext(promptToolCallLimitPerTurn)
                     }
                 ],
                 providerOptions: usesOpenRouter

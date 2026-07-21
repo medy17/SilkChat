@@ -4,6 +4,7 @@ const {
     buildPromptMock,
     buildCapabilityContextMock,
     buildTemporalContextMock,
+    buildToolBudgetContextMock,
     createUIMessageStreamMock,
     dbMessagesToCoreMock,
     generateThreadNameMock,
@@ -20,6 +21,7 @@ const {
     buildPromptMock: vi.fn(),
     buildCapabilityContextMock: vi.fn(),
     buildTemporalContextMock: vi.fn(),
+    buildToolBudgetContextMock: vi.fn(),
     createUIMessageStreamMock: vi.fn(),
     dbMessagesToCoreMock: vi.fn(),
     generateThreadNameMock: vi.fn(),
@@ -183,7 +185,8 @@ vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
 vi.mock("../../convex/chat_http/prompt", () => ({
     buildCapabilityContext: buildCapabilityContextMock,
     buildPrompt: buildPromptMock,
-    buildTemporalContext: buildTemporalContextMock
+    buildTemporalContext: buildTemporalContextMock,
+    buildToolBudgetContext: buildToolBudgetContextMock
 }))
 
 vi.mock("../../convex/lib/models", () => ({
@@ -325,6 +328,9 @@ describe("chatPOST", () => {
     beforeEach(() => {
         buildPromptMock.mockReset().mockReturnValue("system prompt")
         buildTemporalContextMock.mockReset().mockReturnValue("temporal context")
+        buildToolBudgetContextMock
+            .mockReset()
+            .mockImplementation((limit?: number) => (limit ? `tool budget: ${limit}` : ""))
         createUIMessageStreamMock.mockReset().mockImplementation(
             ({
                 execute,
@@ -1503,7 +1509,6 @@ describe("chatPOST", () => {
         expect(buildPromptMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 enabledTools: ["web_search"],
-                toolCallLimitPerTurn: 3,
                 userSettings: expect.objectContaining({
                     mcpServers: []
                 }),
@@ -1543,7 +1548,7 @@ describe("chatPOST", () => {
                     },
                     {
                         role: "system",
-                        content: "temporal context"
+                        content: "temporal context\n\ntool budget: 3"
                     }
                 ]
             })
