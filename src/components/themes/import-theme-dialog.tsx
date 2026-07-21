@@ -31,7 +31,9 @@ type ThemeImportForm = z.infer<typeof formSchema>
 interface ImportThemeDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onThemeImported: (preset: ThemePreset, url: string) => void
+    onThemeImported: (preset: ThemePreset, url: string) => Promise<void>
+    canImport?: boolean
+    maxImportedThemes?: number
     nested?: boolean
     className?: string
 }
@@ -40,6 +42,8 @@ export function ImportThemeDialog({
     open,
     onOpenChange,
     onThemeImported,
+    canImport = true,
+    maxImportedThemes,
     nested = false,
     className
 }: ImportThemeDialogProps) {
@@ -63,10 +67,10 @@ export function ImportThemeDialog({
                 throw new Error(fetchedTheme.error)
             }
 
+            await onThemeImported(fetchedTheme.preset, fetchedTheme.url)
             return fetchedTheme
         },
         onSuccess: (fetchedTheme) => {
-            onThemeImported(fetchedTheme.preset, fetchedTheme.url)
             form.reset() // Clear form on success
             onOpenChange(false) // Close modal
 
@@ -76,7 +80,7 @@ export function ImportThemeDialog({
     })
 
     const onSubmit = (data: ThemeImportForm) => {
-        if (data.url.trim()) {
+        if (canImport && data.url.trim()) {
             fetchAndApplyThemeMutation.mutate(data.url.trim())
         }
     }
@@ -108,7 +112,7 @@ export function ImportThemeDialog({
                             <Input
                                 type="url"
                                 placeholder="https://tweakcn.com/themes/themeId"
-                                disabled={fetchAndApplyThemeMutation.isPending}
+                                disabled={!canImport || fetchAndApplyThemeMutation.isPending}
                                 autoFocus
                                 {...field}
                             />
@@ -126,6 +130,15 @@ export function ImportThemeDialog({
                     </p>
                 </div>
             )}
+
+            {!canImport && maxImportedThemes !== undefined && (
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3">
+                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                        You can save up to {maxImportedThemes} themes. Remove one to add another.
+                    </p>
+                </div>
+            )}
         </>
     )
 
@@ -133,7 +146,7 @@ export function ImportThemeDialog({
         <Button
             type="submit"
             form="theme-import-form"
-            disabled={fetchAndApplyThemeMutation.isPending}
+            disabled={!canImport || fetchAndApplyThemeMutation.isPending}
         >
             {fetchAndApplyThemeMutation.isPending ? (
                 <>
@@ -163,7 +176,10 @@ export function ImportThemeDialog({
                 {formFields}
                 <div className="flex justify-end gap-2">
                     {cancelButton}
-                    <Button type="submit" disabled={fetchAndApplyThemeMutation.isPending}>
+                    <Button
+                        type="submit"
+                        disabled={!canImport || fetchAndApplyThemeMutation.isPending}
+                    >
                         {fetchAndApplyThemeMutation.isPending ? (
                             <>
                                 <LoaderIcon className="size-4 animate-spin" />

@@ -62,13 +62,45 @@ export function getThemeName(themeData: ExternalTheme, url: string): string {
     return "Custom Theme"
 }
 
+export function getThemeResourceUrl(url: string): string {
+    try {
+        const parsedUrl = new URL(url)
+        if (parsedUrl.origin !== "https://tweakcn.com") return url
+
+        if (parsedUrl.pathname === "/editor/theme") {
+            const themeId = parsedUrl.searchParams.get("theme")
+            if (themeId) return `https://tweakcn.com/r/themes/${themeId}.json`
+        }
+
+        if (parsedUrl.pathname.startsWith("/themes/")) {
+            return `https://tweakcn.com/r${parsedUrl.pathname}`
+        }
+
+        parsedUrl.hash = ""
+        return parsedUrl.toString()
+    } catch {
+        return url
+    }
+}
+
+export function getBuiltInThemeUrl(url: string): string | undefined {
+    const resourceUrl = getThemeResourceUrl(url)
+    return THEME_URLS.find((builtInUrl) => getThemeResourceUrl(builtInUrl) === resourceUrl)
+}
+
+export function isMissingImportedThemeSelection(
+    selectedThemeUrl: string | null,
+    importedThemeUrls: readonly string[]
+): boolean {
+    return Boolean(
+        selectedThemeUrl &&
+            !getBuiltInThemeUrl(selectedThemeUrl) &&
+            !importedThemeUrls.includes(selectedThemeUrl)
+    )
+}
+
 export async function fetchThemeFromUrl(url: string): Promise<FetchedTheme> {
-    const baseUrl = "https://tweakcn.com/r/themes/"
-    const isBuiltInUrl = url.includes("editor/theme?theme=")
-    const transformedUrl =
-        url
-            .replace("https://tweakcn.com/editor/theme?theme=", baseUrl)
-            .replace("https://tweakcn.com/themes/", baseUrl) + (isBuiltInUrl ? ".json" : "")
+    const transformedUrl = getThemeResourceUrl(url)
 
     try {
         const response = await fetch(transformedUrl)
@@ -76,13 +108,17 @@ export async function fetchThemeFromUrl(url: string): Promise<FetchedTheme> {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
         const themeData = await response.json()
-        const themePreset = applyBuiltInThemeOverrides(url, convertToThemePreset(themeData))
+        const builtInThemeUrl = getBuiltInThemeUrl(url)
+        const themePreset = applyBuiltInThemeOverrides(
+            builtInThemeUrl ?? url,
+            convertToThemePreset(themeData)
+        )
         const themeName = getThemeName(themeData, url)
         return {
             name: themeName,
             preset: themePreset,
             url,
-            type: THEME_URLS.includes(url) ? "built-in" : "custom"
+            type: builtInThemeUrl ? "built-in" : "custom"
         }
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch theme"
@@ -91,7 +127,7 @@ export async function fetchThemeFromUrl(url: string): Promise<FetchedTheme> {
             preset: { cssVars: { theme: {}, light: {}, dark: {} } },
             url,
             error: errorMessage,
-            type: THEME_URLS.includes(url) ? "built-in" : "custom"
+            type: getBuiltInThemeUrl(url) ? "built-in" : "custom"
         }
     }
 }

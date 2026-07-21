@@ -1,0 +1,2 @@
+export const MAX_IMPORTED_THEMES = 5
+export const COLLAPSED_IMPORTED_THEME_COUNT = 3

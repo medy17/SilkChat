@@ -1,10 +1,13 @@
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useThemeManagement } from "@/hooks/use-theme-management"
+import { COLLAPSED_IMPORTED_THEME_COUNT } from "@/lib/imported-theme-limits"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 import { type FetchedTheme, extractThemeColors } from "@/lib/theme-utils"
 import { cn } from "@/lib/utils"
 import {
     CheckCircle,
+    ChevronDown,
+    ChevronUp,
     LoaderIcon,
     MonitorIcon,
     MoonIcon,
@@ -12,9 +15,21 @@ import {
     PlusIcon,
     Search,
     ShuffleIcon,
-    SunIcon
+    SunIcon,
+    Trash2
 } from "lucide-react"
 import { useState } from "react"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
+} from "../ui/alert-dialog"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import {
@@ -29,10 +44,11 @@ type ThemeButtonProps = {
     theme: FetchedTheme
     isSelected: boolean
     onSelect: (theme: FetchedTheme) => void
+    onDelete?: (url: string) => void
     currentMode: "light" | "dark"
 }
 
-function ThemeButton({ theme, isSelected, onSelect, currentMode }: ThemeButtonProps) {
+function ThemeButton({ theme, isSelected, onSelect, onDelete, currentMode }: ThemeButtonProps) {
     const colors =
         "error" in theme && theme.error
             ? []
@@ -41,55 +57,85 @@ function ThemeButton({ theme, isSelected, onSelect, currentMode }: ThemeButtonPr
               : []
 
     return (
-        <button
-            type="button"
-            key={theme.url}
-            onClick={() => onSelect(theme)}
-            onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    onSelect(theme)
-                }
-            }}
-            className={cn(
-                "w-full cursor-pointer overflow-hidden rounded-lg border transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
-                isSelected
-                    ? "border-primary shadow-sm ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/50",
-                "error" in theme && theme.error && "cursor-not-allowed opacity-50 hover:scale-100"
-            )}
-            disabled={"error" in theme && !!theme.error}
-        >
-            <div className="flex items-center justify-between p-3">
-                <div className="text-left">
-                    <div className="font-medium text-sm">{theme.name}</div>
+        <div className="group relative">
+            <button
+                type="button"
+                key={theme.url}
+                onClick={() => onSelect(theme)}
+                className={cn(
+                    "w-full cursor-pointer overflow-hidden rounded-lg border transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
+                    isSelected
+                        ? "border-primary shadow-sm ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/50",
+                    "error" in theme &&
+                        theme.error &&
+                        "cursor-not-allowed opacity-50 hover:scale-100"
+                )}
+                disabled={"error" in theme && !!theme.error}
+            >
+                <div className={cn("flex items-center justify-between p-3", onDelete && "pr-10")}>
+                    <div className="text-left">
+                        <div className="font-medium text-sm">{theme.name}</div>
+                        {isSelected && (
+                            <div className="text-muted-foreground text-xs">Currently active</div>
+                        )}
+                    </div>
                     {isSelected && (
-                        <div className="text-muted-foreground text-xs">Currently active</div>
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                            <CheckCircle className="size-4 text-primary" />
+                        </div>
                     )}
                 </div>
-                {isSelected && (
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        <CheckCircle className="size-4 text-primary" />
+                {colors.length > 0 && (
+                    <div className="flex h-2">
+                        {colors.map((color, index) => (
+                            <div
+                                key={index}
+                                className="flex-1"
+                                style={{
+                                    backgroundColor: color
+                                }}
+                            />
+                        ))}
                     </div>
                 )}
-            </div>
-            {colors.length > 0 && (
-                <div className="flex h-2">
-                    {colors.map((color, index) => (
-                        <div
-                            key={index}
-                            className="flex-1"
-                            style={{
-                                backgroundColor: color
-                            }}
-                        />
-                    ))}
-                </div>
+                {"error" in theme && theme.error && (
+                    <div className="p-3 pt-2 text-destructive text-xs">Error: {theme.error}</div>
+                )}
+            </button>
+            {onDelete && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1.5 right-1.5 size-7 text-muted-foreground opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100"
+                            aria-label={`Remove ${theme.name}`}
+                        >
+                            <Trash2 className="size-3.5" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Remove theme?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Remove “{theme.name}” from My Themes? It’ll also disappear from your
+                                other devices.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => onDelete(theme.url)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                Remove
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             )}
-            {"error" in theme && theme.error && (
-                <div className="p-3 pt-2 text-destructive text-xs">Error: {theme.error}</div>
-            )}
-        </button>
+        </div>
     )
 }
 
@@ -100,6 +146,7 @@ export function ThemeSwitcher({
 }) {
     const isMobile = useIsMobile()
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+    const [showAllImportedThemes, setShowAllImportedThemes] = useState(false)
 
     const {
         themeState,
@@ -111,8 +158,13 @@ export function ThemeSwitcher({
         isLegacyGreenThemeSelected,
         isLoadingThemes,
         filteredThemes,
+        customThemes,
+        builtInThemes,
+        maxImportedThemes,
+        canImportTheme,
         handleThemeImported,
         handleThemeSelect,
+        handleThemeDelete,
         toggleMode,
         resetToDefaultTheme,
         selectLegacyGreenTheme,
@@ -120,6 +172,10 @@ export function ThemeSwitcher({
     } = useThemeManagement()
     const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, resolvedMode)
     const legacyGreenThemeColors = extractThemeColors(LEGACY_GREEN_THEME_PRESET, resolvedMode)
+    const visibleCustomThemes =
+        searchQuery || showAllImportedThemes
+            ? customThemes
+            : customThemes.slice(0, COLLAPSED_IMPORTED_THEME_COUNT)
 
     return (
         <>
@@ -127,6 +183,8 @@ export function ThemeSwitcher({
                 open={isImportDialogOpen}
                 onOpenChange={setIsImportDialogOpen}
                 onThemeImported={handleThemeImported}
+                canImport={canImportTheme}
+                maxImportedThemes={maxImportedThemes}
                 nested={isMobile}
             />
             <div className="flex items-center gap-2">
@@ -212,6 +270,11 @@ export function ThemeSwitcher({
                                         e.preventDefault()
                                         setIsImportDialogOpen(true)
                                     }}
+                                    title={
+                                        canImportTheme
+                                            ? "Import theme"
+                                            : `You can save up to ${maxImportedThemes} themes`
+                                    }
                                 >
                                     <PlusIcon className="h-3.5 w-3.5" />
                                     Import
@@ -319,37 +382,13 @@ export function ThemeSwitcher({
                                                 </button>
                                             </div>
                                         </div>
-                                        {filteredThemes.filter((theme) => theme.type === "custom")
-                                            .length > 0 && (
+                                        {customThemes.length > 0 && (
                                             <div className="mt-2 mb-6">
                                                 <h4 className="mb-1 text-muted-foreground text-xs">
                                                     My Themes
                                                 </h4>
                                                 <div className="mt-1 grid grid-cols-1 gap-2">
-                                                    {filteredThemes
-                                                        .filter((theme) => theme.type === "custom")
-                                                        .map((theme) => (
-                                                            <ThemeButton
-                                                                key={theme.url}
-                                                                theme={theme}
-                                                                isSelected={
-                                                                    selectedThemeUrl === theme.url
-                                                                }
-                                                                onSelect={handleThemeSelect}
-                                                                currentMode={resolvedMode}
-                                                            />
-                                                        ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="mb-2">
-                                            <h4 className="mb-1 text-muted-foreground text-xs">
-                                                Built-in Themes
-                                            </h4>
-                                            <div className="mt-1 grid grid-cols-1 gap-2">
-                                                {filteredThemes
-                                                    .filter((theme) => theme.type === "built-in")
-                                                    .map((theme) => (
+                                                    {visibleCustomThemes.map((theme) => (
                                                         <ThemeButton
                                                             key={theme.url}
                                                             theme={theme}
@@ -357,9 +396,50 @@ export function ThemeSwitcher({
                                                                 selectedThemeUrl === theme.url
                                                             }
                                                             onSelect={handleThemeSelect}
+                                                            onDelete={handleThemeDelete}
                                                             currentMode={resolvedMode}
                                                         />
                                                     ))}
+                                                </div>
+                                                {!searchQuery &&
+                                                    customThemes.length >
+                                                        COLLAPSED_IMPORTED_THEME_COUNT && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="mt-2 w-full text-xs"
+                                                            onClick={() =>
+                                                                setShowAllImportedThemes(
+                                                                    (value) => !value
+                                                                )
+                                                            }
+                                                        >
+                                                            {showAllImportedThemes ? (
+                                                                <ChevronUp className="size-3.5" />
+                                                            ) : (
+                                                                <ChevronDown className="size-3.5" />
+                                                            )}
+                                                            {showAllImportedThemes
+                                                                ? "Show fewer"
+                                                                : `View ${customThemes.length - COLLAPSED_IMPORTED_THEME_COUNT} more`}
+                                                        </Button>
+                                                    )}
+                                            </div>
+                                        )}
+                                        <div className="mb-2">
+                                            <h4 className="mb-1 text-muted-foreground text-xs">
+                                                Built-in Themes
+                                            </h4>
+                                            <div className="mt-1 grid grid-cols-1 gap-2">
+                                                {builtInThemes.map((theme) => (
+                                                    <ThemeButton
+                                                        key={theme.url}
+                                                        theme={theme}
+                                                        isSelected={selectedThemeUrl === theme.url}
+                                                        onSelect={handleThemeSelect}
+                                                        currentMode={resolvedMode}
+                                                    />
+                                                ))}
                                             </div>
                                         </div>
                                     </>

@@ -1,5 +1,7 @@
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { ChatError } from "@/lib/errors"
+import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
+import { getBuiltInThemeUrl } from "@/lib/theme-utils"
 import { type Infer, v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
@@ -24,6 +26,30 @@ import {
 } from "./schema/settings"
 
 type CoreProviderUsageMode = "priority" | "fallback"
+
+const normalizeImportedThemeUrl = (url: string) => {
+    const normalizedUrl = url.trim()
+    if (!normalizedUrl) throw new Error("Theme URL is required")
+    if (normalizedUrl.length > 2048) throw new Error("Theme URL is too long")
+    return normalizedUrl
+}
+
+const addImportedTheme = (themes: string[], url: string) => {
+    const normalizedUrl = normalizeImportedThemeUrl(url)
+    if (getBuiltInThemeUrl(normalizedUrl)) return themes
+    if (themes.includes(normalizedUrl)) return themes
+    if (themes.length >= MAX_IMPORTED_THEMES) {
+        throw new Error(
+            `You can save up to ${MAX_IMPORTED_THEMES} themes. Remove one to add another.`
+        )
+    }
+    return [...themes, normalizedUrl]
+}
+
+const normalizeImportedThemes = (themes: string[] | undefined) =>
+    (themes ?? []).reduce<string[]>((normalizedThemes, url) => {
+        return addImportedTheme(normalizedThemes, url)
+    }, [])
 
 const CoreProviderUpdate = v.object({
     enabled: v.boolean(),
@@ -436,9 +462,11 @@ export const updateUserSettings = mutation({
         await assertAccountNotDeleting(ctx, user.id)
 
         const settings = await getSettings(ctx, args.userId)
+        const customThemes = normalizeImportedThemes(args.baseSettings.customThemes)
 
         const newSettings: Infer<typeof UserSettings> = {
             ...normalizeSettingsCustomModels(args.baseSettings),
+            customThemes,
             coreAIProviders: {},
             customAIProviders: {},
             generalProviders: {
@@ -515,14 +543,13 @@ export const addUserTheme = mutation({
         if ("error" in user) throw new Error("Unauthorized")
         await assertAccountNotDeleting(ctx, user.id)
         const settings = await getSettings(ctx, user.id)
-        const existingThemes = settings.customThemes ?? []
-
-        if (existingThemes.includes(args.url)) return
-        if (existingThemes.length >= 5) throw new Error("Maximum number of themes reached")
+        const existingThemes = normalizeImportedThemes(settings.customThemes)
+        const updatedThemes = addImportedTheme(existingThemes, args.url)
+        if (updatedThemes === existingThemes) return
 
         const newSettings: Infer<typeof UserSettings> = {
             ...settings,
-            customThemes: [...existingThemes, args.url]
+            customThemes: updatedThemes
         }
 
         if (settings._id) {
@@ -544,7 +571,9 @@ export const deleteUserTheme = mutation({
         const settings = await getSettings(ctx, user.id)
 
         const existingThemes = settings.customThemes ?? []
-        const updatedThemes = existingThemes.filter((t) => t !== args.url)
+        const url = normalizeImportedThemeUrl(args.url)
+        const updatedThemes = existingThemes.filter((t) => t !== url)
+        if (updatedThemes.length === existingThemes.length) return
 
         const newSettings: Infer<typeof UserSettings> = {
             ...settings,
@@ -785,14 +814,13 @@ export const updateUserSettingsPartial = mutation({
 
         // Handle theme updates
         if (args.addTheme) {
-            const existingThemes = newSettings.customThemes || []
-            if (!existingThemes.includes(args.addTheme) && existingThemes.length < 5) {
-                newSettings.customThemes = [...existingThemes, args.addTheme]
-            }
+            const existingThemes = normalizeImportedThemes(newSettings.customThemes)
+            newSettings.customThemes = addImportedTheme(existingThemes, args.addTheme)
         }
         if (args.removeTheme) {
             const existingThemes = newSettings.customThemes || []
-            newSettings.customThemes = existingThemes.filter((t) => t !== args.removeTheme)
+            const url = normalizeImportedThemeUrl(args.removeTheme)
+            newSettings.customThemes = existingThemes.filter((t) => t !== url)
         }
 
         // Save settings

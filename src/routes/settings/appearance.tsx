@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useThemeManagement } from "@/hooks/use-theme-management"
 import { useChatWidthStore } from "@/lib/chat-width-store"
+import { COLLAPSED_IMPORTED_THEME_COUNT } from "@/lib/imported-theme-limits"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 import { type FetchedTheme, extractThemeColors } from "@/lib/theme-utils"
@@ -24,6 +25,8 @@ import { cn } from "@/lib/utils"
 import { createFileRoute } from "@tanstack/react-router"
 import {
     CheckCircle,
+    ChevronDown,
+    ChevronUp,
     ExternalLinkIcon,
     Eye,
     MonitorIcon,
@@ -77,7 +80,7 @@ const ThemeCard = memo(({ theme, isSelected, onSelect, onDelete, currentMode }: 
                 disabled={"error" in theme && !!theme.error}
             >
                 <div className="min-w-0 flex-1">
-                    <div className="mb-3 flex items-center gap-2">
+                    <div className={cn("mb-3 flex items-center gap-2", onDelete && "pr-8")}>
                         <h4 className="truncate font-medium text-foreground text-sm">
                             {theme.name}
                         </h4>
@@ -106,46 +109,46 @@ const ThemeCard = memo(({ theme, isSelected, onSelect, onDelete, currentMode }: 
                         </div>
                     )}
                 </div>
-
-                {isCustomTheme && onDelete && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                variant="link"
-                                size="sm"
-                                className="absolute top-2 right-2 h-6 w-6 rounded-md p-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Trash2 className="h-3 w-3" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Custom Theme</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Are you sure you want to delete "{theme.name}"? This action
-                                    cannot be undone.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => onDelete(theme.url)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
             </button>
+            {isCustomTheme && onDelete && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 size-7 text-muted-foreground opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100"
+                            aria-label={`Remove ${theme.name}`}
+                        >
+                            <Trash2 className="size-3.5" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Remove theme?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Remove “{theme.name}” from My Themes? It’ll also disappear from your
+                                other devices.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => onDelete(theme.url)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                Remove
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
         </Card>
     )
 })
 
 function AppearanceSettings() {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+    const [showAllImportedThemes, setShowAllImportedThemes] = useState(false)
     const { chatWidthState, setChatWidth } = useChatWidthStore()
     const { footerMode, setFooterMode } = useMessageFooterStore()
 
@@ -162,6 +165,8 @@ function AppearanceSettings() {
         filteredThemes,
         customThemes,
         builtInThemes,
+        maxImportedThemes,
+        canImportTheme,
         handleThemeImported,
         handleThemeSelect,
         handleThemeDelete,
@@ -172,6 +177,10 @@ function AppearanceSettings() {
     } = useThemeManagement()
     const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, resolvedMode)
     const legacyGreenThemeColors = extractThemeColors(LEGACY_GREEN_THEME_PRESET, resolvedMode)
+    const visibleCustomThemes =
+        searchQuery || showAllImportedThemes
+            ? customThemes
+            : customThemes.slice(0, COLLAPSED_IMPORTED_THEME_COUNT)
 
     if (!session.user?.id) {
         return (
@@ -197,6 +206,8 @@ function AppearanceSettings() {
                 open={isImportDialogOpen}
                 onOpenChange={setIsImportDialogOpen}
                 onThemeImported={handleThemeImported}
+                canImport={canImportTheme}
+                maxImportedThemes={maxImportedThemes}
             />
 
             <div className="space-y-8">
@@ -486,7 +497,15 @@ function AppearanceSettings() {
                         >
                             <ShuffleIcon className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsImportDialogOpen(true)}
+                            title={
+                                canImportTheme
+                                    ? "Import theme"
+                                    : `You can save up to ${maxImportedThemes} themes`
+                            }
+                        >
                             <PlusIcon className="h-4 w-4" />
                             Import Theme
                         </Button>
@@ -590,7 +609,7 @@ function AppearanceSettings() {
                                         My Themes ({customThemes.length})
                                     </h4>
                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        {customThemes.map((theme) => (
+                                        {visibleCustomThemes.map((theme) => (
                                             <ThemeCard
                                                 key={theme.url}
                                                 theme={theme}
@@ -601,6 +620,25 @@ function AppearanceSettings() {
                                             />
                                         ))}
                                     </div>
+                                    {!searchQuery &&
+                                        customThemes.length > COLLAPSED_IMPORTED_THEME_COUNT && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    setShowAllImportedThemes((value) => !value)
+                                                }
+                                            >
+                                                {showAllImportedThemes ? (
+                                                    <ChevronUp className="size-4" />
+                                                ) : (
+                                                    <ChevronDown className="size-4" />
+                                                )}
+                                                {showAllImportedThemes
+                                                    ? "Show fewer"
+                                                    : `View ${customThemes.length - COLLAPSED_IMPORTED_THEME_COUNT} more`}
+                                            </Button>
+                                        )}
                                 </div>
                             )}
 

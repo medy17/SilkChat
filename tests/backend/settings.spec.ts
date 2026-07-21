@@ -54,6 +54,10 @@ vi.mock("../../convex/lib/encryption", () => ({
     encryptKey: encryptKeyMock
 }))
 
+vi.mock("../../convex/lib/account_deletion_status", () => ({
+    assertAccountNotDeleting: vi.fn()
+}))
+
 vi.mock("../../convex/lib/identity", () => ({
     getUserIdentity: getUserIdentityMock
 }))
@@ -104,6 +108,8 @@ vi.mock("../../convex/schema/settings", () => ({
 import { ChatError } from "@/lib/errors"
 import { MODELS_SHARED as SETTINGS_TEST_MODELS } from "../../convex/lib/models"
 import {
+    addUserTheme,
+    deleteUserTheme,
     getSharedModels,
     getUserRegistryInternal,
     updateUserSettings,
@@ -120,6 +126,12 @@ const updateUserSettingsHandler = updateUserSettings as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const updateUserSettingsPartialHandler = updateUserSettingsPartial as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const addUserThemeHandler = addUserTheme as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const deleteUserThemeHandler = deleteUserTheme as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
@@ -703,6 +715,81 @@ describe("settings", () => {
             "settings-id",
             expect.objectContaining({
                 imageGenerationDefaults: { variants: 3, resolution: "2K" }
+            })
+        )
+    })
+
+    it("adds a normalized imported theme to synced settings", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            customThemes: ["https://tweakcn.com/themes/one"]
+        })
+
+        await addUserThemeHandler.handler(ctx, {
+            url: "  https://tweakcn.com/themes/two  "
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                customThemes: ["https://tweakcn.com/themes/one", "https://tweakcn.com/themes/two"]
+            })
+        )
+    })
+
+    it("rejects an imported theme after the sync limit is reached", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            customThemes: Array.from(
+                { length: 5 },
+                (_, index) => `https://tweakcn.com/themes/${index}`
+            )
+        })
+
+        await expect(
+            addUserThemeHandler.handler(ctx, { url: "https://tweakcn.com/themes/overflow" })
+        ).rejects.toThrow("You can save up to 5 themes")
+        expect(ctx.db.patch).not.toHaveBeenCalled()
+    })
+
+    it("does not consume a synced slot for an alternate URL of a built-in theme", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            customThemes: Array.from(
+                { length: 5 },
+                (_, index) => `https://tweakcn.com/themes/${index}`
+            )
+        })
+
+        await addUserThemeHandler.handler(ctx, {
+            url: "https://tweakcn.com/r/themes/mono.json"
+        })
+
+        expect(ctx.db.patch).not.toHaveBeenCalled()
+    })
+
+    it("removes an imported theme from synced settings", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            customThemes: ["https://tweakcn.com/themes/one", "https://tweakcn.com/themes/two"]
+        })
+
+        await deleteUserThemeHandler.handler(ctx, {
+            url: "https://tweakcn.com/themes/one"
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                customThemes: ["https://tweakcn.com/themes/two"]
             })
         )
     })

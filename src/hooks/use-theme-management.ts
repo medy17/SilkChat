@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
+import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
 import type { ThemeMode } from "@/lib/theme-mode"
 import {
     LEGACY_GREEN_THEME_URL,
@@ -13,7 +14,9 @@ import {
     type FetchedTheme,
     THEME_URLS,
     type ThemePreset,
-    fetchThemeFromUrl
+    fetchThemeFromUrl,
+    getBuiltInThemeUrl,
+    isMissingImportedThemeSelection
 } from "@/lib/theme-utils"
 import { toggleThemeMode } from "@/lib/toggle-theme-mode"
 import { useConvexQuery } from "@convex-dev/react-query"
@@ -44,14 +47,23 @@ export function useThemeManagement() {
     const addTheme = useMutation(api.settings.addUserTheme)
     const deleteTheme = useMutation(api.settings.deleteUserTheme)
 
+    const importedThemeUrls = useMemo<string[]>(() => {
+        if (!userSettings || "error" in userSettings) return []
+        return Array.from(
+            new Set(
+                ((userSettings.customThemes ?? []) as string[]).filter(
+                    (url) => !getBuiltInThemeUrl(url)
+                )
+            )
+        )
+    }, [userSettings])
+
     // Combine built-in and user-saved theme URLs (deduplicated)
     const allThemeUrls = useMemo(() => {
         const urlSet = new Set<string>(THEME_URLS)
-        if (userSettings && !("error" in userSettings)) {
-            ;(userSettings.customThemes ?? []).forEach((url: string) => urlSet.add(url))
-        }
+        importedThemeUrls.forEach((url) => urlSet.add(url))
         return Array.from(urlSet)
-    }, [userSettings])
+    }, [importedThemeUrls])
 
     const { data: fetchedThemes = [], isLoading: isLoadingThemes } = useQuery({
         queryKey: ["themes", allThemeUrls],
@@ -100,6 +112,18 @@ export function useThemeManagement() {
     }, [resolvedSelectedThemeUrl, selectedThemeUrl, setSelectedThemeUrl])
 
     useEffect(() => {
+        const settingsHaveLoaded = Boolean(
+            session.user?.id && userSettings && !("error" in userSettings)
+        )
+        if (
+            settingsHaveLoaded &&
+            isMissingImportedThemeSelection(selectedThemeUrl, importedThemeUrls)
+        ) {
+            resetThemeToDefault()
+        }
+    }, [importedThemeUrls, resetThemeToDefault, selectedThemeUrl, session.user?.id, userSettings])
+
+    useEffect(() => {
         if (!selectedThemeUrl || !THEME_URLS.includes(selectedThemeUrl)) {
             return
         }
@@ -126,18 +150,26 @@ export function useThemeManagement() {
         })
     }
 
-    const handleThemeImported = (preset: ThemePreset, url: string) => {
-        applyThemePreset(preset)
-        setSelectedThemeUrl(url)
-
-        if (!THEME_URLS.includes(url)) {
+    const handleThemeImported = async (preset: ThemePreset, url: string) => {
+        const builtInThemeUrl = getBuiltInThemeUrl(url)
+        if (builtInThemeUrl) {
+            toast.info("This theme is already included")
+        } else {
             try {
-                addTheme({ url })
-                toast.success("Theme imported successfully")
+                await addTheme({ url })
             } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Failed to add theme")
+                if (error instanceof Error && error.message.includes("You can save up to")) {
+                    throw new Error(
+                        `You can save up to ${MAX_IMPORTED_THEMES} themes. Remove one to add another.`
+                    )
+                }
+                throw new Error("Couldn’t add this theme. Try again.")
             }
+            toast.success("Theme added")
         }
+
+        applyThemePreset(preset)
+        setSelectedThemeUrl(builtInThemeUrl ?? url)
     }
 
     const handleThemeSelect = (theme: FetchedTheme) => {
@@ -151,10 +183,17 @@ export function useThemeManagement() {
         }
     }
 
-    const handleThemeDelete = (url: string) => {
+    const handleThemeDelete = async (url: string) => {
         if (THEME_URLS.includes(url)) return
-        deleteTheme({ url })
-        toast.success("Theme deleted successfully")
+        try {
+            await deleteTheme({ url })
+            if (resolvedSelectedThemeUrl === url) {
+                resetThemeToDefault()
+            }
+            toast.success("Theme removed")
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Couldn’t remove this theme")
+        }
     }
 
     const toggleMode = () => {
@@ -206,6 +245,8 @@ export function useThemeManagement() {
         filteredThemes,
         customThemes,
         builtInThemes,
+        maxImportedThemes: MAX_IMPORTED_THEMES,
+        canImportTheme: importedThemeUrls.length < MAX_IMPORTED_THEMES,
 
         // Actions
         handleThemeImported,

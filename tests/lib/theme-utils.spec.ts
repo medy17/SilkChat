@@ -4,6 +4,11 @@ import {
     type ThemePresetLike,
     applyBuiltInThemeOverrides
 } from "@/lib/theme-font-config"
+import {
+    getBuiltInThemeUrl,
+    getThemeResourceUrl,
+    isMissingImportedThemeSelection
+} from "@/lib/theme-utils"
 import { describe, expect, it } from "vitest"
 
 function createPreset(fontSans: string): ThemePresetLike {
@@ -50,5 +55,30 @@ describe("applyBuiltInThemeOverrides", () => {
         )
 
         expect(result).toEqual(preset)
+    })
+})
+
+describe("theme URL identity", () => {
+    it("recognizes alternate tweakcn URLs for a built-in theme", () => {
+        expect(getThemeResourceUrl("https://tweakcn.com/editor/theme?theme=mono")).toBe(
+            "https://tweakcn.com/r/themes/mono.json"
+        )
+        expect(getBuiltInThemeUrl("https://tweakcn.com/r/themes/mono.json")).toBe(
+            "https://tweakcn.com/editor/theme?theme=mono"
+        )
+    })
+
+    it("does not classify an unrelated imported theme as built-in", () => {
+        expect(getBuiltInThemeUrl("https://tweakcn.com/r/themes/my-theme.json")).toBeUndefined()
+    })
+
+    it("detects a selected imported theme that is no longer synced", () => {
+        const selectedThemeUrl = "https://tweakcn.com/r/themes/my-theme.json"
+
+        expect(isMissingImportedThemeSelection(selectedThemeUrl, [])).toBe(true)
+        expect(isMissingImportedThemeSelection(selectedThemeUrl, [selectedThemeUrl])).toBe(false)
+        expect(isMissingImportedThemeSelection("https://tweakcn.com/r/themes/mono.json", [])).toBe(
+            false
+        )
     })
 })
