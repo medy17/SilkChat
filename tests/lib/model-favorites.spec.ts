@@ -1,6 +1,7 @@
 import type { SharedModel } from "@/convex/lib/models"
 import {
     DEFAULT_FAVORITE_MODEL_IDS,
+    getFavoriteModelIdsByRecentlyAdded,
     getFavoriteToggleAction,
     getModelFavoritesStorageKey,
     reconcileFavoriteModelIds,
@@ -11,6 +12,14 @@ import { describe, expect, it } from "vitest"
 describe("model favorites", () => {
     it("seeds a varied default set when no preference has been saved", () => {
         expect(resolveFavoriteModelIds(null)).toEqual(DEFAULT_FAVORITE_MODEL_IDS)
+        expect(getFavoriteModelIdsByRecentlyAdded(DEFAULT_FAVORITE_MODEL_IDS)).toEqual([
+            "gpt-5.6-luna",
+            "gpt-5.6-sol",
+            "claude-sonnet-5",
+            "gemini-3.5-flash",
+            "grok-4.5",
+            "deepseek-v4-pro"
+        ])
     })
 
     it("preserves an intentionally empty favorites list", () => {
@@ -27,6 +36,17 @@ describe("model favorites", () => {
 
     it("scopes favorites to the signed-in user", () => {
         expect(getModelFavoritesStorageKey("user-123")).toBe("model-selector-favorites:user-123")
+    })
+
+    it("orders favorites by most recently added", () => {
+        const storedOrder = ["oldest", "middle", "newest"]
+
+        expect(getFavoriteModelIdsByRecentlyAdded(storedOrder)).toEqual([
+            "newest",
+            "middle",
+            "oldest"
+        ])
+        expect(storedOrder).toEqual(["oldest", "middle", "newest"])
     })
 
     it("requires a second activation before removing a favorite", () => {

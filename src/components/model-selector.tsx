@@ -41,6 +41,7 @@ import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
 import {
     DEFAULT_FAVORITE_MODEL_IDS,
     FAVORITES_SECTION_ID,
+    getFavoriteModelIdsByRecentlyAdded,
     getFavoriteToggleAction,
     getModelFavoritesStorageKey,
     reconcileFavoriteModelIds,
@@ -1429,10 +1430,12 @@ export function ModelSelector({
             })
 
         const modelsById = new Map(textModels.map((model) => [model.id, model]))
-        const favoriteModels = favoriteModelIds.flatMap((modelId) => {
-            const model = modelsById.get(modelId)
-            return model ? [model] : []
-        })
+        const favoriteModels = getFavoriteModelIdsByRecentlyAdded(favoriteModelIds).flatMap(
+            (modelId) => {
+                const model = modelsById.get(modelId)
+                return model ? [model] : []
+            }
+        )
 
         return [
             {
