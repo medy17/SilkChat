@@ -78,6 +78,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.1-flash-lite-preview",
         name: "Gemini 3.1 Flash Lite Preview",
         shortName: "3.1 Flash Lite Preview",
+        shortDescription: "Early look at Google's leanest Gemini for quick multimodal work",
+        description:
+            "Gemini 3.1 Flash Lite Preview was the first public taste of Google's lowest-latency 3.1 model. It brought lightweight reasoning, tools, and multimodal input to high-volume jobs before graduating into the stable Flash Lite release.",
         developer: "Google",
         releaseOrder: 20260303,
         adapters: googleTextAdapters("gemini-3.1-flash-lite-preview"),
@@ -109,6 +112,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.5-flash",
         name: "Gemini 2.5 Flash",
         shortName: "2.5 Flash",
+        shortDescription: "Fast hybrid thinker with enough depth for serious everyday work",
+        description:
+            "Gemini 2.5 Flash is the quick-footed member of Google's thinking-model family, balancing deliberate reasoning with the latency and volume expected of Flash. It is a flexible choice for code, search, tools, and multimodal prompts when Pro would be more muscle than the job needs.",
         releaseOrder: 20250617,
         adapters: googleTextAdapters("gemini-2.5-flash"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
@@ -122,6 +128,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.5-flash-lite",
         name: "Gemini 2.5 Flash Lite",
         shortName: "2.5 Flash Lite",
+        shortDescription: "Google's thriftiest 2.5 model for fast, high-volume multimodal chores",
+        description:
+            "Gemini 2.5 Flash Lite is built for the conveyor belt: translation, classification, extraction, and other latency-sensitive work at serious scale. It still carries a million-token context, multimodal input, tools, and adjustable thinking, so inexpensive does not have to mean bare-bones.",
         releaseOrder: 20250617,
         adapters: googleTextAdapters("gemini-2.5-flash-lite"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
@@ -135,6 +144,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.5-pro",
         name: "Gemini 2.5 Pro",
         shortName: "2.5 Pro",
+        shortDescription: "Deep multimodal thinker with a gift for code, learning, and long context",
+        description:
+            "Gemini 2.5 Pro is Google's flagship thinking model for complex reasoning, ambitious coding, and rich multimodal analysis. Its million-token context and strong long-video understanding make it especially good at learning from sprawling source material before turning insight into something useful.",
         releaseOrder: 20250617,
         adapters: googleTextAdapters("gemini-2.5-pro"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
@@ -146,6 +158,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.0-flash",
         name: "Gemini 2.0 Flash",
         shortName: "2.0 Flash",
+        shortDescription: "Low-latency multimodal workhorse from the dawn of Gemini's agentic era",
+        description:
+            "Gemini 2.0 Flash is Google's efficient multimodal workhorse for high-frequency tasks, with a million-token context and a taste for tools. It helped usher Gemini into the agentic era while staying quick enough for everyday production traffic.",
         releaseOrder: 20250205,
         adapters: googleTextAdapters("gemini-2.0-flash"),
         abilities: ["vision", "function_calling", "native_pdf"],
@@ -158,6 +173,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.0-flash-lite",
         name: "Gemini 2.0 Flash Lite",
         shortName: "2.0 Flash Lite",
+        shortDescription: "No-frills Gemini speed for classification, captions, and work by the million",
+        description:
+            "Gemini 2.0 Flash Lite pares the family down for jobs where every millisecond and fraction of a cent counts. It handles multimodal input and vast batches with a million-token window, making it a cheerful little engine for captions, extraction, translation, and classification.",
         releaseOrder: 20250205,
         adapters: googleTextAdapters("gemini-2.0-flash-lite"),
         abilities: ["vision", "function_calling", "native_pdf"],
@@ -170,6 +188,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3-pro-preview",
         name: "Gemini 3 Pro",
         shortName: "3 Pro",
+        shortDescription: "Vision-first Gemini flagship for agents, code, and spatially messy problems",
+        description:
+            "Gemini 3 Pro Preview pushed Google's flagship into richer visual and spatial reasoning, from dense documents and long video to screens and physical layouts. It is a powerful builder and agent model when the task calls for understanding what is on the page, where it sits, and what to do next.",
         releaseOrder: 20251118,
         adapters: googleTextAdapters("gemini-3-pro-preview"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
