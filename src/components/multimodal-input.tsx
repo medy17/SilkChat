@@ -1242,6 +1242,7 @@ export const MultimodalInput = forwardRef<
         threadId?: string
         folderId?: string
         isActive?: boolean
+        showIntentShortcuts?: boolean
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
     }
@@ -1252,6 +1253,7 @@ export const MultimodalInput = forwardRef<
         threadId,
         folderId,
         isActive = true,
+        showIntentShortcuts = false,
         threadHasPdfAttachments = false,
         messages = []
     },
@@ -2142,6 +2144,21 @@ export const MultimodalInput = forwardRef<
     const [isClient, setIsClient] = useState(false)
     const isNewChatComposer = !threadId && messages.length === 0
 
+    const prepareIntent = useCallback(
+        (prompt: string, tool?: AbilityId) => {
+            if (tool && !enabledTools.includes(tool)) {
+                setEnabledTools([...enabledTools, tool])
+            }
+
+            if (!promptInputRef.current?.getValue().trim()) {
+                promptInputRef.current?.setValue(prompt)
+                setInputValue(prompt)
+            }
+            promptInputRef.current?.focus()
+        },
+        [enabledTools, setEnabledTools]
+    )
+
     useEffect(() => {
         setIsClient(true)
     }, [])
@@ -2327,6 +2344,75 @@ export const MultimodalInput = forwardRef<
                         </PromptInputAction>
                     </PromptInputActions>
                 </PromptInput>
+
+                {showIntentShortcuts && isNewChatComposer && isInputEmpty && !isImageModel && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className={cn(
+                            "mx-auto mt-3 flex w-full flex-col gap-1 px-2",
+                            getChatWidthClass(chatWidthState.chatWidth)
+                        )}
+                        aria-label="Start with a capability"
+                    >
+                        {modelSupportsVision && modelSupportsFunctionCalling && (
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => prepareIntent("Create an image of ")}
+                            >
+                                <ImageIcon
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                    aria-hidden="true"
+                                />
+                                <span>Create an image</span>
+                            </button>
+                        )}
+
+                        {modelSupportsFunctionCalling && composerToolbar.webSearchAvailable && (
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => prepareIntent("Search the web for ", "web_search")}
+                            >
+                                <Globe
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                    aria-hidden="true"
+                                />
+                                <span>Search the web</span>
+                            </button>
+                        )}
+
+                        {modelSupportsFunctionCalling && codeExecutionAvailable && (
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() =>
+                                    prepareIntent("Analyze this data or code: ", "code_execution")
+                                }
+                            >
+                                <Code
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                    aria-hidden="true"
+                                />
+                                <span>Analyze data or code</span>
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={() => uploadInputRef.current?.click()}
+                        >
+                            <Paperclip
+                                className="-rotate-45 size-4 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                            />
+                            <span>Attach a file</span>
+                        </button>
+                    </motion.div>
+                )}
             </div>
 
             <Dialog

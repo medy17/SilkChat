@@ -581,6 +581,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         threadId={threadId}
                         folderId={folderId}
                         isActive={isActiveRoute}
+                        showIntentShortcuts={isEmpty && selectedPersona.source === "default"}
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}
                     />
