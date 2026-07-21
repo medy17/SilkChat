@@ -144,7 +144,8 @@ describe("API routes", () => {
             },
             access: {
                 isStaff: true,
-                bypassLimits: false
+                bypassLimits: false,
+                bypassToolCallLimits: true
             }
         })
 
@@ -155,6 +156,7 @@ describe("API routes", () => {
                     plan: "pro",
                     isStaff: true,
                     bypassLimits: false,
+                    bypassToolCallLimits: true,
                     usageScenario: "usage_5h_exhausted",
                     periodAnchorPreset: "ending_tomorrow"
                 })
@@ -165,6 +167,7 @@ describe("API routes", () => {
             plan: "pro",
             isStaff: true,
             bypassLimits: false,
+            bypassToolCallLimits: true,
             usageScenario: "usage_5h_exhausted",
             periodAnchorPreset: "ending_tomorrow"
         })
@@ -176,7 +179,8 @@ describe("API routes", () => {
             },
             access: {
                 isStaff: true,
-                bypassLimits: false
+                bypassLimits: false,
+                bypassToolCallLimits: true
             }
         })
     })

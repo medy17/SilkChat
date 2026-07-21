@@ -43,6 +43,7 @@ type CreditDevState = {
     access?: {
         isStaff?: boolean
         bypassLimits?: boolean
+        bypassToolCallLimits?: boolean
     }
 }
 
@@ -385,12 +386,14 @@ export function DevUtilityDock() {
             plan: creditState?.account?.plan ?? null,
             isStaff: creditState?.access?.isStaff ?? false,
             bypassLimits: creditState?.access?.bypassLimits ?? false,
+            bypassToolCallLimits: creditState?.access?.bypassToolCallLimits ?? false,
             convexUrl: optionalBrowserEnv("VITE_CONVEX_URL") ?? null,
             convexApiUrl: optionalBrowserEnv("VITE_CONVEX_API_URL") ?? null,
             localImageOptimizer: optionalBrowserEnv("VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED") === "1"
         }),
         [
             creditState?.access?.bypassLimits,
+            creditState?.access?.bypassToolCallLimits,
             creditState?.access?.isStaff,
             creditState?.account?.plan,
             location.pathname,
@@ -676,7 +679,12 @@ export function DevUtilityDock() {
                                             label="Access"
                                             value={[
                                                 diagnostics.isStaff ? "staff" : "not staff",
-                                                diagnostics.bypassLimits ? "bypass" : "limited"
+                                                diagnostics.bypassLimits
+                                                    ? "usage bypass"
+                                                    : "usage limited",
+                                                diagnostics.bypassToolCallLimits
+                                                    ? "tool bypass"
+                                                    : "tool limited"
                                             ].join(", ")}
                                         />
                                         <DiagnosticRow

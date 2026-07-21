@@ -64,6 +64,7 @@ export type PrototypeCreditDevState = {
     access: {
         isStaff: boolean
         bypassLimits: boolean
+        bypassToolCallLimits: boolean
     }
     period: {
         periodKey: string
@@ -77,6 +78,7 @@ export type PrototypeCreditDevStatePayload = {
     plan?: "free" | "pro"
     isStaff?: boolean
     bypassLimits?: boolean
+    bypassToolCallLimits?: boolean
     usageScenario?:
         | "normal_empty"
         | "staff_with_limits"

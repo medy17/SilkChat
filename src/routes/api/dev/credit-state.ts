@@ -20,6 +20,7 @@ type DevCreditStatePayload = {
     plan?: "free" | "pro"
     isStaff?: boolean
     bypassLimits?: boolean
+    bypassToolCallLimits?: boolean
     usageScenario?: string
     periodAnchorPreset?: string
 }
@@ -50,6 +51,13 @@ const validatePayload = (body: unknown): DevCreditStatePayload | { error: string
     if ("bypassLimits" in input) {
         if (typeof input.bypassLimits !== "boolean") return { error: "Invalid bypassLimits" }
         payload.bypassLimits = input.bypassLimits
+    }
+
+    if ("bypassToolCallLimits" in input) {
+        if (typeof input.bypassToolCallLimits !== "boolean") {
+            return { error: "Invalid bypassToolCallLimits" }
+        }
+        payload.bypassToolCallLimits = input.bypassToolCallLimits
     }
 
     if ("usageScenario" in input) {

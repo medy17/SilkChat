@@ -299,6 +299,7 @@ function PrototypeCreditDevLab({
 }) {
     const isStaff = devCreditState?.access.isStaff ?? false
     const bypassLimits = devCreditState?.access.bypassLimits ?? false
+    const bypassToolCallLimits = devCreditState?.access.bypassToolCallLimits ?? false
 
     return (
         <div className="space-y-3 rounded-[var(--radius-lg)] border border-dashed p-3">
@@ -353,10 +354,18 @@ function PrototypeCreditDevLab({
                     onCheckedChange={(checked) => onSetDevCreditState({ isStaff: checked })}
                 />
                 <DevAccessSwitch
-                    label="Bypass limits"
+                    label="Bypass usage limits"
                     checked={bypassLimits}
                     disabled={disabled}
                     onCheckedChange={(checked) => onSetDevCreditState({ bypassLimits: checked })}
+                />
+                <DevAccessSwitch
+                    label="Bypass tool call limit"
+                    checked={bypassToolCallLimits}
+                    disabled={disabled}
+                    onCheckedChange={(checked) =>
+                        onSetDevCreditState({ bypassToolCallLimits: checked })
+                    }
                 />
             </div>
 

@@ -71,6 +71,7 @@ export const PrototypeToolCallReservation = v.object({
     messageKey: v.string(),
     reservedCalls: v.number(),
     consumedCalls: v.number(),
+    bypassCallLimit: v.optional(v.boolean()),
     reservedBasicCredits: v.number(),
     consumedBasicCredits: v.number(),
     reservedMicrousd: v.optional(v.number()),

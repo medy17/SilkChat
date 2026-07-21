@@ -1,7 +1,7 @@
 import { AnimatedCollapsible } from "@/components/ui/animated-collapsible"
 import type { MessageWebSearch, WebSearchResult } from "@/lib/message-web-searches"
 import { cn } from "@/lib/utils"
-import { Check, ChevronDown, CircleAlert, ExternalLink, Globe, Loader2 } from "lucide-react"
+import { ChevronDown, CircleAlert, ExternalLink, Globe, Loader2 } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
 
 function getFaviconUrl(url: string): string {
@@ -125,9 +125,7 @@ const WebSearchStep = memo(({ search }: { search: MessageWebSearch }) => {
                     <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                 ) : search.status === "failed" ? (
                     <CircleAlert className="size-3.5 shrink-0 text-destructive" />
-                ) : (
-                    <Check className="size-3.5 shrink-0 text-primary" />
-                )}
+                ) : null}
                 <span className="min-w-0 flex-1 truncate font-medium text-sm">{search.query}</span>
                 {search.status !== "running" && (
                     <span className="shrink-0 text-muted-foreground text-xs">

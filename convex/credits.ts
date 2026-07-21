@@ -34,6 +34,7 @@ type UserAccessRecord = {
     _id?: string
     isStaff: boolean
     bypassLimits: boolean
+    bypassToolCallLimits?: boolean
 }
 
 const getCreditAccount = async (ctx: QueryCtx | MutationCtx, userId: string) => {
@@ -143,7 +144,8 @@ const getResolvedCreditPlan = (account: CreditAccountRecord | null | undefined) 
 
 const getResolvedUserAccess = (access: UserAccessRecord | null | undefined) => ({
     isStaff: access?.isStaff ?? false,
-    bypassLimits: access?.bypassLimits ?? false
+    bypassLimits: access?.bypassLimits ?? false,
+    bypassToolCallLimits: access?.bypassToolCallLimits ?? false
 })
 
 const DEV_CREDIT_LAB_MESSAGE_KEY_PREFIX = "dev-credit-lab:"
@@ -613,7 +615,8 @@ export const getUserCreditStateInternal = internalQuery({
             enabled: resolvedAccount.enabled,
             plan: resolvedAccount.plan,
             isStaff: resolvedAccess.isStaff,
-            bypassLimits: resolvedAccess.bypassLimits
+            bypassLimits: resolvedAccess.bypassLimits,
+            bypassToolCallLimits: resolvedAccess.bypassToolCallLimits
         }
     }
 })
@@ -765,6 +768,7 @@ export const setMyDevCreditState = mutation({
         plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
         isStaff: v.optional(v.boolean()),
         bypassLimits: v.optional(v.boolean()),
+        bypassToolCallLimits: v.optional(v.boolean()),
         usageScenario: v.optional(
             v.union(
                 v.literal("normal_empty"),
@@ -833,6 +837,8 @@ export const setMyDevCreditState = mutation({
                     : args.usageScenario === "staff_with_limits"
                       ? false
                       : (args.bypassLimits ?? existingAccess?.bypassLimits ?? false),
+            bypassToolCallLimits:
+                args.bypassToolCallLimits ?? existingAccess?.bypassToolCallLimits ?? false,
             updatedAt: now
         }
 
@@ -911,7 +917,8 @@ export const setMyDevCreditState = mutation({
             },
             access: {
                 isStaff: nextAccess.isStaff,
-                bypassLimits: nextAccess.bypassLimits
+                bypassLimits: nextAccess.bypassLimits,
+                bypassToolCallLimits: nextAccess.bypassToolCallLimits
             },
             period: {
                 periodKey: period.periodKey,
@@ -969,7 +976,8 @@ export const upsertUserAccessInternal = internalMutation({
     args: {
         userId: v.string(),
         isStaff: v.optional(v.boolean()),
-        bypassLimits: v.optional(v.boolean())
+        bypassLimits: v.optional(v.boolean()),
+        bypassToolCallLimits: v.optional(v.boolean())
     },
     handler: async (ctx, args) => {
         const existingAccess = await getUserAccess(ctx, args.userId)
@@ -977,6 +985,8 @@ export const upsertUserAccessInternal = internalMutation({
             userId: args.userId,
             isStaff: args.isStaff ?? existingAccess?.isStaff ?? false,
             bypassLimits: args.bypassLimits ?? existingAccess?.bypassLimits ?? false,
+            bypassToolCallLimits:
+                args.bypassToolCallLimits ?? existingAccess?.bypassToolCallLimits ?? false,
             updatedAt: Date.now()
         }
 
@@ -1298,27 +1308,20 @@ export const reserveToolCallBudget = internalMutation({
             return {
                 allowed: true,
                 existing: true,
-                bypassed: false,
+                bypassed: existing.bypassCallLimit === true,
                 reservedCalls: existing.reservedCalls
             }
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        if (access.bypassLimits) {
-            return {
-                allowed: true,
-                existing: false,
-                bypassed: true,
-                reservedCalls: args.reservedCalls
-            }
-        }
-
         const accountRecord = await ensureCreditAccountRecord(ctx, args.userId)
         const account = getResolvedCreditAccount(accountRecord)
         const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
 
-        const reservedMicrousd = Math.max(0, Math.round(args.reservedMicrousd ?? 0))
-        if (reservedMicrousd > 0) {
+        const reservedMicrousd = access.bypassLimits
+            ? 0
+            : Math.max(0, Math.round(args.reservedMicrousd ?? 0))
+        if (reservedMicrousd > 0 && !access.bypassLimits) {
             const usageBlocked = await evaluateHostedUsageReservation(ctx, {
                 userId: args.userId,
                 periodKey: period.periodKey,
@@ -1339,6 +1342,7 @@ export const reserveToolCallBudget = internalMutation({
             messageKey: args.messageKey,
             reservedCalls: args.reservedCalls,
             consumedCalls: 0,
+            bypassCallLimit: access.bypassToolCallLimits,
             reservedBasicCredits: 0,
             consumedBasicCredits: 0,
             reservedMicrousd,
@@ -1352,7 +1356,7 @@ export const reserveToolCallBudget = internalMutation({
         return {
             allowed: true,
             existing: false,
-            bypassed: false,
+            bypassed: access.bypassToolCallLimits,
             reservedCalls: args.reservedCalls
         }
     }
@@ -1397,32 +1401,6 @@ export const consumeReservedToolCall = internalMutation({
         }
 
         const access = getResolvedUserAccess(await getUserAccess(ctx, args.userId))
-        if (access.bypassLimits) {
-            const account = await getCreditAccount(ctx, args.userId)
-            const period = await getUserCreditPeriod(ctx, args.userId, account)
-            await ctx.db.insert("prototypeCreditEvents", {
-                userId: args.userId,
-                threadId: args.threadId,
-                messageId: args.messageId,
-                messageKey: args.messageKey,
-                modelId: args.modelId,
-                providerSource: args.providerSource,
-                feature: args.feature,
-                bucket: "none",
-                units: 0,
-                counted: args.counted,
-                periodKey: period.periodKey,
-                createdAt: Date.now()
-            })
-
-            return {
-                allowed: true,
-                existing: false,
-                bypassed: true,
-                remainingCalls: null
-            }
-        }
-
         const reservation = await getToolCallReservation(
             ctx,
             args.userId,
@@ -1437,8 +1415,9 @@ export const consumeReservedToolCall = internalMutation({
             }
         }
 
+        const bypassCallLimit = reservation.bypassCallLimit === true
         const remainingCalls = Math.max(0, reservation.reservedCalls - reservation.consumedCalls)
-        if (remainingCalls <= 0) {
+        if (!bypassCallLimit && remainingCalls <= 0) {
             return {
                 allowed: false,
                 reason: "budget_exhausted" as const,
@@ -1449,9 +1428,29 @@ export const consumeReservedToolCall = internalMutation({
 
         const nextConsumedCalls = reservation.consumedCalls + 1
         const chargedMicrousd =
-            args.counted && args.chargedMicrousd !== undefined
+            !access.bypassLimits && args.counted && args.chargedMicrousd !== undefined
                 ? Math.max(0, Math.round(args.chargedMicrousd))
                 : 0
+        if (
+            bypassCallLimit &&
+            chargedMicrousd > 0 &&
+            reservation.consumedCalls >= reservation.reservedCalls
+        ) {
+            const accountRecord = await ensureCreditAccountRecord(ctx, args.userId)
+            const account = getResolvedCreditAccount(accountRecord)
+            const period = await getUserCreditPeriod(ctx, args.userId, accountRecord)
+            const usageBlocked = await evaluateHostedUsageReservation(ctx, {
+                userId: args.userId,
+                periodKey: period.periodKey,
+                periodEndsAt: period.endsAt,
+                plan: account.plan,
+                account: accountRecord,
+                reservedMicrousd: chargedMicrousd
+            })
+            if (usageBlocked) {
+                return usageBlocked
+            }
+        }
         const nextConsumedMicrousd = (reservation.consumedMicrousd ?? 0) + chargedMicrousd
 
         const consumedAt = Date.now()
@@ -1488,8 +1487,10 @@ export const consumeReservedToolCall = internalMutation({
         return {
             allowed: true,
             existing: false,
-            bypassed: false,
-            remainingCalls: Math.max(0, reservation.reservedCalls - nextConsumedCalls)
+            bypassed: bypassCallLimit,
+            remainingCalls: bypassCallLimit
+                ? null
+                : Math.max(0, reservation.reservedCalls - nextConsumedCalls)
         }
     }
 })
@@ -1505,7 +1506,9 @@ export const finalizeToolCallBudget = internalMutation({
             return null
         }
 
-        const unusedCalls = Math.max(0, reservation.reservedCalls - reservation.consumedCalls)
+        const unusedCalls = reservation.bypassCallLimit
+            ? 0
+            : Math.max(0, reservation.reservedCalls - reservation.consumedCalls)
         await ctx.db.patch(reservation._id, {
             active: false,
             finalizedAt: Date.now(),

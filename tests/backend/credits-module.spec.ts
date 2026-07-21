@@ -501,7 +501,7 @@ describe("credits module", () => {
         expect(ctx.db.insert).not.toHaveBeenCalledWith("prototypeCreditEvents", expect.anything())
     })
 
-    it("reserves tool-call budget without enforcing limits for bypass users", async () => {
+    it("keeps the tool-call cap active when only usage limits are bypassed", async () => {
         const ctx = createCtx({
             userAccess: {
                 userId: "user-1",
@@ -520,22 +520,34 @@ describe("credits module", () => {
 
         expect(result).toMatchObject({
             allowed: true,
-            bypassed: true,
+            bypassed: false,
             reservedCalls: 5
         })
-        expect(ctx.db.insert).not.toHaveBeenCalledWith(
+        expect(ctx.db.insert).toHaveBeenCalledWith(
             "prototypeToolCallReservations",
-            expect.anything()
+            expect.objectContaining({
+                reservedCalls: 5,
+                bypassCallLimit: false,
+                reservedMicrousd: 0
+            })
         )
     })
 
-    it("records tool attempts for bypass users without requiring a reservation row", async () => {
+    it("blocks usage-bypass users when their tool-call reservation is exhausted", async () => {
         const ctx = createCtx({
             userAccess: {
                 userId: "user-1",
                 isStaff: true,
                 bypassLimits: true
-            }
+            },
+            reservations: [
+                {
+                    _id: "tool-reservation-1",
+                    reservedCalls: 1,
+                    consumedCalls: 1,
+                    active: true
+                }
+            ]
         })
 
         const result = await consumeReservedToolCallHandler.handler(ctx, {
@@ -552,17 +564,137 @@ describe("credits module", () => {
         })
 
         expect(result).toMatchObject({
-            allowed: true,
-            bypassed: true
+            allowed: false,
+            reason: "budget_exhausted",
+            remainingCalls: 0
         })
-        expect(ctx.db.insert).toHaveBeenCalledWith(
-            "prototypeCreditEvents",
-            expect.objectContaining({
+        expect(ctx.db.insert).not.toHaveBeenCalledWith("prototypeCreditEvents", expect.anything())
+    })
+
+    it("allows an explicit tool-call-limit bypass independently", async () => {
+        const ctx = createCtx({
+            userAccess: {
                 userId: "user-1",
-                messageKey: "assistant-1:tool:call-1",
-                feature: "tool"
+                isStaff: true,
+                bypassLimits: true,
+                bypassToolCallLimits: true
+            },
+            reservations: [
+                {
+                    _id: "tool-reservation-1",
+                    reservedCalls: 1,
+                    consumedCalls: 1,
+                    consumedMicrousd: 0,
+                    periodKey: "2026-07",
+                    bypassCallLimit: true,
+                    active: true
+                }
+            ]
+        })
+
+        const result = await consumeReservedToolCallHandler.handler(ctx, {
+            userId: "user-1",
+            reservationMessageKey: "assistant-1:tool-budget",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool:call-2",
+            toolCallId: "call-2",
+            toolName: "web_search",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "tool",
+            counted: true,
+            chargedMicrousd: 5_000
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            bypassed: true,
+            remainingCalls: null
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "tool-reservation-1",
+            expect.objectContaining({
+                consumedCalls: 2,
+                consumedMicrousd: 0
             })
         )
+    })
+
+    it("persists an explicit tool-call-limit bypass on the turn reservation", async () => {
+        const ctx = createCtx({
+            userAccess: {
+                userId: "user-1",
+                isStaff: true,
+                bypassLimits: false,
+                bypassToolCallLimits: true
+            }
+        })
+
+        const result = await reserveToolCallBudgetHandler.handler(ctx, {
+            userId: "user-1",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool-budget",
+            reservedCalls: 3,
+            reservedMicrousd: 0
+        })
+
+        expect(result).toMatchObject({
+            allowed: true,
+            bypassed: true,
+            reservedCalls: 3
+        })
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "prototypeToolCallReservations",
+            expect.objectContaining({
+                bypassCallLimit: true
+            })
+        )
+    })
+
+    it("still enforces hosted usage limits after the bypassed call reserve is consumed", async () => {
+        process.env.HOSTED_USAGE_5H_USD_FREE = "0.001"
+        const ctx = createCtx({
+            userAccess: {
+                userId: "user-1",
+                isStaff: true,
+                bypassLimits: false,
+                bypassToolCallLimits: true
+            },
+            reservations: [
+                {
+                    _id: "tool-reservation-1",
+                    reservedCalls: 1,
+                    consumedCalls: 1,
+                    reservedMicrousd: 5_000,
+                    consumedMicrousd: 5_000,
+                    periodKey: "2026-07",
+                    bypassCallLimit: true,
+                    active: true,
+                    createdAt: Date.now()
+                }
+            ]
+        })
+
+        const result = await consumeReservedToolCallHandler.handler(ctx, {
+            userId: "user-1",
+            reservationMessageKey: "assistant-1:tool-budget",
+            messageId: "assistant-1",
+            messageKey: "assistant-1:tool:call-2",
+            toolCallId: "call-2",
+            toolName: "web_search",
+            modelId: "shared-text",
+            providerSource: "internal",
+            feature: "tool",
+            counted: true,
+            chargedMicrousd: 5_000
+        })
+
+        expect(result).toMatchObject({
+            allowed: false,
+            reason: "usage",
+            window: "five_hour"
+        })
+        expect(ctx.db.patch).not.toHaveBeenCalled()
     })
 
     it("does not reuse finalized tool-call reservations for a new request attempt", async () => {

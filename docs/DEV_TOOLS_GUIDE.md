@@ -166,8 +166,10 @@ authenticated user, and `400` on invalid payloads.
 `DEV_CREDIT_LAB_ENABLED === "1"` and scoped to the current user only. Settable fields:
 
 - `plan: "free" | "pro"`
-- `isStaff` and `bypassLimits` (independent — `isStaff` is access metadata; `bypassLimits`
-  is the actual enforcement bypass; turning on `isStaff` must not enable `bypassLimits`)
+- `isStaff`, `bypassLimits`, and `bypassToolCallLimits` are independent. `isStaff` is access
+  metadata, `bypassLimits` bypasses plan and metered-usage enforcement, and
+  `bypassToolCallLimits` bypasses the per-turn tool-call count. Enabling any one must not
+  implicitly enable either of the others.
 - `usageScenario` — a deterministic preset that resets current-period test state and inserts
   dev-labeled synthetic events (`dev-credit-lab:` message-key prefix). Presets:
   `normal_empty`, `usage_5h_reset`, `usage_5h_near_limit`, `usage_5h_exhausted`,
@@ -234,9 +236,10 @@ Tests live under `tests/lib/dev-*.spec.ts` and `tests/backend/*` and follow
 - Override cap-resolution helpers.
 - Repro bundle serialization and theme-audit detection.
 - Credit-state route: `404` in production, `401` unauthenticated, rejects invalid payloads,
-  applies plan/metered-usage scenarios/`isStaff`/`bypassLimits`.
+  applies plan/metered-usage scenarios/`isStaff`/`bypassLimits`/`bypassToolCallLimits`.
 - Credit lab scenarios produce the expected five-hour and monthly metered usage, and
-  `bypassLimits` bypasses enforcement while `isStaff` alone does not.
+  independently exercise usage-limit and tool-call-count bypasses while `isStaff` alone
+  bypasses neither.
 
 ## Gating Rules (do not break)
 
