@@ -22,6 +22,38 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-3.6-flash",
+        name: "Gemini 3.6 Flash",
+        addedOn: "2026-07-21",
+        shortName: "3.6 Flash",
+        shortDescription: "Fast, capable Gemini model for multimodal reasoning and coding",
+        description:
+            "Google's latest high-efficiency multimodal model for responsive reasoning, coding, and agentic workflows. Flash-tier speed with configurable thinking for workloads that need a flexible balance of capability and cost.",
+        developer: "Google",
+        releaseOrder: 20260721,
+        adapters: googleTextAdapters("gemini-3.6-flash"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
+        defaultReasoningEffort: "minimal",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
+    },
+    {
+        id: "gemini-3.5-flash-lite",
+        name: "Gemini 3.5 Flash Lite",
+        addedOn: "2026-07-21",
+        shortName: "3.5 Flash Lite",
+        shortDescription: "Low-latency Gemini model for efficient, high-volume workloads",
+        description:
+            "Google's latest lightweight multimodal model for fast, cost-efficient workloads. Best in class for high-volume assistants, extraction, classification, and agentic tasks where responsiveness matters most.",
+        developer: "Google",
+        releaseOrder: 20260721,
+        adapters: googleTextAdapters("gemini-3.5-flash-lite"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
+        defaultReasoningEffort: "minimal",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
+    },
+    {
         id: "gemini-3.5-flash",
         name: "Gemini 3.5 Flash",
         addedOn: "2026-05-19",
@@ -148,7 +180,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.5-pro",
         name: "Gemini 2.5 Pro",
         shortName: "2.5 Pro",
-        shortDescription: "Deep multimodal thinker with a gift for code, learning, and long context",
+        shortDescription:
+            "Deep multimodal thinker with a gift for code, learning, and long context",
         description:
             "Gemini 2.5 Pro is Google's flagship thinking model for complex reasoning, ambitious coding, and rich multimodal analysis. Its million-token context and strong long-video understanding make it especially good at learning from sprawling source material before turning insight into something useful.",
         releaseOrder: 20250617,
@@ -177,7 +210,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-2.0-flash-lite",
         name: "Gemini 2.0 Flash Lite",
         shortName: "2.0 Flash Lite",
-        shortDescription: "No-frills Gemini speed for classification, captions, and work by the million",
+        shortDescription:
+            "No-frills Gemini speed for classification, captions, and work by the million",
         description:
             "Gemini 2.0 Flash Lite pares the family down for jobs where every millisecond and fraction of a cent counts. It handles multimodal input and vast batches with a million-token window, making it a cheerful little engine for captions, extraction, translation, and classification.",
         releaseOrder: 20250205,
@@ -192,7 +226,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3-pro-preview",
         name: "Gemini 3 Pro",
         shortName: "3 Pro",
-        shortDescription: "Vision-first Gemini flagship for agents, code, and spatially messy problems",
+        shortDescription:
+            "Vision-first Gemini flagship for agents, code, and spatially messy problems",
         description:
             "Gemini 3 Pro Preview pushed Google's flagship into richer visual and spatial reasoning, from dense documents and long video to screens and physical layouts. It is a powerful builder and agent model when the task calls for understanding what is on the page, where it sits, and what to do next.",
         releaseOrder: 20251118,
