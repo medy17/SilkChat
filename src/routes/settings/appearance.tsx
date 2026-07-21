@@ -26,6 +26,7 @@ import {
     CheckCircle,
     ExternalLinkIcon,
     Eye,
+    MonitorIcon,
     MoonIcon,
     PlusIcon,
     RectangleHorizontal,
@@ -151,6 +152,7 @@ function AppearanceSettings() {
     const {
         session,
         themeState,
+        resolvedMode,
         searchQuery,
         setSearchQuery,
         selectedThemeUrl,
@@ -163,16 +165,13 @@ function AppearanceSettings() {
         handleThemeImported,
         handleThemeSelect,
         handleThemeDelete,
-        toggleMode,
+        setMode,
         resetToDefaultTheme,
         selectLegacyGreenTheme,
         randomizeTheme
     } = useThemeManagement()
-    const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, themeState.currentMode)
-    const legacyGreenThemeColors = extractThemeColors(
-        LEGACY_GREEN_THEME_PRESET,
-        themeState.currentMode
-    )
+    const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, resolvedMode)
+    const legacyGreenThemeColors = extractThemeColors(LEGACY_GREEN_THEME_PRESET, resolvedMode)
 
     if (!session.user?.id) {
         return (
@@ -206,11 +205,37 @@ function AppearanceSettings() {
                     <div>
                         <h3 className="font-semibold text-foreground">Display Mode</h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            Choose between light and dark mode
+                            Choose light, dark, or match your system
                         </p>
                     </div>
 
-                    <div className="grid max-w-xl grid-cols-2 gap-3">
+                    <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+                        <Card
+                            className={cn(
+                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                themeState.currentMode === "system"
+                                    ? "bg-primary/5 ring-1 ring-primary/20"
+                                    : "hover:ring-1 hover:ring-border"
+                            )}
+                            onClick={() => setMode("system")}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="flex size-8 items-center justify-center rounded-full bg-background">
+                                    <MonitorIcon className="size-4 text-foreground" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="cursor-pointer font-medium text-foreground">
+                                            System
+                                        </Label>
+                                        {themeState.currentMode === "system" && (
+                                            <CheckCircle className="ml-auto size-4 text-primary" />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
                         <Card
                             className={cn(
                                 "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
@@ -218,7 +243,7 @@ function AppearanceSettings() {
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
                             )}
-                            onClick={() => themeState.currentMode === "dark" && toggleMode()}
+                            onClick={() => setMode("light")}
                         >
                             <div className="flex items-center gap-3">
                                 <div className="flex size-8 items-center justify-center rounded-full bg-background">
@@ -244,7 +269,7 @@ function AppearanceSettings() {
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
                             )}
-                            onClick={() => themeState.currentMode === "light" && toggleMode()}
+                            onClick={() => setMode("dark")}
                         >
                             <div className="flex items-center gap-3">
                                 <div className="flex size-8 items-center justify-center rounded-full bg-background">
@@ -269,7 +294,8 @@ function AppearanceSettings() {
                     <div>
                         <h3 className="font-semibold text-foreground">Information Density</h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            Choose how much behind-the-scenes detail SilkChat surfaces while you chat.
+                            Choose how much behind-the-scenes detail SilkChat surfaces while you
+                            chat.
                         </p>
                     </div>
 
@@ -296,7 +322,8 @@ function AppearanceSettings() {
                                 {
                                     value: "extra-nerdy",
                                     label: "Extra Nerdy",
-                                    description: "Add regular and reasoning token breakdowns to Stats for Nerds.",
+                                    description:
+                                        "Add regular and reasoning token breakdowns to Stats for Nerds.",
                                     previewWidths: ["w-12", "w-9", "w-14", "w-11", "w-16", "w-10"]
                                 }
                             ] as const
@@ -570,7 +597,7 @@ function AppearanceSettings() {
                                                 isSelected={selectedThemeUrl === theme.url}
                                                 onSelect={handleThemeSelect}
                                                 onDelete={handleThemeDelete}
-                                                currentMode={themeState.currentMode}
+                                                currentMode={resolvedMode}
                                             />
                                         ))}
                                     </div>
@@ -588,7 +615,7 @@ function AppearanceSettings() {
                                             theme={theme}
                                             isSelected={selectedThemeUrl === theme.url}
                                             onSelect={handleThemeSelect}
-                                            currentMode={themeState.currentMode}
+                                            currentMode={resolvedMode}
                                         />
                                     ))}
                                 </div>

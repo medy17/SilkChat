@@ -31,7 +31,7 @@ import {
     Wand2,
     Zap
 } from "lucide-react"
-import { CheckCircle, MoonIcon, SunIcon } from "lucide-react"
+import { CheckCircle, MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
 import { AnimatePresence, MotionConfig, motion } from "motion/react"
 import { useCallback, useEffect, useState } from "react"
 
@@ -274,6 +274,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 function ThemeSelector() {
     const {
         themeState,
+        resolvedMode,
         filteredThemes,
         handleThemeSelect,
         toggleMode,
@@ -285,11 +286,8 @@ function ThemeSelector() {
     } = useThemeManagement()
 
     const popularThemes = filteredThemes.filter((theme) => theme.type === "built-in").slice(0, 5)
-    const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, themeState.currentMode)
-    const legacyGreenThemeColors = extractThemeColors(
-        LEGACY_GREEN_THEME_PRESET,
-        themeState.currentMode
-    )
+    const defaultThemeColors = extractThemeColors(DEFAULT_THEME_PRESET, resolvedMode)
+    const legacyGreenThemeColors = extractThemeColors(LEGACY_GREEN_THEME_PRESET, resolvedMode)
 
     return (
         <div className="w-full max-w-md space-y-4">
@@ -302,13 +300,14 @@ function ThemeSelector() {
                         onClick={toggleMode}
                         className="flex h-8 items-center justify-center gap-2 px-3"
                     >
-                        <div className="relative flex h-3 w-3 items-center justify-center">
-                            <SunIcon className="dark:-rotate-90 absolute h-3 w-3 transition-all duration-300 dark:scale-0" />
-                            <MoonIcon className="absolute h-3 w-3 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100" />
-                        </div>
-                        <span className="text-xs">
-                            {themeState.currentMode === "light" ? "Light" : "Dark"}
-                        </span>
+                        {themeState.currentMode === "system" ? (
+                            <MonitorIcon className="size-3" />
+                        ) : themeState.currentMode === "light" ? (
+                            <SunIcon className="size-3" />
+                        ) : (
+                            <MoonIcon className="size-3" />
+                        )}
+                        <span className="text-xs capitalize">{themeState.currentMode}</span>
                     </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -369,7 +368,7 @@ function ThemeSelector() {
                             "error" in theme && theme.error
                                 ? []
                                 : "preset" in theme
-                                  ? extractThemeColors(theme.preset, themeState.currentMode)
+                                  ? extractThemeColors(theme.preset, resolvedMode)
                                   : []
                         const isSelected = selectedThemeUrl === theme.url
 

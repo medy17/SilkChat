@@ -45,7 +45,7 @@ describe("theme-store", () => {
 
         const { themeState, selectedThemeUrl } = useThemeStore.getState()
         expect(selectedThemeUrl).toBeNull()
-        expect(themeState.currentMode).toBe("dark")
+        expect(themeState.currentMode).toBe("system")
         expect(isDefaultThemeCssVars(themeState.cssVars)).toBe(true)
         expect(themeState.cssVars.theme["font-sans"]).toBe(DEFAULT_THEME_SANS_FONT_STACK)
         expect(themeState.cssVars.light.primary).toBe("oklch(0 0 0)")

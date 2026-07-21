@@ -1,6 +1,7 @@
 import { AuthCard } from "@/components/auth/auth-card"
 import { ThemeSwitcher } from "@/components/themes/theme-switcher"
 import { Button } from "@/components/ui/button"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { Link, createLazyFileRoute } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
@@ -11,6 +12,7 @@ export const Route = createLazyFileRoute("/auth/$pathname")({
 
 function RouteComponent() {
     const { themeState } = useThemeStore()
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
 
     return (
         <main className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
@@ -39,7 +41,7 @@ function RouteComponent() {
                 </div>
                 <div className="absolute right-4 bottom-4 left-4 flex flex-col items-center gap-2 sm:right-6 sm:bottom-6 sm:left-6">
                     <p className="hidden px-2 text-center text-muted-foreground text-xs leading-relaxed sm:block sm:text-sm">
-                        {themeState.currentMode === "dark"
+                        {resolvedMode === "dark"
                             ? "Our intern is sleeping, meanwhile check out our"
                             : "Our intern is having his lunch, meanwhile checkout our"}{" "}
                         <Link to="/privacy-policy" className="underline hover:text-primary">

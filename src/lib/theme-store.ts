@@ -3,6 +3,7 @@ import {
     DEFAULT_THEME_SANS_FONT_STACK,
     DEFAULT_THEME_SERIF_FONT_STACK
 } from "@/lib/theme-font-config"
+import type { ThemeMode } from "@/lib/theme-mode"
 import isEqual from "fast-deep-equal"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
@@ -11,7 +12,7 @@ export const THEME_STORE_KEY = "theme-store"
 export const VERCEL_THEME_URL = "https://tweakcn.com/editor/theme?theme=vercel"
 export const LEGACY_GREEN_THEME_URL = "silkchat:legacy-green"
 
-export type ThemeMode = "dark" | "light"
+export type { ThemeMode } from "@/lib/theme-mode"
 
 export type ThemePreset = {
     cssVars: {
@@ -336,7 +337,7 @@ export function normalizeThemeStoreStateForDefault(
         return state ?? {}
     }
 
-    const currentMode = state?.themeState?.currentMode ?? "light"
+    const currentMode = state?.themeState?.currentMode ?? "system"
 
     return {
         ...state,
@@ -345,14 +346,14 @@ export function normalizeThemeStoreStateForDefault(
     }
 }
 
-export function getDefaultThemeState(currentMode: ThemeMode = "dark"): ThemeState {
+export function getDefaultThemeState(currentMode: ThemeMode = "system"): ThemeState {
     return {
         currentMode,
         cssVars: clonePresetCssVars(DEFAULT_THEME_PRESET)
     }
 }
 
-export function getLegacyGreenThemeState(currentMode: ThemeMode = "dark"): ThemeState {
+export function getLegacyGreenThemeState(currentMode: ThemeMode = "system"): ThemeState {
     return {
         currentMode,
         cssVars: clonePresetCssVars(LEGACY_GREEN_THEME_PRESET)

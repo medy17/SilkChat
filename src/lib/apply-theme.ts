@@ -1,4 +1,4 @@
-type ThemeMode = "dark" | "light"
+import { type ResolvedThemeMode, type ThemeMode, resolveThemeMode } from "@/lib/theme-mode"
 
 type ThemeState = {
     currentMode: ThemeMode
@@ -9,7 +9,11 @@ type ThemeState = {
     }
 }
 
-export function applyThemeToElement(themeState: ThemeState, element: HTMLElement) {
+export function applyThemeToElement(
+    themeState: ThemeState,
+    element: HTMLElement,
+    resolvedMode: ResolvedThemeMode = resolveThemeMode(themeState.currentMode)
+) {
     if (!element) return
 
     // Apply base theme variables
@@ -18,7 +22,7 @@ export function applyThemeToElement(themeState: ThemeState, element: HTMLElement
     })
 
     // Apply mode-specific variables
-    const modeVars = themeState.cssVars[themeState.currentMode]
+    const modeVars = themeState.cssVars[resolvedMode]
     Object.entries(modeVars).forEach(([key, value]) => {
         if (key in themeState.cssVars.theme) {
             return
@@ -28,10 +32,11 @@ export function applyThemeToElement(themeState: ThemeState, element: HTMLElement
     })
 
     // Update data attribute for CSS selectors
-    element.setAttribute("data-theme", themeState.currentMode)
+    element.setAttribute("data-theme", resolvedMode)
+    element.setAttribute("data-theme-mode", themeState.currentMode)
 
     // Update class for compatibility with existing theme systems
-    if (themeState.currentMode === "dark") {
+    if (resolvedMode === "dark") {
         element.classList.add("dark")
         element.classList.remove("light")
     } else {

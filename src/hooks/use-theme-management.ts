@@ -1,5 +1,7 @@
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
+import type { ThemeMode } from "@/lib/theme-mode"
 import {
     LEGACY_GREEN_THEME_URL,
     getLegacyGreenThemeState,
@@ -31,6 +33,7 @@ export function useThemeManagement() {
         resetThemeToDefault
     } = useThemeStore()
     const [searchQuery, setSearchQuery] = useState("")
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
 
     // Fetch user settings to retrieve custom theme URLs
     const userSettings = useConvexQuery(
@@ -158,6 +161,13 @@ export function useThemeManagement() {
         toggleThemeMode()
     }
 
+    const setMode = (currentMode: ThemeMode) => {
+        setThemeState({
+            ...themeState,
+            currentMode
+        })
+    }
+
     const resetToDefaultTheme = () => {
         resetThemeToDefault()
     }
@@ -185,6 +195,7 @@ export function useThemeManagement() {
     return {
         // State
         themeState,
+        resolvedMode,
         searchQuery,
         setSearchQuery,
         selectedThemeUrl: resolvedSelectedThemeUrl,
@@ -201,6 +212,7 @@ export function useThemeManagement() {
         handleThemeSelect,
         handleThemeDelete,
         toggleMode,
+        setMode,
         randomizeTheme,
         resetToDefaultTheme,
         selectLegacyGreenTheme,

@@ -15,6 +15,7 @@ import {
 import { RoleplayWordmark } from "@/components/logo"
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
@@ -29,9 +30,9 @@ const heroFeatures = [
 export function PersonaHeroSection() {
     const { themeState } = useThemeStore()
     const heroRef = useRef<HTMLElement>(null)
-    const isDarkMode = themeState.currentMode === "dark"
-    const themeSilkColor =
-        themeState.cssVars[themeState.currentMode]["muted-foreground"] || "#7B7481"
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
+    const isDarkMode = resolvedMode === "dark"
+    const themeSilkColor = themeState.cssVars[resolvedMode]["muted-foreground"] || "#7B7481"
     const silkColor = isDarkMode ? "#9b969e" : themeSilkColor
 
     useGSAP(

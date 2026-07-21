@@ -1,5 +1,6 @@
 import Forest from "@/assets/forest.svg"
 import { Button } from "@/components/ui/button"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
@@ -13,7 +14,7 @@ export const SignupMessagePrompt = () => {
     const handleNavigation = () => {
         navigate({ to: "/auth/$pathname", params: { pathname: "signup" }, replace: true })
     }
-    const mode = themeState.currentMode
+    const mode = useResolvedThemeMode(themeState.currentMode)
 
     return (
         <motion.div

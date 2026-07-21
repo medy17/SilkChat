@@ -3,6 +3,7 @@ import {
     LOCAL_THEME_FONT_FAMILY_NAMES,
     WEB_SAFE_FONT_FAMILY_NAMES
 } from "@/lib/theme-font-config"
+import { type ResolvedThemeMode, type ThemeMode, resolveThemeMode } from "@/lib/theme-mode"
 
 const DEFAULT_FONT_AXES = "wght@400"
 
@@ -20,8 +21,6 @@ const SYSTEM_FONTS = new Set([
 ])
 
 const LOCAL_FONTS = new Set(LOCAL_THEME_FONT_FAMILY_NAMES.map((family) => family.toLowerCase()))
-
-type ThemeMode = "dark" | "light"
 
 type ThemeState = {
     currentMode: ThemeMode
@@ -68,10 +67,13 @@ function ensureFontStylesheet(family: string) {
     document.head.appendChild(link)
 }
 
-export function loadThemeFonts(themeState: ThemeState) {
+export function loadThemeFonts(
+    themeState: ThemeState,
+    resolvedMode: ResolvedThemeMode = resolveThemeMode(themeState.currentMode)
+) {
     if (typeof document === "undefined") return
 
-    const modeVars = themeState.cssVars[themeState.currentMode]
+    const modeVars = themeState.cssVars[resolvedMode]
     const activeFontVars = {
         ...themeState.cssVars.theme,
         ...modeVars

@@ -1,5 +1,6 @@
 "use client"
 
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import {
@@ -25,7 +26,7 @@ const MermaidRenderer = memo(({ code }: { code: string }) => {
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const { themeState } = useThemeStore()
-    const isDark = themeState.currentMode === "dark"
+    const isDark = useResolvedThemeMode(themeState.currentMode) === "dark"
     const [mermaidHTML, setMermaidHTML] = useState<string | null>(null)
 
     useEffect(() => {

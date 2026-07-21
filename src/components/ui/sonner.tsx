@@ -2,15 +2,17 @@
 
 import { cn } from "@/lib/utils"
 import { useThemeStore } from "@/lib/theme-store"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 const Toaster = ({ className, style, toastOptions, ...props }: ToasterProps) => {
     const { themeState } = useThemeStore()
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
     const classNames = toastOptions?.classNames
 
     return (
         <Sonner
-            theme={themeState.currentMode as ToasterProps["theme"]}
+            theme={resolvedMode as ToasterProps["theme"]}
             className={cn("toaster group", className)}
             style={{
                 ...style,

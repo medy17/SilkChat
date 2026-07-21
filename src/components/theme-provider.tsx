@@ -1,3 +1,4 @@
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { applyThemeToElement } from "@/lib/apply-theme"
 import { loadThemeFonts } from "@/lib/theme-font-loader"
 import { useThemeStore } from "@/lib/theme-store"
@@ -9,6 +10,7 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
     const { themeState } = useThemeStore()
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
     const [isClient, setIsClient] = useState(false)
 
     // Handle hydration and initialize CSS transitions
@@ -22,9 +24,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         const root = document.documentElement
         if (!root) return
 
-        applyThemeToElement(themeState, root)
-        loadThemeFonts(themeState)
-    }, [themeState, isClient])
+        applyThemeToElement(themeState, root, resolvedMode)
+        loadThemeFonts(themeState, resolvedMode)
+    }, [themeState, resolvedMode, isClient])
 
     return <>{children}</>
 }

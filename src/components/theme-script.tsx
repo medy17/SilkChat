@@ -109,7 +109,7 @@ export function ThemeScript() {
         console.warn("Theme initialization: Failed to read/parse localStorage:", e);
       }
 
-      const preferredMode = "dark";
+      const preferredMode = "system";
       const hasSelectedTheme = Boolean(persistedState?.selectedThemeUrl);
       const shouldUseDefaultTheme =
         !themeState?.cssVars ||
@@ -138,7 +138,10 @@ export function ThemeScript() {
         }
       }
 
-      const mode = themeState?.currentMode ?? preferredMode;
+      const selectedMode = themeState?.currentMode ?? preferredMode;
+      const mode = selectedMode === "system"
+        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : selectedMode;
       const baseStyles = themeState?.cssVars?.theme;
 
       const activeStyles =
@@ -163,6 +166,7 @@ export function ThemeScript() {
       }
 
       root.setAttribute("data-theme", mode);
+      root.setAttribute("data-theme-mode", selectedMode);
       root.classList.toggle("dark", mode === "dark");
       root.classList.toggle("light", mode === "light");
 

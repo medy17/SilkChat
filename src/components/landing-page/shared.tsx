@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 
@@ -37,9 +38,9 @@ export function SilkBackdrop({
 }) {
     const { themeState } = useThemeStore()
     const reducedMotion = useReducedMotion()
-    const isDarkMode = themeState.currentMode === "dark"
-    const themeSilkColor =
-        themeState.cssVars[themeState.currentMode]["muted-foreground"] || "#7B7481"
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
+    const isDarkMode = resolvedMode === "dark"
+    const themeSilkColor = themeState.cssVars[resolvedMode]["muted-foreground"] || "#7B7481"
     const silkColor = isDarkMode ? "#9b969e" : themeSilkColor
 
     if (reducedMotion) return null

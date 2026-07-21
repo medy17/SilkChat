@@ -18,6 +18,7 @@ import { LogoMark } from "@/components/logo"
 import { MagneticButton } from "@/components/magnetic-button"
 import { Silk } from "@/components/react-bits/silk"
 import { Button } from "@/components/ui/button"
+import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 
 type SilkControls = {
@@ -35,9 +36,9 @@ export function HeroSection() {
     const subtitleRef = useRef<HTMLParagraphElement>(null)
     const ctaRef = useRef<HTMLDivElement>(null)
     const logosRef = useRef<HTMLDivElement>(null)
-    const isDarkMode = themeState.currentMode === "dark"
-    const themeSilkColor =
-        themeState.cssVars[themeState.currentMode]["muted-foreground"] || "#7B7481"
+    const resolvedMode = useResolvedThemeMode(themeState.currentMode)
+    const isDarkMode = resolvedMode === "dark"
+    const themeSilkColor = themeState.cssVars[resolvedMode]["muted-foreground"] || "#7B7481"
 
     const silkControls: SilkControls = isDarkMode
         ? {
