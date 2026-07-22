@@ -31,6 +31,7 @@ import {
     getActiveAccountDeletionJob
 } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
+import { selectEffectiveSubscription } from "./lib/lemon_squeezy"
 
 export const ACCOUNT_DELETION_CONFIRMATION_PHRASE = "Delete my account"
 
@@ -219,7 +220,7 @@ const getLatestSubscription = async (ctx: QueryCtx | MutationCtx, userId: string
         .withIndex("byUser", (q) => q.eq("userId", userId))
         .collect()
 
-    return subscriptions.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+    return selectEffectiveSubscription(subscriptions)
 }
 
 const getCreditAccount = async (ctx: QueryCtx | MutationCtx, userId: string) => {

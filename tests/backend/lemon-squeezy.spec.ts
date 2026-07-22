@@ -20,6 +20,7 @@ vi.mock("../../convex/_generated/server", () => ({
 import { recordLemonSqueezyWebhook } from "../../convex/billing"
 import {
     parseLemonSqueezyWebhookPayload,
+    selectEffectiveSubscription,
     verifyLemonSqueezySignature
 } from "../../convex/lib/lemon_squeezy"
 
@@ -65,6 +66,7 @@ const createSubscriptionPayload = (overrides: Record<string, unknown> = {}) => (
 const createCtx = (options?: {
     existingEvent?: Record<string, unknown> | null
     existingSubscription?: Record<string, unknown> | null
+    existingSubscriptions?: Record<string, unknown>[]
     existingAccount?: Record<string, unknown> | null
     existingLink?: Record<string, unknown> | null
     existingSuppression?: Record<string, unknown> | null
@@ -87,6 +89,13 @@ const createCtx = (options?: {
                                       : table === "identitySuppressions"
                                         ? (options?.existingSuppression ?? null)
                                         : null
+                        ),
+                    collect: vi
+                        .fn()
+                        .mockResolvedValue(
+                            table === "lemonSqueezySubscriptions"
+                                ? (options?.existingSubscriptions ?? [])
+                                : []
                         )
                 })
             })),
@@ -145,6 +154,15 @@ describe("Lemon Squeezy billing", () => {
             status: "active",
             plan: "pro"
         })
+    })
+
+    it("selects a pro subscription ahead of a more recently updated expired subscription", () => {
+        expect(
+            selectEffectiveSubscription([
+                { id: "active", plan: "pro", updatedAt: 10 },
+                { id: "expired", plan: "free", updatedAt: 20 }
+            ])
+        ).toMatchObject({ id: "active" })
     })
 
     it("records a subscription webhook once and upgrades the credit account", async () => {
@@ -416,6 +434,60 @@ describe("Lemon Squeezy billing", () => {
             "account-1",
             expect.objectContaining({
                 plan: "free"
+            })
+        )
+    })
+
+    it("does not let an expired old subscription downgrade a newer active subscription", async () => {
+        const ctx = createCtx({
+            existingSubscription: {
+                _id: "old-sub-record",
+                lemonSqueezySubscriptionId: "sub-1",
+                plan: "pro",
+                status: "past_due"
+            },
+            existingSubscriptions: [
+                {
+                    _id: "old-sub-record",
+                    lemonSqueezySubscriptionId: "sub-1",
+                    plan: "pro",
+                    status: "past_due",
+                    updatedAt: 10
+                },
+                {
+                    _id: "new-sub-record",
+                    lemonSqueezySubscriptionId: "sub-2",
+                    plan: "pro",
+                    status: "active",
+                    updatedAt: 20
+                }
+            ],
+            existingAccount: {
+                _id: "account-1",
+                enabled: true,
+                plan: "pro"
+            }
+        })
+
+        const result = await recordLemonSqueezyWebhookHandler.handler(ctx, {
+            payload: createSubscriptionPayload({ status: "expired" })
+        })
+
+        expect(result).toMatchObject({
+            status: "processed",
+            plan: "pro"
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "old-sub-record",
+            expect.objectContaining({
+                status: "expired",
+                plan: "free"
+            })
+        )
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "account-1",
+            expect.objectContaining({
+                plan: "pro"
             })
         )
     })

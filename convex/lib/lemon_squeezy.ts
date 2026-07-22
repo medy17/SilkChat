@@ -1,5 +1,26 @@
 export type BillingPlan = "free" | "pro"
 
+type StoredSubscriptionSummary = {
+    plan: BillingPlan
+    updatedAt: number
+}
+
+export const getEffectiveBillingPlan = (
+    subscriptions: readonly Pick<StoredSubscriptionSummary, "plan">[]
+): BillingPlan =>
+    subscriptions.some((subscription) => subscription.plan === "pro") ? "pro" : "free"
+
+export const selectEffectiveSubscription = <Subscription extends StoredSubscriptionSummary>(
+    subscriptions: readonly Subscription[]
+): Subscription | null =>
+    [...subscriptions].sort((left, right) => {
+        if (left.plan !== right.plan) {
+            return left.plan === "pro" ? -1 : 1
+        }
+
+        return right.updatedAt - left.updatedAt
+    })[0] ?? null
+
 export type LemonSqueezyWebhookSummary = {
     eventId: string
     eventName: string

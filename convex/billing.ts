@@ -2,8 +2,10 @@ import { v } from "convex/values"
 import { type MutationCtx, internalMutation, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
 import {
+    getEffectiveBillingPlan,
     isLemonSqueezySubscriptionEvent,
-    parseLemonSqueezyWebhookPayload
+    parseLemonSqueezyWebhookPayload,
+    selectEffectiveSubscription
 } from "./lib/lemon_squeezy"
 
 const getCreditAccount = async (ctx: MutationCtx, userId: string) => {
@@ -52,8 +54,7 @@ export const getMyBillingSummary = query({
                 .withIndex("byUser", (q) => q.eq("userId", user.id))
                 .collect()
         ])
-        const subscription =
-            subscriptions.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+        const subscription = selectEffectiveSubscription(subscriptions)
 
         return {
             userId: user.id,
@@ -189,11 +190,22 @@ export const recordLemonSqueezyWebhook = internalMutation({
             })
         }
 
+        const otherSubscriptions = await ctx.db
+            .query("lemonSqueezySubscriptions")
+            .withIndex("byUser", (q) => q.eq("userId", resolvedUserId))
+            .collect()
+        const effectivePlan = getEffectiveBillingPlan([
+            ...otherSubscriptions.filter(
+                (subscription) => subscription.lemonSqueezySubscriptionId !== summary.subscriptionId
+            ),
+            nextSubscription
+        ])
+
         const existingAccount = await getCreditAccount(ctx, resolvedUserId)
         const nextAccount = {
             userId: resolvedUserId,
             enabled: existingAccount?.enabled ?? true,
-            plan: summary.plan,
+            plan: effectivePlan,
             monthlyBasicCredits: existingAccount?.monthlyBasicCredits,
             monthlyProCredits: existingAccount?.monthlyProCredits,
             creditPeriodAnchorAt: existingAccount?.creditPeriodAnchorAt ?? now,
@@ -206,6 +218,6 @@ export const recordLemonSqueezyWebhook = internalMutation({
             await ctx.db.insert("prototypeCreditAccounts", nextAccount)
         }
 
-        return { status: "processed" as const, eventId: summary.eventId, plan: summary.plan }
+        return { status: "processed" as const, eventId: summary.eventId, plan: effectivePlan }
     }
 })

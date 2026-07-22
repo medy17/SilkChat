@@ -15,6 +15,7 @@ import {
     getCurrentCreditPeriodKey
 } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
+import { selectEffectiveSubscription } from "./lib/lemon_squeezy"
 import { FIVE_HOURS_MS, getConfiguredHostedUsageLimits, microusdToUsd } from "./lib/usage_metering"
 
 type CreditAccountRecord = {
@@ -57,7 +58,7 @@ const getLatestSubscription = async (ctx: QueryCtx | MutationCtx, userId: string
         .withIndex("byUser", (q) => q.eq("userId", userId))
         .collect()
 
-    return subscriptions.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+    return selectEffectiveSubscription(subscriptions)
 }
 
 const parseTimestamp = (value: string | undefined) => {
