@@ -104,6 +104,7 @@ User BYOK chat is OpenRouter-based. Image generation uses native fal queue/webho
 - [Models and providers](./docs/MODEL_PROVIDER_GUIDE.md)
 - [BYOK](./docs/BYOK_SETUP.md)
 - [Image generation](./docs/IMAGE_GENERATION.md)
+- [Composer intent guide](./docs/COMPOSER_INTENTS.md)
 - [Voice input](./docs/VOICE_INPUT_SETUP.md)
 - [Email](./docs/EMAIL_SETUP.md)
 - [Account deletion](./docs/ACCOUNT_DELETION.md)

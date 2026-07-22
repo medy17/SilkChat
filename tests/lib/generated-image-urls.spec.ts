@@ -34,6 +34,7 @@ import {
     getExpandedImageUrl,
     getFileThumbnailSources,
     getGeneratedImageCopyUrl,
+    getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl,
     getLibraryImageSources,
     getOptimizedGeneratedImageUrl,
@@ -78,6 +79,12 @@ describe("generated-image-urls", () => {
     it("builds a same-origin dev proxy URL for clipboard copies", () => {
         expect(getGeneratedImageCopyUrl("folder/image key.png")).toBe(
             "/convex-http/r2?key=folder%2Fimage%20key.png"
+        )
+    })
+
+    it("builds a public R2 URL for direct image attachment downloads", () => {
+        expect(getGeneratedImageDirectUrl("generations/user/image key.png")).toBe(
+            "https://r2.silkchat.dev/generations/user/image%20key.png"
         )
     })
 

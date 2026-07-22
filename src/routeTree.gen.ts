@@ -36,6 +36,7 @@ import { Route as SettingsAiSetupRouteImport } from './routes/settings/ai-setup'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
+import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
 import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
@@ -210,6 +211,11 @@ const AuthPathnameRoute = AuthPathnameRouteImport.update({
 } as any).lazy(() =>
   import('./routes/auth/$pathname.lazy').then((d) => d.Route),
 )
+const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
+  id: '/api/search-trends',
+  path: '/api/search-trends',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
   id: '/api/model-benchmarks',
   path: '/api/model-benchmarks',
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
+  '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -406,6 +415,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -445,6 +455,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
+    | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -527,6 +539,7 @@ export interface RootRouteChildren {
   PersonasLazyRoute: typeof PersonasLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
+  ApiSearchTrendsRoute: typeof ApiSearchTrendsRoute
   AuthPathnameRoute: typeof AuthPathnameRoute
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -739,6 +752,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPathnameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search-trends': {
+      id: '/api/search-trends'
+      path: '/api/search-trends'
+      fullPath: '/api/search-trends'
+      preLoaderRoute: typeof ApiSearchTrendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/model-benchmarks': {
       id: '/api/model-benchmarks'
       path: '/api/model-benchmarks'
@@ -897,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   PersonasLazyRoute: PersonasLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
+  ApiSearchTrendsRoute: ApiSearchTrendsRoute,
   AuthPathnameRoute: AuthPathnameRoute,
   PersonasStartLazyRoute: PersonasStartLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

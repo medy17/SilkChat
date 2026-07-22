@@ -1,4 +1,5 @@
 import { SupermemoryIcon } from "@/components/brand-icons"
+import { IntentGuide } from "@/components/intent-guide"
 import { ModelSelector } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
 import {
@@ -34,6 +35,11 @@ import {
 } from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
+import {
+    COMPOSER_INTENT_PREFIXES,
+    type ComposerIntentId,
+    resolveIntentGuideStage
+} from "@/lib/composer-intents"
 import { isComposerPasteTarget } from "@/lib/composer-paste"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -45,6 +51,12 @@ import {
     isSvgExtension,
     isSvgMimeType
 } from "@/lib/file_constants"
+import { getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
+import {
+    type WebTrendSuggestion,
+    fetchWebTrendSuggestions,
+    resolveGoogleTrendsGeo
+} from "@/lib/google-trends"
 import {
     IMAGE_RESOLUTION_OPTIONS,
     type ImageDefaultResolution,
@@ -89,7 +101,7 @@ import { type ImageDimensions, estimateImageInputTokens } from "@/lib/vision-tok
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
 import type { UIMessage } from "ai"
-import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react"
+import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import {
     ArrowUp,
     Check,
@@ -1245,6 +1257,7 @@ export const MultimodalInput = forwardRef<
         showIntentShortcuts?: boolean
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
+        onInputActivityChange?: (isActive: boolean) => void
     }
 >(function MultimodalInput(
     {
@@ -1255,7 +1268,8 @@ export const MultimodalInput = forwardRef<
         isActive = true,
         showIntentShortcuts = false,
         threadHasPdfAttachments = false,
-        messages = []
+        messages = [],
+        onInputActivityChange
     },
     ref
 ) {
@@ -1416,13 +1430,32 @@ export const MultimodalInput = forwardRef<
 
         promptInputRef.current?.clear()
         setInputValue("")
+        setActiveIntent(null)
         clearThreadDraft(draftScope)
         onSubmit(inputValue, uploadedFiles)
     }
 
     const [inputValue, setInputValue] = useState("")
+    const [isInputFocused, setIsInputFocused] = useState(false)
+    const [activeIntent, setActiveIntent] = useState<ComposerIntentId | null>(null)
+    const [attachingImageKey, setAttachingImageKey] = useState<string>()
+    const [webTrends, setWebTrends] = useState<WebTrendSuggestion[]>([])
+    const [webTrendsLoading, setWebTrendsLoading] = useState(false)
+    const [webTrendsLoaded, setWebTrendsLoaded] = useState(false)
     const [hydratedDraftKey, setHydratedDraftKey] = useState<string>()
     const isInputEmpty = !inputValue.trim()
+    const intentGuideStage = resolveIntentGuideStage({
+        activeIntent,
+        draft: inputValue,
+        attachmentCount: uploadedFiles.length
+    })
+    const recentGeneratedImages = usePaginatedQuery(
+        api.images.paginateGeneratedImages,
+        showIntentShortcuts && activeIntent === "image" && session.user?.id
+            ? { sortBy: "newest", view: "active" }
+            : "skip",
+        { initialNumItems: 6 }
+    )
     const voiceInputEnabled = optionalBrowserEnv("VITE_ENABLE_VOICE_INPUT") === "true"
     const predictedByokContextRouting = useMemo(() => {
         if (!selectedSharedModel || isImageModel) return null
@@ -1491,6 +1524,7 @@ export const MultimodalInput = forwardRef<
     useEffect(() => {
         const draft = loadThreadDraft(draftScope)
         const text = draft?.text ?? ""
+        setActiveIntent(null)
         promptInputRef.current?.setValue(text)
         setInputValue(text)
         setUploadedFiles(draft?.attachments ?? [])
@@ -1524,6 +1558,17 @@ export const MultimodalInput = forwardRef<
         const interval = setInterval(checkInputValue, 200)
         return () => clearInterval(interval)
     }, [])
+
+    useEffect(() => {
+        onInputActivityChange?.(isInputFocused && !isInputEmpty)
+    }, [isInputEmpty, isInputFocused, onInputActivityChange])
+
+    useEffect(
+        () => () => {
+            onInputActivityChange?.(false)
+        },
+        [onInputActivityChange]
+    )
 
     const handleVoiceButtonClick = () => {
         if (voiceState.isRecording) {
@@ -2144,20 +2189,107 @@ export const MultimodalInput = forwardRef<
     const [isClient, setIsClient] = useState(false)
     const isNewChatComposer = !threadId && messages.length === 0
 
+    const loadWebTrends = useCallback(async () => {
+        if (webTrendsLoaded || webTrendsLoading) return
+        setWebTrendsLoading(true)
+
+        try {
+            const geo = resolveGoogleTrendsGeo(navigator.languages)
+            const trends = await fetchWebTrendSuggestions(geo)
+            setWebTrends(trends)
+        } catch (error) {
+            console.warn("[search-trends] Could not load live suggestions", error)
+        } finally {
+            setWebTrendsLoaded(true)
+            setWebTrendsLoading(false)
+        }
+    }, [webTrendsLoaded, webTrendsLoading])
+
     const prepareIntent = useCallback(
-        (prompt: string, tool?: AbilityId) => {
+        (intent: ComposerIntentId) => {
+            const tool: AbilityId | undefined =
+                intent === "web"
+                    ? "web_search"
+                    : intent === "analysis"
+                      ? "code_execution"
+                      : undefined
             if (tool && !enabledTools.includes(tool)) {
                 setEnabledTools([...enabledTools, tool])
             }
 
             if (!promptInputRef.current?.getValue().trim()) {
+                const prompt = COMPOSER_INTENT_PREFIXES[intent]
                 promptInputRef.current?.setValue(prompt)
                 setInputValue(prompt)
             }
+            setActiveIntent(intent)
+            if (intent === "web") void loadWebTrends()
             promptInputRef.current?.focus()
         },
-        [enabledTools, setEnabledTools]
+        [enabledTools, loadWebTrends, setEnabledTools]
     )
+
+    const clearIntent = useCallback(() => {
+        if (activeIntent) {
+            const value = promptInputRef.current?.getValue() ?? ""
+            if (value.trim() === COMPOSER_INTENT_PREFIXES[activeIntent].trim()) {
+                promptInputRef.current?.setValue("")
+                setInputValue("")
+            }
+        }
+        setActiveIntent(null)
+    }, [activeIntent])
+
+    const chooseIntentPrompt = useCallback((prompt: string) => {
+        promptInputRef.current?.setValue(prompt)
+        setInputValue(prompt)
+        promptInputRef.current?.focus()
+    }, [])
+
+    const appendIntentPrompt = useCallback((text: string) => {
+        const currentValue = promptInputRef.current?.getValue() ?? ""
+        const nextValue = `${currentValue.trimEnd()}${text}`
+        promptInputRef.current?.setValue(nextValue)
+        setInputValue(nextValue)
+        promptInputRef.current?.focus()
+    }, [])
+
+    const attachRecentGeneratedImage = useCallback(
+        async (image: (typeof recentGeneratedImages.results)[number]) => {
+            if (attachingImageKey) return
+            setAttachingImageKey(image.storageKey)
+
+            try {
+                const response = await fetch(getGeneratedImageDirectUrl(image.storageKey))
+                if (!response.ok) throw new Error("Could not load that image")
+
+                const blob = await response.blob()
+                const mimeType = blob.type || "image/png"
+                const extension =
+                    mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1] || "png"
+                const file = new File([blob], `silkscreen-reference-${Date.now()}.${extension}`, {
+                    type: mimeType,
+                    lastModified: Date.now()
+                })
+
+                await handleFileUpload([file])
+                promptInputRef.current?.focus()
+            } catch (error) {
+                console.error("Failed to attach recent generated image:", error)
+                toast.error(error instanceof Error ? error.message : "Failed to attach image")
+            } finally {
+                setAttachingImageKey(undefined)
+            }
+        },
+        [attachingImageKey, handleFileUpload]
+    )
+
+    const handleIntentUpload = useCallback(() => {
+        if (!activeIntent) {
+            prepareIntent("analysis")
+        }
+        uploadInputRef.current?.click()
+    }, [activeIntent, prepareIntent])
 
     useEffect(() => {
         setIsClient(true)
@@ -2232,6 +2364,9 @@ export const MultimodalInput = forwardRef<
                                 ? "Describe the image you want to generate..."
                                 : "Ask me anything..."
                         }
+                        onChange={(event) => setInputValue(event.currentTarget.value)}
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
                     />
 
                     <PromptInputActions className="flex items-center gap-2 pt-2">
@@ -2345,74 +2480,39 @@ export const MultimodalInput = forwardRef<
                     </PromptInputActions>
                 </PromptInput>
 
-                {showIntentShortcuts && isNewChatComposer && isInputEmpty && !isImageModel && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className={cn(
-                            "mx-auto mt-3 flex w-full flex-col gap-1 px-2",
-                            getChatWidthClass(chatWidthState.chatWidth)
-                        )}
-                        aria-label="Start with a capability"
-                    >
-                        {modelSupportsVision && modelSupportsFunctionCalling && (
-                            <button
-                                type="button"
-                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() => prepareIntent("Create an image of ")}
-                            >
-                                <ImageIcon
-                                    className="size-4 shrink-0 text-muted-foreground"
-                                    aria-hidden="true"
-                                />
-                                <span>Create an image</span>
-                            </button>
-                        )}
-
-                        {modelSupportsFunctionCalling && composerToolbar.webSearchAvailable && (
-                            <button
-                                type="button"
-                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() => prepareIntent("Search the web for ", "web_search")}
-                            >
-                                <Globe
-                                    className="size-4 shrink-0 text-muted-foreground"
-                                    aria-hidden="true"
-                                />
-                                <span>Search the web</span>
-                            </button>
-                        )}
-
-                        {modelSupportsFunctionCalling && codeExecutionAvailable && (
-                            <button
-                                type="button"
-                                className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() =>
-                                    prepareIntent("Analyze this data or code: ", "code_execution")
-                                }
-                            >
-                                <Code
-                                    className="size-4 shrink-0 text-muted-foreground"
-                                    aria-hidden="true"
-                                />
-                                <span>Analyze data or code</span>
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-foreground text-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={() => uploadInputRef.current?.click()}
+                {showIntentShortcuts &&
+                    isNewChatComposer &&
+                    !isImageModel &&
+                    (activeIntent !== null || isInputEmpty) && (
+                        <div
+                            className={cn(
+                                "mx-auto w-full",
+                                getChatWidthClass(chatWidthState.chatWidth)
+                            )}
                         >
-                            <Paperclip
-                                className="-rotate-45 size-4 shrink-0 text-muted-foreground"
-                                aria-hidden="true"
+                            <IntentGuide
+                                stage={intentGuideStage}
+                                availability={{
+                                    image: modelSupportsVision && modelSupportsFunctionCalling,
+                                    web:
+                                        modelSupportsFunctionCalling &&
+                                        composerToolbar.webSearchAvailable,
+                                    analysis: modelSupportsFunctionCalling && codeExecutionAvailable
+                                }}
+                                attachments={uploadedFiles}
+                                recentImages={recentGeneratedImages.results.slice(0, 6)}
+                                attachingImageKey={attachingImageKey}
+                                webTrends={webTrends}
+                                webTrendsLoading={webTrendsLoading}
+                                onSelectIntent={prepareIntent}
+                                onClearIntent={clearIntent}
+                                onChoosePrompt={chooseIntentPrompt}
+                                onAppendPrompt={appendIntentPrompt}
+                                onUpload={handleIntentUpload}
+                                onChooseRecentImage={attachRecentGeneratedImage}
                             />
-                            <span>Attach a file</span>
-                        </button>
-                    </motion.div>
-                )}
+                        </div>
+                    )}
             </div>
 
             <Dialog

@@ -44,8 +44,8 @@ import {
     useRef,
     useState
 } from "react"
+import { ChatMascot } from "./chat-mascot"
 import { FullPageDropOverlay } from "./full-page-drop-overlay"
-import { Logo } from "./logo"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
 import { SignupMessagePrompt } from "./signup-message-prompt"
 import { StickToBottomButton } from "./stick-to-bottom-button"
@@ -79,6 +79,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { availableModels } = useAvailableModels(resolvedUserSettings)
     const { models: sharedModels } = useSharedModels()
     const multimodalInputRef = useRef<MultimodalInputRef>(null)
+    const [isComposerActive, setIsComposerActive] = useState(false)
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
 
@@ -457,7 +458,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 initial={false}
                 className={
                     isEmpty
-                        ? "absolute inset-0 z-[10] flex flex-col items-center justify-center gap-8 px-4"
+                        ? "absolute inset-0 z-[10] flex flex-col items-center gap-4 overflow-y-auto overscroll-contain px-4 py-3 [justify-content:safe_center] sm:gap-6 [@media(min-height:820px)]:gap-8"
                         : "md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center"
                 }
                 style={
@@ -487,20 +488,28 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                     rounded="full"
                                 />
                             ) : (
-                                <div className="mb-6 size-16 opacity-80">
-                                    <Logo />
-                                </div>
+                                <>
+                                    <ChatMascot
+                                        isCurious={isComposerActive}
+                                        className="mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32"
+                                    />
+                                    <ChatMascot
+                                        variant="face"
+                                        isCurious={isComposerActive}
+                                        className="mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block"
+                                    />
+                                </>
                             )}
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.2 }}
-                                className="text-center"
+                                className="text-center [@media(max-height:480px)]:hidden"
                             >
                                 {!selectedPersonaOption && (
                                     <h1 className="px-4 font-medium text-3xl text-foreground">
                                         {userName
-                                            ? `What do you want to explore, ${userName?.split(" ")[0]}?`
+                                            ? `What's up, ${userName?.split(" ")[0]}?`
                                             : "What do you want to explore?"}
                                     </h1>
                                 )}
@@ -584,6 +593,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         showIntentShortcuts={isEmpty && selectedPersona.source === "default"}
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}
+                        onInputActivityChange={setIsComposerActive}
                     />
                 </div>
             </motion.div>
