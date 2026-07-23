@@ -370,9 +370,28 @@ function PrivacyPolicyPage() {
                             is <strong>TO-DO</strong>.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Account deletion workflow and deletion SLA</strong>:{" "}
-                            <strong>TO-DO</strong>. The exact admin process, timeline, and any
-                            exceptions for legal retention need to be finalized.
+                            <strong>Account deletion workflow</strong>: You may request deletion
+                            yourself from your profile settings. After you complete the required
+                            confirmation steps, we sign you out and process the deletion
+                            asynchronously. New account activity is blocked while deletion is in
+                            progress, and interrupted deletion work is designed to resume and retry.
+                            We do not currently guarantee a fixed completion timeframe.
+                        </PolicyItem>
+                        <PolicyItem>
+                            <strong>
+                                Data removed and limited retention after account deletion
+                            </strong>
+                            {": "}
+                            The deletion process removes your account and user-owned data, including
+                            chats, messages, attachments, imports, personas, settings, encrypted
+                            provider credentials, generated images, usage records, and
+                            authentication records. We retain limited deletion-job records and a
+                            minimal pseudonymized record containing identity hashes, aggregate
+                            usage, deletion timestamps, and limited subscription or refund context
+                            where needed for fraud and abuse prevention, usage-limit enforcement,
+                            subscription handling, and processing late billing events. The
+                            pseudonymized record does not contain your messages, files, settings,
+                            raw email address, or OAuth identifier.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Inactive account purge policy</strong>: <strong>TO-DO</strong>.
@@ -468,7 +487,11 @@ function PrivacyPolicyPage() {
                                 functionality.
                             </PolicyItem>
                             <PolicyItem>
-                                Full account deletion self-service flow: <strong>TO-DO</strong>.
+                                You may permanently delete your account from your profile settings.
+                                The self-service flow requires an exact confirmation phrase and
+                                separate acknowledgement of permanent erasure and the limited
+                                fraud-prevention retention described in Section 5. Deletion is
+                                processed asynchronously and cannot be undone once completed.
                             </PolicyItem>
                             <PolicyItem>
                                 Full account-wide export workflow: <strong>TO-DO</strong>.
