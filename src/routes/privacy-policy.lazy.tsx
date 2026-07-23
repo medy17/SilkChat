@@ -370,11 +370,10 @@ function PrivacyPolicyPage() {
                             is <strong>TO-DO</strong>.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Account deletion workflow</strong>: You may request deletion
+                            <strong>Account deletion</strong>: You may request deletion
                             yourself from your profile settings. After you complete the required
-                            confirmation steps, we sign you out and process the deletion
-                            asynchronously. New account activity is blocked while deletion is in
-                            progress, and interrupted deletion work is designed to resume and retry.
+                            confirmation steps, we will sign you out from all your devices
+                            and begin the deletion process. 
                             We do not currently guarantee a fixed completion timeframe.
                         </PolicyItem>
                         <PolicyItem>
@@ -385,13 +384,13 @@ function PrivacyPolicyPage() {
                             The deletion process removes your account and user-owned data, including
                             chats, messages, attachments, imports, personas, settings, encrypted
                             provider credentials, generated images, usage records, and
-                            authentication records. We retain limited deletion-job records and a
+                            authentication records. We retain limited records and a
                             minimal pseudonymized record containing identity hashes, aggregate
                             usage, deletion timestamps, and limited subscription or refund context
                             where needed for fraud and abuse prevention, usage-limit enforcement,
-                            subscription handling, and processing late billing events. The
-                            pseudonymized record does not contain your messages, files, settings,
-                            raw email address, or OAuth identifier.
+                            subscription handling, and processing late billing events. This
+                            record does not contain your messages, files, settings,
+                            email address, or OAuth identifier.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Inactive account purge policy</strong>: <strong>TO-DO</strong>.
