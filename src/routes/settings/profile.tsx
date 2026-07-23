@@ -11,11 +11,19 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+} from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import {
     useListSessions,
@@ -29,12 +37,17 @@ import { authClient } from "@/lib/auth-client"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
 import { cn } from "@/lib/utils"
 import { queryClient } from "@/providers"
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
-import { useMutation as useConvexMutation, useQuery } from "convex/react"
+import { useAction, useMutation as useConvexMutation, useQuery } from "convex/react"
 import {
+    Check,
+    Copy,
+    Download,
     Edit,
     Globe,
     Laptop,
+    Loader2,
     LogOut,
     Monitor,
     Save,
@@ -44,7 +57,7 @@ import {
     UserX,
     X
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { UAParser } from "ua-parser-js"
 
@@ -65,6 +78,22 @@ function LegacyProfileRedirect() {
     return null
 }
 
+const getExportStatusLabel = (status: string) => {
+    switch (status) {
+        case "reserved":
+        case "building":
+            return "being prepared"
+        case "uploaded":
+            return "ready to send"
+        case "delivered":
+            return "sent"
+        case "failed":
+            return "couldn’t be completed"
+        default:
+            return status
+    }
+}
+
 export function AccountSettingsContent() {
     const { data: session, isLoading: sessionLoading } = useSession()
     const { data: sessions = [], isLoading: sessionsLoading } = useListSessions()
@@ -73,6 +102,15 @@ export function AccountSettingsContent() {
         session?.user?.id ? {} : "skip"
     )
     const requestAccountDeletion = useConvexMutation(api.account_deletion.requestMyAccountDeletion)
+    const requestAccountExport = useAction(api.account_exports_node.requestAccountExport)
+    const latestAccountExport = useQuery(
+        api.account_exports.getMyLatestAccountExport,
+        session?.user?.id ? {} : "skip"
+    )
+    const accountExportAvailability = useQuery(
+        api.account_exports.getAccountExportAvailability,
+        session?.user?.id ? {} : "skip"
+    )
     const updateUser = useUpdateUser()
     const revokeSession = useRevokeSession()
     const revokeOtherSessions = useRevokeOtherSessions()
@@ -84,6 +122,16 @@ export function AccountSettingsContent() {
     const [acceptPermanentErasure, setAcceptPermanentErasure] = useState(false)
     const [acceptFraudRetention, setAcceptFraudRetention] = useState(false)
     const [isRequestingDeletion, setIsRequestingDeletion] = useState(false)
+    const [isExportingAccount, setIsExportingAccount] = useState(false)
+    const [exportDialogOpen, setExportDialogOpen] = useState(false)
+    const [acceptExportSensitiveData, setAcceptExportSensitiveData] = useState(false)
+    const [acceptExportPasswordResponsibility, setAcceptExportPasswordResponsibility] =
+        useState(false)
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+    const turnstileRef = useRef<TurnstileInstance>(null)
+    const exportDialogResetTimerRef = useRef<number | null>(null)
+    const [accountExportKey, setAccountExportKey] = useState<string | null>(null)
+    const [accountExportKeyCopied, setAccountExportKeyCopied] = useState(false)
     const showContextualDevTools = useShowContextualDevTools()
     const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
     const {
@@ -133,6 +181,79 @@ export function AccountSettingsContent() {
         setIsEditingName(false)
         setNameValue("")
     }, [])
+
+    const resetExportDialog = useCallback(() => {
+        setAcceptExportSensitiveData(false)
+        setAcceptExportPasswordResponsibility(false)
+        setTurnstileToken(null)
+        setAccountExportKey(null)
+        setAccountExportKeyCopied(false)
+        turnstileRef.current?.reset()
+    }, [])
+
+    const handleExportDialogOpenChange = useCallback(
+        (open: boolean) => {
+            if (exportDialogResetTimerRef.current !== null) {
+                window.clearTimeout(exportDialogResetTimerRef.current)
+                exportDialogResetTimerRef.current = null
+            }
+            setExportDialogOpen(open)
+            if (!open) {
+                exportDialogResetTimerRef.current = window.setTimeout(() => {
+                    resetExportDialog()
+                    exportDialogResetTimerRef.current = null
+                }, 200)
+            }
+        },
+        [resetExportDialog]
+    )
+
+    const canRequestExport =
+        acceptExportSensitiveData &&
+        acceptExportPasswordResponsibility &&
+        Boolean(turnstileToken) &&
+        !isExportingAccount
+
+    const handleExportAccount = useCallback(async () => {
+        if (!session?.user || !canRequestExport || !turnstileToken) return
+
+        setIsExportingAccount(true)
+        try {
+            const reservation = await requestAccountExport({
+                turnstileToken,
+                consentSensitiveDataLinksAccepted: acceptExportSensitiveData,
+                consentOneTimePasswordAccepted: acceptExportPasswordResponsibility
+            })
+            if (!reservation.accepted) {
+                throw new Error(
+                    `You can request another export after ${new Date(reservation.nextRequestAt).toLocaleString()}`
+                )
+            }
+            setAccountExportKey(reservation.password)
+            toast.success("Export requested. A download link will be emailed to you.")
+        } catch (error) {
+            console.error("Failed to export account data:", error)
+            toast.error(error instanceof Error ? error.message : "Failed to export account data")
+            setTurnstileToken(null)
+            turnstileRef.current?.reset()
+        } finally {
+            setIsExportingAccount(false)
+        }
+    }, [
+        canRequestExport,
+        acceptExportPasswordResponsibility,
+        acceptExportSensitiveData,
+        requestAccountExport,
+        session?.user,
+        turnstileToken
+    ])
+
+    const handleCopyAccountExportKey = useCallback(async () => {
+        if (!accountExportKey) return
+        await navigator.clipboard.writeText(accountExportKey)
+        setAccountExportKeyCopied(true)
+        window.setTimeout(() => setAccountExportKeyCopied(false), 2000)
+    }, [accountExportKey])
 
     const handleRevokeSession = useCallback(
         async (sessionId: string) => {
@@ -502,6 +623,203 @@ export function AccountSettingsContent() {
                     )}
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Export your data</CardTitle>
+                    <CardDescription className="max-w-2xl space-y-1">
+                        <p>
+                            We’ll email you a link to a password-protected ZIP. You can request one
+                            export every 24 hours.
+                        </p>
+                        {latestAccountExport && (
+                            <p className="text-xs">
+                                Your last export was{" "}
+                                {getExportStatusLabel(latestAccountExport.status)}. You can request
+                                another after{" "}
+                                {new Date(latestAccountExport.nextRequestAt).toLocaleString()}.
+                            </p>
+                        )}
+                        {accountExportAvailability?.configured === false && (
+                            <p className="text-destructive text-xs">
+                                Exports aren’t available right now. Try again later.
+                            </p>
+                        )}
+                    </CardDescription>
+                    <CardAction className="self-center">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full shrink-0 rounded-[var(--radius-md)] sm:w-auto"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={
+                                isExportingAccount ||
+                                !session?.user ||
+                                accountExportAvailability?.configured !== true ||
+                                Boolean(
+                                    latestAccountExport &&
+                                        latestAccountExport.nextRequestAt > Date.now()
+                                )
+                            }
+                        >
+                            {isExportingAccount ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Download className="h-4 w-4" />
+                            )}
+                            {isExportingAccount ? "Preparing export..." : "Request export"}
+                        </Button>
+                    </CardAction>
+                </CardHeader>
+            </Card>
+
+            <AlertDialog open={exportDialogOpen} onOpenChange={handleExportDialogOpenChange}>
+                <AlertDialogContent className="min-w-0 overflow-hidden rounded-[var(--radius-xl)]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {accountExportKey
+                                ? "Save your ZIP password"
+                                : "Export your SilkChat data"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {accountExportKey
+                                ? "This is the only time we’ll show it. SilkChat can’t recover it for you."
+                                : "Your archive may include private conversations and personal files. Please review these details before continuing."}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {accountExportKey ? (
+                        <div className="min-w-0 space-y-4">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <code
+                                    className="block w-0 min-w-0 flex-1 truncate whitespace-nowrap rounded-[var(--radius-md)] bg-muted p-3 text-xs"
+                                    title={accountExportKey}
+                                >
+                                    {accountExportKey}
+                                </code>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            className="shrink-0 rounded-[var(--radius-md)]"
+                                            aria-label="Copy ZIP password"
+                                            onClick={() => void handleCopyAccountExportKey()}
+                                        >
+                                            {accountExportKeyCopied ? (
+                                                <Check className="h-4 w-4" />
+                                            ) : (
+                                                <Copy className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="z-[80]">
+                                        {accountExportKeyCopied ? "Copied!" : "Copy password"}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+
+                            <div className="flex min-w-0 items-start gap-3 rounded-[var(--radius-lg)] border p-3">
+                                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                <div className="min-w-0 space-y-1 text-sm">
+                                    <div className="font-medium">Your export is on its way</div>
+                                    <p className="text-muted-foreground">
+                                        We’ll email the download link to you shortly. You can close
+                                        this page while we prepare it.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="space-y-3">
+                                <label
+                                    htmlFor="export-sensitive-data-consent"
+                                    className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
+                                >
+                                    <Checkbox
+                                        id="export-sensitive-data-consent"
+                                        checked={acceptExportSensitiveData}
+                                        onCheckedChange={(checked) =>
+                                            setAcceptExportSensitiveData(checked === true)
+                                        }
+                                        className="mt-0.5 rounded-[var(--radius-sm)]"
+                                    />
+                                    <span>
+                                        I understand that my export may contain private
+                                        conversations and links to files I’ve uploaded or created.
+                                    </span>
+                                </label>
+
+                                <label
+                                    htmlFor="export-password-consent"
+                                    className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
+                                >
+                                    <Checkbox
+                                        id="export-password-consent"
+                                        checked={acceptExportPasswordResponsibility}
+                                        onCheckedChange={(checked) =>
+                                            setAcceptExportPasswordResponsibility(checked === true)
+                                        }
+                                        className="mt-0.5 rounded-[var(--radius-sm)]"
+                                    />
+                                    <span>
+                                        I’ll save the one-time password shown after I request my
+                                        export. SilkChat can’t recover it for me.
+                                    </span>
+                                </label>
+                            </div>
+
+                            {accountExportAvailability?.siteKey && (
+                                <div className="space-y-2">
+                                    <div>
+                                        <div className="font-medium text-sm">Security check</div>
+                                        <p className="text-muted-foreground text-xs">
+                                            Confirm you’re human to continue.
+                                        </p>
+                                    </div>
+                                    <div className="overflow-hidden rounded-[var(--radius-lg)] border p-3">
+                                        <Turnstile
+                                            ref={turnstileRef}
+                                            siteKey={accountExportAvailability.siteKey}
+                                            options={{
+                                                action: "account_export",
+                                                appearance: "always",
+                                                execution: "render",
+                                                size: "flexible",
+                                                theme: "auto"
+                                            }}
+                                            onSuccess={setTurnstileToken}
+                                            onExpire={() => setTurnstileToken(null)}
+                                            onError={() => setTurnstileToken(null)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <AlertDialogFooter>
+                        {accountExportKey ? (
+                            <AlertDialogCancel>Done</AlertDialogCancel>
+                        ) : (
+                            <>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <Button
+                                    type="button"
+                                    className="rounded-[var(--radius-md)]"
+                                    disabled={!canRequestExport}
+                                    onClick={() => void handleExportAccount()}
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Request export
+                                </Button>
+                            </>
+                        )}
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <Card className="border-destructive/40">
                 <CardHeader>

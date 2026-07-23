@@ -913,6 +913,18 @@ export const purgeAccountData = internalMutation({
         )
         if (subscriptions) return subscriptions
 
+        const accountExports = await deleteUserBatch(
+            "purging_account_exports",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("accountExportJobs")
+                    .withIndex("byUserCreatedAt", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (accountExports) return accountExports
+
         const authBatch = await deleteAuthDuplicateRowsBatch(ctx, userId, authId)
         if (authBatch) {
             return await continuePurge(

@@ -9,6 +9,8 @@
  */
 
 import type * as account_deletion from "../account_deletion.js";
+import type * as account_exports from "../account_exports.js";
+import type * as account_exports_node from "../account_exports_node.js";
 import type * as aggregates from "../aggregates.js";
 import type * as analytics from "../analytics.js";
 import type * as attachments from "../attachments.js";
@@ -139,6 +141,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account_deletion: typeof account_deletion;
+  account_exports: typeof account_exports;
+  account_exports_node: typeof account_exports_node;
   aggregates: typeof aggregates;
   analytics: typeof analytics;
   attachments: typeof attachments;

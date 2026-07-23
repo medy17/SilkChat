@@ -6,6 +6,7 @@ import {
     BillingSubscriptionLink,
     IdentitySuppression
 } from "./schema/account_deletion"
+import { AccountExportJob } from "./schema/account_export"
 import { LemonSqueezySubscription, LemonSqueezyWebhookEvent } from "./schema/billing"
 import { PrototypeCreditReservation } from "./schema/credit_reservations"
 import {
@@ -166,6 +167,10 @@ export default defineSchema({
     accountDeletionJobs: defineTable(AccountDeletionJob)
         .index("byUser", ["userId"])
         .index("byStatus", ["status"]),
+    accountExportJobs: defineTable(AccountExportJob).index("byUserCreatedAt", [
+        "userId",
+        "createdAt"
+    ]),
     threads: defineTable(Thread)
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"])

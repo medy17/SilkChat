@@ -151,6 +151,68 @@ export const WelcomeEmailTemplate = ({
     </Html>
 )
 
+interface AccountExportEmailTemplateProps {
+    downloadUrl: string
+    logoUrl: string
+    supportEmail: string
+}
+
+export const AccountExportEmailTemplate = ({
+    downloadUrl,
+    logoUrl,
+    supportEmail
+}: AccountExportEmailTemplateProps) => (
+    <Html>
+        <Head />
+        <Preview>Your encrypted SilkChat account export is ready</Preview>
+        <Body style={welcomeMain}>
+            <Container style={welcomeOuter}>
+                <Section style={welcomeCard}>
+                    <Section style={logoSection}>
+                        <Img
+                            src={logoUrl}
+                            alt="SilkChat"
+                            width="120"
+                            height="32"
+                            style={logoImage}
+                        />
+                    </Section>
+                    <Text style={welcomeHeading}>Your account export is ready</Text>
+                    <Text style={welcomeText}>
+                        Your SilkChat account archive has been encrypted and is ready to download.
+                    </Text>
+                    <Section style={buttonSection}>
+                        <Link href={downloadUrl} style={welcomeButton}>
+                            Download encrypted ZIP
+                        </Link>
+                    </Section>
+                    <Text style={welcomeText}>
+                        Open the ZIP with the one-time password shown when you requested the export.
+                        SilkChat does not retain that password and cannot recover it for you.
+                    </Text>
+                    <Text style={welcomeText}>
+                        If you did not request this export, you can ignore this email. The stored
+                        archive cannot be decrypted without your one-time key.
+                    </Text>
+                    <Hr style={divider} />
+                    <Text style={welcomeSupportText}>
+                        If you need help, contact us at{" "}
+                        <Link href={`mailto:${supportEmail}`} style={inlineLink}>
+                            {supportEmail}
+                        </Link>
+                        .
+                    </Text>
+                    <Text style={welcomeSignature}>The SilkChat Team</Text>
+                </Section>
+                <Text style={welcomeFooter}>
+                    © 2026 SilkChat. You&apos;re receiving this email because an account export was
+                    requested at silkchat.dev.
+                </Text>
+            </Container>
+        </Body>
+    </Html>
+)
+
 interface OTPEmailTemplateProps {
     otp: string
     type: "sign-in" | "email-verification" | "forget-password"

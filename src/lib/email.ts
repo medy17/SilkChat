@@ -2,6 +2,7 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses"
 import { render } from "@react-email/render"
 import { Resend } from "resend"
 import {
+    AccountExportEmailTemplate,
     EmailVerificationTemplate,
     OTPEmailTemplate,
     PasswordResetTemplate,
@@ -291,6 +292,37 @@ class EmailService {
         })
     }
 
+    async sendAccountExportEmail(data: { email: string; downloadUrl: string }) {
+        const supportEmail = this.getSupportEmail()
+        const html = await render(
+            AccountExportEmailTemplate({
+                downloadUrl: data.downloadUrl,
+                logoUrl: this.getLogoUrl(),
+                supportEmail
+            })
+        )
+
+        const acknowledgement = await this.sendEmail({
+            to: data.email,
+            subject: "Your SilkChat account export is ready",
+            html,
+            text: `Your AES-256 encrypted SilkChat account export is ready:\n\n${data.downloadUrl}\n\nOpen the ZIP with the one-time password shown when you requested the export. SilkChat does not retain that password.\n\nIf you did not request this export, you can ignore this email.`
+        })
+
+        const providerMessageId =
+            acknowledgement &&
+            typeof acknowledgement === "object" &&
+            "data" in acknowledgement &&
+            acknowledgement.data &&
+            typeof acknowledgement.data === "object" &&
+            "id" in acknowledgement.data &&
+            typeof acknowledgement.data.id === "string"
+                ? acknowledgement.data.id
+                : undefined
+
+        return { providerMessageId }
+    }
+
     async sendOTPEmail(data: {
         email: string
         otp: string
@@ -355,5 +387,6 @@ export const sendEmail = emailService.sendEmail.bind(emailService)
 export const sendVerificationEmail = emailService.sendVerificationEmail.bind(emailService)
 export const sendPasswordResetEmail = emailService.sendPasswordResetEmail.bind(emailService)
 export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
+export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
 export const sendOTPEmail = emailService.sendOTPEmail.bind(emailService)
 export const isEmailConfigured = emailService.isConfigured.bind(emailService)

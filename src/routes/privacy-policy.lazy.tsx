@@ -365,16 +365,20 @@ function PrivacyPolicyPage() {
                             necessary to operate your chosen configuration.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Thread export capability</strong>: The app currently supports
-                            export of supported thread data. Broader account-wide export packaging
-                            is <strong>TO-DO</strong>.
+                            <strong>Export capability</strong>: The app supports export of
+                            individual threads and a self-service account archive containing profile
+                            data, preferences, personas, projects, conversations, and an index of
+                            links to uploaded and generated files. Stored credentials and
+                            authentication secrets are excluded. Account archives are assembled and
+                            encrypted by our backend, stored in encrypted form, and delivered by
+                            email link. The one-time ZIP password is generated when you request the
+                            export, shown to you once, and is not stored with the completed archive.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Account deletion</strong>: You may request deletion
-                            yourself from your profile settings. After you complete the required
-                            confirmation steps, we will sign you out from all your devices
-                            and begin the deletion process. 
-                            We do not currently guarantee a fixed completion timeframe.
+                            <strong>Account deletion</strong>: You may request deletion yourself
+                            from your profile settings. After you complete the required confirmation
+                            steps, we will sign you out from all your devices and begin the deletion
+                            process. We do not currently guarantee a fixed completion timeframe.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>
@@ -384,13 +388,13 @@ function PrivacyPolicyPage() {
                             The deletion process removes your account and user-owned data, including
                             chats, messages, attachments, imports, personas, settings, encrypted
                             provider credentials, generated images, usage records, and
-                            authentication records. We retain limited records and a
-                            minimal pseudonymized record containing identity hashes, aggregate
-                            usage, deletion timestamps, and limited subscription or refund context
-                            where needed for fraud and abuse prevention, usage-limit enforcement,
-                            subscription handling, and processing late billing events. This
-                            record does not contain your messages, files, settings,
-                            email address, or OAuth identifier.
+                            authentication records. We retain limited records and a minimal
+                            pseudonymized record containing identity hashes, aggregate usage,
+                            deletion timestamps, and limited subscription or refund context where
+                            needed for fraud and abuse prevention, usage-limit enforcement,
+                            subscription handling, and processing late billing events. This record
+                            does not contain your messages, files, settings, email address, or OAuth
+                            identifier.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Inactive account purge policy</strong>: <strong>TO-DO</strong>.
@@ -493,7 +497,9 @@ function PrivacyPolicyPage() {
                                 processed asynchronously and cannot be undone once completed.
                             </PolicyItem>
                             <PolicyItem>
-                                Full account-wide export workflow: <strong>TO-DO</strong>.
+                                You may request a self-service account archive from your account
+                                settings once every 24 hours. Generated binary assets may be
+                                represented by links rather than embedded copies.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
