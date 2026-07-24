@@ -1,9 +1,11 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses"
 import { render } from "@react-email/render"
 import { Resend } from "resend"
+import { resolveEmailIdempotencyKey } from "./email-idempotency"
 import {
     AccountExportEmailTemplate,
     EmailVerificationTemplate,
+    InactiveAccountNoticeEmailTemplate,
     OTPEmailTemplate,
     PasswordResetTemplate,
     WelcomeEmailTemplate
@@ -33,6 +35,7 @@ interface SendEmailOptions {
     subject: string
     html: string
     text?: string
+    idempotencyKey?: string
 }
 
 const DEFAULT_APP_URL = "https://silkchat.dev"
@@ -148,18 +151,21 @@ class EmailService {
         return process.env.SUPPORT_EMAIL?.trim() || DEFAULT_SUPPORT_EMAIL
     }
 
-    private async sendWithResend(options: SendEmailOptions) {
+    private async sendWithResend(options: SendEmailOptions, idempotencyKey: string) {
         if (!this.resend) {
             throw new Error("Resend client not initialized")
         }
 
-        const result = await this.resend.emails.send({
-            from: this.config?.from || "noreply@silkchat.dev",
-            to: options.to,
-            subject: options.subject,
-            html: options.html,
-            text: options.text
-        })
+        const result = await this.resend.emails.send(
+            {
+                from: this.config?.from || "noreply@silkchat.dev",
+                to: options.to,
+                subject: options.subject,
+                html: options.html,
+                text: options.text
+            },
+            { idempotencyKey }
+        )
 
         if (result.error) {
             throw new Error(`Resend error: ${result.error.message}`)
@@ -204,9 +210,13 @@ class EmailService {
     async sendEmail(options: SendEmailOptions) {
         try {
             const config = this.ensureConfigured()
+            const idempotencyKey = resolveEmailIdempotencyKey({
+                ...options,
+                from: config.from
+            })
 
             if (config.provider === "resend") {
-                return await this.sendWithResend(options)
+                return await this.sendWithResend(options, idempotencyKey)
             }
 
             if (config.provider === "ses") {
@@ -292,7 +302,11 @@ class EmailService {
         })
     }
 
-    async sendAccountExportEmail(data: { email: string; downloadUrl: string }) {
+    async sendAccountExportEmail(data: {
+        email: string
+        downloadUrl: string
+        idempotencyKey?: string
+    }) {
         const supportEmail = this.getSupportEmail()
         const html = await render(
             AccountExportEmailTemplate({
@@ -306,6 +320,7 @@ class EmailService {
             to: data.email,
             subject: "Your SilkChat account export is ready",
             html,
+            idempotencyKey: data.idempotencyKey,
             text: `Your AES-256 encrypted SilkChat account export is ready:\n\n${data.downloadUrl}\n\nOpen the ZIP with the one-time password shown when you requested the export. SilkChat does not retain that password.\n\nIf you did not request this export, you can ignore this email.`
         })
 
@@ -321,6 +336,33 @@ class EmailService {
                 : undefined
 
         return { providerMessageId }
+    }
+
+    async sendInactiveAccountNoticeEmail(data: {
+        email: string
+        name?: string
+        idempotencyKey?: string
+    }) {
+        const appUrl = this.getAppUrl()
+        const accountUrl = `${appUrl.replace(/\/$/, "")}/settings/account`
+        const supportEmail = this.getSupportEmail()
+        const html = await render(
+            InactiveAccountNoticeEmailTemplate({
+                name: data.name,
+                appUrl,
+                accountUrl,
+                logoUrl: this.getLogoUrl(),
+                supportEmail
+            })
+        )
+
+        await this.sendEmail({
+            to: data.email,
+            subject: "Silky misses you",
+            html,
+            idempotencyKey: data.idempotencyKey,
+            text: `Silky misses you\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nIt's been a while since you logged in. Your chats, generated images, and files remain available whenever you're ready.\n\nReturn to SilkChat: ${appUrl}\n\nIf you'd like to export your SilkChat data or delete your account instead, you can do that from your account settings: ${accountUrl}\n\nIf you need help, contact us at ${supportEmail}.\n\nThis is the only inactivity reminder we will send for this account.\n\nThe SilkChat Team`
+        })
     }
 
     async sendOTPEmail(data: {
@@ -388,5 +430,7 @@ export const sendVerificationEmail = emailService.sendVerificationEmail.bind(ema
 export const sendPasswordResetEmail = emailService.sendPasswordResetEmail.bind(emailService)
 export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
 export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
+export const sendInactiveAccountNoticeEmail =
+    emailService.sendInactiveAccountNoticeEmail.bind(emailService)
 export const sendOTPEmail = emailService.sendOTPEmail.bind(emailService)
 export const isEmailConfigured = emailService.isConfigured.bind(emailService)

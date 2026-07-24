@@ -397,9 +397,10 @@ function PrivacyPolicyPage() {
                             identifier.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Inactive account purge policy</strong>: <strong>TO-DO</strong>.
-                            Any future inactivity-based deletion rule should be stated here only
-                            once implemented and operationally validated.
+                            <strong>Inactive accounts</strong>: We do not preemptively delete inactive
+                            accounts. After ~24 months of inactivity, we may send one email
+                            reminding you that your account and conversations remain available and
+                            provide instructions on how to return, export your data, or request account deletion.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Billing records</strong>: If paid billing is introduced later,

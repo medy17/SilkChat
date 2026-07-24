@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
 import { UserAccess } from "./schema/access"
+import { AccountActivity } from "./schema/account_activity"
 import {
     AccountDeletionJob,
     BillingSubscriptionLink,
@@ -54,7 +55,8 @@ export {
     PersistentSandbox,
     UserAccess,
     LemonSqueezySubscription,
-    LemonSqueezyWebhookEvent
+    LemonSqueezyWebhookEvent,
+    AccountActivity
 }
 
 export default defineSchema({
@@ -156,6 +158,9 @@ export default defineSchema({
         count: v.number(),
         lastRequest: v.number()
     }).index("key", ["key"]),
+    accountActivities: defineTable(AccountActivity)
+        .index("byAuthUserId", ["authUserId"])
+        .index("byNoticeStateAndLastActiveAt", ["inactivityNoticeState", "lastActiveAt"]),
     identitySuppressions: defineTable(IdentitySuppression)
         .index("byGoogleSubHash", ["googleSubHash"])
         .index("byEmailHash", ["emailHash"])

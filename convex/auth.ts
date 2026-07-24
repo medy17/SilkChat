@@ -5,6 +5,7 @@ import { betterAuth } from "better-auth"
 import { components, internal } from "./_generated/api.js"
 import { internalAction, query } from "./_generated/server"
 import authConfig from "./auth.config"
+import { recordAuthenticatedActivity, removeAccountActivity } from "./lib/account_activity"
 import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_restore"
 
 const betterAuthComponent = (
@@ -44,8 +45,16 @@ const isLocalAuthRuntime =
 const getAppUserId = (user: { _id: string; userId?: string | null }) =>
     typeof user.userId === "string" && user.userId.trim().length > 0 ? user.userId : user._id
 
+type AuthUserLookup = {
+    _id: string
+    userId?: string | null
+    email?: string | null
+}
+
 const getAuthUserById = async (
-    ctx: { runQuery: (query: unknown, args: unknown) => Promise<any> },
+    ctx: {
+        runQuery: (query: unknown, args: unknown) => Promise<AuthUserLookup | null>
+    },
     authId: string
 ) =>
     await ctx.runQuery(betterAuthComponent.adapter.findOne, {
@@ -57,16 +66,29 @@ export const authComponent = createClient(betterAuthComponent, {
     triggers: {
         user: {
             onCreate: async (ctx, user) => {
+                await recordAuthenticatedActivity(ctx, user._id)
                 await restoreDeletedAccountCreditsForIdentity(ctx, {
                     userId: getAppUserId(user),
                     email: user.email
                 })
             },
             onUpdate: async (ctx, user) => {
+                await recordAuthenticatedActivity(ctx, user._id)
                 await restoreDeletedAccountCreditsForIdentity(ctx, {
                     userId: getAppUserId(user),
                     email: user.email
                 })
+            },
+            onDelete: async (ctx, user) => {
+                await removeAccountActivity(ctx, user._id)
+            }
+        },
+        session: {
+            onCreate: async (ctx, session) => {
+                await recordAuthenticatedActivity(ctx, session.userId)
+            },
+            onUpdate: async (ctx, session) => {
+                await recordAuthenticatedActivity(ctx, session.userId)
             }
         },
         account: {

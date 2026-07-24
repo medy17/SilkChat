@@ -33,4 +33,10 @@ crons.interval(
     internal.model_provider_metadata_node.syncOpenRouterModelMetadata
 )
 
+crons.weekly(
+    "queue inactive account notices",
+    { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 0 },
+    internal.account_activity.queueInactiveAccountNotices
+)
+
 export default crons

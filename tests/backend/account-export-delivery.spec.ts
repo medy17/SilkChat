@@ -114,6 +114,11 @@ describe("account export email delivery", () => {
             expect.anything(),
             "account-exports/user-1/job-1.zip"
         )
+        expect(sendAccountExportEmail).toHaveBeenCalledWith({
+            email: "person@example.com",
+            downloadUrl: "https://files.example.com/account-exports/user-1/job-1.zip",
+            idempotencyKey: "account-export/job-1"
+        })
         expect(scheduler.runAfter).not.toHaveBeenCalled()
         expect(runMutation).toHaveBeenLastCalledWith("failAccountExport", {
             jobId: "job-1",

@@ -330,7 +330,8 @@ export const deliverAccountExportEmail = internalAction({
             const { sendAccountExportEmail } = await import("../src/lib/email")
             const acknowledgement = await sendAccountExportEmail({
                 email: job.email,
-                downloadUrl: job.downloadUrl
+                downloadUrl: job.downloadUrl,
+                idempotencyKey: `account-export/${jobId}`
             })
             await ctx.runMutation(internal.account_exports.markAccountExportDelivered, {
                 jobId,

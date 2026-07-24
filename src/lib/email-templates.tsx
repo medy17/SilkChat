@@ -213,6 +213,74 @@ export const AccountExportEmailTemplate = ({
     </Html>
 )
 
+interface InactiveAccountNoticeEmailTemplateProps {
+    name?: string
+    appUrl: string
+    accountUrl: string
+    logoUrl: string
+    supportEmail: string
+}
+
+export const InactiveAccountNoticeEmailTemplate = ({
+    name,
+    appUrl,
+    accountUrl,
+    logoUrl,
+    supportEmail
+}: InactiveAccountNoticeEmailTemplateProps) => (
+    <Html>
+        <Head />
+        <Preview>Your chats, generated images, and files are still here</Preview>
+        <Body style={welcomeMain}>
+            <Container style={welcomeOuter}>
+                <Section style={welcomeCard}>
+                    <Section style={logoSection}>
+                        <Img
+                            src={logoUrl}
+                            alt="SilkChat"
+                            width="120"
+                            height="32"
+                            style={logoImage}
+                        />
+                    </Section>
+                    <Text style={welcomeHeading}>Silky misses you</Text>
+                    <Text style={welcomeText}>{name ? `Hi ${name},` : "Hi,"}</Text>
+                    <Text style={welcomeText}>
+                        It&apos;s been a while since you logged in. Your chats, generated images,
+                        and files remain available whenever you&apos;re ready.
+                    </Text>
+                    <Section style={buttonSection}>
+                        <Link href={appUrl} style={welcomeButton}>
+                            Return to SilkChat
+                        </Link>
+                    </Section>
+                    <Text style={welcomeText}>
+                        If you&apos;d like to export your SilkChat data or delete your account
+                        instead, you can do that from your{" "}
+                        <Link href={accountUrl} style={inlineLink}>
+                            account settings
+                        </Link>
+                        .
+                    </Text>
+                    <Hr style={divider} />
+                    <Text style={welcomeSupportText}>
+                        If you need help, contact us at{" "}
+                        <Link href={`mailto:${supportEmail}`} style={inlineLink}>
+                            {supportEmail}
+                        </Link>
+                        .
+                    </Text>
+                    <Text style={welcomeSignature}>The SilkChat Team</Text>
+                </Section>
+                <Text style={welcomeFooter}>
+                    © 2026 SilkChat. This is the only inactivity reminder we will send for this
+                    account.
+                </Text>
+            </Container>
+        </Body>
+    </Html>
+)
+
 interface OTPEmailTemplateProps {
     otp: string
     type: "sign-in" | "email-verification" | "forget-password"
