@@ -1,8 +1,7 @@
 import { T3_CHAT_THEME_URL, applyBuiltInThemeOverrides } from "@/lib/theme-font-config"
 
 export const THEME_URLS = [
-    "https://tweakcn.com/editor/theme?theme=mono",
-    "https://tweakcn.com/themes/cmn60bwp8000004kzgfz9f93r",
+    "https://tweakcn.com/themes/cmrzdtil2000704jldxp75mdg",
     "https://tweakcn.com/themes/cmndaz3pj000604js33fr1gsk",
     T3_CHAT_THEME_URL,
     "https://tweakcn.com/editor/theme?theme=tangerine",
@@ -128,11 +127,13 @@ export function getBuiltInThemeUrl(url: string): string | undefined {
 
 export function isMissingImportedThemeSelection(
     selectedThemeUrl: string | null,
-    importedThemeUrls: readonly string[]
+    importedThemeUrls: readonly string[],
+    localThemeUrls: readonly string[] = []
 ): boolean {
     return Boolean(
         selectedThemeUrl &&
             !getBuiltInThemeUrl(selectedThemeUrl) &&
+            !localThemeUrls.includes(selectedThemeUrl) &&
             !importedThemeUrls.includes(selectedThemeUrl)
     )
 }

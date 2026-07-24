@@ -79,12 +79,20 @@ describe("theme URL identity", () => {
     })
 
     it("recognizes alternate tweakcn URLs for a built-in theme", () => {
-        expect(getThemeResourceUrl("https://tweakcn.com/editor/theme?theme=mono")).toBe(
-            "https://tweakcn.com/r/themes/mono.json"
+        expect(getThemeResourceUrl("https://tweakcn.com/themes/cmrzdtil2000704jldxp75mdg")).toBe(
+            "https://tweakcn.com/r/themes/cmrzdtil2000704jldxp75mdg"
         )
-        expect(getBuiltInThemeUrl("https://tweakcn.com/r/themes/mono.json")).toBe(
-            "https://tweakcn.com/editor/theme?theme=mono"
+        expect(getBuiltInThemeUrl("https://tweakcn.com/r/themes/cmrzdtil2000704jldxp75mdg")).toBe(
+            "https://tweakcn.com/themes/cmrzdtil2000704jldxp75mdg"
         )
+        expect(getBuiltInThemeUrl("https://tweakcn.com/r/themes/mono.json")).toBeUndefined()
+    })
+
+    it("keeps local app themes out of imported-theme cleanup", () => {
+        const legacyThemeUrl = "silkchat:legacy-green"
+
+        expect(isMissingImportedThemeSelection(legacyThemeUrl, [], [legacyThemeUrl])).toBe(false)
+        expect(isMissingImportedThemeSelection(legacyThemeUrl, [])).toBe(true)
     })
 
     it("does not classify an unrelated imported theme as built-in", () => {
@@ -96,8 +104,11 @@ describe("theme URL identity", () => {
 
         expect(isMissingImportedThemeSelection(selectedThemeUrl, [])).toBe(true)
         expect(isMissingImportedThemeSelection(selectedThemeUrl, [selectedThemeUrl])).toBe(false)
-        expect(isMissingImportedThemeSelection("https://tweakcn.com/r/themes/mono.json", [])).toBe(
-            false
-        )
+        expect(
+            isMissingImportedThemeSelection(
+                "https://tweakcn.com/r/themes/cmrzdtil2000704jldxp75mdg",
+                []
+            )
+        ).toBe(false)
     })
 })

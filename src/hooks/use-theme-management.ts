@@ -117,7 +117,9 @@ export function useThemeManagement() {
         )
         if (
             settingsHaveLoaded &&
-            isMissingImportedThemeSelection(selectedThemeUrl, importedThemeUrls)
+            isMissingImportedThemeSelection(selectedThemeUrl, importedThemeUrls, [
+                LEGACY_GREEN_THEME_URL
+            ])
         ) {
             resetThemeToDefault()
         }
