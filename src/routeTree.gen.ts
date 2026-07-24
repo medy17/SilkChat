@@ -11,84 +11,84 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TosRouteImport } from './routes/tos'
-import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as MeRouteImport } from './routes/me'
-import { Route as LegalRouteImport } from './routes/legal'
-import { Route as AuthorRouteImport } from './routes/author'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as AuthorRouteImport } from './routes/author'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
+import { Route as TosRouteImport } from './routes/tos'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
-import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
-import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
-import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
-import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
-import { Route as SettingsModelsRouteImport } from './routes/settings/models'
-import { Route as SettingsFilesRouteImport } from './routes/settings/files'
-import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
-import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
-import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior'
-import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
-import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
-import { Route as SettingsAiSetupRouteImport } from './routes/settings/ai-setup'
-import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
-import { Route as SettingsAccountRouteImport } from './routes/settings/account'
-import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
-import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
-import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
-import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
-import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
-import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-state'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
+import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
+import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
+import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
+import { Route as SettingsAccountRouteImport } from './routes/settings/account'
+import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
+import { Route as SettingsAiSetupRouteImport } from './routes/settings/ai-setup'
+import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
+import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
+import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior'
+import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
+import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
+import { Route as SettingsFilesRouteImport } from './routes/settings/files'
+import { Route as SettingsModelsRouteImport } from './routes/settings/models'
+import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
+import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
+import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-state'
+import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
 
-const PersonasLazyRouteImport = createFileRoute('/personas')()
 const AboutLazyRouteImport = createFileRoute('/about')()
+const PersonasLazyRouteImport = createFileRoute('/personas')()
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
 const PersonasStartLazyRouteImport = createFileRoute('/personas_/start')()
-const ChatSSharedThreadIdLazyRouteImport = createFileRoute(
-  '/_chat/s/$sharedThreadId',
-)()
 const ChatFolderFolderIdLazyRouteImport = createFileRoute(
   '/_chat/folder/$folderId',
 )()
+const ChatSSharedThreadIdLazyRouteImport = createFileRoute(
+  '/_chat/s/$sharedThreadId',
+)()
 
-const PersonasLazyRoute = PersonasLazyRouteImport.update({
-  id: '/personas',
-  path: '/personas',
+const ChatRoute = ChatRouteImport.update({
+  id: '/_chat',
   getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/personas.lazy').then((d) => d.Route))
+} as any)
 const AboutLazyRoute = AboutLazyRouteImport.update({
   id: '/about',
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
-const SettingsRouteLazyRoute = SettingsRouteLazyRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/settings/route.lazy').then((d) => d.Route),
-)
-const TosRoute = TosRouteImport.update({
-  id: '/tos',
-  path: '/tos',
+const AuthorRoute = AuthorRouteImport.update({
+  id: '/author',
+  path: '/author',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
-  id: '/terms-of-service',
-  path: '/terms-of-service',
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
   getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/terms-of-service.lazy').then((d) => d.Route),
-)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonasLazyRoute = PersonasLazyRouteImport.update({
+  id: '/personas',
+  path: '/personas',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/personas.lazy').then((d) => d.Route))
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -98,28 +98,28 @@ const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/privacy-policy.lazy').then((d) => d.Route),
 )
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
+const SettingsRouteLazyRoute = SettingsRouteLazyRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/settings/route.lazy').then((d) => d.Route),
+)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MeRoute = MeRouteImport.update({
-  id: '/me',
-  path: '/me',
+const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
+  id: '/terms-of-service',
+  path: '/terms-of-service',
   getParentRoute: () => rootRouteImport,
-} as any)
-const LegalRoute = LegalRouteImport.update({
-  id: '/legal',
-  path: '/legal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthorRoute = AuthorRouteImport.update({
-  id: '/author',
-  path: '/author',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/_chat',
+} as any).lazy(() =>
+  import('./routes/terms-of-service.lazy').then((d) => d.Route),
+)
+const TosRoute = TosRouteImport.update({
+  id: '/tos',
+  path: '/tos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -127,82 +127,25 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ChatRoute,
 } as any)
-const PersonasStartLazyRoute = PersonasStartLazyRouteImport.update({
-  id: '/personas_/start',
-  path: '/personas/start',
+const ChatLibraryRoute = ChatLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ApiCreditSummaryRoute = ApiCreditSummaryRouteImport.update({
+  id: '/api/credit-summary',
+  path: '/api/credit-summary',
   getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/personas_.start.lazy').then((d) => d.Route),
-)
-const SettingsUsageRoute = SettingsUsageRouteImport.update({
-  id: '/usage',
-  path: '/usage',
-  getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
-const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
-  id: '/providers',
-  path: '/providers',
-  getParentRoute: () => SettingsRouteLazyRoute,
+const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
+  id: '/api/model-benchmarks',
+  path: '/api/model-benchmarks',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsProfileRoute = SettingsProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsPersonasRoute = SettingsPersonasRouteImport.update({
-  id: '/personas',
-  path: '/personas',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsModelsRoute = SettingsModelsRouteImport.update({
-  id: '/models',
-  path: '/models',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsFilesRoute = SettingsFilesRouteImport.update({
-  id: '/files',
-  path: '/files',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
-  id: '/customization',
-  path: '/customization',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsBillingRoute = SettingsBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsBehaviorRoute = SettingsBehaviorRouteImport.update({
-  id: '/behavior',
-  path: '/behavior',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
-  id: '/attachments',
-  path: '/attachments',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
-  id: '/appearance',
-  path: '/appearance',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsAiSetupRoute = SettingsAiSetupRouteImport.update({
-  id: '/ai-setup',
-  path: '/ai-setup',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsAiOptionsRoute = SettingsAiOptionsRouteImport.update({
-  id: '/ai-options',
-  path: '/ai-options',
-  getParentRoute: () => SettingsRouteLazyRoute,
-} as any)
-const SettingsAccountRoute = SettingsAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => SettingsRouteLazyRoute,
+const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
+  id: '/api/search-trends',
+  path: '/api/search-trends',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthPathnameRoute = AuthPathnameRouteImport.update({
   id: '/auth/$pathname',
@@ -211,33 +154,83 @@ const AuthPathnameRoute = AuthPathnameRouteImport.update({
 } as any).lazy(() =>
   import('./routes/auth/$pathname.lazy').then((d) => d.Route),
 )
-const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
-  id: '/api/search-trends',
-  path: '/api/search-trends',
+const PersonasStartLazyRoute = PersonasStartLazyRouteImport.update({
+  id: '/personas_/start',
+  path: '/personas/start',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
-  id: '/api/model-benchmarks',
-  path: '/api/model-benchmarks',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCreditSummaryRoute = ApiCreditSummaryRouteImport.update({
-  id: '/api/credit-summary',
-  path: '/api/credit-summary',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatLibraryRoute = ChatLibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => ChatRoute,
-} as any)
-const ChatSSharedThreadIdLazyRoute = ChatSSharedThreadIdLazyRouteImport.update({
-  id: '/s/$sharedThreadId',
-  path: '/s/$sharedThreadId',
-  getParentRoute: () => ChatRoute,
 } as any).lazy(() =>
-  import('./routes/_chat.s.$sharedThreadId.lazy').then((d) => d.Route),
+  import('./routes/personas_.start.lazy').then((d) => d.Route),
 )
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsAiOptionsRoute = SettingsAiOptionsRouteImport.update({
+  id: '/ai-options',
+  path: '/ai-options',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsAiSetupRoute = SettingsAiSetupRouteImport.update({
+  id: '/ai-setup',
+  path: '/ai-setup',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
+  id: '/appearance',
+  path: '/appearance',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
+  id: '/attachments',
+  path: '/attachments',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsBehaviorRoute = SettingsBehaviorRouteImport.update({
+  id: '/behavior',
+  path: '/behavior',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
+  id: '/customization',
+  path: '/customization',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsFilesRoute = SettingsFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsModelsRoute = SettingsModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsPersonasRoute = SettingsPersonasRouteImport.update({
+  id: '/personas',
+  path: '/personas',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
+  id: '/providers',
+  path: '/providers',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsUsageRoute = SettingsUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const ChatFolderFolderIdLazyRoute = ChatFolderFolderIdLazyRouteImport.update({
   id: '/folder/$folderId',
   path: '/folder/$folderId',
@@ -245,9 +238,21 @@ const ChatFolderFolderIdLazyRoute = ChatFolderFolderIdLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_chat.folder.$folderId.lazy').then((d) => d.Route),
 )
-const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
-  id: '/api/phr/$',
-  path: '/api/phr/$',
+const ChatSSharedThreadIdLazyRoute = ChatSSharedThreadIdLazyRouteImport.update({
+  id: '/s/$sharedThreadId',
+  path: '/s/$sharedThreadId',
+  getParentRoute: () => ChatRoute,
+} as any).lazy(() =>
+  import('./routes/_chat.s.$sharedThreadId.lazy').then((d) => d.Route),
+)
+const ChatThreadThreadIdRoute = ChatThreadThreadIdRouteImport.update({
+  id: '/thread/$threadId',
+  path: '/thread/$threadId',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevCreditStateRoute = ApiDevCreditStateRouteImport.update({
@@ -255,15 +260,10 @@ const ApiDevCreditStateRoute = ApiDevCreditStateRouteImport.update({
   path: '/api/dev/credit-state',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
+  id: '/api/phr/$',
+  path: '/api/phr/$',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ChatThreadThreadIdRoute = ChatThreadThreadIdRouteImport.update({
-  id: '/thread/$threadId',
-  path: '/thread/$threadId',
-  getParentRoute: () => ChatRoute,
 } as any)
 const ChatFolderFolderIdThreadThreadIdRoute =
   ChatFolderFolderIdThreadThreadIdRouteImport.update({
@@ -549,11 +549,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/personas': {
-      id: '/personas'
-      path: '/personas'
-      fullPath: '/personas'
-      preLoaderRoute: typeof PersonasLazyRouteImport
+    '/_chat': {
+      id: '/_chat'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -563,53 +563,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tos': {
-      id: '/tos'
-      path: '/tos'
-      fullPath: '/tos'
-      preLoaderRoute: typeof TosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms-of-service': {
-      id: '/terms-of-service'
-      path: '/terms-of-service'
-      fullPath: '/terms-of-service'
-      preLoaderRoute: typeof TermsOfServiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/me': {
-      id: '/me'
-      path: '/me'
-      fullPath: '/me'
-      preLoaderRoute: typeof MeRouteImport
+    '/author': {
+      id: '/author'
+      path: '/author'
+      fullPath: '/author'
+      preLoaderRoute: typeof AuthorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/legal': {
@@ -619,18 +577,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/author': {
-      id: '/author'
-      path: '/author'
-      fullPath: '/author'
-      preLoaderRoute: typeof AuthorRouteImport
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_chat': {
-      id: '/_chat'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof ChatRouteImport
+    '/personas': {
+      id: '/personas'
+      path: '/personas'
+      fullPath: '/personas'
+      preLoaderRoute: typeof PersonasLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-of-service': {
+      id: '/terms-of-service'
+      path: '/terms-of-service'
+      fullPath: '/terms-of-service'
+      preLoaderRoute: typeof TermsOfServiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tos': {
+      id: '/tos'
+      path: '/tos'
+      fullPath: '/tos'
+      preLoaderRoute: typeof TosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat/': {
@@ -640,123 +640,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/personas_/start': {
-      id: '/personas_/start'
-      path: '/personas/start'
-      fullPath: '/personas/start'
-      preLoaderRoute: typeof PersonasStartLazyRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_chat/library': {
+      id: '/_chat/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof ChatLibraryRouteImport
+      parentRoute: typeof ChatRoute
     }
-    '/settings/usage': {
-      id: '/settings/usage'
-      path: '/usage'
-      fullPath: '/settings/usage'
-      preLoaderRoute: typeof SettingsUsageRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/providers': {
-      id: '/settings/providers'
-      path: '/providers'
-      fullPath: '/settings/providers'
-      preLoaderRoute: typeof SettingsProvidersRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/profile': {
-      id: '/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof SettingsProfileRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/personas': {
-      id: '/settings/personas'
-      path: '/personas'
-      fullPath: '/settings/personas'
-      preLoaderRoute: typeof SettingsPersonasRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/models': {
-      id: '/settings/models'
-      path: '/models'
-      fullPath: '/settings/models'
-      preLoaderRoute: typeof SettingsModelsRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/files': {
-      id: '/settings/files'
-      path: '/files'
-      fullPath: '/settings/files'
-      preLoaderRoute: typeof SettingsFilesRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/customization': {
-      id: '/settings/customization'
-      path: '/customization'
-      fullPath: '/settings/customization'
-      preLoaderRoute: typeof SettingsCustomizationRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/billing': {
-      id: '/settings/billing'
-      path: '/billing'
-      fullPath: '/settings/billing'
-      preLoaderRoute: typeof SettingsBillingRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/behavior': {
-      id: '/settings/behavior'
-      path: '/behavior'
-      fullPath: '/settings/behavior'
-      preLoaderRoute: typeof SettingsBehaviorRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/attachments': {
-      id: '/settings/attachments'
-      path: '/attachments'
-      fullPath: '/settings/attachments'
-      preLoaderRoute: typeof SettingsAttachmentsRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/appearance': {
-      id: '/settings/appearance'
-      path: '/appearance'
-      fullPath: '/settings/appearance'
-      preLoaderRoute: typeof SettingsAppearanceRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/ai-setup': {
-      id: '/settings/ai-setup'
-      path: '/ai-setup'
-      fullPath: '/settings/ai-setup'
-      preLoaderRoute: typeof SettingsAiSetupRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/ai-options': {
-      id: '/settings/ai-options'
-      path: '/ai-options'
-      fullPath: '/settings/ai-options'
-      preLoaderRoute: typeof SettingsAiOptionsRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/settings/account': {
-      id: '/settings/account'
-      path: '/account'
-      fullPath: '/settings/account'
-      preLoaderRoute: typeof SettingsAccountRouteImport
-      parentRoute: typeof SettingsRouteLazyRoute
-    }
-    '/auth/$pathname': {
-      id: '/auth/$pathname'
-      path: '/auth/$pathname'
-      fullPath: '/auth/$pathname'
-      preLoaderRoute: typeof AuthPathnameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/search-trends': {
-      id: '/api/search-trends'
-      path: '/api/search-trends'
-      fullPath: '/api/search-trends'
-      preLoaderRoute: typeof ApiSearchTrendsRouteImport
+    '/api/credit-summary': {
+      id: '/api/credit-summary'
+      path: '/api/credit-summary'
+      fullPath: '/api/credit-summary'
+      preLoaderRoute: typeof ApiCreditSummaryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/model-benchmarks': {
@@ -766,18 +661,130 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiModelBenchmarksRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/credit-summary': {
-      id: '/api/credit-summary'
-      path: '/api/credit-summary'
-      fullPath: '/api/credit-summary'
-      preLoaderRoute: typeof ApiCreditSummaryRouteImport
+    '/api/search-trends': {
+      id: '/api/search-trends'
+      path: '/api/search-trends'
+      fullPath: '/api/search-trends'
+      preLoaderRoute: typeof ApiSearchTrendsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_chat/library': {
-      id: '/_chat/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof ChatLibraryRouteImport
+    '/auth/$pathname': {
+      id: '/auth/$pathname'
+      path: '/auth/$pathname'
+      fullPath: '/auth/$pathname'
+      preLoaderRoute: typeof AuthPathnameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personas_/start': {
+      id: '/personas_/start'
+      path: '/personas/start'
+      fullPath: '/personas/start'
+      preLoaderRoute: typeof PersonasStartLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/ai-options': {
+      id: '/settings/ai-options'
+      path: '/ai-options'
+      fullPath: '/settings/ai-options'
+      preLoaderRoute: typeof SettingsAiOptionsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/ai-setup': {
+      id: '/settings/ai-setup'
+      path: '/ai-setup'
+      fullPath: '/settings/ai-setup'
+      preLoaderRoute: typeof SettingsAiSetupRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/appearance': {
+      id: '/settings/appearance'
+      path: '/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof SettingsAppearanceRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/attachments': {
+      id: '/settings/attachments'
+      path: '/attachments'
+      fullPath: '/settings/attachments'
+      preLoaderRoute: typeof SettingsAttachmentsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/behavior': {
+      id: '/settings/behavior'
+      path: '/behavior'
+      fullPath: '/settings/behavior'
+      preLoaderRoute: typeof SettingsBehaviorRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/customization': {
+      id: '/settings/customization'
+      path: '/customization'
+      fullPath: '/settings/customization'
+      preLoaderRoute: typeof SettingsCustomizationRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/files': {
+      id: '/settings/files'
+      path: '/files'
+      fullPath: '/settings/files'
+      preLoaderRoute: typeof SettingsFilesRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/models': {
+      id: '/settings/models'
+      path: '/models'
+      fullPath: '/settings/models'
+      preLoaderRoute: typeof SettingsModelsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/personas': {
+      id: '/settings/personas'
+      path: '/personas'
+      fullPath: '/settings/personas'
+      preLoaderRoute: typeof SettingsPersonasRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/providers': {
+      id: '/settings/providers'
+      path: '/providers'
+      fullPath: '/settings/providers'
+      preLoaderRoute: typeof SettingsProvidersRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/usage': {
+      id: '/settings/usage'
+      path: '/usage'
+      fullPath: '/settings/usage'
+      preLoaderRoute: typeof SettingsUsageRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/_chat/folder/$folderId': {
+      id: '/_chat/folder/$folderId'
+      path: '/folder/$folderId'
+      fullPath: '/folder/$folderId'
+      preLoaderRoute: typeof ChatFolderFolderIdLazyRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/s/$sharedThreadId': {
@@ -787,18 +794,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSSharedThreadIdLazyRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/_chat/folder/$folderId': {
-      id: '/_chat/folder/$folderId'
-      path: '/folder/$folderId'
-      fullPath: '/folder/$folderId'
-      preLoaderRoute: typeof ChatFolderFolderIdLazyRouteImport
+    '/_chat/thread/$threadId': {
+      id: '/_chat/thread/$threadId'
+      path: '/thread/$threadId'
+      fullPath: '/thread/$threadId'
+      preLoaderRoute: typeof ChatThreadThreadIdRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/api/phr/$': {
-      id: '/api/phr/$'
-      path: '/api/phr/$'
-      fullPath: '/api/phr/$'
-      preLoaderRoute: typeof ApiPhrSplatRouteImport
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/dev/credit-state': {
@@ -808,19 +815,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDevCreditStateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
+    '/api/phr/$': {
+      id: '/api/phr/$'
+      path: '/api/phr/$'
+      fullPath: '/api/phr/$'
+      preLoaderRoute: typeof ApiPhrSplatRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_chat/thread/$threadId': {
-      id: '/_chat/thread/$threadId'
-      path: '/thread/$threadId'
-      fullPath: '/thread/$threadId'
-      preLoaderRoute: typeof ChatThreadThreadIdRouteImport
-      parentRoute: typeof ChatRoute
     }
     '/_chat/folder/$folderId/thread/$threadId': {
       id: '/_chat/folder/$folderId/thread/$threadId'

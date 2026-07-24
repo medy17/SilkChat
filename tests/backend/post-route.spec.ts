@@ -15,7 +15,7 @@ const {
     manualStreamTransformMock,
     resolveGeneratedImageContextUrlMock,
     smoothStreamMock,
-    stepCountIsMock,
+    isStepCountMock,
     streamTextMock
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
@@ -32,7 +32,7 @@ const {
     manualStreamTransformMock: vi.fn(),
     resolveGeneratedImageContextUrlMock: vi.fn(),
     smoothStreamMock: vi.fn(),
-    stepCountIsMock: vi.fn(),
+    isStepCountMock: vi.fn(),
     streamTextMock: vi.fn()
 }))
 
@@ -55,7 +55,7 @@ vi.mock("ai", () => ({
     UI_MESSAGE_STREAM_HEADERS: {},
     createUIMessageStream: createUIMessageStreamMock,
     smoothStream: smoothStreamMock,
-    stepCountIs: stepCountIsMock,
+    isStepCount: isStepCountMock,
     streamText: streamTextMock
 }))
 
@@ -463,7 +463,7 @@ describe("chatPOST", () => {
                 })
         )
         smoothStreamMock.mockReset().mockReturnValue("smooth-transform")
-        stepCountIsMock.mockReset().mockReturnValue("stop-after-100")
+        isStepCountMock.mockReset().mockReturnValue("stop-after-100")
         streamTextMock.mockReset()
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
         vi.spyOn(console, "error").mockImplementation(() => {})
@@ -910,7 +910,7 @@ describe("chatPOST", () => {
             ])
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 
@@ -1016,7 +1016,7 @@ describe("chatPOST", () => {
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 
@@ -1468,7 +1468,7 @@ describe("chatPOST", () => {
             }
         )
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([
+            stream: createObjectStream([
                 { type: "text-start", id: "text-1" },
                 { type: "text-delta", id: "text-1", text: "Hello world" },
                 {
@@ -1524,7 +1524,7 @@ describe("chatPOST", () => {
             }),
             expect.any(Object)
         )
-        expect(stepCountIsMock).toHaveBeenCalledWith(100)
+        expect(isStepCountMock).toHaveBeenCalledWith(100)
         expect(smoothStreamMock).toHaveBeenCalledTimes(1)
         expect(streamTextMock).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1745,7 +1745,7 @@ describe("chatPOST", () => {
                 })
         )
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([
+            stream: createObjectStream([
                 { type: "text-start", id: "text-1" },
                 { type: "text-delta", id: "text-1", text: "retry response" },
                 {
@@ -1898,7 +1898,7 @@ describe("chatPOST", () => {
             }
         )
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([
+            stream: createObjectStream([
                 { type: "text-start", id: "text-1" },
                 { type: "text-delta", id: "text-1", text: "hello before failure" },
                 { type: "text-end", id: "text-1" }
@@ -1998,7 +1998,7 @@ describe("chatPOST", () => {
         })
 
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([
+            stream: createObjectStream([
                 { type: "text-start", id: "text-1" },
                 { type: "text-delta", id: "text-1", text: "Hello" },
                 { type: "text-end", id: "text-1" }
@@ -2122,7 +2122,7 @@ describe("chatPOST", () => {
         })
 
         streamTextMock.mockImplementationOnce(() => ({
-            fullStream: new ReadableStream({
+            stream: new ReadableStream({
                 start(controller) {
                     controller.close()
                 }
@@ -2339,7 +2339,7 @@ describe("chatPOST", () => {
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 
@@ -2440,7 +2440,7 @@ describe("chatPOST", () => {
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 
@@ -2573,7 +2573,7 @@ describe("chatPOST", () => {
             .mockResolvedValueOnce(pdfMappedMessages)
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 
@@ -2696,7 +2696,7 @@ describe("chatPOST", () => {
         })
         manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
         streamTextMock.mockReturnValueOnce({
-            fullStream: createObjectStream([]),
+            stream: createObjectStream([]),
             finishReason: Promise.resolve("stop")
         })
 

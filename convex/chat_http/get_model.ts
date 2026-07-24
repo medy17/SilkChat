@@ -3,7 +3,7 @@
 import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { createOpenAI } from "@ai-sdk/openai"
-import type { LanguageModelV3 } from "@ai-sdk/provider"
+import type { LanguageModelV3, LanguageModelV4 } from "@ai-sdk/provider"
 import type { OpenRouterProvider } from "@openrouter/ai-sdk-provider"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
@@ -83,7 +83,7 @@ export const getModel = async (
     })
 
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
-    let finalModel: LanguageModelV3 | undefined
+    let finalModel: LanguageModelV3 | LanguageModelV4 | undefined
     let providerSource: "internal" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
 
@@ -169,7 +169,7 @@ export const getModel = async (
     })
 
     return {
-        model: finalModel as LanguageModelV3 & { modelType: "text" },
+        model: finalModel as (LanguageModelV3 | LanguageModelV4) & { modelType: "text" },
         abilities: model.abilities,
         registry,
         modelId: model.id,

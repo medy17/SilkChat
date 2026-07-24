@@ -265,7 +265,7 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
                                 <ChartTooltip
                                     content={<ChartTooltipContent />}
                                     labelFormatter={(value) => {
-                                        const date = new Date(value)
+                                        const date = new Date(value as string | number)
                                         if (timeframe === "1d") {
                                             return date.toLocaleString([], {
                                                 month: "short",
@@ -344,7 +344,7 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
                                 <ChartTooltip
                                     content={<ChartTooltipContent />}
                                     labelFormatter={(value) => {
-                                        const date = new Date(value)
+                                        const date = new Date(value as string | number)
                                         if (timeframe === "1d") {
                                             return date.toLocaleString([], {
                                                 month: "short",

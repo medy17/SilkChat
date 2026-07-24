@@ -484,9 +484,7 @@ export const manualStreamTransform = (
                     totalTokenUsage.promptTokens += chunk.usage.inputTokens || 0
                     totalTokenUsage.completionTokens += chunk.usage.outputTokens || 0
                     totalTokenUsage.reasoningTokens +=
-                        chunk.usage.outputTokenDetails.reasoningTokens ||
-                        chunk.usage.reasoningTokens ||
-                        0
+                        chunk.usage.outputTokenDetails.reasoningTokens || 0
                     totalTokenUsage.totalTokens +=
                         chunk.usage.totalTokens ||
                         (chunk.usage.inputTokens || 0) + (chunk.usage.outputTokens || 0)

@@ -308,10 +308,7 @@ export const generateThreadName = async (
 
         const result = await generateText({
             model,
-            messages: [
-                {
-                    role: "system",
-                    content: `
+            instructions: `
 You are tasked with generating a concise, descriptive title for a chat conversation based on numbered excerpts from the conversation. The title should:
 
 1. Be 2-6 words long
@@ -330,8 +327,8 @@ Examples of good titles:
 - "Budget Spreadsheet Formula"
 - "Career Change Advice"
 
-Generate a title that accurately represents what this conversation is about based on the messages provided.`
-                },
+Generate a title that accurately represents what this conversation is about based on the messages provided.`,
+            messages: [
                 {
                     role: "user",
                     content: `Here are bounded excerpts from the conversation:

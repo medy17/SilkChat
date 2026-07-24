@@ -14,7 +14,6 @@ type BuildPromptOptions = {
     imageGenerationTool?: {
         enabled: boolean
         availableImageSelectionLabels: string[]
-        availableReferenceLabels: string[]
     }
 }
 
@@ -74,6 +73,17 @@ export const buildToolBudgetContext = (toolCallLimitPerTurn?: number) => {
 This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.
 - Use tools only when they are necessary to answer well.
 - If a tool budget error appears, continue the turn and answer with the information you already have.`
+}
+
+export const buildImageReferenceContext = (availableReferenceLabels: string[]) => {
+    const references =
+        availableReferenceLabels.length > 0
+            ? availableReferenceLabels.map((label) => `- ${label}`).join("\n")
+            : "- None"
+
+    return dedent`
+## Available Image Reference IDs
+${references}`
 }
 
 export const buildCapabilityContext = ({
@@ -352,12 +362,6 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
         )
 
     if (imageGenerationTool?.enabled) {
-        const references =
-            imageGenerationTool.availableReferenceLabels.length > 0
-                ? imageGenerationTool.availableReferenceLabels
-                      .map((label) => `- ${label}`)
-                      .join("\n")
-                : "- None"
         const selections =
             imageGenerationTool.availableImageSelectionLabels.length > 0
                 ? imageGenerationTool.availableImageSelectionLabels
@@ -393,10 +397,7 @@ Call \`prepareImageGeneration\` exactly once per distinct image. Never call it r
 You MUST pass the reference id whenever the request edits, transforms, restyles, or builds on an existing image (an attachment, a provided image, or one you generated earlier) — this is what makes SilkScreen edit that image rather than generating a new one. If the user clearly means an existing image but no reference id is available, ask them to attach or select it first. If multiple variants exist and the user says "that image" or "one of those" without specifying which, ask rather than guess.
 
 Available SilkScreen image selections:
-${selections}
-
-Available image reference ids:
-${references}`)
+${selections}`)
     }
 
     if (personaPrompt?.trim()) {

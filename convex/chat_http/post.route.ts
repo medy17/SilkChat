@@ -15,8 +15,8 @@ import {
     type Tool,
     UI_MESSAGE_STREAM_HEADERS,
     createUIMessageStream,
+    isStepCount,
     smoothStream,
-    stepCountIs,
     streamText
 } from "ai"
 import type { Infer } from "convex/values"
@@ -79,6 +79,7 @@ import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
 import {
     buildCapabilityContext,
+    buildImageReferenceContext,
     buildPrompt,
     buildTemporalContext,
     buildToolBudgetContext
@@ -929,7 +930,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
-    const buildCurrentTurnContext = (toolCallLimitPerTurn?: number) =>
+    const buildCurrentTurnContext = (
+        toolCallLimitPerTurn?: number,
+        availableImageReferenceLabels?: string[]
+    ) =>
         [
             buildCapabilityContext({
                 requestedTools: requestedEnabledTools,
@@ -939,7 +943,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 isAnonymous: user.isAnonymous
             }),
             buildTemporalContext(),
-            buildToolBudgetContext(toolCallLimitPerTurn)
+            buildToolBudgetContext(toolCallLimitPerTurn),
+            availableImageReferenceLabels
+                ? buildImageReferenceContext(availableImageReferenceLabels)
+                : ""
         ]
             .filter(Boolean)
             .join("\n\n")
@@ -1719,10 +1726,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const result = streamText({
                 model: model,
                 maxOutputTokens: maxTokens,
-                stopWhen: stepCountIs(100),
+                stopWhen: isStepCount(100),
                 abortSignal: generationAbort.signal,
                 experimental_transform: smoothStream(),
                 tools: Object.keys(tools).length > 0 ? tools : undefined,
+                // Both system messages below are assembled server-side. The trailing
+                // current-turn context intentionally needs to remain interleaved after
+                // the persisted conversation.
+                allowSystemInMessages: true,
                 messages: [
                     {
                         role: "system",
@@ -1734,10 +1745,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             imageGenerationTool: hasInternalImagePreparationTool
                                 ? {
                                       enabled: true,
-                                      availableImageSelectionLabels,
-                                      availableReferenceLabels: imageReferences.map(
-                                          (reference) => `${reference.id}: ${reference.label}`
-                                      )
+                                      availableImageSelectionLabels
                                   }
                                 : undefined
                         })
@@ -1745,7 +1753,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ...mapped_messages,
                     {
                         role: "system",
-                        content: buildCurrentTurnContext(promptToolCallLimitPerTurn)
+                        content: buildCurrentTurnContext(
+                            promptToolCallLimitPerTurn,
+                            hasInternalImagePreparationTool
+                                ? imageReferences.map(
+                                      (reference) => `${reference.id}: ${reference.label}`
+                                  )
+                                : undefined
+                        )
                     }
                 ],
                 providerOptions: usesOpenRouter
@@ -1762,7 +1777,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     : undefined
             })
 
-            const transformedStream = result.fullStream.pipeThrough(
+            const transformedStream = result.stream.pipeThrough(
                 manualStreamTransform(
                     parts,
                     totalTokenUsage,

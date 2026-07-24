@@ -48,7 +48,7 @@ describe("prepareImageGeneration tool", () => {
                 variants: 1,
                 referenceIds: ["image_ref_1"]
             },
-            { toolCallId: "call-image", messages: [] }
+            { toolCallId: "call-image", messages: [], context: {} }
         )
 
         expect(result).toMatchObject({
@@ -91,7 +91,7 @@ describe("prepareImageGeneration tool", () => {
                 variants: 1,
                 referenceIds: []
             },
-            { toolCallId: "call-image", messages: [] }
+            { toolCallId: "call-image", messages: [], context: {} }
         )
 
         // No prompt sniffing: an empty reference selection is honored as a fresh
@@ -125,7 +125,7 @@ describe("prepareImageGeneration tool", () => {
                 aspectRatio: model.supportedImageSizes?.[0] ?? "1:1",
                 referenceIds: []
             },
-            { toolCallId: "call-image", messages: [] }
+            { toolCallId: "call-image", messages: [], context: {} }
         )) as { resolution?: string; variants?: number }
 
         expect(result.resolution).toBe(preferredResolution)
@@ -145,11 +145,13 @@ describe("prepareImageGeneration tool", () => {
 
         const first = (await imageTool?.execute?.(args, {
             toolCallId: "call-1",
-            messages: []
+            messages: [],
+            context: {}
         })) as { success: boolean }
         const second = (await imageTool?.execute?.(args, {
             toolCallId: "call-2",
-            messages: []
+            messages: [],
+            context: {}
         })) as { success: boolean; code?: string }
 
         expect(first.success).toBe(true)
@@ -170,7 +172,7 @@ describe("prepareImageGeneration tool", () => {
                 aspectRatio,
                 referenceIds: []
             },
-            { toolCallId: "call-1", messages: [] }
+            { toolCallId: "call-1", messages: [], context: {} }
         )) as { success: boolean }
         const banner = (await imageTool?.execute?.(
             {
@@ -180,7 +182,7 @@ describe("prepareImageGeneration tool", () => {
                 aspectRatio,
                 referenceIds: []
             },
-            { toolCallId: "call-2", messages: [] }
+            { toolCallId: "call-2", messages: [], context: {} }
         )) as { success: boolean }
 
         expect(logo.success).toBe(true)

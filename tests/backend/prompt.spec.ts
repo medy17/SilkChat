@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
     buildCapabilityContext,
+    buildImageReferenceContext,
     buildPrompt,
     buildToolBudgetContext
 } from "../../convex/chat_http/prompt"
@@ -156,8 +157,7 @@ describe("buildPrompt", () => {
             },
             imageGenerationTool: {
                 enabled: true,
-                availableImageSelectionLabels: ["some-model (Some Model)"],
-                availableReferenceLabels: []
+                availableImageSelectionLabels: ["some-model (Some Model)"]
             }
         })
 
@@ -170,11 +170,28 @@ describe("buildPrompt", () => {
             enabledTools: [],
             imageGenerationTool: {
                 enabled: true,
-                availableImageSelectionLabels: ["some-model (Some Model)"],
-                availableReferenceLabels: []
+                availableImageSelectionLabels: ["some-model (Some Model)"]
             }
         })
 
         expect(prompt).toContain("the user's saved defaults (resolution 1K, variants 1)")
+    })
+
+    it("keeps turn-scoped image references out of the stable prompt", () => {
+        const prompt = buildPrompt({
+            enabledTools: [],
+            imageGenerationTool: {
+                enabled: true,
+                availableImageSelectionLabels: ["some-model (Some Model)"]
+            }
+        })
+        const context = buildImageReferenceContext([
+            "image_ref_1: SilkScreen generation from assistant message 1"
+        ])
+
+        expect(prompt).not.toContain("Available Image Reference IDs")
+        expect(context).toContain("## Available Image Reference IDs")
+        expect(context).toContain("- image_ref_1: SilkScreen generation from assistant message 1")
+        expect(buildImageReferenceContext([])).toContain("- None")
     })
 })
