@@ -14,6 +14,26 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {
+        id: "claude-opus-5",
+        name: "Claude Opus 5",
+        addedOn: "2026-07-24",
+        shortName: "Opus 5",
+        shortDescription: "Premium Claude model for serious coding and knowledge work",
+        description:
+            "Claude Opus 5 is Anthropic's premium model for production-ready coding, sophisticated agents, and complex knowledge work. It plans and verifies long-running work more reliably than previous Opus models while offering effort control for balancing capability and cost.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-opus-5"
+        },
+        releaseOrder: 20260724,
+        adapters: anthropicTextAdapters("claude-opus-5"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        supportsDisablingReasoning: true
+    },
+    {
         id: "claude-fable-5",
         name: "Claude Fable 5",
         addedOn: "2026-06-09",
@@ -93,9 +113,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         name: "Claude Opus 4.8",
         addedOn: "2026-05-28",
         shortName: "Opus 4.8",
-        shortDescription: "Highest-end Claude model for complex reasoning and agentic work",
+        shortDescription: "Previous-generation Opus model for complex reasoning and agentic work",
         description:
-            "Claude Opus 4.8 is Anthropic's most capable generally available Claude model for complex reasoning, long-horizon agentic coding, and high-autonomy professional work. Use it when you want maximum Claude quality and are willing to spend more for it.",
+            "Claude Opus 4.8 is Anthropic's previous-generation premium model for complex reasoning, long-horizon agentic coding, and high-autonomy professional work. It remains a capable Claude 4 option for demanding tasks that do not require the newer Opus 5 generation.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
@@ -128,7 +148,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.5",
         name: "Claude Opus 4.5",
         shortName: "Opus 4.5",
-        shortDescription: "Meticulous Claude for coding marathons, computer use, and difficult tradeoffs",
+        shortDescription:
+            "Meticulous Claude for coding marathons, computer use, and difficult tradeoffs",
         description:
             "Claude Opus 4.5 is a patient, high-end problem solver that excels at complex codebases, long-running agents, computer use, and research-heavy knowledge work. It is particularly good when the brief is ambiguous and the right answer depends on noticing the tradeoffs hiding between the lines.",
         releaseOrder: 20251124,
@@ -160,7 +181,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-sonnet-4.5",
         name: "Claude Sonnet 4.5",
         shortName: "Sonnet 4.5",
-        shortDescription: "A disciplined coding partner for agents, analysis, and everyday professional work",
+        shortDescription:
+            "A disciplined coding partner for agents, analysis, and everyday professional work",
         description:
             "Claude Sonnet 4.5 is a focused all-rounder with strong coding, reasoning, and tool-use instincts. It balances the steadiness needed for autonomous engineering with the clear writing and careful instruction-following that made Sonnet a favorite for daily work.",
         releaseOrder: 20250929,
@@ -175,7 +197,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-opus-4.1",
         name: "Claude Opus 4.1",
         shortName: "Opus 4.1",
-        shortDescription: "Precise Claude for deep research and surgical changes to large codebases",
+        shortDescription:
+            "Precise Claude for deep research and surgical changes to large codebases",
         description:
             "Claude Opus 4.1 refined Opus 4 with a sharper eye for agentic search, detailed analysis, and multi-file refactors. It has a welcome tendency to find the exact correction a large codebase needs without redecorating every room on the way out.",
         releaseOrder: 20250805,
@@ -205,7 +228,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         id: "claude-sonnet-4",
         name: "Claude Sonnet 4",
         shortName: "Sonnet 4",
-        shortDescription: "Balanced hybrid reasoner with strong coding and unusually obedient tool use",
+        shortDescription:
+            "Balanced hybrid reasoner with strong coding and unusually obedient tool use",
         description:
             "Claude Sonnet 4 brought Claude 4's hybrid reasoning, parallel tools, and stronger memory habits to the practical Sonnet tier. It is a crisp, capable coding and analysis partner that follows the brief closely without charging Opus rent.",
         releaseOrder: 20250522,
