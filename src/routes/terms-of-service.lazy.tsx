@@ -31,13 +31,8 @@ function TermsOfServicePage() {
 
                 <h1 className="mb-6 font-bold text-3xl">{APP_NAME} Terms of Service</h1>
                 <p className="mb-2 text-muted-foreground text-sm">Last Updated: {EFFECTIVE_DATE}</p>
-                <p className="mb-2 text-muted-foreground text-sm">
-                    Effective Date: {EFFECTIVE_DATE}
-                </p>
                 <p className="mb-8 text-muted-foreground text-sm">
-                    Some commercial, jurisdictional, billing, and enforcement details below are
-                    marked <strong>TO-DO</strong> where the final legal or operational structure is
-                    not yet finalized.
+                    Effective Date: {EFFECTIVE_DATE}
                 </p>
 
                 <TermsSection number="1" title="Introduction">
@@ -340,9 +335,23 @@ function TermsOfServicePage() {
                             in writing.
                         </TermsItem>
                         <TermsItem>
-                            Use of customer names, logos, or public customer references in marketing
-                            materials is <strong>TO-DO</strong> and should not be assumed without an
-                            explicit policy or separate agreement.
+                            Before using your name, logo, feedback, content, or other information as
+                            social proof, a testimonial, or other marketing material, we will
+                            contact you and obtain your written permission. Where appropriate, we
+                            may also enter into a separate written release or limited license with
+                            you that defines the permitted use and any applicable compensation.
+                        </TermsItem>
+                        <TermsItem>
+                            You may withdraw your permission for future marketing use at any time by
+                            contacting <strong>legal@silkchat.dev</strong>. After receiving your
+                            request, we will stop making new uses and, as soon as reasonably
+                            practicable, remove the relevant material from marketing channels under
+                            our control. Withdrawal will not affect uses made before we received
+                            your request and may not require us to recall physical materials or
+                            materials already distributed to third parties. If the use is governed
+                            by a separate written release or license, any withdrawal will also be
+                            subject to that agreement, without limiting any rights that cannot
+                            legally be waived.
                         </TermsItem>
                     </TermsList>
                 </TermsSection>
@@ -582,8 +591,7 @@ function TermsOfServicePage() {
 
                 <p className="mt-12 text-muted-foreground text-sm">
                     By continuing to use {APP_NAME}, you acknowledge that you have read and agree to
-                    these Terms, including any provisions marked <strong>TO-DO</strong> pending
-                    final legal or operational review.
+                    these Terms.
                 </p>
             </div>
         </div>

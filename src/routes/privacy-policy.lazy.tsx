@@ -31,13 +31,8 @@ function PrivacyPolicyPage() {
 
                 <h1 className="mb-6 font-bold text-3xl">{APP_NAME} Privacy Policy</h1>
                 <p className="mb-2 text-muted-foreground text-sm">Last Updated: {EFFECTIVE_DATE}</p>
-                <p className="mb-2 text-muted-foreground text-sm">
-                    Effective Date: {EFFECTIVE_DATE}
-                </p>
                 <p className="mb-8 text-muted-foreground text-sm">
-                    Some operational details below are marked <strong>TO-DO</strong> where the
-                    production architecture, legal workflow, or administrative process is not yet
-                    finalized.
+                    Effective Date: {EFFECTIVE_DATE}
                 </p>
 
                 <PolicySection number="1" title="Introduction">
@@ -397,15 +392,21 @@ function PrivacyPolicyPage() {
                             identifier.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Inactive accounts</strong>: We do not preemptively delete inactive
-                            accounts. After ~24 months of inactivity, we may send one email
+                            <strong>Inactive accounts</strong>: We do not preemptively delete
+                            inactive accounts. After ~24 months of inactivity, we may send one email
                             reminding you that your account and conversations remain available and
-                            provide instructions on how to return, export your data, or request account deletion.
+                            provide instructions on how to return, export your data, or request
+                            account deletion.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Billing records</strong>: If paid billing is introduced later,
-                            retention rules for invoices, tax records, chargebacks, and payment
-                            metadata are <strong>TO-DO</strong>.
+                            <strong>Billing records</strong>: Payments are processed by
+                            LemonSqueezy, our Merchant of Record. We retain subscription and
+                            transaction metadata for as long as necessary to administer billing,
+                            provide paid features, process refunds, address disputes or chargebacks,
+                            prevent fraud, and comply with applicable tax, accounting, and legal
+                            obligations. LemonSqueezy retains payment and billing records in
+                            accordance with its own policies and legal obligations. We do not store
+                            your full payment card details.
                         </PolicyItem>
                     </PolicyList>
                 </PolicySection>
@@ -563,11 +564,6 @@ function PrivacyPolicyPage() {
                             credentials within the app stack.
                         </PolicyItem>
                         <PolicyItem>
-                            Security architecture details such as formal key-rotation policy, backup
-                            retention policy, and incident-response runbook are{" "}
-                            <strong>TO-DO</strong> unless documented elsewhere.
-                        </PolicyItem>
-                        <PolicyItem>
                             No internet-connected system is perfectly secure, and we cannot
                             guarantee absolute security.
                         </PolicyItem>
@@ -607,31 +603,15 @@ function PrivacyPolicyPage() {
                 <PolicySection number="13" title="Contact Us">
                     <p className="text-muted-foreground">
                         For privacy questions, access requests, correction requests, export
-                        requests, or deletion requests, contact:
+                        requests, deletion requests, or other concerns about this Privacy Policy,
+                        contact us at <strong>support@silkchat.dev</strong>. We may need to verify
+                        your identity before fulfilling certain requests.
                     </p>
-
-                    <PolicyList>
-                        <PolicyItem>
-                            <strong>Operator</strong>: {COMPANY_NAME}
-                        </PolicyItem>
-                        <PolicyItem>
-                            <strong>Mailing address</strong>:{" "}
-                            <strong>47500 Subang Jaya, D7 BLOK SEVEN, Selangor, Malaysia.</strong>
-                        </PolicyItem>
-                        <PolicyItem>
-                            <strong>Privacy contact email</strong>:{" "}
-                            <strong>legal@silkchat.dev</strong>
-                        </PolicyItem>
-                        <PolicyItem>
-                            <strong>Support/admin response SLA</strong>: <strong>TO-DO</strong>
-                        </PolicyItem>
-                    </PolicyList>
                 </PolicySection>
 
                 <p className="mt-12 text-muted-foreground text-sm">
                     By continuing to use {APP_NAME}, you acknowledge this Privacy Policy and the
-                    data-handling practices described above, including any items expressly marked{" "}
-                    <strong>TO-DO</strong> pending final implementation or legal review.
+                    data-handling practices described above.
                 </p>
             </div>
         </div>
