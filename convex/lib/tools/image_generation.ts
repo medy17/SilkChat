@@ -41,16 +41,6 @@ export const getPrepareImageGenerationTool = ({
         new Set(imageModels.flatMap((model) => getSupportedResolutionsForImageModel(model)))
     )
     const referenceIds = references.map((reference) => reference.id)
-    const modelSelectionSummary = imageModels
-        .map((model) => {
-            const modelAspectRatios = getSupportedAspectRatiosForImageModel(model)
-            const modelResolutions = getSupportedResolutionsForImageModel(model)
-            const referenceLimit = model.supportsReferenceImages
-                ? `references up to ${model.maxReferenceImages ?? "the model limit"}`
-                : "references none"
-            return `${model.id}: aspect ratios ${modelAspectRatios.join(", ") || "default"}; resolutions ${modelResolutions.join(", ") || "default"}; ${referenceLimit}`
-        })
-        .join("\n")
 
     const defaultsSummary = `resolution ${defaults?.resolution ?? "1K"}, variants ${defaults?.variants ?? 1}`
 
@@ -69,8 +59,7 @@ export const getPrepareImageGenerationTool = ({
                 "Use only valid enum inputs supplied by the schema.",
                 "For edits or transformations of an attached/provided/current image, include the relevant referenceIds.",
                 "When multiple SilkScreen variants are available, select the variant-specific reference id the user named. If the intended variant is ambiguous, ask the user which variant to use instead of guessing.",
-                `Leave resolution and variants unset to apply the user's defaults (${defaultsSummary}); an explicit user request for higher fidelity or multiple images overrides them.`,
-                `Available SilkScreen image selections:\n${modelSelectionSummary}`
+                `Leave resolution and variants unset to apply the user's defaults (${defaultsSummary}); an explicit user request for higher fidelity or multiple images overrides them.`
             ].join("\n"),
             inputSchema: z.object({
                 title: z

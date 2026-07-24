@@ -5,6 +5,8 @@ import {
     buildPrompt,
     buildToolBudgetContext
 } from "../../convex/chat_http/prompt"
+import { formatImageModelCapabilitySummary } from "../../convex/lib/image_generation/shared"
+import type { SharedModel } from "../../convex/lib/models"
 
 describe("buildPrompt", () => {
     it("aligns math delimiter guidance with Streamdown defaults", () => {
@@ -157,7 +159,7 @@ describe("buildPrompt", () => {
             },
             imageGenerationTool: {
                 enabled: true,
-                availableImageSelectionLabels: ["some-model (Some Model)"]
+                availableImageSelectionSummary: "- some-model (Some Model)"
             }
         })
 
@@ -170,7 +172,7 @@ describe("buildPrompt", () => {
             enabledTools: [],
             imageGenerationTool: {
                 enabled: true,
-                availableImageSelectionLabels: ["some-model (Some Model)"]
+                availableImageSelectionSummary: "- some-model (Some Model)"
             }
         })
 
@@ -182,7 +184,7 @@ describe("buildPrompt", () => {
             enabledTools: [],
             imageGenerationTool: {
                 enabled: true,
-                availableImageSelectionLabels: ["some-model (Some Model)"]
+                availableImageSelectionSummary: "- some-model (Some Model)"
             }
         })
         const context = buildImageReferenceContext([
@@ -193,5 +195,40 @@ describe("buildPrompt", () => {
         expect(context).toContain("## Available Image Reference IDs")
         expect(context).toContain("- image_ref_1: SilkScreen generation from assistant message 1")
         expect(buildImageReferenceContext([])).toContain("- None")
+    })
+
+    it("groups image models by aspect ratios while retaining names and explicit limits", () => {
+        const models = [
+            {
+                id: "model-a",
+                name: "Model A",
+                mode: "image",
+                adapters: [],
+                abilities: [],
+                supportedImageSizes: ["1:1", "16:9"],
+                supportedImageResolutions: ["1K", "2K"],
+                supportsReferenceImages: true,
+                maxReferenceImages: 3,
+                maxPerMessage: 4
+            },
+            {
+                id: "model-b",
+                name: "Model B",
+                mode: "image",
+                adapters: [],
+                abilities: [],
+                supportedImageSizes: ["1:1", "16:9"],
+                supportsReferenceImages: false,
+                maxPerMessage: 2
+            }
+        ] satisfies SharedModel[]
+
+        const summary = formatImageModelCapabilitySummary(models)
+
+        expect(summary.match(/Aspect ratios:/g)).toHaveLength(1)
+        expect(summary).toContain("- model-a (Model A) — res: 1K|2K; refs: max 3; variants: max 4")
+        expect(summary).toContain(
+            "- model-b (Model B) — res: default only; refs: none; variants: max 2"
+        )
     })
 })

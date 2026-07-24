@@ -61,6 +61,48 @@ export const getSupportedAspectRatiosForImageModel = (model: SharedModel) => {
 export const getSupportedResolutionsForImageModel = (model: SharedModel) =>
     model.supportedImageResolutions ?? []
 
+export const formatImageModelCapabilitySummary = (models: readonly SharedModel[]) => {
+    const groups = new Map<
+        string,
+        {
+            aspectRatios: string[]
+            models: SharedModel[]
+        }
+    >()
+
+    for (const model of models) {
+        const aspectRatios = getSupportedAspectRatiosForImageModel(model)
+        const key = JSON.stringify(aspectRatios)
+        const group = groups.get(key)
+        if (group) {
+            group.models.push(model)
+        } else {
+            groups.set(key, { aspectRatios, models: [model] })
+        }
+    }
+
+    if (groups.size === 0) return "- None"
+
+    return Array.from(groups.values())
+        .map(({ aspectRatios, models: groupedModels }) => {
+            const modelLines = groupedModels.map((model) => {
+                const resolutions = getSupportedResolutionsForImageModel(model)
+                const referenceLimit = model.supportsReferenceImages
+                    ? typeof model.maxReferenceImages === "number"
+                        ? `max ${model.maxReferenceImages}`
+                        : "model limit"
+                    : "none"
+
+                return `- ${model.id} (${model.name}) — res: ${resolutions.join("|") || "default only"}; refs: ${referenceLimit}; variants: max ${getImageModelMaxPerMessage(model)}`
+            })
+
+            return [`Aspect ratios: ${aspectRatios.join(", ") || "default"}`, ...modelLines].join(
+                "\n"
+            )
+        })
+        .join("\n\n")
+}
+
 // Resolution is a magnitude axis (1K < 2K < 4K), so an out-of-range choice is clamped to
 // the nearest supported rung rather than dropped to the floor: an explicit 4K request on a
 // 2K-max model yields 2K (honor the "high fidelity" intent), not 1K.

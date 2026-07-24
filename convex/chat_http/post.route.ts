@@ -41,11 +41,9 @@ import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION } from "../lib/file
 import { getUserIdentity } from "../lib/identity"
 import {
     type PreparedImageReference,
-    getImageModelMaxPerMessage,
+    formatImageModelCapabilitySummary,
     getReferenceSourceForKey,
-    getSelectableImageModels,
-    getSupportedAspectRatiosForImageModel,
-    getSupportedResolutionsForImageModel
+    getSelectableImageModels
 } from "../lib/image_generation/shared"
 import { type CoreProvider, MODELS_SHARED, type SharedModel } from "../lib/models"
 import {
@@ -1704,21 +1702,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 references: imageReferences,
                 defaults: settings.imageGenerationDefaults
             }) as Record<string, Tool>
-            const availableImageSelectionLabels = hasInternalImagePreparationTool
-                ? getSelectableImageModels().map((imageModel) => {
-                      const aspectRatios = getSupportedAspectRatiosForImageModel(imageModel)
-                      const resolutions = getSupportedResolutionsForImageModel(imageModel)
-                      return [
-                          `${imageModel.id} (${imageModel.name})`,
-                          `aspect ratios: ${aspectRatios.join(", ") || "default"}`,
-                          `resolutions: ${resolutions.join(", ") || "default"}`,
-                          imageModel.supportsReferenceImages
-                              ? `references: up to ${imageModel.maxReferenceImages ?? "the model limit"}`
-                              : "references: none",
-                          `max variants: ${getImageModelMaxPerMessage(imageModel)}`
-                      ].join("; ")
-                  })
-                : []
+            const availableImageSelectionSummary = hasInternalImagePreparationTool
+                ? formatImageModelCapabilitySummary(getSelectableImageModels())
+                : "- None"
             const tools: Record<string, Tool> = {
                 ...paidTools,
                 ...internalTools
@@ -1745,7 +1731,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             imageGenerationTool: hasInternalImagePreparationTool
                                 ? {
                                       enabled: true,
-                                      availableImageSelectionLabels
+                                      availableImageSelectionSummary
                                   }
                                 : undefined
                         })

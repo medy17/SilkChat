@@ -13,7 +13,7 @@ type BuildPromptOptions = {
     includeTemporalContext?: boolean
     imageGenerationTool?: {
         enabled: boolean
-        availableImageSelectionLabels: string[]
+        availableImageSelectionSummary: string
     }
 }
 
@@ -362,12 +362,6 @@ You have access to Model Context Protocol (MCP) tools from configured servers:
         )
 
     if (imageGenerationTool?.enabled) {
-        const selections =
-            imageGenerationTool.availableImageSelectionLabels.length > 0
-                ? imageGenerationTool.availableImageSelectionLabels
-                      .map((label) => `- ${label}`)
-                      .join("\n")
-                : "- None"
         const imageDefaults = userSettings?.imageGenerationDefaults
         const imageDefaultsSummary = `resolution ${imageDefaults?.resolution ?? "1K"}, variants ${imageDefaults?.variants ?? 1}`
         layers.push(dedent`
@@ -395,9 +389,9 @@ Call \`prepareImageGeneration\` exactly once per distinct image. Never call it r
 
 **Editing existing images**
 You MUST pass the reference id whenever the request edits, transforms, restyles, or builds on an existing image (an attachment, a provided image, or one you generated earlier) — this is what makes SilkScreen edit that image rather than generating a new one. If the user clearly means an existing image but no reference id is available, ask them to attach or select it first. If multiple variants exist and the user says "that image" or "one of those" without specifying which, ask rather than guess.
-
+it is highly recommended to start over a prompt instead of passing a reference if a generated image is flawed or the user is unsatisfied with it. References are best used for user supplied content.
 Available SilkScreen image selections:
-${selections}`)
+${imageGenerationTool.availableImageSelectionSummary}`)
     }
 
     if (personaPrompt?.trim()) {

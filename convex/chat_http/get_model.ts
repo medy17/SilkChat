@@ -3,8 +3,7 @@
 import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { createOpenAI } from "@ai-sdk/openai"
-import type { LanguageModelV3, LanguageModelV4 } from "@ai-sdk/provider"
-import type { OpenRouterProvider } from "@openrouter/ai-sdk-provider"
+import type { LanguageModelV4 } from "@ai-sdk/provider"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
@@ -83,7 +82,7 @@ export const getModel = async (
     })
 
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
-    let finalModel: LanguageModelV3 | LanguageModelV4 | undefined
+    let finalModel: LanguageModelV4 | undefined
     let providerSource: "internal" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
 
@@ -99,10 +98,7 @@ export const getModel = async (
             const openRouterModelId = getOpenRouterModelId(model.id)
             if (!openRouterModelId) continue
 
-            const openRouterProvider = (await createProvider(
-                "openrouter",
-                "internal"
-            )) as unknown as OpenRouterProvider
+            const openRouterProvider = await createProvider("openrouter", "internal")
             finalModel = openRouterProvider.chat(openRouterModelId)
             providerSource = "internal"
             runtimeProvider = "openrouter"
@@ -119,13 +115,13 @@ export const getModel = async (
                 continue
             }
 
-            const sdkProvider = (await createProvider(
+            const sdkProvider = await createProvider(
                 "openrouter",
                 shouldUseInternal ? "internal" : provider.key,
                 {
                     modelId: providerSpecificModelId
                 }
-            )) as unknown as OpenRouterProvider
+            )
             finalModel = sdkProvider.chat(providerSpecificModelId)
             providerSource = shouldUseInternal ? "internal" : "openrouter"
             runtimeProvider = "openrouter"
@@ -169,7 +165,7 @@ export const getModel = async (
     })
 
     return {
-        model: finalModel as (LanguageModelV3 | LanguageModelV4) & { modelType: "text" },
+        model: finalModel as LanguageModelV4 & { modelType: "text" },
         abilities: model.abilities,
         registry,
         modelId: model.id,

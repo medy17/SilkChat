@@ -148,8 +148,8 @@ export const dbMessagesToCore = async (
                     if (fileTypeInfo.isVisionImage && !fileTypeInfo.isSvg) {
                         try {
                             mapped_content.push({
-                                type: "image",
-                                image: fileUrl,
+                                type: "file",
+                                data: new URL(fileUrl),
                                 mediaType: p.mimeType || "image/*"
                             })
                         } catch (error) {
@@ -215,7 +215,7 @@ export const dbMessagesToCore = async (
                             type: "file",
                             mediaType: "application/pdf",
                             filename,
-                            data: fileUrl
+                            data: new URL(fileUrl)
                         })
                     } else {
                         mapped_content.push({
@@ -317,14 +317,12 @@ export const dbMessagesToCore = async (
                                     error
                                 )
                             }
+                            const contextImageUrl =
+                                resolvedContextImage?.url ??
+                                buildDirectPublicAssetUrl(storageKey, options?.publicAssetBaseUrl)
                             generated_image_content.push({
-                                type: "image",
-                                image:
-                                    resolvedContextImage?.url ??
-                                    buildDirectPublicAssetUrl(
-                                        storageKey,
-                                        options?.publicAssetBaseUrl
-                                    ),
+                                type: "file",
+                                data: new URL(contextImageUrl),
                                 mediaType: resolvedContextImage?.mediaType || "image/png"
                             })
                         }

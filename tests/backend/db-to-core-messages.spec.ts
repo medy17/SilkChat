@@ -55,8 +55,8 @@ describe("dbMessagesToCore", () => {
                 messageId: "message-1",
                 content: [
                     {
-                        type: "image",
-                        image: "https://convex.example/attachments/user-1/image.png",
+                        type: "file",
+                        data: new URL("https://convex.example/attachments/user-1/image.png"),
                         mediaType: "image/png"
                     }
                 ]
@@ -100,7 +100,7 @@ describe("dbMessagesToCore", () => {
                         type: "file",
                         mediaType: "application/pdf",
                         filename: "report.pdf",
-                        data: "https://r2.example.com/attachments/user-1/report.pdf"
+                        data: new URL("https://r2.example.com/attachments/user-1/report.pdf")
                     }
                 ]
             }
@@ -325,7 +325,7 @@ describe("dbMessagesToCore", () => {
                         type: "file",
                         mediaType: "application/pdf",
                         filename: "report.pdf",
-                        data: "https://r2.example.com/attachments/user-1/report.pdf"
+                        data: new URL("https://r2.example.com/attachments/user-1/report.pdf")
                     }
                 ]
             }
@@ -454,8 +454,10 @@ describe("dbMessagesToCore", () => {
                         text: "SilkScreen generated this image from the prompt: A sunset naval battle"
                     },
                     {
-                        type: "image",
-                        image: "https://r2.example.com/references/user-1/generated-context/context.webp",
+                        type: "file",
+                        data: new URL(
+                            "https://r2.example.com/references/user-1/generated-context/context.webp"
+                        ),
                         mediaType: "image/webp"
                     }
                 ]
@@ -515,8 +517,8 @@ describe("dbMessagesToCore", () => {
             content: [
                 expect.any(Object),
                 {
-                    type: "image",
-                    image: "https://r2.example.com/generations/user-1/generated.png",
+                    type: "file",
+                    data: new URL("https://r2.example.com/generations/user-1/generated.png"),
                     mediaType: "image/png"
                 }
             ]

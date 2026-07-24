@@ -1,7 +1,6 @@
 "use node"
 
-import type { ProviderV3 } from "@ai-sdk/provider"
-import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { type OpenRouterProvider, createOpenRouter } from "@openrouter/ai-sdk-provider"
 
 import { getOpenRouterAttribution } from "./openrouter_attribution"
 
@@ -13,7 +12,7 @@ export const createProvider = (
     options?: {
         modelId?: string
     }
-): Promise<ProviderV3> => {
+): Promise<OpenRouterProvider> => {
     return createProviderInternal(providerId, apiKey, options)
 }
 
@@ -23,7 +22,7 @@ const createProviderInternal = async (
     _options?: {
         modelId?: string
     }
-): Promise<ProviderV3> => {
+): Promise<OpenRouterProvider> => {
     if (apiKey !== "internal" && (!apiKey || apiKey.trim() === "")) {
         throw new Error("API key is required for non-internal providers")
     }
@@ -39,7 +38,7 @@ const createProviderInternal = async (
                 apiKey: resolvedApiKey,
                 compatibility: "strict",
                 ...getOpenRouterAttribution()
-            }) as unknown as ProviderV3
+            })
         }
         default: {
             const exhaustiveCheck: never = providerId

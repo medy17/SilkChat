@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const {
     buildPromptMock,
     buildCapabilityContextMock,
+    buildImageReferenceContextMock,
     buildTemporalContextMock,
     buildToolBudgetContextMock,
     createUIMessageStreamMock,
@@ -20,6 +21,7 @@ const {
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
     buildCapabilityContextMock: vi.fn(),
+    buildImageReferenceContextMock: vi.fn(),
     buildTemporalContextMock: vi.fn(),
     buildToolBudgetContextMock: vi.fn(),
     createUIMessageStreamMock: vi.fn(),
@@ -184,6 +186,7 @@ vi.mock("../../convex/chat_http/manual_stream_transform", () => ({
 
 vi.mock("../../convex/chat_http/prompt", () => ({
     buildCapabilityContext: buildCapabilityContextMock,
+    buildImageReferenceContext: buildImageReferenceContextMock,
     buildPrompt: buildPromptMock,
     buildTemporalContext: buildTemporalContextMock,
     buildToolBudgetContext: buildToolBudgetContextMock
@@ -327,6 +330,7 @@ const createCtx = () =>
 describe("chatPOST", () => {
     beforeEach(() => {
         buildPromptMock.mockReset().mockReturnValue("system prompt")
+        buildImageReferenceContextMock.mockReset().mockReturnValue("image references")
         buildTemporalContextMock.mockReset().mockReturnValue("temporal context")
         buildToolBudgetContextMock
             .mockReset()
@@ -2563,7 +2567,7 @@ describe("chatPOST", () => {
                         type: "file",
                         mediaType: "application/pdf",
                         filename: "paper.pdf",
-                        data: "https://r2.example.com/attachments/user-1/paper.pdf"
+                        data: new URL("https://r2.example.com/attachments/user-1/paper.pdf")
                     }
                 ]
             }
@@ -2612,7 +2616,7 @@ describe("chatPOST", () => {
                                 type: "file",
                                 mediaType: "application/pdf",
                                 filename: "paper.pdf",
-                                data: "https://r2.example.com/attachments/user-1/paper.pdf"
+                                data: new URL("https://r2.example.com/attachments/user-1/paper.pdf")
                             })
                         ])
                     })
