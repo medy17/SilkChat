@@ -630,8 +630,12 @@ export const getMyCreditSummary = query({
             return null
         }
 
-        const account = await getCreditAccount(ctx, user.id)
+        const [account, access] = await Promise.all([
+            getCreditAccount(ctx, user.id),
+            getUserAccess(ctx, user.id)
+        ])
         const resolvedAccount = getResolvedCreditAccount(account)
+        const resolvedAccess = getResolvedUserAccess(access)
         const period = await getUserCreditPeriod(ctx, user.id, account)
         const events = await ctx.db
             .query("prototypeCreditEvents")
@@ -646,6 +650,7 @@ export const getMyCreditSummary = query({
         return {
             enabled: resolvedAccount.enabled,
             plan: resolvedAccount.plan,
+            isStaff: resolvedAccess.isStaff,
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,

@@ -1,6 +1,7 @@
 export type PrototypeCreditPlanSummary = {
     enabled: boolean
     plan: "free" | "pro"
+    isStaff: boolean
     usageMetering: {
         fiveHourLimitUsd: number
         monthlyLimitUsd: number

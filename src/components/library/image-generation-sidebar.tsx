@@ -179,7 +179,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const isDevMode = useShowContextualDevTools()
 
     // Dev image-lab overrides. Values only take effect while dev overrides are active
-    // (dev mode); user mode keeps the real model/default caps.
+    // (dev mode); GPT Image 2 quality is also available to staff in user mode.
     const overridesActive = useAreDevOverridesActive()
     const imageVariantMaxOverride = useDevOverridesStore((state) => state.imageVariantMax)
     const imageReferenceMaxOverride = useDevOverridesStore((state) => state.imageReferenceMax)
@@ -222,6 +222,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
     const [creditPlan, setCreditPlan] = useState<"free" | "pro" | null>(null)
+    const [isStaff, setIsStaff] = useState(false)
+    const canSelectGptImage2Quality = isDevMode || isStaff
     const [expandedLegacyModels, setExpandedLegacyModels] = useState(false)
     const [promptHeight, setPromptHeight] = useState<number | null>(null)
     const [isResizingPrompt, setIsResizingPrompt] = useState(false)
@@ -253,13 +255,18 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     throw new Error("Failed to load credit summary")
                 }
 
-                const data = (await response.json()) as { plan?: "free" | "pro" }
+                const data = (await response.json()) as {
+                    plan?: "free" | "pro"
+                    isStaff?: boolean
+                }
                 if (!cancelled) {
                     setCreditPlan(data.plan === "pro" ? "pro" : "free")
+                    setIsStaff(data.isStaff === true)
                 }
             } catch {
                 if (!cancelled) {
                     setCreditPlan("free")
+                    setIsStaff(false)
                 }
             }
         }
@@ -1002,7 +1009,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                     clientRequestId: id,
                                     aspectRatio: effectiveAspectRatio,
                                     referenceImageIds: uploadedReferenceKeys,
-                                    ...(isDevMode && modelId === "gpt-5.4-image-2"
+                                    ...(canSelectGptImage2Quality && modelId === "gpt-5.4-image-2"
                                         ? { quality: gptImage2Quality }
                                         : {}),
                                     ...(supportsResolution ? { resolution } : {})
@@ -1302,7 +1309,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             aspectRatio={effectiveAspectRatio}
                                                             resolution={resolution}
                                                             quality={
-                                                                isDevMode &&
+                                                                canSelectGptImage2Quality &&
                                                                 model.id === "gpt-5.4-image-2"
                                                                     ? gptImage2Quality
                                                                     : undefined
@@ -1387,7 +1394,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    {isDevMode &&
+                                                    {canSelectGptImage2Quality &&
                                                         model.id === "gpt-5.4-image-2" && (
                                                             <div className="flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
                                                                 <span className="text-[0.625rem] uppercase tracking-wider opacity-70">

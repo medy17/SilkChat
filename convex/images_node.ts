@@ -506,6 +506,16 @@ export const generateStandaloneImage = action({
         if ("error" in user) throw new Error("unauthorized:chat")
         await assertAccountNotDeletingForAction(ctx, user.id)
 
+        const isGptImage2QualityRequest =
+            args.modelId === "gpt-5.4-image-2" && args.quality !== undefined
+        const access = isGptImage2QualityRequest
+            ? await ctx.runQuery(internal.credits.getUserCreditStateInternal, {
+                  userId: user.id
+              })
+            : null
+        const canOverrideGptImage2Quality =
+            process.env.DEV_CREDIT_LAB_ENABLED === "1" || access?.isStaff === true
+
         const jobId = await submitImageGenerationJob(ctx, {
             userId: user.id,
             prompt: args.prompt,
@@ -513,10 +523,7 @@ export const generateStandaloneImage = action({
             clientRequestId: args.clientRequestId,
             aspectRatio: args.aspectRatio,
             resolution: args.resolution,
-            quality:
-                process.env.DEV_CREDIT_LAB_ENABLED === "1" && args.modelId === "gpt-5.4-image-2"
-                    ? args.quality
-                    : undefined,
+            quality: canOverrideGptImage2Quality ? args.quality : undefined,
             references: toReferenceSources(args.referenceImageIds)
         })
 

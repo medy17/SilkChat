@@ -28,6 +28,7 @@ vi.mock("@fal-ai/client", () => ({
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         credits: {
+            getUserCreditStateInternal: "getUserCreditStateInternal",
             reserveCreditForMessage: "reserveCreditForMessage",
             releaseReservedCreditForMessage: "releaseReservedCreditForMessage"
         },
@@ -84,6 +85,7 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
         clientRequestId?: string
         aspectRatio?: string
         resolution?: string
+        quality?: "low" | "medium" | "high"
         referenceImageIds?: string[]
     }
 ) => Promise<string[]>
@@ -124,6 +126,7 @@ describe("images_node", () => {
     beforeEach(() => {
         vi.stubEnv("FAL_KEY", "fal-key")
         vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "0")
+        vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "0")
         vi.stubEnv("CONVEX_SITE_URL", "https://silkchat.convex.site/")
         vi.stubGlobal(
             "fetch",
@@ -203,7 +206,7 @@ describe("images_node", () => {
             input: expect.objectContaining({
                 prompt: "A test image",
                 image_size: { width: 1024, height: 1024 },
-                quality: "low",
+                quality: "medium",
                 enable_safety_checker: false,
                 num_images: 1,
                 output_format: "png"
@@ -233,6 +236,48 @@ describe("images_node", () => {
             falRequestId: "fal-request-1",
             falGatewayRequestId: "fal-gateway-request-1"
         })
+    })
+
+    it("allows staff to override GPT Image 2 quality", async () => {
+        const ctx = createCtx()
+        ctx.runQuery.mockImplementation(async (name: string) =>
+            name === "getUserCreditStateInternal" ? { isStaff: true } : null
+        )
+
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "A test image",
+            modelId: "gpt-5.4-image-2",
+            aspectRatio: "1:1",
+            quality: "high"
+        })
+
+        expect(falQueueSubmitMock).toHaveBeenCalledWith(
+            "openai/gpt-image-2",
+            expect.objectContaining({
+                input: expect.objectContaining({ quality: "high" })
+            })
+        )
+    })
+
+    it("ignores GPT Image 2 quality overrides from non-staff users", async () => {
+        const ctx = createCtx()
+        ctx.runQuery.mockImplementation(async (name: string) =>
+            name === "getUserCreditStateInternal" ? { isStaff: false } : null
+        )
+
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "A test image",
+            modelId: "gpt-5.4-image-2",
+            aspectRatio: "1:1",
+            quality: "high"
+        })
+
+        expect(falQueueSubmitMock).toHaveBeenCalledWith(
+            "openai/gpt-image-2",
+            expect.objectContaining({
+                input: expect.objectContaining({ quality: "medium" })
+            })
+        )
     })
 
     it("uses fal unit-price estimates only when explicitly enabled", async () => {

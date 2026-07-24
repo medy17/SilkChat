@@ -52,7 +52,7 @@ const OVERRIDE_DEFAULTS = {
     imageRunTotalMax: null,
     aspectRatioOverride: null,
     disableImageCompression: false,
-    gptImage2Quality: "low",
+    gptImage2Quality: "medium",
     hostedContextLimitOverride: null,
     modelContextLimitOverride: null
 } satisfies Omit<

@@ -27,7 +27,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
-        defaultImageQuality: "low",
+        defaultImageQuality: "medium",
         imagePricing: {
             source: "fal",
             kind: "fixed",
@@ -104,7 +104,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         imageSizeMode: "standard",
         usesQuality: true,
-        defaultQuality: "low",
+        defaultQuality: "medium",
         safety: {
             enableSafetyChecker: false
         }

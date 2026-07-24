@@ -31,7 +31,7 @@ describe("fal image model payloads", () => {
             })
         ).toMatchObject({
             image_size: { width: 720, height: 1280 },
-            quality: "low",
+            quality: "medium",
             output_format: "png",
             enable_safety_checker: false
         })
@@ -270,11 +270,7 @@ describe("fal image model payloads", () => {
     })
 
     it("registers Seedream 5 Lite with text and edit support through 4K", () => {
-        expect(sharedModel("seedream-5-lite").supportedImageResolutions).toEqual([
-            "1K",
-            "2K",
-            "4K"
-        ])
+        expect(sharedModel("seedream-5-lite").supportedImageResolutions).toEqual(["1K", "2K", "4K"])
         expect(descriptor("seedream-5-lite")).toMatchObject({
             endpoint: "fal-ai/bytedance/seedream/v5/lite/text-to-image",
             editEndpoint: "fal-ai/bytedance/seedream/v5/lite/edit"
