@@ -42,7 +42,55 @@ Set its selector and URLs in `envs/.env.cloud-dev`, then run:
 bun run dev
 ```
 
-`dev` and `cloud:dev:app` are the same application path. They start Vite on port 3000 and a local Sharp-backed image optimizer. Uploads stay in the cloud-dev R2 bucket; local image transforms are cached locally to avoid Cloudflare transform usage during iteration.
+`dev` and `cloud:dev:app` are the same application path. They start Vite on port 3000 and a local Sharp-backed image optimizer. Uploads stay in the cloud-dev R2 bucket; local image transforms are cached locally to avoid Cloudflare transform usage during iteration. The dev loop logs each optimizer transform or cache purge with its HTTP status, cache hit/miss, output format and size, and elapsed time.
+
+### Stable HTTPS development URL
+
+The development supervisor can also run a named, remotely managed Cloudflare Tunnel.
+First create the tunnel and configure its published application route to send the
+chosen hostname to `http://localhost:3000`. Install `cloudflared`, then add the
+following ignored values to `envs/.env.local`:
+
+```bash
+DEV_PUBLIC_URL="https://dev.example.com"
+CLOUDFLARE_TUNNEL_TOKEN="your-tunnel-token"
+```
+
+Both values are required together. When they are present, `bun run dev` starts the
+tunnel alongside Vite and the local image optimizer, explicitly allows its hostname
+in Vite, and stops all three processes together. The token is passed to `cloudflared`
+through its `TUNNEL_TOKEN` environment variable and is not placed in the command
+line. Local image transforms and cache purges use the app-owned
+`/_silkchat/image/*` route because Cloudflare reserves `/cdn-cgi/*` at the edge.
+
+Because Better Auth runs in Convex, set the same public origin in
+`envs/.env.convex.cloud-dev`:
+
+```bash
+VITE_BETTER_AUTH_URL="https://dev.example.com"
+BETTER_AUTH_ADDITIONAL_HOSTS="localhost:3000,127.0.0.1:3000"
+```
+
+Push that environment change once:
+
+```bash
+bun run env:convex:cloud-dev:push
+```
+
+The additional-host allowlist enables request-specific OAuth callbacks on both
+localhost and the HTTPS tunnel. Better Auth validates the original host forwarded
+by the app proxy, so OAuth state cookies stay on the same origin that initiated
+sign-in. Keep this list exact; do not use wildcard public domains.
+
+Add the following entries to the Google web OAuth client:
+
+```text
+Authorized JavaScript origin: https://dev.example.com
+Authorized redirect URI:      https://dev.example.com/api/auth/callback/google
+```
+
+The hostname publishes the development server to the Internet. Protect it with a
+Cloudflare Access application restricted to the intended developer accounts.
 
 Convex cloud dev does not hot-reload from local source. Push backend or schema changes explicitly:
 

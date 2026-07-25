@@ -4,6 +4,7 @@ import path from "node:path"
 import sharp from "sharp"
 import {
     LOCAL_IMAGE_OPTIMIZER_PURGE_PATH,
+    LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX,
     extractLocalImageOptimizerRequestParts,
     getLocalImageOptimizerCacheKeyInput,
     isAllowedLocalImageOptimizerSource,
@@ -217,7 +218,7 @@ export const createLocalImageOptimizerHandler = ({
             return Response.json({ ok: true, removed })
         }
 
-        if (!requestUrl.pathname.startsWith("/cdn-cgi/image/")) {
+        if (!requestUrl.pathname.startsWith(`${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/`)) {
             return new Response(null, { status: 404 })
         }
 

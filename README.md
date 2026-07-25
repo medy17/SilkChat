@@ -38,7 +38,10 @@ VITE_R2_PUBLIC_BASE_URL="https://your-public-r2-host"
 bun run dev
 ```
 
-This starts Vite at `http://localhost:3000` and the local Sharp image optimizer. It does not push local Convex changes; run this when backend or schema changes need to reach cloud dev:
+This starts Vite at `http://localhost:3000` and the local Sharp image optimizer. When
+`DEV_PUBLIC_URL` and `CLOUDFLARE_TUNNEL_TOKEN` are configured, it also starts the
+named Cloudflare Tunnel for HTTPS and mobile-device access. It does not push local
+Convex changes; run this when backend or schema changes need to reach cloud dev:
 
 ```bash
 bun run cloud:dev:push

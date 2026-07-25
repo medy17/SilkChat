@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
     // NOTE: the local image optimizer is intentionally NOT registered via
     // `server.proxy`. TanStack Start's dev SSR middleware runs ahead of Vite's
     // proxy middleware for document requests (`Accept: text/html`), so a browser
-    // navigation to `/cdn-cgi/image/...` gets a slash-collapsing 307 followed by
+    // navigation to the local optimizer route gets a slash-collapsing 307 followed by
     // the SPA 404 shell instead of reaching the optimizer. It is served by the
     // `local-image-optimizer-proxy` plugin below, which is `enforce: "pre"` and
     // therefore intercepts before the SSR handler for every `Accept` type.

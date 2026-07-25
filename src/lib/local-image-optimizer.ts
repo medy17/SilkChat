@@ -4,7 +4,9 @@ export const LOCAL_IMAGE_OPTIMIZER_ENV_KEY = "VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED
 export const LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT = 43177
 export const LOCAL_IMAGE_OPTIMIZER_CACHE_DIR = ".optimised-image-cache"
 export const LOCAL_IMAGE_OPTIMIZER_CACHE_VERSION = "v1"
-export const LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX = "/cdn-cgi/image"
+// Cloudflare reserves `/cdn-cgi/*` at the edge, so the local optimizer must use
+// an app-owned path to remain reachable through a named development tunnel.
+export const LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX = "/_silkchat/image"
 // Dev-only cache purge endpoint, served under the route prefix so the same dev proxy
 // forwarding reaches it. Handled specially by the optimizer server (DELETE = clear cache).
 export const LOCAL_IMAGE_OPTIMIZER_PURGE_PATH = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/__cache`
@@ -12,6 +14,59 @@ export const LOCAL_IMAGE_OPTIMIZER_PURGE_PATH = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_P
 const MAX_IMAGE_WIDTH = 4096
 const MIN_IMAGE_QUALITY = 1
 const MAX_IMAGE_QUALITY = 100
+
+const formatByteCount = (bytes: number) => {
+    if (bytes < 1024) {
+        return `${bytes} B`
+    }
+
+    const kibibytes = bytes / 1024
+    if (kibibytes < 1024) {
+        return `${kibibytes.toFixed(1)} KiB`
+    }
+
+    return `${(kibibytes / 1024).toFixed(1)} MiB`
+}
+
+export const formatLocalImageOptimizerRequestLog = ({
+    method,
+    pathname,
+    status,
+    cacheStatus,
+    contentType,
+    bytes,
+    durationMs,
+    removed
+}: {
+    method: string
+    pathname: string
+    status: number
+    cacheStatus?: string | null
+    contentType?: string | null
+    bytes: number
+    durationMs: number
+    removed?: number
+}) => {
+    const operation = pathname === LOCAL_IMAGE_OPTIMIZER_PURGE_PATH ? "purge" : "transform"
+    const fields = [method, operation, String(status)]
+
+    if (cacheStatus) {
+        fields.push(cacheStatus)
+    }
+
+    if (contentType?.startsWith("image/")) {
+        fields.push(contentType.split(";")[0])
+    }
+
+    if (operation === "purge" && removed !== undefined) {
+        fields.push(`removed=${removed}`)
+    } else {
+        fields.push(formatByteCount(bytes))
+    }
+
+    fields.push(`${Math.round(durationMs)}ms`)
+    return `[local-image-optimizer] ${fields.join(" ")}`
+}
 
 export type ParsedLocalImageTransformOptions = {
     fit: "scale-down"

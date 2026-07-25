@@ -1,6 +1,7 @@
 import {
     buildLocalImageOptimizerUrl,
     extractLocalImageOptimizerRequestParts,
+    formatLocalImageOptimizerRequestLog,
     getLocalImageOptimizerCacheKeyInput,
     isAllowedLocalImageOptimizerSource,
     parseLocalImageTransformOptions
@@ -8,7 +9,7 @@ import {
 import { describe, expect, it } from "vitest"
 
 describe("local-image-optimizer", () => {
-    it("builds a local optimizer URL with the mocked Cloudflare path shape", () => {
+    it("builds a local optimizer URL on an app-owned development path", () => {
         expect(
             buildLocalImageOptimizerUrl({
                 sourceUrl: "https://r2.silkchat.dev/generated/key-1",
@@ -16,7 +17,7 @@ describe("local-image-optimizer", () => {
                 quality: 76
             })
         ).toBe(
-            "/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-1"
+            "/_silkchat/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-1"
         )
     })
 
@@ -45,7 +46,7 @@ describe("local-image-optimizer", () => {
 
     it("reconstructs embedded source URLs that carry their query in the outer request", () => {
         const requestUrl = new URL(
-            "http://localhost:3000/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1"
+            "http://localhost:3000/_silkchat/image/fit=scale-down,width=540,quality=76,format=auto/http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1"
         )
 
         expect(extractLocalImageOptimizerRequestParts(requestUrl)).toEqual({
@@ -56,7 +57,7 @@ describe("local-image-optimizer", () => {
 
     it("resolves percent-encoded embedded source URLs like the Cloudflare edge", () => {
         const encoded = new URL(
-            "http://localhost:3000/cdn-cgi/image/fit=scale-down,width=324,quality=80,format=auto/https%3A%2F%2Fr2.silkchat.dev%2Fgenerated%2Fkey-1"
+            "http://localhost:3000/_silkchat/image/fit=scale-down,width=324,quality=80,format=auto/https%3A%2F%2Fr2.silkchat.dev%2Fgenerated%2Fkey-1"
         )
 
         expect(extractLocalImageOptimizerRequestParts(encoded)).toEqual({
@@ -66,7 +67,7 @@ describe("local-image-optimizer", () => {
 
         // The browser-collapsed single-slash form still resolves to the same source.
         const collapsed = new URL(
-            "http://localhost:3000/cdn-cgi/image/fit=scale-down,width=324,quality=80,format=auto/https:/r2.silkchat.dev/generated/key-1"
+            "http://localhost:3000/_silkchat/image/fit=scale-down,width=324,quality=80,format=auto/https:/r2.silkchat.dev/generated/key-1"
         )
 
         expect(extractLocalImageOptimizerRequestParts(collapsed)?.sourceUrl).toBe(
@@ -126,5 +127,35 @@ describe("local-image-optimizer", () => {
         ).toBe(
             "v1|width=540|quality=76|format=webp|http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1"
         )
+    })
+
+    it("formats concise transform logs without exposing the source URL", () => {
+        const log = formatLocalImageOptimizerRequestLog({
+            method: "GET",
+            pathname:
+                "/_silkchat/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/private-key",
+            status: 200,
+            cacheStatus: "MISS",
+            contentType: "image/webp",
+            bytes: 1536,
+            durationMs: 11.6
+        })
+
+        expect(log).toBe("[local-image-optimizer] GET transform 200 MISS image/webp 1.5 KiB 12ms")
+        expect(log).not.toContain("private-key")
+    })
+
+    it("reports the number of entries removed by cache purges", () => {
+        expect(
+            formatLocalImageOptimizerRequestLog({
+                method: "DELETE",
+                pathname: "/_silkchat/image/__cache",
+                status: 200,
+                contentType: "application/json",
+                bytes: 23,
+                durationMs: 4.2,
+                removed: 3
+            })
+        ).toBe("[local-image-optimizer] DELETE purge 200 removed=3 4ms")
     })
 })

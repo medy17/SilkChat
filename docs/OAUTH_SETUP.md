@@ -9,6 +9,7 @@ Auth secrets belong in the Convex environment, while `VITE_CONVEX_*` values belo
 ```bash
 BETTER_AUTH_SECRET=replace-with-a-stable-secret
 VITE_BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_ADDITIONAL_HOSTS=
 
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
@@ -26,6 +27,7 @@ VITE_CONVEX_SITE_URL=https://your-convex-deployment.convex.site
 4. Create an OAuth client ID for a web application.
 5. Add redirect URIs:
    - local: `http://localhost:3000/api/auth/callback/google`
+   - named development tunnel: `https://dev.example.com/api/auth/callback/google`
    - production: `https://your-domain.com/api/auth/callback/google`
 6. Add the client ID and secret to your runtime env.
 
@@ -40,6 +42,12 @@ VITE_CONVEX_SITE_URL=https://your-convex-deployment.convex.site
 bunx convex dev
 bun run dev
 ```
+
+For a stable HTTPS origin that works on mobile devices, configure the optional
+named Cloudflare Tunnel described in the
+[Setup and Deployment Guide](./SETUP_GUIDE.md#stable-https-development-url).
+That setup uses `BETTER_AUTH_ADDITIONAL_HOSTS` to keep both the localhost and
+tunnel OAuth flows on the origin where each sign-in began.
 
 ## Better Auth Notes
 

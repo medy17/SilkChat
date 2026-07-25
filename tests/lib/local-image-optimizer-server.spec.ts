@@ -61,7 +61,7 @@ describe("local-image-optimizer-server", () => {
 
         const request = createRequest({
             pathName:
-                "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-1"
+                "/_silkchat/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-1"
         })
 
         const firstResponse = await handleRequest(request)
@@ -113,7 +113,7 @@ describe("local-image-optimizer-server", () => {
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-webp-preferred",
+                    "/_silkchat/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-webp-preferred",
                 accept: "image/avif,image/webp,image/*"
             })
         )
@@ -158,7 +158,7 @@ describe("local-image-optimizer-server", () => {
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-2",
+                    "/_silkchat/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-2",
                 accept: "image/png"
             })
         )
@@ -180,7 +180,7 @@ describe("local-image-optimizer-server", () => {
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://cdn.example.com/image.png"
+                    "/_silkchat/image/fit=scale-down,width=8,quality=72,format=auto/https://cdn.example.com/image.png"
             })
         )
 
@@ -222,11 +222,11 @@ describe("local-image-optimizer-server", () => {
         await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/purge-me"
+                    "/_silkchat/image/fit=scale-down,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/purge-me"
             })
         )
 
-        const purgeUrl = "http://localhost:3000/cdn-cgi/image/__cache"
+        const purgeUrl = "http://localhost:3000/_silkchat/image/__cache"
 
         const wrongMethod = await handleRequest(new Request(purgeUrl, { method: "POST" }))
         expect(wrongMethod.status).toBe(405)
@@ -253,7 +253,7 @@ describe("local-image-optimizer-server", () => {
         const response = await handleRequest(
             createRequest({
                 pathName:
-                    "/cdn-cgi/image/fit=cover,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-3"
+                    "/_silkchat/image/fit=cover,width=8,quality=72,format=auto/https://r2.silkchat.dev/generated/key-3"
             })
         )
 

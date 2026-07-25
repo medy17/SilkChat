@@ -3,7 +3,9 @@ import path from "node:path"
 import { loadServerEnv } from "../src/lib/load-server-env"
 import {
     LOCAL_IMAGE_OPTIMIZER_CACHE_DIR,
-    LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT
+    LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT,
+    LOCAL_IMAGE_OPTIMIZER_PURGE_PATH,
+    formatLocalImageOptimizerRequestLog
 } from "../src/lib/local-image-optimizer"
 import { createLocalImageOptimizerHandler } from "../src/lib/local-image-optimizer-server"
 
@@ -50,6 +52,8 @@ const toHeaderEntries = (headers: IncomingHttpHeaders): [string, string][] =>
     )
 
 const server = createServer(async (req, res) => {
+    const startedAt = performance.now()
+
     try {
         const origin = `http://${req.headers.host ?? `127.0.0.1:${port}`}`
         const requestUrl = new URL(req.url ?? "/", origin)
@@ -65,13 +69,33 @@ const server = createServer(async (req, res) => {
             res.setHeader(key, value)
         })
 
-        if (!response.body) {
-            res.end()
-            return
+        const body = response.body ? Buffer.from(await response.arrayBuffer()) : Buffer.alloc(0)
+        let removed: number | undefined
+
+        if (requestUrl.pathname === LOCAL_IMAGE_OPTIMIZER_PURGE_PATH && response.ok) {
+            try {
+                const result = JSON.parse(body.toString()) as { removed?: unknown }
+                if (typeof result.removed === "number") {
+                    removed = result.removed
+                }
+            } catch {
+                // The response itself remains authoritative if its logging metadata is malformed.
+            }
         }
 
-        const body = Buffer.from(await response.arrayBuffer())
         res.end(body)
+        console.log(
+            formatLocalImageOptimizerRequestLog({
+                method: request.method,
+                pathname: requestUrl.pathname,
+                status: response.status,
+                cacheStatus: response.headers.get("x-silkchat-local-image-optimizer"),
+                contentType: response.headers.get("content-type"),
+                bytes: body.byteLength,
+                durationMs: performance.now() - startedAt,
+                removed
+            })
+        )
     } catch (error) {
         console.error("[local-image-optimizer] Unhandled request failure", error)
         res.statusCode = 500

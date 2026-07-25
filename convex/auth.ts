@@ -7,6 +7,7 @@ import { internalAction, query } from "./_generated/server"
 import authConfig from "./auth.config"
 import { recordAuthenticatedActivity, removeAccountActivity } from "./lib/account_activity"
 import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_restore"
+import { buildAuthBaseURLConfig, hasLoopbackAuthHost } from "./lib/auth_origins"
 
 const betterAuthComponent = (
     components as typeof components & {
@@ -30,15 +31,18 @@ const getEnv = (name: keyof NodeJS.ProcessEnv) => {
     return value?.trim() || undefined
 }
 
-const baseURL = getEnv("VITE_BETTER_AUTH_URL") || "http://localhost:3000"
+const canonicalBaseURL = getEnv("VITE_BETTER_AUTH_URL") || "http://localhost:3000"
+const authBaseURLConfig = buildAuthBaseURLConfig(
+    canonicalBaseURL,
+    getEnv("BETTER_AUTH_ADDITIONAL_HOSTS")
+)
 const betterAuthSecret = getEnv("BETTER_AUTH_SECRET")
 const googleClientId = getEnv("GOOGLE_CLIENT_ID")
 const googleClientSecret = getEnv("GOOGLE_CLIENT_SECRET")
 const convexSiteUrl = getEnv("VITE_CONVEX_SITE_URL")
 const staticJwks = getEnv("JWKS")
 const isLocalAuthRuntime =
-    baseURL.includes("localhost") ||
-    baseURL.includes("127.0.0.1") ||
+    hasLoopbackAuthHost(authBaseURLConfig.allowedHosts) ||
     convexSiteUrl?.includes("localhost") ||
     convexSiteUrl?.includes("127.0.0.1")
 
@@ -134,12 +138,13 @@ export const {
 export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
     betterAuth({
         secret: betterAuthSecret,
-        baseURL,
+        baseURL: authBaseURLConfig.baseURL,
         basePath: "/api/auth",
         rateLimit: {
             enabled: !isLocalAuthRuntime
         },
         advanced: {
+            trustedProxyHeaders: true,
             ipAddress: {
                 ipAddressHeaders: [
                     "x-forwarded-for",
@@ -150,7 +155,7 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
             }
         },
         trustedOrigins: [
-            baseURL,
+            canonicalBaseURL,
             convexSiteUrl,
             normalizeOrigin(getEnv("VERCEL_URL")),
             "http://localhost:3000",
