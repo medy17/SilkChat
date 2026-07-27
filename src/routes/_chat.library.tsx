@@ -1,8 +1,13 @@
-import { useDesktopLibraryChromeStore } from "@/components/library/desktop-library-chrome-store"
 import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageComparisonModal } from "@/components/library/image-comparison-modal"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger
+} from "@/components/ui/accordion"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
     AlertDialog,
@@ -32,15 +37,6 @@ import {
     DrawerHeader,
     DrawerTitle
 } from "@/components/ui/drawer"
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Input } from "@/components/ui/input"
 import {
@@ -59,6 +55,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select"
+import { useSidebar } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
@@ -82,6 +79,7 @@ import {
     getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
+import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import { ImageMetadataProvider, useImageMetadata } from "@/lib/image-metadata-context"
 import {
     DEFAULT_LIBRARY_FILTERS,
@@ -116,7 +114,6 @@ import {
     ImageOff,
     Images,
     LoaderCircle,
-    PlusCircle,
     RotateCcw,
     Search,
     SquareMinus,
@@ -201,23 +198,6 @@ const getLibraryCacheScope = ({
 const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
     typeof value === "object" && value !== null && "error" in value
 
-const getFilterButtonLabel = ({
-    emptyLabel,
-    selectedValues,
-    optionLabels
-}: {
-    emptyLabel: string
-    selectedValues: string[]
-    optionLabels: Map<string, string>
-}) => {
-    if (selectedValues.length === 0) return emptyLabel
-    if (selectedValues.length === 1) {
-        return optionLabels.get(selectedValues[0]) ?? selectedValues[0]
-    }
-
-    return `${selectedValues.length} selected`
-}
-
 const toggleFilterValue = <T extends string>(values: T[], value: T) =>
     values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value]
 
@@ -258,91 +238,6 @@ const LIBRARY_RAPID_DELETE_DEBOUNCE_MS = 1000
 const LIBRARY_MIN_QUERY_LENGTH = 2
 const LIBRARY_RAPID_DELETE_WINDOW_MS = 250
 const LIBRARY_RAPID_DELETE_DELTA = 2
-const LIBRARY_DESKTOP_CHROME_COLLAPSE_SCROLL_TOP = 120
-const LIBRARY_DESKTOP_CHROME_EXPAND_SCROLL_TOP = 40
-
-const MultiSelectFilter = ({
-    label,
-    emptyLabel,
-    selectedValues,
-    options,
-    onToggleValue,
-    onClear
-}: {
-    label: string
-    emptyLabel: string
-    selectedValues: string[]
-    options: Array<{ value: string; label: string }>
-    onToggleValue: (value: string) => void
-    onClear: () => void
-}) => {
-    const optionLabelMap = useMemo(
-        () => new Map(options.map((option) => [option.value, option.label])),
-        [options]
-    )
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    type="button"
-                    variant={selectedValues.length > 0 ? "secondary" : "outline"}
-                    className="h-9 border-dashed bg-background px-3 font-normal"
-                >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span className="font-medium text-foreground/80">{label}</span>
-                    {selectedValues.length > 0 && (
-                        <>
-                            <div className="mx-2 h-4 w-[0.0625rem] shrink-0 bg-border" />
-                            <span className="truncate font-medium text-secondary-foreground">
-                                {getFilterButtonLabel({
-                                    emptyLabel: "",
-                                    selectedValues,
-                                    optionLabels: optionLabelMap
-                                })}
-                            </span>
-                        </>
-                    )}
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>{label}</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                    checked={selectedValues.length === 0}
-                    onSelect={(event) => event.preventDefault()}
-                    onCheckedChange={() => onClear()}
-                >
-                    {emptyLabel}
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                {options.map((option) => (
-                    <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={selectedValues.includes(option.value)}
-                        onSelect={(event) => event.preventDefault()}
-                        onCheckedChange={() => onToggleValue(option.value)}
-                    >
-                        {option.label}
-                    </DropdownMenuCheckboxItem>
-                ))}
-                {selectedValues.length > 0 && (
-                    <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            onSelect={(event) => {
-                                event.preventDefault()
-                                onClear()
-                            }}
-                        >
-                            Clear {label.toLowerCase()}
-                        </DropdownMenuItem>
-                    </>
-                )}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
 const MobileFilterSection = ({
     title,
     action,
@@ -352,7 +247,7 @@ const MobileFilterSection = ({
     action?: ReactNode
     children: ReactNode
 }) => (
-    <section className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0">
+    <section className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0 md:border-t-0 md:pt-0">
         <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold text-base">{title}</h3>
             {action}
@@ -432,6 +327,68 @@ const MobileCheckboxFilter = ({
             ))}
         </div>
     </MobileFilterSection>
+)
+
+const DesktopCheckboxFilter = ({
+    value,
+    title,
+    selectedValues,
+    options,
+    onToggleValue,
+    onClear
+}: {
+    value: string
+    title: string
+    selectedValues: string[]
+    options: Array<{ value: string; label: string }>
+    onToggleValue: (value: string) => void
+    onClear: () => void
+}) => (
+    <AccordionItem value={value} className="relative">
+        <AccordionTrigger className="pr-20 hover:no-underline [&>svg]:absolute [&>svg]:top-4 [&>svg]:right-0">
+            <span className="flex items-center gap-2">
+                <span>{title}</span>
+                {selectedValues.length > 0 && (
+                    <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
+                        {selectedValues.length}
+                    </span>
+                )}
+            </span>
+        </AccordionTrigger>
+        {selectedValues.length > 0 && (
+            <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute top-2.5 right-7 z-10 h-8 px-2 text-muted-foreground"
+                onClick={onClear}
+            >
+                Clear
+            </Button>
+        )}
+        <AccordionContent>
+            {options.length > 0 ? (
+                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {options.map((option) => (
+                        <label
+                            key={option.value}
+                            htmlFor={`desktop-${value}-${option.value}`}
+                            className="flex min-h-9 items-center gap-3 text-sm"
+                        >
+                            <Checkbox
+                                id={`desktop-${value}-${option.value}`}
+                                checked={selectedValues.includes(option.value)}
+                                onCheckedChange={() => onToggleValue(option.value)}
+                            />
+                            <span>{option.label}</span>
+                        </label>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted-foreground text-sm">No options available.</p>
+            )}
+        </AccordionContent>
+    </AccordionItem>
 )
 
 const GalleryImageSkeleton = memo(() => (
@@ -1171,13 +1128,12 @@ export function LibraryView({
     const navigate = useNavigate({ from: "/library" })
     const session = useSession()
     const isMobile = useIsMobile()
-    const isDesktopLibraryChromeCollapsed = useDesktopLibraryChromeStore(
-        (state) => state.isCollapsed
+    const { state: sidebarState } = useSidebar()
+    const isDesktopHeaderActionsCollapsed = useHeaderActionsStore(
+        (state) => state.isDesktopCollapsed
     )
-    const setIsDesktopLibraryChromeCollapsed = useDesktopLibraryChromeStore(
-        (state) => state.setIsCollapsed
-    )
-    const resetDesktopLibraryChrome = useDesktopLibraryChromeStore((state) => state.reset)
+    const shouldReserveDesktopHeaderRow =
+        sidebarState === "expanded" && !isDesktopHeaderActionsCollapsed
     const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
@@ -1194,6 +1150,7 @@ export function LibraryView({
     const currentCursor = pageNumber > 1 ? String((pageNumber - 1) * pageSize) : null
     const filters = getLibraryFiltersFromSearch(search)
     const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
+    const [isDesktopFiltersOpen, setIsDesktopFiltersOpen] = useState(false)
     const [draftQuery, setDraftQuery] = useState(searchQuery)
     const [draftSortBy, setDraftSortBy] = useState<ImageSortOption>(sortBy)
     const [draftPageSize, setDraftPageSize] = useState<LibraryPageSize>(pageSize)
@@ -1206,8 +1163,6 @@ export function LibraryView({
         () => hasActiveGeneratedImageFilters(activeFilters),
         [activeFilters]
     )
-    const shouldHideDesktopStickyChrome =
-        isDesktopLibraryChromeCollapsed && !hasSearchQuery && !hasActiveFilters
     const activeFilterCount = useMemo(() => countActiveLibraryFilters(filters), [filters])
     const draftActiveFilterCount = useMemo(
         () => countActiveLibraryFilters(draftFilters),
@@ -1341,49 +1296,12 @@ export function LibraryView({
     }, [session.user?.id, migrateImages])
 
     useEffect(() => {
-        if (!isMobile) {
+        if (isMobile) {
+            setIsDesktopFiltersOpen(false)
+        } else {
             setIsFiltersDrawerOpen(false)
         }
     }, [isMobile])
-
-    useEffect(() => {
-        if (isMobile) {
-            resetDesktopLibraryChrome()
-            return
-        }
-
-        const gallery = galleryRef.current
-        if (!gallery) return
-
-        let ticking = false
-
-        const updateChromeState = () => {
-            const currentScrollTop = gallery.scrollTop
-
-            if (currentScrollTop >= LIBRARY_DESKTOP_CHROME_COLLAPSE_SCROLL_TOP) {
-                setIsDesktopLibraryChromeCollapsed(true)
-            } else if (currentScrollTop <= LIBRARY_DESKTOP_CHROME_EXPAND_SCROLL_TOP) {
-                setIsDesktopLibraryChromeCollapsed(false)
-            }
-
-            ticking = false
-        }
-
-        const handleScroll = () => {
-            if (ticking) return
-
-            ticking = true
-            window.requestAnimationFrame(updateChromeState)
-        }
-
-        handleScroll()
-        gallery.addEventListener("scroll", handleScroll, { passive: true })
-
-        return () => {
-            gallery.removeEventListener("scroll", handleScroll)
-            resetDesktopLibraryChrome()
-        }
-    }, [isMobile, resetDesktopLibraryChrome, setIsDesktopLibraryChromeCollapsed])
 
     useEffect(() => {
         setDraftQuery(searchQuery)
@@ -1572,34 +1490,6 @@ export function LibraryView({
         !isArchivedView && pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
     const scrollResetKey = JSON.stringify(search)
 
-    const handleSortChange = useCallback(
-        (value: ImageSortOption) => {
-            navigate({
-                replace: true,
-                search: (prev) => ({
-                    ...prev,
-                    sort: value,
-                    page: DEFAULT_LIBRARY_SEARCH.page
-                })
-            })
-        },
-        [navigate]
-    )
-
-    const handlePageSizeChange = useCallback(
-        (value: LibraryPageSize) => {
-            navigate({
-                replace: true,
-                search: (prev) => ({
-                    ...prev,
-                    pageSize: value,
-                    page: DEFAULT_LIBRARY_SEARCH.page
-                })
-            })
-        },
-        [navigate]
-    )
-
     const handleViewChange = useCallback(
         (nextView: LibraryViewMode) => {
             if (nextView === view) return
@@ -1616,64 +1506,21 @@ export function LibraryView({
         [navigate, view]
     )
 
-    const handleFilterChange = useCallback(
-        <K extends keyof LibraryFiltersState>(key: K, value: LibraryFiltersState[K][number]) => {
-            navigate({
-                replace: true,
-                search: (prev) => {
-                    const nextFilters = getLibraryFiltersFromSearch(prev)
-                    nextFilters[key] = toggleFilterValue(
-                        nextFilters[key],
-                        value
-                    ) as LibraryFiltersState[K]
-
-                    return {
-                        ...prev,
-                        ...nextFilters,
-                        page: DEFAULT_LIBRARY_SEARCH.page
-                    }
-                }
-            })
-        },
-        [navigate]
-    )
-
-    const handleClearFilters = useCallback(() => {
-        navigate({
-            replace: true,
-            search: (prev) => ({
-                ...prev,
-                ...cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS),
-                page: DEFAULT_LIBRARY_SEARCH.page
-            })
-        })
-    }, [navigate])
-
-    const handleClearFilterGroup = useCallback(
-        <K extends keyof LibraryFiltersState>(key: K) => {
-            navigate({
-                replace: true,
-                search: (prev) => {
-                    const nextFilters = getLibraryFiltersFromSearch(prev)
-                    nextFilters[key] = []
-
-                    return {
-                        ...prev,
-                        ...nextFilters,
-                        page: DEFAULT_LIBRARY_SEARCH.page
-                    }
-                }
-            })
-        },
-        [navigate]
-    )
-
-    const handleOpenFiltersDrawer = useCallback(() => {
+    const syncDraftFilters = useCallback(() => {
         setDraftSortBy(sortBy)
         setDraftPageSize(pageSize)
         setDraftFilters(cloneLibraryFilters(filters))
-        setIsFiltersDrawerOpen(true)
     }, [filters, pageSize, sortBy])
+
+    const handleOpenFiltersDrawer = useCallback(() => {
+        syncDraftFilters()
+        setIsFiltersDrawerOpen(true)
+    }, [syncDraftFilters])
+
+    const handleDesktopFiltersToggle = useCallback(() => {
+        if (!isDesktopFiltersOpen) syncDraftFilters()
+        setIsDesktopFiltersOpen((isOpen) => !isOpen)
+    }, [isDesktopFiltersOpen, syncDraftFilters])
 
     const handleDraftFilterChange = useCallback(
         <K extends keyof LibraryFiltersState>(key: K, value: string) => {
@@ -1695,13 +1542,26 @@ export function LibraryView({
         []
     )
 
-    const handleResetDraftFilters = useCallback(() => {
-        setDraftSortBy(hasSearchQuery ? "relevance" : DEFAULT_LIBRARY_SEARCH.sort)
+    const handleResetFilters = useCallback(() => {
+        const nextSort = hasSearchQuery ? "relevance" : DEFAULT_LIBRARY_SEARCH.sort
+
+        setDraftSortBy(nextSort)
         setDraftPageSize(DEFAULT_LIBRARY_SEARCH.pageSize)
         setDraftFilters(cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS))
-    }, [hasSearchQuery])
 
-    const handleApplyDrawerFilters = useCallback(() => {
+        navigate({
+            replace: true,
+            search: (prev) => ({
+                ...prev,
+                ...cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS),
+                pageSize: DEFAULT_LIBRARY_SEARCH.pageSize,
+                sort: nextSort,
+                page: DEFAULT_LIBRARY_SEARCH.page
+            })
+        })
+    }, [hasSearchQuery, navigate])
+
+    const handleApplyFilters = useCallback(() => {
         const didSortChange = draftSortBy !== sortBy
         const didPageSizeChange = draftPageSize !== pageSize
         const didFiltersChange = !areLibraryFiltersEqual(draftFilters, filters)
@@ -1720,6 +1580,7 @@ export function LibraryView({
         }
 
         setIsFiltersDrawerOpen(false)
+        setIsDesktopFiltersOpen(false)
     }, [draftFilters, draftPageSize, draftSortBy, filters, navigate, pageSize, sortBy])
 
     const handleNextPage = useCallback(() => {
@@ -2011,6 +1872,156 @@ export function LibraryView({
         })
     }, [restoreImage, selectedImageIds])
 
+    const mobileFilterControls = (
+        <div className="grid gap-x-8 gap-y-6">
+            <MobileSortFilter options={sortOptions} value={draftSortBy} onChange={setDraftSortBy} />
+            <MobileFilterSection title="Results Per Page">
+                <Select
+                    value={String(draftPageSize)}
+                    onValueChange={(value) => setDraftPageSize(Number(value) as LibraryPageSize)}
+                >
+                    <SelectTrigger className="w-full bg-background">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[70]">
+                        {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={String(option)}>
+                                {option} per page
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </MobileFilterSection>
+            <MobileCheckboxFilter
+                title="Model"
+                selectedValues={draftFilters.modelIds}
+                options={modelFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("modelIds", value)}
+                onClear={() => handleClearDraftFilterGroup("modelIds")}
+            />
+            <MobileCheckboxFilter
+                title="Resolution"
+                selectedValues={draftFilters.resolutions}
+                options={resolutionFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("resolutions", value)}
+                onClear={() => handleClearDraftFilterGroup("resolutions")}
+            />
+            <MobileCheckboxFilter
+                title="Aspect Ratio"
+                selectedValues={draftFilters.aspectRatios}
+                options={aspectRatioFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("aspectRatios", value)}
+                onClear={() => handleClearDraftFilterGroup("aspectRatios")}
+            />
+            <MobileCheckboxFilter
+                title="Orientation"
+                selectedValues={draftFilters.orientations}
+                options={orientationFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("orientations", value)}
+                onClear={() => handleClearDraftFilterGroup("orientations")}
+            />
+        </div>
+    )
+
+    const desktopFilterControls = (
+        <>
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-4">
+                <div className="space-y-2">
+                    <label className="font-medium text-sm" htmlFor="desktop-library-sort">
+                        Sort by
+                    </label>
+                    <Select
+                        value={draftSortBy}
+                        onValueChange={(value) => setDraftSortBy(value as ImageSortOption)}
+                    >
+                        <SelectTrigger id="desktop-library-sort" className="w-full bg-background">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {sortOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <label className="font-medium text-sm" htmlFor="desktop-library-page-size">
+                        Results per page
+                    </label>
+                    <Select
+                        value={String(draftPageSize)}
+                        onValueChange={(value) =>
+                            setDraftPageSize(Number(value) as LibraryPageSize)
+                        }
+                    >
+                        <SelectTrigger
+                            id="desktop-library-page-size"
+                            className="w-full bg-background"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
+                                <SelectItem key={option} value={String(option)}>
+                                    {option} per page
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 text-muted-foreground"
+                    onClick={handleResetFilters}
+                >
+                    Reset all
+                </Button>
+            </div>
+            <Accordion type="single" collapsible className="mt-4">
+                <DesktopCheckboxFilter
+                    value="models"
+                    title="Model"
+                    selectedValues={draftFilters.modelIds}
+                    options={modelFilterOptions}
+                    onToggleValue={(value) => handleDraftFilterChange("modelIds", value)}
+                    onClear={() => handleClearDraftFilterGroup("modelIds")}
+                />
+                <DesktopCheckboxFilter
+                    value="resolutions"
+                    title="Resolution"
+                    selectedValues={draftFilters.resolutions}
+                    options={resolutionFilterOptions}
+                    onToggleValue={(value) => handleDraftFilterChange("resolutions", value)}
+                    onClear={() => handleClearDraftFilterGroup("resolutions")}
+                />
+                <DesktopCheckboxFilter
+                    value="aspect-ratios"
+                    title="Aspect Ratio"
+                    selectedValues={draftFilters.aspectRatios}
+                    options={aspectRatioFilterOptions}
+                    onToggleValue={(value) => handleDraftFilterChange("aspectRatios", value)}
+                    onClear={() => handleClearDraftFilterGroup("aspectRatios")}
+                />
+                <DesktopCheckboxFilter
+                    value="orientations"
+                    title="Orientation"
+                    selectedValues={draftFilters.orientations}
+                    options={orientationFilterOptions}
+                    onToggleValue={(value) => handleDraftFilterChange("orientations", value)}
+                    onClear={() => handleClearDraftFilterGroup("orientations")}
+                />
+            </Accordion>
+        </>
+    )
+
+    const hasCustomizedFilters =
+        hasActiveFilters ||
+        pageSize !== DEFAULT_LIBRARY_SEARCH.pageSize ||
+        sortBy !== (hasSearchQuery ? "relevance" : DEFAULT_LIBRARY_SEARCH.sort)
+
     if (!session.user?.id) {
         return (
             <div className="container mx-auto max-w-6xl px-4 pt-16 pb-8">
@@ -2044,18 +2055,22 @@ export function LibraryView({
             >
                 <div
                     className={cn(
-                        "relative z-40 flex shrink-0 flex-col bg-background/95 backdrop-blur-xl transition-transform duration-300 ease-out",
-                        isMobile ? "gap-3 px-3 pt-14 pb-3" : "sticky top-0 px-6 pt-4 pb-4",
-                        !isMobile &&
-                            (shouldHideDesktopStickyChrome ? "-translate-y-full" : "translate-y-0")
+                        "relative z-40 flex shrink-0 flex-col bg-background/95 backdrop-blur-xl transition-[padding] duration-300 ease-out",
+                        isMobile
+                            ? "gap-3 px-3 pt-14 pb-3"
+                            : cn(
+                                  "px-6 pb-4",
+                                  shouldReserveDesktopHeaderRow ? "pt-16 xl:pt-4" : "pt-4",
+                                  isDesktopFiltersOpen ? "relative" : "sticky top-0"
+                              )
                     )}
                 >
                     {!isMobile && (
-                        <div className="mb-3 flex flex-col gap-2">
+                        <div className="mb-3 min-w-0">
                             <h1 className="whitespace-nowrap font-bold text-3xl leading-none">
                                 {libraryTitle}
                             </h1>
-                            <p className="text-muted-foreground text-sm">
+                            <p className="mt-2 truncate text-muted-foreground text-sm">
                                 {librarySummaryParts.join(" · ")}
                             </p>
                         </div>
@@ -2109,8 +2124,8 @@ export function LibraryView({
                         </div>
                     )}
 
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="relative w-full max-w-xl flex-1">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="relative w-full min-w-0 flex-1 md:max-w-2xl">
                             <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
                                 type="search"
@@ -2133,7 +2148,7 @@ export function LibraryView({
                             )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                             {isMobile ? (
                                 <Button
                                     type="button"
@@ -2144,7 +2159,7 @@ export function LibraryView({
                                             ? "secondary"
                                             : "outline"
                                     }
-                                    className="h-10 w-full gap-2 sm:w-auto"
+                                    className="h-10 w-full gap-2 md:w-auto"
                                     onClick={handleOpenFiltersDrawer}
                                 >
                                     <Filter className="h-4 w-4" />
@@ -2157,122 +2172,70 @@ export function LibraryView({
                                 </Button>
                             ) : (
                                 <>
-                                    <MultiSelectFilter
-                                        label="Model"
-                                        emptyLabel="All models"
-                                        selectedValues={filters.modelIds}
-                                        options={modelFilterOptions}
-                                        onToggleValue={(value) =>
-                                            handleFilterChange("modelIds", value)
-                                        }
-                                        onClear={() => handleClearFilterGroup("modelIds")}
-                                    />
-                                    <MultiSelectFilter
-                                        label="Resolution"
-                                        emptyLabel="All resolutions"
-                                        selectedValues={filters.resolutions}
-                                        options={resolutionFilterOptions}
-                                        onToggleValue={(value) =>
-                                            handleFilterChange("resolutions", value)
-                                        }
-                                        onClear={() => handleClearFilterGroup("resolutions")}
-                                    />
-                                    <MultiSelectFilter
-                                        label="Aspect Ratio"
-                                        emptyLabel="All aspect ratios"
-                                        selectedValues={filters.aspectRatios}
-                                        options={aspectRatioFilterOptions}
-                                        onToggleValue={(value) =>
-                                            handleFilterChange("aspectRatios", value)
-                                        }
-                                        onClear={() => handleClearFilterGroup("aspectRatios")}
-                                    />
-                                    <MultiSelectFilter
-                                        label="Orientation"
-                                        emptyLabel="All orientations"
-                                        selectedValues={filters.orientations}
-                                        options={orientationFilterOptions}
-                                        onToggleValue={(value) =>
-                                            handleFilterChange(
-                                                "orientations",
-                                                value as GeneratedImageOrientation
-                                            )
-                                        }
-                                        onClear={() => handleClearFilterGroup("orientations")}
-                                    />
-
-                                    <div className="mx-1 hidden h-5 w-[0.0625rem] shrink-0 bg-border xl:block" />
-
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wider">
-                                            Sort
-                                        </span>
-                                        <Select
-                                            value={sortBy}
-                                            onValueChange={(value) =>
-                                                handleSortChange(value as ImageSortOption)
-                                            }
-                                        >
-                                            <SelectTrigger className="h-9 w-[8.125rem] bg-background text-sm">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {sortOptions.map((option) => (
-                                                    <SelectItem
-                                                        key={option.value}
-                                                        value={option.value}
-                                                        className="text-sm"
-                                                    >
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wider">
-                                            Per Page
-                                        </span>
-                                        <Select
-                                            value={String(pageSize)}
-                                            onValueChange={(value) =>
-                                                handlePageSizeChange(
-                                                    Number(value) as LibraryPageSize
-                                                )
-                                            }
-                                        >
-                                            <SelectTrigger className="h-9 w-[4.375rem] bg-background text-sm">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
-                                                    <SelectItem
-                                                        key={option}
-                                                        value={String(option)}
-                                                        className="text-sm"
-                                                    >
-                                                        {option}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {hasActiveFilters && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            className="h-9 px-2 text-muted-foreground text-sm hover:text-foreground"
-                                            onClick={handleClearFilters}
-                                        >
-                                            Clear filters
-                                        </Button>
-                                    )}
+                                    <Button
+                                        type="button"
+                                        variant={privateViewingEnabled ? "secondary" : "outline"}
+                                        className="h-10 gap-2"
+                                        onClick={togglePrivateViewingEnabled}
+                                        aria-label="Toggle Private Viewing"
+                                    >
+                                        {privateViewingEnabled ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                        <span className="hidden lg:inline">Private Viewing</span>
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={hasCustomizedFilters ? "secondary" : "outline"}
+                                        className="h-10 gap-2"
+                                        onClick={handleDesktopFiltersToggle}
+                                        aria-expanded={isDesktopFiltersOpen}
+                                        aria-controls="desktop-library-filters"
+                                    >
+                                        <Filter className="h-4 w-4" />
+                                        Filters
+                                        {activeFilterCount > 0 && (
+                                            <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
+                                                {activeFilterCount}
+                                            </span>
+                                        )}
+                                    </Button>
                                 </>
                             )}
                         </div>
                     </div>
+
+                    <AnimatePresence initial={false}>
+                        {!isMobile && isDesktopFiltersOpen && (
+                            <motion.section
+                                id="desktop-library-filters"
+                                className="overflow-hidden"
+                                aria-label="Library filters"
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            >
+                                <div className="mt-4 border-t pt-4">
+                                    {desktopFilterControls}
+                                    <div className="mt-5 flex justify-end gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsDesktopFiltersOpen(false)}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button type="button" onClick={handleApplyFilters}>
+                                            Apply
+                                        </Button>
+                                    </div>
+                                </div>
+                            </motion.section>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Mobile Filters Drawer */}
@@ -2290,66 +2253,7 @@ export function LibraryView({
                             </DrawerHeader>
 
                             <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-                                <MobileSortFilter
-                                    options={sortOptions}
-                                    value={draftSortBy}
-                                    onChange={setDraftSortBy}
-                                />
-                                <MobileFilterSection title="Results Per Page">
-                                    <Select
-                                        value={String(draftPageSize)}
-                                        onValueChange={(value) =>
-                                            setDraftPageSize(Number(value) as LibraryPageSize)
-                                        }
-                                    >
-                                        <SelectTrigger className="w-full bg-background">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="z-[70]">
-                                            {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
-                                                <SelectItem key={option} value={String(option)}>
-                                                    {option} per page
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </MobileFilterSection>
-                                <MobileCheckboxFilter
-                                    title="Model"
-                                    selectedValues={draftFilters.modelIds}
-                                    options={modelFilterOptions}
-                                    onToggleValue={(value) =>
-                                        handleDraftFilterChange("modelIds", value)
-                                    }
-                                    onClear={() => handleClearDraftFilterGroup("modelIds")}
-                                />
-                                <MobileCheckboxFilter
-                                    title="Resolution"
-                                    selectedValues={draftFilters.resolutions}
-                                    options={resolutionFilterOptions}
-                                    onToggleValue={(value) =>
-                                        handleDraftFilterChange("resolutions", value)
-                                    }
-                                    onClear={() => handleClearDraftFilterGroup("resolutions")}
-                                />
-                                <MobileCheckboxFilter
-                                    title="Aspect Ratio"
-                                    selectedValues={draftFilters.aspectRatios}
-                                    options={aspectRatioFilterOptions}
-                                    onToggleValue={(value) =>
-                                        handleDraftFilterChange("aspectRatios", value)
-                                    }
-                                    onClear={() => handleClearDraftFilterGroup("aspectRatios")}
-                                />
-                                <MobileCheckboxFilter
-                                    title="Orientation"
-                                    selectedValues={draftFilters.orientations}
-                                    options={orientationFilterOptions}
-                                    onToggleValue={(value) =>
-                                        handleDraftFilterChange("orientations", value)
-                                    }
-                                    onClear={() => handleClearDraftFilterGroup("orientations")}
-                                />
+                                {mobileFilterControls}
                             </div>
 
                             <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
@@ -2358,7 +2262,7 @@ export function LibraryView({
                                         type="button"
                                         variant="ghost"
                                         className="px-0"
-                                        onClick={handleResetDraftFilters}
+                                        onClick={handleResetFilters}
                                     >
                                         Reset all
                                     </Button>
@@ -2377,7 +2281,7 @@ export function LibraryView({
                                     <Button
                                         type="button"
                                         className="flex-1"
-                                        onClick={handleApplyDrawerFilters}
+                                        onClick={handleApplyFilters}
                                     >
                                         Apply
                                     </Button>

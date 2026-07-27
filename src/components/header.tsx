@@ -1,6 +1,4 @@
 import { PrototypeCreditsQuickView } from "@/components/credits/prototype-credits"
-import { useDesktopLibraryChromeStore } from "@/components/library/desktop-library-chrome-store"
-import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "@/hooks/auth-hooks"
@@ -14,7 +12,7 @@ import {
 } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import { Archive, ChevronLeft, Eye, EyeOff, Image as ImageIcon } from "lucide-react"
+import { Archive, ChevronLeft, Image as ImageIcon } from "lucide-react"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { SidebarShortcutsHelper } from "./threads/sidebar-shortcuts-helper"
 import { SidebarTrigger, useSidebar } from "./ui/sidebar"
@@ -28,13 +26,6 @@ export function Header() {
     const { data: session, isPending: isSessionPending } = useSession()
     const location = useLocation()
     const navigate = useNavigate()
-    const isDesktopLibraryChromeCollapsed = useDesktopLibraryChromeStore(
-        (state) => state.isCollapsed
-    )
-    const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
-    const togglePrivateViewingEnabled = usePrivateViewingStore(
-        (state) => state.togglePrivateViewingEnabled
-    )
     const showContextualDevTools = useShowContextualDevTools()
     const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
     const {
@@ -59,7 +50,6 @@ export function Header() {
         : null
     const showDesktopLibraryControls =
         isLibraryRoute && !!session?.user?.id && !isMobile && librarySearch !== null
-    const shouldCollapseHeader = showDesktopLibraryControls && isDesktopLibraryChromeCollapsed
     const areHeaderActionsVisible = isMobile
         ? !isMobileActionsCollapsed
         : !isDesktopActionsCollapsed
@@ -92,12 +82,7 @@ export function Header() {
                     <SidebarTrigger className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground" />
                 </div>
             )}
-            <header
-                className={cn(
-                    "pointer-events-none absolute top-0 z-50 w-full transition-transform duration-300 ease-out",
-                    shouldCollapseHeader ? "-translate-y-full" : "translate-y-0"
-                )}
-            >
+            <header className="pointer-events-none absolute top-0 z-50 w-full">
                 <div className="flex w-full items-center justify-end p-2">
                     <div className="pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm">
                         {showDesktopLibraryControls && (
@@ -119,20 +104,6 @@ export function Header() {
                                         </TabsTrigger>
                                     </TabsList>
                                 </Tabs>
-                                <Button
-                                    type="button"
-                                    variant={privateViewingEnabled ? "secondary" : "ghost"}
-                                    size="sm"
-                                    className="gap-2 text-xs"
-                                    onClick={togglePrivateViewingEnabled}
-                                >
-                                    {privateViewingEnabled ? (
-                                        <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
-                                    <span>Private Viewing</span>
-                                </Button>
                                 <div className="h-4 w-px bg-border" />
                             </>
                         )}
