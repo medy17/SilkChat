@@ -100,6 +100,30 @@ describe("convex-cached-query", () => {
         expect(result.current).toEqual([{ id: "cached-2" }])
     })
 
+    it("never exposes cached data from the previous key while a new query is loading", () => {
+        localStorage.setItem("CVX_DISK_CACHE:page-1", JSON.stringify([{ id: "page-1-image" }]))
+        localStorage.setItem("CVX_DISK_CACHE:page-3", JSON.stringify([{ id: "page-3-image" }]))
+        useQueryMock.mockReturnValue(undefined)
+
+        const { result, rerender } = renderHook(
+            (cacheKey: string) =>
+                useDiskCachedQueryTest(
+                    "query-ref" as never,
+                    { key: cacheKey, default: undefined },
+                    { page: cacheKey } as never
+                ),
+            { initialProps: "page-1" }
+        )
+
+        expect(result.current).toEqual([{ id: "page-1-image" }])
+
+        rerender("page-2")
+        expect(result.current).toBeUndefined()
+
+        rerender("page-3")
+        expect(result.current).toEqual([{ id: "page-3-image" }])
+    })
+
     it("persists primitive query results without probing them like objects", () => {
         useQueryMock.mockReturnValue(310)
 

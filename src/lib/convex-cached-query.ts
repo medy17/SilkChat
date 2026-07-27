@@ -6,7 +6,7 @@ import {
     usePaginatedQuery
 } from "convex/react"
 import type { FunctionReference } from "convex/server"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 type IsArrayType<T> = T extends readonly unknown[] ? true : false
 
 const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
@@ -39,22 +39,33 @@ export const useDiskCachedQuery = <
 ) => {
     const isClient = typeof window !== "undefined"
     const result = useQuery(query, ...args)
-    const [disk_cache, setDiskCache] = useState<CachedItem<T, IsArray, ExtraProps>>(() => {
-        if (!isClient) return cacheOptions.default as CachedItem<T, IsArray, ExtraProps>
-        const cache = localStorage.getItem(`CVX_DISK_CACHE:${cacheOptions.key}`)
+    const storageKey = `CVX_DISK_CACHE:${cacheOptions.key}`
+    const defaultValueRef = useRef(cacheOptions.default)
+    defaultValueRef.current = cacheOptions.default
+    const diskCacheFromCurrentKey = useMemo(() => {
+        if (!isClient) return defaultValueRef.current as CachedItem<T, IsArray, ExtraProps>
+        const cache = localStorage.getItem(storageKey)
         return cache
             ? JSON.parse(cache)
-            : (cacheOptions.default as CachedItem<T, IsArray, ExtraProps>)
-    })
+            : (defaultValueRef.current as CachedItem<T, IsArray, ExtraProps>)
+    }, [isClient, storageKey])
+    const [externalCacheUpdate, setExternalCacheUpdate] = useState<{
+        storageKey: string
+        value: CachedItem<T, IsArray, ExtraProps>
+    } | null>(null)
+    const disk_cache =
+        externalCacheUpdate?.storageKey === storageKey
+            ? externalCacheUpdate.value
+            : diskCacheFromCurrentKey
 
     useEffect(() => {
         if (!isClient) return
 
         const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === `CVX_DISK_CACHE:${cacheOptions.key}` && e.newValue) {
+            if (e.key === storageKey && e.newValue) {
                 try {
                     const newCache = JSON.parse(e.newValue)
-                    setDiskCache(newCache)
+                    setExternalCacheUpdate({ storageKey, value: newCache })
                 } catch (error) {
                     console.warn("Failed to parse localStorage cache update:", error)
                 }
@@ -63,7 +74,7 @@ export const useDiskCachedQuery = <
 
         window.addEventListener("storage", handleStorageChange)
         return () => window.removeEventListener("storage", handleStorageChange)
-    }, [cacheOptions.key, isClient])
+    }, [storageKey, isClient])
 
     const output: CachedItem<T, IsArray, ExtraProps> | { error: unknown } =
         args.length > 0 && args[0] === "skip" && !cacheOptions.forceCache
@@ -73,14 +84,11 @@ export const useDiskCachedQuery = <
     useEffect(() => {
         if (result === undefined || isQueryErrorResult(result)) return
         if (cacheOptions.maxItems && Array.isArray(result)) {
-            localStorage.setItem(
-                `CVX_DISK_CACHE:${cacheOptions.key}`,
-                JSON.stringify(result.slice(0, cacheOptions.maxItems))
-            )
+            localStorage.setItem(storageKey, JSON.stringify(result.slice(0, cacheOptions.maxItems)))
         } else {
-            localStorage.setItem(`CVX_DISK_CACHE:${cacheOptions.key}`, JSON.stringify(result))
+            localStorage.setItem(storageKey, JSON.stringify(result))
         }
-    }, [result, cacheOptions.key])
+    }, [result, cacheOptions.maxItems, storageKey])
 
     return output
 }
@@ -134,7 +142,7 @@ export const useDiskCachedPaginatedQuery = <
         } else {
             localStorage.setItem(`CVX_DISK_CACHE:${cacheOptions.key}`, JSON.stringify(results))
         }
-    }, [results, cacheOptions.key])
+    }, [results, status, cacheOptions.key, cacheOptions.maxItems])
 
     return { results: output, loadMore, status }
 }

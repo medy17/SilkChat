@@ -115,6 +115,7 @@ import {
     Image as ImageIcon,
     ImageOff,
     Images,
+    LoaderCircle,
     PlusCircle,
     RotateCcw,
     Search,
@@ -1199,6 +1200,7 @@ export function LibraryView({
     const [draftFilters, setDraftFilters] = useState<LibraryFiltersState>(() =>
         cloneLibraryFilters(filters)
     )
+    const [pendingPageNumber, setPendingPageNumber] = useState<number | null>(null)
     const activeFilters = useMemo(() => toGeneratedImageFilters(filters), [filters])
     const hasActiveFilters = useMemo(
         () => hasActiveGeneratedImageFilters(activeFilters),
@@ -1226,10 +1228,32 @@ export function LibraryView({
                 : null,
         [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
+    const libraryPageCacheKey = libraryCacheScope
+        ? `library-page:${libraryCacheScope}`
+        : "library-page:guest"
+    const nextPageNumber = pageNumber + 1
+    const nextLibraryCacheScope = useMemo(
+        () =>
+            session.user?.id
+                ? getLibraryCacheScope({
+                      userId: session.user.id,
+                      pageNumber: nextPageNumber,
+                      pageSize,
+                      query: searchQuery,
+                      sortBy,
+                      filters,
+                      view
+                  })
+                : null,
+        [filters, nextPageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
+    )
+    const nextLibraryPageCacheKey = nextLibraryCacheScope
+        ? `library-page:${nextLibraryCacheScope}`
+        : "library-page:guest"
     const imagePage = useDiskCachedQuery(
         api.images.paginateGeneratedImages,
         {
-            key: libraryCacheScope ? `library-page:${libraryCacheScope}` : "library-page:guest",
+            key: libraryPageCacheKey,
             default: undefined
         },
         session.user?.id
@@ -1242,6 +1266,24 @@ export function LibraryView({
               }
             : "skip"
     )
+    const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
+    const nextImagePage = useDiskCachedQuery(
+        api.images.paginateGeneratedImages,
+        {
+            key: nextLibraryPageCacheKey,
+            default: undefined
+        },
+        session.user?.id && resolvedImagePage && !resolvedImagePage.isDone
+            ? {
+                  paginationOpts: { numItems: pageSize, cursor: String(pageNumber * pageSize) },
+                  query: searchQuery,
+                  sortBy,
+                  filters: activeFilters,
+                  view
+              }
+            : "skip"
+    )
+    const prefetchedNextImagePage = isQueryErrorResult(nextImagePage) ? undefined : nextImagePage
     const filterOptions = useDiskCachedQuery(
         api.images.getGeneratedImageFacetOptions,
         {
@@ -1444,7 +1486,6 @@ export function LibraryView({
         setSelectedImage(null)
     }, [view])
 
-    const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
     const resolvedFilterOptions = isQueryErrorResult(filterOptions) ? undefined : filterOptions
 
     const images = (resolvedImagePage?.page ?? []).filter((img) => !hiddenImageIds.has(img._id))
@@ -1526,6 +1567,7 @@ export function LibraryView({
     ]
     const canGoPrevious = pageNumber > 1
     const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone : false
+    const isNextPagePending = pendingPageNumber === nextPageNumber
     const showPendingGenerations =
         !isArchivedView && pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
     const scrollResetKey = JSON.stringify(search)
@@ -1681,15 +1723,37 @@ export function LibraryView({
     }, [draftFilters, draftPageSize, draftSortBy, filters, navigate, pageSize, sortBy])
 
     const handleNextPage = useCallback(() => {
-        if (!resolvedImagePage || resolvedImagePage.isDone) return
+        if (!resolvedImagePage || resolvedImagePage.isDone || isNextPagePending) return
+
+        if (!prefetchedNextImagePage) {
+            setPendingPageNumber(nextPageNumber)
+            return
+        }
 
         navigate({
             search: (prev) => ({
                 ...prev,
-                page: prev.page + 1
+                page: nextPageNumber
             })
         })
-    }, [navigate, resolvedImagePage])
+    }, [isNextPagePending, navigate, nextPageNumber, prefetchedNextImagePage, resolvedImagePage])
+
+    useEffect(() => {
+        if (!isNextPagePending || !prefetchedNextImagePage) return
+
+        setPendingPageNumber(null)
+        navigate({
+            search: (prev) => ({
+                ...prev,
+                page: nextPageNumber
+            })
+        })
+    }, [isNextPagePending, navigate, nextPageNumber, prefetchedNextImagePage])
+
+    useEffect(() => {
+        void libraryPageCacheKey
+        setPendingPageNumber(null)
+    }, [libraryPageCacheKey])
 
     const handlePreviousPage = useCallback(() => {
         navigate({
@@ -2331,17 +2395,15 @@ export function LibraryView({
                     )}
                 >
                     {deferHeavyContent || !resolvedImagePage ? (
-                        <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
-                            {Array.from({ length: 12 }).map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="mb-3 break-inside-avoid sm:mb-4"
-                                    style={{ height: `${Math.random() * 150 + 250}px` }}
-                                >
-                                    <Skeleton className="h-full w-full rounded-lg" />
-                                </div>
-                            ))}
-                        </div>
+                        <output
+                            aria-live="polite"
+                            className="flex min-h-[50dvh] items-center justify-center text-muted-foreground"
+                        >
+                            <div className="flex items-center gap-2 text-sm">
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                                Loading library…
+                            </div>
+                        </output>
                     ) : images.length === 0 &&
                       (!showPendingGenerations || displayedPendingGenerations.length === 0) ? (
                         <div className="py-24 text-center">
@@ -2372,6 +2434,7 @@ export function LibraryView({
                     ) : (
                         <>
                             <ImageMetadataProvider
+                                key={libraryPageCacheKey}
                                 storageKeys={images.map((img) => img.storageKey)}
                             >
                                 <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
@@ -2507,18 +2570,34 @@ export function LibraryView({
                                                 </PaginationLink>
                                             </PaginationItem>
                                             <PaginationItem>
-                                                <PaginationNext
-                                                    href="#library-pagination"
-                                                    className={
-                                                        !canGoNext
-                                                            ? "pointer-events-none opacity-50"
-                                                            : undefined
-                                                    }
-                                                    onClick={(event) => {
-                                                        event.preventDefault()
-                                                        handleNextPage()
-                                                    }}
-                                                />
+                                                {isNextPagePending ? (
+                                                    <PaginationLink
+                                                        href="#library-pagination"
+                                                        aria-label="Loading next page"
+                                                        aria-busy="true"
+                                                        size="default"
+                                                        className="pointer-events-none gap-1 px-2.5 opacity-70 sm:pr-2.5"
+                                                        onClick={(event) => event.preventDefault()}
+                                                    >
+                                                        <span className="hidden sm:block">
+                                                            Loading
+                                                        </span>
+                                                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                                                    </PaginationLink>
+                                                ) : (
+                                                    <PaginationNext
+                                                        href="#library-pagination"
+                                                        className={
+                                                            !canGoNext
+                                                                ? "pointer-events-none opacity-50"
+                                                                : undefined
+                                                        }
+                                                        onClick={(event) => {
+                                                            event.preventDefault()
+                                                            handleNextPage()
+                                                        }}
+                                                    />
+                                                )}
                                             </PaginationItem>
                                         </PaginationContent>
                                     </Pagination>
