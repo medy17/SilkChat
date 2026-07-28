@@ -1926,7 +1926,7 @@ export function LibraryView({
     const desktopFilterControls = (
         <>
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-4">
-                <div className="space-y-2">
+                <div className="flex flex-col gap-3">
                     <label className="font-medium text-sm" htmlFor="desktop-library-sort">
                         Sort by
                     </label>
@@ -1946,7 +1946,7 @@ export function LibraryView({
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-3">
                     <label className="font-medium text-sm" htmlFor="desktop-library-page-size">
                         Results per page
                     </label>
@@ -2218,7 +2218,7 @@ export function LibraryView({
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                             >
-                                <div className="mt-4 border-t pt-4">
+                                <div className="pt-4">
                                     {desktopFilterControls}
                                     <div className="mt-5 flex justify-end gap-2">
                                         <Button
