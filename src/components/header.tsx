@@ -1,10 +1,12 @@
 import { PrototypeCreditsQuickView } from "@/components/credits/prototype-credits"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
 import { useHeaderActionsStore } from "@/lib/header-actions-store"
+import { isNewChatPath } from "@/lib/last-chat-route"
 import {
     DEFAULT_LIBRARY_SEARCH,
     type LibraryView,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import { Archive, ChevronLeft, Image as ImageIcon } from "lucide-react"
+import { Archive, ChevronLeft, Image as ImageIcon, Plus } from "lucide-react"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { SidebarShortcutsHelper } from "./threads/sidebar-shortcuts-helper"
 import { SidebarTrigger, useSidebar } from "./ui/sidebar"
@@ -45,6 +47,7 @@ export function Header() {
     const showTrigger = isMobile ? !openMobile : true
     const isSidebarCollapsed = isMobile ? !openMobile : sidebarState === "collapsed"
     const isLibraryRoute = location.pathname.startsWith("/library")
+    const isNewChat = isNewChatPath(location.pathname)
     const librarySearch = isLibraryRoute
         ? validateLibrarySearch(location.search as Record<string, unknown>)
         : null
@@ -68,19 +71,49 @@ export function Header() {
         })
     }
 
+    const handleNewChat = () => {
+        if (isNewChat) return
+
+        document.dispatchEvent(new CustomEvent("new_chat"))
+        void navigate({ to: "/" })
+    }
+
     return (
         <>
             {showTrigger && (
-                <div
-                    className={cn(
-                        "pointer-events-auto fixed z-50",
-                        isSidebarCollapsed
-                            ? "top-2 left-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm md:top-4 md:left-4"
-                            : "top-4 left-4 md:top-6 md:left-6"
-                    )}
-                >
-                    <SidebarTrigger className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground" />
-                </div>
+                <>
+                    <div
+                        className={cn(
+                            "pointer-events-auto fixed z-[5] flex items-center gap-1",
+                            isSidebarCollapsed
+                                ? "top-2 left-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm md:top-4 md:left-4"
+                                : "top-4 left-4 md:top-6 md:left-6"
+                        )}
+                    >
+                        <div className="h-8 w-8" aria-hidden="true" />
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex" aria-hidden={!isSidebarCollapsed}>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-muted-foreground transition-colors hover:text-foreground"
+                                        onClick={handleNewChat}
+                                        disabled={isNewChat || !isSidebarCollapsed}
+                                        aria-label="New chat"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={4}>
+                                New chat
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                    <SidebarTrigger className="pointer-events-auto fixed top-4 left-4 z-50 h-8 w-8 text-muted-foreground transition-colors hover:text-foreground md:top-6 md:left-6" />
+                </>
             )}
             <header className="pointer-events-none absolute top-0 z-50 w-full">
                 <div className="flex w-full items-center justify-end p-2">

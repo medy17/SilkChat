@@ -7,6 +7,9 @@ export const isRestorableChatPath = (pathname: string) =>
     pathname.startsWith("/folder/") ||
     pathname.startsWith("/s/")
 
+export const isNewChatPath = (pathname: string) =>
+    pathname === "/" || /^\/folder\/[^/]+\/?$/.test(pathname)
+
 export const peekLastChatRoute = () => {
     if (typeof window === "undefined") {
         return null
