@@ -1106,7 +1106,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                 disabled={generationPanelDisabled}
                 className={cn(
                     "flex h-full w-full min-w-0 flex-col",
-                    generationPanelDisabled && "opacity-50"
+                    generationPanelDisabled && "opacity-50 blur-sm"
                 )}
             >
                 {/* Prompt Section */}
@@ -1260,7 +1260,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                             </div>
 
                             <div className="flex flex-col space-y-1">
-                                {visibleImageModels.map((model) => {
+                                {visibleImageModels.map((model, modelIndex) => {
                                     const isSelected = selectedModelIds.includes(model.id)
                                     const modelPlanLocked = lockedModelIds.has(model.id)
                                     const modelReferenceLimit = resolveModelReferenceLimit(model)
@@ -1270,6 +1270,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         referenceFiles.length > modelReferenceLimit
                                     const modelDisabled = modelPlanLocked || modelReferenceLocked
                                     const isLegacyModel = isLegacyImageModel(model)
+                                    const startsExpandedLegacyModels =
+                                        expandedLegacyModels &&
+                                        isLegacyModel &&
+                                        (modelIndex === 0 ||
+                                            !isLegacyImageModel(visibleImageModels[modelIndex - 1]))
                                     const modelCount =
                                         selectedModelCounts[model.id] ?? DEFAULT_VARIANTS_PER_MODEL
                                     const modelMaxPerMessage = resolveVariantMax(model)
@@ -1277,7 +1282,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         isSelected &&
                                         modelCount < modelMaxPerMessage &&
                                         totalRequestedGenerations < effectiveRunTotalMax
-                                    return (
+                                    const modelElement = (
                                         <div
                                             key={model.id}
                                             className={cn(
@@ -1441,6 +1446,30 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             )}
                                         </div>
                                     )
+
+                                    if (!startsExpandedLegacyModels) return modelElement
+
+                                    return [
+                                        <div
+                                            key="legacy-model-controls"
+                                            className="flex items-center justify-between px-2 pt-1"
+                                        >
+                                            <div className="flex items-center gap-2 font-semibold text-muted-foreground text-xs tracking-wider">
+                                                <Archive className="h-3.5 w-3.5" />
+                                                LEGACY
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                aria-label="Hide legacy models"
+                                                className="h-7 px-2 text-muted-foreground text-xs hover:text-foreground"
+                                                onClick={() => setExpandedLegacyModels(false)}
+                                            >
+                                                Hide
+                                            </Button>
+                                        </div>,
+                                        modelElement
+                                    ]
                                 })}
                                 {hiddenLegacyModelCount > 0 && (
                                     <Button
@@ -1739,20 +1768,26 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     </Button>
                 </div>
             </fieldset>
-            {generationPanelDisabled && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-sidebar/70 p-6 text-center backdrop-blur-sm">
-                    <div className="max-w-xs rounded-lg border border-border/60 bg-background/90 p-4 shadow-lg">
-                        <p className="font-medium text-sm">
-                            {disabled ? "Image generation unavailable" : "Upgrade to Pro"}
-                        </p>
-                        <p className="mt-1 text-muted-foreground text-xs leading-5">
-                            {disabled
-                                ? "You cannot generate images in the Archive view. Switch to the Library view to continue generating images."
-                                : "Free users may view their image library, but creating new images requires a Pro plan."}
-                        </p>
-                    </div>
+            <div
+                aria-hidden={!generationPanelDisabled}
+                className={cn(
+                    "absolute inset-0 z-20 flex items-center justify-center bg-sidebar/85 p-6 text-center transition-none",
+                    generationPanelDisabled
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none opacity-0"
+                )}
+            >
+                <div className="max-w-xs rounded-[var(--radius-lg)] border border-border/60 bg-background/90 p-4 shadow-lg">
+                    <p className="font-medium text-sm">
+                        {disabled ? "Image generation unavailable" : "Upgrade to Pro"}
+                    </p>
+                    <p className="mt-1 text-muted-foreground text-xs leading-5">
+                        {disabled
+                            ? "You cannot generate images in the Archive view. Switch to the Library view to continue generating images."
+                            : "Free users may view their image library, but creating new images requires a Pro plan."}
+                    </p>
                 </div>
-            )}
+            </div>
         </div>
     )
 }

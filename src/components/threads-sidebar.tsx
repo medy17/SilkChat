@@ -932,17 +932,27 @@ export function ThreadsSidebar() {
                     </SidebarContent>
 
                     <div
+                        aria-hidden={!isLibraryMode}
                         className={cn(
-                            "absolute inset-0 flex flex-col",
-                            isMobile
-                                ? "transition-none"
-                                : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            "absolute inset-0 flex flex-col bg-sidebar",
                             isLibraryMode
-                                ? "pointer-events-auto translate-x-0 opacity-100"
-                                : "pointer-events-none translate-x-4 opacity-0"
+                                ? "pointer-events-auto visible"
+                                : "pointer-events-none invisible"
                         )}
                     >
-                        <ImageGenerationSidebar disabled={isLibraryArchiveView} />
+                        <div
+                            className={cn(
+                                "h-full w-full",
+                                isMobile
+                                    ? "transition-none"
+                                    : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                isLibraryMode
+                                    ? "translate-x-0 opacity-100"
+                                    : "translate-x-4 opacity-0"
+                            )}
+                        >
+                            <ImageGenerationSidebar disabled={isLibraryArchiveView} />
+                        </div>
                     </div>
                 </div>
                 <div

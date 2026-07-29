@@ -19,7 +19,7 @@ const GEMINI_IMAGE_SIZES = [
 export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     {
         id: "gemini-2.5-flash-image",
-        name: "Gemini 2.5 Flash Image",
+        name: "Nano Banana",
         shortName: "2.5 Flash Image",
         releaseOrder: 20250826,
         adapters: falImageAdapters("fal-ai/nano-banana"),
@@ -42,7 +42,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3.1-flash-image-preview",
-        name: "Gemini 3.1 Flash Image",
+        name: "Nano Banana 2",
         addedOn: "2026-02-26",
         shortName: "3.1 Flash Image",
         artificialAnalysis: {
@@ -67,7 +67,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3.1-flash-lite-image",
-        name: "Gemini 3.1 Flash Lite Image",
+        name: "Nano Banana 2 Lite",
         addedOn: "2026-07-01",
         shortName: "3.1 Flash Lite",
         releaseOrder: 20260630,
@@ -87,7 +87,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
     },
     {
         id: "gemini-3-pro-image-preview",
-        name: "Gemini 3 Pro Image",
+        name: "Nano Banana Pro",
         addedOn: "2025-11-20",
         shortName: "3 Pro Image",
         releaseOrder: 20251120,

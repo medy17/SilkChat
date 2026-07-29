@@ -192,7 +192,7 @@ export function ThreadsSidebarHeader({
                 )}
             >
                 <div className="pointer-events-none flex flex-col overflow-hidden [&>*]:pointer-events-auto">
-                    <div className="my-2 h-px w-full shrink-0 bg-border" />
+                    <div className="my-2 h-px w-full shrink-0" />
 
                     <div className="flex flex-col gap-2">
                         <Link
