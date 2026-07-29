@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages"
 import type { SharedThread, Thread } from "@/convex/schema"
+import { useToken } from "@/hooks/auth-hooks"
 import { useAutoResume } from "@/hooks/use-auto-resume"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
@@ -16,7 +17,7 @@ import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { useConvexAuth } from "convex/react"
 import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 type BackendMessagePart =
     | { type: "text"; text: string }
@@ -156,14 +157,6 @@ const getMessageFooterMetadataScore = (message: UIMessage | undefined) =>
 const getLatestAssistantMessage = (messages: UIMessage[]) =>
     [...messages].reverse().find((message) => message.role === "assistant")
 
-const getAssistantMessageById = (messages: UIMessage[], messageId: string | null) => {
-    if (!messageId) {
-        return undefined
-    }
-
-    return messages.find((message) => message.id === messageId && message.role === "assistant")
-}
-
 const shouldAdoptBackendMessages = ({
     currentMessages,
     backendMessages,
@@ -243,9 +236,8 @@ export function useChatIntegration<IsShared extends boolean>({
     isShared?: IsShared
     folderId?: Id<"projects">
 }) {
-    type StreamRenderPhase = "idle" | "pre-first-paint" | "post-first-paint"
-
     const auth = useConvexAuth()
+    const { token } = useToken()
     const clientIdRef = useRef<string | undefined>(undefined)
     if (!clientIdRef.current) {
         clientIdRef.current = nanoid()
@@ -265,24 +257,24 @@ export function useChatIntegration<IsShared extends boolean>({
             : false
     )
     const seededNextId = useRef<string | null>(null)
-    const activeStreamingAssistantIdRef = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
     const latestRequestContextRef = useRef({
         folderId,
         threadId,
-        token: undefined as string | undefined
+        token
     })
-    const [streamRenderPhase, setStreamRenderPhase] = useState<StreamRenderPhase>("idle")
     latestRequestContextRef.current = {
         folderId,
         threadId,
-        token: undefined
+        token
     }
 
     // For regular threads, use getThreadMessages
     const threadMessages = useConvexQuery(
         api.threads.getThreadMessages,
-        !isShared && threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
+        !isShared && threadId && !auth.isLoading && !hasPendingLocalStream
+            ? { threadId: threadId as Id<"threads"> }
+            : "skip"
     )
 
     // For shared threads, get the shared thread data
@@ -322,18 +314,12 @@ export function useChatIntegration<IsShared extends boolean>({
         if (!threadMessages || "error" in threadMessages) return []
         return backendToUiMessages(threadMessages)
     }, [threadMessages, sharedThread, isShared, sharedThreadId, pendingBranchHydration, threadId])
-    const messageThrottle =
-        streamRenderPhase === "pre-first-paint"
-            ? undefined
-            : streamRenderPhase === "post-first-paint"
-              ? 100
-              : 50
-
     const chatHelpers = useChat({
         id: isShared ? `shared_${sharedThreadId}` : rerenderTrigger,
-        // Keep the first streamed write synchronous so retry/edit/truncate flows
-        // paint immediately, then re-enable throttling for the rest of the stream.
-        experimental_throttle: messageThrottle,
+        // Bound React work during high-frequency streams. The message renderer separately stays
+        // in streaming mode until the server clears isLive, so a trailing throttled update cannot
+        // be mistaken for a completed static replacement.
+        throttle: 50,
         transport: isShared
             ? undefined
             : new DefaultChatTransport<ChatMessage>({
@@ -348,9 +334,7 @@ export function useChatIntegration<IsShared extends boolean>({
                           getEffectiveMcpOverrides
                       } = useModelStore.getState()
                       const { selectedPersona, pendingPersonaOpening } = useChatStore.getState()
-                      const jwt = await resolveJwtToken(currentContext.token, {
-                          forceRefresh: true
-                      })
+                      const jwt = await resolveJwtToken(currentContext.token)
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -366,9 +350,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
                       const proposedNewAssistantId = nanoid()
                       seededNextId.current = proposedNewAssistantId
-                      activeStreamingAssistantIdRef.current = proposedNewAssistantId
                       streamOriginRef.current = "send"
-                      setStreamRenderPhase("pre-first-paint")
 
                       const message = messages[messages.length - 1]
                       const mcpOverrides = getEffectiveMcpOverrides(currentContext.threadId)
@@ -417,9 +399,7 @@ export function useChatIntegration<IsShared extends boolean>({
                   },
                   async prepareReconnectToStreamRequest({ api, id }) {
                       const currentContext = latestRequestContextRef.current
-                      const jwt = await resolveJwtToken(currentContext.token, {
-                          forceRefresh: true
-                      })
+                      const jwt = await resolveJwtToken(currentContext.token)
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -441,8 +421,6 @@ export function useChatIntegration<IsShared extends boolean>({
                 useChatStore.getState().setPendingStream(currentThreadId, false)
             }
             streamOriginRef.current = null
-            activeStreamingAssistantIdRef.current = null
-            setStreamRenderPhase("idle")
             if (!isShared && shouldUpdateQuery) {
                 setShouldUpdateQuery(false)
             }
@@ -453,8 +431,6 @@ export function useChatIntegration<IsShared extends boolean>({
                 useChatStore.getState().setPendingStream(currentThreadId, false)
             }
             streamOriginRef.current = null
-            activeStreamingAssistantIdRef.current = null
-            setStreamRenderPhase("idle")
         },
         generateId: () => {
             if (seededNextId.current) {
@@ -478,7 +454,10 @@ export function useChatIntegration<IsShared extends boolean>({
             ? thread.currentStreamOwnerClientId
             : undefined
     const isCurrentClientServerStreamOwner = Boolean(
-        hasServerActiveThreadStream && serverStreamOwnerClientId === clientId
+        hasServerActiveThreadStream &&
+            serverStreamOwnerClientId &&
+            clientId &&
+            serverStreamOwnerClientId === clientId
     )
     const hasUnownedServerStream = hasServerActiveThreadStream && !serverStreamOwnerClientId
     const isCurrentClientStreamStatusLocal =
@@ -488,6 +467,7 @@ export function useChatIntegration<IsShared extends boolean>({
         hasUnownedServerStream
     const hasLocalActiveStream =
         hasPendingLocalStream ||
+        isCurrentClientServerStreamOwner ||
         ((chatHelpers.status === "submitted" || chatHelpers.status === "streaming") &&
             isCurrentClientStreamStatusLocal)
     // A live stream owned elsewhere still surfaces as "streaming" so the
@@ -512,36 +492,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
     useEffect(() => {
         streamOriginRef.current = null
-        activeStreamingAssistantIdRef.current = null
-        setStreamRenderPhase("idle")
     }, [threadId])
-
-    useEffect(() => {
-        if (!hasActiveThreadStream) {
-            if (streamRenderPhase !== "idle") {
-                setStreamRenderPhase("idle")
-            }
-            activeStreamingAssistantIdRef.current = null
-            return
-        }
-
-        if (streamRenderPhase === "idle") {
-            setStreamRenderPhase("pre-first-paint")
-            return
-        }
-
-        if (streamRenderPhase === "post-first-paint") {
-            return
-        }
-
-        const streamingAssistant =
-            getAssistantMessageById(chatHelpers.messages, activeStreamingAssistantIdRef.current) ??
-            getLatestAssistantMessage(chatHelpers.messages)
-
-        if (getMessageContentScore(streamingAssistant) > 0) {
-            setStreamRenderPhase("post-first-paint")
-        }
-    }, [chatHelpers.messages, hasActiveThreadStream, streamRenderPhase])
 
     useEffect(() => {
         if (isShared) return
@@ -669,9 +620,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
         void (async () => {
             try {
-                const jwt = await resolveJwtToken(latestRequestContextRef.current.token, {
-                    forceRefresh: true
-                })
+                const jwt = await resolveJwtToken(latestRequestContextRef.current.token)
                 if (!jwt) return
                 await fetch(
                     `${browserEnv("VITE_CONVEX_API_URL")}/chat?chatId=${encodeURIComponent(currentThreadId)}`,

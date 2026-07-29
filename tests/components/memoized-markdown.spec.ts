@@ -72,6 +72,18 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
+    it("renders streamed text at the stream cadence without word reveal animations", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "1. First streamed item",
+                isAnimating: true
+            })
+        )
+
+        expect(container.querySelector("[data-sd-animate]")).toBeNull()
+        expect(container.textContent).toContain("First streamed item")
+    })
+
     it("expands and collapses table row contents", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {

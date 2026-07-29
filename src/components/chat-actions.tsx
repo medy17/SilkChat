@@ -18,7 +18,9 @@ import {
     formatFooterSpeed,
     formatFooterTTFT,
     formatFooterTokenBreakdown,
-    formatFooterTokenTotal
+    formatFooterTokenTotal,
+    isMessageFooterMetadataReady,
+    mergeMessageFooterMetadata
 } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
@@ -176,11 +178,17 @@ export const ChatActions = memo(
                     ? (message.metadata as AssistantMessageMetadata)
                     : undefined
 
-            if (!cachedMetadata) return messageMetadata
-            return { ...messageMetadata, ...cachedMetadata }
+            return mergeMessageFooterMetadata(cachedMetadata, messageMetadata)
         }, [cachedMetadata, message])
+        const completedWithError = message.parts.some((part) => part.type === "data-context-error")
 
-        const footerStats = useMemo(() => deriveMessageFooterStats(metadata), [metadata])
+        const footerStats = useMemo(
+            () =>
+                isMessageFooterMetadataReady(metadata, { completedWithError })
+                    ? deriveMessageFooterStats(metadata)
+                    : null,
+            [completedWithError, metadata]
+        )
 
         const ProviderIcon = useMemo(() => {
             switch (footerStats?.displayProvider ?? footerStats?.runtimeProvider) {

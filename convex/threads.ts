@@ -587,6 +587,60 @@ export const getThreadMessages = query({
     }
 })
 
+export const prepareThreadRetry = mutation({
+    args: {
+        threadId: v.id("threads"),
+        targetFromMessageId: v.string()
+    },
+    handler: async (ctx, { threadId, targetFromMessageId }) => {
+        const user = await getUserIdentity(ctx.auth, {
+            allowAnons: true
+        })
+
+        if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
+
+        const thread = await ctx.db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+
+        const messages = (
+            await ctx.db
+                .query("messages")
+                .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
+                .collect()
+        ).sort(compareMessagesChronologically)
+        const targetMessageIndex = messages.findIndex(
+            (message) => message.messageId === targetFromMessageId && message.role === "user"
+        )
+
+        if (targetMessageIndex === -1) return { error: "Message not found" }
+
+        const messagesAfterTarget = messages.slice(targetMessageIndex + 1)
+        const originalAssistantMessage = messagesAfterTarget.find(
+            (message) => message.role === "assistant"
+        )
+        const assistantMessageId = originalAssistantMessage?.messageId ?? nanoid()
+
+        for (const message of messagesAfterTarget) {
+            await ctx.db.delete(message._id)
+        }
+
+        const now = Date.now()
+        await ctx.db.insert("messages", {
+            threadId,
+            messageId: assistantMessageId,
+            createdAt: now,
+            updatedAt: now,
+            metadata: {},
+            parts: [],
+            role: "assistant"
+        })
+        await ctx.db.patch(threadId, { updatedAt: now })
+
+        return { assistantMessageId }
+    }
+})
+
 // Paginated search query for command palette and search
 export const searchUserThreads = query({
     args: {

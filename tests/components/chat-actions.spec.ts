@@ -103,6 +103,31 @@ describe("ChatActions", () => {
         expect(screen.queryByText(/reasoning/)).toBeNull()
     })
 
+    it("shows model metadata for a completed generated error without usage", () => {
+        useMessageFooterStore.setState({ footerMode: "nerd" })
+
+        render(
+            React.createElement(ChatActions, {
+                role: "assistant",
+                message: {
+                    ...createAssistantMessage({
+                        modelId: "openai/gpt-5.4-mini",
+                        modelName: "GPT 5.4 Mini",
+                        reasoningEffort: "medium"
+                    }),
+                    parts: [
+                        {
+                            type: "data-context-error",
+                            data: { message: "Context limit reached" }
+                        }
+                    ]
+                } as UIMessage
+            })
+        )
+
+        expect(screen.getByText("GPT 5.4 Mini (Medium)")).toBeTruthy()
+    })
+
     it("shows BYOK in the footer without labeling hosted responses", () => {
         useMessageFooterStore.setState({ footerMode: "nerd" })
 
@@ -161,10 +186,12 @@ describe("ChatActions", () => {
         expect(screen.queryByText("992 tokens")).toBeNull()
     })
 
-    it("updates footer metadata from the footer store without replacing the whole message", () => {
+    it("defers generated footer stats until final metadata is available", () => {
         useMessageFooterStore.setState({ footerMode: "nerd" })
 
         const message = createAssistantMessage({
+            modelId: "openai/gpt-5.4-mini",
+            modelName: "GPT 5.4 Mini",
             timeToFirstVisibleMs: 500
         })
 
@@ -175,11 +202,12 @@ describe("ChatActions", () => {
             })
         )
 
-        expect(screen.getByText("TTFT 0.50 sec")).toBeTruthy()
+        expect(screen.queryByText("TTFT 0.50 sec")).toBeNull()
         expect(screen.queryByText("GPT 5.4 Mini (Medium)")).toBeNull()
 
         act(() => {
             useMessageFooterStore.getState().setFooterMetadata(message.id, {
+                modelId: "openai/gpt-5.4-mini",
                 modelName: "GPT 5.4 Mini",
                 runtimeProvider: "openrouter",
                 reasoningEffort: "medium",

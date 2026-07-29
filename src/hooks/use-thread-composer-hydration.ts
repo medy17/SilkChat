@@ -5,7 +5,7 @@ import { getLatestAssistantConfig, resolveAssistantConfigOverride } from "@/lib/
 import type { ReasoningEffort } from "@/lib/model-store"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { useConvexAuth } from "convex/react"
-import { useEffect, useRef } from "react"
+import { useEffect, useState } from "react"
 
 export const useThreadComposerHydration = ({
     threadId,
@@ -27,19 +27,21 @@ export const useThreadComposerHydration = ({
     setReasoningEffort: (effort: ReasoningEffort) => void
 }) => {
     const auth = useConvexAuth()
-    const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    const [hydratedThreadId, setHydratedThreadId] = useState<string | undefined>(undefined)
     const threadMessages = useConvexQuery(
         api.threads.getThreadMessages,
-        threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
+        threadId && !auth.isLoading && hydratedThreadId !== threadId
+            ? { threadId: threadId as Id<"threads"> }
+            : "skip"
     )
 
     useEffect(() => {
         if (!threadId) {
-            hydratedThreadIdRef.current = undefined
+            setHydratedThreadId(undefined)
             return
         }
 
-        if (hydratedThreadIdRef.current === threadId) {
+        if (hydratedThreadId === threadId) {
             return
         }
 
@@ -66,10 +68,11 @@ export const useThreadComposerHydration = ({
             setReasoningEffort(resolvedConfig.reasoningEffortOverride)
         }
 
-        hydratedThreadIdRef.current = threadId
+        setHydratedThreadId(threadId)
     }, [
         availableModels,
         fallbackModelId,
+        hydratedThreadId,
         reasoningEffort,
         selectedModel,
         setReasoningEffort,

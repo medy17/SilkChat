@@ -58,7 +58,7 @@ export const MemoizedMarkdown = memo(
 
         return (
             <Streamdown
-                animated
+                animated={false}
                 className="markdown-content not-prose"
                 components={streamdownComponents}
                 controls={false}

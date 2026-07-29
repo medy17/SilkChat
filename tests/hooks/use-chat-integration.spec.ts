@@ -38,6 +38,7 @@ type TransportConfig = {
 }
 type UseChatOptions = {
     id?: string
+    throttle?: number
     experimental_throttle?: number
     transport?: TransportConfig
     messages?: Array<Record<string, unknown>>
@@ -291,6 +292,8 @@ describe("useChatIntegration", () => {
             ]
         })
 
+        expect(resolveJwtTokenMock).toHaveBeenCalledWith("token-1")
+
         expect(sendRequest).toEqual({
             headers: {
                 authorization: "Bearer jwt-1"
@@ -338,6 +341,8 @@ describe("useChatIntegration", () => {
             api: "https://convex.example/chat",
             id: "fallback-thread"
         })
+
+        expect(resolveJwtTokenMock).toHaveBeenLastCalledWith("token-1")
 
         expect(reconnectRequest).toEqual({
             api: "https://convex.example/chat?chatId=thread-1",
@@ -1204,6 +1209,67 @@ describe("useChatIntegration", () => {
         expect(setMessages).toHaveBeenCalledWith(fullerBackendMessages)
     })
 
+    it("does not replace the stream owner's message until the server stream is no longer live", () => {
+        const localMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Still rendering locally" }]
+            }
+        ]
+        const backendMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete persisted reply" }]
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [
+                {
+                    id: "backend-assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Complete persisted reply" }]
+                }
+            ],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
+            }
+        }
+
+        nanoidMock.mockReturnValue("client-1")
+        backendToUiMessagesMock.mockReturnValue(backendMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation(() => ({
+            status: "ready",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+
+        const { rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        expect(setMessages).not.toHaveBeenCalledWith(backendMessages)
+
+        queryResults.getThread = {
+            _id: "thread-1",
+            isLive: false,
+            currentStreamId: undefined,
+            currentStreamOwnerClientId: undefined
+        }
+        rerender()
+
+        expect(setMessages).toHaveBeenCalledWith(backendMessages)
+    })
+
     it("adopts remote retry truncation when the backend thread diverges while idle", () => {
         const staleLocalMessages = [
             {
@@ -1372,7 +1438,7 @@ describe("useChatIntegration", () => {
         expect(setMessages).not.toHaveBeenCalledWith(staleBackendMessages)
     })
 
-    it("keeps the first streamed paint synchronous, then throttles the steady-state stream", async () => {
+    it("uses a fixed throttle to bound message renders throughout a stream", async () => {
         let currentStatus = "ready"
         let currentThread: {
             _id: string
@@ -1411,7 +1477,7 @@ describe("useChatIntegration", () => {
             })
         )
 
-        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         act(() => {
             useChatStore.getState().setPendingStream("thread-1", true)
@@ -1420,20 +1486,20 @@ describe("useChatIntegration", () => {
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         currentStatus = "submitted"
         currentMessages = []
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         currentStatus = "streaming"
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBeUndefined()
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         currentMessages = [
             {
@@ -1445,7 +1511,7 @@ describe("useChatIntegration", () => {
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBe(100)
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         currentStatus = "ready"
         act(() => {
@@ -1459,11 +1525,11 @@ describe("useChatIntegration", () => {
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBe(50)
+        expect(latestUseChatOptions?.throttle).toBe(50)
 
         await act(async () => {
             rerender()
         })
-        expect(latestUseChatOptions?.experimental_throttle).toBe(50)
+        expect(latestUseChatOptions?.throttle).toBe(50)
     })
 })

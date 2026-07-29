@@ -19,6 +19,7 @@ import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
 import { type ThreadPersonaInfo, usePublishThreadDiagnostics } from "@/lib/dev-thread-diagnostics"
 import { canUseDevTools } from "@/lib/dev-tools"
 import {
@@ -167,7 +168,15 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 : messages,
         [messages, syntheticOpeningMessage]
     )
-    const deferredMessages = useDeferredValue(displayMessages)
+    const deferredMessageCandidate = useDeferredValue(displayMessages)
+    const isLiveMessageStream =
+        status === "submitted" ||
+        status === "streaming" ||
+        Boolean(chat.thread && "isLive" in chat.thread && chat.thread.isLive === true)
+    const deferredMessages = isLiveMessageStream
+        ? displayMessages
+        : resolveDeferredChatMessages(displayMessages, deferredMessageCandidate)
+    const messageRenderStatus = isLiveMessageStream ? "streaming" : status
     // Signal the route-transition overlay once the deferred message render has
     // caught up with the live list for this chat. Keyed off the route props so it
     // matches the key `_chat.tsx` derives from the current route target.
@@ -448,7 +457,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 onBranch={handleBranch}
                 onEditAndRetry={handleEditAndRetry}
                 onQuoteSelection={handleQuoteSelection}
-                status={status}
+                status={messageRenderStatus}
                 error={chatHelpers.error}
                 onBottomStateChange={setIsAtBottom}
                 threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}

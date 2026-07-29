@@ -74,7 +74,8 @@ import { getUserIdentity } from "../../convex/lib/identity"
 import {
     branchThread,
     createThreadOrInsertMessages,
-    importPreparedThread
+    importPreparedThread,
+    prepareThreadRetry
 } from "../../convex/threads"
 
 type ThreadDoc = Record<string, unknown>
@@ -86,6 +87,9 @@ const importPreparedThreadHandler = importPreparedThread as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const branchThreadHandler = branchThread as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const prepareThreadRetryHandler = prepareThreadRetry as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 type ThreadsCtx = Parameters<typeof createThreadOrInsertMessagesHandler.handler>[0]
@@ -138,6 +142,7 @@ const createCtx = (options?: {
 }) => {
     const insertValues = [...(options?.inserts ?? [])]
     return {
+        auth: {},
         db: {
             insert: vi.fn().mockImplementation(async () => insertValues.shift() ?? "inserted-id"),
             get: vi.fn().mockImplementation(async () => options?.thread ?? null),
@@ -157,6 +162,7 @@ describe("createThreadOrInsertMessages", () => {
         aggregateInsertMock.mockReset().mockResolvedValue(undefined)
         nanoidMock.mockReset().mockReturnValue("generated-user-message-id")
         vi.spyOn(console, "error").mockImplementation(() => {})
+        vi.mocked(getUserIdentity).mockResolvedValue({ id: "user-1" } as never)
     })
 
     it("returns a bad_request error when userMessage is missing", async () => {
@@ -483,6 +489,81 @@ describe("createThreadOrInsertMessages", () => {
         })
 
         expect(result).toBeUndefined()
+    })
+})
+
+describe("prepareThreadRetry", () => {
+    beforeEach(() => {
+        nanoidMock.mockReset().mockReturnValue("generated-assistant-id")
+        vi.mocked(getUserIdentity).mockReset()
+        vi.mocked(getUserIdentity).mockResolvedValue({ id: "user-1" } as never)
+    })
+
+    it("atomically replaces the selected turn descendants with an empty assistant", async () => {
+        const messages = [
+            {
+                _id: "user-doc",
+                threadId: "thread-1",
+                messageId: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "prompt" }],
+                createdAt: 1
+            },
+            {
+                _id: "assistant-doc",
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "old answer" }],
+                createdAt: 2
+            },
+            {
+                _id: "later-user-doc",
+                threadId: "thread-1",
+                messageId: "user-2",
+                role: "user",
+                parts: [{ type: "text", text: "later" }],
+                createdAt: 3
+            }
+        ]
+        const ctx = createCtx({
+            thread: { _id: "thread-1", authorId: "user-1" },
+            messages,
+            inserts: ["empty-assistant-doc"]
+        })
+
+        const result = await prepareThreadRetryHandler.handler(ctx, {
+            threadId: "thread-1",
+            targetFromMessageId: "user-1"
+        })
+
+        expect(ctx.db.delete).toHaveBeenCalledWith("assistant-doc")
+        expect(ctx.db.delete).toHaveBeenCalledWith("later-user-doc")
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "messages",
+            expect.objectContaining({
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                role: "assistant",
+                parts: []
+            })
+        )
+        expect(result).toEqual({ assistantMessageId: "assistant-1" })
+    })
+
+    it("does not modify a thread owned by another user", async () => {
+        const ctx = createCtx({
+            thread: { _id: "thread-1", authorId: "another-user" }
+        })
+
+        const result = await prepareThreadRetryHandler.handler(ctx, {
+            threadId: "thread-1",
+            targetFromMessageId: "user-1"
+        })
+
+        expect(result).toEqual({ error: "Unauthorized" })
+        expect(ctx.db.delete).not.toHaveBeenCalled()
+        expect(ctx.db.insert).not.toHaveBeenCalled()
     })
 })
 

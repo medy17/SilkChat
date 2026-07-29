@@ -1267,6 +1267,22 @@ export const Messages = forwardRef<
         const isAtBottomRef = useRef(true)
         const shouldStickToBottomRef = useRef(true)
         const allowUnboundedStreamingFollowRef = useRef(false)
+        const onRetryRef = useRef(onRetry)
+        const onBranchRef = useRef(onBranch)
+        const onEditAndRetryRef = useRef(onEditAndRetry)
+        onRetryRef.current = onRetry
+        onBranchRef.current = onBranch
+        onEditAndRetryRef.current = onEditAndRetry
+
+        const stableOnRetry = useCallback(
+            (message: UIMessage, configOverride?: AssistantConfigOverride) =>
+                onRetryRef.current?.(message, configOverride),
+            []
+        )
+        const stableOnBranch = useCallback(
+            (message: UIMessage) => onBranchRef.current?.(message),
+            []
+        )
 
         const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
         const [previewDownloadPending, setPreviewDownloadPending] = useState(false)
@@ -1287,13 +1303,18 @@ export const Messages = forwardRef<
 
         const handleSaveEdit = useCallback(
             (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
-                if (targetFromMessageId && onEditAndRetry) {
-                    onEditAndRetry(targetFromMessageId, newContent, remainingFileParts, deletedUrls)
+                if (targetFromMessageId && onEditAndRetryRef.current) {
+                    onEditAndRetryRef.current(
+                        targetFromMessageId,
+                        newContent,
+                        remainingFileParts,
+                        deletedUrls
+                    )
                 }
                 setTargetFromMessageId(undefined)
                 setTargetMode("normal")
             },
-            [onEditAndRetry, setTargetFromMessageId, setTargetMode, targetFromMessageId]
+            [setTargetFromMessageId, setTargetMode, targetFromMessageId]
         )
 
         const handleCancelEdit = useCallback(() => {
@@ -1305,7 +1326,12 @@ export const Messages = forwardRef<
             setPreviewFile(part)
             setPreviewDialogOpen(true)
         }, [])
-        const renderFingerprints = useMessageRenderFingerprints(messages)
+        const liveFingerprintMessageId = status === "streaming" ? messages.at(-1)?.id : undefined
+        const editingFingerprintMessageId = targetMode === "edit" ? targetFromMessageId : undefined
+        const renderFingerprints = useMessageRenderFingerprints(messages, {
+            liveMessageId: liveFingerprintMessageId,
+            editingMessageId: editingFingerprintMessageId
+        })
         const threadHasPdfAttachments = useMemo(
             () => hasPdfAttachmentInMessages(messages),
             [messages]
@@ -1527,9 +1553,10 @@ export const Messages = forwardRef<
         const handleSwitchModel = useMemo(
             () =>
                 lastUserMessage
-                    ? (modelId: string) => onRetry?.(lastUserMessage, { modelIdOverride: modelId })
+                    ? (modelId: string) =>
+                          stableOnRetry(lastUserMessage, { modelIdOverride: modelId })
                     : undefined,
-            [lastUserMessage, onRetry]
+            [lastUserMessage, stableOnRetry]
         )
         const messageRows = useMemo(
             () =>
@@ -1789,9 +1816,9 @@ export const Messages = forwardRef<
                                         isEditing={row.isEditing}
                                         isFirstMessage={row.isFirstMessage}
                                         hasActiveTarget={row.hasActiveTarget}
-                                        onRetry={onRetry}
+                                        onRetry={onRetry ? stableOnRetry : undefined}
                                         onSwitchModel={handleSwitchModel}
-                                        onBranch={onBranch}
+                                        onBranch={onBranch ? stableOnBranch : undefined}
                                         onEdit={handleEdit}
                                         onSaveEdit={handleSaveEdit}
                                         onCancelEdit={handleCancelEdit}

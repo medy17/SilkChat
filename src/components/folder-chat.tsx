@@ -19,6 +19,7 @@ import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
@@ -105,7 +106,15 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
         folderId
     })
     const { status, composerStatus, messages, error } = chat
-    const deferredMessages = useDeferredValue(messages)
+    const deferredMessageCandidate = useDeferredValue(messages)
+    const isLiveMessageStream =
+        status === "submitted" ||
+        status === "streaming" ||
+        Boolean(chat.thread && "isLive" in chat.thread && chat.thread.isLive === true)
+    const deferredMessages = isLiveMessageStream
+        ? messages
+        : resolveDeferredChatMessages(messages, deferredMessageCandidate)
+    const messageRenderStatus = isLiveMessageStream ? "streaming" : status
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
@@ -300,7 +309,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 onRetry={handleRetry}
                 onBranch={handleBranch}
                 onEditAndRetry={handleEditAndRetry}
-                status={status}
+                status={messageRenderStatus}
                 error={error}
                 onBottomStateChange={setIsAtBottom}
                 threadKey={threadId ?? folderId.toString()}

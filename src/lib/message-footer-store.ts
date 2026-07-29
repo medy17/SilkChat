@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { AssistantMessageMetadata } from "./message-footer-stats"
+import { type AssistantMessageMetadata, mergeMessageFooterMetadata } from "./message-footer-stats"
 
 export const MESSAGE_FOOTER_STORE_KEY = "message-footer-store"
 
@@ -12,6 +12,7 @@ type MessageFooterStore = {
     footerMetadataByMessageId: Record<string, AssistantMessageMetadata | undefined>
     setFooterMode: (footerMode: AssistantFooterMode) => void
     setFooterMetadata: (messageId: string, metadata: AssistantMessageMetadata) => void
+    clearFooterMetadata: (messageId: string) => void
 }
 
 const PersistedMessageFooterStoreSchema = z.object({
@@ -28,9 +29,22 @@ export const useMessageFooterStore = create<MessageFooterStore>()(
                 set((state) => ({
                     footerMetadataByMessageId: {
                         ...state.footerMetadataByMessageId,
-                        [messageId]: metadata
+                        [messageId]: mergeMessageFooterMetadata(
+                            state.footerMetadataByMessageId[messageId],
+                            metadata
+                        )
                     }
-                }))
+                })),
+            clearFooterMetadata: (messageId) =>
+                set((state) => {
+                    if (!(messageId in state.footerMetadataByMessageId)) {
+                        return state
+                    }
+
+                    const footerMetadataByMessageId = { ...state.footerMetadataByMessageId }
+                    delete footerMetadataByMessageId[messageId]
+                    return { footerMetadataByMessageId }
+                })
         }),
         {
             name: MESSAGE_FOOTER_STORE_KEY,

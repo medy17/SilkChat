@@ -55,4 +55,18 @@ describe("message-footer-store", () => {
 
         expect(useMessageFooterStore.getState().footerMode).toBe("simple")
     })
+
+    it("clears cached metadata at a new response attempt boundary", async () => {
+        const { useMessageFooterStore } = await loadStore()
+
+        useMessageFooterStore.getState().setFooterMetadata("assistant-1", {
+            modelName: "Old model",
+            completionTokens: 100
+        })
+        useMessageFooterStore.getState().clearFooterMetadata("assistant-1")
+
+        expect(
+            useMessageFooterStore.getState().footerMetadataByMessageId["assistant-1"]
+        ).toBeUndefined()
+    })
 })

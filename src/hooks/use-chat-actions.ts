@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import type { SharedModel } from "@/convex/lib/models"
 import {
     type AssistantConfigOverride,
@@ -6,13 +7,14 @@ import {
     resolveAssistantConfigOverride
 } from "@/lib/assistant-config"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
 import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useNavigate } from "@tanstack/react-router"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import { flushSync } from "react-dom"
 import { toast } from "sonner"
 
@@ -84,18 +86,18 @@ export function useChatActions<TMessage extends UIMessage>({
     } = chat
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
     const branchThreadMutation = useMutation(api.threads.branchThread)
+    const prepareThreadRetryMutation = useMutation(api.threads.prepareThreadRetry)
     const navigate = useNavigate()
+    const retryPreparationInFlightRef = useRef(false)
 
-    const primeImmediateMessageUpdates = useCallback(() => {
+    const primeMessageUpdates = useCallback(() => {
         if (!threadId) {
             return
         }
 
-        flushSync(() => {
-            setPendingStream(threadId, true, chat.clientId)
-            setManuallyStoppedThread(threadId, false)
-            setLastLocalMutationAt(Date.now())
-        })
+        setPendingStream(threadId, true, chat.clientId)
+        setManuallyStoppedThread(threadId, false)
+        setLastLocalMutationAt(Date.now())
     }, [
         chat.clientId,
         setManuallyStoppedThread,
@@ -103,6 +105,12 @@ export function useChatActions<TMessage extends UIMessage>({
         setLastLocalMutationAt,
         threadId
     ])
+
+    const primeImmediateMessageUpdates = useCallback(() => {
+        flushSync(() => {
+            primeMessageUpdates()
+        })
+    }, [primeMessageUpdates])
 
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
@@ -165,8 +173,9 @@ export function useChatActions<TMessage extends UIMessage>({
         (message: UIMessage, configOverride?: AssistantConfigOverride) => {
             const messageIndex = messages.findIndex((m) => m.id === message.id)
             if (messageIndex === -1) return
-
-            const messagesUpToRetry = messages.slice(0, messageIndex + 1)
+            const retriedAssistantMessageId = messages
+                .slice(messageIndex + 1)
+                .find((candidate) => candidate.role === "assistant")?.id
             const persistedAssistantConfig = getRetryTargetAssistantConfig(
                 messages as Parameters<typeof getRetryTargetAssistantConfig>[0],
                 message.id
@@ -183,13 +192,9 @@ export function useChatActions<TMessage extends UIMessage>({
                 fallbackModelId
             })
 
-            primeImmediateMessageUpdates()
             flushSync(() => {
                 setTargetFromMessageId(undefined)
                 setTargetMode("normal")
-            })
-            flushSync(() => {
-                setMessages(messagesUpToRetry)
             })
             if (
                 resolvedRetryConfig?.modelIdOverride &&
@@ -203,21 +208,70 @@ export function useChatActions<TMessage extends UIMessage>({
             ) {
                 setReasoningEffort(resolvedRetryConfig.reasoningEffortOverride)
             }
-            void regenerate({
-                messageId: message.id,
-                body: {
-                    targetMode: "retry",
-                    targetFromMessageId: message.id,
-                    ...resolvedRetryConfig
+
+            if (!threadId) {
+                if (retriedAssistantMessageId) {
+                    useMessageFooterStore.getState().clearFooterMetadata(retriedAssistantMessageId)
                 }
-            })
+                primeImmediateMessageUpdates()
+                void regenerate({
+                    messageId: message.id,
+                    body: {
+                        targetMode: "retry",
+                        targetFromMessageId: message.id,
+                        ...resolvedRetryConfig
+                    }
+                })
+                return
+            }
+
+            if (retryPreparationInFlightRef.current) return
+            retryPreparationInFlightRef.current = true
+            if (retriedAssistantMessageId) {
+                useMessageFooterStore.getState().clearFooterMetadata(retriedAssistantMessageId)
+            }
+
+            void (async () => {
+                try {
+                    const result = await prepareThreadRetryMutation({
+                        threadId: threadId as Id<"threads">,
+                        targetFromMessageId: message.id
+                    })
+                    if (!result || "error" in result) {
+                        throw new Error(
+                            typeof result?.error === "string"
+                                ? result.error
+                                : "Failed to prepare retry"
+                        )
+                    }
+
+                    if (result.assistantMessageId !== retriedAssistantMessageId) {
+                        useMessageFooterStore
+                            .getState()
+                            .clearFooterMetadata(result.assistantMessageId)
+                    }
+                    primeMessageUpdates()
+                    await regenerate({
+                        messageId: message.id,
+                        body: {
+                            targetMode: "retry",
+                            targetFromMessageId: message.id,
+                            ...resolvedRetryConfig
+                        }
+                    })
+                } catch (error) {
+                    console.error("Failed to retry message:", error)
+                    toast.error("Failed to retry message")
+                } finally {
+                    retryPreparationInFlightRef.current = false
+                }
+            })()
         },
         [
             availableModels,
             fallbackModelId,
             messages,
             reasoningEffort,
-            setMessages,
             setReasoningEffort,
             setSelectedModel,
             setTargetFromMessageId,
@@ -225,7 +279,10 @@ export function useChatActions<TMessage extends UIMessage>({
             sharedModels,
             selectedModel,
             regenerate,
-            primeImmediateMessageUpdates
+            primeMessageUpdates,
+            primeImmediateMessageUpdates,
+            prepareThreadRetryMutation,
+            threadId
         ]
     )
 
@@ -238,6 +295,9 @@ export function useChatActions<TMessage extends UIMessage>({
         ) => {
             const messageIndex = messages.findIndex((m) => m.id === messageId)
             if (messageIndex === -1) return
+            const editedAssistantMessageId = messages
+                .slice(messageIndex + 1)
+                .find((candidate) => candidate.role === "assistant")?.id
 
             if (deletedUrls && deletedUrls.length > 0) {
                 deletedUrls.forEach((url) => {
@@ -256,6 +316,9 @@ export function useChatActions<TMessage extends UIMessage>({
                 parts: [...(remainingFileParts || []), { type: "text" as const, text: newContent }]
             }
 
+            if (editedAssistantMessageId) {
+                useMessageFooterStore.getState().clearFooterMetadata(editedAssistantMessageId)
+            }
             primeImmediateMessageUpdates()
             flushSync(() => {
                 setTargetFromMessageId(undefined)

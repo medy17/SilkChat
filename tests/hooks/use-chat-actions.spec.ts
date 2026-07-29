@@ -11,6 +11,7 @@ const {
     deleteFileMutationMock,
     nanoidMock,
     navigateMock,
+    prepareThreadRetryMutationMock,
     toastErrorMock,
     useMutationMock
 } = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ const {
     deleteFileMutationMock: vi.fn(),
     nanoidMock: vi.fn(),
     navigateMock: vi.fn(),
+    prepareThreadRetryMutationMock: vi.fn(),
     toastErrorMock: vi.fn(),
     useMutationMock: vi.fn()
 }))
@@ -37,7 +39,8 @@ vi.mock("@/convex/_generated/api", () => ({
             deleteFile: "deleteFile"
         },
         threads: {
-            branchThread: "branchThread"
+            branchThread: "branchThread",
+            prepareThreadRetry: "prepareThreadRetry"
         }
     }
 }))
@@ -61,6 +64,7 @@ vi.mock("@/lib/browser-env", () => ({
 
 import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatStore } from "@/lib/chat-store"
+import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
 
 type TestMessage = UIMessage
@@ -112,6 +116,7 @@ describe("useChatActions", () => {
         deleteFileMutationMock.mockReset()
         navigateMock.mockReset()
         nanoidMock.mockReset()
+        prepareThreadRetryMutationMock.mockReset()
         toastErrorMock.mockReset()
         useMutationMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
@@ -126,16 +131,20 @@ describe("useChatActions", () => {
             }
         })
         nanoidMock.mockReturnValue("generated-message-id")
-        useMutationMock.mockImplementation((mutation) =>
-            mutation === "branchThread" ? branchThreadMutationMock : deleteFileMutationMock
-        )
+        useMutationMock.mockImplementation((mutation) => {
+            if (mutation === "branchThread") return branchThreadMutationMock
+            if (mutation === "prepareThreadRetry") return prepareThreadRetryMutationMock
+            return deleteFileMutationMock
+        })
         deleteFileMutationMock.mockResolvedValue(undefined)
         branchThreadMutationMock.mockResolvedValue({
             threadId: "branch-thread-1",
             projectId: undefined,
             targetRole: "user"
         })
+        prepareThreadRetryMutationMock.mockResolvedValue({ assistantMessageId: "m2" })
         navigateMock.mockResolvedValue(undefined)
+        useMessageFooterStore.setState({ footerMetadataByMessageId: {} })
     })
 
     it("stops the active stream instead of sending a new message while streaming", () => {
@@ -265,15 +274,15 @@ describe("useChatActions", () => {
         expect(useChatStore.getState().uploadedFiles).toEqual([])
     })
 
-    it("truncates messages and regenerates from the selected retry point", () => {
+    it("waits for the destructive server mutation before regenerating", async () => {
         const setMessages = vi.fn()
         const regenerate = vi.fn()
-        const messages: TestMessage[] = [
+        const originalMessages: TestMessage[] = [
             { id: "m1", role: "user", parts: [] },
             {
                 id: "m2",
                 role: "assistant",
-                parts: [],
+                parts: [{ type: "text", text: "old answer" }],
                 metadata: {
                     modelId: "claude-opus-4.6",
                     reasoningEffort: "high"
@@ -287,6 +296,12 @@ describe("useChatActions", () => {
             targetMode: "edit"
         })
 
+        let resolvePreparation: ((result: { assistantMessageId: string }) => void) | undefined
+        prepareThreadRetryMutationMock.mockReturnValue(
+            new Promise((resolve) => {
+                resolvePreparation = resolve
+            })
+        )
         const { result } = renderHook(() =>
             useChatActions({
                 threadId: "thread-1",
@@ -297,25 +312,41 @@ describe("useChatActions", () => {
                     status: "idle",
                     sendMessage: vi.fn(),
                     stop: vi.fn(),
-                    messages,
+                    messages: originalMessages,
                     setMessages,
                     regenerate
                 }
             })
         )
 
-        result.current.handleRetry(messages[0], {
+        useMessageFooterStore.getState().setFooterMetadata("m2", {
+            modelName: "Old model",
+            completionTokens: 100
+        })
+
+        result.current.handleRetry(originalMessages[0], {
             modelIdOverride: "model-override"
         })
 
-        expect(setMessages).toHaveBeenCalledWith(messages.slice(0, 1))
-        expect(setMessages.mock.invocationCallOrder[0]).toBeLessThan(
-            regenerate.mock.invocationCallOrder[0]
-        )
+        expect(prepareThreadRetryMutationMock).toHaveBeenCalledWith({
+            threadId: "thread-1",
+            targetFromMessageId: "m1"
+        })
+        expect(setMessages).not.toHaveBeenCalled()
+        expect(regenerate).not.toHaveBeenCalled()
+        expect(useChatStore.getState().pendingStreams["thread-1"]).not.toBe(true)
+        expect(useMessageFooterStore.getState().footerMetadataByMessageId.m2).toBeUndefined()
+
+        await act(async () => {
+            resolvePreparation?.({ assistantMessageId: "m2" })
+            await Promise.resolve()
+        })
+
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
         expect(useChatStore.getState().targetFromMessageId).toBeUndefined()
         expect(useChatStore.getState().targetMode).toBe("normal")
+        expect(useMessageFooterStore.getState().footerMetadataByMessageId.m2).toBeUndefined()
         expect(regenerate).toHaveBeenCalledWith({
             messageId: "m1",
             body: {
@@ -416,7 +447,7 @@ describe("useChatActions", () => {
 
         const { result } = renderHook(() =>
             useChatActions({
-                threadId: "thread-1",
+                threadId: undefined,
                 sharedModels: [],
                 availableModels: [{ id: "claude-opus-4.6" }],
                 fallbackModelId: "fallback-model",
@@ -476,7 +507,7 @@ describe("useChatActions", () => {
 
         const { result } = renderHook(() =>
             useChatActions({
-                threadId: "thread-1",
+                threadId: undefined,
                 sharedModels: [oldModel, newModel],
                 availableModels: [{ id: "new-model" }],
                 fallbackModelId: "new-model",
@@ -553,6 +584,11 @@ describe("useChatActions", () => {
             })
         )
 
+        useMessageFooterStore.getState().setFooterMetadata("m3", {
+            modelName: "Old model",
+            completionTokens: 100
+        })
+
         result.current.handleEditAndRetry("m2", "after edit", remainingFileParts, [
             "https://r2.silkchat.dev/file-1",
             "not-a-url"
@@ -566,6 +602,7 @@ describe("useChatActions", () => {
         )
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
+        expect(useMessageFooterStore.getState().footerMetadataByMessageId.m3).toBeUndefined()
         expect(setMessages).toHaveBeenCalledWith([
             messages[0],
             expect.objectContaining({

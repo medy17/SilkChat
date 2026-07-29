@@ -1,4 +1,5 @@
 type AssistantMessageMetadata = {
+    modelId?: string
     modelName?: string
     displayProvider?: string
     runtimeProvider?: string
@@ -24,6 +25,51 @@ type AssistantMessageMetadata = {
 
 const isValidNonNegativeNumber = (value: number | undefined): value is number =>
     typeof value === "number" && Number.isFinite(value) && value >= 0
+
+const hasFinalUsageMetadata = (metadata: AssistantMessageMetadata) =>
+    isValidNonNegativeNumber(metadata.promptTokens) ||
+    isValidNonNegativeNumber(metadata.completionTokens) ||
+    isValidNonNegativeNumber(metadata.totalTokens)
+
+/**
+ * Locally generated messages receive model metadata at stream start and usage
+ * metadata in the AI SDK finish event. Holding the footer until that finish
+ * metadata arrives prevents a model-only or timing-only footer from flashing.
+ * Imported messages have no modelId, so their model-only footer remains valid.
+ */
+export const isMessageFooterMetadataReady = (
+    metadata?: AssistantMessageMetadata,
+    options?: { completedWithError?: boolean }
+) => {
+    if (!metadata) return false
+
+    if (metadata.modelId) {
+        return options?.completedWithError === true || hasFinalUsageMetadata(metadata)
+    }
+
+    return Boolean(
+        metadata.modelName ||
+            metadata.displayProvider ||
+            metadata.runtimeProvider ||
+            metadata.creditProviderSource ||
+            metadata.reasoningEffort ||
+            hasFinalUsageMetadata(metadata)
+    )
+}
+
+export const mergeMessageFooterMetadata = (
+    base?: AssistantMessageMetadata,
+    incoming?: AssistantMessageMetadata
+): AssistantMessageMetadata | undefined => {
+    if (!base) return incoming
+    if (!incoming) return base
+
+    const definedIncoming = Object.fromEntries(
+        Object.entries(incoming).filter(([, value]) => value !== undefined)
+    ) as AssistantMessageMetadata
+
+    return { ...base, ...definedIncoming }
+}
 
 const formatSeconds = (milliseconds: number) => `${(milliseconds / 1000).toFixed(2)} sec`
 

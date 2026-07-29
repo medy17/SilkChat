@@ -1,21 +1,21 @@
 import type { UIMessage } from "ai"
-import { getMessageRenderFingerprintMap } from "../lib/message-render-fingerprint"
+import { getMessageRenderFingerprint } from "../lib/message-render-fingerprint"
 
-type MessageRenderWorkerRequest = {
-    requestId: number
-    messages: UIMessage[]
+type FingerprintWorkerRequestMessage = {
+    message: UIMessage
+    version: number
 }
 
-type MessageRenderWorkerResponse = {
-    requestId: number
-    fingerprints: Record<string, string>
+type MessageRenderWorkerRequest = {
+    messages: FingerprintWorkerRequestMessage[]
 }
 
 self.onmessage = (event: MessageEvent<MessageRenderWorkerRequest>) => {
-    const response: MessageRenderWorkerResponse = {
-        requestId: event.data.requestId,
-        fingerprints: getMessageRenderFingerprintMap(event.data.messages)
-    }
-
-    self.postMessage(response)
+    self.postMessage({
+        entries: event.data.messages.map(({ message, version }) => ({
+            id: message.id,
+            version,
+            fingerprint: getMessageRenderFingerprint(message)
+        }))
+    })
 }
