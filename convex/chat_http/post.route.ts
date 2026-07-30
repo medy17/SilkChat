@@ -957,6 +957,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const hasPaidCallableTools = callableEnabledTools.length > 0
     const hasInternalImagePreparationTool =
         modelData.abilities.includes("function_calling") && modelData.abilities.includes("vision")
+    const availableImageModels = hasInternalImagePreparationTool
+        ? getSelectableImageModels(
+              await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
+                  userId: user.id
+              })
+          )
+        : []
     const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
         hasEnabledTools: hasPaidCallableTools
@@ -1700,10 +1707,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const internalTools = getPrepareImageGenerationTool({
                 enabled: hasInternalImagePreparationTool,
                 references: imageReferences,
-                defaults: settings.imageGenerationDefaults
+                defaults: settings.imageGenerationDefaults,
+                imageModels: availableImageModels
             }) as Record<string, Tool>
             const availableImageSelectionSummary = hasInternalImagePreparationTool
-                ? formatImageModelCapabilitySummary(getSelectableImageModels())
+                ? formatImageModelCapabilitySummary(availableImageModels)
                 : "- None"
             const tools: Record<string, Tool> = {
                 ...paidTools,

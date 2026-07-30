@@ -17,15 +17,34 @@ const getReferenceCapableModel = () => {
 
 const buildTool = (
     references: Parameters<typeof getPrepareImageGenerationTool>[0]["references"],
-    defaults?: ImageGenerationDefaults
+    defaults?: ImageGenerationDefaults,
+    imageModels?: Parameters<typeof getPrepareImageGenerationTool>[0]["imageModels"]
 ) => {
-    const tools = getPrepareImageGenerationTool({ enabled: true, references, defaults })
+    const tools = getPrepareImageGenerationTool({
+        enabled: true,
+        references,
+        defaults,
+        imageModels
+    })
     const imageTool = tools[PREPARE_IMAGE_GENERATION_TOOL_NAME]
     expect(imageTool).toBeDefined()
     return imageTool
 }
 
 describe("prepareImageGeneration tool", () => {
+    it("uses the supplied plan-filtered model catalog", () => {
+        const freeModels = getSelectableImageModels("free")
+        const imageTool = buildTool([], undefined, freeModels)
+        const modelIdSchema = (
+            imageTool?.inputSchema as unknown as {
+                shape: { modelId: { parse: (value: unknown) => string } }
+            }
+        ).shape.modelId
+
+        expect(modelIdSchema.parse("seedream-5-lite")).toBe("seedream-5-lite")
+        expect(() => modelIdSchema.parse("seedream-5-pro")).toThrow()
+    })
+
     it("honors the reference ids the model selects (edit path)", async () => {
         const model = getReferenceCapableModel()
         const imageTool = buildTool([

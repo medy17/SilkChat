@@ -51,6 +51,7 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
         adapters: falImageAdapters("fal-ai/bytedance/seedream/v5/lite/text-to-image"),
         abilities: [],
         mode: "image",
+        availableToPickFor: "free",
         maxPerMessage: 4,
         supportsReferenceImages: true,
         maxReferenceImages: 10,

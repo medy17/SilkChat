@@ -355,7 +355,10 @@ describe("images_node", () => {
 
         expect(ctx.runMutation).toHaveBeenCalledWith(
             "reserveCreditForMessage",
-            expect.objectContaining({ reservedMicrousd: 35_000 })
+            expect.objectContaining({
+                reservedMicrousd: 35_000,
+                requiredPlan: "free"
+            })
         )
     })
 

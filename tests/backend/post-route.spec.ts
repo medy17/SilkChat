@@ -76,6 +76,7 @@ vi.mock("../../convex/_generated/api", () => ({
             getAccountDeletionBlockerInternal: "getAccountDeletionBlockerInternal"
         },
         credits: {
+            getUserCreditPlanInternal: "getUserCreditPlanInternal",
             reserveCreditForMessage: "reserveCreditForMessage",
             commitReservedCreditForMessage: "commitReservedCreditForMessage",
             releaseReservedCreditForMessage: "releaseReservedCreditForMessage",
@@ -2418,6 +2419,8 @@ describe("chatPOST", () => {
                     return {
                         mcpServers: []
                     }
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2524,6 +2527,8 @@ describe("chatPOST", () => {
                     return {
                         mcpServers: []
                     }
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2674,6 +2679,8 @@ describe("chatPOST", () => {
                     return {
                         mcpServers: []
                     }
+                case "getUserCreditPlanInternal":
+                    return "pro"
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:

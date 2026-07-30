@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
-import { internalMutation, internalQuery } from "./_generated/server"
+import { internalMutation, internalQuery, query } from "./_generated/server"
+import { getUserIdentity } from "./lib/identity"
 import { MessagePart } from "./schema/parts"
 
 const getRecordArray = (value: unknown) =>
@@ -85,6 +86,39 @@ const mergePreparedImageGenerationResult = (
     return merged
 }
 
+const findPreparedImageGenerationResult = (
+    parts: Array<{ type: string; toolInvocation?: unknown }>,
+    toolCallId: string,
+    cardId: string
+) => {
+    for (const part of parts) {
+        if (part.type !== "tool-invocation") continue
+
+        const invocation = part.toolInvocation as
+            | {
+                  toolName?: unknown
+                  toolCallId?: unknown
+                  state?: unknown
+                  result?: unknown
+              }
+            | undefined
+        if (
+            invocation?.toolName !== "prepareImageGeneration" ||
+            invocation.toolCallId !== toolCallId ||
+            invocation.state !== "result" ||
+            typeof invocation.result !== "object" ||
+            invocation.result === null ||
+            (invocation.result as Record<string, unknown>).cardId !== cardId
+        ) {
+            continue
+        }
+
+        return invocation.result as Record<string, unknown>
+    }
+
+    return null
+}
+
 export const getMessagesByThreadId = internalQuery({
     args: { threadId: v.id("threads") },
     handler: async ({ db }, { threadId }) => {
@@ -93,6 +127,31 @@ export const getMessagesByThreadId = internalQuery({
             .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
             .order("desc")
             .collect()
+    }
+})
+
+export const getPreparedImageGenerationCardResult = query({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async ({ db, auth }, { threadId, messageId, toolCallId, cardId }) => {
+        const user = await getUserIdentity(auth, { allowAnons: false })
+        if ("error" in user) return null
+
+        const thread = await db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return null
+
+        const messages = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const message = messages.find((candidate) => candidate.threadId === threadId)
+        if (!message) return null
+
+        return findPreparedImageGenerationResult(message.parts, toolCallId, cardId)
     }
 })
 

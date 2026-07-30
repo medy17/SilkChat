@@ -6,7 +6,13 @@ import type { DataModel } from "../../_generated/dataModel"
 import { r2 } from "../../attachments"
 import { resolveRequiredPlanForModelAccess } from "../credits"
 import { MODELS_SHARED } from "../models"
-import type { ImageQuality, ImageResolution, ImageSize, SharedModel } from "../models"
+import type {
+    ImageQuality,
+    ImageResolution,
+    ImageSize,
+    PrototypeAccessPlan,
+    SharedModel
+} from "../models"
 import {
     type FalReferenceImage,
     getFalImageDescriptor,
@@ -33,9 +39,6 @@ export type ImageCreditEstimate = {
     estimatedUsd?: number
 }
 
-export const getSelectableImageModels = () =>
-    MODELS_SHARED.filter((model) => model.mode === "image" && !model.sunsetOn)
-
 export const getImageModelById = (modelId: string) =>
     MODELS_SHARED.find((model) => model.id === modelId && model.mode === "image")
 
@@ -49,6 +52,14 @@ export const getImageModelCreditEstimate = (model: SharedModel): ImageCreditEsti
         })
     }
 }
+
+export const getSelectableImageModels = (userPlan: PrototypeAccessPlan = "pro") =>
+    MODELS_SHARED.filter(
+        (model) =>
+            model.mode === "image" &&
+            !model.sunsetOn &&
+            (userPlan === "pro" || getImageModelCreditEstimate(model).requiredPlan === "free")
+    )
 
 export const getSupportedAspectRatiosForImageModel = (model: SharedModel) => {
     const descriptor = getFalImageDescriptor(model.id)

@@ -384,23 +384,40 @@ export const ImageGenerationToolRenderer = memo(
         const [isConfirming, setIsConfirming] = useState(false)
         const [retryingAssetJobIds, setRetryingAssetJobIds] = useState<Set<string>>(new Set())
         const [activeAssetIndex, setActiveAssetIndex] = useState(0)
+        const isLoading =
+            toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
+        const hasResult =
+            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
+        const localPreparedOutput =
+            hasResult &&
+            typeof toolInvocation.output === "object" &&
+            toolInvocation.output !== null &&
+            (toolInvocation.output as PreparedImageGenerationOutput).kind ===
+                "prepared_image_generation"
+                ? (toolInvocation.output as PreparedImageGenerationOutput)
+                : undefined
+        const persistedPreparedOutput = useQuery(
+            api.messages.getPreparedImageGenerationCardResult,
+            localPreparedOutput?.cardId && threadId && messageId
+                ? {
+                      threadId: threadId as Id<"threads">,
+                      messageId,
+                      toolCallId: toolInvocation.toolCallId,
+                      cardId: localPreparedOutput.cardId
+                  }
+                : "skip"
+        ) as PreparedImageGenerationOutput | null | undefined
+        const preparedOutput = persistedPreparedOutput ?? localPreparedOutput
         const generatedImageIds = useMemo(() => {
-            const output =
-                toolInvocation.state === "output-available" &&
-                typeof toolInvocation.output === "object" &&
-                toolInvocation.output !== null
-                    ? (toolInvocation.output as PreparedImageGenerationOutput)
-                    : undefined
-
             const ids = new Set<Id<"generatedImages">>()
-            for (const id of output?.generatedImageIds ?? []) {
+            for (const id of preparedOutput?.generatedImageIds ?? []) {
                 ids.add(id)
             }
-            for (const asset of output?.assets ?? []) {
+            for (const asset of preparedOutput?.assets ?? []) {
                 if (asset.generatedImageId) ids.add(asset.generatedImageId)
             }
             return Array.from(ids)
-        }, [toolInvocation.output, toolInvocation.state])
+        }, [preparedOutput])
         const generatedImages = useQuery(
             api.images.listGeneratedImagesByIds,
             generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
@@ -421,18 +438,6 @@ export const ImageGenerationToolRenderer = memo(
             generatedImageByIdRef.current = next
             return next
         }, [generatedImages])
-        const isLoading =
-            toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
-        const hasResult =
-            toolInvocation.state === "output-available" && toolInvocation.output !== undefined
-        const preparedOutput =
-            hasResult &&
-            typeof toolInvocation.output === "object" &&
-            toolInvocation.output !== null &&
-            (toolInvocation.output as PreparedImageGenerationOutput).kind ===
-                "prepared_image_generation"
-                ? (toolInvocation.output as PreparedImageGenerationOutput)
-                : undefined
         const hasError =
             hasResult &&
             typeof toolInvocation.output === "object" &&
@@ -494,19 +499,9 @@ export const ImageGenerationToolRenderer = memo(
 
         if (isLoading) {
             return (
-                <div
-                    className="w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-muted/5"
-                    style={{ aspectRatio: cssAspectRatio }}
-                >
-                    <ImageSkeleton
-                        rows={rows}
-                        cols={cols}
-                        dotSize={3}
-                        gap={4}
-                        loadingDuration={99999}
-                        autoLoop={false}
-                        className="h-full w-full rounded-[var(--radius-xl)] border-0 bg-transparent"
-                    />
+                <div className="my-3 flex w-full max-w-md items-center gap-3 rounded-[var(--radius-xl)] border bg-card p-4 shadow-sm">
+                    <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
+                    <span className="text-muted-foreground text-sm">Preparing image request</span>
                 </div>
             )
         }
@@ -636,7 +631,7 @@ export const ImageGenerationToolRenderer = memo(
             const title = output.title?.trim() || "SilkScreen"
             const prompt = output.prompt ?? ""
             const modelLabel = output.modelName ?? output.modelId ?? "Image model"
-            const isPending = status === "pending_confirmation" && !isConfirming
+            const isPending = status === "pending_confirmation"
             const showCanvas = !isPending || Boolean(visibleAsset)
             const promptId = getPromptTextId(toolInvocation.toolCallId)
             const previewId = getImagePreviewId(toolInvocation.toolCallId)

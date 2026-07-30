@@ -7,7 +7,7 @@ import {
     getSupportedResolutionsForImageModel,
     validatePreparedImageRequest
 } from "../image_generation/shared"
-import type { ImageResolution } from "../models"
+import type { ImageResolution, SharedModel } from "../models"
 
 export type ImageGenerationDefaults = {
     resolution?: ImageResolution
@@ -22,15 +22,15 @@ export const PREPARE_IMAGE_GENERATION_TOOL_NAME = "prepareImageGeneration"
 export const getPrepareImageGenerationTool = ({
     enabled,
     references,
-    defaults
+    defaults,
+    imageModels = getSelectableImageModels()
 }: {
     enabled: boolean
     references: PreparedImageReference[]
     defaults?: ImageGenerationDefaults
+    imageModels?: readonly SharedModel[]
 }) => {
     if (!enabled) return {}
-
-    const imageModels = getSelectableImageModels()
     if (imageModels.length === 0) return {}
 
     const modelIds = imageModels.map((model) => model.id)

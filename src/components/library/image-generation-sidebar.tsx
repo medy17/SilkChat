@@ -1000,23 +1000,17 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
                         return Array.from({ length: count }, () => async () => {
                             const id = Math.random().toString(36).substring(2, 11)
-                            addPendingGeneration({ id, aspectRatio: effectiveAspectRatio })
-
-                            try {
-                                await generateImage({
-                                    prompt: normalizedPrompt,
-                                    modelId,
-                                    clientRequestId: id,
-                                    aspectRatio: effectiveAspectRatio,
-                                    referenceImageIds: uploadedReferenceKeys,
-                                    ...(canSelectGptImage2Quality && modelId === "gpt-5.4-image-2"
-                                        ? { quality: gptImage2Quality }
-                                        : {}),
-                                    ...(supportsResolution ? { resolution } : {})
-                                })
-                            } finally {
-                                removePendingGeneration(id, { countCompleted: false })
-                            }
+                            await generateImage({
+                                prompt: normalizedPrompt,
+                                modelId,
+                                clientRequestId: id,
+                                aspectRatio: effectiveAspectRatio,
+                                referenceImageIds: uploadedReferenceKeys,
+                                ...(canSelectGptImage2Quality && modelId === "gpt-5.4-image-2"
+                                    ? { quality: gptImage2Quality }
+                                    : {}),
+                                ...(supportsResolution ? { resolution } : {})
+                            })
                         })
                     })
                     .map((runGeneration) => runGeneration())

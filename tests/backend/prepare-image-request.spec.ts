@@ -35,6 +35,15 @@ const getModelWithResolutionCeilingBelow4K = () => {
 }
 
 describe("validatePreparedImageRequest coercion", () => {
+    it("limits the free image catalog to explicitly free models", () => {
+        const freeModels = getSelectableImageModels("free")
+        const proModels = getSelectableImageModels("pro")
+
+        expect(freeModels.map((model) => model.id)).toEqual(["seedream-5-lite"])
+        expect(proModels.length).toBeGreaterThan(freeModels.length)
+        expect(proModels).toContainEqual(expect.objectContaining({ id: "seedream-5-pro" }))
+    })
+
     it("clamps variants above the model ceiling instead of throwing", () => {
         const model = getSelectableImageModels()[0]
         const ceiling = Math.min(
@@ -222,5 +231,21 @@ describe("validatePreparedImageRequest coercion", () => {
                 referenceCount: 1
             })
         ).toThrow()
+    })
+
+    it("enforces Seedream 5 Lite's reference limit", () => {
+        expect(
+            validatePreparedImageRequest({
+                modelId: "seedream-5-lite",
+                referenceCount: 10
+            }).creditEstimate.requiredPlan
+        ).toBe("free")
+
+        expect(() =>
+            validatePreparedImageRequest({
+                modelId: "seedream-5-lite",
+                referenceCount: 11
+            })
+        ).toThrow("This model supports up to 10 reference images.")
     })
 })
