@@ -43,6 +43,8 @@ import { useGenerationStore } from "./generation-store"
 
 const DEFAULT_VARIANTS_PER_MODEL = 1
 const MAX_TOTAL_GENERATIONS_PER_RUN = 10
+const MIN_POST_SUBMISSION_HOLD_MS = 1_000
+const MAX_POST_SUBMISSION_HOLD_MS = 4_000
 const LEGACY_IMAGE_MODEL_MIGRATION_KEY_PREFIX = "legacy-image-model-migrated"
 const MIN_PROMPT_HEIGHT = 112
 const MAX_PROMPT_VIEWPORT_RATIO = 0.4
@@ -1022,6 +1024,14 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             if (failedResult) {
                 throw failedResult.reason
             }
+
+            // Give the reactive job query time to replace submission feedback with the
+            // persisted generation tiles. Larger batches can take slightly longer to sync.
+            const postSubmissionHoldMs = Math.min(
+                MAX_POST_SUBMISSION_HOLD_MS,
+                Math.max(MIN_POST_SUBMISSION_HOLD_MS, totalRequestedGenerations * 1_000)
+            )
+            await new Promise((resolve) => window.setTimeout(resolve, postSubmissionHoldMs))
         } catch (error) {
             console.error("Failed to generate image:", error)
             toast.error(
