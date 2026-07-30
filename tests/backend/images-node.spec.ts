@@ -216,7 +216,7 @@ describe("images_node", () => {
         expect(ctx.runMutation).toHaveBeenCalledWith(
             "reserveCreditForMessage",
             expect.objectContaining({
-                reservedMicrousd: 5_000,
+                reservedMicrousd: 53_000,
                 pricingSource: "fal_manual"
             })
         )
@@ -257,6 +257,10 @@ describe("images_node", () => {
                 input: expect.objectContaining({ quality: "high" })
             })
         )
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({ reservedMicrousd: 211_000 })
+        )
     })
 
     it("ignores GPT Image 2 quality overrides from non-staff users", async () => {
@@ -280,7 +284,7 @@ describe("images_node", () => {
         )
     })
 
-    it("uses fal unit-price estimates only when explicitly enabled", async () => {
+    it("prefers local model pricing even when fal unit-price estimates are enabled", async () => {
         vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "1")
         const pricingFetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify({ total_cost: 0.007, currency: "USD" }), {
@@ -300,21 +304,11 @@ describe("images_node", () => {
             })
         ).resolves.toEqual(["image-generation-job-1"])
 
-        expect(pricingFetchMock).toHaveBeenCalledWith(
-            "https://api.fal.ai/v1/models/pricing/estimate",
-            expect.objectContaining({
-                body: JSON.stringify({
-                    estimate_type: "unit_price",
-                    endpoints: {
-                        "openai/gpt-image-2": { unit_quantity: 1 }
-                    }
-                })
-            })
-        )
+        expect(pricingFetchMock).not.toHaveBeenCalled()
         expect(ctx.runMutation).toHaveBeenCalledWith(
             "reserveCreditForMessage",
             expect.objectContaining({
-                reservedMicrousd: 7_000,
+                reservedMicrousd: 53_000,
                 pricingSource: "fal_manual"
             })
         )
@@ -345,6 +339,23 @@ describe("images_node", () => {
                 falEndpoint: "openai/gpt-image-2/edit",
                 referenceImageKeys: ["references/user-1/ref.png"]
             })
+        )
+    })
+
+    it("reserves Seedream 5 Lite edits at its flat local output price", async () => {
+        const ctx = createCtx()
+
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "Edit this",
+            modelId: "seedream-5-lite",
+            aspectRatio: "1:1",
+            resolution: "4K",
+            referenceImageIds: ["references/user-1/ref.png"]
+        })
+
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({ reservedMicrousd: 35_000 })
         )
     })
 
@@ -635,6 +646,10 @@ describe("images_node", () => {
         ).rejects.toThrow("You've hit your 5-hour limit. It resets as recent usage rolls off.")
 
         expect(falQueueSubmitMock).not.toHaveBeenCalled()
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "reserveCreditForMessage",
+            expect.objectContaining({ reservedMicrousd: 53_000 })
+        )
         expect(ctx.runMutation).toHaveBeenCalledWith(
             "releaseReservedCreditForMessage",
             expect.objectContaining({

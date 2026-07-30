@@ -6,7 +6,7 @@ import type { DataModel } from "../../_generated/dataModel"
 import { r2 } from "../../attachments"
 import { resolveRequiredPlanForModelAccess } from "../credits"
 import { MODELS_SHARED } from "../models"
-import type { ImageResolution, ImageSize, SharedModel } from "../models"
+import type { ImageQuality, ImageResolution, ImageSize, SharedModel } from "../models"
 import {
     type FalReferenceImage,
     getFalImageDescriptor,
@@ -131,6 +131,7 @@ export const validatePreparedImageRequest = ({
     resolution,
     variants,
     referenceCount,
+    quality,
     defaults
 }: {
     modelId: string
@@ -138,6 +139,7 @@ export const validatePreparedImageRequest = ({
     resolution?: string
     variants?: number
     referenceCount: number
+    quality?: ImageQuality
     // Soft per-user defaults: fill an empty field, are outranked by an explicit model
     // choice, and are themselves clamped to the model's capabilities below.
     defaults?: {
@@ -216,6 +218,7 @@ export const validatePreparedImageRequest = ({
                 model,
                 aspectRatio: selectedAspectRatio,
                 resolution: selectedResolution,
+                quality,
                 variants: selectedVariants,
                 referenceCount
             })?.totalUsd

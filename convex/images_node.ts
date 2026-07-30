@@ -28,7 +28,8 @@ import {
 import {
     getConfiguredFalReservationMicrousd,
     isFalPricingEstimateEnabled,
-    resolveFalEstimateMicrousd
+    resolveFalEstimateMicrousd,
+    usdToMicrousd
 } from "./lib/usage_metering"
 
 const FAL_PRICING_ESTIMATE_URL = "https://api.fal.ai/v1/models/pricing/estimate"
@@ -375,7 +376,8 @@ const submitImageGenerationJob = async (
         aspectRatio,
         resolution,
         variants: 1,
-        referenceCount: referenceSources.length
+        referenceCount: referenceSources.length,
+        quality
     })
 
     const imageCreditEventKey =
@@ -385,8 +387,13 @@ const submitImageGenerationJob = async (
         modelId,
         resolution: validated.resolution
     })
+    const localEstimateMicrousd =
+        validated.creditEstimate.estimatedUsd === undefined
+            ? undefined
+            : usdToMicrousd(validated.creditEstimate.estimatedUsd)
     const reservedMicrousd =
         providedReservedMicrousd ??
+        localEstimateMicrousd ??
         (await estimateFalReservationMicrousd(falEndpoint, fallbackMicrousd))
     const creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
         userId,
@@ -642,7 +649,13 @@ export const confirmPreparedChatImageGeneration = action({
             modelId: result.modelId,
             resolution: validated.resolution
         })
-        const reservedMicrousd = await estimateFalReservationMicrousd(falEndpoint, fallbackMicrousd)
+        const localEstimatePerImageMicrousd =
+            validated.creditEstimate.estimatedUsd === undefined
+                ? undefined
+                : usdToMicrousd(validated.creditEstimate.estimatedUsd / validated.variants)
+        const reservedMicrousd =
+            localEstimatePerImageMicrousd ??
+            (await estimateFalReservationMicrousd(falEndpoint, fallbackMicrousd))
 
         for (let index = 0; index < creditEventKeys.length; index++) {
             const creditEventKey = creditEventKeys[index]

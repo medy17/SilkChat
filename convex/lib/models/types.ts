@@ -49,12 +49,15 @@ export type ImagePricing = {
     usdPerImageByQualityAndResolution?: Partial<
         Record<ImageQuality, Partial<Record<ImageResolution, number>>>
     >
+    usdPerImageByQualityAndSize?: Partial<Record<ImageQuality, Partial<Record<ImageSize, number>>>>
     usdPerOutputMegapixel?: number
     minimumBillableOutputMegapixels?: number
     roundOutputMegapixelsUp?: boolean
     usdPerReferenceImage?: number
     usdPerReferenceImageByQuality?: Partial<Record<ImageQuality, number>>
     freeReferenceImages?: number
+    /** Provider request totals are rounded up to this USD increment. */
+    roundRequestUsdUpTo?: number
 }
 
 export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"

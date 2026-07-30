@@ -64,7 +64,14 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
                 low: { "1K": 0.005 },
                 medium: { "1K": 0.011 },
                 high: { "1K": 0.036 }
-            }
+            },
+            usdPerImageByQualityAndSize: {
+                auto: { "1024x1024": 0.005, "1536x1024": 0.006, "1024x1536": 0.006 },
+                low: { "1024x1024": 0.005, "1536x1024": 0.006, "1024x1536": 0.006 },
+                medium: { "1024x1024": 0.011, "1536x1024": 0.015, "1024x1536": 0.015 },
+                high: { "1024x1024": 0.036, "1536x1024": 0.052, "1024x1536": 0.052 }
+            },
+            roundRequestUsdUpTo: 0.01
         },
         legacy: true,
         replacementId: "gpt-5.4-image-2"
@@ -89,6 +96,11 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
                 low: { "1K": 0.009 },
                 medium: { "1K": 0.034 },
                 high: { "1K": 0.133 }
+            },
+            usdPerImageByQualityAndSize: {
+                low: { "1024x1024": 0.009, "1536x1024": 0.013, "1024x1536": 0.013 },
+                medium: { "1024x1024": 0.034, "1536x1024": 0.05, "1024x1536": 0.051 },
+                high: { "1024x1024": 0.133, "1536x1024": 0.199, "1024x1536": 0.2 }
             }
         },
         legacy: true,

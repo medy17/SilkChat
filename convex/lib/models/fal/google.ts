@@ -55,6 +55,7 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         mode: "image",
         maxPerMessage: 4,
         supportsReferenceImages: true,
+        maxReferenceImages: 14,
         openrouterImageModalities: ["image", "text"],
         customIcon: "google",
         supportedImageSizes: [...GEMINI_IMAGE_SIZES],

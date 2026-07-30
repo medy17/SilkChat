@@ -62,6 +62,18 @@ describe("validatePreparedImageRequest coercion", () => {
         expect(validated.variants).toBe(1)
     })
 
+    it("includes the selected quality in the local credit estimate", () => {
+        const validated = validatePreparedImageRequest({
+            modelId: "gpt-5.4-image-2",
+            aspectRatio: "1:1",
+            resolution: "1K",
+            quality: "high",
+            referenceCount: 0
+        })
+
+        expect(validated.creditEstimate.estimatedUsd).toBe(0.211)
+    })
+
     it("fills an empty resolution with a supported default", () => {
         const model = getModelSupportingResolutions()
         const supported = getSupportedResolutionsForImageModel(model)

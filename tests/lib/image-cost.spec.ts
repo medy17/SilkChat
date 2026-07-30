@@ -63,6 +63,43 @@ describe("image cost estimates", () => {
         expect(estimate).toMatchObject({ usdPerImage: 0.0765, totalUsd: 0.0765 })
     })
 
+    it("uses size-specific prices before coarse resolution prices", () => {
+        const estimate = estimateImageCost({
+            model: imageModel({
+                id: "gpt-5-image",
+                defaultImageQuality: "high",
+                imagePricing: {
+                    source: "fal",
+                    kind: "fixed",
+                    usdPerImageByQualityAndResolution: { high: { "1K": 0.133 } },
+                    usdPerImageByQualityAndSize: {
+                        high: { "1536x1024": 0.199 }
+                    }
+                }
+            }),
+            aspectRatio: "16:9",
+            quality: "high"
+        })
+
+        expect(estimate).toMatchObject({ usdPerImage: 0.199, totalUsd: 0.199 })
+    })
+
+    it("rounds each provider request before multiplying variants", () => {
+        const estimate = estimateImageCost({
+            model: imageModel({
+                imagePricing: {
+                    source: "fal",
+                    kind: "fixed",
+                    usdPerImage: 0.011,
+                    roundRequestUsdUpTo: 0.01
+                }
+            }),
+            variants: 2
+        })
+
+        expect(estimate).toMatchObject({ usdPerImage: 0.02, totalUsd: 0.04 })
+    })
+
     it("rounds megapixel billing up using the actual output dimensions", () => {
         const estimate = estimateImageCost({
             model: imageModel({

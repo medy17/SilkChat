@@ -13,6 +13,7 @@ export type ImageCostEstimate = {
 
 const getFixedUsdPerImage = (
     model: SharedModel,
+    aspectRatio: ImageSize,
     resolution: ImageResolution,
     quality: ImageQuality
 ) => {
@@ -20,6 +21,17 @@ const getFixedUsdPerImage = (
     if (!pricing) return undefined
 
     const qualityPrices = pricing.usdPerImageByQualityAndResolution?.[quality]
+    const descriptor = getFalImageDescriptor(model.id)
+    const dimensions = descriptor
+        ? getFalOutputImageDimensions(descriptor, aspectRatio, resolution)
+        : undefined
+    const sizePrice = dimensions
+        ? pricing.usdPerImageByQualityAndSize?.[quality]?.[
+              `${dimensions.width}x${dimensions.height}` as ImageSize
+          ]
+        : undefined
+    if (sizePrice !== undefined) return sizePrice
+
     if (qualityPrices) {
         return qualityPrices[resolution] ?? qualityPrices["1K"]
     }
@@ -64,7 +76,7 @@ export const estimateImageCost = ({
 
     let usdPerImage: number | undefined
     if (pricing.kind === "fixed") {
-        usdPerImage = getFixedUsdPerImage(model, resolution, normalizedQuality)
+        usdPerImage = getFixedUsdPerImage(model, aspectRatio, resolution, normalizedQuality)
     } else if (pricing.usdPerOutputMegapixel !== undefined) {
         let megapixels = getOutputMegapixels(model, aspectRatio, resolution)
         megapixels = Math.max(megapixels, pricing.minimumBillableOutputMegapixels ?? 0)
@@ -82,7 +94,16 @@ export const estimateImageCost = ({
         0,
         normalizedReferenceCount - (pricing.freeReferenceImages ?? 0)
     )
-    const requestUsdPerImage = usdPerImage + referencePrice * billableReferenceCount
+    let requestUsdPerImage = usdPerImage + referencePrice * billableReferenceCount
+    const roundingIncrement = pricing.roundRequestUsdUpTo
+    if (
+        roundingIncrement !== undefined &&
+        Number.isFinite(roundingIncrement) &&
+        roundingIncrement > 0
+    ) {
+        requestUsdPerImage =
+            Math.ceil((requestUsdPerImage - Number.EPSILON) / roundingIncrement) * roundingIncrement
+    }
 
     return {
         totalUsd: requestUsdPerImage * normalizedVariants,
