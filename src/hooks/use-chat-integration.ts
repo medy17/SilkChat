@@ -101,6 +101,26 @@ const getMessagesContentFingerprint = (messages: UIMessage[]) =>
         )
         .join("|")
 
+type CompletedLocalMessage = {
+    id: string
+    contentFingerprint: string
+}
+
+const getCompletedLocalMessage = (message: UIMessage): CompletedLocalMessage => ({
+    id: message.id,
+    contentFingerprint: getMessagesContentFingerprint([message])
+})
+
+const messageMatchesCompletedLocalMessage = (
+    message: UIMessage | undefined,
+    completedMessage: CompletedLocalMessage
+) =>
+    Boolean(
+        message &&
+            message.id === completedMessage.id &&
+            getMessagesContentFingerprint([message]) === completedMessage.contentFingerprint
+    )
+
 const FOOTER_METADATA_KEYS = [
     "modelId",
     "modelName",
@@ -258,6 +278,10 @@ export function useChatIntegration<IsShared extends boolean>({
     )
     const seededNextId = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    // The SDK receives its finish event before the final Convex message snapshot is
+    // guaranteed to reach this client's resumed subscription. Keep that completed
+    // message authoritative until Convex has published the same content once.
+    const completedLocalMessageRef = useRef<CompletedLocalMessage | null>(null)
     const latestRequestContextRef = useRef({
         folderId,
         threadId,
@@ -351,6 +375,7 @@ export function useChatIntegration<IsShared extends boolean>({
                       const proposedNewAssistantId = nanoid()
                       seededNextId.current = proposedNewAssistantId
                       streamOriginRef.current = "send"
+                      completedLocalMessageRef.current = null
 
                       const message = messages[messages.length - 1]
                       const mcpOverrides = getEffectiveMcpOverrides(currentContext.threadId)
@@ -415,7 +440,8 @@ export function useChatIntegration<IsShared extends boolean>({
                   }
               }),
         messages: initialMessages,
-        onFinish: () => {
+        onFinish: ({ message, isError }) => {
+            completedLocalMessageRef.current = isError ? null : getCompletedLocalMessage(message)
             const currentThreadId = latestRequestContextRef.current.threadId
             if (currentThreadId) {
                 useChatStore.getState().setPendingStream(currentThreadId, false)
@@ -426,6 +452,7 @@ export function useChatIntegration<IsShared extends boolean>({
             }
         },
         onError: () => {
+            completedLocalMessageRef.current = null
             const currentThreadId = latestRequestContextRef.current.threadId
             if (currentThreadId) {
                 useChatStore.getState().setPendingStream(currentThreadId, false)
@@ -490,8 +517,10 @@ export function useChatIntegration<IsShared extends boolean>({
         [latestAssistantMessage]
     )
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: thread changes are the reset trigger.
     useEffect(() => {
         streamOriginRef.current = null
+        completedLocalMessageRef.current = null
     }, [threadId])
 
     useEffect(() => {
@@ -536,6 +565,28 @@ export function useChatIntegration<IsShared extends boolean>({
         if (!threadId) return
         if (!threadMessages || "error" in threadMessages) return
         if (hasPendingLocalStream) return
+
+        const completedLocalMessage = completedLocalMessageRef.current
+        if (completedLocalMessage) {
+            const currentCompletedMessage = chatHelpers.messages.find(
+                (message) => message.id === completedLocalMessage.id
+            )
+            const backendCompletedMessage = initialMessages.find(
+                (message) => message.id === completedLocalMessage.id
+            )
+
+            if (
+                messageMatchesCompletedLocalMessage(backendCompletedMessage, completedLocalMessage)
+            ) {
+                completedLocalMessageRef.current = null
+            } else if (
+                messageMatchesCompletedLocalMessage(currentCompletedMessage, completedLocalMessage)
+            ) {
+                return
+            } else {
+                completedLocalMessageRef.current = null
+            }
+        }
 
         if (
             shouldAdoptBackendMessages({

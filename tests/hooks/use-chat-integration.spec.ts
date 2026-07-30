@@ -1270,6 +1270,93 @@ describe("useChatIntegration", () => {
         expect(setMessages).toHaveBeenCalledWith(backendMessages)
     })
 
+    it("keeps a finished local response visible until the Convex snapshot catches up", () => {
+        const completedLocalMessages = [
+            {
+                id: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "Question" }]
+            },
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Complete local response" }]
+            }
+        ]
+        const staleBackendMessages = [
+            {
+                id: "user-1",
+                role: "user",
+                parts: [{ type: "text", text: "Question" }]
+            },
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: []
+            }
+        ]
+        const setMessages = vi.fn()
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [{ id: "backend-assistant-1", role: "assistant", parts: [] }],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
+            }
+        }
+
+        nanoidMock.mockReturnValue("client-1")
+        backendToUiMessagesMock.mockReturnValue(staleBackendMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: "ready",
+                messages: completedLocalMessages,
+                setMessages,
+                resumeStream: vi.fn()
+            }
+        })
+
+        const { rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: "thread-1"
+            })
+        )
+
+        act(() => {
+            latestUseChatOptions?.onFinish?.({
+                message: completedLocalMessages[1],
+                messages: completedLocalMessages,
+                isAbort: false,
+                isDisconnect: false,
+                isError: false,
+                finishReason: "stop"
+            })
+        })
+        setMessages.mockClear()
+        queryResults.getThread = {
+            _id: "thread-1",
+            isLive: false,
+            currentStreamId: undefined,
+            currentStreamOwnerClientId: undefined
+        }
+        rerender()
+
+        expect(setMessages).not.toHaveBeenCalledWith(staleBackendMessages)
+
+        backendToUiMessagesMock.mockReturnValue(completedLocalMessages)
+        queryResults.getThreadMessages = completedLocalMessages
+        rerender()
+
+        backendToUiMessagesMock.mockReturnValue(staleBackendMessages)
+        queryResults.getThreadMessages = staleBackendMessages
+        rerender()
+
+        expect(setMessages).toHaveBeenCalledWith(staleBackendMessages)
+    })
+
     it("adopts remote retry truncation when the backend thread diverges while idle", () => {
         const staleLocalMessages = [
             {
