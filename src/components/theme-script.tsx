@@ -3,6 +3,7 @@ import {
     LOCAL_THEME_FONT_FAMILY_NAMES,
     WEB_SAFE_FONT_FAMILY_NAMES
 } from "@/lib/theme-font-config"
+import { USER_MESSAGE_FALLBACKS } from "@/lib/apply-theme"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 
 export function ThemeScript() {
@@ -12,6 +13,7 @@ export function ThemeScript() {
       const root = document.documentElement;
       const defaultThemePreset = ${JSON.stringify(DEFAULT_THEME_PRESET)};
       const legacyGreenThemePreset = ${JSON.stringify(LEGACY_GREEN_THEME_PRESET)};
+      const userMessageFallbacks = ${JSON.stringify(USER_MESSAGE_FALLBACKS)};
       const DEFAULT_FONT_AXES = "wght@400";
       const GOOGLE_FONT_AXES = ${JSON.stringify(GOOGLE_THEME_FONT_AXES)};
       const SYSTEM_FONTS = new Set([
@@ -148,6 +150,8 @@ export function ThemeScript() {
         mode === "dark"
           ? themeState?.cssVars?.dark
           : themeState?.cssVars?.light;
+      const isDefaultTheme =
+        !hasSelectedTheme && deepEqual(themeState?.cssVars, defaultThemePreset.cssVars);
 
       if (!baseStyles && !activeStyles) {
         return;
@@ -155,7 +159,13 @@ export function ThemeScript() {
 
       const stylesToApply = {
         ...(baseStyles || {}),
-        ...(activeStyles || {})
+        ...(activeStyles || {}),
+        "user-message":
+          activeStyles?.["user-message"] ||
+          baseStyles?.["user-message"] ||
+          (isDefaultTheme
+            ? userMessageFallbacks.default[mode]
+            : userMessageFallbacks.theme)
       };
 
       for (const styleName of Object.keys(stylesToApply)) {

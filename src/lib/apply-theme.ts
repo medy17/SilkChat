@@ -9,10 +9,23 @@ type ThemeState = {
     }
 }
 
+export const USER_MESSAGE_FALLBACKS = {
+    theme: "var(--secondary)",
+    default: {
+        light: "color-mix(in oklab, var(--secondary) 50%, transparent)",
+        dark: "oklch(0.3132 0 0)"
+    }
+} as const
+
+type ApplyThemeOptions = {
+    isDefaultTheme?: boolean
+}
+
 export function applyThemeToElement(
     themeState: ThemeState,
     element: HTMLElement,
-    resolvedMode: ResolvedThemeMode = resolveThemeMode(themeState.currentMode)
+    resolvedMode: ResolvedThemeMode = resolveThemeMode(themeState.currentMode),
+    { isDefaultTheme = false }: ApplyThemeOptions = {}
 ) {
     if (!element) return
 
@@ -30,6 +43,14 @@ export function applyThemeToElement(
 
         element.style.setProperty(`--${key}`, value)
     })
+
+    const userMessage =
+        modeVars["user-message"] ??
+        themeState.cssVars.theme["user-message"] ??
+        (isDefaultTheme
+            ? USER_MESSAGE_FALLBACKS.default[resolvedMode]
+            : USER_MESSAGE_FALLBACKS.theme)
+    element.style.setProperty("--user-message", userMessage)
 
     // Update data attribute for CSS selectors
     element.setAttribute("data-theme", resolvedMode)

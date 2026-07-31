@@ -1182,7 +1182,8 @@ export function ModelSelector({
     tone = "default",
     modal = true,
     requiresNativePdf = false,
-    byokContextHint
+    byokContextHint,
+    onOpenChange
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -1200,6 +1201,7 @@ export function ModelSelector({
         tooltip: string
         ariaLabel: string
     }
+    onOpenChange?: (open: boolean) => void
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -1213,7 +1215,14 @@ export function ModelSelector({
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
 
-    const [open, setOpen] = React.useState(false)
+    const [open, setOpenState] = React.useState(false)
+    const setOpen = React.useCallback(
+        (nextOpen: boolean) => {
+            setOpenState(nextOpen)
+            onOpenChange?.(nextOpen)
+        },
+        [onOpenChange]
+    )
     const [searchValue, setSearchValue] = React.useState("")
     const [expandedLegacySections, setExpandedLegacySections] = React.useState<
         Record<string, boolean>

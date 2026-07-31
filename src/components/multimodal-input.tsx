@@ -1437,6 +1437,7 @@ export const MultimodalInput = forwardRef<
 
     const [inputValue, setInputValue] = useState("")
     const [isInputFocused, setIsInputFocused] = useState(false)
+    const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
     const [activeIntent, setActiveIntent] = useState<ComposerIntentId | null>(null)
     const [attachingImageKey, setAttachingImageKey] = useState<string>()
     const [webTrends, setWebTrends] = useState<WebTrendSuggestion[]>([])
@@ -2192,6 +2193,7 @@ export const MultimodalInput = forwardRef<
         isTouchDevice &&
         !isNewChatComposer &&
         !isInputFocused &&
+        !isModelSelectorOpen &&
         extendedFiles.length === 0 &&
         localUploadingFiles.length === 0
 
@@ -2347,7 +2349,9 @@ export const MultimodalInput = forwardRef<
 
                     if (
                         (nextTarget && event.currentTarget.contains(nextTarget)) ||
-                        nextTarget?.closest("[data-radix-popper-content-wrapper]")
+                        nextTarget?.closest(
+                            '[data-radix-popper-content-wrapper], [data-slot="drawer-content"], [data-slot="dialog-content"]'
+                        )
                     ) {
                         return
                     }
@@ -2533,6 +2537,7 @@ export const MultimodalInput = forwardRef<
                                     <ModelSelector
                                         selectedModel={selectedModel}
                                         onModelChange={setSelectedModel}
+                                        onOpenChange={setIsModelSelectorOpen}
                                         shortcutTarget="composer"
                                         requiresNativePdf={requiresNativePdfForModelSelection}
                                         byokContextHint={resolveByokContextHint(

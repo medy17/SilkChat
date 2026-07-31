@@ -31,7 +31,7 @@
     --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.94 0 0);
     --secondary-foreground: oklch(0 0 0);
-    --user-message: color-mix(in oklab, var(--secondary) 50%, transparent);
+    --user-message: var(--secondary);
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.44 0 0);
     --accent: oklch(0.94 0 0);
@@ -93,7 +93,6 @@ html {
     --primary-foreground: oklch(0 0 0);
     --secondary: oklch(0.25 0 0);
     --secondary-foreground: oklch(0.94 0 0);
-    --user-message: oklch(0.3132 0 0);
     --muted: oklch(0.23 0 0);
     --muted-foreground: oklch(0.72 0 0);
     --accent: oklch(0.32 0 0);
