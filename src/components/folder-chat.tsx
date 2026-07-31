@@ -365,7 +365,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center"
+                        className="md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6"
                         style={{
                             bottom: "calc(-1 * var(--chat-composer-overlap))"
                         }}
@@ -380,14 +380,20 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                 />
                             </div>
                         </div>
-                        <MultimodalInput
-                            onSubmit={handleInputSubmitWithScroll}
-                            status={composerStatus}
-                            threadId={threadId}
-                            folderId={folderId}
-                            isActive={isActiveRoute}
-                            threadHasPdfAttachments={threadHasPdfAttachments}
-                            messages={deferredMessages}
+                        <div className="relative z-10 w-full">
+                            <MultimodalInput
+                                onSubmit={handleInputSubmitWithScroll}
+                                status={composerStatus}
+                                threadId={threadId}
+                                folderId={folderId}
+                                isActive={isActiveRoute}
+                                threadHasPdfAttachments={threadHasPdfAttachments}
+                                messages={deferredMessages}
+                            />
+                        </div>
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]"
                         />
                     </motion.div>
                 )}

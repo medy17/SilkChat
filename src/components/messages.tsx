@@ -1068,7 +1068,7 @@ const MessageRowComponent = ({
                     message.role === "assistant" && isFirstMessage && "mt-12",
                     message.role === "user" &&
                         !isEditing &&
-                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-secondary/50 px-4 py-2 text-foreground",
+                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-foreground",
                     message.role === "user" && isEditing && "mt-12 ml-auto w-full"
                 )}
             >
@@ -1787,12 +1787,12 @@ export const Messages = forwardRef<
         return (
             <>
                 <div
-                    className="min-h-[90dvh] overflow-y-auto p-4 pt-6 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
+                    className="min-h-[calc(100dvh-var(--app-header-height)+var(--chat-composer-overlap))] overflow-y-auto p-4 pt-6 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
                     ref={scrollerRef}
                 >
                     <div
                         className={cn(
-                            "mx-auto w-full pb-16",
+                            "mx-auto w-full pb-30",
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     >

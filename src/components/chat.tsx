@@ -468,7 +468,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 className={
                     isEmpty
                         ? "absolute inset-0 z-[10] flex flex-col items-center gap-4 overflow-y-auto overscroll-contain px-4 py-3 [justify-content:safe_center] sm:gap-6 [@media(min-height:820px)]:gap-8"
-                        : "md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center"
+                        : "md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6"
                 }
                 style={
                     isEmpty
@@ -591,7 +591,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                     )}
                 </AnimatePresence>
 
-                <div className={isEmpty ? "w-full max-w-4xl" : "w-full"}>
+                <div className={isEmpty ? "w-full max-w-4xl" : "relative z-10 w-full"}>
                     <MultimodalInput
                         ref={multimodalInputRef}
                         onSubmit={handleInputSubmitWithScroll}
@@ -605,6 +605,12 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         onInputActivityChange={setIsComposerActive}
                     />
                 </div>
+                {!isEmpty && (
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]"
+                    />
+                )}
             </motion.div>
         </motion.div>
     )

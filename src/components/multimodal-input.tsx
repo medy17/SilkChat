@@ -122,7 +122,7 @@ import {
     SquareTerminal,
     X
 } from "lucide-react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import {
     forwardRef,
     useCallback,
@@ -2188,6 +2188,12 @@ export const MultimodalInput = forwardRef<
 
     const [isClient, setIsClient] = useState(false)
     const isNewChatComposer = !threadId && messages.length === 0
+    const isCompactTouchComposer =
+        isTouchDevice &&
+        !isNewChatComposer &&
+        !isInputFocused &&
+        extendedFiles.length === 0 &&
+        localUploadingFiles.length === 0
 
     const loadWebTrends = useCallback(async () => {
         if (webTrendsLoaded || webTrendsLoading) return
@@ -2321,7 +2327,7 @@ export const MultimodalInput = forwardRef<
     return (
         <>
             {voiceInputEnabled && (voiceState.isRecording || voiceState.isTranscribing) && (
-                <div className="@container w-full md:px-2">
+                <div className="@container w-full px-1">
                     <VoiceRecorder
                         state={voiceState}
                         onStop={stopRecording}
@@ -2335,6 +2341,19 @@ export const MultimodalInput = forwardRef<
 
             <div
                 ref={composerViewportRef}
+                onBlurCapture={(event) => {
+                    const nextTarget =
+                        event.relatedTarget instanceof Element ? event.relatedTarget : null
+
+                    if (
+                        (nextTarget && event.currentTarget.contains(nextTarget)) ||
+                        nextTarget?.closest("[data-radix-popper-content-wrapper]")
+                    ) {
+                        return
+                    }
+
+                    setIsInputFocused(false)
+                }}
                 className={cn(
                     "@container w-full px-1",
                     (voiceState.isRecording || voiceState.isTranscribing) && "hidden"
@@ -2347,7 +2366,8 @@ export const MultimodalInput = forwardRef<
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={240}
                     className={cn(
-                        "mx-auto w-full",
+                        "mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        isCompactTouchComposer && "p-2",
                         isNewChatComposer && "rounded-[var(--radius-lg)]",
                         getChatWidthClass(chatWidthState.chatWidth)
                     )}
@@ -2358,18 +2378,144 @@ export const MultimodalInput = forwardRef<
                             {localUploadingFiles.map(renderLocalUploadingFile)}
                         </div>
                     )}
-                    <PromptInputTextarea
-                        placeholder={
-                            isImageModel
-                                ? "Describe the image you want to generate..."
-                                : "Ask me anything..."
-                        }
-                        onChange={(event) => setInputValue(event.currentTarget.value)}
-                        onFocus={() => setIsInputFocused(true)}
-                        onBlur={() => setIsInputFocused(false)}
+
+                    <input
+                        type="file"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                        ref={uploadInputRef}
+                        accept={getFileAcceptAttribute(modelSupportsVision)}
                     />
 
-                    <PromptInputActions className="flex items-center gap-2 pt-2">
+                    <motion.div
+                        layout
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className={cn(
+                            "flex w-full items-start",
+                            isCompactTouchComposer && "gap-1"
+                        )}
+                    >
+                        <AnimatePresence initial={false}>
+                            {isCompactTouchComposer && !isImageModel && (
+                                <motion.div
+                                    key="compact-attach"
+                                    initial={{ opacity: 0, scale: 0.9, width: 0 }}
+                                    animate={{ opacity: 1, scale: 1, width: 44 }}
+                                    exit={{ opacity: 0, scale: 0.94, width: 0 }}
+                                    transition={{
+                                        duration: 0.18,
+                                        ease: [0.16, 1, 0.3, 1]
+                                    }}
+                                    className="shrink-0 overflow-hidden"
+                                >
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Attach files"
+                                        onClick={() => uploadInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="size-11 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                        style={{ borderRadius: "var(--radius-md)" }}
+                                    >
+                                        {uploading ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : (
+                                            <Paperclip className="-rotate-45 size-4" />
+                                        )}
+                                    </Button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <motion.div
+                            layout
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="min-w-0 flex-1"
+                        >
+                            <PromptInputTextarea
+                                placeholder={
+                                    isImageModel
+                                        ? "Describe the image you want to generate..."
+                                        : "Ask me anything..."
+                                }
+                                onChange={(event) => setInputValue(event.currentTarget.value)}
+                                onFocus={() => setIsInputFocused(true)}
+                                className={cn(
+                                    isCompactTouchComposer &&
+                                        "!h-11 !min-h-11 overflow-hidden whitespace-nowrap"
+                                )}
+                            />
+                        </motion.div>
+
+                        <AnimatePresence initial={false} mode="popLayout">
+                            {isCompactTouchComposer && (
+                                <motion.div
+                                    key="compact-submit"
+                                    layout
+                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    className="shrink-0"
+                                >
+                                    <motion.div
+                                        layoutId="composer-primary-action"
+                                        transition={{
+                                            layout: {
+                                                duration: 0.3,
+                                                ease: [0.16, 1, 0.3, 1]
+                                            }
+                                        }}
+                                    >
+                                        <Button
+                                            variant="default"
+                                            size="icon"
+                                            aria-label={
+                                                isImageGenerationPending && !isLoading
+                                                    ? "Wait for image generation to finish"
+                                                    : voiceInputEnabled &&
+                                                        isInputEmpty &&
+                                                        !isLoading
+                                                      ? "Voice input"
+                                                      : isLoading
+                                                        ? "Stop generation"
+                                                        : "Send message"
+                                            }
+                                            className="size-11"
+                                            style={{ borderRadius: "var(--radius-md)" }}
+                                            disabled={status === "submitted" || uploading}
+                                            onClick={handleVoiceButtonClick}
+                                            type="submit"
+                                        >
+                                            {isLoading ? (
+                                                <Square className="size-5 fill-current" />
+                                            ) : status === "submitted" ? (
+                                                <Loader2 className="size-5 animate-spin" />
+                                            ) : voiceInputEnabled && isInputEmpty ? (
+                                                <Mic className="size-5" />
+                                            ) : (
+                                                <ArrowUp className="size-5" />
+                                            )}
+                                        </Button>
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+
+                    <AnimatePresence initial={false}>
+                        {!isCompactTouchComposer && (
+                            <motion.div
+                                key="expanded-toolbar"
+                                initial={{ height: 0, opacity: 0, y: 6 }}
+                                animate={{ height: "auto", opacity: 1, y: 0 }}
+                                exit={{ height: 0, opacity: 0, y: 4 }}
+                                transition={{
+                                    duration: 0.26,
+                                    ease: [0.16, 1, 0.3, 1]
+                                }}
+                                className="overflow-hidden"
+                            >
+                                <PromptInputActions className="flex items-center gap-2 pt-2">
                         <motion.div
                             layout
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
@@ -2397,14 +2543,6 @@ export const MultimodalInput = forwardRef<
                             )}
                             <PersonaSelector threadId={threadId} />
 
-                            <input
-                                type="file"
-                                multiple
-                                onChange={handleFileChange}
-                                className="hidden"
-                                ref={uploadInputRef}
-                                accept={getFileAcceptAttribute(modelSupportsVision)}
-                            />
                             <ComposerDesktopActions
                                 state={composerToolbar}
                                 threadId={threadId}
@@ -2457,27 +2595,41 @@ export const MultimodalInput = forwardRef<
                                         : "Send message"
                             }
                         >
-                            <Button
-                                variant="default"
-                                size="icon"
-                                className="size-8 shrink-0"
-                                style={{ borderRadius: "var(--radius-md)" }}
-                                disabled={status === "submitted" || uploading}
-                                onClick={handleVoiceButtonClick}
-                                type="submit"
+                            <motion.div
+                                layoutId="composer-primary-action"
+                                transition={{
+                                    layout: {
+                                        duration: 0.3,
+                                        ease: [0.16, 1, 0.3, 1]
+                                    }
+                                }}
+                                className="shrink-0"
                             >
-                                {isLoading ? (
-                                    <Square className="size-5 fill-current" />
-                                ) : status === "submitted" ? (
-                                    <Loader2 className="size-5 animate-spin" />
-                                ) : voiceInputEnabled && isInputEmpty ? (
-                                    <Mic className="size-5" />
-                                ) : (
-                                    <ArrowUp className="size-5" />
-                                )}
-                            </Button>
+                                <Button
+                                    variant="default"
+                                    size="icon"
+                                    className="size-8"
+                                    style={{ borderRadius: "var(--radius-md)" }}
+                                    disabled={status === "submitted" || uploading}
+                                    onClick={handleVoiceButtonClick}
+                                    type="submit"
+                                >
+                                    {isLoading ? (
+                                        <Square className="size-5 fill-current" />
+                                    ) : status === "submitted" ? (
+                                        <Loader2 className="size-5 animate-spin" />
+                                    ) : voiceInputEnabled && isInputEmpty ? (
+                                        <Mic className="size-5" />
+                                    ) : (
+                                        <ArrowUp className="size-5" />
+                                    )}
+                                </Button>
+                            </motion.div>
                         </PromptInputAction>
-                    </PromptInputActions>
+                                </PromptInputActions>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </PromptInput>
 
                 {showIntentShortcuts &&

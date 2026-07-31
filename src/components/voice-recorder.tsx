@@ -62,9 +62,10 @@ export const VoiceRecorder = memo(({ state, onStop, className }: VoiceRecorderPr
     return (
         <div
             className={cn(
-                "relative flex items-center justify-between gap-4 rounded-t-lg border-2 border-input bg-background/80 p-4 shadow-lg backdrop-blur-lg md:rounded-lg",
+                "relative flex items-center justify-between gap-3 border border-input bg-background/80 p-2 shadow-xs backdrop-blur-lg dark:border-transparent dark:bg-sidebar",
                 className
             )}
+            style={{ borderRadius: "var(--radius-lg)" }}
         >
             {/* Left side - Recording indicator and waveform */}
             <div className="flex flex-1 items-center gap-4">
@@ -94,7 +95,8 @@ export const VoiceRecorder = memo(({ state, onStop, className }: VoiceRecorderPr
             <Button
                 variant="default"
                 size="icon"
-                className="size-8 shrink-0 rounded-md"
+                className="size-11 shrink-0"
+                style={{ borderRadius: "var(--radius-md)" }}
                 onClick={onStop}
                 disabled={isTranscribing}
             >
