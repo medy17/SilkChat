@@ -2,13 +2,12 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { SHORTCUTS, getShortcutDisplayTokens } from "@/lib/keyboard-shortcuts"
 import { getLastChatRoute, getLastLibraryRoute } from "@/lib/last-chat-route"
 import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
-import { Image as ImageIcon, MessageSquare, Search } from "lucide-react"
+import { Image as ImageIcon, MessageSquare, Search, SquarePen } from "lucide-react"
 import { type MouseEvent, useRef } from "react"
 import { LibraryLogo, LogoMark } from "../logo"
 import { ImportThreadButton } from "./import-thread-button"
@@ -29,7 +28,6 @@ export function ThreadsSidebarHeader({
     const convex = useConvex()
     const hasPrefetchedLibraryRef = useRef(false)
     const hasPrefetchedChatRef = useRef(false)
-    const searchShortcutTokens = getShortcutDisplayTokens(SHORTCUTS.searchChats)
 
     const prefetchThread = (threadId: string) => {
         convex
@@ -194,17 +192,19 @@ export function ThreadsSidebarHeader({
                 <div className="pointer-events-none flex flex-col overflow-hidden [&>*]:pointer-events-auto">
                     <div className="my-2 h-px w-full shrink-0" />
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1">
                         <Link
                             to="/"
                             onClick={onNewChat}
                             className={cn(
-                                buttonVariants({ variant: "default" }),
-                                "w-full justify-center"
+                                buttonVariants({ variant: "ghost" }),
+                                "h-9 w-full justify-start gap-2 px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                             )}
+                            style={{ borderRadius: "var(--radius-lg)" }}
                             tabIndex={isLibraryMode ? -1 : 0}
                         >
-                            New Chat
+                            <SquarePen className="size-4 shrink-0" />
+                            <span>New Chat</span>
                         </Link>
 
                         <div
@@ -218,30 +218,13 @@ export function ThreadsSidebarHeader({
 
                         <Button
                             onClick={onSearchClick}
-                            variant="outline"
+                            variant="ghost"
+                            className="h-9 w-full justify-start gap-2 px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            style={{ borderRadius: "var(--radius-lg)" }}
                             tabIndex={isLibraryMode ? -1 : 0}
                         >
-                            <Search className="h-4 w-4" />
-                            Search chats
-                            <div className="ml-auto flex items-center gap-1 text-xs">
-                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-muted-foreground">
-                                    {searchShortcutTokens.map((token, index) => (
-                                        <span
-                                            key={token}
-                                            className="inline-flex items-center gap-1"
-                                        >
-                                            {index > 0 ? <span className="text-xs">+</span> : null}
-                                            <span
-                                                className={
-                                                    token.length === 1 ? "text-xs" : "text-sm"
-                                                }
-                                            >
-                                                {token}
-                                            </span>
-                                        </span>
-                                    ))}
-                                </kbd>
-                            </div>
+                            <Search className="size-4 shrink-0" />
+                            <span>Search chats</span>
                         </Button>
                     </div>
                 </div>

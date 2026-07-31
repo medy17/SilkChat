@@ -338,9 +338,14 @@ const uploadImportSource = async ({
 
 export function ImportThreadButton({ onClick }: { onClick: () => void }) {
     return (
-        <Button variant="outline" onClick={onClick} className="w-full justify-center">
-            <FileUp className="h-4 w-4" />
-            Import Thread
+        <Button
+            variant="ghost"
+            onClick={onClick}
+            className="h-9 w-full justify-start gap-2 px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            style={{ borderRadius: "var(--radius-lg)" }}
+        >
+            <FileUp className="size-4 shrink-0" />
+            <span>Import Thread</span>
         </Button>
     )
 }
