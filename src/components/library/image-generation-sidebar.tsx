@@ -1327,7 +1327,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             referenceCount={referenceFiles.length}
                                                         />
                                                     </div>
-                                                    <span className="mt-0.5 text-[0.625rem] opacity-70">
+                                                    <span className="mt-0.5 text-[0.8rem] leading-tight opacity-70">
                                                         {modelPlanLocked
                                                             ? "Pro plan required"
                                                             : modelReferenceLocked
@@ -1550,7 +1550,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             </div>
                                             <span
                                                 className={cn(
-                                                    "font-medium text-[0.5625rem]",
+                                                    "font-medium text-[0.6rem] leading-none",
                                                     isSelected ? "text-foreground" : ""
                                                 )}
                                             >
@@ -1607,7 +1607,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         >
                                             <span
                                                 className={cn(
-                                                    "font-medium text-xs",
+                                                    "font-medium text-[0.9375rem] leading-none",
                                                     isSelected ? "text-foreground" : ""
                                                 )}
                                             >

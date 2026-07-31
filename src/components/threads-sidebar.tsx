@@ -897,7 +897,7 @@ export function ThreadsSidebar() {
 
     return (
         <>
-            <Sidebar variant="inset">
+            <Sidebar variant="inset" className="font-normal">
                 <ThreadsSidebarHeader
                     onNewChat={handleNewChatClick}
                     onImportClick={handleImportClick}

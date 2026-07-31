@@ -483,7 +483,7 @@ const welcomeListIntro = {
 
 const welcomeListItem = {
     color: "#525252",
-    fontSize: "15px",
+    fontSize: "16px",
     lineHeight: "1.6",
     margin: "0 0 8px"
 }
@@ -495,7 +495,7 @@ const divider = {
 
 const welcomeSupportText = {
     color: "#525252",
-    fontSize: "15px",
+    fontSize: "16px",
     lineHeight: "1.6",
     margin: "0 0 20px"
 }
@@ -507,7 +507,7 @@ const inlineLink = {
 
 const welcomeSignature = {
     color: "#000000",
-    fontSize: "15px",
+    fontSize: "16px",
     lineHeight: "1.6",
     margin: "0"
 }

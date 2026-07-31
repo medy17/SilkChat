@@ -929,7 +929,10 @@ const GeneratedImageItem = memo(
                                     : "opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
                             )}
                         >
-                            <div className="relative min-h-[2rem] overflow-hidden text-white text-xs">
+                            <div
+                                className="relative min-h-[2rem] overflow-hidden text-white"
+                                style={{ fontSize: "12px", fontWeight: 400, lineHeight: "16px" }}
+                            >
                                 <p
                                     className={cn(
                                         "absolute inset-0 line-clamp-2 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
