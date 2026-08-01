@@ -147,6 +147,7 @@ const getOpenRouterProviderModelId = (model: Pick<SharedModel, "adapters">) => {
 type OpenRouterMetadataRecord = {
     contextLength?: number
     maxCompletionTokens?: number
+    knowledgeCutoff?: string
     inputUsdPer1MTokens?: number
     outputUsdPer1MTokens?: number
     fetchedAt?: number
@@ -185,7 +186,12 @@ const getOpenRouterMetadataByProviderModelId = async (
 const overlayOpenRouterMetadata = <
     TModel extends Pick<
         SharedModel,
-        "adapters" | "contextLength" | "maxTokens" | "inputUsdPer1MTokens" | "outputUsdPer1MTokens"
+        | "adapters"
+        | "contextLength"
+        | "maxTokens"
+        | "knowledgeCutoff"
+        | "inputUsdPer1MTokens"
+        | "outputUsdPer1MTokens"
     >
 >(
     model: TModel,
@@ -200,6 +206,7 @@ const overlayOpenRouterMetadata = <
         ...model,
         contextLength: model.contextLength ?? metadata.contextLength,
         maxTokens: model.maxTokens ?? metadata.maxCompletionTokens,
+        knowledgeCutoff: model.knowledgeCutoff ?? metadata.knowledgeCutoff,
         inputUsdPer1MTokens: model.inputUsdPer1MTokens ?? metadata.inputUsdPer1MTokens,
         outputUsdPer1MTokens: model.outputUsdPer1MTokens ?? metadata.outputUsdPer1MTokens
     }
@@ -257,13 +264,13 @@ export const getSharedModels = query({
             ctx,
             sharedModels
         )
-        const pricingVersion = Math.max(
+        const metadataVersion = Math.max(
             0,
             ...Object.values(metadataByProviderModelId).map((metadata) => metadata.fetchedAt ?? 0)
         )
 
         return {
-            version: `${SHARED_MODELS_VERSION}:${pricingVersion}`,
+            version: `${SHARED_MODELS_VERSION}:${metadataVersion}`,
             models: sharedModels.map((model) =>
                 overlayOpenRouterMetadata(model, metadataByProviderModelId)
             )

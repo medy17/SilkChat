@@ -72,6 +72,7 @@ vi.mock("../../convex/lib/models", () => ({
             adapters: ["i3-openai:shared-text", "openrouter:or-shared", "openai:shared-text"],
             contextLength: 128000,
             maxTokens: 8192,
+            knowledgeCutoff: "2024-01-01",
             inputUsdPer1MTokens: 1.25,
             outputUsdPer1MTokens: 10,
             hostedContextLength: 48000,
@@ -282,6 +283,7 @@ describe("settings", () => {
                             providerModelId: "or-shared",
                             contextLength: 256000,
                             maxCompletionTokens: 12000,
+                            knowledgeCutoff: "2025-01-31",
                             inputUsdPer1MTokens: 0.5,
                             outputUsdPer1MTokens: 2,
                             fetchedAt: 123,
@@ -353,10 +355,12 @@ describe("settings", () => {
         ])
     })
 
-    it("adds synchronized OpenRouter pricing to the shared model catalog", async () => {
+    it("adds synchronized OpenRouter metadata to the shared model catalog", async () => {
         const sharedModel = SETTINGS_TEST_MODELS[0]
+        const originalKnowledgeCutoff = sharedModel.knowledgeCutoff
         const originalInputPrice = sharedModel.inputUsdPer1MTokens
         const originalOutputPrice = sharedModel.outputUsdPer1MTokens
+        sharedModel.knowledgeCutoff = undefined
         sharedModel.inputUsdPer1MTokens = undefined
         sharedModel.outputUsdPer1MTokens = undefined
 
@@ -369,6 +373,7 @@ describe("settings", () => {
                         return {
                             provider: "openrouter",
                             providerModelId: "or-shared",
+                            knowledgeCutoff: "2025-01-31",
                             inputUsdPer1MTokens: 0.5,
                             outputUsdPer1MTokens: 3,
                             fetchedAt: 456,
@@ -386,10 +391,12 @@ describe("settings", () => {
             expect(result.version).toBe("test-version:456")
             expect(result.models[0]).toMatchObject({
                 id: "shared-text",
+                knowledgeCutoff: "2025-01-31",
                 inputUsdPer1MTokens: 0.5,
                 outputUsdPer1MTokens: 3
             })
         } finally {
+            sharedModel.knowledgeCutoff = originalKnowledgeCutoff
             sharedModel.inputUsdPer1MTokens = originalInputPrice
             sharedModel.outputUsdPer1MTokens = originalOutputPrice
         }

@@ -55,6 +55,7 @@ describe("model_provider_metadata", () => {
                     {
                         id: "openai/gpt-test",
                         context_length: 128000,
+                        knowledge_cutoff: "2025-06-30",
                         pricing: {
                             prompt: "0.00000125",
                             completion: "0.0000004"
@@ -84,12 +85,36 @@ describe("model_provider_metadata", () => {
                     providerModelId: "openai/gpt-test",
                     contextLength: 128000,
                     maxCompletionTokens: 8192,
+                    knowledgeCutoff: "2025-06-30",
                     inputUsdPer1MTokens: 1.25,
                     outputUsdPer1MTokens: 0.4,
                     source: "openrouter"
                 })
             ]
         })
+    })
+
+    it("ignores missing and malformed OpenRouter knowledge cutoffs", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: [
+                    { id: "openai/no-cutoff", knowledge_cutoff: null },
+                    { id: "openai/bad-cutoff", knowledge_cutoff: "summer 2025" }
+                ]
+            })
+        })
+        const ctx = {
+            runMutation: vi.fn().mockResolvedValue({ upserted: 2 })
+        }
+
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+
+        const models = ctx.runMutation.mock.calls[0][1].models
+        expect(models).toHaveLength(2)
+        expect(models.every((model: { knowledgeCutoff?: string }) => !model.knowledgeCutoff)).toBe(
+            true
+        )
     })
 
     it("uses canonical OpenRouter slugs for versioned Anthropic and xAI models", () => {

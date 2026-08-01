@@ -5,6 +5,7 @@ export const ModelProviderMetadata = v.object({
     providerModelId: v.string(),
     contextLength: v.optional(v.number()),
     maxCompletionTokens: v.optional(v.number()),
+    knowledgeCutoff: v.optional(v.string()),
     inputUsdPer1MTokens: v.optional(v.number()),
     outputUsdPer1MTokens: v.optional(v.number()),
     fetchedAt: v.number(),

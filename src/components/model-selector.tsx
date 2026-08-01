@@ -502,12 +502,28 @@ const getModelAbilities = (model: DisplayModel) =>
         ? ["image_generation", ...model.abilities]
         : model.abilities.filter((ability) => ability !== "effort_control")
 
-const FeatureBadge = ({ ability }: { ability: string }) => (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-sm">
-        {renderAbilityIcon(ability, "size-4")}
-        <span>{getAbilityTooltip(ability)}</span>
-    </div>
-)
+const FEATURE_COLORS: Record<string, string> = {
+    vision: "var(--chart-2)",
+    reasoning: "var(--chart-3)",
+    effort_control: "var(--chart-4)",
+    function_calling: "var(--chart-1)",
+    native_pdf: "var(--chart-5)",
+    image_generation: "var(--chart-2)"
+}
+
+const FeatureBadge = ({ ability }: { ability: string }) => {
+    const featureColor = FEATURE_COLORS[ability] ?? "var(--primary)"
+
+    return (
+        <div
+            className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--feature-color)_28%,transparent)] bg-[color-mix(in_oklab,var(--feature-color)_12%,transparent)] px-3 py-1.5 text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))] text-sm"
+            style={{ "--feature-color": featureColor } as React.CSSProperties}
+        >
+            {renderAbilityIcon(ability, "size-4")}
+            <span>{getAbilityTooltip(ability)}</span>
+        </div>
+    )
+}
 
 const AdminOnlyModelBadge = ({ className }: { className?: string }) => (
     <Badge
@@ -527,6 +543,12 @@ const NewModelBadge = () => (
     </Badge>
 )
 
+const BENCHMARK_CATEGORY_COLORS: Record<string, string> = {
+    intelligence: "var(--chart-2)",
+    coding: "var(--chart-1)",
+    math: "var(--chart-3)"
+}
+
 const BenchmarkProgress = ({ value, label }: { value: number; label: string }) => {
     const normalizedValue = Math.max(0, Math.min(value, 100))
     const radius = 26
@@ -534,7 +556,7 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
     const strokeOffset = circumference * (1 - normalizedValue / 100)
 
     return (
-        <div className="relative size-18 shrink-0">
+        <div className="relative size-14 shrink-0 text-[var(--benchmark-color)]">
             <svg className="-rotate-90 size-full" viewBox="0 0 64 64" aria-hidden="true">
                 <circle
                     cx="32"
@@ -557,7 +579,7 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
                     strokeDashoffset={strokeOffset}
                 />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-semibold text-sm">
+            <div className="absolute inset-0 flex items-center justify-center font-semibold text-[0.725rem]">
                 {label}
             </div>
         </div>
@@ -574,43 +596,43 @@ const BenchmarkCard = ({ card }: { card: ModelBenchmarkPayload["cards"][number] 
             <Calculator className="size-5" />
         ) : null
     const showRing = card.value >= 0 && card.value <= 100 && icon !== null
+    const categoryColor = BENCHMARK_CATEGORY_COLORS[card.key] ?? "var(--primary)"
 
     return (
-        <div className="rounded-[var(--radius-xl)] border bg-background/40 p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-3">
-                        {icon ? (
-                            <div className="flex size-9 items-center justify-center rounded-[var(--radius-lg)] border border-border/70 bg-secondary/40 text-muted-foreground">
-                                {icon}
-                            </div>
-                        ) : null}
-                        <div className="min-w-0">
-                            <p className="font-medium text-sm">{card.title}</p>
-                            {card.subtitle ? (
-                                <p className="mt-1 text-muted-foreground text-xs">
-                                    {card.subtitle}
-                                </p>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-                {showRing ? (
-                    <div className="self-center sm:self-start">
-                        <BenchmarkProgress value={card.value} label={card.displayValue} />
+        <div
+            className="min-w-0 rounded-[var(--radius-xl)] border border-[color-mix(in_oklab,var(--benchmark-color)_32%,var(--border))] bg-background/40 p-3"
+            style={{ "--benchmark-color": categoryColor } as React.CSSProperties}
+        >
+            <div className="flex items-start justify-between gap-3">
+                {icon ? (
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border border-[color-mix(in_oklab,var(--benchmark-color)_24%,transparent)] bg-[color-mix(in_oklab,var(--benchmark-color)_12%,transparent)] text-[var(--benchmark-color)]">
+                        {icon}
                     </div>
                 ) : (
-                    <div className="shrink-0 self-start rounded-full border border-border/70 bg-secondary/40 px-3 py-2 font-semibold text-sm">
+                    <div />
+                )}
+                {showRing ? (
+                    <BenchmarkProgress value={card.value} label={card.displayValue} />
+                ) : (
+                    <div className="shrink-0 rounded-full border border-[color-mix(in_oklab,var(--benchmark-color)_24%,transparent)] bg-[color-mix(in_oklab,var(--benchmark-color)_12%,transparent)] px-3 py-2 font-semibold text-[var(--benchmark-color)] text-sm">
                         {card.displayValue}
                     </div>
                 )}
             </div>
+            <div className="mt-3 min-w-0">
+                <p className="font-medium text-sm">{card.title}</p>
+                {card.subtitle ? (
+                    <p className="mt-1 text-muted-foreground text-xs">{card.subtitle}</p>
+                ) : null}
+            </div>
             {(card.breakdownLabel || card.breakdownValue) && (
-                <div className="mt-4 flex items-center justify-between gap-3 border-border/70 border-t pt-4 text-sm">
+                <div className="mt-3 flex items-center justify-between gap-3 border-border/70 border-t pt-3 text-xs">
                     <span className="min-w-0 text-muted-foreground">
                         {card.breakdownLabel ?? "Benchmark"}
                     </span>
-                    <span className="shrink-0 font-medium">{card.breakdownValue}</span>
+                    <span className="shrink-0 font-medium text-[var(--benchmark-color)]">
+                        {card.breakdownValue}
+                    </span>
                 </div>
             )}
         </div>
@@ -624,9 +646,9 @@ const BenchmarkSection = ({
 }) => {
     if (!benchmarkState || benchmarkState.status === "loading") {
         return (
-            <div className="space-y-3">
-                <Skeleton className="h-28 rounded-[var(--radius-xl)]" />
-                <Skeleton className="h-28 rounded-[var(--radius-xl)]" />
+            <div className="grid max-w-96 grid-cols-2 gap-2">
+                <Skeleton className="h-40 rounded-[var(--radius-xl)]" />
+                <Skeleton className="h-40 rounded-[var(--radius-xl)]" />
             </div>
         )
     }
@@ -641,22 +663,8 @@ const BenchmarkSection = ({
     }
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-                <p className="font-medium text-muted-foreground text-sm">
-                    via {benchmarkState.payload.sourceLabel}
-                </p>
-                <a
-                    href={benchmarkState.payload.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
-                >
-                    Source
-                    <ExternalLink className="size-3" />
-                </a>
-            </div>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+        <div className="max-w-96">
+            <div className="grid grid-cols-2 gap-2">
                 {benchmarkState.payload.cards.map((card) => (
                     <BenchmarkCard key={card.key} card={card} />
                 ))}
@@ -682,23 +690,32 @@ const ModelDetailPanel = ({
     const developerLabel =
         sharedModel?.developer?.trim() ||
         (isCustom ? getProviderDisplayName(model.providerId, currentProviders) : providerLabel)
+    const headerIcon = getProviderSectionIcon(getModelSectionId(model), [model], "size-12")
 
     return (
         <div className="flex h-full min-h-0 flex-col bg-background">
             {isMobile ? (
-                <DrawerHeader className="shrink-0 pb-0">
-                    <DrawerTitle className="truncate text-lg">{model.name}</DrawerTitle>
-                    <p className="mt-1 text-muted-foreground text-sm">
-                        {getModelShortDescription(model)}
-                    </p>
+                <DrawerHeader className="shrink-0 pb-0 text-left">
+                    <div className="flex items-stretch gap-4">
+                        <div className="flex w-12 shrink-0 items-center justify-center text-foreground">
+                            {headerIcon}
+                        </div>
+                        <div className="min-w-0">
+                            <DrawerTitle className="truncate text-lg">{model.name}</DrawerTitle>
+                            <p className="mt-1 text-muted-foreground text-sm">
+                                {getModelShortDescription(model)}
+                            </p>
+                        </div>
+                    </div>
                 </DrawerHeader>
             ) : (
                 <div className="p-4 pb-0 md:p-5 md:pb-0">
-                    <div className="mb-4 flex items-start justify-between gap-3">
+                    <div className="mb-5 flex items-stretch gap-4">
+                        <div className="flex w-12 shrink-0 items-center justify-center text-foreground">
+                            {headerIcon}
+                        </div>
                         <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                                <h3 className="truncate font-semibold text-lg">{model.name}</h3>
-                            </div>
+                            <h3 className="truncate font-semibold text-lg">{model.name}</h3>
                             <p className="mt-1 text-muted-foreground text-sm">
                                 {getModelShortDescription(model)}
                             </p>
@@ -708,7 +725,7 @@ const ModelDetailPanel = ({
             )}
 
             <ScrollArea className="min-h-0 flex-1">
-                <div className={cn("space-y-6", isMobile ? "px-4 pt-3 pb-4" : "px-4 pb-2 md:px-5")}>
+                <div className={cn("space-y-6", isMobile ? "px-4 pt-5 pb-4" : "px-4 pb-2 md:px-5")}>
                     <section>
                         <h4 className="font-semibold text-base">Description</h4>
                         <p className="mt-2 text-muted-foreground text-sm leading-7">
@@ -730,7 +747,7 @@ const ModelDetailPanel = ({
                         </section>
                     )}
 
-                    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <section className="grid grid-cols-2 gap-x-4 gap-y-5">
                         <div>
                             <h4 className="font-semibold text-base">Provider</h4>
                             <p className="mt-2 text-muted-foreground text-sm">{providerLabel}</p>
@@ -739,26 +756,36 @@ const ModelDetailPanel = ({
                             <h4 className="font-semibold text-base">Developer</h4>
                             <p className="mt-2 text-muted-foreground text-sm">{developerLabel}</p>
                         </div>
-                        {sharedModel?.knowledgeCutoff && (
-                            <div>
-                                <h4 className="font-semibold text-base">Knowledge Cutoff</h4>
-                                <p className="mt-2 text-muted-foreground text-sm">
-                                    {sharedModel.knowledgeCutoff}
-                                </p>
-                            </div>
-                        )}
-                        {sharedModel?.addedOn && (
-                            <div>
-                                <h4 className="font-semibold text-base">Added On</h4>
-                                <p className="mt-2 text-muted-foreground text-sm">
-                                    {sharedModel.addedOn}
-                                </p>
-                            </div>
-                        )}
+                        <div>
+                            <h4 className="font-semibold text-base">Knowledge Cutoff</h4>
+                            <p className="mt-2 text-muted-foreground text-sm">
+                                {sharedModel?.knowledgeCutoff ?? "Not specified"}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-base">Added On</h4>
+                            <p className="mt-2 text-muted-foreground text-sm">
+                                {sharedModel?.addedOn ?? "Not specified"}
+                            </p>
+                        </div>
                     </section>
 
                     <section>
-                        <h4 className="font-semibold text-base">Benchmark Performance</h4>
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <h4 className="font-semibold text-base">Benchmark Performance</h4>
+                            {benchmarkState?.status === "ready" &&
+                                benchmarkState.payload.available && (
+                                    <a
+                                        href={benchmarkState.payload.sourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                                    >
+                                        via {benchmarkState.payload.sourceLabel}
+                                        <ExternalLink className="size-3" />
+                                    </a>
+                                )}
+                        </div>
                         <div className="mt-3">
                             <BenchmarkSection benchmarkState={benchmarkState} />
                         </div>
@@ -1017,7 +1044,8 @@ const ModelCard = React.memo(function ModelCard({
     onToggleFavorite,
     isNewRelease,
     badgeLabel,
-    badgeVariant = "secondary"
+    badgeVariant = "secondary",
+    mobile
 }: {
     model: DisplayModel
     selectedModel: string
@@ -1031,6 +1059,7 @@ const ModelCard = React.memo(function ModelCard({
     isNewRelease: boolean
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
+    mobile: boolean
 }) {
     const isSelected = model.id === selectedModel
     const cardRef = React.useRef<HTMLDivElement>(null)
@@ -1069,6 +1098,7 @@ const ModelCard = React.memo(function ModelCard({
             ref={cardRef}
             className={cn(
                 "relative w-full rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left transition-colors",
+                mobile && "border-input",
                 "hover:border-accent hover:bg-accent/10",
                 isSelected &&
                     "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10 ring-inset",
@@ -1714,6 +1744,7 @@ export function ModelSelector({
                         isFavorite={favoriteModelIds.includes(model.id)}
                         onToggleFavorite={toggleFavorite}
                         isNewRelease={newModelIds.has(model.id)}
+                        mobile={isMobile}
                         badgeLabel={
                             requiresNativePdf && !modelSupportsNativePdf(model)
                                 ? "PDF Required"

@@ -8,6 +8,7 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 type OpenRouterModel = {
     id?: unknown
     context_length?: unknown
+    knowledge_cutoff?: unknown
     pricing?: {
         prompt?: unknown
         completion?: unknown
@@ -27,6 +28,13 @@ const pricePerTokenToPerMillion = (value: unknown) => {
     return parsed === undefined ? undefined : Math.round(parsed * 1_000_000_000_000) / 1_000_000
 }
 
+const parseKnowledgeCutoff = (value: unknown) => {
+    if (typeof value !== "string") return undefined
+
+    const cutoff = value.trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(cutoff) ? cutoff : undefined
+}
+
 const normalizeOpenRouterModel = (model: OpenRouterModel, fetchedAt: number) => {
     if (typeof model.id !== "string" || !model.id.trim()) {
         return null
@@ -37,6 +45,7 @@ const normalizeOpenRouterModel = (model: OpenRouterModel, fetchedAt: number) => 
         providerModelId: model.id,
         contextLength: parsePositiveNumber(model.context_length),
         maxCompletionTokens: parsePositiveNumber(model.top_provider?.max_completion_tokens),
+        knowledgeCutoff: parseKnowledgeCutoff(model.knowledge_cutoff),
         inputUsdPer1MTokens: pricePerTokenToPerMillion(model.pricing?.prompt),
         outputUsdPer1MTokens: pricePerTokenToPerMillion(model.pricing?.completion),
         fetchedAt,
