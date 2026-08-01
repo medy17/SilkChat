@@ -33,6 +33,18 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "19rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
+const MOBILE_CLOSE_FALLBACK_MS = 400;
+
+const runAfterNextPaint = (action: () => void) => {
+	if (typeof window.requestAnimationFrame !== "function") {
+		window.setTimeout(action, 0);
+		return;
+	}
+
+	window.requestAnimationFrame(() => {
+		window.requestAnimationFrame(action);
+	});
+};
 //* new constants for sidebar resizing
 // The full aspect-ratio row needs 16rem, with another 3rem consumed by the
 // library section and inset-shell padding. Model rows fit within the same floor
@@ -46,6 +58,8 @@ type SidebarContext = {
 	setOpen: (open: boolean) => void;
 	openMobile: boolean;
 	setOpenMobile: (open: boolean) => void;
+	closeMobileThen: (action: () => void) => void;
+	completeMobileClose: () => void;
 	isMobile: boolean;
 	toggleSidebar: () => void;
 	//* new properties for sidebar resizing
@@ -57,11 +71,25 @@ type SidebarContext = {
 };
 
 const SidebarContext = React.createContext<SidebarContext | null>(null);
+const SidebarActionsContext = React.createContext<{
+	isMobile: boolean;
+	setOpenMobile: (open: boolean) => void;
+	closeMobileThen: (action: () => void) => void;
+} | null>(null);
 
 function useSidebar() {
 	const context = React.useContext(SidebarContext);
 	if (!context) {
 		throw new Error("useSidebar must be used within a SidebarProvider.");
+	}
+
+	return context;
+}
+
+function useSidebarActions() {
+	const context = React.useContext(SidebarActionsContext);
+	if (!context) {
+		throw new Error("useSidebarActions must be used within a SidebarProvider.");
 	}
 
 	return context;
@@ -110,6 +138,12 @@ const SidebarProvider = React.forwardRef<
 		});
 		
 		const [openMobile, setOpenMobile] = React.useState(false);
+		const openMobileRef = React.useRef(openMobile);
+		const isMobileRef = React.useRef(isMobile);
+		openMobileRef.current = openMobile;
+		isMobileRef.current = isMobile;
+		const pendingMobileCloseActionRef = React.useRef<(() => void) | null>(null);
+		const mobileCloseFallbackRef = React.useRef<number | null>(null);
 		//* new state for tracking is dragging rail
 		const [isDraggingRail, setIsDraggingRail] = React.useState(false);
 
@@ -123,6 +157,47 @@ const SidebarProvider = React.forwardRef<
 			return defaultOpen;
 		});
 		const open = openProp ?? _open;
+		const completeMobileClose = React.useCallback(() => {
+			if (mobileCloseFallbackRef.current !== null) {
+				window.clearTimeout(mobileCloseFallbackRef.current);
+				mobileCloseFallbackRef.current = null;
+			}
+
+			const action = pendingMobileCloseActionRef.current;
+			pendingMobileCloseActionRef.current = null;
+			if (action) {
+				runAfterNextPaint(action);
+			}
+		}, []);
+		const closeMobileThen = React.useCallback(
+			(action: () => void) => {
+				if (!isMobileRef.current || !openMobileRef.current) {
+					action();
+					return;
+				}
+
+				pendingMobileCloseActionRef.current = action;
+				setOpenMobile(false);
+
+				if (mobileCloseFallbackRef.current !== null) {
+					window.clearTimeout(mobileCloseFallbackRef.current);
+				}
+				mobileCloseFallbackRef.current = window.setTimeout(
+					completeMobileClose,
+					MOBILE_CLOSE_FALLBACK_MS,
+				);
+			},
+			[completeMobileClose],
+		);
+
+		React.useEffect(
+			() => () => {
+				if (mobileCloseFallbackRef.current !== null) {
+					window.clearTimeout(mobileCloseFallbackRef.current);
+				}
+			},
+			[],
+		);
 		const setOpen = React.useCallback(
 			(value: boolean | ((value: boolean) => boolean)) => {
 				const openState = typeof value === "function" ? value(open) : value;
@@ -184,6 +259,8 @@ const SidebarProvider = React.forwardRef<
 				isMobile,
 				openMobile,
 				setOpenMobile,
+				closeMobileThen,
+				completeMobileClose,
 				toggleSidebar,
 				//* new context for sidebar resizing
 				width,
@@ -198,6 +275,8 @@ const SidebarProvider = React.forwardRef<
 				setOpen,
 				isMobile,
 				openMobile,
+				closeMobileThen,
+				completeMobileClose,
 				//* remove setOpenMobile from dependencies because setOpenMobile are state setters created by useState
 				// setOpenMobile,
 				toggleSidebar,
@@ -208,10 +287,15 @@ const SidebarProvider = React.forwardRef<
 				setWidthWithPersistence,
 			],
 		);
+		const actionsContextValue = React.useMemo(
+			() => ({ isMobile, setOpenMobile, closeMobileThen }),
+			[closeMobileThen, isMobile],
+		);
 
 		return (
 			<SidebarContext.Provider value={contextValue}>
-				<TooltipProvider delayDuration={0}>
+				<SidebarActionsContext.Provider value={actionsContextValue}>
+					<TooltipProvider delayDuration={0}>
 					<div
 						style={
 							{
@@ -232,7 +316,8 @@ const SidebarProvider = React.forwardRef<
 					>
 						{children}
 					</div>
-				</TooltipProvider>
+					</TooltipProvider>
+				</SidebarActionsContext.Provider>
 			</SidebarContext.Provider>
 		);
 	},
@@ -263,6 +348,7 @@ const Sidebar = React.forwardRef<
 			state,
 			openMobile,
 			setOpenMobile,
+			completeMobileClose,
 			//* new property for tracking is dragging rail
 			isDraggingRail,
 		} = useSidebar();
@@ -295,6 +381,14 @@ const Sidebar = React.forwardRef<
 							} as React.CSSProperties
 						}
 						side={side}
+						onAnimationEnd={(event) => {
+							if (
+								event.target === event.currentTarget &&
+								event.currentTarget.dataset.state === "closed"
+							) {
+								completeMobileClose();
+							}
+						}}
 					>
 						<SheetTitle className="sr-only">Sidebar</SheetTitle>
 						<SheetDescription className="sr-only">
@@ -681,8 +775,6 @@ const SidebarMenuButton = React.forwardRef<
 		ref,
 	) => {
 		const Comp = asChild ? Slot : "button";
-		const { isMobile, state } = useSidebar();
-
 		const button = (
 			<Comp
 				ref={ref}
@@ -704,20 +796,32 @@ const SidebarMenuButton = React.forwardRef<
 			};
 		}
 
-		return (
-			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
-				<TooltipContent
-					side="right"
-					align="center"
-					hidden={state !== "collapsed" || isMobile}
-					{...tooltip}
-				/>
-			</Tooltip>
-		);
+		return <SidebarMenuButtonTooltip button={button} tooltip={tooltip} />;
 	},
 );
 SidebarMenuButton.displayName = "SidebarMenuButton";
+
+function SidebarMenuButtonTooltip({
+	button,
+	tooltip,
+}: {
+	button: React.ReactElement;
+	tooltip: React.ComponentProps<typeof TooltipContent>;
+}) {
+	const { isMobile, state } = useSidebar();
+
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>{button}</TooltipTrigger>
+			<TooltipContent
+				side="right"
+				align="center"
+				hidden={state !== "collapsed" || isMobile}
+				{...tooltip}
+			/>
+		</Tooltip>
+	);
+}
 
 const SidebarMenuAction = React.forwardRef<
 	HTMLButtonElement,
@@ -887,4 +991,5 @@ export {
 	SidebarSeparator,
 	SidebarTrigger,
 	useSidebar,
+	useSidebarActions,
 };

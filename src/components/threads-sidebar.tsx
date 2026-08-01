@@ -12,7 +12,7 @@ import {
     SidebarGroupContent,
     SidebarGroupLabel,
     SidebarRail,
-    useSidebar
+    useSidebarActions
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
@@ -187,7 +187,7 @@ export function ThreadsSidebar() {
     // actual pointer capability, not viewport width. Browser zoom shrinks the CSS
     // width below the mobile breakpoint, which must not disable mouse interactions.
     const isTouchDevice = useIsTouchDevice()
-    const { setOpenMobile } = useSidebar()
+    const { setOpenMobile } = useSidebarActions()
     const auth = useConvexAuth()
     const convex = useConvex()
     const togglePinMutation = useMutation(api.threads.togglePinThread)
@@ -245,37 +245,6 @@ export function ThreadsSidebar() {
     const resolvedProjects: SidebarProject[] = hasProjectsError ? [] : projects
 
     const isLoading = auth.isLoading && allThreads.length === 0 && resolvedProjects.length === 0
-
-    const hasPrefetchedBackgroundRef = useRef(false)
-    useEffect(() => {
-        if (!session?.user?.id || auth.isLoading) return
-        if (allThreads.length === 0 || hasPrefetchedBackgroundRef.current) return
-        hasPrefetchedBackgroundRef.current = true
-
-        let cancelled = false
-        const prefetchBackground = async () => {
-            const pinnedThreads = allThreads.filter((t) => t.pinned).slice(0, 10)
-            const recentThreads = allThreads.filter((t) => !t.pinned).slice(0, 10)
-            const threadsToPrefetch = [...pinnedThreads, ...recentThreads]
-
-            for (const thread of threadsToPrefetch) {
-                if (cancelled) break
-                // Stagger requests to prevent overwhelming the device/network
-                await new Promise((resolve) => setTimeout(resolve, 800))
-                if (cancelled) break
-
-                const threadId = thread._id as Id<"threads">
-                convex.query(api.threads.getThreadMessages, { threadId }).catch(() => {})
-                convex.query(api.threads.getThread, { threadId }).catch(() => {})
-            }
-        }
-
-        prefetchBackground()
-
-        return () => {
-            cancelled = true
-        }
-    }, [allThreads, auth.isLoading, convex, session?.user?.id])
 
     const sentinelRef = useInfiniteScroll({
         hasMore: status === "CanLoadMore",
@@ -951,7 +920,10 @@ export function ThreadsSidebar() {
                                     : "translate-x-4 opacity-0"
                             )}
                         >
-                            <ImageGenerationSidebar disabled={isLibraryArchiveView} />
+                            <ImageGenerationSidebar
+                                disabled={isLibraryArchiveView}
+                                shouldLoadCreditPlan={isLibraryMode}
+                            />
                         </div>
                     </div>
                 </div>

@@ -87,7 +87,7 @@ function NewFolderForm({
                             onClick={() => setFolderColor(color.id)}
                             disabled={isCreating}
                             className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-[border-color,transform]",
                                 color.class.split(" ").slice(1).join(" "),
                                 folderColor === color.id
                                     ? "scale-110 border-foreground"

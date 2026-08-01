@@ -1,11 +1,10 @@
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
-import type { Id } from "@/convex/_generated/dataModel"
 import { getLastChatRoute, getLastLibraryRoute } from "@/lib/last-chat-route"
 import { DEFAULT_LIBRARY_SEARCH } from "@/lib/library-search"
 import { cn } from "@/lib/utils"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { useConvex } from "convex/react"
 import { Image as ImageIcon, MessageSquare, Search, SquarePen } from "lucide-react"
 import { type MouseEvent, useRef } from "react"
@@ -24,112 +23,25 @@ export function ThreadsSidebarHeader({
     isLibraryMode?: boolean
 }) {
     const navigate = useNavigate()
-    const router = useRouter()
     const convex = useConvex()
     const hasPrefetchedLibraryRef = useRef(false)
-    const hasPrefetchedChatRef = useRef(false)
-
-    const prefetchThread = (threadId: string) => {
-        convex
-            .query(api.threads.getThreadMessages, { threadId: threadId as Id<"threads"> })
-            .catch(() => {})
-        convex.query(api.threads.getThread, { threadId: threadId as Id<"threads"> }).catch(() => {})
-    }
 
     const handleToggleHover = () => {
-        if (!isLibraryMode) {
-            if (hasPrefetchedLibraryRef.current) return
-            hasPrefetchedLibraryRef.current = true
+        if (isLibraryMode || hasPrefetchedLibraryRef.current) return
+        hasPrefetchedLibraryRef.current = true
 
-            // Fire and forget queries into the Convex cache
-            convex
-                .query(api.images.paginateGeneratedImages, {
-                    paginationOpts: {
-                        numItems: DEFAULT_LIBRARY_SEARCH.pageSize,
-                        cursor: null
-                    },
-                    query: DEFAULT_LIBRARY_SEARCH.query,
-                    sortBy: DEFAULT_LIBRARY_SEARCH.sort,
-                    view: DEFAULT_LIBRARY_SEARCH.view
-                })
-                .catch(() => {})
-            return
-        }
-
-        if (hasPrefetchedChatRef.current || typeof window === "undefined") return
-        hasPrefetchedChatRef.current = true
-
-        try {
-            const { pathname } = new URL(getLastChatRoute(), window.location.origin)
-            const segments = pathname.split("/").filter(Boolean)
-
-            if (pathname === "/") {
-                void router.preloadRoute({ to: "/" })
-                return
-            }
-
-            if (segments[0] === "thread" && segments[1]) {
-                const threadId = segments[1]
-                void router.preloadRoute({ to: "/thread/$threadId", params: { threadId } })
-                prefetchThread(threadId)
-                return
-            }
-
-            if (
-                segments[0] === "folder" &&
-                segments[1] &&
-                segments[2] === "thread" &&
-                segments[3]
-            ) {
-                const folderId = segments[1]
-                const threadId = segments[3]
-
-                void router.preloadRoute({
-                    to: "/folder/$folderId/thread/$threadId",
-                    params: { folderId, threadId }
-                })
-                convex
-                    .query(api.threads.getThreadsByProject, {
-                        projectId: folderId as Id<"projects">,
-                        paginationOpts: { numItems: 25, cursor: null }
-                    })
-                    .catch(() => {})
-                prefetchThread(threadId)
-                return
-            }
-
-            if (segments[0] === "folder" && segments[1]) {
-                const folderId = segments[1]
-
-                void router.preloadRoute({
-                    to: "/folder/$folderId",
-                    params: { folderId }
-                })
-                convex
-                    .query(api.threads.getThreadsByProject, {
-                        projectId: folderId as Id<"projects">,
-                        paginationOpts: { numItems: 25, cursor: null }
-                    })
-                    .catch(() => {})
-                return
-            }
-
-            if (segments[0] === "s" && segments[1]) {
-                const sharedThreadId = segments[1]
-
-                void router.preloadRoute({
-                    to: "/s/$sharedThreadId",
-                    params: { sharedThreadId }
-                })
-                convex
-                    .query(api.threads.getSharedThread, {
-                        sharedThreadId: sharedThreadId as Id<"sharedThreads">
-                    })
-                    .catch(() => {})
-            }
-        } catch {
-            // Ignore malformed session storage values and fall back to normal navigation.
-        }
+        // The Library remains safe to warm because it does not fetch thread data.
+        convex
+            .query(api.images.paginateGeneratedImages, {
+                paginationOpts: {
+                    numItems: DEFAULT_LIBRARY_SEARCH.pageSize,
+                    cursor: null
+                },
+                query: DEFAULT_LIBRARY_SEARCH.query,
+                sortBy: DEFAULT_LIBRARY_SEARCH.sort,
+                view: DEFAULT_LIBRARY_SEARCH.view
+            })
+            .catch(() => {})
     }
 
     const handleLibraryToggle = () => {
@@ -185,7 +97,7 @@ export function ThreadsSidebarHeader({
 
             <div
                 className={cn(
-                    "grid transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                     isLibraryMode ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
                 )}
             >

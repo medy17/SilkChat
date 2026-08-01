@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
-import { useToken } from "@/hooks/auth-hooks"
+import { useSession, useToken } from "@/hooks/auth-hooks"
 import {
     notifyModelReplacement,
     resolveAvailableModelReplacement
@@ -142,6 +142,15 @@ class ReferencePreparationError extends Error {}
 
 const REFERENCE_INPUT_LIMIT_LABEL = formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxFileSize)
 const REFERENCE_PREPARATION_ERROR = `Reference could not be optimized to ${DEFAULT_UPLOAD_POLICY.maxImageDimension}px and under ${formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxImageFileSize)}.`
+const CREDIT_ACCESS_CACHE_MAX_AGE_MS = 5 * 60 * 1000
+const CREDIT_ACCESS_RETRY_MS = 30 * 1000
+
+type ImageGenerationCreditAccess = {
+    userId: string
+    plan: "free" | "pro"
+    isStaff: boolean
+    expiresAt: number
+}
 
 const getReferenceInputError = (file: File) =>
     file.size > DEFAULT_UPLOAD_POLICY.maxFileSize
@@ -156,8 +165,16 @@ const getFileSha256 = async (file: File) => {
         .join("")
 }
 
-export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolean }) {
+export function ImageGenerationSidebar({
+    disabled = false,
+    shouldLoadCreditPlan = true
+}: {
+    disabled?: boolean
+    shouldLoadCreditPlan?: boolean
+}) {
     const { token } = useToken()
+    const { data: session } = useSession()
+    const creditAccessUserId = session?.user?.id ?? null
     const isTouchDevice = useIsTouchDevice()
     const { models } = useSharedModels()
     const imageModels = useMemo<SharedModel[]>(
@@ -223,8 +240,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
-    const [creditPlan, setCreditPlan] = useState<"free" | "pro" | null>(null)
-    const [isStaff, setIsStaff] = useState(false)
+    const [creditAccess, setCreditAccess] = useState<ImageGenerationCreditAccess | null>(null)
+    const currentCreditAccess = creditAccess?.userId === creditAccessUserId ? creditAccess : null
+    const creditPlan = currentCreditAccess?.plan ?? null
+    const isStaff = currentCreditAccess?.isStaff ?? false
     const canSelectGptImage2Quality = isDevMode || isStaff
     const [expandedLegacyModels, setExpandedLegacyModels] = useState(false)
     const [promptHeight, setPromptHeight] = useState<number | null>(null)
@@ -245,14 +264,30 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const sessionRevealedLegacyModelIdsRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
+        if (!shouldLoadCreditPlan || !creditAccessUserId) {
+            return
+        }
+
+        if (currentCreditAccess && currentCreditAccess.expiresAt > Date.now()) {
+            const refreshTimeout = window.setTimeout(
+                () =>
+                    setCreditAccess((current) =>
+                        current?.userId === creditAccessUserId
+                            ? { ...current, expiresAt: 0 }
+                            : current
+                    ),
+                currentCreditAccess.expiresAt - Date.now()
+            )
+            return () => window.clearTimeout(refreshTimeout)
+        }
+
         let cancelled = false
 
-        const loadCreditPlan = async () => {
+        const loadCreditAccess = async () => {
             try {
                 const response = await fetch("/api/credit-summary", {
                     credentials: "include"
                 })
-
                 if (!response.ok) {
                     throw new Error("Failed to load credit summary")
                 }
@@ -262,23 +297,31 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     isStaff?: boolean
                 }
                 if (!cancelled) {
-                    setCreditPlan(data.plan === "pro" ? "pro" : "free")
-                    setIsStaff(data.isStaff === true)
+                    setCreditAccess({
+                        userId: creditAccessUserId,
+                        plan: data.plan === "pro" ? "pro" : "free",
+                        isStaff: data.isStaff === true,
+                        expiresAt: Date.now() + CREDIT_ACCESS_CACHE_MAX_AGE_MS
+                    })
                 }
             } catch {
                 if (!cancelled) {
-                    setCreditPlan("free")
-                    setIsStaff(false)
+                    setCreditAccess({
+                        userId: creditAccessUserId,
+                        plan: "free",
+                        isStaff: false,
+                        expiresAt: Date.now() + CREDIT_ACCESS_RETRY_MS
+                    })
                 }
             }
         }
 
-        void loadCreditPlan()
+        void loadCreditAccess()
 
         return () => {
             cancelled = true
         }
-    }, [])
+    }, [creditAccessUserId, currentCreditAccess, shouldLoadCreditPlan])
 
     useEffect(() => {
         if (!isResizingPrompt) return

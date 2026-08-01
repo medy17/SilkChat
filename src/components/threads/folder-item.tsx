@@ -36,11 +36,10 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    useSidebar
+    useSidebarActions
 } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
@@ -51,7 +50,7 @@ import {
 } from "@/lib/project-constants"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useConvex, useMutation } from "convex/react"
+import { useMutation } from "convex/react"
 import {
     Check,
     CheckSquare2,
@@ -143,16 +142,13 @@ export function FolderItem({
     const longPressTimeoutRef = useRef<number | null>(null)
     const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
     const longPressTriggeredRef = useRef(false)
-    const prefetchedFolderThreadsRef = useRef(false)
 
     const colorClasses = getProjectColorClasses(project.color as ProjectColorId)
     const updateProjectMutation = useMutation(api.folders.updateProject)
     const deleteProjectMutation = useMutation(api.folders.deleteProject)
     const { deleteFolderDrafts } = useThreadDraftCleanup()
     const navigate = useNavigate()
-    const isMobile = useIsMobile()
-    const convex = useConvex()
-    const { setOpenMobile } = useSidebar()
+    const { isMobile, setOpenMobile } = useSidebarActions()
     const hasThreads = numThreads > 0
     const isFullySelected = selectionState === "all"
     const isPartiallySelected = selectionState === "some"
@@ -225,23 +221,6 @@ export function FolderItem({
             setStaleProjectThreads([])
         }
     }, [hasThreads, projectThreads])
-
-    useEffect(() => {
-        if (
-            !isExpanded ||
-            prefetchedFolderThreadsRef.current ||
-            renderedProjectThreads.length === 0
-        ) {
-            return
-        }
-
-        prefetchedFolderThreadsRef.current = true
-        renderedProjectThreads.slice(0, 3).forEach((thread) => {
-            const threadId = thread._id as Id<"threads">
-            convex.query(api.threads.getThreadMessages, { threadId }).catch(() => {})
-            convex.query(api.threads.getThread, { threadId }).catch(() => {})
-        })
-    }, [convex, isExpanded, renderedProjectThreads])
 
     const handleEdit = async () => {
         const trimmedName = editName.trim()
@@ -634,7 +613,6 @@ export function FolderItem({
                                         selectedThreadCount={selectedThreadIds.length}
                                         enableContextMenu={enableContextMenu}
                                         enableLongPressSelection={enableLongPressSelection}
-                                        enableHoverPrefetch={false}
                                         canBulkTogglePin={canBulkTogglePin}
                                         areAllSelectedPinned={areAllSelectedPinned}
                                         onOpenRenameDialog={onOpenRenameThreadDialog}
@@ -712,7 +690,7 @@ export function FolderItem({
                                             onClick={() => setEditColor(color.id)}
                                             disabled={isEditing}
                                             className={cn(
-                                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-[border-color,transform]",
                                                 color.class.split(" ").slice(1).join(" "),
                                                 editColor === color.id
                                                     ? "scale-110 border-foreground"

@@ -7,15 +7,18 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
-import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
+import {
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebarActions
+} from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useAction, useConvex, useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import {
     Check,
     CheckSquare2,
@@ -45,7 +48,6 @@ interface ThreadItemProps {
     selectedThreadCount?: number
     enableContextMenu?: boolean
     enableLongPressSelection?: boolean
-    enableHoverPrefetch?: boolean
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
     onOpenRenameDialog?: (thread: Thread) => void
@@ -71,7 +73,6 @@ export const ThreadItem = memo(
         selectedThreadCount = 0,
         enableContextMenu = true,
         enableLongPressSelection = false,
-        enableHoverPrefetch = true,
         canBulkTogglePin = true,
         areAllSelectedPinned = false,
         onOpenRenameDialog,
@@ -92,14 +93,10 @@ export const ThreadItem = memo(
         const longPressTimeoutRef = useRef<number | null>(null)
         const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
         const longPressTriggeredRef = useRef(false)
-        const hasPrefetchedRef = useRef(false)
-
-        const convex = useConvex()
-        const isMobile = useIsMobile()
         // Hover-reveal pin/delete affordance is keyed on pointer precision, not
         // viewport width, so it stays available on a zoomed-in desktop (mouse).
         const isTouchDevice = useIsTouchDevice()
-        const { setOpenMobile } = useSidebar()
+        const { closeMobileThen, isMobile } = useSidebarActions()
         const navigate = useNavigate()
         const togglePinMutation = useMutation(api.threads.togglePinThread)
         const regenerateThreadTitle = useAction(api.threads.regenerateThreadTitle)
@@ -132,7 +129,7 @@ export const ThreadItem = memo(
                 />
             )
 
-            if (!thread.personaName) return avatar
+            if (!thread.personaName || isMobile || isTouchDevice) return avatar
 
             return (
                 <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
@@ -151,27 +148,29 @@ export const ThreadItem = memo(
                 <span
                     className={cn(
                         "block min-w-0 flex-1 truncate text-sm",
-                        "transition-all duration-500 ease-in-out",
+                        "transition-[opacity,filter] duration-500 ease-in-out",
                         isRegeneratingTitle ? "opacity-40 blur-[2px]" : "opacity-100 blur-0"
                     )}
                 >
                     {thread.title}
                 </span>
-                <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
-                    <TooltipTrigger asChild>
-                        <span
-                            aria-label={thread.title}
-                            className="-translate-y-1/2 absolute top-1/2 right-0 left-0 h-9"
-                        />
-                    </TooltipTrigger>
-                    <TooltipContent
-                        side="right"
-                        sideOffset={6}
-                        className="max-w-[min(22rem,calc(100vw-2rem))]"
-                    >
-                        {thread.title}
-                    </TooltipContent>
-                </Tooltip>
+                {!isMobile && !isTouchDevice ? (
+                    <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
+                        <TooltipTrigger asChild>
+                            <span
+                                aria-label={thread.title}
+                                className="-translate-y-1/2 absolute top-1/2 right-0 left-0 h-9"
+                            />
+                        </TooltipTrigger>
+                        <TooltipContent
+                            side="right"
+                            sideOffset={6}
+                            className="max-w-[min(22rem,calc(100vw-2rem))]"
+                        >
+                            {thread.title}
+                        </TooltipContent>
+                    </Tooltip>
+                ) : null}
             </span>
         )
 
@@ -293,16 +292,6 @@ export const ThreadItem = memo(
             }
         }
 
-        const handleMouseEnter = () => {
-            if (isMobile || hasPrefetchedRef.current || !enableHoverPrefetch) return
-            hasPrefetchedRef.current = true
-
-            // Prefetch thread data seamlessly on hover
-            const threadId = thread._id as Id<"threads">
-            convex.query(api.threads.getThreadMessages, { threadId }).catch(() => {})
-            convex.query(api.threads.getThread, { threadId }).catch(() => {})
-        }
-
         const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
             if (isSelectionMode) {
                 event.preventDefault()
@@ -321,18 +310,7 @@ export const ThreadItem = memo(
             }
 
             event.preventDefault()
-            setOpenMobile(false)
-
-            let didNavigate = false
-            let fallbackTimeoutId: number | null = null
-            const doNavigate = () => {
-                if (didNavigate) return
-                didNavigate = true
-                window.removeEventListener("popstate", doNavigate)
-                if (fallbackTimeoutId !== null) {
-                    window.clearTimeout(fallbackTimeoutId)
-                    fallbackTimeoutId = null
-                }
+            closeMobileThen(() => {
                 if (folderId) {
                     void navigate({
                         to: "/folder/$folderId/thread/$threadId",
@@ -345,10 +323,7 @@ export const ThreadItem = memo(
                     to: "/thread/$threadId",
                     params: { threadId: thread._id }
                 })
-            }
-
-            window.addEventListener("popstate", doNavigate, { once: true })
-            fallbackTimeoutId = window.setTimeout(doNavigate, 150)
+            })
         }
 
         const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -487,10 +462,10 @@ export const ThreadItem = memo(
                         ) : (
                             <Link
                                 {...threadLinkProps}
+                                preload={false}
                                 className="flex h-full w-full min-w-0 items-center"
                                 onClick={handleLinkClick}
                                 onContextMenu={handleContextMenu}
-                                onMouseEnter={handleMouseEnter}
                                 onPointerDown={handlePointerDown}
                                 onPointerUp={handlePointerUp}
                                 onPointerLeave={handlePointerUp}
@@ -518,7 +493,7 @@ export const ThreadItem = memo(
                         )}
                     </SidebarMenuButton>
 
-                    {!isSelectionMode && !isTouchDevice && (
+                    {!isSelectionMode && !isMobile && !isTouchDevice && (
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end">
                             <div
                                 className={cn(
@@ -534,7 +509,7 @@ export const ThreadItem = memo(
                                 className={cn(
                                     "pointer-events-none relative z-10 flex items-center gap-1 pr-1.5",
                                     "translate-x-12 opacity-0",
-                                    "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                     "group-hover/item:pointer-events-auto group-hover/item:translate-x-0 group-hover/item:opacity-100",
                                     isContextMenuOpen &&
                                         "pointer-events-auto translate-x-0 opacity-100"
@@ -616,7 +591,6 @@ export const ThreadItem = memo(
             prevProps.selectedThreadCount === nextProps.selectedThreadCount &&
             prevProps.enableContextMenu === nextProps.enableContextMenu &&
             prevProps.enableLongPressSelection === nextProps.enableLongPressSelection &&
-            prevProps.enableHoverPrefetch === nextProps.enableHoverPrefetch &&
             prevProps.canBulkTogglePin === nextProps.canBulkTogglePin &&
             prevProps.areAllSelectedPinned === nextProps.areAllSelectedPinned &&
             prevProps.onOpenRenameDialog === nextProps.onOpenRenameDialog &&
