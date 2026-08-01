@@ -524,7 +524,7 @@ export const patchMessage = internalMutation({
             .query("messages")
             .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
             .collect()
-        const msg = msgs[0]
+        const msg = msgs.find((candidate) => candidate.threadId === threadId)
         if (!msg) return
 
         await db.patch(msg._id as Id<"messages">, {

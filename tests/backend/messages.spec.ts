@@ -6,7 +6,7 @@ vi.mock("../../convex/_generated/server", () => ({
     query: (config: unknown) => config
 }))
 
-import { getPreparedImageGenerationCardResult } from "../../convex/messages"
+import { getPreparedImageGenerationCardResult, patchMessage } from "../../convex/messages"
 
 const handler = (
     getPreparedImageGenerationCardResult as unknown as {
@@ -93,5 +93,64 @@ describe("prepared image generation card query", () => {
             })
         ).resolves.toBeNull()
         expect(ctx.db.query).not.toHaveBeenCalled()
+    })
+})
+
+describe("assistant message persistence", () => {
+    it("patches the message in the requested thread when a branch shares its message id", async () => {
+        const sourceMessage = {
+            _id: "source-message",
+            threadId: "source-thread",
+            messageId: "assistant-1",
+            metadata: { modelId: "old-model" }
+        }
+        const branchMessage = {
+            _id: "branch-message",
+            threadId: "branch-thread",
+            messageId: "assistant-1",
+            metadata: {}
+        }
+        const patch = vi.fn()
+        const ctx = {
+            db: {
+                get: vi.fn(),
+                patch,
+                query: vi.fn().mockReturnValue({
+                    withIndex: vi.fn().mockReturnValue({
+                        collect: vi.fn().mockResolvedValue([sourceMessage, branchMessage])
+                    })
+                }),
+                insert: vi.fn()
+            }
+        }
+        const patchHandler = (
+            patchMessage as unknown as {
+                handler: (
+                    context: typeof ctx,
+                    args: {
+                        threadId: string
+                        messageId: string
+                        parts: Array<{ type: "text"; text: string }>
+                    }
+                ) => Promise<void>
+            }
+        ).handler
+        const parts = [{ type: "text" as const, text: "Persisted branch response" }]
+
+        await patchHandler(ctx, {
+            threadId: "branch-thread",
+            messageId: "assistant-1",
+            parts
+        })
+
+        expect(patch).toHaveBeenCalledWith("branch-message", {
+            parts,
+            metadata: {},
+            updatedAt: expect.any(Number)
+        })
+        expect(patch).toHaveBeenCalledWith("branch-thread", {
+            updatedAt: expect.any(Number)
+        })
+        expect(patch).not.toHaveBeenCalledWith("source-message", expect.objectContaining({ parts }))
     })
 })
