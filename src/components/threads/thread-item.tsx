@@ -509,7 +509,7 @@ export const ThreadItem = memo(
                                 className={cn(
                                     "pointer-events-none relative z-10 flex items-center gap-1 pr-1.5",
                                     "translate-x-12 opacity-0",
-                                    "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    "transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                     "group-hover/item:pointer-events-auto group-hover/item:translate-x-0 group-hover/item:opacity-100",
                                     isContextMenuOpen &&
                                         "pointer-events-auto translate-x-0 opacity-100"
