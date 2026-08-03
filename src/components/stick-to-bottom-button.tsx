@@ -1,14 +1,20 @@
 import { ChevronDown } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import type { MessageScrollDirection } from "./messages"
 import { Button } from "./ui/button"
 
 export const StickToBottomButton = ({
     isAtBottom,
+    scrollDirection,
     scrollToBottom
-}: { isAtBottom: boolean; scrollToBottom: () => void }) => {
+}: {
+    isAtBottom: boolean
+    scrollDirection: MessageScrollDirection
+    scrollToBottom: () => void
+}) => {
     return (
         <AnimatePresence>
-            {!isAtBottom && (
+            {!isAtBottom && scrollDirection === "down" && (
                 <motion.div
                     initial={{ opacity: 0, y: 20, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}

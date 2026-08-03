@@ -893,6 +893,7 @@ const MESSAGE_KEEP_MOUNTED_TAIL_COUNT = 40
 const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
 const BOTTOM_SCROLL_THRESHOLD_PX = 4
+const SCROLL_IDLE_DELAY_MS = 2_000
 const STREAMING_ANCHOR_TOP_GAP_PX = 16
 const MESSAGE_MARKDOWN_CLASS =
     "prose relative max-w-none prose-pre:bg-transparent prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
@@ -1250,6 +1251,8 @@ export type MessagesHandle = {
     scrollToBottom: (behavior?: ScrollBehavior) => void
 }
 
+export type MessageScrollDirection = "up" | "down" | "idle"
+
 export const Messages = forwardRef<
     MessagesHandle,
     {
@@ -1266,6 +1269,7 @@ export const Messages = forwardRef<
         status: ReturnType<typeof useChatIntegration>["status"]
         error?: ReturnType<typeof useChatIntegration>["error"]
         onBottomStateChange?: (isAtBottom: boolean) => void
+        onScrollDirectionChange?: (direction: MessageScrollDirection) => void
         threadKey?: string
     }
 >(
@@ -1279,6 +1283,7 @@ export const Messages = forwardRef<
             status,
             error,
             onBottomStateChange,
+            onScrollDirectionChange,
             threadKey
         },
         ref
@@ -1290,6 +1295,9 @@ export const Messages = forwardRef<
         const contentContainerRef = useRef<HTMLDivElement>(null)
         const virtualizerRef = useRef<VirtualizerHandle>(null)
         const isAtBottomRef = useRef(true)
+        const lastScrollOffsetRef = useRef<number | null>(null)
+        const scrollDirectionRef = useRef<MessageScrollDirection>("idle")
+        const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
         const shouldStickToBottomRef = useRef(true)
         const allowUnboundedStreamingFollowRef = useRef(false)
         const onRetryRef = useRef(onRetry)
@@ -1469,6 +1477,38 @@ export const Messages = forwardRef<
             [onBottomStateChange]
         )
 
+        const updateScrollDirection = useCallback(
+            (direction: MessageScrollDirection) => {
+                if (scrollDirectionRef.current === direction) {
+                    return
+                }
+
+                scrollDirectionRef.current = direction
+                onScrollDirectionChange?.(direction)
+            },
+            [onScrollDirectionChange]
+        )
+
+        const scheduleScrollIdle = useCallback(() => {
+            if (scrollIdleTimerRef.current !== null) {
+                clearTimeout(scrollIdleTimerRef.current)
+            }
+
+            scrollIdleTimerRef.current = setTimeout(() => {
+                scrollIdleTimerRef.current = null
+                updateScrollDirection("idle")
+            }, SCROLL_IDLE_DELAY_MS)
+        }, [updateScrollDirection])
+
+        useEffect(
+            () => () => {
+                if (scrollIdleTimerRef.current !== null) {
+                    clearTimeout(scrollIdleTimerRef.current)
+                }
+            },
+            []
+        )
+
         const getStreamingAnchorMaxScrollTop = useCallback(() => {
             const scroller = scrollerRef.current
             if (!scroller) return null
@@ -1514,6 +1554,23 @@ export const Messages = forwardRef<
                 updateBottomState(isAtBottom)
             },
             [getStreamingAnchorMaxScrollTop, status, updateBottomState]
+        )
+
+        const handleScroll = useCallback(
+            (offset: number) => {
+                syncBottomStateFromOffset(offset)
+                scheduleScrollIdle()
+
+                const previousOffset = lastScrollOffsetRef.current
+                lastScrollOffsetRef.current = offset
+
+                if (previousOffset === null || offset === previousOffset) {
+                    return
+                }
+
+                updateScrollDirection(offset > previousOffset ? "down" : "up")
+            },
+            [scheduleScrollIdle, syncBottomStateFromOffset, updateScrollDirection]
         )
 
         const scrollToBottom = useCallback(
@@ -1677,6 +1734,12 @@ export const Messages = forwardRef<
 
             shouldStickToBottomRef.current = true
             allowUnboundedStreamingFollowRef.current = false
+            lastScrollOffsetRef.current = null
+            if (scrollIdleTimerRef.current !== null) {
+                clearTimeout(scrollIdleTimerRef.current)
+                scrollIdleTimerRef.current = null
+            }
+            updateScrollDirection("idle")
             updateBottomState(true)
 
             const frameId = requestAnimationFrame(() => {
@@ -1686,7 +1749,7 @@ export const Messages = forwardRef<
             return () => {
                 cancelAnimationFrame(frameId)
             }
-        }, [scrollToBottom, threadKey, updateBottomState])
+        }, [scrollToBottom, threadKey, updateBottomState, updateScrollDirection])
 
         useEffect(() => {
             const target = contentContainerRef.current
@@ -1830,7 +1893,7 @@ export const Messages = forwardRef<
                                 bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
                                 itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
                                 keepMounted={keepMountedIndexes}
-                                onScroll={syncBottomStateFromOffset}
+                                onScroll={handleScroll}
                             >
                                 {messageRows.map((row) => (
                                     <MessageRow

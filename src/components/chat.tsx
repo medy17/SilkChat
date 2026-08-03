@@ -1,4 +1,4 @@
-import { Messages, type MessagesHandle } from "@/components/messages"
+import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -62,6 +62,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { threadId } = useThreadSync({ routeThreadId })
     const messagesRef = useRef<MessagesHandle>(null)
     const [isAtBottom, setIsAtBottom] = useState(true)
+    const [scrollDirection, setScrollDirection] = useState<MessageScrollDirection>("idle")
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -460,6 +461,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 status={messageRenderStatus}
                 error={chatHelpers.error}
                 onBottomStateChange={setIsAtBottom}
+                onScrollDirectionChange={setScrollDirection}
                 threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
             />
 
@@ -582,6 +584,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             <div className="pointer-events-auto">
                                 <StickToBottomButton
                                     isAtBottom={isAtBottom}
+                                    scrollDirection={scrollDirection}
                                     scrollToBottom={() =>
                                         messagesRef.current?.scrollToBottom("smooth")
                                     }

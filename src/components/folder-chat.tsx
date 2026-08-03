@@ -1,6 +1,6 @@
 import { BranchIcon } from "@/components/brand-icons"
 import { FolderHero } from "@/components/folder-hero"
-import { Messages, type MessagesHandle } from "@/components/messages"
+import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
 import { MultimodalInput } from "@/components/multimodal-input"
 import { SignupMessagePrompt } from "@/components/signup-message-prompt"
 import { StickToBottomButton } from "@/components/stick-to-bottom-button"
@@ -44,6 +44,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const { threadId } = useThreadSync({ routeThreadId: undefined })
     const messagesRef = useRef<MessagesHandle>(null)
     const [isAtBottom, setIsAtBottom] = useState(true)
+    const [scrollDirection, setScrollDirection] = useState<MessageScrollDirection>("idle")
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -312,6 +313,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 status={messageRenderStatus}
                 error={error}
                 onBottomStateChange={setIsAtBottom}
+                onScrollDirectionChange={setScrollDirection}
                 threadKey={threadId ?? folderId.toString()}
             />
 
@@ -374,6 +376,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                             <div className="pointer-events-auto">
                                 <StickToBottomButton
                                     isAtBottom={isAtBottom}
+                                    scrollDirection={scrollDirection}
                                     scrollToBottom={() =>
                                         messagesRef.current?.scrollToBottom("smooth")
                                     }
