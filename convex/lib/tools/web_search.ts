@@ -4,6 +4,10 @@ import type { ToolAdapter } from "../toolkit"
 import { PerplexitySearchAdapter } from "./adapters"
 import { getDeploymentSearchApiKey } from "./availability"
 
+export const webSearchInputSchema = z.object({
+    query: z.string().min(1).describe("A focused web search query")
+})
+
 export const WebSearchAdapter: ToolAdapter = async (params) => {
     if (!params.enabledTools.includes("web_search")) return {}
     if (!params.toolAvailability.web_search.enabled) return {}
@@ -15,9 +19,7 @@ export const WebSearchAdapter: ToolAdapter = async (params) => {
         web_search: tool({
             description:
                 "Search the web for current information and return concise, source-linked results.",
-            inputSchema: z.object({
-                query: z.string().min(1).describe("A focused web search query")
-            }),
+            inputSchema: webSearchInputSchema,
             execute: async ({ query }) => {
                 try {
                     const search = new PerplexitySearchAdapter({ apiKey })

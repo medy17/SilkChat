@@ -21,6 +21,35 @@ const memoryMetadataSchema = z
     .nullable()
     .optional()
 
+export const supermemoryInputSchemas = {
+    get_memory_profile: z.object({}),
+    add_memory: z.object({
+        content: z.string().min(1).describe("The exact concise memory to store."),
+        metadata: memoryMetadataSchema
+    }),
+    update_memory: z.object({
+        memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
+        currentContent: z.string().min(1).describe("The existing memory being replaced."),
+        newContent: z.string().min(1).describe("The corrected replacement memory."),
+        metadata: memoryMetadataSchema
+    }),
+    forget_memory: z.object({
+        memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
+        content: z.string().min(1).describe("The existing memory that will be forgotten."),
+        reason: z.string().nullable().optional().describe("Why this memory should be forgotten.")
+    }),
+    search_memories: z.object({
+        query: z.string().min(1).describe("A focused semantic query for the missing context."),
+        limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(10)
+            .default(5)
+            .describe("Maximum number of memories to return.")
+    })
+} as const
+
 const normalizeMetadata = (
     metadata:
         | {
@@ -76,7 +105,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                 'Use this for broad questions such as "What do you know or remember about me?"',
                 "Do not use a broad search_memories query as a substitute for this profile."
             ].join("\n"),
-            inputSchema: z.object({}),
+            inputSchema: supermemoryInputSchemas.get_memory_profile,
             execute: async () => {
                 try {
                     const apiKey = await getApiKey()
@@ -121,10 +150,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                 "This does not save anything immediately. A successful result is a pending confirmation card.",
                 "Use concise, factual, self-contained content that remains useful without the current conversation."
             ].join("\n"),
-            inputSchema: z.object({
-                content: z.string().min(1).describe("The exact concise memory to store."),
-                metadata: memoryMetadataSchema
-            }),
+            inputSchema: supermemoryInputSchemas.add_memory,
             execute: async ({ content, metadata }) =>
                 prepareChange({
                     operation: "add",
@@ -139,12 +165,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                 "Search first to obtain the exact memory id and current content.",
                 "This does not update anything immediately. A successful result is a pending confirmation card."
             ].join("\n"),
-            inputSchema: z.object({
-                memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
-                currentContent: z.string().min(1).describe("The existing memory being replaced."),
-                newContent: z.string().min(1).describe("The corrected replacement memory."),
-                metadata: memoryMetadataSchema
-            }),
+            inputSchema: supermemoryInputSchemas.update_memory,
             execute: async ({ memoryId, currentContent, newContent, metadata }) =>
                 prepareChange({
                     operation: "update",
@@ -161,15 +182,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                 "Search first to obtain the exact memory id and content.",
                 "This does not forget anything immediately. A successful result is a pending confirmation card."
             ].join("\n"),
-            inputSchema: z.object({
-                memoryId: z.string().min(1).describe("The exact id returned by search_memories."),
-                content: z.string().min(1).describe("The existing memory that will be forgotten."),
-                reason: z
-                    .string()
-                    .nullable()
-                    .optional()
-                    .describe("Why this memory should be forgotten.")
-            }),
+            inputSchema: supermemoryInputSchemas.forget_memory,
             execute: async ({ memoryId, content, reason }) =>
                 prepareChange({
                     operation: "forget",
@@ -182,19 +195,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
         search_memories: tool({
             description:
                 "Search the user's stored memories for relevant cross-conversation context.",
-            inputSchema: z.object({
-                query: z
-                    .string()
-                    .min(1)
-                    .describe("A focused semantic query for the missing context."),
-                limit: z
-                    .number()
-                    .int()
-                    .min(1)
-                    .max(10)
-                    .default(5)
-                    .describe("Maximum number of memories to return.")
-            }),
+            inputSchema: supermemoryInputSchemas.search_memories,
             execute: async ({ query, limit = 5 }) => {
                 try {
                     const apiKey = await getApiKey()

@@ -2,6 +2,7 @@ import type { SharedModel } from "@/convex/lib/models"
 import { resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { getReasoningEffortForPlan } from "@/lib/models-providers-shared"
+import { MAX_TOOL_CALL_LIMIT_PER_TURN, MIN_TOOL_CALL_LIMIT_PER_TURN } from "@/lib/tool-call-limit"
 
 type AssistantConfigCarrier = {
     role: string
@@ -15,6 +16,7 @@ type AssistantConfigCarrier = {
 export type AssistantConfigOverride = {
     modelIdOverride?: string
     reasoningEffortOverride?: ReasoningEffort
+    toolCallLimitFloorOverride?: number
 }
 
 export const getAssistantConfigFromMessage = (message: AssistantConfigCarrier | undefined) => {
@@ -66,6 +68,7 @@ export const resolveAssistantConfigOverride = ({
         | {
               modelId?: string
               reasoningEffort?: ReasoningEffort
+              toolCallLimitFloorOverride?: number
           }
         | null
         | undefined
@@ -99,13 +102,23 @@ export const resolveAssistantConfigOverride = ({
             ? (getReasoningEffortForPlan(resolvedSharedModel, config.reasoningEffort, null) ??
               undefined)
             : config.reasoningEffort
+    const toolCallLimitFloorOverride = Number.isFinite(config.toolCallLimitFloorOverride)
+        ? Math.min(
+              MAX_TOOL_CALL_LIMIT_PER_TURN,
+              Math.max(
+                  MIN_TOOL_CALL_LIMIT_PER_TURN,
+                  Math.round(config.toolCallLimitFloorOverride as number)
+              )
+          )
+        : undefined
 
-    if (!resolvedModelId && !resolvedReasoningEffort) {
+    if (!resolvedModelId && !resolvedReasoningEffort && !toolCallLimitFloorOverride) {
         return null
     }
 
     return {
         ...(resolvedModelId ? { modelIdOverride: resolvedModelId } : {}),
-        ...(resolvedReasoningEffort ? { reasoningEffortOverride: resolvedReasoningEffort } : {})
+        ...(resolvedReasoningEffort ? { reasoningEffortOverride: resolvedReasoningEffort } : {}),
+        ...(toolCallLimitFloorOverride ? { toolCallLimitFloorOverride } : {})
     }
 }

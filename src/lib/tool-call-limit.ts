@@ -19,3 +19,20 @@ export const clampToolCallLimitPerTurn = (
         Math.max(MIN_TOOL_CALL_LIMIT_PER_TURN, Math.round(value as number))
     )
 }
+
+export const resolveToolCallLimitPerTurn = ({
+    configuredValue,
+    retryFloor,
+    hasEnabledTools
+}: {
+    configuredValue?: number
+    retryFloor?: number
+    hasEnabledTools: boolean
+}) =>
+    clampToolCallLimitPerTurn(
+        Math.max(
+            configuredValue ?? DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
+            Number.isFinite(retryFloor) ? (retryFloor as number) : 0
+        ),
+        { hasEnabledTools }
+    )

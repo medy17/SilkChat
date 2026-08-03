@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai"
+import { getBlockedToolAttempt } from "./blocked-tool-attempt"
 
 type UnknownRecord = Record<string, unknown>
 
@@ -43,6 +44,7 @@ export const getMessageWebSearches = (message: MessageWithParts) => {
 
     for (const part of message.parts) {
         if (part.type !== "tool-web_search") continue
+        if (getBlockedToolAttempt(part)) continue
 
         const invocation = part as typeof part & {
             toolCallId?: string

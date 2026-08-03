@@ -95,4 +95,15 @@ describe("assistant-config", () => {
             reasoningEffortOverride: "minimal"
         })
     })
+
+    it("keeps a bounded one-turn tool budget floor on retry", () => {
+        const resolved = resolveAssistantConfigOverride({
+            config: { toolCallLimitFloorOverride: 3 },
+            sharedModels: [],
+            availableModels: [],
+            fallbackModelId: null
+        })
+
+        expect(resolved).toEqual({ toolCallLimitFloorOverride: 3 })
+    })
 })

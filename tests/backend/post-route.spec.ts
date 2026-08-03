@@ -58,7 +58,8 @@ vi.mock("ai", () => ({
     createUIMessageStream: createUIMessageStreamMock,
     smoothStream: smoothStreamMock,
     isStepCount: isStepCountMock,
-    streamText: streamTextMock
+    streamText: streamTextMock,
+    tool: (definition: unknown) => definition
 }))
 
 vi.mock("../../convex/_generated/server", () => ({
@@ -1537,11 +1538,11 @@ describe("chatPOST", () => {
                 maxOutputTokens: 2048,
                 stopWhen: "stop-after-100",
                 experimental_transform: "smooth-transform",
-                tools: {
+                tools: expect.objectContaining({
                     web_search: {
                         description: "Search"
                     }
-                },
+                }),
                 messages: [
                     {
                         role: "system",

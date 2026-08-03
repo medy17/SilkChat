@@ -7,7 +7,7 @@ import {
     getBuiltInPersonaOpenings,
     getSyntheticPersonaOpening
 } from "@/lib/personas/builtins"
-import { clampToolCallLimitPerTurn } from "@/lib/tool-call-limit"
+import { resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import {
     JsonToSseTransformStream,
@@ -60,6 +60,7 @@ import {
     resolveToolAvailability,
     sanitizeEnabledTools
 } from "../lib/toolkit"
+import { getBlockedBuiltinTools, resolveBlockedBuiltinToolReasons } from "../lib/tools/blocked"
 import {
     PREPARE_IMAGE_GENERATION_TOOL_NAME,
     getPrepareImageGenerationTool
@@ -781,6 +782,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         enabledTools: AbilityId[]
         targetFromMessageId?: string
         targetMode?: "normal" | "edit" | "retry"
+        toolCallLimitFloorOverride?: number
         mcpOverrides?: Record<string, boolean>
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
@@ -928,6 +930,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
+    const blockedBuiltinToolReasons = modelSupportsFunctionCalling
+        ? resolveBlockedBuiltinToolReasons({
+              requestedTools: requestedEnabledTools,
+              callableTools: callableEnabledTools,
+              toolAvailability,
+              isAnonymous: user.isAnonymous
+          })
+        : {}
     const buildCurrentTurnContext = (
         toolCallLimitPerTurn?: number,
         availableImageReferenceLabels?: string[]
@@ -965,7 +975,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
           )
         : []
     const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
-    const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(settings.toolCallLimitPerTurn, {
+    const retryToolCallLimitFloor =
+        body.targetMode === "retry" && Number.isFinite(body.toolCallLimitFloorOverride)
+            ? (body.toolCallLimitFloorOverride as number)
+            : 0
+    const effectiveToolCallLimitPerTurn = resolveToolCallLimitPerTurn({
+        configuredValue: settings.toolCallLimitPerTurn,
+        retryFloor: retryToolCallLimitFloor,
         hasEnabledTools: hasPaidCallableTools
     })
     const deploymentFundedToolRates = [
@@ -1713,7 +1729,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const availableImageSelectionSummary = hasInternalImagePreparationTool
                 ? formatImageModelCapabilitySummary(availableImageModels)
                 : "- None"
+            const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
             const tools: Record<string, Tool> = {
+                ...blockedTools,
                 ...paidTools,
                 ...internalTools
             }

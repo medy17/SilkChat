@@ -185,7 +185,8 @@ export function useChatActions<TMessage extends UIMessage>({
                     modelId: configOverride?.modelIdOverride ?? persistedAssistantConfig?.modelId,
                     reasoningEffort:
                         configOverride?.reasoningEffortOverride ??
-                        persistedAssistantConfig?.reasoningEffort
+                        persistedAssistantConfig?.reasoningEffort,
+                    toolCallLimitFloorOverride: configOverride?.toolCallLimitFloorOverride
                 },
                 sharedModels,
                 availableModels,

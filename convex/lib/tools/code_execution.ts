@@ -15,6 +15,34 @@ const packageSchema = z
     .regex(/^[a-zA-Z0-9@._+\-/\[\],=<>!~^]+$/, "Invalid package specifier")
     .refine((value) => !value.startsWith("-"), "Package specifier cannot be an option")
 
+export const codeExecutionInputSchema = z.object({
+    purpose: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .describe(
+            "A short user-facing active phrase describing this execution's purpose, such as 'Checking smaller candidates'. Do not claim an outcome that has not been established yet."
+        ),
+    language: z.enum(["javascript", "python"]),
+    code: z.string().min(1).max(100_000),
+    dependencies: z.array(packageSchema).max(10).optional().default([]),
+    sandboxMode: z
+        .enum(["ephemeral", "persistent"])
+        .optional()
+        .default("ephemeral")
+        .describe(
+            "Use persistent after approval. The server always routes execution to a compatible active persistent sandbox, even if ephemeral is requested."
+        ),
+    timeoutMs: z
+        .number()
+        .int()
+        .min(1_000)
+        .max(MAX_EXECUTION_TIMEOUT_MS)
+        .optional()
+        .default(DEFAULT_EXECUTION_TIMEOUT_MS)
+})
+
 export const CodeExecutionAdapter: ToolAdapter = async (params) => {
     if (!params.enabledTools.includes("code_execution")) return {}
     if (!params.toolAvailability.code_execution.enabled) return {}
@@ -92,33 +120,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                 "To give the user downloadable files, write them under the directory in SILKCHAT_ARTIFACT_DIR. Supported outputs include PDF, CSV/TSV, JSON/text/Markdown, XLSX/DOCX/PPTX, ZIP, SQLite, Parquet, PNG, JPEG, and WebP. Do not print binary data or base64.",
                 "Successful artifacts are attached to the response automatically. Refer to them by filename in prose. If a Markdown link is genuinely useful, copy the artifact's returned HTTPS url exactly; never link to a sandbox:, file:, /vercel/sandbox, or other local path."
             ].join("\n"),
-            inputSchema: z.object({
-                purpose: z
-                    .string()
-                    .trim()
-                    .min(1)
-                    .max(80)
-                    .describe(
-                        "A short user-facing active phrase describing this execution's purpose, such as 'Checking smaller candidates'. Do not claim an outcome that has not been established yet."
-                    ),
-                language: z.enum(["javascript", "python"]),
-                code: z.string().min(1).max(100_000),
-                dependencies: z.array(packageSchema).max(10).optional().default([]),
-                sandboxMode: z
-                    .enum(["ephemeral", "persistent"])
-                    .optional()
-                    .default("ephemeral")
-                    .describe(
-                        "Use persistent after approval. The server always routes execution to a compatible active persistent sandbox, even if ephemeral is requested."
-                    ),
-                timeoutMs: z
-                    .number()
-                    .int()
-                    .min(1_000)
-                    .max(MAX_EXECUTION_TIMEOUT_MS)
-                    .optional()
-                    .default(DEFAULT_EXECUTION_TIMEOUT_MS)
-            }),
+            inputSchema: codeExecutionInputSchema,
             execute: async ({ language, code, dependencies, sandboxMode, timeoutMs }) =>
                 await params.ctx.runAction(internal.lib.tools.code_execution_node.executeCode, {
                     userId: params.userSettings.userId,

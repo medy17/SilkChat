@@ -6,6 +6,7 @@ import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import { getAttachmentValidationError, hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { resolveJwtToken } from "@/lib/auth-token"
+import { getBlockedToolAttempt, getBlockedToolAttempts } from "@/lib/blocked-tool-attempt"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
@@ -68,6 +69,7 @@ import {
 } from "./multimodal-input"
 import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
+import { BlockedToolCard } from "./renderers/blocked-tool-card"
 import { CodeExecutionGroupRenderer } from "./renderers/code-execution-group"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
@@ -930,6 +932,7 @@ type MessageRowProps = {
     isEditing: boolean
     isFirstMessage: boolean
     hasActiveTarget: boolean
+    retryMessage?: UIMessage
     onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
     onSwitchModel?: (modelId: string) => void
     onBranch?: (message: UIMessage) => void
@@ -951,6 +954,7 @@ const MessageRowComponent = ({
     isEditing,
     isFirstMessage,
     hasActiveTarget,
+    retryMessage,
     onRetry,
     onSwitchModel,
     onBranch,
@@ -964,7 +968,18 @@ const MessageRowComponent = ({
     const reasoning = getMessageReasoningDetails(message)
     const codeExecutions = getMessageCodeExecutions(message)
     const webSearches = getMessageWebSearches(message)
+    const blockedAttempts = getBlockedToolAttempts(message)
     const groupedToolOrder = [
+        ...(blockedAttempts.length > 0
+            ? [
+                  {
+                      type: "blocked-tools" as const,
+                      firstPartIndex: message.parts.findIndex((part) =>
+                          Boolean(getBlockedToolAttempt(part))
+                      )
+                  }
+              ]
+            : []),
         ...(codeExecutions.length > 0
             ? [
                   {
@@ -986,13 +1001,15 @@ const MessageRowComponent = ({
               ]
             : [])
     ].sort((left, right) => left.firstPartIndex - right.firstPartIndex)
-    const inlineParts = message.parts.filter(
-        (part) =>
+    const inlineParts = message.parts.filter((part) => {
+        if (getBlockedToolAttempt(part)) return false
+        return (
             part.type !== "file" &&
             part.type !== "reasoning" &&
             part.type !== "tool-execute_code" &&
             part.type !== "tool-web_search"
-    )
+        )
+    })
     const fileParts = message.parts.filter((part) => part.type === "file")
     const cancelEditRequestRef = useRef<(() => void) | null>(null)
     const bubbleRef = useRef<HTMLDivElement>(null)
@@ -1112,7 +1129,14 @@ const MessageRowComponent = ({
                             )}
 
                             {groupedToolOrder.map((activity) =>
-                                activity.type === "code-execution" ? (
+                                activity.type === "blocked-tools" ? (
+                                    <BlockedToolCard
+                                        key={`${message.id}-blocked-tools`}
+                                        attempts={blockedAttempts}
+                                        retryMessage={retryMessage}
+                                        onRetry={onRetry}
+                                    />
+                                ) : activity.type === "code-execution" ? (
                                     <CodeExecutionGroupRenderer
                                         key={`${message.id}-code-executions`}
                                         executions={codeExecutions}
@@ -1208,6 +1232,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.isEditing === nextProps.isEditing &&
     previousProps.isFirstMessage === nextProps.isFirstMessage &&
     previousProps.hasActiveTarget === nextProps.hasActiveTarget &&
+    previousProps.retryMessage?.id === nextProps.retryMessage?.id &&
     previousProps.onRetry === nextProps.onRetry &&
     previousProps.onSwitchModel === nextProps.onSwitchModel &&
     previousProps.onBranch === nextProps.onBranch &&
@@ -1558,41 +1583,43 @@ export const Messages = forwardRef<
                     : undefined,
             [lastUserMessage, stableOnRetry]
         )
-        const messageRows = useMemo(
-            () =>
-                messages.map((message, index) => {
-                    const isStreamingMessage =
-                        status === "streaming" && message.id === lastMessage?.id
-                    const isEditing = targetFromMessageId === message.id && targetMode === "edit"
-                    const shouldUseLiveFingerprint = isStreamingMessage || isEditing
+        const messageRows = useMemo(() => {
+            let nearestUserMessage: UIMessage | undefined
 
-                    return {
-                        message,
-                        isFirstMessage: index === 0,
-                        renderFingerprint:
-                            renderFingerprints[message.id] ?? `${message.role}:${message.id}`,
-                        liveRenderFingerprint: shouldUseLiveFingerprint
-                            ? getMessageRenderFingerprint(message)
+            return messages.map((message, index) => {
+                const isStreamingMessage = status === "streaming" && message.id === lastMessage?.id
+                const isEditing = targetFromMessageId === message.id && targetMode === "edit"
+                const shouldUseLiveFingerprint = isStreamingMessage || isEditing
+
+                const row = {
+                    message,
+                    retryMessage: message.role === "assistant" ? nearestUserMessage : undefined,
+                    isFirstMessage: index === 0,
+                    renderFingerprint:
+                        renderFingerprints[message.id] ?? `${message.role}:${message.id}`,
+                    liveRenderFingerprint: shouldUseLiveFingerprint
+                        ? getMessageRenderFingerprint(message)
+                        : undefined,
+                    footerMetadataKey:
+                        message.role === "assistant"
+                            ? getMessageFooterMetadataKey(message)
                             : undefined,
-                        footerMetadataKey:
-                            message.role === "assistant"
-                                ? getMessageFooterMetadataKey(message)
-                                : undefined,
-                        isStreamingMessage,
-                        isEditing,
-                        hasActiveTarget
-                    }
-                }),
-            [
-                hasActiveTarget,
-                lastMessage?.id,
-                messages,
-                renderFingerprints,
-                status,
-                targetFromMessageId,
-                targetMode
-            ]
-        )
+                    isStreamingMessage,
+                    isEditing,
+                    hasActiveTarget
+                }
+                if (message.role === "user") nearestUserMessage = message
+                return row
+            })
+        }, [
+            hasActiveTarget,
+            lastMessage?.id,
+            messages,
+            renderFingerprints,
+            status,
+            targetFromMessageId,
+            targetMode
+        ])
 
         const keepMountedIndexes = useMemo(() => {
             const alwaysMountedIndexes = new Set<number>()
@@ -1816,6 +1843,7 @@ export const Messages = forwardRef<
                                         isEditing={row.isEditing}
                                         isFirstMessage={row.isFirstMessage}
                                         hasActiveTarget={row.hasActiveTarget}
+                                        retryMessage={row.retryMessage}
                                         onRetry={onRetry ? stableOnRetry : undefined}
                                         onSwitchModel={handleSwitchModel}
                                         onBranch={onBranch ? stableOnBranch : undefined}
