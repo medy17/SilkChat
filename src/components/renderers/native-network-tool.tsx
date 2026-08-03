@@ -8,6 +8,10 @@ import {
 import type { Core, ElementDefinition, StylesheetJson } from "cytoscape"
 import { CircleAlert, Loader2, Network } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
+import {
+    NativeVisualizationShell,
+    type NativeVisualizationSize
+} from "./native-visualization-shell"
 
 export const NATIVE_NETWORK_VIEWPORT_HEIGHT = 360
 
@@ -39,7 +43,15 @@ const readThemeColor = (
         : `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`
 }
 
-const NativeNetworkPlot = ({ network }: { network: NativeNetwork }) => {
+const NativeNetworkPlot = ({
+    network,
+    expanded = false,
+    size
+}: {
+    network: NativeNetwork
+    expanded?: boolean
+    size?: NativeVisualizationSize
+}) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [error, setError] = useState<string>()
 
@@ -259,32 +271,34 @@ const NativeNetworkPlot = ({ network }: { network: NativeNetwork }) => {
             role="img"
             aria-label={`Interactive network: ${network.title}`}
             className="w-full bg-background"
-            style={{
-                height: NATIVE_NETWORK_VIEWPORT_HEIGHT,
-                minHeight: NATIVE_NETWORK_VIEWPORT_HEIGHT
-            }}
+            style={
+                expanded && size
+                    ? {
+                          width: size.width,
+                          height: size.height,
+                          minWidth: size.width,
+                          minHeight: size.height
+                      }
+                    : {
+                          height: NATIVE_NETWORK_VIEWPORT_HEIGHT,
+                          minHeight: NATIVE_NETWORK_VIEWPORT_HEIGHT
+                      }
+            }
         />
     )
 }
 
 export const NativeNetworkRenderer = memo(({ network }: { network: NativeNetwork }) => (
-    <figure
-        data-native-network
-        className="not-prose my-5 w-full overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card text-card-foreground shadow-sm"
-    >
-        <figcaption className="border-border border-b px-4 py-3">
-            <div className="flex items-start gap-2.5">
-                <Network className="mt-0.5 size-4 shrink-0 text-primary" />
-                <div className="min-w-0">
-                    <h3 className="font-medium text-sm">{network.title}</h3>
-                    {network.description && (
-                        <p className="mt-1 text-muted-foreground text-xs">{network.description}</p>
-                    )}
-                </div>
-            </div>
-        </figcaption>
-        <NativeNetworkPlot network={network} />
-    </figure>
+    <NativeVisualizationShell
+        kind="network"
+        title={network.title}
+        description={network.description}
+        icon={<Network className="size-4" />}
+        dataAttribute="data-native-network"
+        renderVisualization={(expanded, size) => (
+            <NativeNetworkPlot network={network} expanded={expanded} size={size} />
+        )}
+    />
 ))
 
 NativeNetworkRenderer.displayName = "NativeNetworkRenderer"

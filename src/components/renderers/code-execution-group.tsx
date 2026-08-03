@@ -3,7 +3,7 @@ import { HighlightedCodeblock } from "@/components/highlighted-codeblock"
 import { AnimatedCollapsible } from "@/components/ui/animated-collapsible"
 import type { MessageCodeExecution } from "@/lib/message-code-executions"
 import { cn } from "@/lib/utils"
-import { ChevronDown, CircleAlert, Clock3, Loader2, SquareTerminal } from "lucide-react"
+import { ChevronDown, CircleAlert, Clock3, Loader2, Sigma, SquareTerminal } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
 
 const formatDuration = (durationMs: number) => {
@@ -56,6 +56,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
         <section className="border-border/70 border-t first:border-t-0">
             <button
                 type="button"
+                data-pause-chat-scroll-follow=""
                 className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
                 onClick={() => setIsOpen((open) => !open)}
                 aria-expanded={isOpen}
@@ -133,6 +134,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                         <section>
                             <button
                                 type="button"
+                                data-pause-chat-scroll-follow=""
                                 className="flex items-center gap-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
                                 onClick={() => setShowDetails((shown) => !shown)}
                                 aria-expanded={showDetails}
@@ -206,7 +208,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
 ExecutionStep.displayName = "ExecutionStep"
 
 export const CodeExecutionGroupRenderer = memo(
-    ({ executions }: { executions: MessageCodeExecution[] }) => {
+    ({ executions, kind }: { executions: MessageCodeExecution[]; kind: "code" | "math" }) => {
         const [isOpen, setIsOpen] = useState(false)
         const summary = useMemo(() => {
             const running = executions.filter((execution) => execution.status === "running").length
@@ -216,16 +218,20 @@ export const CodeExecutionGroupRenderer = memo(
 
         if (executions.length === 0) return null
 
+        const label = kind === "math" ? "Math Kit" : "Code Execution"
+        const GroupIcon = kind === "math" ? Sigma : SquareTerminal
+
         return (
             <div className="not-prose mb-6 w-full">
                 <button
                     type="button"
+                    data-pause-chat-scroll-follow=""
                     className="flex w-full cursor-pointer items-center gap-2 text-left"
                     onClick={() => setIsOpen((open) => !open)}
                     aria-expanded={isOpen}
                 >
-                    <SquareTerminal className="size-4 shrink-0 text-primary" />
-                    <span className="font-medium text-primary">Code Execution</span>
+                    <GroupIcon className="size-4 shrink-0 text-primary" />
+                    <span className="font-medium text-primary">{label}</span>
                     {summary.running > 0 && (
                         <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                     )}

@@ -257,6 +257,83 @@ describe("manualStreamTransform", () => {
         ])
     })
 
+    it("keeps streamed tool input and the finalized call on one client id", async () => {
+        const onToolCall = vi.fn()
+        const result = await collectChunks(
+            [
+                {
+                    type: "tool-input-start",
+                    id: "provisional-1",
+                    toolName: "execute_math"
+                },
+                {
+                    type: "tool-input-delta",
+                    id: "provisional-1",
+                    delta: '{"code":"print(42)"}'
+                },
+                {
+                    type: "tool-call",
+                    toolCallId: "call-1",
+                    toolName: "execute_math",
+                    input: { code: "print(42)" }
+                },
+                {
+                    type: "tool-call",
+                    toolCallId: "call-1",
+                    toolName: "execute_math",
+                    input: { code: "print(42)" }
+                },
+                {
+                    type: "tool-result",
+                    toolCallId: "call-1",
+                    output: { success: true, exitCode: 0, stdout: "42" }
+                }
+            ],
+            { onToolCall }
+        )
+
+        expect(result.output).toEqual([
+            {
+                type: "tool-input-start",
+                toolCallId: "provisional-1",
+                toolName: "execute_math"
+            },
+            {
+                type: "tool-input-delta",
+                toolCallId: "provisional-1",
+                inputTextDelta: '{"code":"print(42)"}'
+            },
+            {
+                type: "tool-input-available",
+                toolCallId: "provisional-1",
+                toolName: "execute_math",
+                input: { code: "print(42)" }
+            },
+            {
+                type: "tool-input-available",
+                toolCallId: "provisional-1",
+                toolName: "execute_math",
+                input: { code: "print(42)" }
+            },
+            {
+                type: "tool-output-available",
+                toolCallId: "provisional-1",
+                output: { success: true, exitCode: 0, stdout: "42" }
+            }
+        ])
+        expect(result.parts).toContainEqual(
+            expect.objectContaining({
+                type: "tool-invocation",
+                toolInvocation: expect.objectContaining({
+                    toolCallId: "call-1",
+                    state: "result"
+                })
+            })
+        )
+        expect(result.parts).toHaveLength(1)
+        expect(onToolCall).toHaveBeenCalledTimes(1)
+    })
+
     it.each(["execute_code", "execute_math"])(
         "turns %s artifacts into durable assistant file parts",
         async (toolName) => {

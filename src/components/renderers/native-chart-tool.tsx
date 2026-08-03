@@ -26,6 +26,10 @@ import {
     XAxis,
     YAxis
 } from "recharts"
+import {
+    NativeVisualizationShell,
+    type NativeVisualizationSize
+} from "./native-visualization-shell"
 
 const SERIES_COLORS = [
     "var(--chart-1)",
@@ -34,6 +38,8 @@ const SERIES_COLORS = [
     "var(--chart-4)",
     "var(--chart-5)"
 ]
+
+const EXPANDED_CHART_INSET = 16
 
 type ChartToolInvocation = {
     state: string
@@ -200,7 +206,11 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
     )
 }
 
-export const NativeChartRenderer = memo(({ chart }: { chart: NativeChart }) => {
+const NativeChartVisualization = ({
+    chart,
+    expanded,
+    size
+}: { chart: NativeChart; expanded: boolean; size?: NativeVisualizationSize }) => {
     const config = Object.fromEntries(
         chart.series.map((series, index) => [
             series.key,
@@ -208,40 +218,52 @@ export const NativeChartRenderer = memo(({ chart }: { chart: NativeChart }) => {
         ])
     ) satisfies ChartConfig
 
+    const width = expanded ? Math.max(0, (size?.width ?? 0) - EXPANDED_CHART_INSET) : "100%"
+    const height = expanded ? Math.max(0, (size?.height ?? 0) - EXPANDED_CHART_INSET) : 300
+
     return (
-        <figure
-            data-native-chart
-            className="not-prose my-5 w-full overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card text-card-foreground shadow-sm"
+        <div
+            className={expanded ? "overflow-hidden" : "px-2 py-4 sm:px-4"}
+            style={
+                expanded && size
+                    ? {
+                          width: size.width,
+                          height: size.height,
+                          paddingTop: EXPANDED_CHART_INSET,
+                          paddingLeft: EXPANDED_CHART_INSET
+                      }
+                    : undefined
+            }
         >
-            <figcaption className="border-border border-b px-4 py-3">
-                <div className="flex items-start gap-2.5">
-                    <BarChart3 className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                        <h3 className="font-medium text-sm">{chart.title}</h3>
-                        {chart.description && (
-                            <p className="mt-1 text-muted-foreground text-xs">
-                                {chart.description}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            </figcaption>
-            <div className="px-2 py-4 sm:px-4">
-                <ChartContainer
-                    config={config}
-                    className="aspect-auto w-full overflow-hidden"
-                    responsiveContainerProps={{
-                        height: 300,
-                        initialDimension: { width: 800, height: 300 },
-                        minWidth: 0
-                    }}
-                >
-                    <NativeChartPlot chart={chart} />
-                </ChartContainer>
-            </div>
-        </figure>
+            <ChartContainer
+                config={config}
+                className="aspect-auto w-full overflow-hidden"
+                style={{ height }}
+                responsiveContainerProps={{
+                    width,
+                    height,
+                    initialDimension: { width: size?.width ?? 800, height: height || 300 },
+                    minWidth: 0
+                }}
+            >
+                <NativeChartPlot chart={chart} />
+            </ChartContainer>
+        </div>
     )
-})
+}
+
+export const NativeChartRenderer = memo(({ chart }: { chart: NativeChart }) => (
+    <NativeVisualizationShell
+        kind="chart"
+        title={chart.title}
+        description={chart.description}
+        icon={<BarChart3 className="size-4" />}
+        dataAttribute="data-native-chart"
+        renderVisualization={(expanded, size) => (
+            <NativeChartVisualization chart={chart} expanded={expanded} size={size} />
+        )}
+    />
+))
 
 NativeChartRenderer.displayName = "NativeChartRenderer"
 

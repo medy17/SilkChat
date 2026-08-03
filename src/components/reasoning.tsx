@@ -65,6 +65,7 @@ function ReasoningTrigger({ children, className, ...props }: ReasoningTriggerPro
 
     return (
         <button
+            data-pause-chat-scroll-follow=""
             className={cn("flex w-full cursor-pointer items-center gap-2", className)}
             onClick={() => onOpenChange(!isOpen)}
             {...props}

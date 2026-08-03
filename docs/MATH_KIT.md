@@ -77,6 +77,8 @@ Every row must contain a string or numeric horizontal-axis value. Scatter charts
 
 The renderer uses Recharts and theme-backed chart variables. Linear scales should be used for sampled mathematical functions and other continuous numeric axes. The model should provide enough ordered samples for a smooth curve while keeping the dataset no larger than useful.
 
+Charts include an expandable focus view. The inline chart remains compact for conversation flow, while the focus view uses most of the available viewport for dense data and multi-series inspection.
+
 ## Native networks
 
 `render_network` accepts up to 100 nodes and 300 edges. It supports `cose`, `circle`, `grid`, `breadthfirst`, and `concentric` layouts.
@@ -86,6 +88,8 @@ Node IDs must be unique. Every edge source and target must reference an existing
 Node groups map to the active theme's chart palette. Optional node values and edge weights control relative sizing. Directed graphs receive arrowheads.
 
 Cytoscape is loaded dynamically only when a network mounts, keeping it out of ordinary chat startup. The mounted graph observes root theme changes and refreshes its node colors and stylesheet without rerunning the selected layout.
+
+Networks use the same expandable focus-view shell as charts. Opening the focus view creates a viewport-sized graph instance and fits the network to the larger container.
 
 ## Tool-call budget policy
 
@@ -137,6 +141,7 @@ Native chart and network rendering has no upstream usage charge. Calls still par
 - `src/lib/native-network.ts`: native network schema and replay validation
 - `src/components/renderers/native-chart-tool.tsx`: chart UI
 - `src/components/renderers/native-network-tool.tsx`: network UI
+- `src/components/renderers/native-visualization-shell.tsx`: shared expandable focus view
 - `src/lib/message-code-executions.ts`: shared execution grouping
 - `src/components/tool-selector-popover.tsx`: desktop Math Kit control
 - `src/components/multimodal-input.tsx`: mobile Math Kit control
@@ -151,6 +156,7 @@ Native chart and network rendering has no upstream usage charge. Calls still par
 - Preserve the hard-stop semantics for metered execution and the intentional soft-stop semantics for native rendering.
 - Validate renderer inputs and persisted outputs at their boundaries.
 - Keep Cytoscape lazy-loaded and its internal edge IDs collision-safe.
+- Keep chart and network expansion behavior consistent through the shared focus-view shell.
 - Use theme variables for all renderer styling and update mounted canvas-based graphs when the theme changes.
 - Promote math-execution artifacts through the same durable file pipeline as general code execution.
 

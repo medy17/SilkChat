@@ -76,10 +76,65 @@ describe("getMessageCodeExecutions", () => {
         } as never)
 
         expect(result[0]).toMatchObject({
+            kind: "math",
             toolCallId: "math-1",
             status: "succeeded",
             title: "Solving symbolically",
             input: { language: "python" }
+        })
+    })
+
+    it("distinguishes Math Kit work from general code execution", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_math",
+                    toolCallId: "math-1",
+                    state: "output-available",
+                    input: { code: "print(1)" },
+                    output: { success: true, exitCode: 0 }
+                },
+                {
+                    type: "tool-execute_code",
+                    toolCallId: "code-1",
+                    state: "output-available",
+                    input: { language: "python", code: "print(2)" },
+                    output: { success: true, exitCode: 0 }
+                }
+            ]
+        } as never)
+
+        expect(result.map(({ toolCallId, kind }) => ({ toolCallId, kind }))).toEqual([
+            { toolCallId: "math-1", kind: "math" },
+            { toolCallId: "code-1", kind: "code" }
+        ])
+    })
+
+    it("collapses transient duplicate parts for the same tool call", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_math",
+                    toolCallId: "math-1",
+                    state: "input-streaming",
+                    input: { purpose: "Evaluating an integral", code: "print(value)" }
+                },
+                {
+                    type: "tool-execute_math",
+                    toolCallId: "math-1",
+                    state: "input-available",
+                    input: { purpose: "Evaluating an integral", code: "print(value)" }
+                }
+            ]
+        } as never)
+
+        expect(result).toHaveLength(1)
+        expect(result[0]).toMatchObject({
+            kind: "math",
+            toolCallId: "math-1",
+            state: "input-available"
         })
     })
 

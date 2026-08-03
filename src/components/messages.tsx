@@ -46,6 +46,7 @@ import {
 } from "lucide-react"
 import { ArrowUp } from "lucide-react"
 import {
+    type MouseEvent as ReactMouseEvent,
     forwardRef,
     memo,
     useCallback,
@@ -900,6 +901,7 @@ const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
 const BOTTOM_SCROLL_THRESHOLD_PX = 4
 const SCROLL_IDLE_DELAY_MS = 2_000
+const ACCORDION_SCROLL_FOLLOW_PAUSE_MS = 200
 const STREAMING_ANCHOR_TOP_GAP_PX = 16
 const MESSAGE_MARKDOWN_CLASS =
     "prose relative max-w-none prose-pre:bg-transparent prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
@@ -973,7 +975,9 @@ const MessageRowComponent = ({
     threadId
 }: MessageRowProps) => {
     const reasoning = getMessageReasoningDetails(message)
-    const codeExecutions = getMessageCodeExecutions(message)
+    const executions = getMessageCodeExecutions(message)
+    const codeExecutions = executions.filter((execution) => execution.kind === "code")
+    const mathExecutions = executions.filter((execution) => execution.kind === "math")
     const webSearches = getMessageWebSearches(message)
     const blockedAttempts = getBlockedToolAttempts(message)
     const groupedToolOrder = [
@@ -992,8 +996,17 @@ const MessageRowComponent = ({
                   {
                       type: "code-execution" as const,
                       firstPartIndex: message.parts.findIndex(
-                          (part) =>
-                              part.type === "tool-execute_code" || part.type === "tool-execute_math"
+                          (part) => part.type === "tool-execute_code"
+                      )
+                  }
+              ]
+            : []),
+        ...(mathExecutions.length > 0
+            ? [
+                  {
+                      type: "math-kit" as const,
+                      firstPartIndex: message.parts.findIndex(
+                          (part) => part.type === "tool-execute_math"
                       )
                   }
               ]
@@ -1149,6 +1162,13 @@ const MessageRowComponent = ({
                                     <CodeExecutionGroupRenderer
                                         key={`${message.id}-code-executions`}
                                         executions={codeExecutions}
+                                        kind="code"
+                                    />
+                                ) : activity.type === "math-kit" ? (
+                                    <CodeExecutionGroupRenderer
+                                        key={`${message.id}-math-executions`}
+                                        executions={mathExecutions}
+                                        kind="math"
                                     />
                                 ) : (
                                     <WebSearchGroupRenderer
@@ -1308,6 +1328,7 @@ export const Messages = forwardRef<
         const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
         const shouldStickToBottomRef = useRef(true)
         const allowUnboundedStreamingFollowRef = useRef(false)
+        const autoFollowPausedUntilRef = useRef(0)
         const onRetryRef = useRef(onRetry)
         const onBranchRef = useRef(onBranch)
         const onEditAndRetryRef = useRef(onEditAndRetry)
@@ -1581,6 +1602,18 @@ export const Messages = forwardRef<
             [scheduleScrollIdle, syncBottomStateFromOffset, updateScrollDirection]
         )
 
+        const handleContentClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+            const target = event.target
+            if (
+                !(target instanceof Element) ||
+                !target.closest("[data-pause-chat-scroll-follow]")
+            ) {
+                return
+            }
+
+            autoFollowPausedUntilRef.current = Date.now() + ACCORDION_SCROLL_FOLLOW_PAUSE_MS
+        }, [])
+
         const scrollToBottom = useCallback(
             (behavior: ScrollBehavior = "auto") => {
                 allowUnboundedStreamingFollowRef.current = true
@@ -1767,7 +1800,10 @@ export const Messages = forwardRef<
 
             let frameId: number | null = null
             const observer = new ResizeObserver(() => {
-                if (!shouldStickToBottomRef.current) {
+                if (
+                    !shouldStickToBottomRef.current ||
+                    Date.now() < autoFollowPausedUntilRef.current
+                ) {
                     return
                 }
 
@@ -1894,7 +1930,7 @@ export const Messages = forwardRef<
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     >
-                        <div ref={contentContainerRef}>
+                        <div ref={contentContainerRef} onClickCapture={handleContentClickCapture}>
                             <Virtualizer
                                 ref={virtualizerRef}
                                 scrollRef={scrollerRef}

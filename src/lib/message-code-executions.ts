@@ -30,6 +30,7 @@ export type CodeExecutionOutput = {
 }
 
 export type MessageCodeExecution = {
+    kind: "code" | "math"
     toolCallId: string
     state: string
     input: CodeExecutionInput
@@ -112,6 +113,7 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
     if (message.role !== "assistant") return []
 
     const executions: MessageCodeExecution[] = []
+    const executionIndexesByCallId = new Map<string, number>()
 
     for (const part of message.parts) {
         if (part.type !== "tool-execute_code" && part.type !== "tool-execute_math") continue
@@ -138,7 +140,8 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             (typeof output?.exitCode === "number" && output.exitCode !== 0)
         const running = state !== "output-available" && !failed
 
-        executions.push({
+        const execution: MessageCodeExecution = {
+            kind: part.type === "tool-execute_math" ? "math" : "code",
             toolCallId: invocation.toolCallId ?? `code-execution-${executions.length}`,
             state,
             input,
@@ -146,7 +149,19 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             errorText: asTrimmedString(invocation.errorText),
             status: failed ? "failed" : running ? "running" : "succeeded",
             title: input.purpose ?? getFallbackTitle(input.language)
-        })
+        }
+        const existingIndex = invocation.toolCallId
+            ? executionIndexesByCallId.get(invocation.toolCallId)
+            : undefined
+
+        if (existingIndex === undefined) {
+            if (invocation.toolCallId) {
+                executionIndexesByCallId.set(invocation.toolCallId, executions.length)
+            }
+            executions.push(execution)
+        } else {
+            executions[existingIndex] = execution
+        }
     }
 
     return executions

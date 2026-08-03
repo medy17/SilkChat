@@ -69,6 +69,8 @@ export const manualStreamTransform = (
     let hasSuppressedInlinePayloadNotice = false
     let pendingReasoningStartId: string | null = null
     let activeReasoningId: string | null = null
+    const pendingToolInputs: Array<{ id: string; toolName: string }> = []
+    const clientToolCallIds = new Map<string, string>()
     const allowReasoning = options?.allowReasoning ?? true
     const REDACTED_REASONING_PATTERN = /^\[REDACTED\]$/i
     const notifyPartsChanged = () => {
@@ -356,6 +358,9 @@ export const manualStreamTransform = (
                     }
                     break
                 case "tool-input-start":
+                    if (!pendingToolInputs.some((pending) => pending.id === chunk.id)) {
+                        pendingToolInputs.push({ id: chunk.id, toolName: chunk.toolName })
+                    }
                     controller.enqueue({
                         type: "tool-input-start",
                         toolCallId: chunk.id,
@@ -369,28 +374,59 @@ export const manualStreamTransform = (
                         inputTextDelta: chunk.delta
                     })
                     break
-                case "tool-call":
-                    options?.onToolCall?.({
-                        toolCallId: chunk.toolCallId,
-                        toolName: chunk.toolName
-                    })
-                    parts.push({
-                        type: "tool-invocation",
-                        toolInvocation: {
-                            state: "call",
-                            args: chunk.input,
+                case "tool-call": {
+                    const existingClientToolCallId = clientToolCallIds.get(chunk.toolCallId)
+                    let clientToolCallId = existingClientToolCallId
+
+                    if (!clientToolCallId) {
+                        const exactPendingIndex = pendingToolInputs.findIndex(
+                            (pending) => pending.id === chunk.toolCallId
+                        )
+                        const matchingPendingIndex = pendingToolInputs.findIndex(
+                            (pending) => pending.toolName === chunk.toolName
+                        )
+                        const pendingIndex =
+                            exactPendingIndex >= 0 ? exactPendingIndex : matchingPendingIndex
+                        const pendingInput =
+                            pendingIndex >= 0
+                                ? pendingToolInputs.splice(pendingIndex, 1)[0]
+                                : undefined
+                        clientToolCallId = pendingInput?.id ?? chunk.toolCallId
+                        clientToolCallIds.set(chunk.toolCallId, clientToolCallId)
+                    }
+
+                    const existingStoredCall = parts.find(
+                        (part) =>
+                            part.type === "tool-invocation" &&
+                            part.toolInvocation.toolCallId === chunk.toolCallId
+                    ) as Extract<StoredPart, { type: "tool-invocation" }> | undefined
+                    if (existingStoredCall) {
+                        existingStoredCall.toolInvocation.args = chunk.input
+                        existingStoredCall.toolInvocation.toolName = chunk.toolName
+                    } else {
+                        options?.onToolCall?.({
                             toolCallId: chunk.toolCallId,
                             toolName: chunk.toolName
-                        }
-                    })
+                        })
+                        parts.push({
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                state: "call",
+                                args: chunk.input,
+                                toolCallId: chunk.toolCallId,
+                                toolName: chunk.toolName
+                            }
+                        })
+                    }
                     notifyPartsChanged()
                     controller.enqueue({
                         type: "tool-input-available",
-                        toolCallId: chunk.toolCallId,
+                        toolCallId: clientToolCallId,
                         toolName: chunk.toolName,
                         input: chunk.input
                     })
                     break
+                }
                 case "tool-result": {
                     const found = parts.findIndex(
                         (part) =>
@@ -415,7 +451,7 @@ export const manualStreamTransform = (
 
                     controller.enqueue({
                         type: "tool-output-available",
-                        toolCallId: chunk.toolCallId,
+                        toolCallId: clientToolCallIds.get(chunk.toolCallId) ?? chunk.toolCallId,
                         output: chunk.output
                     })
 
@@ -453,7 +489,7 @@ export const manualStreamTransform = (
                     markFirstVisible()
                     controller.enqueue({
                         type: "tool-output-error",
-                        toolCallId: chunk.toolCallId,
+                        toolCallId: clientToolCallIds.get(chunk.toolCallId) ?? chunk.toolCallId,
                         errorText: String(chunk.error)
                     })
                     break
