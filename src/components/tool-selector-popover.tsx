@@ -34,7 +34,7 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, Globe, Image, Settings2, SquareTerminal } from "lucide-react"
+import { CircleHelp, Globe, Image, Settings2, Sigma, SquareTerminal } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -185,6 +185,76 @@ function CodeExecutionInfoButton({
                     overlayClassName="z-[90]"
                     title="Code Execution"
                     description="Sandbox capabilities and usage warning"
+                >
+                    {content}
+                </ResponsivePopoverContent>
+            </ResponsivePopover>
+        )
+    }
+
+    return (
+        <HoverCard openDelay={120} closeDelay={120}>
+            <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+            <HoverCardContent align="start" side="right" sideOffset={12} className="w-80 p-0">
+                {content}
+            </HoverCardContent>
+        </HoverCard>
+    )
+}
+
+function MathematicalInstrumentsInfoButton({
+    isMobile,
+    available
+}: {
+    isMobile: boolean
+    available: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const trigger = (
+        <button
+            type="button"
+            aria-label="Show Math Kit details"
+            className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            style={{ borderRadius: "var(--radius-xl)" }}
+            onPointerDown={(event) => {
+                event.stopPropagation()
+            }}
+            onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) setOpen(true)
+            }}
+        >
+            <CircleHelp className="size-3.5" />
+        </button>
+    )
+    const content = (
+        <div className="space-y-3 p-3 text-sm">
+            <div>
+                <div className="font-medium text-foreground">Math Kit</div>
+                <p className="mt-1 text-muted-foreground text-xs">
+                    A full suite of mathematical instruments. Draw and view gorgeous graphs &
+                    charts, solve equations, and perform advanced calculations.
+                </p>
+            </div>
+            <div className="flex justify-between gap-4 text-xs">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium text-foreground">
+                    {available ? "Available" : "Unavailable"}
+                </span>
+            </div>
+        </div>
+    )
+
+    if (isMobile) {
+        return (
+            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
+                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+                <ResponsivePopoverContent
+                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    overlayClassName="z-[90]"
+                    title="Math Kit"
+                    description="Calculation and visualization details"
                 >
                     {content}
                 </ResponsivePopoverContent>
@@ -429,6 +499,9 @@ export const ToolSelectorPopover = memo(
         const silkScreenAvailable = modelSupportsFunctionCalling && modelSupportsVision
         const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
         const codeExecutionAvailable = Boolean(toolAvailability?.code_execution?.enabled)
+        const mathematicalInstrumentsAvailable = Boolean(
+            toolAvailability?.mathematical_instruments?.enabled
+        )
         const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
         const imageDefaults = userSettings?.imageGenerationDefaults
@@ -527,6 +600,16 @@ export const ToolSelectorPopover = memo(
             )
         }
 
+        const handleMathematicalInstrumentsToggle = () => {
+            if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) return
+
+            onEnabledToolsChange(
+                enabledTools.includes("mathematical_instruments")
+                    ? enabledTools.filter((tool) => tool !== "mathematical_instruments")
+                    : [...enabledTools, "mathematical_instruments"]
+            )
+        }
+
         const handleMcpServerToggle = (serverName: string, enabled: boolean) => {
             if (threadId) {
                 // Set thread-specific override
@@ -541,6 +624,12 @@ export const ToolSelectorPopover = memo(
             let count = 0
             if (webSearchAvailable && enabledTools.includes("web_search")) count++
             if (codeExecutionAvailable && enabledTools.includes("code_execution")) count++
+            if (
+                mathematicalInstrumentsAvailable &&
+                enabledTools.includes("mathematical_instruments")
+            ) {
+                count++
+            }
             if (supermemoryAvailable && enabledTools.includes("supermemory")) count++
             if (hasMcpServers) {
                 // Count enabled MCP servers for this thread
@@ -610,6 +699,28 @@ export const ToolSelectorPopover = memo(
                                             }
                                             onCheckedChange={handleWebSearchToggle}
                                             disabled={webSearchDisabled}
+                                        />
+                                    </CommandItem>
+
+                                    <CommandItem className="flex items-center justify-between p-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <Sigma className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm">Math Kit</span>
+                                            <MathematicalInstrumentsInfoButton
+                                                isMobile={isMobile}
+                                                available={mathematicalInstrumentsAvailable}
+                                            />
+                                        </div>
+                                        <Switch
+                                            checked={
+                                                mathematicalInstrumentsAvailable &&
+                                                enabledTools.includes("mathematical_instruments")
+                                            }
+                                            onCheckedChange={handleMathematicalInstrumentsToggle}
+                                            disabled={
+                                                !modelSupportsFunctionCalling ||
+                                                !mathematicalInstrumentsAvailable
+                                            }
                                         />
                                     </CommandItem>
 

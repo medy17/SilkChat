@@ -31,8 +31,8 @@ import {
     sanitizeCodeExecutionArtifactStorageSegment
 } from "./code_execution_artifacts"
 
-const DEPENDENCY_INSTALL_TIMEOUT_MS = 30_000
-const SANDBOX_SESSION_TIMEOUT_MS = 70_000
+const DEPENDENCY_INSTALL_TIMEOUT_MS = 90_000
+const SANDBOX_SESSION_TIMEOUT_MS = 140_000
 const MAX_OUTPUT_CHARS_PER_STREAM = 32_000
 const MAX_CODE_CHARS = 100_000
 const MAX_DEPENDENCIES = 10

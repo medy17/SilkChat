@@ -18,6 +18,30 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("Single-dollar delimiters ($L_{0}$) are forbidden.")
     })
 
+    it("advertises native visualizations and computation only with Math Kit enabled", () => {
+        const enabledPrompt = buildPrompt({
+            enabledTools: ["mathematical_instruments"]
+        })
+        const disabledPrompt = buildPrompt({ enabledTools: [] })
+
+        expect(enabledPrompt).toContain("`render_chart`: renders supplied numeric data")
+        expect(enabledPrompt).toContain(
+            "Math Kit is the name the user sees in the Tools menu for the internal `mathematical_instruments` ability"
+        )
+        expect(enabledPrompt).toContain("`render_network`")
+        expect(enabledPrompt).toContain("`execute_math`")
+        expect(enabledPrompt).toContain(
+            "It does not depend on the separate Code Execution toggle being on"
+        )
+        expect(enabledPrompt).toContain("the callable tool list is authoritative")
+        expect(enabledPrompt).toContain("Use `execute_code` instead only for general-purpose")
+        expect(enabledPrompt).toContain("Do not call both executors for the same calculation")
+        expect(enabledPrompt).toContain("Do not use Canvas")
+        expect(disabledPrompt).toContain(
+            "Math Kit (internal ability: `mathematical_instruments`) is unavailable"
+        )
+    })
+
     it("appends saved user customization when present", () => {
         const prompt = buildPrompt({
             enabledTools: [],
@@ -96,6 +120,7 @@ describe("buildPrompt", () => {
             toolAvailability: {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
+                mathematical_instruments: { enabled: true, fundingSource: "none" },
                 supermemory: { enabled: false, fundingSource: "none" },
                 mcp: { enabled: false, fundingSource: "none" }
             },
@@ -118,6 +143,7 @@ describe("buildPrompt", () => {
             toolAvailability: {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
+                mathematical_instruments: { enabled: true, fundingSource: "none" },
                 supermemory: { enabled: true, fundingSource: "byok" },
                 mcp: { enabled: true, fundingSource: "byok" }
             },

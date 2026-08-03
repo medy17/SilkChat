@@ -61,6 +61,28 @@ describe("getMessageCodeExecutions", () => {
         expect(result[1]?.errorText).toBe("Sandbox unavailable")
     })
 
+    it("groups Math Kit calculations as Python executions", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_math",
+                    toolCallId: "math-1",
+                    state: "output-available",
+                    input: { purpose: "Solving symbolically", code: "print(42)" },
+                    output: { success: true, exitCode: 0, stdout: "42" }
+                }
+            ]
+        } as never)
+
+        expect(result[0]).toMatchObject({
+            toolCallId: "math-1",
+            status: "succeeded",
+            title: "Solving symbolically",
+            input: { language: "python" }
+        })
+    })
+
     it("ignores code execution parts on non-assistant messages", () => {
         expect(
             getMessageCodeExecutions({

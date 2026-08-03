@@ -961,7 +961,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
-        if (toolName === "execute_code") return toolAvailability.code_execution.fundingSource
+        if (toolName === "execute_code" || toolName === "execute_math") {
+            return toolAvailability.code_execution.fundingSource
+        }
+        if (toolName === "render_chart" || toolName === "render_network") {
+            return toolAvailability.mathematical_instruments.fundingSource
+        }
         return "byok"
     }
     const hasPaidCallableTools = callableEnabledTools.length > 0
@@ -992,6 +997,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
         callableEnabledTools.includes("code_execution") &&
         toolAvailability.code_execution.fundingSource === "deployment"
             ? getConfiguredToolUsageMicrousd("execute_code")
+            : 0,
+        callableEnabledTools.includes("mathematical_instruments") &&
+        toolAvailability.code_execution.fundingSource === "deployment"
+            ? getConfiguredToolUsageMicrousd("execute_math")
             : 0
     ]
     const reservedToolMicrousd = hasPaidCallableTools
@@ -1687,8 +1696,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const paidTools = hasPaidCallableTools
                 ? await getToolkit(ctx, callableEnabledTools, filteredSettings, {
                       consumeToolCall: async ({ toolName, toolCallId }) => {
-                          const toolIsDeploymentFunded =
-                              getToolFundingSource(toolName) === "deployment"
+                          const fundingSource = getToolFundingSource(toolName)
+                          const toolIsDeploymentFunded = fundingSource === "deployment"
 
                           return await ctx.runMutation(internal.credits.consumeReservedToolCall, {
                               userId: user.id,
@@ -1699,7 +1708,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                               toolCallId,
                               toolName,
                               modelId: body.model,
-                              providerSource: toolIsDeploymentFunded ? "internal" : "byok",
+                              providerSource: fundingSource === "byok" ? "byok" : "internal",
                               feature: "tool",
                               counted: toolIsDeploymentFunded,
                               ...(toolIsDeploymentFunded

@@ -91,10 +91,14 @@ describe("tool availability", () => {
             enabled: false,
             fundingSource: "none"
         })
+        expect(result.mathematical_instruments).toEqual({
+            enabled: true,
+            fundingSource: "none"
+        })
     })
 
-    it("withholds code execution from anonymous sessions", () => {
-        const tools = ["web_search", "code_execution"] as const
+    it("withholds sandbox-backed tools from anonymous sessions", () => {
+        const tools = ["web_search", "code_execution", "mathematical_instruments"] as const
 
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: true })).toEqual(["web_search"])
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: false })).toEqual(tools)

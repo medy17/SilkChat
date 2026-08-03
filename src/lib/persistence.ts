@@ -3,9 +3,7 @@ import { z } from "zod"
 
 const AIConfigSchema = z.object({
     selectedModel: z.string().nullable(),
-    enabledTools: z
-        .array(z.enum(ABILITIES as readonly ["web_search", "code_execution", "supermemory", "mcp"]))
-        .default([]),
+    enabledTools: z.array(z.enum(ABILITIES)).default([]),
     selectedImageSize: z.string().optional().default("1:1"),
     selectedImageResolution: z.string().optional().default("1K"),
     reasoningEffort: z.enum(["off", "minimal", "low", "medium", "high"]).default("off")

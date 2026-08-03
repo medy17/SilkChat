@@ -102,6 +102,7 @@
         "cmdk": "^1.1.1",
         "convex": "1.42.1",
         "convex-helpers": "^0.1.120",
+        "cytoscape": "^3.34.0",
         "date-fns": "^4.4.0",
         "dotenv": "17.4.2",
         "embla-carousel-react": "^8.6.0",

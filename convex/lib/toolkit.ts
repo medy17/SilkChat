@@ -12,6 +12,7 @@ import {
 } from "./tools/availability"
 import { CodeExecutionAdapter } from "./tools/code_execution"
 import { MCPAdapter } from "./tools/mcp_adapter"
+import { NativeChartAdapter } from "./tools/native_chart"
 import { SupermemoryAdapter } from "./tools/supermemory"
 import { WebSearchAdapter } from "./tools/web_search"
 
@@ -19,6 +20,7 @@ export type ToolAdapter = (params: ConditionalToolParams) => Promise<Partial<Rec
 export const TOOL_ADAPTERS = [
     WebSearchAdapter,
     CodeExecutionAdapter,
+    NativeChartAdapter,
     SupermemoryAdapter,
     MCPAdapter
 ]

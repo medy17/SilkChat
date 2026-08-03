@@ -99,7 +99,7 @@ export const buildCapabilityContext = ({
     const addToolLimit = (tool: AbilityId, label: string, unavailableReason: string) => {
         if (enabledTools.includes(tool)) return
 
-        if (tool === "code_execution" && isAnonymous) {
+        if ((tool === "code_execution" || tool === "mathematical_instruments") && isAnonymous) {
             limits.push(
                 `- ${label}: unavailable in anonymous chats. The user must sign in before it can be enabled; you cannot use it in this chat.`
             )
@@ -133,6 +133,7 @@ export const buildCapabilityContext = ({
             "Code execution",
             "unavailable because SilkChat has no sandbox backend configured. Do not ask the user to toggle it; it cannot be used until an administrator configures the deployment."
         )
+        addToolLimit("mathematical_instruments", "Math Kit", "unavailable in this deployment.")
         addToolLimit(
             "supermemory",
             "Memory",
@@ -169,6 +170,7 @@ export const buildPrompt = ({
 }: BuildPromptOptions) => {
     const hasWebSearch = enabledTools.includes("web_search")
     const hasCodeExecution = enabledTools.includes("code_execution")
+    const hasMathematicalInstruments = enabledTools.includes("mathematical_instruments")
     const hasSupermemory = enabledTools.includes("supermemory")
     const hasMCP = enabledTools.includes("mcp")
 
@@ -213,6 +215,24 @@ When you have determined that LaTeX is appropriate:
   $$
 - Single-dollar delimiters ($L_{0}$) are forbidden.
 
+## Math Kit (internal ability: \`mathematical_instruments\`)
+${
+    hasMathematicalInstruments
+        ? dedent`
+Math Kit is the name the user sees in the Tools menu for the internal \`mathematical_instruments\` ability. Math Kit is enabled. Its tools are separate capabilities with different jobs:
+- \`render_chart\`: renders supplied numeric data as a native interactive line, bar, area, scatter, or sampled-function plot. It does not execute code or derive data. Use a linear x scale for continuous numeric functions.
+- \`render_network\`: renders supplied nodes and edges as a native interactive network. It does not run graph algorithms. Use it for relationships, topology, paths, trees, and dependency graphs.
+- \`execute_math\`: when it appears in the callable tool list, it is a real scoped Python 3.13 executor included with Math Kit (\`mathematical_instruments\`). It automatically provides SymPy, NumPy, SciPy, pandas, Matplotlib, NetworkX, statsmodels, and Pint. It does not depend on the separate Code Execution toggle being on. Since the two are separate, never claim \`execute_math\` is unavailable merely because \`execute_code\` is absent or Code Execution is off; the callable tool list is authoritative.
+
+Tool routing rules:
+- Answer trivial arithmetic directly. Use \`execute_math\` to verify non-trivial symbolic algebra, numerical methods, statistics, data analysis, units, or graph algorithms.
+- If the user already supplied all chart or network data, call the renderer directly without executing Python first.
+- When computation produces a visualization, call \`execute_math\` first, then pass only the useful computed data to \`render_chart\` or \`render_network\`.
+- Use \`execute_code\` instead only for general-purpose JavaScript/Python, arbitrary third-party dependencies, software testing, internet retrieval, or persistent filesystem work. Do not call both executors for the same calculation.
+- Prefer the native renderers over Canvas, Mermaid, HTML, React, ASCII art, Matplotlib images, or other code-generated images whenever the requested visualization fits their contracts.`
+        : "Math Kit (internal ability: `mathematical_instruments`) is unavailable with the selected model."
+}
+
 ## Canvas Tool
 Use Canvas exclusively for highly complex technical explanations or when the user explicitly requests a diagram or UI component. For casual or colloquial conversation, respond in plain markdown only.
 
@@ -237,7 +257,7 @@ Two formats are supported:
   - Export a default React component.
   - TailwindCSS is enabled. Arbitrary classes are not allowed.
   - Built-in hooks must be imported from \`react\` e.g. \`import { useEffect } from "react"\`
-  - The only available external library is \`recharts\`, and only when the user asks for statistical or interactive charts e.g. \`import { LineChart, XAxis, ... } from "recharts"\`
+  - Do not use Canvas for charts; native charts belong in the \`render_chart\` tool.
   - For images, use \`https://www.claudeusercontent.com/api/placeholder/{width}/{height}\` as the source. Do not invent image URLs.`
     )
 

@@ -419,7 +419,10 @@ export const manualStreamTransform = (
                         output: chunk.output
                     })
 
-                    if (resolvedToolName === "execute_code") {
+                    if (
+                        resolvedToolName === "execute_code" ||
+                        resolvedToolName === "execute_math"
+                    ) {
                         for (const artifact of getCodeExecutionArtifactsFromToolOutput(
                             chunk.output,
                             userId

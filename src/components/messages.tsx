@@ -75,6 +75,8 @@ import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
+import { NativeChartToolRenderer } from "./renderers/native-chart-tool"
+import { NativeNetworkToolRenderer } from "./renderers/native-network-tool"
 import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
 import { WebSearchGroupRenderer } from "./renderers/web-search-ui"
 import { TabularFilePreview } from "./tabular-file-preview"
@@ -388,6 +390,10 @@ const PartsRenderer = memo(
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="profile" />
             case "tool-image_generation":
                 return <ImageGenerationToolRenderer toolInvocation={part} />
+            case "tool-render_chart":
+                return <NativeChartToolRenderer toolInvocation={part} />
+            case "tool-render_network":
+                return <NativeNetworkToolRenderer toolInvocation={part} />
             case "tool-prepareImageGeneration":
                 return (
                     <ImageGenerationToolRenderer
@@ -986,7 +992,8 @@ const MessageRowComponent = ({
                   {
                       type: "code-execution" as const,
                       firstPartIndex: message.parts.findIndex(
-                          (part) => part.type === "tool-execute_code"
+                          (part) =>
+                              part.type === "tool-execute_code" || part.type === "tool-execute_math"
                       )
                   }
               ]
@@ -1008,6 +1015,7 @@ const MessageRowComponent = ({
             part.type !== "file" &&
             part.type !== "reasoning" &&
             part.type !== "tool-execute_code" &&
+            part.type !== "tool-execute_math" &&
             part.type !== "tool-web_search"
         )
     })

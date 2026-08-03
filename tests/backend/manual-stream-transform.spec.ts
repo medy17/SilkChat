@@ -257,51 +257,54 @@ describe("manualStreamTransform", () => {
         ])
     })
 
-    it("turns code execution artifacts into durable assistant file parts", async () => {
-        const artifact = {
-            key: "code-artifacts/user-1/report.pdf",
-            filename: "analysis-report.pdf",
-            mediaType: "application/pdf",
-            size: 4096,
-            url: "https://assets.example.com/code-artifacts/user-1/report.pdf"
-        }
-        const result = await collectChunks([
-            {
-                type: "tool-call",
-                toolCallId: "call-code",
-                toolName: "execute_code",
-                input: { language: "python", code: "create_report()" }
-            },
-            {
-                type: "tool-result",
-                toolCallId: "call-code",
-                output: { success: true, artifacts: [artifact] }
+    it.each(["execute_code", "execute_math"])(
+        "turns %s artifacts into durable assistant file parts",
+        async (toolName) => {
+            const artifact = {
+                key: "code-artifacts/user-1/report.pdf",
+                filename: "analysis-report.pdf",
+                mediaType: "application/pdf",
+                size: 4096,
+                url: "https://assets.example.com/code-artifacts/user-1/report.pdf"
             }
-        ])
-
-        expect(result.parts).toEqual([
-            expect.objectContaining({
-                type: "tool-invocation",
-                toolInvocation: expect.objectContaining({
-                    state: "result",
+            const result = await collectChunks([
+                {
+                    type: "tool-call",
                     toolCallId: "call-code",
-                    toolName: "execute_code"
-                })
-            }),
-            {
+                    toolName,
+                    input: { language: "python", code: "create_report()" }
+                },
+                {
+                    type: "tool-result",
+                    toolCallId: "call-code",
+                    output: { success: true, artifacts: [artifact] }
+                }
+            ])
+
+            expect(result.parts).toEqual([
+                expect.objectContaining({
+                    type: "tool-invocation",
+                    toolInvocation: expect.objectContaining({
+                        state: "result",
+                        toolCallId: "call-code",
+                        toolName
+                    })
+                }),
+                {
+                    type: "file",
+                    data: artifact.key,
+                    filename: artifact.filename,
+                    mimeType: artifact.mediaType
+                }
+            ])
+            expect(result.output).toContainEqual({
                 type: "file",
-                data: artifact.key,
-                filename: artifact.filename,
-                mimeType: artifact.mediaType
-            }
-        ])
-        expect(result.output).toContainEqual({
-            type: "file",
-            url: `/r2?key=${artifact.key}`,
-            mediaType: artifact.mediaType
-        })
-        expect(r2StoreMock).not.toHaveBeenCalled()
-    })
+                url: `/r2?key=${artifact.key}`,
+                mediaType: artifact.mediaType
+            })
+            expect(r2StoreMock).not.toHaveBeenCalled()
+        }
+    )
 
     it("accumulates reasoning text and finish-step token usage", async () => {
         const result = await collectChunks([

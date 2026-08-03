@@ -82,7 +82,8 @@ export const estimateOpenRouterReservationMicrousd = ({
 // non-zero default (or an env override) are metered; everything else is BYOK.
 const DEFAULT_TOOL_USAGE_USD: Record<string, number> = {
     web_search: 0.005,
-    execute_code: 0.005
+    execute_code: 0.005,
+    execute_math: 0.005
 }
 
 export const getConfiguredToolUsageMicrousd = (toolName: string) => {

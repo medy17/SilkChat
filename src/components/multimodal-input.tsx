@@ -118,6 +118,7 @@ import {
     OctagonX,
     Paperclip,
     Plus,
+    Sigma,
     Square,
     SquareTerminal,
     X
@@ -475,6 +476,7 @@ function MobileOverflowMenu({
     creditPlan,
     webSearchAvailable,
     codeExecutionAvailable,
+    mathematicalInstrumentsAvailable,
     hasSupermemory,
     mcpServers,
     currentMcpOverrides,
@@ -500,6 +502,7 @@ function MobileOverflowMenu({
     creditPlan: CreditPlan | null
     webSearchAvailable: boolean
     codeExecutionAvailable: boolean
+    mathematicalInstrumentsAvailable: boolean
     hasSupermemory: boolean
     mcpServers: Array<{ name: string }>
     currentMcpOverrides: Record<string, boolean>
@@ -522,6 +525,7 @@ function MobileOverflowMenu({
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
     const webSearchEnabled = enabledTools.includes("web_search")
     const codeExecutionEnabled = enabledTools.includes("code_execution")
+    const mathematicalInstrumentsEnabled = enabledTools.includes("mathematical_instruments")
     const supermemoryEnabled = enabledTools.includes("supermemory")
     const hasMcpServers = mcpServers.length > 0
 
@@ -635,6 +639,29 @@ function MobileOverflowMenu({
                             </MobileMenuIcon>
                             <span className="min-w-0 flex-1 truncate">
                                 Code execution {codeExecutionEnabled ? "enabled" : "disabled"}
+                            </span>
+                        </button>
+                    )}
+
+                    {!isImageModel && (
+                        <button
+                            type="button"
+                            className={cn(
+                                mobileMenuRowClassName,
+                                (!modelSupportsFunctionCalling ||
+                                    !mathematicalInstrumentsAvailable) &&
+                                    "cursor-not-allowed opacity-50"
+                            )}
+                            disabled={
+                                !modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable
+                            }
+                            onClick={() => onToggleTool("mathematical_instruments")}
+                        >
+                            <MobileMenuIcon slashed={!mathematicalInstrumentsEnabled}>
+                                <Sigma className="size-4" />
+                            </MobileMenuIcon>
+                            <span className="min-w-0 flex-1 truncate">
+                                Math Kit {mathematicalInstrumentsEnabled ? "enabled" : "disabled"}
                             </span>
                         </button>
                     )}
@@ -995,6 +1022,9 @@ export function useComposerToolbarState(threadId?: string) {
 
     const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
     const codeExecutionAvailable = Boolean(toolAvailability?.code_execution?.enabled)
+    const mathematicalInstrumentsAvailable = Boolean(
+        toolAvailability?.mathematical_instruments?.enabled
+    )
     const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
     const mcpServers = (userSettings.mcpServers || []).filter((server) => server.enabled !== false)
     const hasMcpServers = mcpServers.length > 0
@@ -1006,6 +1036,9 @@ export function useComposerToolbarState(threadId?: string) {
         if (!modelSupportsFunctionCalling || !webSearchAvailable) unavailableTools.add("web_search")
         if (!modelSupportsFunctionCalling || !codeExecutionAvailable)
             unavailableTools.add("code_execution")
+        if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) {
+            unavailableTools.add("mathematical_instruments")
+        }
         if (!hasSupermemory) unavailableTools.add("supermemory")
         if (!hasMcpServers) unavailableTools.add("mcp")
 
@@ -1017,6 +1050,7 @@ export function useComposerToolbarState(threadId?: string) {
         modelSupportsFunctionCalling,
         webSearchAvailable,
         codeExecutionAvailable,
+        mathematicalInstrumentsAvailable,
         hasSupermemory,
         hasMcpServers,
         enabledTools,
@@ -1029,6 +1063,7 @@ export function useComposerToolbarState(threadId?: string) {
     const activeToolCount = [
         webSearchAvailable && enabledTools.includes("web_search"),
         codeExecutionAvailable && enabledTools.includes("code_execution"),
+        mathematicalInstrumentsAvailable && enabledTools.includes("mathematical_instruments"),
         hasSupermemory && enabledTools.includes("supermemory"),
         hasMcpServers && mcpServers.some((server) => currentMcpOverrides[server.name] !== false)
     ].filter(Boolean).length
@@ -1044,6 +1079,12 @@ export function useComposerToolbarState(threadId?: string) {
         if (tool === "web_search" && (!modelSupportsFunctionCalling || !webSearchAvailable)) return
         if (tool === "code_execution" && (!modelSupportsFunctionCalling || !codeExecutionAvailable))
             return
+        if (
+            tool === "mathematical_instruments" &&
+            (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable)
+        ) {
+            return
+        }
         if (tool === "supermemory" && !hasSupermemory) return
         if (tool === "mcp" && !hasMcpServers) return
 
@@ -1123,6 +1164,7 @@ export function useComposerToolbarState(threadId?: string) {
         isImageModel,
         webSearchAvailable,
         codeExecutionAvailable,
+        mathematicalInstrumentsAvailable,
         hasSupermemory,
         mcpServers,
         currentMcpOverrides,
@@ -1229,6 +1271,7 @@ export function ComposerMobileMenu({
                 creditPlan={state.creditPlan}
                 webSearchAvailable={state.webSearchAvailable}
                 codeExecutionAvailable={state.codeExecutionAvailable}
+                mathematicalInstrumentsAvailable={state.mathematicalInstrumentsAvailable}
                 hasSupermemory={state.hasSupermemory}
                 mcpServers={state.mcpServers}
                 currentMcpOverrides={state.currentMcpOverrides}
@@ -2395,10 +2438,7 @@ export const MultimodalInput = forwardRef<
                     <motion.div
                         layout
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className={cn(
-                            "flex w-full items-start",
-                            isCompactTouchComposer && "gap-1"
-                        )}
+                        className={cn("flex w-full items-start", isCompactTouchComposer && "gap-1")}
                     >
                         <AnimatePresence initial={false}>
                             {isCompactTouchComposer && !isImageModel && (
@@ -2520,117 +2560,124 @@ export const MultimodalInput = forwardRef<
                                 className="overflow-hidden"
                             >
                                 <PromptInputActions className="flex items-center gap-2 pt-2">
-                        <motion.div
-                            layout
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible"
-                        >
-                            {selectedModel && (
-                                <motion.div
-                                    layout
-                                    transition={{
-                                        duration: 0.2,
-                                        ease: [0.16, 1, 0.3, 1]
-                                    }}
-                                    className="shrink-0"
-                                >
-                                    <ModelSelector
-                                        selectedModel={selectedModel}
-                                        onModelChange={setSelectedModel}
-                                        onOpenChange={setIsModelSelectorOpen}
-                                        shortcutTarget="composer"
-                                        requiresNativePdf={requiresNativePdfForModelSelection}
-                                        byokContextHint={resolveByokContextHint(
-                                            predictedByokContextRouting
+                                    <motion.div
+                                        layout
+                                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                        className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible"
+                                    >
+                                        {selectedModel && (
+                                            <motion.div
+                                                layout
+                                                transition={{
+                                                    duration: 0.2,
+                                                    ease: [0.16, 1, 0.3, 1]
+                                                }}
+                                                className="shrink-0"
+                                            >
+                                                <ModelSelector
+                                                    selectedModel={selectedModel}
+                                                    onModelChange={setSelectedModel}
+                                                    onOpenChange={setIsModelSelectorOpen}
+                                                    shortcutTarget="composer"
+                                                    requiresNativePdf={
+                                                        requiresNativePdfForModelSelection
+                                                    }
+                                                    byokContextHint={resolveByokContextHint(
+                                                        predictedByokContextRouting
+                                                    )}
+                                                />
+                                            </motion.div>
                                         )}
-                                    />
-                                </motion.div>
-                            )}
-                            <PersonaSelector threadId={threadId} />
+                                        <PersonaSelector threadId={threadId} />
 
-                            <ComposerDesktopActions
-                                state={composerToolbar}
-                                threadId={threadId}
-                                uploading={uploading}
-                                onAttachClick={() => uploadInputRef.current?.click()}
-                            />
-                        </motion.div>
-
-                        <ComposerMobileMenu
-                            state={composerToolbar}
-                            onAttachClick={() => uploadInputRef.current?.click()}
-                        />
-
-                        {activePersistentSandbox && (
-                            <PromptInputAction tooltip="Kill persistent sandbox">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
-                                    style={{ borderRadius: "var(--radius-md)" }}
-                                    disabled={
-                                        isKillingPersistentSandbox ||
-                                        activePersistentSandbox.status === "stopping"
-                                    }
-                                    onClick={() => void handleKillPersistentSandbox()}
-                                    type="button"
-                                >
-                                    {isKillingPersistentSandbox ||
-                                    activePersistentSandbox.status === "stopping" ? (
-                                        <Loader2
-                                            className="size-4 animate-spin"
-                                            aria-hidden="true"
+                                        <ComposerDesktopActions
+                                            state={composerToolbar}
+                                            threadId={threadId}
+                                            uploading={uploading}
+                                            onAttachClick={() => uploadInputRef.current?.click()}
                                         />
-                                    ) : (
-                                        <OctagonX className="size-4" aria-hidden="true" />
-                                    )}
-                                    <span className="@4xl:inline hidden">Kill sandbox</span>
-                                </Button>
-                            </PromptInputAction>
-                        )}
+                                    </motion.div>
 
-                        <PromptInputAction
-                            tooltip={
-                                isImageGenerationPending && !isLoading
-                                    ? "Wait for image generation to finish"
-                                    : voiceInputEnabled && isInputEmpty && !isLoading
-                                      ? "Voice input"
-                                      : isLoading
-                                        ? "Stop generation"
-                                        : "Send message"
-                            }
-                        >
-                            <motion.div
-                                layoutId="composer-primary-action"
-                                transition={{
-                                    layout: {
-                                        duration: 0.3,
-                                        ease: [0.16, 1, 0.3, 1]
-                                    }
-                                }}
-                                className="shrink-0"
-                            >
-                                <Button
-                                    variant="default"
-                                    size="icon"
-                                    className="size-8"
-                                    style={{ borderRadius: "var(--radius-md)" }}
-                                    disabled={status === "submitted" || uploading}
-                                    onClick={handleVoiceButtonClick}
-                                    type="submit"
-                                >
-                                    {isLoading ? (
-                                        <Square className="size-5 fill-current" />
-                                    ) : status === "submitted" ? (
-                                        <Loader2 className="size-5 animate-spin" />
-                                    ) : voiceInputEnabled && isInputEmpty ? (
-                                        <Mic className="size-5" />
-                                    ) : (
-                                        <ArrowUp className="size-5" />
+                                    <ComposerMobileMenu
+                                        state={composerToolbar}
+                                        onAttachClick={() => uploadInputRef.current?.click()}
+                                    />
+
+                                    {activePersistentSandbox && (
+                                        <PromptInputAction tooltip="Kill persistent sandbox">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
+                                                style={{ borderRadius: "var(--radius-md)" }}
+                                                disabled={
+                                                    isKillingPersistentSandbox ||
+                                                    activePersistentSandbox.status === "stopping"
+                                                }
+                                                onClick={() => void handleKillPersistentSandbox()}
+                                                type="button"
+                                            >
+                                                {isKillingPersistentSandbox ||
+                                                activePersistentSandbox.status === "stopping" ? (
+                                                    <Loader2
+                                                        className="size-4 animate-spin"
+                                                        aria-hidden="true"
+                                                    />
+                                                ) : (
+                                                    <OctagonX
+                                                        className="size-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                )}
+                                                <span className="@4xl:inline hidden">
+                                                    Kill sandbox
+                                                </span>
+                                            </Button>
+                                        </PromptInputAction>
                                     )}
-                                </Button>
-                            </motion.div>
-                        </PromptInputAction>
+
+                                    <PromptInputAction
+                                        tooltip={
+                                            isImageGenerationPending && !isLoading
+                                                ? "Wait for image generation to finish"
+                                                : voiceInputEnabled && isInputEmpty && !isLoading
+                                                  ? "Voice input"
+                                                  : isLoading
+                                                    ? "Stop generation"
+                                                    : "Send message"
+                                        }
+                                    >
+                                        <motion.div
+                                            layoutId="composer-primary-action"
+                                            transition={{
+                                                layout: {
+                                                    duration: 0.3,
+                                                    ease: [0.16, 1, 0.3, 1]
+                                                }
+                                            }}
+                                            className="shrink-0"
+                                        >
+                                            <Button
+                                                variant="default"
+                                                size="icon"
+                                                className="size-8"
+                                                style={{ borderRadius: "var(--radius-md)" }}
+                                                disabled={status === "submitted" || uploading}
+                                                onClick={handleVoiceButtonClick}
+                                                type="submit"
+                                            >
+                                                {isLoading ? (
+                                                    <Square className="size-5 fill-current" />
+                                                ) : status === "submitted" ? (
+                                                    <Loader2 className="size-5 animate-spin" />
+                                                ) : voiceInputEnabled && isInputEmpty ? (
+                                                    <Mic className="size-5" />
+                                                ) : (
+                                                    <ArrowUp className="size-5" />
+                                                )}
+                                            </Button>
+                                        </motion.div>
+                                    </PromptInputAction>
                                 </PromptInputActions>
                             </motion.div>
                         )}

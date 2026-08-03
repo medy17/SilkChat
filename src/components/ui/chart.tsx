@@ -38,9 +38,14 @@ function ChartContainer({
   className,
   children,
   config,
+  responsiveContainerProps,
   ...props
 }: React.ComponentProps<"div"> & {
   config: ChartConfig
+  responsiveContainerProps?: Omit<
+    React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>,
+    "children"
+  >
   children: React.ComponentProps<
     typeof RechartsPrimitive.ResponsiveContainer
   >["children"]
@@ -60,7 +65,7 @@ function ChartContainer({
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>
+        <RechartsPrimitive.ResponsiveContainer {...responsiveContainerProps}>
           {children}
         </RechartsPrimitive.ResponsiveContainer>
       </div>

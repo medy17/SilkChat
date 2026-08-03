@@ -114,7 +114,7 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
     const executions: MessageCodeExecution[] = []
 
     for (const part of message.parts) {
-        if (part.type !== "tool-execute_code") continue
+        if (part.type !== "tool-execute_code" && part.type !== "tool-execute_math") continue
         if (getBlockedToolAttempt(part)) continue
 
         const invocation = part as typeof part & {
@@ -124,7 +124,11 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             output?: unknown
             errorText?: string
         }
-        const input = getInput(invocation.input)
+        const parsedInput = getInput(invocation.input)
+        const input =
+            part.type === "tool-execute_math"
+                ? { ...parsedInput, language: "python" as const }
+                : parsedInput
         const output = getOutput(invocation.output)
         const state = invocation.state ?? "input-streaming"
         const failed =

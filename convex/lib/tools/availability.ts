@@ -40,6 +40,10 @@ export const resolveToolAvailability = (
             enabled: hasCodeExecutionDeployment,
             fundingSource: hasCodeExecutionDeployment ? "deployment" : "none"
         },
+        mathematical_instruments: {
+            enabled: true,
+            fundingSource: "none"
+        },
         supermemory: {
             enabled: hasSupermemoryByok,
             fundingSource: hasSupermemoryByok ? "byok" : "none"
@@ -63,4 +67,8 @@ export const enforceToolIdentityPolicy = (
     enabledTools: AbilityId[],
     { isAnonymous }: { isAnonymous: boolean }
 ): AbilityId[] =>
-    isAnonymous ? enabledTools.filter((tool) => tool !== "code_execution") : enabledTools
+    isAnonymous
+        ? enabledTools.filter(
+              (tool) => tool !== "code_execution" && tool !== "mathematical_instruments"
+          )
+        : enabledTools
