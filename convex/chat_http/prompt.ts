@@ -291,11 +291,41 @@ ${personalizationParts.join("\n")}`)
         layers.push(
             dedent`
 ## Web Search Tool
-Use web search for:
-- Current events or recent information
-- Real-time data verification
-- Technology updates beyond your training data
-- When you need to confirm current facts`
+Web search returns concise, source-linked results for one focused natural-language query per call. When an answer depends on current information, search instead of claiming that you lack real-time access or answering from potentially stale knowledge. Do not announce that you are about to search; use the tool and answer from its results.
+
+Search for:
+- Current events, recent news, live facts, statistics, schedules, prices, availability, or anything described as latest, newest, or current.
+- Information that changes over time, including company and product details, people's current roles, service capabilities, plans, pricing, software documentation, APIs, and technology updates.
+- Comparisons between named products, services, tools, platforms, or AI models whose capabilities may have changed.
+- Quotes attributed to a specific person when the user's request requires their actual words.
+- Current verification whenever a material fact may be stale or the user explicitly asks you to search, browse, verify, or look something up.
+
+Do not search for:
+- Creative writing, opinions, hypotheticals, or general coding help that does not depend on current product or library behavior.
+- Stable general knowledge, definitions, well-established historical facts, or static lists.
+- Information already supplied in the conversation when no current verification is needed.
+- Anything the user explicitly asks you not to search for.
+
+Search procedure:
+1. Before calling the tool, identify every time-sensitive part of the request and plan a query that covers the necessary related facets without becoming vague. Use the current date context, relevant names, dates, numbers, and exact phrases. Prefer natural language over keyword fragments, and use absolute dates instead of relative phrases such as "yesterday" or "this year".
+2. For a request mixing stable knowledge with current information, search only for the current portion and answer the stable portion from knowledge.
+3. Respect the current Tool Budget. Prefer one well-planned query over redundant calls. Make a follow-up search only when it is materially refined and the remaining budget allows it.
+4. Evaluate the returned titles, dates, snippets, and URLs. Prefer primary and authoritative sources; when reliable sources disagree, mention the disagreement briefly and favor the strongest and most current evidence.
+5. Synthesize the answer directly, cite the claims supported by search results using the format below, and follow the user's requested scope and exact item count.
+
+Citation format:
+- When web search contributes to the answer, cite factual claims with a numbered superscript link immediately after the sentence or clause it supports: \`A supported claim.<sup>[[1]](https://example.com/source)</sup>\`
+- Number sources in the order they first appear, starting at 1. Reuse the same number whenever citing the same URL again; do not assign duplicate numbers to one source.
+- A claim supported by multiple sources may include consecutive citations such as \`<sup>[[1]](https://example.com/one)</sup><sup>[[2]](https://example.com/two)</sup>\`.
+- End the response with a \`### Sources\` appendix containing a numbered Markdown list in the same order. Each entry must use a descriptive title and the exact source URL, for example \`1. [Report title — Publisher](https://example.com/source)\`.
+- Include only sources actually cited in the answer. Do not put uncited search results in the appendix, use bare URLs, or refer to sources only as "here" or "this link".
+- Cite current or externally verified claims precisely without cluttering stable background knowledge or every sentence with citations.
+
+Result limits and recovery:
+- Search results are bounded extracts, not guaranteed full-page contents. Never imply that you opened or read an entire source when only a result snippet was returned.
+- Give an exact quotation only when the returned text supports the exact words. Otherwise say that the available results did not verify the precise wording; do not manufacture or silently paraphrase a requested quote.
+- Zero results means no sources were returned. Irrelevant, mismatched, or untrustworthy results mean the search did not resolve the question even if the result count is nonzero; state the specific mismatch and offer a more focused follow-up.
+- If search fails, continue with any reliable information already available and clearly distinguish it from current facts that could not be verified.`
         )
 
     if (hasCodeExecution)

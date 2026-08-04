@@ -86,6 +86,25 @@ describe("buildPrompt", () => {
         expect(prompt).not.toContain("## Tool Budget")
     })
 
+    it("gives web search current-information and bounded-result guidance when enabled", () => {
+        const enabledPrompt = buildPrompt({ enabledTools: ["web_search"] })
+        const disabledPrompt = buildPrompt({ enabledTools: [] })
+
+        expect(enabledPrompt).toContain("When an answer depends on current information, search")
+        expect(enabledPrompt).toContain(
+            "For a request mixing stable knowledge with current information"
+        )
+        expect(enabledPrompt).toContain("Respect the current Tool Budget")
+        expect(enabledPrompt).toContain("bounded extracts, not guaranteed full-page contents")
+        expect(enabledPrompt).toContain("Irrelevant, mismatched, or untrustworthy results")
+        expect(enabledPrompt).toContain(
+            "A supported claim.<sup>[[1]](https://example.com/source)</sup>"
+        )
+        expect(enabledPrompt).toContain("End the response with a `### Sources` appendix")
+        expect(enabledPrompt).toContain("Reuse the same number whenever citing the same URL again")
+        expect(disabledPrompt).not.toContain("## Web Search Tool")
+    })
+
     it("builds the effective per-turn tool budget for the changing prompt suffix", () => {
         const context = buildToolBudgetContext(5)
 
