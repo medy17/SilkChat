@@ -43,6 +43,7 @@ export interface AutoResumeProps {
     streamActivityKey?: string
     localChatId?: string
     restartLocalChat?: () => void
+    hasDirectSendStream?: boolean
 }
 
 export function useAutoResume({
@@ -55,7 +56,8 @@ export function useAutoResume({
     clientId,
     streamActivityKey = "",
     localChatId,
-    restartLocalChat
+    restartLocalChat,
+    hasDirectSendStream = false
 }: AutoResumeProps) {
     const pending = useChatStore((s) =>
         threadId && s.pendingStreams[threadId] === true
@@ -88,6 +90,10 @@ export function useAutoResume({
 
         if (manuallyStopped) return
         if (pending) return
+        // The original POST already owns a direct SSE response. A quiet period is
+        // normal while a tool runs, and replaying the resumable copy from byte zero
+        // would append the already-rendered text a second time.
+        if (hasDirectSendStream) return
         const currentStreamId = thread.currentStreamId
 
         const attempt = resumeAttemptRef.current
@@ -215,6 +221,7 @@ export function useAutoResume({
         threadMessages,
         streamActivityKey,
         resumeGenerationKey,
-        restartLocalChat
+        restartLocalChat,
+        hasDirectSendStream
     ])
 }

@@ -6,7 +6,7 @@ import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import { getAttachmentValidationError, hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { resolveJwtToken } from "@/lib/auth-token"
-import { getBlockedToolAttempt, getBlockedToolAttempts } from "@/lib/blocked-tool-attempt"
+import { getToolFailureAttempt, getToolFailureAttempts } from "@/lib/blocked-tool-attempt"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
@@ -19,6 +19,7 @@ import {
 import { getMessageCodeExecutions } from "@/lib/message-code-executions"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
+import { getVirtualizedMessageCount, shouldVirtualizeMessageList } from "@/lib/message-list-mode"
 import { getMessageReasoningDetails } from "@/lib/message-reasoning"
 import {
     getMessageFooterMetadataKey,
@@ -896,7 +897,6 @@ const EditableMessage = memo(
 )
 EditableMessage.displayName = "EditableMessage"
 
-const MESSAGE_KEEP_MOUNTED_TAIL_COUNT = 40
 const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
 const BOTTOM_SCROLL_THRESHOLD_PX = 4
@@ -979,14 +979,14 @@ const MessageRowComponent = ({
     const codeExecutions = executions.filter((execution) => execution.kind === "code")
     const mathExecutions = executions.filter((execution) => execution.kind === "math")
     const webSearches = getMessageWebSearches(message)
-    const blockedAttempts = getBlockedToolAttempts(message)
+    const toolFailureAttempts = getToolFailureAttempts(message)
     const groupedToolOrder = [
-        ...(blockedAttempts.length > 0
+        ...(toolFailureAttempts.length > 0
             ? [
                   {
                       type: "blocked-tools" as const,
                       firstPartIndex: message.parts.findIndex((part) =>
-                          Boolean(getBlockedToolAttempt(part))
+                          Boolean(getToolFailureAttempt(part))
                       )
                   }
               ]
@@ -1023,7 +1023,7 @@ const MessageRowComponent = ({
             : [])
     ].sort((left, right) => left.firstPartIndex - right.firstPartIndex)
     const inlineParts = message.parts.filter((part) => {
-        if (getBlockedToolAttempt(part)) return false
+        if (getToolFailureAttempt(part)) return false
         return (
             part.type !== "file" &&
             part.type !== "reasoning" &&
@@ -1154,9 +1154,10 @@ const MessageRowComponent = ({
                                 activity.type === "blocked-tools" ? (
                                     <BlockedToolCard
                                         key={`${message.id}-blocked-tools`}
-                                        attempts={blockedAttempts}
+                                        attempts={toolFailureAttempts}
                                         retryMessage={retryMessage}
                                         onRetry={onRetry}
+                                        requiresNativePdf={requiresNativePdfForModelSelection}
                                     />
                                 ) : activity.type === "code-execution" ? (
                                     <CodeExecutionGroupRenderer
@@ -1322,6 +1323,8 @@ export const Messages = forwardRef<
         const scrollerRef = useRef<HTMLDivElement>(null)
         const contentContainerRef = useRef<HTMLDivElement>(null)
         const virtualizerRef = useRef<VirtualizerHandle>(null)
+        const virtualizedMessageCount = getVirtualizedMessageCount(messages.length)
+        const shouldVirtualize = shouldVirtualizeMessageList(messages.length)
         const isAtBottomRef = useRef(true)
         const lastScrollOffsetRef = useRef<number | null>(null)
         const scrollDirectionRef = useRef<MessageScrollDirection>("idle")
@@ -1557,16 +1560,13 @@ export const Messages = forwardRef<
 
         const syncBottomStateFromOffset = useCallback(
             (offset?: number) => {
-                const handle = virtualizerRef.current
-                if (!handle) {
-                    return
-                }
+                const scroller = scrollerRef.current
+                if (!scroller) return
 
-                const scrollOffset = offset ?? handle.scrollOffset
-                const distanceFromBottom = Math.max(
-                    0,
-                    handle.scrollSize - handle.viewportSize - scrollOffset
-                )
+                const scrollOffset = offset ?? scroller.scrollTop
+                const scrollSize = scroller.scrollHeight
+                const viewportSize = scroller.clientHeight
+                const distanceFromBottom = Math.max(0, scrollSize - viewportSize - scrollOffset)
                 const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
 
                 if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
@@ -1721,23 +1721,44 @@ export const Messages = forwardRef<
 
         const keepMountedIndexes = useMemo(() => {
             const alwaysMountedIndexes = new Set<number>()
-            const tailStartIndex = Math.max(0, messages.length - MESSAGE_KEEP_MOUNTED_TAIL_COUNT)
-
-            for (let index = tailStartIndex; index < messages.length; index += 1) {
-                alwaysMountedIndexes.add(index)
-            }
 
             if (targetFromMessageId) {
                 const activeIndex = messages.findIndex(
                     (message) => message.id === targetFromMessageId
                 )
-                if (activeIndex >= 0) {
+                if (activeIndex >= 0 && activeIndex < virtualizedMessageCount) {
                     alwaysMountedIndexes.add(activeIndex)
                 }
             }
 
             return [...alwaysMountedIndexes].sort((a, b) => a - b)
-        }, [messages, targetFromMessageId])
+        }, [messages, targetFromMessageId, virtualizedMessageCount])
+
+        const renderedMessageRows = messageRows.map((row) => (
+            <MessageRow
+                key={row.message.id}
+                message={row.message}
+                renderFingerprint={row.renderFingerprint}
+                liveRenderFingerprint={row.liveRenderFingerprint}
+                footerMetadataKey={row.footerMetadataKey}
+                isStreamingMessage={row.isStreamingMessage}
+                isEditing={row.isEditing}
+                isFirstMessage={row.isFirstMessage}
+                hasActiveTarget={row.hasActiveTarget}
+                retryMessage={row.retryMessage}
+                onRetry={onRetry ? stableOnRetry : undefined}
+                onSwitchModel={handleSwitchModel}
+                onBranch={onBranch ? stableOnBranch : undefined}
+                onEdit={handleEdit}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={handleCancelEdit}
+                onFilePreview={handleFilePreview}
+                requiresNativePdfForModelSelection={threadHasPdfAttachments}
+                threadId={threadKey}
+            />
+        ))
+        const virtualizedMessageRows = renderedMessageRows.slice(0, virtualizedMessageCount)
+        const directMessageRows = renderedMessageRows.slice(virtualizedMessageCount)
 
         useLayoutEffect(() => {
             void messages.length
@@ -1923,6 +1944,11 @@ export const Messages = forwardRef<
                 <div
                     className="min-h-[calc(100dvh-var(--app-header-height)+var(--chat-composer-overlap))] overflow-y-auto p-4 pt-6 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
                     ref={scrollerRef}
+                    onScroll={
+                        shouldVirtualize
+                            ? undefined
+                            : (event) => handleScroll(event.currentTarget.scrollTop)
+                    }
                 >
                     <div
                         className={cn(
@@ -1931,38 +1957,19 @@ export const Messages = forwardRef<
                         )}
                     >
                         <div ref={contentContainerRef} onClickCapture={handleContentClickCapture}>
-                            <Virtualizer
-                                ref={virtualizerRef}
-                                scrollRef={scrollerRef}
-                                bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
-                                itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
-                                keepMounted={keepMountedIndexes}
-                                onScroll={handleScroll}
-                            >
-                                {messageRows.map((row) => (
-                                    <MessageRow
-                                        key={row.message.id}
-                                        message={row.message}
-                                        renderFingerprint={row.renderFingerprint}
-                                        liveRenderFingerprint={row.liveRenderFingerprint}
-                                        footerMetadataKey={row.footerMetadataKey}
-                                        isStreamingMessage={row.isStreamingMessage}
-                                        isEditing={row.isEditing}
-                                        isFirstMessage={row.isFirstMessage}
-                                        hasActiveTarget={row.hasActiveTarget}
-                                        retryMessage={row.retryMessage}
-                                        onRetry={onRetry ? stableOnRetry : undefined}
-                                        onSwitchModel={handleSwitchModel}
-                                        onBranch={onBranch ? stableOnBranch : undefined}
-                                        onEdit={handleEdit}
-                                        onSaveEdit={handleSaveEdit}
-                                        onCancelEdit={handleCancelEdit}
-                                        onFilePreview={handleFilePreview}
-                                        requiresNativePdfForModelSelection={threadHasPdfAttachments}
-                                        threadId={threadKey}
-                                    />
-                                ))}
-                            </Virtualizer>
+                            {shouldVirtualize ? (
+                                <Virtualizer
+                                    ref={virtualizerRef}
+                                    scrollRef={scrollerRef}
+                                    bufferSize={MESSAGE_VIRTUALIZER_BUFFER}
+                                    itemSize={MESSAGE_VIRTUALIZER_ITEM_SIZE}
+                                    keepMounted={keepMountedIndexes}
+                                    onScroll={handleScroll}
+                                >
+                                    {virtualizedMessageRows}
+                                </Virtualizer>
+                            ) : null}
+                            {directMessageRows}
 
                             {status === "error" && (
                                 <ChatErrorNotice

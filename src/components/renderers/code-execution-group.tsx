@@ -65,6 +65,8 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                     <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                 ) : execution.status === "failed" ? (
                     <CircleAlert className="size-3.5 shrink-0 text-destructive" />
+                ) : execution.status === "unresolved" ? (
+                    <CircleAlert className="size-3.5 shrink-0 text-muted-foreground" />
                 ) : null}
                 <span className="min-w-0 flex-1 truncate font-medium text-sm">
                     {execution.title}
@@ -213,7 +215,10 @@ export const CodeExecutionGroupRenderer = memo(
         const summary = useMemo(() => {
             const running = executions.filter((execution) => execution.status === "running").length
             const failed = executions.filter((execution) => execution.status === "failed").length
-            return { running, failed }
+            const unresolved = executions.filter(
+                (execution) => execution.status === "unresolved"
+            ).length
+            return { running, failed, unresolved }
         }, [executions])
 
         if (executions.length === 0) return null
@@ -238,6 +243,7 @@ export const CodeExecutionGroupRenderer = memo(
                     <span className="ml-auto text-muted-foreground text-xs">
                         {executions.length} {executions.length === 1 ? "step" : "steps"}
                         {summary.failed > 0 ? ` · ${summary.failed} failed` : ""}
+                        {summary.unresolved > 0 ? ` · ${summary.unresolved} incomplete` : ""}
                     </span>
                     <ChevronDown
                         className={cn(

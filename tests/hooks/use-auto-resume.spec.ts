@@ -214,6 +214,31 @@ describe("useAutoResume", () => {
         expect(restartLocalChat).toHaveBeenCalledTimes(1)
     })
 
+    it("does not replay a healthy direct send after a long tool-execution gap", async () => {
+        const experimentalResume = vi.fn()
+        const restartLocalChat = vi.fn()
+
+        renderHook(() =>
+            useAutoResume({
+                autoResume: true,
+                threadId: "thread-1",
+                thread: liveThread,
+                experimental_resume: experimentalResume,
+                status: "streaming",
+                threadMessages: [{ _id: "message-1" }],
+                streamActivityKey: "assistant:waiting-for-tool",
+                localChatId: "chat-1",
+                restartLocalChat,
+                hasDirectSendStream: true
+            })
+        )
+
+        await vi.advanceTimersByTimeAsync(60_000)
+
+        expect(restartLocalChat).not.toHaveBeenCalled()
+        expect(experimentalResume).not.toHaveBeenCalled()
+    })
+
     it("does not resume when the thread was manually stopped by the user", () => {
         useChatStore.getState().setManuallyStoppedThread("thread-1", true)
         const experimentalResume = vi.fn()

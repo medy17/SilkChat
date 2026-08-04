@@ -1,4 +1,9 @@
-import { getBlockedToolAttempt, getBlockedToolAttempts } from "@/lib/blocked-tool-attempt"
+import {
+    getBlockedToolAttempt,
+    getBlockedToolAttempts,
+    getMalformedToolAttempt,
+    getToolFailureAttempts
+} from "@/lib/blocked-tool-attempt"
 import type { UIMessage } from "ai"
 import { describe, expect, it } from "vitest"
 
@@ -83,5 +88,57 @@ describe("getBlockedToolAttempt", () => {
             "first query",
             "second query"
         ])
+    })
+
+    it("classifies a streamed validation failure without exposing its raw trace", () => {
+        const part = {
+            type: "tool-render_chart",
+            toolCallId: "chart-1",
+            state: "output-error",
+            input: {
+                title: "Deaths by year",
+                type: "line",
+                xKey: "year"
+            },
+            errorText:
+                "AI_InvalidToolInputError: Invalid input for tool render_chart: Type validation failed"
+        } as UIMessage["parts"][number]
+
+        expect(getMalformedToolAttempt(part)).toEqual({
+            ability: "mathematical_instruments",
+            toolName: "render_chart",
+            toolLabel: "Chart renderer",
+            reason: "malformed_tool_call",
+            input: {
+                title: "Deaths by year",
+                type: "line",
+                xKey: "year"
+            },
+            summary: undefined
+        })
+    })
+
+    it("does not turn an ordinary renderer failure into a malformed-call card", () => {
+        const message = {
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-render_chart",
+                    toolCallId: "chart-1",
+                    state: "output-error",
+                    input: { title: "Incomplete chart" },
+                    errorText: "Invalid input for tool render_chart"
+                },
+                {
+                    type: "tool-render_chart",
+                    toolCallId: "chart-2",
+                    state: "output-error",
+                    input: { title: "Renderer crashed" },
+                    errorText: "Unexpected renderer failure"
+                }
+            ]
+        } as Pick<UIMessage, "role" | "parts">
+
+        expect(getToolFailureAttempts(message)).toHaveLength(1)
     })
 })

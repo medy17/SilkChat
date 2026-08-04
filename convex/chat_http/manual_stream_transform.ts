@@ -3,6 +3,7 @@ import type { GenericActionCtx } from "convex/server"
 import type { Infer } from "convex/values"
 import type { DataModel } from "../_generated/dataModel"
 import { r2 } from "../attachments"
+import { createPersistedToolError } from "../lib/persisted_tool_error"
 import { getCodeExecutionArtifactsFromToolOutput } from "../lib/tools/code_execution_artifacts"
 import type { ErrorUIPart } from "../schema/parts"
 
@@ -485,14 +486,29 @@ export const manualStreamTransform = (
                     markFirstVisible()
                     break
                 }
-                case "tool-error":
+                case "tool-error": {
                     markFirstVisible()
+                    const found = parts.findIndex(
+                        (part) =>
+                            part.type === "tool-invocation" &&
+                            part.toolInvocation.toolCallId === chunk.toolCallId
+                    )
+                    if (found !== -1) {
+                        const part = parts[found] as Extract<
+                            StoredPart,
+                            { type: "tool-invocation" }
+                        >
+                        part.toolInvocation.state = "result"
+                        part.toolInvocation.result = createPersistedToolError(chunk.error)
+                        notifyPartsChanged()
+                    }
                     controller.enqueue({
                         type: "tool-output-error",
                         toolCallId: clientToolCallIds.get(chunk.toolCallId) ?? chunk.toolCallId,
                         errorText: String(chunk.error)
                     })
                     break
+                }
                 case "error": {
                     const errorText =
                         chunk.error instanceof Error

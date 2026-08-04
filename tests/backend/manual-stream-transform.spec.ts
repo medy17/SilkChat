@@ -112,6 +112,47 @@ describe("manualStreamTransform", () => {
         ])
     })
 
+    it("finalizes malformed tool calls with a sanitized durable failure", async () => {
+        const rawValidationTrace =
+            "AI_InvalidToolInputError: Invalid input for tool execute_code: secret validation trace"
+        const result = await collectChunks([
+            {
+                type: "tool-call",
+                toolCallId: "call-1",
+                toolName: "execute_code",
+                input: { purpose: "Deeper analysis", code: "print(42)" }
+            },
+            {
+                type: "tool-error",
+                toolCallId: "call-1",
+                error: rawValidationTrace
+            }
+        ])
+
+        expect(result.parts).toEqual([
+            {
+                type: "tool-invocation",
+                toolInvocation: {
+                    state: "result",
+                    args: { purpose: "Deeper analysis", code: "print(42)" },
+                    result: {
+                        kind: "silkchat_tool_error",
+                        code: "invalid_tool_input",
+                        success: false
+                    },
+                    toolCallId: "call-1",
+                    toolName: "execute_code"
+                }
+            }
+        ])
+        expect(JSON.stringify(result.parts)).not.toContain("secret validation trace")
+        expect(result.output).toContainEqual({
+            type: "tool-output-error",
+            toolCallId: "call-1",
+            errorText: rawValidationTrace
+        })
+    })
+
     it("persists long normal text responses without truncating them", async () => {
         const longText = "This is a long normal response with spaces and punctuation. ".repeat(700)
 

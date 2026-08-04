@@ -179,10 +179,12 @@ const AdminOnlyModelBadge = () => (
 
 export function RetryMenu({
     onRetry,
-    requiresNativePdf = false
+    requiresNativePdf = false,
+    triggerLabel
 }: {
     onRetry: (configOverride?: AssistantConfigOverride) => void
     requiresNativePdf?: boolean
+    triggerLabel?: string
 }) {
     const auth = useConvexAuth()
     const session = useSession()
@@ -329,6 +331,23 @@ export function RetryMenu({
         []
     )
 
+    const trigger = (
+        <DropdownMenuTrigger asChild>
+            <Button
+                variant={triggerLabel ? "outline" : "ghost"}
+                size={triggerLabel ? "sm" : "icon"}
+                className={
+                    triggerLabel
+                        ? "text-foreground"
+                        : "h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                }
+            >
+                <RotateCcw className={triggerLabel ? "size-4" : "h-3.5 w-3.5"} />
+                {triggerLabel}
+            </Button>
+        </DropdownMenuTrigger>
+    )
+
     return (
         <DropdownMenu
             onOpenChange={(open) => {
@@ -337,22 +356,16 @@ export function RetryMenu({
                 }
             }}
         >
-            <Tooltip delayDuration={150}>
-                <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
-                        >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                    <p>Retry</p>
-                </TooltipContent>
-            </Tooltip>
+            {triggerLabel ? (
+                trigger
+            ) : (
+                <Tooltip delayDuration={150}>
+                    <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                    <TooltipContent side="bottom">
+                        <p>Retry</p>
+                    </TooltipContent>
+                </Tooltip>
+            )}
 
             <DropdownMenuContent align="end" className="w-[12.5rem]">
                 <DropdownMenuItem onClick={() => onRetry()} className="cursor-pointer gap-2">

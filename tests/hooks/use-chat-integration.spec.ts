@@ -57,6 +57,7 @@ type AutoResumeInvocation = {
     autoResume?: boolean
     threadId?: string
     experimental_resume?: () => Promise<void> | void
+    hasDirectSendStream?: boolean
 }
 
 const transportConfigs: TransportConfig[] = []
@@ -368,6 +369,44 @@ describe("useChatIntegration", () => {
 
         expect(useChatStore.getState().shouldUpdateQuery).toBe(false)
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(false)
+    })
+
+    it("keeps a first-turn POST marked as direct when its new thread id arrives", async () => {
+        useConvexQueryMock.mockReturnValue(undefined)
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                id: "chat-1",
+                status: "streaming",
+                messages: [],
+                setMessages: vi.fn(),
+                resumeStream: vi.fn()
+            }
+        })
+        nanoidMock.mockReturnValueOnce("client-1").mockReturnValueOnce("assistant-1")
+
+        const { rerender } = renderHook(
+            ({ threadId }: { threadId?: string }) => useChatIntegration({ threadId }),
+            { initialProps: { threadId: undefined } }
+        )
+
+        await act(async () => {
+            await transportConfigs[0].prepareSendMessagesRequest({
+                body: {},
+                messages: [
+                    {
+                        id: "user-message-1",
+                        role: "user",
+                        parts: [{ type: "text", text: "analyse this data" }]
+                    }
+                ]
+            })
+        })
+
+        rerender({ threadId: "thread-1" })
+        rerender({ threadId: "thread-1" })
+
+        expect(latestAutoResumeProps?.hasDirectSendStream).toBe(true)
     })
 
     it("sends the pending opening identity with the first persona reply", async () => {

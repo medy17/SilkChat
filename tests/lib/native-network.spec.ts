@@ -1,4 +1,8 @@
-import { getNativeNetworkFromToolOutput, nativeNetworkSchema } from "@/lib/native-network"
+import {
+    getNativeNetworkFromToolOutput,
+    getNativeNetworkInitialPositions,
+    nativeNetworkSchema
+} from "@/lib/native-network"
 import { describe, expect, it, vi } from "vitest"
 import {
     MATH_PYTHON_DEPENDENCIES,
@@ -33,6 +37,18 @@ describe("native network contract", () => {
         })
 
         expect(parsed.success).toBe(false)
+    })
+
+    it("seeds force layouts deterministically regardless of node arrival order", () => {
+        const forwards = nativeNetworkSchema.parse(validNetwork)
+        const backwards = nativeNetworkSchema.parse({
+            ...validNetwork,
+            nodes: [...validNetwork.nodes].reverse()
+        })
+
+        expect(getNativeNetworkInitialPositions(forwards)).toEqual(
+            getNativeNetworkInitialPositions(backwards)
+        )
     })
 
     it("returns a replayable native network result", async () => {

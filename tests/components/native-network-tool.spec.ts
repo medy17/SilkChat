@@ -9,19 +9,23 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
 import { describe, expect, it, vi } from "vitest"
 
-const { cytoscapeMock, graphStyleMock, nodeDataMock } = vi.hoisted(() => ({
-    graphStyleMock: vi.fn(),
-    nodeDataMock: vi.fn(),
-    cytoscapeMock: vi.fn((_options: unknown) => {
-        return {
-            destroy: vi.fn(),
-            fit: vi.fn(),
-            resize: vi.fn(),
-            style: graphStyleMock,
-            getElementById: vi.fn(() => ({ data: nodeDataMock }))
-        }
-    })
-}))
+const { cytoscapeMock, graphLayoutMock, graphStyleMock, nodeDataMock } = vi.hoisted(() => {
+    const graphStyleMock = vi.fn()
+    const nodeDataMock = vi.fn()
+    const graphLayoutMock = vi.fn((options: { stop?: () => void }) => ({
+        run: vi.fn(() => options.stop?.())
+    }))
+    const cytoscapeMock = vi.fn((_options: unknown) => ({
+        destroy: vi.fn(),
+        fit: vi.fn(),
+        resize: vi.fn(),
+        style: graphStyleMock,
+        layout: graphLayoutMock,
+        getElementById: vi.fn(() => ({ data: nodeDataMock }))
+    }))
+
+    return { cytoscapeMock, graphLayoutMock, graphStyleMock, nodeDataMock }
+})
 
 vi.mock("cytoscape", () => ({
     default: cytoscapeMock
@@ -100,14 +104,52 @@ describe("NativeNetworkRenderer", () => {
 
         await vi.waitFor(() => expect(cytoscapeMock).toHaveBeenCalled())
         const options = cytoscapeMock.mock.calls[0]?.[0] as {
-            elements: Array<{ data: { id: string } }>
+            elements: Array<{ data: { id: string }; position?: { x: number; y: number } }>
+            layout: { name: string }
             style: Array<{ selector: string; style: Record<string, unknown> }>
         }
         expect(options.elements.map(({ data }) => data.id)).toEqual(["a", "b", "[edge-index:0]"])
+        expect(options.elements.slice(0, 2).every(({ position }) => position !== undefined)).toBe(
+            true
+        )
+        expect(options.layout.name).toBe("preset")
+        expect(graphLayoutMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "cose",
+                animate: false,
+                randomize: false,
+                refresh: 0
+            })
+        )
         const edgeStyle = options.style.find(({ selector }) => selector === "edge")?.style
         expect(edgeStyle?.color).toBe("rgb(20, 20, 20)")
         expect(edgeStyle?.["text-background-color"]).toBe("rgb(250, 250, 250)")
         expect(edgeStyle?.["text-background-opacity"]).toBe(1)
+    })
+
+    it("keeps one settled graph when equal network data is rerendered", async () => {
+        const network = nativeNetworkSchema.parse({
+            title: "Stable graph",
+            nodes: [{ id: "a" }, { id: "b" }],
+            edges: [{ source: "a", target: "b" }]
+        })
+        const callsBeforeRender = cytoscapeMock.mock.calls.length
+        const { rerender } = render(React.createElement(NativeNetworkRenderer, { network }))
+
+        await vi.waitFor(() => expect(cytoscapeMock.mock.calls.length).toBe(callsBeforeRender + 1))
+        expect(
+            screen.getByRole("img", { name: "Interactive network: Stable graph" }).className
+        ).toContain("visible")
+
+        const equalNetwork = nativeNetworkSchema.parse({
+            title: "Stable graph",
+            nodes: [{ id: "a" }, { id: "b" }],
+            edges: [{ source: "a", target: "b" }]
+        })
+        rerender(React.createElement(NativeNetworkRenderer, { network: equalNetwork }))
+
+        await Promise.resolve()
+        expect(cytoscapeMock.mock.calls.length).toBe(callsBeforeRender + 1)
     })
 
     it("namespaces explicit edge ids away from node ids", async () => {

@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai"
-import { getBlockedToolAttempt } from "./blocked-tool-attempt"
+import { getToolFailureAttempt } from "./blocked-tool-attempt"
 
 type UnknownRecord = Record<string, unknown>
 
@@ -36,7 +36,7 @@ export type MessageCodeExecution = {
     input: CodeExecutionInput
     output?: CodeExecutionOutput
     errorText?: string
-    status: "running" | "succeeded" | "failed"
+    status: "running" | "succeeded" | "failed" | "unresolved"
     title: string
 }
 
@@ -117,7 +117,7 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
 
     for (const part of message.parts) {
         if (part.type !== "tool-execute_code" && part.type !== "tool-execute_math") continue
-        if (getBlockedToolAttempt(part)) continue
+        if (getToolFailureAttempt(part)) continue
 
         const invocation = part as typeof part & {
             toolCallId?: string
@@ -125,6 +125,7 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             input?: unknown
             output?: unknown
             errorText?: string
+            toolMetadata?: Record<string, unknown>
         }
         const parsedInput = getInput(invocation.input)
         const input =
@@ -138,7 +139,11 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             state === "output-denied" ||
             output?.success === false ||
             (typeof output?.exitCode === "number" && output.exitCode !== 0)
-        const running = state !== "output-available" && !failed
+        const unresolved =
+            state !== "output-available" &&
+            invocation.toolMetadata?.silkchatPersistedWithoutTerminalResult === true &&
+            !failed
+        const running = state !== "output-available" && !failed && !unresolved
 
         const execution: MessageCodeExecution = {
             kind: part.type === "tool-execute_math" ? "math" : "code",
@@ -146,8 +151,16 @@ export const getMessageCodeExecutions = (message: MessageWithParts) => {
             state,
             input,
             output,
-            errorText: asTrimmedString(invocation.errorText),
-            status: failed ? "failed" : running ? "running" : "succeeded",
+            errorText:
+                asTrimmedString(invocation.errorText) ??
+                (unresolved ? "No terminal result was recorded for this execution." : undefined),
+            status: failed
+                ? "failed"
+                : unresolved
+                  ? "unresolved"
+                  : running
+                    ? "running"
+                    : "succeeded",
             title: input.purpose ?? getFallbackTitle(input.language)
         }
         const existingIndex = invocation.toolCallId

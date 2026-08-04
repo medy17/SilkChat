@@ -2,6 +2,7 @@ import type { UIMessage } from "ai"
 import type { Infer } from "convex/values"
 import type { Message } from "../schema"
 import type { AIMessage } from "../schema/message"
+import { getPersistedToolError, getPersistedToolErrorText } from "./persisted_tool_error"
 
 type AIUIMessageWithParts = UIMessage<Infer<typeof AIMessage>["metadata"]> & {
     metadata?: Infer<typeof AIMessage>["metadata"]
@@ -56,17 +57,38 @@ export const backendToUiMessages = (messages: Infer<typeof Message>[]): AIUIMess
                     }
 
                     if (part.type === "tool-invocation") {
+                        const persistedError = getPersistedToolError(part.toolInvocation.result)
+                        if (part.toolInvocation.state === "result" && persistedError) {
+                            return {
+                                type: `tool-${part.toolInvocation.toolName}` as const,
+                                toolCallId: part.toolInvocation.toolCallId,
+                                state: "output-error" as const,
+                                input: part.toolInvocation.args,
+                                errorText: getPersistedToolErrorText(
+                                    persistedError,
+                                    part.toolInvocation.toolName
+                                )
+                            }
+                        }
+
+                        if (part.toolInvocation.state === "result") {
+                            return {
+                                type: `tool-${part.toolInvocation.toolName}` as const,
+                                toolCallId: part.toolInvocation.toolCallId,
+                                state: "output-available" as const,
+                                input: part.toolInvocation.args,
+                                output: part.toolInvocation.result
+                            }
+                        }
+
                         return {
                             type: `tool-${part.toolInvocation.toolName}` as const,
                             toolCallId: part.toolInvocation.toolCallId,
-                            state:
-                                part.toolInvocation.state === "result"
-                                    ? "output-available"
-                                    : "input-available",
+                            state: "input-available" as const,
                             input: part.toolInvocation.args,
-                            ...(part.toolInvocation.state === "result"
-                                ? { output: part.toolInvocation.result }
-                                : {})
+                            toolMetadata: {
+                                silkchatPersistedWithoutTerminalResult: true
+                            }
                         }
                     }
 

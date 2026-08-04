@@ -278,6 +278,7 @@ export function useChatIntegration<IsShared extends boolean>({
     )
     const seededNextId = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    const previousThreadIdRef = useRef<string | undefined>(threadId)
     // The SDK receives its finish event before the final Convex message snapshot is
     // guaranteed to reach this client's resumed subscription. Keep that completed
     // message authoritative until Convex has published the same content once.
@@ -517,8 +518,16 @@ export function useChatIntegration<IsShared extends boolean>({
         [latestAssistantMessage]
     )
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: thread changes are the reset trigger.
     useEffect(() => {
+        const previousThreadId = previousThreadIdRef.current
+        previousThreadIdRef.current = threadId
+        const adoptedThreadCreatedByCurrentSend =
+            previousThreadId === undefined &&
+            threadId !== undefined &&
+            streamOriginRef.current === "send"
+
+        if (adoptedThreadCreatedByCurrentSend) return
+
         streamOriginRef.current = null
         completedLocalMessageRef.current = null
     }, [threadId])
@@ -698,7 +707,10 @@ export function useChatIntegration<IsShared extends boolean>({
         clientId,
         streamActivityKey,
         localChatId: chatHelpers.id,
-        restartLocalChat: triggerRerender
+        restartLocalChat: triggerRerender,
+        hasDirectSendStream:
+            streamOriginRef.current === "send" &&
+            (chatHelpers.status === "submitted" || chatHelpers.status === "streaming")
     })
 
     return {

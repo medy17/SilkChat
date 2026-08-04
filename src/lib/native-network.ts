@@ -88,6 +88,29 @@ export const nativeNetworkSchema = z
 
 export type NativeNetwork = z.infer<typeof nativeNetworkSchema>
 
+export const getNativeNetworkFingerprint = (network: NativeNetwork) => JSON.stringify(network)
+
+export const getNativeNetworkInitialPositions = (network: NativeNetwork) => {
+    const orderedNodeIds = network.nodes.map((node) => node.id).sort()
+    const columnCount = Math.ceil(Math.sqrt(orderedNodeIds.length))
+    const rowCount = Math.ceil(orderedNodeIds.length / columnCount)
+    const spacing = 96
+
+    return new Map(
+        orderedNodeIds.map((nodeId, index) => {
+            const column = index % columnCount
+            const row = Math.floor(index / columnCount)
+            return [
+                nodeId,
+                {
+                    x: (column - (columnCount - 1) / 2) * spacing,
+                    y: (row - (rowCount - 1) / 2) * spacing
+                }
+            ] as const
+        })
+    )
+}
+
 export const nativeNetworkToolOutputSchema = z.object({
     success: z.literal(true),
     kind: z.literal("native_network"),

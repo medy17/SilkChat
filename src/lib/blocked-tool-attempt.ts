@@ -16,6 +16,17 @@ export type BlockedToolAttempt = {
     summary?: string
 }
 
+export type MalformedToolAttempt = {
+    ability: AbilityId
+    toolName: string
+    toolLabel: string
+    reason: "malformed_tool_call"
+    input: unknown
+    summary?: string
+}
+
+export type ToolFailureAttempt = BlockedToolAttempt | MalformedToolAttempt
+
 type UnknownRecord = Record<string, unknown>
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -60,6 +71,60 @@ const BLOCKED_REASONS = new Set<BlockedToolReason>([
     "auth_required",
     "deployment_unavailable"
 ])
+
+const TOOL_PRESENTATION: Record<string, { ability: AbilityId; label: string }> = {
+    web_search: { ability: "web_search", label: "Web search" },
+    execute_code: { ability: "code_execution", label: "Code execution" },
+    execute_math: { ability: "mathematical_instruments", label: "Math execution" },
+    render_chart: { ability: "mathematical_instruments", label: "Chart renderer" },
+    render_network: { ability: "mathematical_instruments", label: "Network renderer" },
+    get_memory_profile: { ability: "supermemory", label: "Memory" },
+    add_memory: { ability: "supermemory", label: "Memory" },
+    update_memory: { ability: "supermemory", label: "Memory" },
+    forget_memory: { ability: "supermemory", label: "Memory" },
+    search_memories: { ability: "supermemory", label: "Memory" }
+}
+
+const MALFORMED_TOOL_ERROR_PATTERN =
+    /(?:AI_InvalidToolInputError|Invalid input for tool|Type validation failed|invalid tool input)/i
+
+const humanizeToolName = (toolName: string) =>
+    toolName.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase())
+
+const getInvocationToolName = (part: UIMessage["parts"][number] & { toolName?: string }) =>
+    asTrimmedString(part.toolName) ?? part.type.replace(/^tool-/, "")
+
+export const getMalformedToolAttempt = (
+    part: UIMessage["parts"][number]
+): MalformedToolAttempt | null => {
+    if (!part.type.startsWith("tool-") && part.type !== "dynamic-tool") return null
+
+    const invocation = part as typeof part & {
+        toolName?: string
+        input?: unknown
+        errorText?: string
+    }
+    const isLiveMalformedAttempt =
+        typeof invocation.errorText === "string" &&
+        MALFORMED_TOOL_ERROR_PATTERN.test(invocation.errorText)
+
+    if (!isLiveMalformedAttempt) return null
+
+    const toolName = getInvocationToolName(invocation)
+    const presentation = TOOL_PRESENTATION[toolName] ?? {
+        ability: "mcp" as const,
+        label: humanizeToolName(toolName)
+    }
+
+    return {
+        ability: presentation.ability,
+        toolName,
+        toolLabel: presentation.label,
+        reason: "malformed_tool_call",
+        input: invocation.input,
+        summary: summarizeAttempt(toolName, invocation.input)
+    }
+}
 
 export const getBlockedToolAttempt = (
     part: UIMessage["parts"][number]
@@ -108,6 +173,19 @@ export const getBlockedToolAttempts = (message: Pick<UIMessage, "role" | "parts"
 
     return message.parts.flatMap((part) => {
         const attempt = getBlockedToolAttempt(part)
+        return attempt ? [attempt] : []
+    })
+}
+
+export const getToolFailureAttempt = (
+    part: UIMessage["parts"][number]
+): ToolFailureAttempt | null => getBlockedToolAttempt(part) ?? getMalformedToolAttempt(part)
+
+export const getToolFailureAttempts = (message: Pick<UIMessage, "role" | "parts">) => {
+    if (message.role !== "assistant") return []
+
+    return message.parts.flatMap((part) => {
+        const attempt = getToolFailureAttempt(part)
         return attempt ? [attempt] : []
     })
 }

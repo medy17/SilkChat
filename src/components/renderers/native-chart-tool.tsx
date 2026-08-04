@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/chart"
 import {
     type NativeChart,
+    getBoundedNumericDomain,
     getNativeChartFromToolOutput,
     nativeChartSchema
 } from "@/lib/native-chart"
@@ -67,16 +68,43 @@ const getAxisLabel = ({ value, angle }: { value?: string; angle?: number }) =>
 
 const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
     const margin = { left: 8, right: 8, bottom: chart.xLabel ? 16 : 0 }
-    const xAxisType = chart.xScale === "linear" ? "number" : "category"
+    const usesNumericXAxis = chart.type === "scatter" || chart.xScale === "linear"
+    const numericXValues = usesNumericXAxis
+        ? chart.data.flatMap((row) =>
+              typeof row[chart.xKey] === "number" ? [row[chart.xKey] as number] : []
+          )
+        : []
+    const numericXDomain = usesNumericXAxis ? getBoundedNumericDomain(numericXValues) : null
+    const plotData = usesNumericXAxis
+        ? [...chart.data].sort(
+              (left, right) => (left[chart.xKey] as number) - (right[chart.xKey] as number)
+          )
+        : chart.data
+    const xAxisType = usesNumericXAxis ? "number" : "category"
+    const numericXAxisProps =
+        usesNumericXAxis && numericXDomain
+            ? {
+                  domain: numericXDomain,
+                  allowDataOverflow: true,
+                  allowDecimals: !numericXValues.every(Number.isInteger),
+                  tickCount: Math.min(6, new Set(numericXValues).size),
+                  padding: { left: 12, right: 12 }
+              }
+            : {}
+
+    if (usesNumericXAxis && !numericXDomain) {
+        return null
+    }
 
     if (chart.type === "bar") {
         return (
-            <BarChart data={chart.data} margin={margin}>
+            <BarChart data={plotData} margin={margin}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                     {...axisProps}
                     dataKey={chart.xKey}
                     type={xAxisType}
+                    {...numericXAxisProps}
                     label={getAxisLabel({ value: chart.xLabel })}
                 />
                 <YAxis
@@ -103,12 +131,13 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
 
     if (chart.type === "area") {
         return (
-            <AreaChart data={chart.data} margin={margin}>
+            <AreaChart data={plotData} margin={margin}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                     {...axisProps}
                     dataKey={chart.xKey}
                     type={xAxisType}
+                    {...numericXAxisProps}
                     label={getAxisLabel({ value: chart.xLabel })}
                 />
                 <YAxis
@@ -145,6 +174,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
                     {...axisProps}
                     dataKey="x"
                     type="number"
+                    {...numericXAxisProps}
                     label={getAxisLabel({ value: chart.xLabel })}
                 />
                 <YAxis
@@ -160,7 +190,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
                     <Scatter
                         key={series.key}
                         name={series.label}
-                        data={chart.data.map((row) => ({
+                        data={plotData.map((row) => ({
                             x: row[chart.xKey],
                             y: row[series.key]
                         }))}
@@ -173,12 +203,13 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
     }
 
     return (
-        <LineChart data={chart.data} margin={margin}>
+        <LineChart data={plotData} margin={margin}>
             <CartesianGrid vertical={false} stroke="var(--border)" />
             <XAxis
                 {...axisProps}
                 dataKey={chart.xKey}
                 type={xAxisType}
+                {...numericXAxisProps}
                 label={getAxisLabel({ value: chart.xLabel })}
             />
             <YAxis
@@ -291,7 +322,7 @@ export const NativeChartToolRenderer = memo(
         return (
             <div className="not-prose my-5 flex items-center gap-2 rounded-[var(--radius-md)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
                 <CircleAlert className="size-4 shrink-0" />
-                {toolInvocation.errorText || "The chart could not be rendered."}
+                The chart could not be rendered.
             </div>
         )
     }

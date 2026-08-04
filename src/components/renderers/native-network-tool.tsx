@@ -2,10 +2,12 @@
 
 import {
     type NativeNetwork,
+    getNativeNetworkFingerprint,
     getNativeNetworkFromToolOutput,
+    getNativeNetworkInitialPositions,
     nativeNetworkSchema
 } from "@/lib/native-network"
-import type { Core, ElementDefinition, StylesheetJson } from "cytoscape"
+import type { Core, ElementDefinition, LayoutOptions, StylesheetJson } from "cytoscape"
 import { CircleAlert, Loader2, Network } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 import {
@@ -53,7 +55,16 @@ const NativeNetworkPlot = ({
     size?: NativeVisualizationSize
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
-    const [error, setError] = useState<string>()
+    const fingerprint = getNativeNetworkFingerprint(network)
+    const stableNetworkRef = useRef({ fingerprint, network })
+    if (stableNetworkRef.current.fingerprint !== fingerprint) {
+        stableNetworkRef.current = { fingerprint, network }
+    }
+    const stableNetwork = stableNetworkRef.current.network
+    const [readyFingerprint, setReadyFingerprint] = useState<string>()
+    const [failure, setFailure] = useState<{ fingerprint: string; message: string }>()
+    const ready = readyFingerprint === fingerprint
+    const error = failure?.fingerprint === fingerprint ? failure.message : undefined
 
     useEffect(() => {
         if (!containerRef.current) return
@@ -70,9 +81,8 @@ const NativeNetworkPlot = ({
                 const { default: cytoscape } = await import("cytoscape")
                 if (disposed || !containerRef.current) return
 
-                setError(undefined)
                 const groups = new Map<string, number>()
-                for (const node of network.nodes) {
+                for (const node of stableNetwork.nodes) {
                     const group = node.group ?? "default"
                     if (!groups.has(group)) groups.set(group, groups.size % 5)
                 }
@@ -137,7 +147,7 @@ const NativeNetworkPlot = ({
                                 width: "mapData(weight, 0, 100, 1, 6)",
                                 "line-color": muted,
                                 "target-arrow-color": muted,
-                                "target-arrow-shape": network.directed ? "triangle" : "none",
+                                "target-arrow-shape": stableNetwork.directed ? "triangle" : "none",
                                 "curve-style": "bezier",
                                 label: "data(label)",
                                 color: labelForeground,
@@ -165,17 +175,19 @@ const NativeNetworkPlot = ({
                 }
 
                 const presentation = getPresentation()
+                const initialPositions = getNativeNetworkInitialPositions(stableNetwork)
 
                 const elements: ElementDefinition[] = [
-                    ...network.nodes.map((node) => ({
+                    ...stableNetwork.nodes.map((node) => ({
                         data: {
                             id: node.id,
                             label: node.label ?? node.id,
                             value: node.value ?? 1,
                             color: presentation.palette[groups.get(node.group ?? "default") ?? 0]
-                        }
+                        },
+                        position: initialPositions.get(node.id)
                     })),
-                    ...network.edges.map((edge, index) => ({
+                    ...stableNetwork.edges.map((edge, index) => ({
                         data: {
                             id: edge.id ? `[edge-id:${edge.id}]` : `[edge-index:${index}]`,
                             source: edge.source,
@@ -190,16 +202,35 @@ const NativeNetworkPlot = ({
                     elements,
                     style: presentation.style,
                     layout: {
-                        name: network.layout,
-                        directed: network.directed,
-                        fit: true,
-                        padding: 32,
+                        name: "preset",
+                        fit: false,
                         animate: false
                     },
                     minZoom: 0.25,
                     maxZoom: 3,
                     wheelSensitivity: 0.2
                 })
+
+                const finishLayout = () => {
+                    if (disposed || !graph) return
+                    graph.resize()
+                    graph.fit(undefined, 32)
+                    setReadyFingerprint(fingerprint)
+                }
+                const layoutOptions: LayoutOptions = {
+                    name: stableNetwork.layout,
+                    directed: stableNetwork.directed,
+                    fit: false,
+                    animate: false,
+                    stop: finishLayout,
+                    ...(stableNetwork.layout === "cose"
+                        ? {
+                              randomize: false,
+                              refresh: 0
+                          }
+                        : {})
+                }
+                graph.layout(layoutOptions).run()
 
                 resizeObserver =
                     typeof ResizeObserver === "undefined"
@@ -220,7 +251,7 @@ const NativeNetworkPlot = ({
                         if (disposed || !graph) return
 
                         const nextPresentation = getPresentation()
-                        for (const node of network.nodes) {
+                        for (const node of stableNetwork.nodes) {
                             graph
                                 .getElementById(node.id)
                                 .data(
@@ -240,11 +271,13 @@ const NativeNetworkPlot = ({
                 })
             } catch (cause) {
                 if (!disposed) {
-                    setError(
-                        cause instanceof Error
-                            ? cause.message
-                            : "The network could not be rendered."
-                    )
+                    setFailure({
+                        fingerprint,
+                        message:
+                            cause instanceof Error
+                                ? cause.message
+                                : "The network could not be rendered."
+                    })
                 }
             }
         }
@@ -259,32 +292,41 @@ const NativeNetworkPlot = ({
             resizeObserver?.disconnect()
             graph?.destroy()
         }
-    }, [network])
+    }, [fingerprint, stableNetwork])
 
     if (error) {
         return <div className="p-4 text-destructive text-sm">{error}</div>
     }
 
     return (
-        <div
-            ref={containerRef}
-            role="img"
-            aria-label={`Interactive network: ${network.title}`}
-            className="w-full bg-background"
-            style={
-                expanded && size
-                    ? {
-                          width: size.width,
-                          height: size.height,
-                          minWidth: size.width,
-                          minHeight: size.height
-                      }
-                    : {
-                          height: NATIVE_NETWORK_VIEWPORT_HEIGHT,
-                          minHeight: NATIVE_NETWORK_VIEWPORT_HEIGHT
-                      }
-            }
-        />
+        <div className="relative w-full bg-background">
+            <div
+                ref={containerRef}
+                role="img"
+                aria-label={`Interactive network: ${network.title}`}
+                aria-busy={!ready}
+                className={`w-full ${ready ? "visible" : "invisible"}`}
+                style={
+                    expanded && size
+                        ? {
+                              width: size.width,
+                              height: size.height,
+                              minWidth: size.width,
+                              minHeight: size.height
+                          }
+                        : {
+                              height: NATIVE_NETWORK_VIEWPORT_HEIGHT,
+                              minHeight: NATIVE_NETWORK_VIEWPORT_HEIGHT
+                          }
+                }
+            />
+            {!ready && (
+                <div className="absolute inset-0 flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                    Arranging network…
+                </div>
+            )}
+        </div>
     )
 }
 

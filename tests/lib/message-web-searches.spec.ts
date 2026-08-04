@@ -83,4 +83,21 @@ describe("getMessageWebSearches", () => {
             { status: "failed", error: "Tool failed" }
         ])
     })
+
+    it("leaves malformed calls to the shared tool-failure card", () => {
+        const result = getMessageWebSearches({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-web_search",
+                    toolCallId: "search-1",
+                    state: "output-error",
+                    input: {},
+                    errorText: "Invalid input for tool web_search"
+                }
+            ]
+        } as never)
+
+        expect(result).toEqual([])
+    })
 })

@@ -1,4 +1,8 @@
-import { getNativeChartFromToolOutput, nativeChartSchema } from "@/lib/native-chart"
+import {
+    getBoundedNumericDomain,
+    getNativeChartFromToolOutput,
+    nativeChartSchema
+} from "@/lib/native-chart"
 import { describe, expect, it } from "vitest"
 import { NativeChartAdapter, getNativeChartTool } from "../../convex/lib/tools/native_chart"
 
@@ -18,6 +22,12 @@ const validChart = {
 }
 
 describe("native chart contract", () => {
+    it("bounds numeric axes to the observed data instead of zero", () => {
+        expect(getBoundedNumericDomain([2012, 2014, 2018, 2023])).toEqual([2012, 2023])
+        expect(getBoundedNumericDomain([2023])).toEqual([2002.77, 2043.23])
+        expect(getBoundedNumericDomain([])).toBeNull()
+    })
+
     it("accepts bounded numeric series and supplies display defaults", () => {
         const parsed = nativeChartSchema.parse(validChart)
 

@@ -61,6 +61,65 @@ describe("getMessageCodeExecutions", () => {
         expect(result[1]?.errorText).toBe("Sandbox unavailable")
     })
 
+    it("does not show a persisted call with no terminal result as actively running", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_code",
+                    toolCallId: "code-1",
+                    state: "input-available",
+                    toolMetadata: { silkchatPersistedWithoutTerminalResult: true },
+                    input: { purpose: "Deeper analysis", code: "print(42)" }
+                }
+            ]
+        } as never)
+
+        expect(result[0]).toMatchObject({
+            status: "unresolved",
+            errorText: "No terminal result was recorded for this execution."
+        })
+    })
+
+    it("clears the incomplete snapshot state when a resumed execution receives output", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_code",
+                    toolCallId: "code-1",
+                    state: "output-available",
+                    toolMetadata: { silkchatPersistedWithoutTerminalResult: true },
+                    input: { purpose: "Deeper analysis", code: "print(42)" },
+                    output: { success: true, stdout: "42" }
+                }
+            ]
+        } as never)
+
+        expect(result[0]).toMatchObject({
+            status: "succeeded",
+            output: { success: true, stdout: "42" }
+        })
+        expect(result[0]?.errorText).toBeUndefined()
+    })
+
+    it("leaves malformed calls to the shared tool-failure card", () => {
+        const result = getMessageCodeExecutions({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-execute_code",
+                    toolCallId: "code-1",
+                    state: "output-error",
+                    input: { purpose: "Missing code" },
+                    errorText: "Invalid input for tool execute_code"
+                }
+            ]
+        } as never)
+
+        expect(result).toEqual([])
+    })
+
     it("groups Math Kit calculations as Python executions", () => {
         const result = getMessageCodeExecutions({
             role: "assistant",
