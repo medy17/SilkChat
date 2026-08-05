@@ -14,6 +14,7 @@ dotenv.config({
 
 const deployment = process.env.CLOUD_DEV_CONVEX_DEPLOYMENT
 const envLocalPath = path.resolve(process.cwd(), ".env.local")
+const convexCliPath = path.resolve(process.cwd(), "node_modules", "convex", "bin", "main.js")
 const hadRootEnvLocal = existsSync(envLocalPath)
 const originalEnvLocal = existsSync(envLocalPath) ? readFileSync(envLocalPath, "utf8") : null
 
@@ -29,17 +30,25 @@ if (!deployment?.trim()) {
 }
 
 const child = spawn(
-    "bunx",
-    ["convex", "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
+    process.execPath,
+    [convexCliPath, "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
     {
         stdio: "inherit",
-        shell: process.platform === "win32",
         env: {
             ...process.env,
             CONVEX_DEPLOYMENT: deployment.trim()
         }
     }
 )
+
+const forwardSignal = (signal) => {
+    if (child.exitCode === null && child.signalCode === null) {
+        child.kill(signal)
+    }
+}
+
+process.on("SIGINT", () => forwardSignal("SIGINT"))
+process.on("SIGTERM", () => forwardSignal("SIGTERM"))
 
 child.on("exit", (code) => {
     if (originalEnvLocal !== null && existsSync(envLocalPath)) {

@@ -42,7 +42,7 @@ Set its selector and URLs in `envs/.env.cloud-dev`, then run:
 bun run dev
 ```
 
-`dev` and `cloud:dev:app` are the same application path. They start Vite on port 3000 and a local Sharp-backed image optimizer. Uploads stay in the cloud-dev R2 bucket; local image transforms are cached locally to avoid Cloudflare transform usage during iteration. The dev loop logs each optimizer transform or cache purge with its HTTP status, cache hit/miss, output format and size, and elapsed time.
+`dev` and `cloud:dev:app` are the same application path. They start Vite on port 3000 and a local Sharp-backed image optimizer. Uploads stay in the cloud-dev R2 bucket; local image transforms are cached locally to avoid Cloudflare transform usage during iteration. The dev loop logs each optimizer transform or cache purge with its HTTP status, cache hit/miss, output format and size, and elapsed time. In an interactive terminal, the hotkey strip stays below service output and offers backend sync, per-service restarts, optimizer cache purging, a full local-stack restart, and shutdown. Hotkeys act immediately; Enter is not required.
 
 ### Stable HTTPS development URL
 
