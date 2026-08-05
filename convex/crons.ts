@@ -15,15 +15,18 @@ crons.interval(
     internal.account_deletion.processPendingAccountDeletionJobs
 )
 
+// Per-sandbox expiry and retry work is scheduled when the sandbox is created.
+// This is only a fallback for missed or interrupted lifecycle work.
 crons.interval(
     "reconcile persistent sandboxes",
-    { minutes: 1 },
+    { hours: 1 },
     internal.persistent_sandboxes_node.reconcilePersistentSandboxes
 )
 
+// Provider-wide listing is a last-resort guard for sandboxes with no usable DB record.
 crons.interval(
     "sweep orphaned persistent sandboxes",
-    { minutes: 5 },
+    { hours: 6 },
     internal.persistent_sandboxes_node.sweepOrphanedPersistentSandboxes
 )
 
