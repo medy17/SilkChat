@@ -1,15 +1,14 @@
 import { corsRouter } from "convex-helpers/server/cors"
 import { httpRouter } from "convex/server"
-import { getFile, uploadFile, uploadReferenceImage } from "./attachments"
+import { getFile } from "./attachments"
 import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
 import { chatDELETE } from "./chat_http/stop.route"
+import { completeDirectUpload, createDirectUpload } from "./direct_uploads"
 import { falImageWebhook } from "./fal_webhooks"
-import { uploadImportSource } from "./import_jobs_http"
 import { lemonSqueezyWebhook } from "./lemon_squeezy_http"
 import { UPLOAD_POLICY_HEADER } from "./lib/file_constants"
-import { uploadPersonaAvatar, uploadPersonaDoc } from "./persona_uploads"
 import { getPrivateBlur } from "./private_blur"
 import { transcribeAudio } from "./speech_to_text"
 
@@ -63,35 +62,16 @@ cors.route({
     handler: chatDELETE
 })
 
-// File upload route
 cors.route({
-    path: "/upload",
+    path: "/upload/create",
     method: "POST",
-    handler: uploadFile
+    handler: createDirectUpload
 })
 
 cors.route({
-    path: "/upload/reference",
+    path: "/upload/complete",
     method: "POST",
-    handler: uploadReferenceImage
-})
-
-cors.route({
-    path: "/upload/persona-avatar",
-    method: "POST",
-    handler: uploadPersonaAvatar
-})
-
-cors.route({
-    path: "/upload/persona-doc",
-    method: "POST",
-    handler: uploadPersonaDoc
-})
-
-cors.route({
-    path: "/import-upload",
-    method: "POST",
-    handler: uploadImportSource
+    handler: completeDirectUpload
 })
 
 // Speech-to-text route

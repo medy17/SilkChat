@@ -37,6 +37,8 @@ import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { uploadFileDirect } from "@/lib/direct-upload"
+import { estimateTokenCount } from "@/lib/file_constants"
 import { isImageGenerationCapableModel, useAvailableModels } from "@/lib/models-providers-shared"
 import {
     MAX_PERSONA_KNOWLEDGE_DOCS,
@@ -1049,30 +1051,18 @@ function PersonasSettings() {
         }
     }
 
-    const uploadFileToEndpoint = async <T,>(endpoint: string, file: File) => {
+    const uploadPersonaFile = async (purpose: "persona-avatar" | "persona-doc", file: File) => {
         const jwt = await resolveJwtToken(token)
         if (!jwt) {
             throw new Error("Authentication token unavailable")
         }
 
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("fileName", file.name)
-
-        const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}${endpoint}`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${jwt}`
-            },
-            body: formData
+        return uploadFileDirect({
+            file,
+            jwt,
+            uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+            purpose
         })
-
-        const payload = await response.json()
-        if (!response.ok) {
-            throw new Error(payload.error || "Upload failed")
-        }
-
-        return payload as T
     }
 
     const handleAvatarUpload = async (file?: File) => {
@@ -1100,10 +1090,10 @@ function PersonasSettings() {
                 fileName: avatarCropState.fileName
             })
             const compressed = await compressAvatar(cropped)
-            const uploaded = await uploadFileToEndpoint<PersonaAvatarUpload>(
-                "/upload/persona-avatar",
+            const uploaded = (await uploadPersonaFile(
+                "persona-avatar",
                 compressed
-            )
+            )) as PersonaAvatarUpload
             setForm((current) => ({
                 ...current,
                 avatar: uploaded
@@ -1132,9 +1122,20 @@ function PersonasSettings() {
 
         try {
             const uploadedDocs = await Promise.all(
-                filesToUpload.map((file) =>
-                    uploadFileToEndpoint<PersonaDocUpload>("/upload/persona-doc", file)
-                )
+                filesToUpload.map(async (file): Promise<PersonaDocUpload> => {
+                    const tokenCount = estimateTokenCount(await file.text())
+                    if (tokenCount > MAX_PERSONA_PROMPT_TOKENS) {
+                        throw new Error(
+                            `Knowledge document exceeds ${MAX_PERSONA_PROMPT_TOKENS.toLocaleString()} token limit`
+                        )
+                    }
+                    const uploaded = await uploadPersonaFile("persona-doc", file)
+                    return {
+                        ...uploaded,
+                        fileType: "text/markdown",
+                        tokenCount
+                    }
+                })
             )
 
             setForm((current) => ({

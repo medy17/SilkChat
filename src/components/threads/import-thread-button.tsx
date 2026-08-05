@@ -40,6 +40,7 @@ import { useToken } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
+import { uploadFileDirect } from "@/lib/direct-upload"
 import { MAX_ATTACHMENTS_PER_THREAD, getFileTypeInfo } from "@/lib/file_constants"
 import type { ParsedThreadImportDocument } from "@/lib/thread-import"
 import {
@@ -276,28 +277,12 @@ const uploadAttachment = async ({
     file: File
     jwt: string
 }) => {
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("fileName", file.name)
-
-    const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload`, {
-        method: "POST",
-        body: formData,
-        headers: {
-            Authorization: `Bearer ${jwt}`
-        }
+    return uploadFileDirect({
+        file,
+        jwt,
+        uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+        purpose: "attachment"
     })
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        throw new Error(errorData?.error || `Upload failed with status ${response.status}`)
-    }
-
-    return (await response.json()) as {
-        key: string
-        fileName: string
-        fileType: string
-    }
 }
 
 const uploadImportSource = async ({
@@ -309,30 +294,18 @@ const uploadImportSource = async ({
     clientSourceId: string
     jwt: string
 }) => {
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("fileName", file.name)
-    formData.append("clientSourceId", clientSourceId)
-
-    const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/import-upload`, {
-        method: "POST",
-        body: formData,
-        headers: {
-            Authorization: `Bearer ${jwt}`
-        }
+    const uploaded = await uploadFileDirect({
+        file,
+        jwt,
+        uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+        purpose: "import-source"
     })
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        throw new Error(errorData?.error || `Import upload failed with status ${response.status}`)
-    }
-
-    return (await response.json()) as {
-        clientSourceId?: string
-        storageKey: string
-        fileName: string
-        mimeType?: string
-        size: number
+    return {
+        clientSourceId,
+        storageKey: uploaded.key,
+        fileName: uploaded.fileName,
+        mimeType: uploaded.fileType,
+        size: uploaded.fileSize
     }
 }
 

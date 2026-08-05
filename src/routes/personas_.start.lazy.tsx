@@ -19,6 +19,7 @@ import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useAvatarAccent } from "@/hooks/use-avatar-accent"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
+import { uploadFileDirect } from "@/lib/direct-upload"
 import { PERSONA_ONBOARDING_PATH, setPersonaOnboardingHandoff } from "@/lib/persona-onboarding"
 import {
     BUILT_IN_PERSONAS,
@@ -267,19 +268,12 @@ function PersonaOnboarding() {
         if (!jwt) throw new Error("Authentication token unavailable")
 
         const compressed = await compressPersonaAvatar(file)
-        const formData = new FormData()
-        formData.append("file", compressed)
-        formData.append("fileName", compressed.name)
-
-        const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload/persona-avatar`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${jwt}` },
-            body: formData
-        })
-
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error || "Avatar upload failed")
-        return payload as PersonaAvatarUpload
+        return uploadFileDirect({
+            file: compressed,
+            jwt,
+            uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+            purpose: "persona-avatar"
+        }) as Promise<PersonaAvatarUpload>
     }
 
     const finishOnboarding = async (

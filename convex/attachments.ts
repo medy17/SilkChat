@@ -54,8 +54,23 @@ const r2Unavailable = {
     },
     getUrl: async () => {
         throw new Error("R2 is not configured")
+    },
+    createDirectUpload: async () => {
+        throw new Error("R2 is not configured")
+    },
+    syncMetadata: async () => {
+        throw new Error("R2 is not configured")
     }
-} satisfies Pick<R2, "store" | "getMetadata" | "deleteObject" | "listMetadata" | "getUrl">
+} satisfies Pick<
+    R2,
+    | "store"
+    | "getMetadata"
+    | "deleteObject"
+    | "listMetadata"
+    | "getUrl"
+    | "createDirectUpload"
+    | "syncMetadata"
+>
 
 export const r2 =
     process.env.R2_BUCKET &&

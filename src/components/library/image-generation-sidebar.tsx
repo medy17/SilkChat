@@ -25,6 +25,7 @@ import {
     useDevOverridesStore
 } from "@/lib/dev-overrides"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
+import { uploadFileDirect } from "@/lib/direct-upload"
 import { DEFAULT_UPLOAD_POLICY, formatFileSizeLimit } from "@/lib/file_constants"
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
@@ -985,35 +986,19 @@ export function ImageGenerationSidebar({
                 throw new Error("Authentication token unavailable")
             }
 
-            const formData = new FormData()
-            formData.append("file", preparedFile)
-            formData.append("fileName", preparedFile.name)
-
-            const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/upload/reference`, {
-                method: "POST",
-                body: formData,
-                headers: {
-                    Authorization: `Bearer ${jwt}`
-                }
+            const uploaded = await uploadFileDirect({
+                file: preparedFile,
+                jwt,
+                uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+                purpose: "reference"
             })
 
-            const payload = (await response.json()) as {
-                error?: string
-                key?: string
-            }
-
-            if (!response.ok || !payload.key) {
-                throw new Error(
-                    payload.error || `Failed to upload reference image "${preparedFile.name}"`
-                )
-            }
-
-            hashToStorageKey.set(hash, payload.key)
-            uploadedKeys.push(payload.key)
+            hashToStorageKey.set(hash, uploaded.key)
+            uploadedKeys.push(uploaded.key)
             setReferenceFiles((prev) =>
                 prev.map((item) =>
                     item.preview === reference.preview
-                        ? { ...item, hash, storageKey: payload.key }
+                        ? { ...item, hash, storageKey: uploaded.key }
                         : item
                 )
             )

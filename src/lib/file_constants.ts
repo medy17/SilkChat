@@ -352,6 +352,12 @@ export const getFileTypeInfo = (filename: string, mimeType?: string) => {
 export const getCorrectMimeType = (filename: string, browserMimeType?: string): string => {
     const fileInfo = getFileTypeInfo(filename, browserMimeType)
 
+    // Canonicalize every accepted PDF form so downstream consumers and signed
+    // uploads never receive application/x-pdf or application/octet-stream.
+    if (fileInfo.isPdf) {
+        return "application/pdf"
+    }
+
     // If it's an image and browser provided a valid image MIME type, use it
     if (fileInfo.isImage && browserMimeType && isImageMimeType(browserMimeType)) {
         return browserMimeType

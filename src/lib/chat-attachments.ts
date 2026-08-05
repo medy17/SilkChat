@@ -1,6 +1,6 @@
+import { uploadFileDirect } from "@/lib/direct-upload"
 import {
     DEFAULT_UPLOAD_POLICY,
-    UPLOAD_POLICY_HEADER,
     type UploadPolicy,
     estimateTokenCount,
     formatFileSizeLimit,
@@ -193,97 +193,15 @@ export const uploadChatAttachment = async ({
     onPolicyVersionMismatch?: (serverPolicyVersion: string) => void
     signal?: AbortSignal
 }): Promise<UploadedFileWithSource> => {
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("fileName", file.name)
-
-    if (!onProgress) {
-        const response = await fetch(uploadUrl, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${jwt}`,
-                ...(policyVersion ? { [UPLOAD_POLICY_HEADER]: policyVersion } : {})
-            },
-            body: formData,
-            signal
-        })
-
-        const serverPolicyVersion = response.headers.get(UPLOAD_POLICY_HEADER)
-        if (serverPolicyVersion && serverPolicyVersion !== policyVersion) {
-            onPolicyVersionMismatch?.(serverPolicyVersion)
-        }
-
-        const result = await response.json().catch(() => null)
-        if (!response.ok) {
-            throw new Error(result?.error || "Upload failed")
-        }
-
-        return {
-            ...result,
-            file
-        }
-    }
-
-    return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            reject(new DOMException("Upload cancelled", "AbortError"))
-            return
-        }
-
-        const xhr = new XMLHttpRequest()
-        const abortUpload = () => xhr.abort()
-        const cleanup = () => signal?.removeEventListener("abort", abortUpload)
-        xhr.open("POST", uploadUrl)
-        xhr.setRequestHeader("Authorization", `Bearer ${jwt}`)
-        if (policyVersion) {
-            xhr.setRequestHeader(UPLOAD_POLICY_HEADER, policyVersion)
-        }
-
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const progress = Math.round((event.loaded / event.total) * 100)
-                onProgress(progress)
-            }
-        }
-
-        xhr.onload = () => {
-            cleanup()
-            const serverPolicyVersion = xhr.getResponseHeader(UPLOAD_POLICY_HEADER)
-            if (serverPolicyVersion && serverPolicyVersion !== policyVersion) {
-                onPolicyVersionMismatch?.(serverPolicyVersion)
-            }
-
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const result = JSON.parse(xhr.responseText)
-                    resolve({
-                        ...result,
-                        file
-                    })
-                } catch {
-                    reject(new Error("Invalid response from server"))
-                }
-            } else {
-                try {
-                    const errorData = JSON.parse(xhr.responseText)
-                    reject(new Error(errorData.error || "Upload failed"))
-                } catch {
-                    reject(new Error("Upload failed"))
-                }
-            }
-        }
-
-        xhr.onerror = () => {
-            cleanup()
-            reject(new Error("Upload failed due to a network error"))
-        }
-
-        xhr.onabort = () => {
-            cleanup()
-            reject(new DOMException("Upload cancelled", "AbortError"))
-        }
-
-        signal?.addEventListener("abort", abortUpload, { once: true })
-        xhr.send(formData)
+    const result = await uploadFileDirect({
+        file,
+        jwt,
+        uploadBaseUrl: uploadUrl,
+        purpose: "attachment",
+        policyVersion,
+        onProgress,
+        onPolicyVersionMismatch,
+        signal
     })
+    return { ...result, file }
 }

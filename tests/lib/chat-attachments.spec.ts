@@ -47,24 +47,46 @@ describe("chat-attachments", () => {
 
     it("sends the cached policy version and reports server version changes", async () => {
         const onPolicyVersionMismatch = vi.fn()
-        const fetchMock = vi.fn().mockResolvedValue(
-            new Response(
-                JSON.stringify({
-                    key: "attachments/user-1/file.txt",
-                    fileName: "file.txt",
-                    fileType: "text/plain",
-                    fileSize: 4,
-                    uploadedAt: 1
-                }),
-                {
-                    status: 200,
-                    headers: {
-                        "Content-Type": "application/json",
-                        [UPLOAD_POLICY_HEADER]: "server-version"
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(
+                new Response(
+                    JSON.stringify({
+                        key: "attachments/user-1/file.txt",
+                        uploadUrl: "https://bucket.r2.cloudflarestorage.com/file.txt?signed=true",
+                        headers: {
+                            "Content-Type": "text/plain",
+                            "If-None-Match": "*"
+                        },
+                        fileType: "text/plain"
+                    }),
+                    {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                            [UPLOAD_POLICY_HEADER]: "server-version"
+                        }
                     }
-                }
+                )
             )
-        )
+            .mockResolvedValueOnce(new Response(null, { status: 200 }))
+            .mockResolvedValueOnce(
+                new Response(
+                    JSON.stringify({
+                        key: "attachments/user-1/file.txt",
+                        fileType: "text/plain",
+                        fileSize: 4,
+                        uploadedAt: 1
+                    }),
+                    {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                            [UPLOAD_POLICY_HEADER]: "server-version"
+                        }
+                    }
+                )
+            )
         vi.stubGlobal("fetch", fetchMock)
 
         await expect(
@@ -81,7 +103,7 @@ describe("chat-attachments", () => {
         })
 
         expect(fetchMock).toHaveBeenCalledWith(
-            "https://example.com/upload",
+            "https://example.com/upload/create",
             expect.objectContaining({
                 headers: expect.objectContaining({
                     Authorization: "Bearer jwt",
@@ -89,6 +111,25 @@ describe("chat-attachments", () => {
                 })
             })
         )
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            2,
+            "https://bucket.r2.cloudflarestorage.com/file.txt?signed=true",
+            expect.objectContaining({
+                method: "PUT",
+                headers: {
+                    "Content-Type": "text/plain",
+                    "If-None-Match": "*"
+                }
+            })
+        )
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            3,
+            "https://example.com/upload/complete",
+            expect.objectContaining({
+                body: JSON.stringify({ key: "attachments/user-1/file.txt" })
+            })
+        )
+        expect(onPolicyVersionMismatch).toHaveBeenCalledTimes(2)
         expect(onPolicyVersionMismatch).toHaveBeenCalledWith("server-version")
     })
 })
