@@ -151,6 +151,13 @@ describe("patched R2 direct uploads", () => {
         expect(state.getMetadata()).toMatchObject({ uploadStatus: "ready" })
 
         await expect(
+            (upsertMetadata as unknown as MutationWithHandler)._handler(state.ctx, {
+                ...finalizeArgs,
+                contentType: "text/csv"
+            })
+        ).resolves.toEqual({ isNew: false })
+
+        await expect(
             (deletePendingMetadata as unknown as MutationWithHandler)._handler(state.ctx, {
                 authorId: "user-1",
                 bucket: "uploads",

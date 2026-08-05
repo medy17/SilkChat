@@ -649,7 +649,7 @@ index 2eae702..1d0becc 100644
 \ No newline at end of file
 +//# sourceMappingURL=lib.d.ts.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/lib.js b/node_modules/@convex-dev/r2/dist/component/lib.js
-index d80d0ad..3a24ac4 100644
+index d80d0ad..8d6a973 100644
 --- a/node_modules/@convex-dev/r2/dist/component/lib.js
 +++ b/node_modules/@convex-dev/r2/dist/component/lib.js
 @@ -9,10 +9,27 @@ import { asyncMap } from "convex-helpers";
@@ -846,15 +846,14 @@ index d80d0ad..3a24ac4 100644
      returns: v.object({
          isNew: v.boolean(),
      }),
-@@ -101,21 +224,47 @@ export const upsertMetadata = mutation({
+@@ -101,21 +224,46 @@ export const upsertMetadata = mutation({
              .query("metadata")
              .withIndex("bucket_key", (q) => q.eq("bucket", args.bucket).eq("key", args.key))
              .unique();
 +        if (args.requirePendingReservation) {
 +            const sameCompletedUpload = existingMetadata?.uploadStatus === "ready" &&
 +                existingMetadata.authorId === args.authorId &&
-+                existingMetadata.size === args.size &&
-+                existingMetadata.contentType === args.contentType;
++                existingMetadata.size === args.size;
 +            if (sameCompletedUpload) {
 +                return { isNew: false };
 +            }
@@ -894,7 +893,7 @@ index d80d0ad..3a24ac4 100644
              bucket: args.bucket,
              lastModified: args.lastModified,
              link: args.link,
-@@ -127,17 +276,56 @@ export const syncMetadata = action({
+@@ -127,29 +275,75 @@ export const syncMetadata = action({
      args: {
          key: v.string(),
          onComplete: v.optional(v.string()),
@@ -937,8 +936,7 @@ index d80d0ad..3a24ac4 100644
          });
          const response = await r2.send(command);
 +        if (reservation?.uploadStatus === "pending" &&
-+            (response.ContentLength !== reservation.expectedSize ||
-+                response.ContentType !== reservation.expectedContentType)) {
++            response.ContentLength !== reservation.expectedSize) {
 +            const claimed = await ctx.runMutation(api.lib.deletePendingMetadata, {
 +                bucket: r2Config.bucket,
 +                key,
@@ -947,12 +945,19 @@ index d80d0ad..3a24ac4 100644
 +            if (claimed) {
 +                await deleteR2Key(r2, r2Config.bucket, key);
 +            }
-+            throw new Error("Uploaded object does not match its reservation");
++            throw new Error("Uploaded object size does not match its reservation");
 +        }
++        const finalizedContentType = reservation?.uploadStatus === "pending"
++            ? reservation.expectedContentType
++            : response.ContentType;
          const accountId = /\/{2}([^/.]+)\./.exec(r2Config.endpoint)?.[1] ?? "";
          const link = `https://dash.cloudflare.com/${accountId}/r2/default/buckets/${r2Config.bucket}/objects/${key}/details`;
          const { isNew } = await ctx.runMutation(api.lib.upsertMetadata, {
-@@ -148,8 +336,13 @@ export const syncMetadata = action({
+             key,
+             lastModified: response.LastModified?.toISOString() ?? "",
+-            contentType: response.ContentType,
++            contentType: finalizedContentType,
+             size: response.ContentLength,
              sha256: response.ChecksumSHA256,
              bucket: r2Config.bucket,
              link,
@@ -967,7 +972,7 @@ index d80d0ad..3a24ac4 100644
          if (onComplete) {
              await ctx.runMutation(onComplete, {
                  key,
-@@ -159,6 +352,47 @@ export const syncMetadata = action({
+@@ -159,6 +353,47 @@ export const syncMetadata = action({
          }
      },
  });
@@ -1015,7 +1020,7 @@ index d80d0ad..3a24ac4 100644
  export const deleteMetadata = mutation({
      args: {
          key: v.string(),
-@@ -184,7 +418,7 @@ export const deleteR2Object = action({
+@@ -184,7 +419,7 @@ export const deleteR2Object = action({
      handler: async (ctx, args) => {
          const { key, ...r2Config } = args;
          const r2 = createR2Client(r2Config);
@@ -1024,7 +1029,7 @@ index d80d0ad..3a24ac4 100644
      },
  });
  export const deleteObject = mutation({
-@@ -208,4 +442,4 @@ export const withoutSystemFields = (fields) => {
+@@ -208,4 +443,4 @@ export const withoutSystemFields = (fields) => {
      const { _id, _creationTime, ...rest } = fields;
      return rest;
  };

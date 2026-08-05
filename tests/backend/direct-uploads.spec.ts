@@ -90,6 +90,17 @@ describe("direct uploads", () => {
         ).toMatchObject({ contentType: "application/pdf" })
     })
 
+    it("uses one canonical signed MIME type for CSV uploads", () => {
+        expect(
+            getDirectUploadPolicy({
+                purpose: "attachment",
+                fileName: "report.csv",
+                fileType: "text/csv",
+                fileSize: 4
+            })
+        ).toMatchObject({ contentType: "text/plain" })
+    })
+
     it("reserves one server-generated key with exact signed constraints", async () => {
         r2Mock.createDirectUpload.mockResolvedValue({
             key: "attachments/user-1/key-file.txt",
