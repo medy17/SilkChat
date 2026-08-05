@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 
+import { S3Client } from "@aws-sdk/client-s3"
 import { R2 } from "@convex-dev/r2"
 import {
     deletePendingMetadata,
+    syncMetadata,
     upsertMetadata
 } from "../../node_modules/@convex-dev/r2/dist/component/lib.js"
 
@@ -153,7 +155,8 @@ describe("patched R2 direct uploads", () => {
         await expect(
             (upsertMetadata as unknown as MutationWithHandler)._handler(state.ctx, {
                 ...finalizeArgs,
-                contentType: "text/csv"
+                contentType: "text/csv",
+                size: 7
             })
         ).resolves.toEqual({ isNew: false })
 
@@ -165,5 +168,43 @@ describe("patched R2 direct uploads", () => {
             })
         ).resolves.toBe(false)
         expect(state.deleteMock).not.toHaveBeenCalled()
+    })
+
+    it("finalizes with the size and MIME already enforced by the signed PUT", async () => {
+        const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValueOnce({
+            ContentLength: 7,
+            ContentType: "text/csv",
+            LastModified: new Date("2026-08-05T00:00:00.000Z")
+        } as never)
+        const runMutation = vi.fn().mockResolvedValue({ isNew: false })
+
+        try {
+            await (syncMetadata as unknown as MutationWithHandler)._handler(
+                {
+                    runQuery: vi.fn().mockResolvedValue(pendingMetadata()),
+                    runMutation
+                },
+                {
+                    key: "attachments/user-1/file.txt",
+                    authorId: "user-1",
+                    requireReservation: true,
+                    bucket: "uploads",
+                    endpoint: "https://account.r2.cloudflarestorage.com",
+                    accessKeyId: "test-access-key",
+                    secretAccessKey: "test-secret-key"
+                }
+            )
+        } finally {
+            send.mockRestore()
+        }
+
+        expect(runMutation).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                contentType: "text/plain",
+                size: 4,
+                requirePendingReservation: true
+            })
+        )
     })
 })
