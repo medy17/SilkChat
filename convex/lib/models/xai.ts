@@ -34,7 +34,7 @@ export const XAI_MODELS: SharedModel[] = [
     {
         id: "grok-4-1-fast",
         name: "Grok 4.1 Fast",
-        shortName: "Grok 4.1",
+        shortName: "Grok 4.1 Fast",
         shortDescription: "Long-context tool caller built to search, act, and answer at speed",
         description:
             "Grok 4.1 Fast was xAI's production-minded agent model, trained for rapid, accurate tool use across real customer-support, finance, and research workflows. Its two-million-token context let it sustain long multi-turn jobs without surrendering the speed that earned the name.",

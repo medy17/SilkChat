@@ -25,6 +25,59 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - optional `supportedImageSizes`
 - optional `customIcon`
 
+### Text model short names
+
+`shortName` is the compact, picker-facing identity of a text model. It should optimize
+for recognition rather than satisfy a hard character limit: remove redundant branding,
+but keep every part needed to distinguish the model from nearby entries.
+
+General rules:
+
+- Prefer a recognizable model-family token over the company name: `Claude Opus 5`
+  becomes `Opus 5`, while `DeepSeek V4 Pro` becomes `V4 Pro`.
+- Keep a family prefix when removing it would make the label ambiguous. Use `GLM 5.2`,
+  `Grok 4.5`, `Qwen3.6 Plus`, and `MiMo V2.5 Pro`, not their bare versions.
+- Keep meaningful product variants such as `Pro`, `Flash`, `Lite`, `Fast`, `Turbo`,
+  `mini`, `nano`, `Omni`, `Sol`, and `Terra`.
+- Keep a checkpoint when it distinguishes selectable releases or is conventionally part
+  of the model's public identity. Otherwise treat it as release metadata and omit it.
+- Remove deployment and implementation qualifiers such as `Instruct`, expert counts,
+  and `Instant` unless they distinguish selectable entries.
+- Do not invent opaque abbreviations merely to hit a length target. Aim for roughly 15
+  characters, but allow a longer label when a necessary variant or checkpoint requires it.
+- Every active text model must have a non-empty `shortName`, and text-model short names
+  must be unique across the registry.
+
+Family conventions:
+
+- **OpenAI GPT:** remove `GPT`; use the number plus any variant (`5.5`, `5.6 Sol`,
+  `4o-mini`). Hyphenate lowercase modifiers such as `mini`, `nano`, and `high`, while
+  proper-name variants remain space-separated. Keep the complete identity of `o` models,
+  such as `o4-mini-high`.
+- **DeepSeek:** remove both `DeepSeek` and the invented `DS` abbreviation. Start with the
+  public series token and retain meaningful variants or checkpoints (`V4 Pro`,
+  `V4 Flash 0731`, `R1 0528`).
+- **GLM:** retain `GLM` for plain numbered releases (`GLM 5.2`) because their timelines
+  overlap other families. A distinctive suffixed model may omit it (`5V Turbo`).
+- **Anthropic:** remove `Claude`; use class plus version (`Haiku 4.5`, `Fable 5`,
+  `Opus 5`).
+- **Kimi:** remove `Kimi`; keep the `K` series identity and any meaningful checkpoint
+  (`K3`, `K2.6`, `K2 0905`).
+- **Gemini:** remove `Gemini`; keep version and picker-facing tier (`3.6 Flash`,
+  `3.1 Pro`). Collapse `Flash Lite` to `Lite` (`3.5 Lite`) and retain `Preview` only
+  when it distinguishes the displayed model (`3.1 Lite Preview`).
+- **Grok:** retain `Grok`, plus meaningful variants such as `Fast`. Omit a lone date
+  checkpoint from the short name; add it only when needed to distinguish selectable
+  releases (`Grok 4.20`, but `Grok 4.20 0309` if another 4.20 checkpoint is present).
+- **Llama and Meta:** use codename plus active parameter size for codenamed Llama models
+  (`Scout 17B`, `Maverick 17B`). For numbered models, retain `Llama`, version, and size
+  (`Llama 3.1 8B`). Keep already-compact standalone names such as `Muse Spark 1.1`.
+- **Qwen:** retain the `Qwen` family using its established compact styling
+  (`Qwen3.6 Plus`).
+- **MiMo:** retain `MiMo` because bare `V` labels would collide conceptually with other
+  families (`MiMo V2.5 Pro`, `MiMo V2 Omni`).
+- **MiniMax:** remove `MiniMax`; retain its recognizable `M` series token (`M3`, `M2.7`).
+
 ### Adapter prefixes
 
 - `i3-openai:*`, `i3-anthropic:*`, `i3-google:*`, etc.: internal provider identity aliases used for metadata and grouping. Hosted execution resolves through the matching `openrouter:*` adapter.

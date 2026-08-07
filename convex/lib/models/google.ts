@@ -41,7 +41,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.5-flash-lite",
         name: "Gemini 3.5 Flash Lite",
         addedOn: "2026-07-21",
-        shortName: "3.5 Flash Lite",
+        shortName: "3.5 Lite",
         shortDescription: "Low-latency Gemini model for efficient, high-volume workloads",
         description:
             "Google's latest lightweight multimodal model for fast, cost-efficient workloads. Best in class for high-volume assistants, extraction, classification, and agentic tasks where responsiveness matters most.",
@@ -93,7 +93,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         id: "gemini-3.1-flash-lite",
         name: "Gemini 3.1 Flash Lite",
         addedOn: "2026-03-03",
-        shortName: "3.1 Flash Lite",
+        shortName: "3.1 Lite",
         shortDescription: "Lowest-latency Gemini 3.1 option for lightweight workloads",
         description:
             "Gemini 3.1 Flash Lite is optimized for quick everyday responses and lower-cost workloads. It is a good fit for simple assistants, short-form drafting, and fast multimodal interactions where efficiency matters most.",
@@ -112,7 +112,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-3.1-flash-lite-preview",
         name: "Gemini 3.1 Flash Lite Preview",
-        shortName: "3.1 Flash Lite Preview",
+        shortName: "3.1 Lite Preview",
         shortDescription: "Early look at Google's leanest Gemini for quick multimodal work",
         description:
             "Gemini 3.1 Flash Lite Preview was the first public taste of Google's lowest-latency 3.1 model. It brought lightweight reasoning, tools, and multimodal input to high-volume jobs before graduating into the stable Flash Lite release.",
@@ -163,7 +163,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-2.5-flash-lite",
         name: "Gemini 2.5 Flash Lite",
-        shortName: "2.5 Flash Lite",
+        shortName: "2.5 Lite",
         shortDescription: "Google's thriftiest 2.5 model for fast, high-volume multimodal chores",
         description:
             "Gemini 2.5 Flash Lite is built for the conveyor belt: translation, classification, extraction, and other latency-sensitive work at serious scale. It still carries a million-token context, multimodal input, tools, and adjustable thinking, so inexpensive does not have to mean bare-bones.",
@@ -209,7 +209,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
     {
         id: "gemini-2.0-flash-lite",
         name: "Gemini 2.0 Flash Lite",
-        shortName: "2.0 Flash Lite",
+        shortName: "2.0 Lite",
         shortDescription:
             "No-frills Gemini speed for classification, captions, and work by the million",
         description:

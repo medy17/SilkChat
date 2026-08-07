@@ -27,7 +27,7 @@ export const META_MODELS: SharedModel[] = [
         id: "llama-4-scout-17b-16e-instruct",
         name: "Llama 4 Scout 17B 16E",
         addedOn: "2025-04-05",
-        shortName: "Llama 4 Scout 17B",
+        shortName: "Scout 17B",
         shortDescription: "Compact multimodal scout with an almost absurd appetite for context",
         description:
             "Llama 4 Scout is Meta's efficient, open-weight multimodal explorer: 17B active parameters, 16 experts, and exceptional long-context reach. It is well suited to combing through document collections, large codebases, and image-rich prompts without bringing heavyweight serving demands.",
@@ -43,7 +43,7 @@ export const META_MODELS: SharedModel[] = [
         id: "llama-4-maverick-17b-128e-instruct",
         name: "Llama 4 Maverick 17B 128E Instruct",
         addedOn: "2025-04-05",
-        shortName: "Llama 4 Maverick 17B",
+        shortName: "Maverick 17B",
         shortDescription: "Creative multimodal workhorse with sharper reasoning and a larger expert bench",
         description:
             "Llama 4 Maverick is Meta's open-weight generalist for high-quality chat, creative writing, coding, and precise image understanding. Its 128-expert mixture gives it more range than Scout while keeping only 17B parameters active at a time.",

@@ -98,7 +98,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.4-nano",
         name: "GPT 5.4 nano",
-        shortName: "5.4 nano",
+        shortName: "5.4-nano",
         shortDescription: "Smallest GPT-5.4 variant for fast, low-cost text and tool use",
         description:
             "GPT 5.4 nano is the lightest GPT-5.4 model, tuned for low-latency chat, lightweight automations, and high-volume workloads where speed and cost matter more than deep reasoning depth.",
@@ -117,7 +117,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5.4-mini",
         name: "GPT 5.4 mini",
-        shortName: "5.4 mini",
+        shortName: "5.4-mini",
         shortDescription: "Balanced GPT-5.4 model for everyday chat, search, and tool use",
         description:
             "GPT 5.4 mini balances quality, speed, and cost for everyday assistant workflows. It is a practical default when you want strong multimodal and tool-calling support without paying for the largest GPT-5.4 tier.",
@@ -218,7 +218,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5-mini",
         name: "GPT 5 mini",
-        shortName: "5 mini",
+        shortName: "5-mini",
         shortDescription: "Compact GPT-5 reasoning for everyday agents that mind the budget",
         description:
             "GPT 5 mini packages the family's reasoning, vision, and tool skills into a quicker, more economical model. It is the sensible daily driver for coding assistants, support flows, and busy automations that need good judgment more often than maximum horsepower.",
@@ -233,7 +233,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-5-nano",
         name: "GPT 5 nano",
-        shortName: "5 nano",
+        shortName: "5-nano",
         shortDescription: "Tiny GPT-5 built to classify, extract, and respond before the kettle boils",
         description:
             "GPT 5 nano is the smallest and fastest GPT-5 variant, made for high-volume work where latency and cost dominate the brief. Give it classification, extraction, routing, concise summaries, or lightweight tool calls and let the larger models keep sleeping.",
@@ -248,7 +248,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "o4-mini-high",
         name: "o4 mini high",
-        shortName: "o4 mini high",
+        shortName: "o4-mini-high",
         shortDescription: "Small visual reasoner allowed to think harder before showing its work",
         description:
             "o4 mini high is o4-mini with the reasoning dial already turned up. It trades a little more time and compute for stronger answers in math, code, science, and visual problem-solving while retaining the smaller model's efficient bones.",
@@ -274,7 +274,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "o4-mini",
         name: "o4 mini",
-        shortName: "o4 mini",
+        shortName: "o4-mini",
         shortDescription: "Fast, frugal reasoning with outsized talent for math, code, and images",
         description:
             "o4-mini is a compact reasoning model that punches well above its weight on math, coding, and visual tasks. It combines tool-aware thinking with high throughput, so you can afford to use real reasoning on more than just the ceremonial hard problems.",
@@ -301,7 +301,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-4.1-mini",
         name: "GPT 4.1 mini",
-        shortName: "4.1 mini",
+        shortName: "4.1-mini",
         shortDescription: "Quick million-token generalist with near-flagship intelligence and much lighter luggage",
         description:
             "GPT 4.1 mini is the family's sweet spot: strong coding, vision, and instruction-following with lower latency and cost than the flagship. Its million-token context makes it unusually capable of reading the whole project before offering to rearrange it.",
@@ -314,7 +314,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-4.1-nano",
         name: "GPT 4.1 nano",
-        shortName: "4.1 nano",
+        shortName: "4.1-nano",
         shortDescription: "OpenAI's fastest 4.1 model for brisk, precise work at scale",
         description:
             "GPT 4.1 nano is the fleet-footed member of the 4.1 family, tuned for classification, completion, retrieval, and other latency-sensitive jobs. It keeps the million-token window and multimodal input, an impressively large desk for such a small model.",
@@ -344,7 +344,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "o3-mini-high",
         name: "o3 mini high",
-        shortName: "o3 mini high",
+        shortName: "o3-mini-high",
         shortDescription: "Compact STEM reasoner given extra room to wrestle with the hard parts",
         description:
             "o3 mini high is the more contemplative setting of OpenAI's small STEM reasoner. It spends additional compute on math, science, and coding problems, favoring a sturdier solution over the fastest path to the final line.",
@@ -356,7 +356,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "o3-mini",
         name: "o3 mini",
-        shortName: "o3 mini",
+        shortName: "o3-mini",
         shortDescription: "Lean STEM reasoning for code, calculations, and technical questions on repeat",
         description:
             "o3-mini is a cost-efficient reasoning model focused on coding, math, and science. Adjustable effort lets it move quickly through routine technical work or pause for a more careful derivation when the equations start looking unfriendly.",
@@ -383,7 +383,7 @@ export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-4o-mini",
         name: "GPT 4o mini",
-        shortName: "4o mini",
+        shortName: "4o-mini",
         shortDescription: "Affordable multimodal intelligence for busy apps and everyday conversations",
         description:
             "GPT 4o mini made multimodal intelligence cheap enough to use everywhere. It is a nimble choice for support, extraction, translation, lightweight vision, and high-volume chat—less grand piano, more excellent pocket keyboard.",

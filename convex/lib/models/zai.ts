@@ -35,7 +35,7 @@ export const ZAI_MODELS: SharedModel[] = [
         id: "glm-5v-turbo",
         name: "GLM 5V Turbo",
         addedOn: "2026-04-01",
-        shortName: "GLM 5V Turbo",
+        shortName: "5V Turbo",
         shortDescription: "Multimodal coding model that can see the interface and fix it",
         description:
             "GLM 5V Turbo is Z.ai's vision-native coding model, able to read images, video, files, and interfaces before planning and acting. It shines on design-to-code, visual debugging, GUI agents, and any workflow where seeing the problem is half the solution.",
