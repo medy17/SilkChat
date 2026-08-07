@@ -1,0 +1,51 @@
+{
+    "$schema": "../../node_modules/wrangler/config-schema.json",
+    "name": "silkchat-fal-r2-ingest-cloud-dev",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-08-07",
+    "compatibility_flags": ["nodejs_compat"],
+    "observability": {
+        "enabled": true
+    },
+    "vars": {
+        "ALLOWED_SOURCE_HOSTS": ".fal.media",
+        "MAX_ASSET_BYTES": "104857600",
+        "UPSTREAM_TIMEOUT_MS": "120000"
+    },
+    "r2_buckets": [
+        {
+            "binding": "DESTINATION_BUCKET",
+            "bucket_name": "silkchat-cloud-dev"
+        }
+    ],
+    "env": {
+        "staging": {
+            "name": "silkchat-fal-r2-ingest-staging",
+            "vars": {
+                "ALLOWED_SOURCE_HOSTS": ".fal.media",
+                "MAX_ASSET_BYTES": "104857600",
+                "UPSTREAM_TIMEOUT_MS": "120000"
+            },
+            "r2_buckets": [
+                {
+                    "binding": "DESTINATION_BUCKET",
+                    "bucket_name": "silkchat-staging"
+                }
+            ]
+        },
+        "production": {
+            "name": "silkchat-fal-r2-ingest-production",
+            "vars": {
+                "ALLOWED_SOURCE_HOSTS": ".fal.media",
+                "MAX_ASSET_BYTES": "104857600",
+                "UPSTREAM_TIMEOUT_MS": "120000"
+            },
+            "r2_buckets": [
+                {
+                    "binding": "DESTINATION_BUCKET",
+                    "bucket_name": "intern3-user-files"
+                }
+            ]
+        }
+    }
+}

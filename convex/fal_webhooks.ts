@@ -2,6 +2,13 @@ import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
+import {
+    FAL_R2_INGEST_SIGNATURE_HEADER,
+    FAL_R2_INGEST_TIMESTAMP_HEADER,
+    FAL_R2_INGEST_VERSION,
+    type FalR2IngestTask,
+    signFalR2IngestBody
+} from "./lib/fal_r2_ingest"
 import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
 import {
     type FalGeneratedImage,
@@ -245,6 +252,48 @@ const patchChatImageGenerationCard = async (
     })
 }
 
+const getFalR2IngestConfig = () => {
+    const endpoint = process.env.FAL_R2_INGEST_URL?.trim()
+    const secret = process.env.FAL_R2_INGEST_SECRET?.trim()
+    return endpoint && secret ? { endpoint, secret } : null
+}
+
+export const createFalR2IngestTasks = ({
+    jobId,
+    userId,
+    images
+}: {
+    jobId: Id<"imageGenerationJobs"> | string
+    userId: string
+    images: FalGeneratedImage[]
+}): FalR2IngestTask[] =>
+    images.map((image, index) => ({
+        sourceUrl: image.url,
+        storageKey: `generations/${userId}/${jobId}-${index + 1}-fal.${getExtensionFromContentType(image.contentType)}`,
+        ...(image.contentType ? { contentType: image.contentType } : {})
+    }))
+
+export const ingestFalImagesViaWorker = async (
+    tasks: FalR2IngestTask[],
+    config = getFalR2IngestConfig()
+) => {
+    if (!config) throw new Error("Fal R2 ingest worker is not configured")
+
+    const body = JSON.stringify({ version: FAL_R2_INGEST_VERSION, tasks })
+    const signed = await signFalR2IngestBody(body, config.secret)
+    const response = await fetch(config.endpoint, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            [FAL_R2_INGEST_SIGNATURE_HEADER]: signed.signature,
+            [FAL_R2_INGEST_TIMESTAMP_HEADER]: signed.timestamp
+        },
+        body,
+        signal: AbortSignal.timeout(130_000)
+    })
+    if (!response.ok) throw new Error(`Fal R2 ingest worker returned ${response.status}`)
+}
+
 export const downloadFalImage = async (image: FalGeneratedImage) => {
     let lastError: unknown
     for (let attempt = 0; attempt < FAL_IMAGE_DOWNLOAD_ATTEMPTS; attempt++) {
@@ -396,34 +445,83 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
         requestId: falRequestId
     })
 
+    const ingestConfig = getFalR2IngestConfig()
+    let workerTasks: FalR2IngestTask[] | undefined
+    if (ingestConfig) {
+        try {
+            const tasks = createFalR2IngestTasks({
+                jobId: job._id,
+                userId: job.userId,
+                images: result.images
+            })
+            await ingestFalImagesViaWorker(tasks, ingestConfig)
+            workerTasks = tasks
+        } catch (error) {
+            console.error("[fal webhook] Worker ingest failed; using Convex fallback", {
+                falRequestId,
+                jobId: job._id,
+                error
+            })
+        }
+    }
+
     const generatedImageIds: Id<"generatedImages">[] = []
     const failures: string[] = []
 
-    for (const image of result.images) {
-        try {
-            const downloaded = await downloadFalImage(image)
-            const storageKey = await r2.store(ctx, downloaded.bytes, {
-                authorId: job.userId,
-                key: `generations/${job.userId}/${Date.now()}-${crypto.randomUUID()}-fal.${downloaded.extension}`,
-                type: downloaded.contentType
-            })
-            const id: Id<"generatedImages"> = await ctx.runMutation(
-                internal.images.insertGeneratedImage,
-                {
-                    userId: job.userId,
-                    storageKey,
-                    prompt: job.prompt,
-                    modelId: job.appModelId,
-                    aspectRatio: job.aspectRatio,
-                    resolution: job.resolution,
-                    referenceImageKeys: job.referenceImageKeys,
-                    generationJobId: job._id,
-                    falRequestId
-                }
-            )
-            generatedImageIds.push(id)
-        } catch (error) {
-            failures.push(error instanceof Error ? error.message : "Unknown image storage error")
+    if (workerTasks) {
+        for (const task of workerTasks) {
+            try {
+                await r2.syncMetadata(ctx, task.storageKey, { authorId: job.userId })
+                const id: Id<"generatedImages"> = await ctx.runMutation(
+                    internal.images.insertGeneratedImage,
+                    {
+                        userId: job.userId,
+                        storageKey: task.storageKey,
+                        prompt: job.prompt,
+                        modelId: job.appModelId,
+                        aspectRatio: job.aspectRatio,
+                        resolution: job.resolution,
+                        referenceImageKeys: job.referenceImageKeys,
+                        generationJobId: job._id,
+                        falRequestId
+                    }
+                )
+                generatedImageIds.push(id)
+            } catch (error) {
+                failures.push(
+                    error instanceof Error ? error.message : "Unknown image metadata error"
+                )
+            }
+        }
+    } else {
+        for (const image of result.images) {
+            try {
+                const downloaded = await downloadFalImage(image)
+                const storageKey = await r2.store(ctx, downloaded.bytes, {
+                    authorId: job.userId,
+                    key: `generations/${job.userId}/${Date.now()}-${crypto.randomUUID()}-fal.${downloaded.extension}`,
+                    type: downloaded.contentType
+                })
+                const id: Id<"generatedImages"> = await ctx.runMutation(
+                    internal.images.insertGeneratedImage,
+                    {
+                        userId: job.userId,
+                        storageKey,
+                        prompt: job.prompt,
+                        modelId: job.appModelId,
+                        aspectRatio: job.aspectRatio,
+                        resolution: job.resolution,
+                        referenceImageKeys: job.referenceImageKeys,
+                        generationJobId: job._id,
+                        falRequestId
+                    }
+                )
+                generatedImageIds.push(id)
+            } catch (error) {
+                failures.push(
+                    error instanceof Error ? error.message : "Unknown image storage error"
+                )
+            }
         }
     }
 

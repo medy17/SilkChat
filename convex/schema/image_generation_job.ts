@@ -16,7 +16,14 @@ export const ImageGenerationJobStatus = v.union(
 
 export const ImageGenerationJobAsset = v.object({
     url: v.string(),
-    contentType: v.optional(v.string())
+    contentType: v.optional(v.string()),
+    // Retained for compatibility with jobs written by the earlier queue-based
+    // R2 ingestion prototype. The synchronous Worker path does not write them.
+    taskId: v.optional(v.string()),
+    storageKey: v.optional(v.string()),
+    ingestStatus: v.optional(v.string()),
+    generatedImageId: v.optional(v.id("generatedImages")),
+    error: v.optional(v.string())
 })
 
 export const ImageGenerationJob = v.object({

@@ -272,6 +272,18 @@ export const insertGeneratedImage = internalMutation({
         createdAt: v.optional(v.number())
     },
     handler: async (ctx, args) => {
+        await assertAccountNotDeleting(ctx, args.userId)
+
+        if (args.generationJobId) {
+            const existing = await ctx.db
+                .query("generatedImages")
+                .withIndex("byGenerationJobIdAndStorageKey", (q) =>
+                    q.eq("generationJobId", args.generationJobId).eq("storageKey", args.storageKey)
+                )
+                .first()
+            if (existing) return existing._id
+        }
+
         const { createdAt, ...rest } = args
         const image = {
             ...rest,

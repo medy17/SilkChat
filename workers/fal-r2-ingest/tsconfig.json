@@ -1,0 +1,9 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "lib": ["ES2022", "WebWorker"],
+        "types": ["@cloudflare/workers-types"],
+        "noEmit": true
+    },
+    "include": ["worker-configuration.d.ts", "src/**/*.ts", "../../convex/lib/fal_r2_ingest.ts"]
+}

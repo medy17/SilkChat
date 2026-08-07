@@ -8,6 +8,10 @@
         "dev": "node scripts/run-cloud-dev-app.mjs",
         "prebuild": "node scripts/sync-built-in-personas.mjs",
         "test": "vitest run",
+        "fal:r2:worker:typecheck": "tsc -p workers/fal-r2-ingest/tsconfig.json",
+        "fal:r2:worker:deploy:cloud-dev": "wrangler deploy --config workers/fal-r2-ingest/wrangler.jsonc --env=\"\"",
+        "fal:r2:worker:deploy:staging": "wrangler deploy --config workers/fal-r2-ingest/wrangler.jsonc --env staging",
+        "fal:r2:worker:deploy:production": "wrangler deploy --config workers/fal-r2-ingest/wrangler.jsonc --env production",
         "local:image-optimizer": "tsx scripts/local-image-optimizer.ts",
         "precloud:dev:app": "node scripts/sync-built-in-personas.mjs",
         "cloud:dev:app": "node scripts/run-cloud-dev-app.mjs",
@@ -152,6 +156,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "1.9.4",
+        "@cloudflare/workers-types": "^5.20260801.1",
         "@img/sharp-libvips-win32-x64": "1.2.4",
         "@rolldown/plugin-babel": "^0.2.3",
         "@tailwindcss/typography": "^0.5.20",
@@ -173,7 +178,8 @@
         "vite-plugin-mkcert": "^1.17.12",
         "vite-plugin-svgr": "^5.2.0",
         "vite-tsconfig-paths": "^5.1.4",
-        "vitest": "^4.1.10"
+        "vitest": "^4.1.10",
+        "wrangler": "^4.120.0"
     },
     "patchedDependencies": {
         "@ai-sdk/openai@3.0.53": "bun-patches/@ai-sdk-openai@3.0.53.patch"
