@@ -983,14 +983,16 @@ const MessageRowComponent = ({
     const mathExecutions = executions.filter((execution) => execution.kind === "math")
     const webSearches = getMessageWebSearches(message)
     const toolFailureAttempts = getToolFailureAttempts(message)
-    const hasVisibleResponseContent = hasVisibleAssistantContent(message)
+    const hasResponseText = message.parts.some(
+        (part) => part.type === "text" && part.text.trim() !== ""
+    )
 
     useEffect(() => {
         if (message.role !== "assistant") return
 
         if (isStreamingMessage) {
             hapticStreamActiveRef.current = true
-            if (hasVisibleResponseContent && !responseStartHapticPlayedRef.current) {
+            if (hasResponseText && !responseStartHapticPlayedRef.current) {
                 responseStartHapticPlayedRef.current = true
                 playResponseStartHaptic()
             }
@@ -1004,7 +1006,7 @@ const MessageRowComponent = ({
                 playResponseCompleteHaptic()
             }
         }
-    }, [hasVisibleResponseContent, isStreamingMessage, message.role])
+    }, [hasResponseText, isStreamingMessage, message.role])
 
     const groupedToolOrder = [
         ...(toolFailureAttempts.length > 0
