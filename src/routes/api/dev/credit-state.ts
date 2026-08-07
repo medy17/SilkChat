@@ -2,7 +2,7 @@ import { api } from "@/convex/_generated/api.js"
 import { authServer } from "@/lib/auth-server"
 import { createFileRoute } from "@tanstack/react-router"
 
-const usageScenarios = new Set([
+const usageScenarioValues = [
     "normal_empty",
     "staff_with_limits",
     "staff_with_bypass_limits",
@@ -12,17 +12,19 @@ const usageScenarios = new Set([
     "usage_5h_expired",
     "usage_monthly_near_limit",
     "usage_monthly_exhausted"
-])
+] as const
+const usageScenarios = new Set<string>(usageScenarioValues)
 
-const periodAnchorPresets = new Set(["default", "ending_today", "ending_tomorrow"])
+const periodAnchorPresetValues = ["default", "ending_today", "ending_tomorrow"] as const
+const periodAnchorPresets = new Set<string>(periodAnchorPresetValues)
 
 type DevCreditStatePayload = {
     plan?: "free" | "pro"
     isStaff?: boolean
     bypassLimits?: boolean
     bypassToolCallLimits?: boolean
-    usageScenario?: string
-    periodAnchorPreset?: string
+    usageScenario?: (typeof usageScenarioValues)[number]
+    periodAnchorPreset?: (typeof periodAnchorPresetValues)[number]
 }
 
 const isDevelopmentRoute = () => process.env.NODE_ENV === "development"
@@ -64,7 +66,7 @@ const validatePayload = (body: unknown): DevCreditStatePayload | { error: string
         if (typeof input.usageScenario !== "string" || !usageScenarios.has(input.usageScenario)) {
             return { error: "Invalid usageScenario" }
         }
-        payload.usageScenario = input.usageScenario
+        payload.usageScenario = input.usageScenario as (typeof usageScenarioValues)[number]
     }
 
     if ("periodAnchorPreset" in input) {
@@ -74,7 +76,8 @@ const validatePayload = (body: unknown): DevCreditStatePayload | { error: string
         ) {
             return { error: "Invalid periodAnchorPreset" }
         }
-        payload.periodAnchorPreset = input.periodAnchorPreset
+        payload.periodAnchorPreset =
+            input.periodAnchorPreset as (typeof periodAnchorPresetValues)[number]
     }
 
     return payload

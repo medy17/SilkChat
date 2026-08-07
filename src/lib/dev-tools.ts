@@ -55,7 +55,7 @@ const LIBRARY_STORAGE_KEYS = [
     "fal-image-migration-storage-reset:v1"
 ]
 
-export const getDevStorageKeysForScope = (storage: Storage, scope: DevStorageScope) => {
+export const getDevStorageKeysForScope = (storage: Storage, scope: DevStorageScope): string[] => {
     const keys = Object.keys(storage)
 
     switch (scope) {

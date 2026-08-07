@@ -313,7 +313,7 @@ export function ThreadsSidebar() {
             return
         }
 
-        const existingIds = new Set(selectedThreadsQuery.map((thread) => thread._id))
+        const existingIds = new Set(selectedThreadsQuery.map((thread) => String(thread._id)))
         setSelectedThreadIds((previous) => previous.filter((threadId) => existingIds.has(threadId)))
     }, [selectedThreadIds.length, selectedThreadsQuery])
 
@@ -550,7 +550,7 @@ export function ThreadsSidebar() {
                 setIsSelectionMode(true)
             }
 
-            const folderThreadIdSet = new Set(threadIds)
+            const folderThreadIdSet = new Set(threadIds.map(String))
             setSelectedThreadIds((previous) => {
                 const isFullySelected = threadIds.every((threadId) => previous.includes(threadId))
 

@@ -8,6 +8,7 @@ import { internal } from "../_generated/api"
 import type { DataModel, Id } from "../_generated/dataModel"
 import { MODELS_SHARED, resolveModelReplacement } from "../lib/models"
 import type { UserSettings } from "../schema"
+import type { UserRegistry } from "../settings"
 import { getModel } from "./get_model"
 
 const TITLE_MODEL_PREFERRED = "gemini-3.1-flash-lite"
@@ -247,7 +248,7 @@ const getAvailableTitleModelId = async (
     userId: string,
     preferredModelId: string
 ) => {
-    const registry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
+    const registry: UserRegistry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
         userId
     })
 
@@ -302,9 +303,6 @@ export const generateThreadName = async (
         }
 
         const { model } = modelData
-        if (model.modelType === "image") {
-            throw new Error("Title generation model resolved to an image model")
-        }
 
         const result = await generateText({
             model,

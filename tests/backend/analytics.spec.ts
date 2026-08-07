@@ -149,7 +149,9 @@ describe("analytics", () => {
         )
 
         expect(result).toHaveLength(24)
-        const activeHour = result.find((point) => point.totalRequests === 2)
+        const activeHour = result.find(
+            (point: { totalRequests: number }) => point.totalRequests === 2
+        )
         expect(activeHour).toMatchObject({
             totalRequests: 2,
             totalTokens: 21,

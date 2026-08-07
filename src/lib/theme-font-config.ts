@@ -178,7 +178,7 @@ function applyOverrideTokens(
 }
 
 export function applyBuiltInThemeOverrides<T extends ThemePresetLike>(url: string, preset: T): T {
-    const override = BUILT_IN_THEME_OVERRIDES[url]
+    const override = (BUILT_IN_THEME_OVERRIDES as Record<string, BuiltInThemeOverride>)[url]
     if (!override) {
         return preset
     }

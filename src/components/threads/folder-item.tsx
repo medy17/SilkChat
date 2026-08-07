@@ -39,7 +39,6 @@ import {
     useSidebarActions
 } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
-import type { Id } from "@/convex/_generated/dataModel"
 import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
@@ -64,12 +63,12 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { ThreadItem } from "./thread-item"
-import type { Project, Thread } from "./types"
+import type { SidebarProject, Thread } from "./types"
 
 type FolderSelectionState = "none" | "some" | "all"
 
 interface FolderItemProps {
-    project: Project
+    project: SidebarProject
     numThreads: number
     isCurrentFolder?: boolean
     isSelectionMode?: boolean
@@ -81,8 +80,8 @@ interface FolderItemProps {
     selectedThreadIds?: string[]
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
-    onStartSelection?: (project: Project) => void | Promise<void>
-    onToggleSelection?: (project: Project) => void | Promise<void>
+    onStartSelection?: (project: SidebarProject) => void | Promise<void>
+    onToggleSelection?: (project: SidebarProject) => void | Promise<void>
     onOpenRenameThreadDialog?: (thread: Thread) => void
     onOpenMoveThreadDialog?: (thread: Thread) => void
     onOpenDeleteThreadDialog?: (thread: Thread) => void

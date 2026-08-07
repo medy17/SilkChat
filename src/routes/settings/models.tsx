@@ -391,7 +391,7 @@ export function ModelsSettingsContent() {
             providerId: model.providerId,
             contextLength: model.contextLength,
             maxTokens: model.maxTokens,
-            abilities: model.abilities,
+            abilities: model.abilities.filter((ability) => ability !== "pdf"),
             enabled: model.enabled
         })
         setEditingCustomModel(modelId)

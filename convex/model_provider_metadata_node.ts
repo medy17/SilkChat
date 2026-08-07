@@ -55,7 +55,7 @@ const normalizeOpenRouterModel = (model: OpenRouterModel, fetchedAt: number) => 
 
 export const syncOpenRouterModelMetadata = internalAction({
     args: {},
-    handler: async (ctx) => {
+    handler: async (ctx): Promise<{ upserted: number }> => {
         const response = await fetch(OPENROUTER_MODELS_URL, {
             headers: {
                 Accept: "application/json"

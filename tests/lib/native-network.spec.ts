@@ -66,7 +66,7 @@ describe("native network contract", () => {
         const execute = vi.fn(async () => ({ success: true, stdout: "4" }))
         const tools = getMathExecutionTool({ enabled: true, execute })
         const output = await tools.execute_math?.execute?.(
-            { purpose: "Checking the integral", code: "print(2 + 2)" },
+            { purpose: "Checking the integral", code: "print(2 + 2)", timeoutMs: 20_000 },
             {} as never
         )
 

@@ -273,7 +273,7 @@ describe("useAutoResume", () => {
                 }),
             {
                 initialProps: {
-                    threadMessages: undefined
+                    threadMessages: undefined as AutoResumeProps["threadMessages"]
                 }
             }
         )

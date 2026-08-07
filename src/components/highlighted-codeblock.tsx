@@ -4,8 +4,8 @@ import { type Components, Streamdown } from "streamdown"
 import { Codeblock } from "./codeblock"
 
 const highlightedCodeComponents: Components = {
-    code: Codeblock,
-    inlineCode: Codeblock
+    code: Codeblock as Components["code"],
+    inlineCode: Codeblock as Components["inlineCode"]
 }
 
 export const createCodeFence = (source: string, language: string) => {

@@ -98,7 +98,7 @@ type PersonaFormState = {
 type UserPersonaRecord = {
     _id: Id<"userPersonas">
     name: string
-    shortName: string
+    shortName?: string
     description: string
     instructions: string
     conversationStarters: string[]

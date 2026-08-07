@@ -9,6 +9,7 @@ import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, MODELS_SHARED } from "../lib/models"
 import { createProvider } from "../lib/provider_factory"
+import type { UserRegistry } from "../settings"
 
 const getInternalOpenRouterApiKey = () => process.env.OPENROUTER_API_KEY?.trim()
 const getRegistryProviderId = (adapter: string) => adapter.slice(0, adapter.indexOf(":"))
@@ -33,7 +34,7 @@ export const getModel = async (
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })
     if ("error" in user) throw new ChatError("unauthorized:chat")
 
-    const registry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
+    const registry: UserRegistry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
         userId: user.id
     })
 

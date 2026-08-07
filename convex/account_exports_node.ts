@@ -1,6 +1,7 @@
 "use node"
 
 import { createHash, randomBytes } from "node:crypto"
+import type { R2MetadataPage } from "@convex-dev/r2"
 import type { BetterAuthOptions } from "better-auth"
 import { v } from "convex/values"
 import {
@@ -15,6 +16,7 @@ import type { Doc } from "./_generated/dataModel"
 import { type ActionCtx, action, internalAction } from "./_generated/server"
 import {
     ACCOUNT_EXPORT_EMAIL_MAX_RETRIES,
+    type AccountExportReservation,
     getAccountExportConfiguration,
     getAccountExportEmailRetryDelayMs
 } from "./account_exports"
@@ -34,6 +36,10 @@ type TurnstileVerification = {
     success?: boolean
     action?: string
 }
+
+type AccountExportRequestResult =
+    | Exclude<AccountExportReservation, { accepted: true }>
+    | (Extract<AccountExportReservation, { accepted: true }> & { password: string })
 
 const generateExportPassword = () => {
     const bytes = randomBytes(32)
@@ -70,7 +76,9 @@ const loadAccountProfile = async (
     authId: string,
     fallback: { id: string; email: string }
 ): Promise<AccountExportProfile> => {
-    const adapter = authComponent.adapter(ctx)({} as BetterAuthOptions)
+    const adapter = authComponent.adapter(
+        ctx as unknown as Parameters<typeof authComponent.adapter>[0]
+    )({} as BetterAuthOptions)
     const authUser = (await adapter.findOne({
         model: "user",
         where: [{ field: "id", value: authId }]
@@ -103,7 +111,13 @@ const loadStoredFiles = async (
         const seenCursors = new Set<string>()
 
         while (true) {
-            const result = await r2.listMetadata(ctx, userId, 200, cursor, keyPrefix)
+            const result: R2MetadataPage = await r2.listMetadata(
+                ctx,
+                userId,
+                200,
+                cursor,
+                keyPrefix
+            )
             files.push(
                 ...result.page.map((file) => ({
                     key: file.key,
@@ -130,7 +144,11 @@ const loadThreads = async (ctx: ActionCtx, userId: string): Promise<Doc<"threads
     let cursor: string | null = null
 
     do {
-        const result = await ctx.runQuery(internal.account_exports.listAccountExportThreads, {
+        const result: {
+            page: Doc<"threads">[]
+            isDone: boolean
+            continueCursor: string
+        } = await ctx.runQuery(internal.account_exports.listAccountExportThreads, {
             userId,
             paginationOpts: { numItems: 50, cursor }
         })
@@ -147,7 +165,7 @@ export const requestAccountExport = action({
         consentSensitiveDataLinksAccepted: v.boolean(),
         consentOneTimePasswordAccepted: v.boolean()
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx, args): Promise<AccountExportRequestResult> => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error(String(user.error || "Unauthorized"))
         if (!getAccountExportConfiguration().configured) {
@@ -181,15 +199,18 @@ export const requestAccountExport = action({
 
         const { password, keyHash } = generateExportPassword()
         const encryptedPassword = await encryptKey(password)
-        const reservation = await ctx.runMutation(internal.account_exports.reserveAccountExport, {
-            userId: user.id,
-            authId: user.authId,
-            email: typeof user.email === "string" ? user.email : "",
-            keyHash,
-            encryptedPassword,
-            consentSensitiveDataLinksAccepted: args.consentSensitiveDataLinksAccepted,
-            consentOneTimePasswordAccepted: args.consentOneTimePasswordAccepted
-        })
+        const reservation: AccountExportReservation = await ctx.runMutation(
+            internal.account_exports.reserveAccountExport,
+            {
+                userId: user.id,
+                authId: user.authId,
+                email: typeof user.email === "string" ? user.email : "",
+                keyHash,
+                encryptedPassword,
+                consentSensitiveDataLinksAccepted: args.consentSensitiveDataLinksAccepted,
+                consentOneTimePasswordAccepted: args.consentOneTimePasswordAccepted
+            }
+        )
 
         return reservation.accepted ? { ...reservation, password } : reservation
     }

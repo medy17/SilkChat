@@ -840,10 +840,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
         ).toResponse()
     }
 
-    let modelData = await getModel(ctx, body.model, {
+    const initialModelData = await getModel(ctx, body.model, {
         reasoningEffort: body.reasoningEffort
     })
-    if (modelData instanceof ChatError) return modelData.toResponse()
+    if (initialModelData instanceof ChatError) return initialModelData.toResponse()
+    let modelData = initialModelData
     let { model, modelName } = modelData
     let displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
     const selectedRegistryModel = modelData.registry.models[body.model]
@@ -1172,7 +1173,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 reasoningEffort: effectiveReasoningEffort,
                 creditProviderSource: modelData.providerSource,
                 creditBucket: "none",
-                creditFeature: model.modelType === "image" ? "image" : "chat",
+                creditFeature: "chat",
                 creditUnits: 0,
                 creditCounted: false
             }
@@ -1206,7 +1207,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         reasoningEffort: effectiveReasoningEffort,
                         creditProviderSource: modelData.providerSource,
                         creditBucket: "none",
-                        creditFeature: model.modelType === "image" ? "image" : "chat",
+                        creditFeature: "chat",
                         creditUnits: 0,
                         creditCounted: false,
                         contextLimit: contextViolation
@@ -1642,9 +1643,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const scheduleLiveAssistantPersist = () => {
         void persistLiveAssistantMessage()
     }
-    const forwardStreamToWriter = async (
-        sourceStream: ReadableStream<unknown>,
-        writer: { write: (chunk: unknown) => void | Promise<void> }
+    const forwardStreamToWriter = async <Chunk>(
+        sourceStream: ReadableStream<Chunk>,
+        writer: { write: (chunk: Chunk) => void | Promise<void> }
     ) => {
         const reader = sourceStream.getReader()
 

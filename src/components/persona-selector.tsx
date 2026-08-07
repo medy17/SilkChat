@@ -117,6 +117,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
         },
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
+    const resolvedPickerOptions = "error" in pickerOptions ? null : pickerOptions
     const { availableModels } = useAvailableModels(
         "error" in userSettings ? undefined : userSettings
     )
@@ -127,9 +128,9 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     )
 
     const allOptions = useMemo<PersonaOption[]>(() => {
-        if (!pickerOptions) return []
-        return [...pickerOptions.builtIns, ...pickerOptions.userPersonas]
-    }, [pickerOptions])
+        if (!resolvedPickerOptions) return []
+        return [...resolvedPickerOptions.builtIns, ...resolvedPickerOptions.userPersonas]
+    }, [resolvedPickerOptions])
 
     const selectedValue = getSelectValue(selectedPersona.source, selectedPersona.id)
 
@@ -285,7 +286,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         <Check className="size-4 shrink-0" />
                                     )}
                                 </button>
-                                {pickerOptions?.builtIns.map((persona) => {
+                                {resolvedPickerOptions?.builtIns.map((persona) => {
                                     const isSelected =
                                         selectedValue === getSelectValue("builtin", persona.id)
 
@@ -304,7 +305,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         </button>
                                     )
                                 })}
-                                {pickerOptions?.userPersonas.map((persona) => {
+                                {resolvedPickerOptions?.userPersonas.map((persona) => {
                                     const isSelected =
                                         selectedValue === getSelectValue("user", persona.id)
 

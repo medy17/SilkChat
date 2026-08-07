@@ -2,7 +2,7 @@ diff --git a/node_modules/@convex-dev/r2/dist/client/index.d.ts b/node_modules/@
 index 97c05f0..85aadf6 100644
 --- a/node_modules/@convex-dev/r2/dist/client/index.d.ts
 +++ b/node_modules/@convex-dev/r2/dist/client/index.d.ts
-@@ -14,6 +14,45 @@ export declare const DEFAULT_BATCH_SIZE = 10;
+@@ -14,15 +14,54 @@ export declare const DEFAULT_BATCH_SIZE = 10;
  export type ClientApi = ApiFromModules<{
      client: ReturnType<R2["clientApi"]>;
  }>["client"];
@@ -46,7 +46,22 @@ index 97c05f0..85aadf6 100644
 +    splitCursor?: null | string;
 +};
  type RunQueryCtx = {
-     runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
+-    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
++    runQuery: (...args: any[]) => Promise<any>;
+ };
+ type RunMutationCtx = {
+-    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
+-    runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
++    runQuery: (...args: any[]) => Promise<any>;
++    runMutation: (...args: any[]) => Promise<any>;
+ };
+ type RunActionCtx = {
+-    runAction: GenericActionCtx<GenericDataModel>["runAction"];
+-    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
+-    runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
++    runAction: (...args: any[]) => Promise<any>;
++    runQuery: (...args: any[]) => Promise<any>;
++    runMutation: (...args: any[]) => Promise<any>;
  };
 @@ -41,6 +80,8 @@ export declare class R2 {
          R2_ACCESS_KEY_ID?: string;

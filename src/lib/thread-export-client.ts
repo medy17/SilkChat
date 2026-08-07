@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import {
     type ExportableMessage,
@@ -9,10 +10,9 @@ import {
     downloadBlob,
     serializeThreadToMarkdown
 } from "@/lib/thread-export"
+import type { ConvexReactClient } from "convex/react"
 
-type ConvexQueryClient = {
-    query: (reference: unknown, args: Record<string, unknown>) => Promise<unknown>
-}
+type ConvexQueryClient = Pick<ConvexReactClient, "query">
 
 type RawThreadRecord = {
     _id: string
@@ -90,9 +90,11 @@ const loadThreadExportData = async ({
     threadId: string
 }) => {
     const [threadResult, messagesResult, personaSnapshotResult] = await Promise.all([
-        convex.query(api.threads.getThread, { threadId }),
-        convex.query(api.threads.getThreadMessages, { threadId }),
-        convex.query(api.personas.getThreadPersonaSnapshot, { threadId })
+        convex.query(api.threads.getThread, { threadId: threadId as Id<"threads"> }),
+        convex.query(api.threads.getThreadMessages, { threadId: threadId as Id<"threads"> }),
+        convex.query(api.personas.getThreadPersonaSnapshot, {
+            threadId: threadId as Id<"threads">
+        })
     ])
 
     if (!threadResult || Array.isArray(threadResult)) {

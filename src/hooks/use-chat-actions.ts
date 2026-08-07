@@ -365,7 +365,7 @@ export function useChatActions<TMessage extends UIMessage>({
                     setPendingBranchGeneration(branchTransitionKey, true)
 
                     const result = await branchThreadMutation({
-                        threadId,
+                        threadId: threadId as Id<"threads">,
                         messageId: message.id
                     })
 

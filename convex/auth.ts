@@ -3,6 +3,7 @@ import type { ComponentApi as BetterAuthComponentApi } from "@convex-dev/better-
 import { convex } from "@convex-dev/better-auth/plugins"
 import { betterAuth } from "better-auth"
 import { components, internal } from "./_generated/api.js"
+import type { DataModel } from "./_generated/dataModel.js"
 import { internalAction, query } from "./_generated/server"
 import authConfig from "./auth.config"
 import { recordAuthenticatedActivity, removeAccountActivity } from "./lib/account_activity"
@@ -66,68 +67,77 @@ const getAuthUserById = async (
         where: [{ field: "_id", value: authId }]
     })
 
-export const authComponent = createClient(betterAuthComponent, {
-    triggers: {
-        user: {
-            onCreate: async (ctx, user) => {
-                await recordAuthenticatedActivity(ctx, user._id)
-                await restoreDeletedAccountCreditsForIdentity(ctx, {
-                    userId: getAppUserId(user),
-                    email: user.email
-                })
+export const authComponent: ReturnType<typeof createClient<DataModel>> = createClient(
+    betterAuthComponent,
+    {
+        triggers: {
+            user: {
+                onCreate: async (ctx, user) => {
+                    await recordAuthenticatedActivity(ctx, user._id)
+                    await restoreDeletedAccountCreditsForIdentity(ctx, {
+                        userId: getAppUserId(user),
+                        email: user.email
+                    })
+                },
+                onUpdate: async (ctx, user) => {
+                    await recordAuthenticatedActivity(ctx, user._id)
+                    await restoreDeletedAccountCreditsForIdentity(ctx, {
+                        userId: getAppUserId(user),
+                        email: user.email
+                    })
+                },
+                onDelete: async (ctx, user) => {
+                    await removeAccountActivity(ctx, user._id)
+                }
             },
-            onUpdate: async (ctx, user) => {
-                await recordAuthenticatedActivity(ctx, user._id)
-                await restoreDeletedAccountCreditsForIdentity(ctx, {
-                    userId: getAppUserId(user),
-                    email: user.email
-                })
+            session: {
+                onCreate: async (ctx, session) => {
+                    await recordAuthenticatedActivity(ctx, session.userId)
+                },
+                onUpdate: async (ctx, session) => {
+                    await recordAuthenticatedActivity(ctx, session.userId)
+                }
             },
-            onDelete: async (ctx, user) => {
-                await removeAccountActivity(ctx, user._id)
+            account: {
+                onCreate: async (ctx, account) => {
+                    if (account.providerId !== "google") return
+
+                    const user = await getAuthUserById(
+                        ctx as unknown as Parameters<typeof getAuthUserById>[0],
+                        account.userId
+                    )
+                    if (!user?.email) return
+
+                    await restoreDeletedAccountCreditsForIdentity(ctx, {
+                        userId: getAppUserId(user),
+                        email: user.email,
+                        googleSub: account.accountId
+                    })
+                },
+                onUpdate: async (ctx, account) => {
+                    if (account.providerId !== "google") return
+
+                    const user = await getAuthUserById(
+                        ctx as unknown as Parameters<typeof getAuthUserById>[0],
+                        account.userId
+                    )
+                    if (!user?.email) return
+
+                    await restoreDeletedAccountCreditsForIdentity(ctx, {
+                        userId: getAppUserId(user),
+                        email: user.email,
+                        googleSub: account.accountId
+                    })
+                }
             }
         },
-        session: {
-            onCreate: async (ctx, session) => {
-                await recordAuthenticatedActivity(ctx, session.userId)
-            },
-            onUpdate: async (ctx, session) => {
-                await recordAuthenticatedActivity(ctx, session.userId)
-            }
-        },
-        account: {
-            onCreate: async (ctx, account) => {
-                if (account.providerId !== "google") return
-
-                const user = await getAuthUserById(ctx, account.userId)
-                if (!user?.email) return
-
-                await restoreDeletedAccountCreditsForIdentity(ctx, {
-                    userId: getAppUserId(user),
-                    email: user.email,
-                    googleSub: account.accountId
-                })
-            },
-            onUpdate: async (ctx, account) => {
-                if (account.providerId !== "google") return
-
-                const user = await getAuthUserById(ctx, account.userId)
-                if (!user?.email) return
-
-                await restoreDeletedAccountCreditsForIdentity(ctx, {
-                    userId: getAppUserId(user),
-                    email: user.email,
-                    googleSub: account.accountId
-                })
-            }
+        authFunctions: {
+            onCreate: internal.auth.onAuthModelCreate,
+            onUpdate: internal.auth.onAuthModelUpdate,
+            onDelete: internal.auth.onAuthModelDelete
         }
-    },
-    authFunctions: {
-        onCreate: internal.auth.onAuthModelCreate,
-        onUpdate: internal.auth.onAuthModelUpdate,
-        onDelete: internal.auth.onAuthModelDelete
     }
-})
+)
 
 export const {
     onCreate: onAuthModelCreate,

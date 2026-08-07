@@ -4,7 +4,7 @@ import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import { internalAction } from "./_generated/server"
 import { r2 } from "./attachments"
 import {
@@ -158,9 +158,12 @@ export const prepareImportJob = internalAction({
             return
         }
 
-        const sources = await ctx.runQuery(internal.import_jobs.getImportJobSourcesInternal, {
-            jobId
-        })
+        const sources: Doc<"importJobSources">[] = await ctx.runQuery(
+            internal.import_jobs.getImportJobSourcesInternal,
+            {
+                jobId
+            }
+        )
 
         type PreparedEntry = {
             sourceId: Id<"importJobSources">
@@ -276,7 +279,7 @@ export const processImportJobThread = internalAction({
             return
         }
 
-        const importJobThread = await ctx.runMutation(
+        const importJobThread: Doc<"importJobThreads"> | null = await ctx.runMutation(
             internal.import_jobs.claimNextImportJobThread,
             {
                 jobId

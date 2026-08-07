@@ -1,6 +1,6 @@
 import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
-import { httpAction } from "./_generated/server"
+import { type ActionCtx, httpAction } from "./_generated/server"
 import { r2 } from "./attachments"
 import {
     FAL_R2_INGEST_SIGNATURE_HEADER,
@@ -189,10 +189,7 @@ const FAL_IMAGE_DOWNLOAD_ATTEMPTS = 3
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const patchChatImageGenerationCard = async (
-    ctx: {
-        runQuery: (reference: unknown, args: Record<string, unknown>) => Promise<unknown>
-        runMutation: (reference: unknown, args: Record<string, unknown>) => Promise<unknown>
-    },
+    ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
     {
         job,
         status,

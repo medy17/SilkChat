@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 import { internalMutation, internalQuery, query } from "./_generated/server"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
@@ -9,6 +10,10 @@ export const ACCOUNT_EXPORT_COOLDOWN_MS = 24 * 60 * 60 * 1000
 export const ACCOUNT_EXPORT_STALE_JOB_MS = 30 * 60 * 1000
 export const ACCOUNT_EXPORT_EMAIL_RETRY_BASE_MS = 5 * 60 * 1000
 export const ACCOUNT_EXPORT_EMAIL_MAX_RETRIES = 3
+
+export type AccountExportReservation =
+    | { accepted: false; nextRequestAt: number }
+    | { accepted: true; jobId: Id<"accountExportJobs">; nextRequestAt: number }
 
 export const getAccountExportEmailRetryDelayMs = (failedAttempt: number) =>
     ACCOUNT_EXPORT_EMAIL_RETRY_BASE_MS * 2 ** failedAttempt
@@ -100,7 +105,7 @@ export const reserveAccountExport = internalMutation({
         consentSensitiveDataLinksAccepted: v.boolean(),
         consentOneTimePasswordAccepted: v.boolean()
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx, args): Promise<AccountExportReservation> => {
         const { userId, email: rawEmail, keyHash } = args
         await assertAccountNotDeleting(ctx, userId)
         if (!args.consentSensitiveDataLinksAccepted || !args.consentOneTimePasswordAccepted) {
@@ -271,7 +276,7 @@ export const getAccountExportForDelivery = internalMutation({
     handler: async (ctx, { jobId }) => {
         const job = await ctx.db.get(jobId)
         if (!job || job.status !== "uploaded" || !job.downloadUrl) return null
-        return job
+        return { ...job, downloadUrl: job.downloadUrl }
     }
 })
 

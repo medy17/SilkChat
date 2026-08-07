@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
+import type { Doc } from "@/convex/_generated/dataModel"
 import type { SharedModel } from "@/convex/lib/models"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
@@ -983,8 +984,12 @@ export function useComposerToolbarState(threadId?: string) {
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
     const updateUserSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
+    const resolvedUserSettings =
+        "error" in userSettings ? DefaultSettings(session.user?.id ?? "CACHE") : userSettings
+    const resolvedToolAvailability =
+        toolAvailability && !("error" in toolAvailability) ? toolAvailability : null
 
-    const customModels = "error" in userSettings ? undefined : userSettings.customModels
+    const customModels = resolvedUserSettings.customModels
     const selectedDisplayModel = useMemo(
         () => resolveSelectedDisplayModel(selectedModel, sharedModels, customModels),
         [customModels, selectedModel, sharedModels]
@@ -1020,16 +1025,17 @@ export function useComposerToolbarState(threadId?: string) {
         }
     }, [modelSupportsReasoningControl, reasoningEffort, setReasoningEffort])
 
-    const webSearchAvailable = Boolean(toolAvailability?.web_search.enabled)
-    const codeExecutionAvailable = Boolean(toolAvailability?.code_execution?.enabled)
+    const webSearchAvailable = Boolean(resolvedToolAvailability?.web_search.enabled)
+    const codeExecutionAvailable = Boolean(resolvedToolAvailability?.code_execution?.enabled)
     const mathematicalInstrumentsAvailable = Boolean(
-        toolAvailability?.mathematical_instruments?.enabled
+        resolvedToolAvailability?.mathematical_instruments?.enabled
     )
-    const hasSupermemory = Boolean(toolAvailability?.supermemory.enabled)
-    const mcpServers = (userSettings.mcpServers || []).filter((server) => server.enabled !== false)
+    const hasSupermemory = Boolean(resolvedToolAvailability?.supermemory.enabled)
+    const mcpServers = (resolvedUserSettings.mcpServers || []).filter(
+        (server) => server.enabled !== false
+    )
     const hasMcpServers = mcpServers.length > 0
-    const invertSendNewlineBehavior =
-        !("error" in userSettings) && userSettings.invertSendNewlineBehavior === true
+    const invertSendNewlineBehavior = resolvedUserSettings.invertSendNewlineBehavior === true
 
     useEffect(() => {
         const unavailableTools = new Set<AbilityId>()
@@ -1069,7 +1075,7 @@ export function useComposerToolbarState(threadId?: string) {
     ].filter(Boolean).length
     const toolLimitInteractive = activeToolCount > 0
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(
-        userSettings.toolCallLimitPerTurn,
+        resolvedUserSettings.toolCallLimitPerTurn,
         { hasEnabledTools: toolLimitInteractive }
     )
     const displayedToolCallLimitPerTurn =
@@ -1137,7 +1143,7 @@ export function useComposerToolbarState(threadId?: string) {
         setPendingToolCallLimitPerTurn(nextLimit)
     }, [])
 
-    const imageDefaults = userSettings.imageGenerationDefaults
+    const imageDefaults = resolvedUserSettings.imageGenerationDefaults
     const imageDefaultResolution: ImageDefaultResolution =
         (imageDefaults?.resolution as ImageDefaultResolution | undefined) ?? "1K"
     const imageDefaultVariants = imageDefaults?.variants ?? 1
@@ -1154,7 +1160,7 @@ export function useComposerToolbarState(threadId?: string) {
     return {
         selectedModel,
         creditPlan,
-        userSettings,
+        userSettings: resolvedUserSettings,
         selectedSharedModel,
         allowedReasoningEfforts,
         modelSupportsReasoningControl,
@@ -1506,7 +1512,9 @@ export const MultimodalInput = forwardRef<
         if (!selectedSharedModel.adapters.some((adapter) => adapter.startsWith("openrouter:"))) {
             return null
         }
-        const openRouterByokEnabled = userSettings.coreAIProviders?.openrouter?.enabled === true
+        const openRouterByokEnabled =
+            "openrouter" in userSettings.coreAIProviders &&
+            userSettings.coreAIProviders.openrouter?.enabled === true
         const { hostedInputLimit, modelInputLimit } =
             resolveComposerContextLimits(selectedSharedModel)
         const attachmentTokens = uploadedFiles.reduce((total, file) => {
@@ -2306,7 +2314,9 @@ export const MultimodalInput = forwardRef<
     }, [])
 
     const attachRecentGeneratedImage = useCallback(
-        async (image: (typeof recentGeneratedImages.results)[number]) => {
+        async (
+            image: Pick<Doc<"generatedImages">, "_id" | "storageKey" | "prompt" | "aspectRatio">
+        ) => {
             if (attachingImageKey) return
             setAttachingImageKey(image.storageKey)
 

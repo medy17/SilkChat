@@ -422,13 +422,13 @@ export const suspendIdlePersistentSandbox = internalAction({
 
 export const expirePersistentSandbox = internalAction({
     args: { sandboxId: v.id("persistentSandboxes") },
-    handler: async (ctx, { sandboxId }) => {
-        const current = await ctx.runQuery(
+    handler: async (ctx, { sandboxId }): Promise<{ success: boolean; error?: string }> => {
+        const current: Doc<"persistentSandboxes"> | null = await ctx.runQuery(
             internal.persistent_sandboxes.getPersistentSandboxInternal,
             { sandboxId }
         )
-        const reason = current?.terminationReason ?? "expired"
-        const record = await ctx.runMutation(
+        const reason: "user" | "model" | "expired" = current?.terminationReason ?? "expired"
+        const record: Doc<"persistentSandboxes"> | null = await ctx.runMutation(
             internal.persistent_sandboxes.claimPersistentSandboxStop,
             { sandboxId, reason }
         )
@@ -439,16 +439,18 @@ export const expirePersistentSandbox = internalAction({
 
 export const reconcilePersistentSandboxes = internalAction({
     args: {},
-    handler: async (ctx) => {
+    handler: async (
+        ctx
+    ): Promise<{ recordsChecked: number; recordsCleaned: number; hardLifetimeMs: number }> => {
         const now = Date.now()
-        const records = await ctx.runQuery(
+        const records: Doc<"persistentSandboxes">[] = await ctx.runQuery(
             internal.persistent_sandboxes.listPersistentSandboxesNeedingCleanup,
             { now }
         )
         let cleaned = 0
         for (const current of records) {
             const reason = current.terminationReason ?? "expired"
-            const record = await ctx.runMutation(
+            const record: Doc<"persistentSandboxes"> | null = await ctx.runMutation(
                 internal.persistent_sandboxes.claimPersistentSandboxStop,
                 { sandboxId: current._id, reason }
             )

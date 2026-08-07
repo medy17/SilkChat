@@ -12,7 +12,8 @@ crons.interval(
 crons.interval(
     "process pending account deletion jobs",
     { minutes: 5 },
-    internal.account_deletion.processPendingAccountDeletionJobs
+    internal.account_deletion.processPendingAccountDeletionJobs,
+    {}
 )
 
 // Per-sandbox expiry and retry work is scheduled when the sandbox is created.

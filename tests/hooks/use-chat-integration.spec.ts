@@ -387,7 +387,7 @@ describe("useChatIntegration", () => {
 
         const { rerender } = renderHook(
             ({ threadId }: { threadId?: string }) => useChatIntegration({ threadId }),
-            { initialProps: { threadId: undefined } }
+            { initialProps: { threadId: undefined as string | undefined } }
         )
 
         await act(async () => {

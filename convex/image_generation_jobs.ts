@@ -276,6 +276,13 @@ export const claimImageGenerationJobAssetRetry = internalMutation({
                 message: "This generation is not awaiting an image retry."
             }
         }
+        if (!job.falRequestId) {
+            return {
+                claimed: false as const,
+                reason: "not_retryable" as const,
+                message: "This generation is missing its provider request identifier."
+            }
+        }
 
         const attempts = job.assetFetchAttempts ?? 0
         if (attempts >= MAX_ASSET_FETCH_ATTEMPTS) {

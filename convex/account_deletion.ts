@@ -1,3 +1,4 @@
+import type { R2MetadataPage } from "@convex-dev/r2"
 import type { BetterAuthOptions } from "better-auth"
 import {
     type GenericActionCtx,
@@ -31,6 +32,12 @@ import {
     getActiveAccountDeletionJob
 } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
+
+type AccountDeletionPurgeResult = {
+    completed: boolean
+    phase: string
+    deletedCount: number
+}
 import { selectEffectiveSubscription } from "./lib/lemon_squeezy"
 
 export const ACCOUNT_DELETION_CONFIRMATION_PHRASE = "Delete my account"
@@ -1042,13 +1049,11 @@ const getAuthSnapshot = async <DataModel extends GenericDataModel>(
     const email = typeof authUser?.email === "string" ? authUser.email : undefined
     if (!resolvedAuthId || !email) return undefined
 
-    const accounts = await adapter.findMany({
+    const accounts = (await adapter.findMany({
         model: "account",
         where: [{ field: "userId", value: resolvedAuthId }]
-    })
-    const googleAccount = accounts.find(
-        (account: Record<string, unknown>) => account.providerId === "google"
-    ) as Record<string, unknown> | undefined
+    })) as Array<Record<string, unknown>>
+    const googleAccount = accounts.find((account) => account.providerId === "google")
 
     return {
         authId: resolvedAuthId,
@@ -1154,7 +1159,7 @@ const purgeR2ObjectsForUser = async <DataModel extends GenericDataModel>(
     let cursor: string | null = null
     const seenCursors = new Set<string>()
     while (true) {
-        const page = await r2.listMetadata(ctx, userId, 100, cursor)
+        const page: R2MetadataPage = await r2.listMetadata(ctx, userId, 100, cursor)
         for (const file of page.page) {
             if (seenKeys.has(file.key)) continue
             seenKeys.add(file.key)
@@ -1283,7 +1288,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
 
 export const continueAccountDeletionPurge = internalAction({
     args: { userId: v.string(), authId: v.optional(v.string()) },
-    handler: async (ctx, { userId, authId }) => {
+    handler: async (ctx, { userId, authId }): Promise<AccountDeletionPurgeResult> => {
         try {
             return await ctx.runMutation(internal.account_deletion.purgeAccountData, {
                 userId,
@@ -1350,7 +1355,7 @@ export const processAccountDeletionJob = internalAction({
 
 export const processPendingAccountDeletionJobs = internalAction({
     args: { limit: v.optional(v.number()) },
-    handler: async (ctx, { limit }) => {
+    handler: async (ctx, { limit }): Promise<{ processed: number }> => {
         const jobs = await ctx.runQuery(
             internal.account_deletion.listProcessableAccountDeletionJobs,
             {

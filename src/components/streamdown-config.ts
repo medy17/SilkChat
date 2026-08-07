@@ -70,8 +70,8 @@ const TableCell = ({
     )
 
 export const streamdownComponents: Components = {
-    code: Codeblock,
-    inlineCode: Codeblock,
+    code: Codeblock as Components["code"],
+    inlineCode: Codeblock as Components["inlineCode"],
     table: MarkdownTable,
     thead: TableHead,
     tbody: TableBody,

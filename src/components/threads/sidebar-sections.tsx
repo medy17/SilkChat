@@ -18,7 +18,7 @@ import { type ReactNode, type RefObject, useEffect, useState } from "react"
 import { FolderItem } from "./folder-item"
 import { NewFolderButton } from "./new-folder-button"
 import { ThreadItem } from "./thread-item"
-import type { Project, SidebarProject, Thread } from "./types"
+import type { SidebarProject, Thread } from "./types"
 
 const getThreadActivityTime = (thread: Thread) => thread.updatedAt ?? thread.createdAt
 
@@ -189,9 +189,12 @@ export type FolderGroupActions = {
     selectedThreadIds?: string[]
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
-    getFolderSelectionState?: (project: Project, threadCount: number) => "none" | "some" | "all"
-    onToggleFolderSelection?: (project: Project) => void | Promise<void>
-    onStartFolderSelection?: (project: Project) => void | Promise<void>
+    getFolderSelectionState?: (
+        project: SidebarProject,
+        threadCount: number
+    ) => "none" | "some" | "all"
+    onToggleFolderSelection?: (project: SidebarProject) => void | Promise<void>
+    onStartFolderSelection?: (project: SidebarProject) => void | Promise<void>
     onOpenRenameThreadDialog?: (thread: Thread) => void
     onOpenMoveThreadDialog?: (thread: Thread) => void
     onOpenDeleteThreadDialog?: (thread: Thread) => void

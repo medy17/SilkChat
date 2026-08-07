@@ -80,7 +80,10 @@ describe("native chart contract", () => {
 
     it("registers the chart tool and returns a replayable result", async () => {
         const tools = getNativeChartTool({ enabled: true })
-        const output = await tools.render_chart?.execute?.(validChart, {} as never)
+        const output = await tools.render_chart?.execute?.(
+            nativeChartSchema.parse(validChart),
+            {} as never
+        )
 
         expect(getNativeChartFromToolOutput(output)).toMatchObject({
             title: "Quadratic growth",

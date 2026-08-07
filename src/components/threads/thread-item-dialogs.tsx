@@ -118,7 +118,9 @@ export const ThreadItemDialogs = memo(
                 }
                 const result = await deleteThreadMutation({ threadId: currentThread._id })
                 if (result && "error" in result) {
-                    throw new Error(result.error)
+                    throw new Error(
+                        typeof result.error === "string" ? result.error : "Failed to delete thread"
+                    )
                 }
                 deleteThreadDraft(currentThread._id)
                 onCloseDeleteDialog()

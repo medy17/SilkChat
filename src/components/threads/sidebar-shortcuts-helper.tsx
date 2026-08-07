@@ -94,7 +94,12 @@ export function SidebarShortcutsHelper() {
                                                 {shortcut.title}
                                             </div>
                                             <div className="text-muted-foreground text-xs">
-                                                {[shortcut.context, shortcut.description]
+                                                {[
+                                                    shortcut.context,
+                                                    "description" in shortcut
+                                                        ? shortcut.description
+                                                        : undefined
+                                                ]
                                                     .filter(Boolean)
                                                     .join(" • ")}
                                             </div>

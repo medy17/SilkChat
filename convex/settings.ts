@@ -27,6 +27,22 @@ import {
 
 type CoreProviderUsageMode = "priority" | "fallback"
 
+export type UserRegistry = {
+    providers: Record<
+        string,
+        {
+            key: string
+            endpoint?: string
+            apiMode?: "chat" | "responses"
+            name?: string
+            usageMode?: CoreProviderUsageMode
+            authMode?: "ai-studio" | "vertex"
+        }
+    >
+    models: Record<string, SharedModel & { customProviderId?: string }>
+    settings: Infer<typeof UserSettings> & { _id?: Id<"settings"> }
+}
+
 const normalizeImportedThemeUrl = (url: string) => {
     const normalizedUrl = url.trim()
     if (!normalizedUrl) throw new Error("Theme URL is required")
@@ -322,7 +338,7 @@ export const getUserRegistryInternal = internalQuery({
     args: {
         userId: v.string()
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx, args): Promise<UserRegistry> => {
         const settings = await getSettings(ctx, args.userId)
         const hasAdminModelAccess = await userHasAdminModelAccess(ctx, args.userId)
         const sharedModelsForUser = getSharedModelsForUser(hasAdminModelAccess).filter(

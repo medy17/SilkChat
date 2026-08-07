@@ -1,5 +1,5 @@
 // convex/attachments.ts
-import { R2 } from "@convex-dev/r2"
+import { R2, type R2MetadataPage } from "@convex-dev/r2"
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { components } from "./_generated/api"
@@ -18,6 +18,7 @@ import {
     getFileTypeInfo,
     isSupportedFile
 } from "./lib/file_constants"
+import type { UploadPolicy } from "./lib/file_constants"
 import {
     type FileSort,
     type FileTypeFilter,
@@ -101,7 +102,7 @@ const deletionInProgressResponse = () =>
 
 export const getUploadPolicy = query({
     args: {},
-    handler: async () => ({
+    handler: async (): Promise<UploadPolicy & { version: string }> => ({
         ...DEFAULT_UPLOAD_POLICY,
         version: DEFAULT_UPLOAD_POLICY_VERSION
     })
@@ -466,7 +467,13 @@ export const listFiles = query({
                 let cursor: string | null = null
 
                 while (true) {
-                    const result = await r2.listMetadata(ctx, user.id, 200, cursor, keyPrefix)
+                    const result: R2MetadataPage = await r2.listMetadata(
+                        ctx,
+                        user.id,
+                        200,
+                        cursor,
+                        keyPrefix
+                    )
                     files.push(...result.page)
 
                     if (result.isDone) break
@@ -524,7 +531,13 @@ export const listGeneratedFiles = query({
             const keyPrefix = `generations/${user.id}/`
 
             while (true) {
-                const result = await r2.listMetadata(ctx, user.id, pageSize, cursor, keyPrefix)
+                const result: R2MetadataPage = await r2.listMetadata(
+                    ctx,
+                    user.id,
+                    pageSize,
+                    cursor,
+                    keyPrefix
+                )
                 files.push(...result.page)
 
                 if (result.isDone) {
