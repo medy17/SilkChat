@@ -12,6 +12,7 @@ import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileAcceptAttribute, getFileTypeInfo, isImageMimeType } from "@/lib/file_constants"
+import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
 import {
     matchesCancelMessageEditShortcut,
     matchesSaveMessageEditShortcut
@@ -974,12 +975,37 @@ const MessageRowComponent = ({
     requiresNativePdfForModelSelection,
     threadId
 }: MessageRowProps) => {
+    const hapticStreamActiveRef = useRef(false)
+    const responseStartHapticPlayedRef = useRef(false)
     const reasoning = getMessageReasoningDetails(message)
     const executions = getMessageCodeExecutions(message)
     const codeExecutions = executions.filter((execution) => execution.kind === "code")
     const mathExecutions = executions.filter((execution) => execution.kind === "math")
     const webSearches = getMessageWebSearches(message)
     const toolFailureAttempts = getToolFailureAttempts(message)
+    const hasVisibleResponseContent = hasVisibleAssistantContent(message)
+
+    useEffect(() => {
+        if (message.role !== "assistant") return
+
+        if (isStreamingMessage) {
+            hapticStreamActiveRef.current = true
+            if (hasVisibleResponseContent && !responseStartHapticPlayedRef.current) {
+                responseStartHapticPlayedRef.current = true
+                playResponseStartHaptic()
+            }
+            return
+        }
+
+        if (hapticStreamActiveRef.current) {
+            hapticStreamActiveRef.current = false
+            if (responseStartHapticPlayedRef.current) {
+                responseStartHapticPlayedRef.current = false
+                playResponseCompleteHaptic()
+            }
+        }
+    }, [hasVisibleResponseContent, isStreamingMessage, message.role])
+
     const groupedToolOrder = [
         ...(toolFailureAttempts.length > 0
             ? [

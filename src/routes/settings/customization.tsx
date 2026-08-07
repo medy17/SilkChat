@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
+import { stopHaptics } from "@/lib/haptics"
+import { useHapticsSettingsStore } from "@/lib/haptics-settings-store"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Loader2, Save } from "lucide-react"
@@ -34,6 +36,8 @@ function LegacyCustomizationRedirect() {
 export function BehaviorSettingsContent() {
     const session = useSession()
     const isTouchDevice = useIsTouchDevice()
+    const hapticsEnabled = useHapticsSettingsStore((state) => state.enabled)
+    const setHapticsEnabled = useHapticsSettingsStore((state) => state.setEnabled)
     const userSettings = useConvexQuery(
         api.settings.getUserSettings,
         session.user?.id ? {} : "skip"
@@ -87,6 +91,11 @@ export function BehaviorSettingsContent() {
         } finally {
             setIsUpdatingComposerBehavior(false)
         }
+    }
+
+    const handleHapticsToggle = (checked: boolean) => {
+        setHapticsEnabled(checked)
+        if (!checked) stopHaptics()
     }
 
     if (!session.user?.id) {
@@ -192,6 +201,37 @@ export function BehaviorSettingsContent() {
                                         onCheckedChange={handleComposerBehaviorToggle}
                                         disabled={isUpdatingComposerBehavior}
                                         aria-label="Invert send and new line behavior"
+                                    />
+                                </div>
+                            </Card>
+                        </div>
+                    ) : null}
+
+                    {isTouchDevice ? (
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="font-semibold text-foreground">Interaction</h3>
+                            </div>
+
+                            <Card className="p-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="haptics" className="text-base">
+                                            Haptics
+                                        </Label>
+                                        <p
+                                            id="haptics-description"
+                                            className="text-muted-foreground text-sm"
+                                        >
+                                            Feel response and gesture feedback on supported devices.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="haptics"
+                                        checked={hapticsEnabled}
+                                        onCheckedChange={handleHapticsToggle}
+                                        aria-label="Enable haptics"
+                                        aria-describedby="haptics-description"
                                     />
                                 </div>
                             </Card>

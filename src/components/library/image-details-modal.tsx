@@ -40,6 +40,7 @@ import {
     getGeneratedImageDirectUrl,
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
+import { playExpandedImageDismissHaptic } from "@/lib/haptics"
 import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
@@ -187,6 +188,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const mobileDrawerRef = useRef<HTMLDivElement | null>(null)
     const mobileSwipeStartYRef = useRef<number | null>(null)
     const mobileSwipeTrackingRef = useRef(false)
+    const mobileSwipeBottomHapticPlayedRef = useRef(false)
     const suppressImageClickRef = useRef(false)
 
     useEffect(() => {
@@ -494,11 +496,13 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         if (isDetailsOpen || isDetailsPreviewVisible || event.touches.length !== 1) {
             mobileSwipeStartYRef.current = null
             mobileSwipeTrackingRef.current = false
+            mobileSwipeBottomHapticPlayedRef.current = false
             return
         }
 
         mobileSwipeStartYRef.current = event.touches[0]?.clientY ?? null
         mobileSwipeTrackingRef.current = true
+        mobileSwipeBottomHapticPlayedRef.current = false
         suppressImageClickRef.current = false
     }
 
@@ -518,6 +522,11 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         )
         setMobileDismissOffset(offset)
 
+        if (offset === MOBILE_SWIPE_MAX_OFFSET && !mobileSwipeBottomHapticPlayedRef.current) {
+            mobileSwipeBottomHapticPlayedRef.current = true
+            playExpandedImageDismissHaptic()
+        }
+
         if (offset > MOBILE_SWIPE_TAP_SLOP) {
             suppressImageClickRef.current = true
         }
@@ -526,9 +535,11 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const handleMobileImageTouchEnd = () => {
         mobileSwipeTrackingRef.current = false
         mobileSwipeStartYRef.current = null
+        mobileSwipeBottomHapticPlayedRef.current = false
 
         if (mobileDismissOffset >= MOBILE_SWIPE_CLOSE_THRESHOLD) {
             setMobileDismissOffset(0)
+            playExpandedImageDismissHaptic()
             onClose()
             return
         }
