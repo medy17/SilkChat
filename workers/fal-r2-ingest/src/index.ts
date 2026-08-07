@@ -111,21 +111,6 @@ const normalizeImageContentType = (value?: string) => {
     return normalized?.startsWith("image/") ? normalized : undefined
 }
 
-const limitStream = (body: ReadableStream<Uint8Array>, maxBytes: number) => {
-    let receivedBytes = 0
-    return body.pipeThrough(
-        new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-                receivedBytes += chunk.byteLength
-                if (receivedBytes > maxBytes) {
-                    throw new Error("Asset exceeds the upload limit")
-                }
-                controller.enqueue(chunk)
-            }
-        })
-    )
-}
-
 export const storeFalAsset = async (task: FalR2IngestTask, env: FalR2WorkerEnv) => {
     const existing = await env.DESTINATION_BUCKET.head(task.storageKey)
     if (existing) return existing
@@ -134,8 +119,12 @@ export const storeFalAsset = async (task: FalR2IngestTask, env: FalR2WorkerEnv) 
     if (!response.body) throw new Error("Upstream returned an empty body")
 
     const maxBytes = getPositiveInteger(env.MAX_ASSET_BYTES, DEFAULT_MAX_ASSET_BYTES)
-    const declaredSize = Number(response.headers.get("Content-Length"))
-    if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
+    const contentLength = response.headers.get("Content-Length")
+    const declaredSize = contentLength ? Number(contentLength) : Number.NaN
+    if (!Number.isSafeInteger(declaredSize) || declaredSize < 0) {
+        throw new Error("Upstream did not declare a valid asset size")
+    }
+    if (declaredSize > maxBytes) {
         throw new Error("Asset exceeds the upload limit")
     }
 
@@ -146,14 +135,10 @@ export const storeFalAsset = async (task: FalR2IngestTask, env: FalR2WorkerEnv) 
         throw new Error("Upstream did not return a supported image type")
     }
 
-    const stored = await env.DESTINATION_BUCKET.put(
-        task.storageKey,
-        limitStream(response.body, maxBytes),
-        {
-            httpMetadata: { contentType },
-            onlyIf: { etagDoesNotMatch: "*" }
-        }
-    )
+    const stored = await env.DESTINATION_BUCKET.put(task.storageKey, response.body, {
+        httpMetadata: { contentType },
+        onlyIf: { etagDoesNotMatch: "*" }
+    })
     if (stored) return stored
 
     const racedObject = await env.DESTINATION_BUCKET.head(task.storageKey)

@@ -114,12 +114,13 @@ describe("fal R2 ingestion", () => {
         ).resolves.toBe(true)
     })
 
-    it("streams a chunked fal response into R2", async () => {
+    it("passes the original fixed-length fal response stream into R2", async () => {
         const upstreamResponse = new Response(new Uint8Array([1, 2, 3]), {
-            headers: { "Content-Type": "image/png" }
+            headers: { "Content-Length": "3", "Content-Type": "image/png" }
         })
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstreamResponse))
         const put = vi.fn(async (_key: string, body: ReadableStream<Uint8Array>) => {
+            expect(body).toBe(upstreamResponse.body)
             expect(new Uint8Array(await new Response(body).arrayBuffer())).toEqual(
                 new Uint8Array([1, 2, 3])
             )
@@ -149,7 +150,7 @@ describe("fal R2 ingestion", () => {
         expect(put).toHaveBeenCalledOnce()
     })
 
-    it("enforces the asset limit while streaming when Content-Length is absent", async () => {
+    it("rejects fal responses without a valid Content-Length", async () => {
         vi.stubGlobal(
             "fetch",
             vi.fn().mockResolvedValue(
@@ -172,6 +173,33 @@ describe("fal R2 ingestion", () => {
             }
         } as FalR2WorkerEnv
 
+        await expect(storeFalAsset(task, env)).rejects.toThrow(
+            "Upstream did not declare a valid asset size"
+        )
+        expect(env.DESTINATION_BUCKET.put).not.toHaveBeenCalled()
+    })
+
+    it("rejects fal responses whose declared size exceeds the asset limit", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(
+                new Response(new Uint8Array([1, 2, 3]), {
+                    headers: { "Content-Length": "3", "Content-Type": "image/png" }
+                })
+            )
+        )
+        const env = {
+            FAL_R2_INGEST_SECRET: "shared-secret",
+            ALLOWED_SOURCE_HOSTS: ".fal.media",
+            MAX_ASSET_BYTES: "2",
+            UPSTREAM_TIMEOUT_MS: "120000",
+            DESTINATION_BUCKET: {
+                head: vi.fn(async () => null),
+                put: vi.fn()
+            }
+        } as FalR2WorkerEnv
+
         await expect(storeFalAsset(task, env)).rejects.toThrow("Asset exceeds the upload limit")
+        expect(env.DESTINATION_BUCKET.put).not.toHaveBeenCalled()
     })
 })

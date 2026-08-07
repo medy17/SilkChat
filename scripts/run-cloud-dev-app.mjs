@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url"
 import dotenv from "dotenv"
 import { addViteAllowedHost, getCloudDevTunnelConfig } from "./lib/cloud-dev-tunnel.mjs"
 
+export const CLOUD_DEV_FAL_R2_WORKER = "silkchat-fal-r2-ingest-cloud-dev"
+
 export const DEV_HOTKEYS = [
     { key: "b", action: "syncBackend", description: "Sync Backend" },
     { key: "f", action: "restartFrontend", description: "Restart Frontend" },
@@ -220,6 +222,11 @@ export const runCloudDevApp = () => {
     }
 
     const serviceDefinitions = {
+        worker: {
+            command: "bunx",
+            args: ["wrangler", "tail", CLOUD_DEV_FAL_R2_WORKER],
+            env: childBaseEnv
+        },
         optimiser: {
             command: process.execPath,
             args: [tsxCliPath, "scripts/local-image-optimizer.ts"],
