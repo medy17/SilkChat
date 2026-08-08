@@ -1477,6 +1477,11 @@ export const MultimodalInput = forwardRef<
             return
         }
 
+        if (isTouchDevice) {
+            promptInputRef.current?.getElement()?.blur()
+            setIsInputFocused(false)
+        }
+
         promptInputRef.current?.clear()
         setInputValue("")
         setActiveIntent(null)
