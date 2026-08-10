@@ -268,7 +268,7 @@ describe("ChatActions", () => {
         expect(onBranch).toHaveBeenCalledWith(message)
     })
 
-    it("shows only copy for read-only shared messages", () => {
+    it("keeps assistant metadata while limiting shared-message actions to copy", () => {
         const message = {
             ...createAssistantMessage({
                 modelName: "GPT 5.4 Mini",
@@ -297,7 +297,7 @@ describe("ChatActions", () => {
 
         expect(screen.getAllByRole("button")).toHaveLength(1)
         expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy()
-        expect(screen.queryByText("GPT 5.4 Mini")).toBeNull()
+        expect(screen.getByText("GPT 5.4 Mini")).toBeTruthy()
         expect(retryMenuMock).not.toHaveBeenCalled()
     })
 })

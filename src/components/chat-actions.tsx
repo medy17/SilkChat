@@ -495,7 +495,7 @@ export const ChatActions = memo(
                     </Tooltip>
                 )}
 
-                {!copyOnly && footerMode === "simple" && footerStats?.modelName && (
+                {footerMode === "simple" && footerStats?.modelName && (
                     <Badge variant="secondary" className="ml-1 h-7">
                         <span className="inline-flex items-center gap-1.5">
                             {ProviderIcon && <ProviderIcon className="size-3.5" />}
@@ -513,8 +513,7 @@ export const ChatActions = memo(
                     </Badge>
                 )}
 
-                {!copyOnly &&
-                    (footerMode === "nerd" || footerMode === "extra-nerdy") &&
+                {(footerMode === "nerd" || footerMode === "extra-nerdy") &&
                     footerSegments.length > 0 && (
                         <AssistantFooterMarquee segments={footerSegments} />
                     )}
