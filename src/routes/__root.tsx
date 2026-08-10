@@ -6,6 +6,7 @@ import type { ReactNode } from "react"
 
 import { ThemeScript } from "@/components/theme-script"
 import { optionalBrowserEnv } from "@/lib/browser-env"
+import { OG_DEMOS } from "@/lib/og-content"
 import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
 import globals_css from "@/styles/globals.css?url"
 import { Providers } from "../providers"
@@ -59,11 +60,11 @@ export const Route = createRootRouteWithContext<{
             // Open Graph meta tags
             {
                 property: "og:title",
-                content: SITE_TITLE
+                content: OG_DEMOS.home.title
             },
             {
                 property: "og:description",
-                content: SITE_DESCRIPTION
+                content: OG_DEMOS.home.supportingText
             },
             {
                 property: "og:image",
@@ -100,11 +101,11 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 name: "twitter:title",
-                content: SITE_TITLE
+                content: OG_DEMOS.home.title
             },
             {
                 name: "twitter:description",
-                content: SITE_DESCRIPTION
+                content: OG_DEMOS.home.supportingText
             },
             {
                 name: "twitter:image",

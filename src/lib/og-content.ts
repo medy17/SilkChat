@@ -7,6 +7,7 @@ export type OgContent = {
     studioLabel?: string
     title: string
     supportingText: string
+    truncate?: boolean
 }
 
 export type FittedOgContent = OgContent & {
@@ -70,7 +71,8 @@ export function createSharedOgContent(options: {
         route: "/s/$sharedThreadId",
         studioLabel: options.studioLabel,
         title,
-        supportingText: `${sharerName} shared this conversation with you.`
+        supportingText: `${sharerName} shared this conversation with you.`,
+        truncate: true
     }
 }
 
@@ -120,8 +122,12 @@ export function fitOgContent(
     format: "wide" | "landscape" | "square"
 ): FittedOgContent {
     const isSquare = format === "square"
-    const title = ellipsizeOgText(content.title, isSquare ? 92 : 78)
-    const supportingText = ellipsizeOgText(content.supportingText, isSquare ? 74 : 68)
+    const title = content.truncate
+        ? ellipsizeOgText(content.title, isSquare ? 92 : 78)
+        : normalizeText(content.title)
+    const supportingText = content.truncate
+        ? ellipsizeOgText(content.supportingText, isSquare ? 74 : 68)
+        : normalizeText(content.supportingText)
     const titleLength = Array.from(graphemeSegmenter.segment(title)).length
 
     const titleSize = isSquare
@@ -149,20 +155,23 @@ export const OG_DEMOS = {
     home: {
         id: "home",
         route: "/",
-        title: "What are you curious about today?",
-        supportingText: "SilkChat is ready when you are."
+        title: "Leading AI models, together in one chat.",
+        supportingText:
+            "Compare answers, create images, and chat with Personas in SilkChat—without switching apps."
     },
     about: {
         id: "about",
         route: "/about",
-        title: "Come see what we’re building.",
-        supportingText: "A personal note from Ahmed, the person behind SilkChat."
+        title: "Built for better conversations with AI.",
+        supportingText:
+            "See how SilkChat brings models, image generation, Personas, and thoughtful controls into one calm workspace."
     },
     personas: {
         id: "personas",
         route: "/personas",
-        title: "Who would you like to meet today?",
-        supportingText: "Socrates, Seraphine, and a few unexpected friends are waiting."
+        title: "AI characters with actual personality.",
+        supportingText:
+            "Meet Socrates, Seraphine, and original characters with distinct voices and stories."
     },
     shared: createSharedOgContent({
         id: "shared",

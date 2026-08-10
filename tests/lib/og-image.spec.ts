@@ -103,6 +103,15 @@ describe("OG copy fitting", () => {
         expect(fitted.titleSize).toBeGreaterThan(72)
     })
 
+    it("wraps curated route copy without clipping it to dynamic-content limits", () => {
+        for (const demo of [OG_DEMOS.home, OG_DEMOS.about, OG_DEMOS.personas]) {
+            const fitted = fitOgContent(demo, "wide")
+
+            expect(fitted.title).toBe(demo.title)
+            expect(fitted.supportingText).toBe(demo.supportingText)
+        }
+    })
+
     it("defines a concise, question-only generation contract", () => {
         expect(SHARED_OG_QUESTION_SPEC).toMatchObject({
             minWords: 4,
