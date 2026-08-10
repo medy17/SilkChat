@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
 import { type OgContent, fitOgContent } from "@/lib/og-content"
 import { ImageResponse } from "@vercel/og"
 
@@ -71,38 +69,62 @@ const logoSvg = `
 
 const logoDataUri = `data:image/svg+xml,${encodeURIComponent(logoSvg)}`
 const fontCache = new Map<500 | 700, Promise<ArrayBuffer>>()
+const backgroundCache = new Map<OgFormat, Promise<ArrayBuffer>>()
 
-function loadGeistFont(weight: 500 | 700) {
+function fetchOgAsset(assetOrigin: string, filename: string) {
+    return fetch(new URL(`/og/${filename}`, assetOrigin)).then((response) => {
+        if (!response.ok) {
+            throw new Error(`Failed to load OG asset ${filename}: ${response.status}`)
+        }
+        return response.arrayBuffer()
+    })
+}
+
+function loadGeistFont(assetOrigin: string, weight: 500 | 700) {
     const cached = fontCache.get(weight)
     if (cached) return cached
 
-    const fontPromise = readFile(join(process.cwd(), "public", "og", `geist-${weight}.ttf`))
-        .then(
-            (font) =>
-                font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength) as ArrayBuffer
-        )
-        .catch((error) => {
-            fontCache.delete(weight)
-            throw error
-        })
+    const fontPromise = fetchOgAsset(assetOrigin, `geist-${weight}.ttf`).catch((error) => {
+        fontCache.delete(weight)
+        throw error
+    })
 
     fontCache.set(weight, fontPromise)
     return fontPromise
+}
+
+function loadBackground(assetOrigin: string, format: OgFormat) {
+    const cached = backgroundCache.get(format)
+    if (cached) return cached
+
+    const backgroundPromise = fetchOgAsset(assetOrigin, FORMAT_CONFIG[format].background).catch(
+        (error) => {
+            backgroundCache.delete(format)
+            throw error
+        }
+    )
+
+    backgroundCache.set(format, backgroundPromise)
+    return backgroundPromise
 }
 
 export function isOgFormat(value: string | null): value is OgFormat {
     return value === "wide" || value === "landscape" || value === "square"
 }
 
-export async function renderOgImage(format: OgFormat, content?: OgContent) {
+export async function renderOgImage(
+    format: OgFormat,
+    content: OgContent | undefined,
+    assetOrigin: string
+) {
     const config = FORMAT_CONFIG[format]
     const fittedContent = content ? fitOgContent(content, format) : undefined
     const [background, geistMedium, geistBold] = await Promise.all([
-        readFile(join(process.cwd(), "public", "og", config.background)),
-        content ? loadGeistFont(500) : Promise.resolve(null),
-        content ? loadGeistFont(700) : Promise.resolve(null)
+        loadBackground(assetOrigin, format),
+        content ? loadGeistFont(assetOrigin, 500) : Promise.resolve(null),
+        content ? loadGeistFont(assetOrigin, 700) : Promise.resolve(null)
     ])
-    const backgroundDataUri = `data:image/png;base64,${background.toString("base64")}`
+    const backgroundDataUri = `data:image/png;base64,${Buffer.from(background).toString("base64")}`
     const logoHeight = Math.round(config.logoWidth / LOGO_ASPECT_RATIO)
 
     return new ImageResponse(

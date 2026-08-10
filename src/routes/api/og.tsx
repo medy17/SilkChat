@@ -62,19 +62,22 @@ export const Route = createFileRoute("/api/og")({
                 const hasSharedThreadId = searchParams.has("sharedThreadId")
                 const sharedThreadId = searchParams.get("sharedThreadId")?.trim() ?? ""
                 const format = isOgFormat(requestedFormat) ? requestedFormat : "wide"
+                const assetOrigin = new URL(request.url).origin
 
                 if (hasSharedThreadId) {
                     return renderSharedOgResponse({
                         sharedThreadId,
                         load: getSharedThreadContent,
-                        render: (content) => renderOgImage(format, content ?? undefined)
+                        render: (content) =>
+                            renderOgImage(format, content ?? undefined, assetOrigin)
                     })
                 }
 
                 return withImmutableOgCache(
                     await renderOgImage(
                         format,
-                        isOgPreview(requestedDemo) ? OG_PREVIEWS[requestedDemo] : undefined
+                        isOgPreview(requestedDemo) ? OG_PREVIEWS[requestedDemo] : undefined,
+                        assetOrigin
                     )
                 )
             }

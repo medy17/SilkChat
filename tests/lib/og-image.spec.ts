@@ -20,6 +20,16 @@ import {
 } from "@/lib/og-response"
 import { describe, expect, it, vi } from "vitest"
 
+const mockOgAssetFetch = () =>
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = new URL(typeof input === "string" ? input : input.toString())
+        const filename = url.pathname.split("/").pop()
+        if (!filename) return new Response("Not found", { status: 404 })
+
+        const asset = await readFile(join(process.cwd(), "public", "og", filename))
+        return new Response(new Uint8Array(asset))
+    })
+
 describe("isOgFormat", () => {
     it.each(["wide", "landscape", "square"])("accepts the supported %s format", (format) => {
         expect(isOgFormat(format)).toBe(true)
@@ -160,16 +170,18 @@ describe("OG copy fitting", () => {
 
 describe("renderOgImage", () => {
     it("returns a PNG response for the default social-card format", async () => {
-        const response = await renderOgImage("wide")
+        const fetchSpy = mockOgAssetFetch()
+        const response = await renderOgImage("wide", undefined, "https://assets.test")
         const bytes = new Uint8Array(await response.arrayBuffer())
 
         expect(response.status).toBe(200)
         expect(response.headers.get("content-type")).toBe("image/png")
         expect([...bytes.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
+        fetchSpy.mockRestore()
     })
 
-    it("renders arbitrary dynamic text without fetching text-specific fonts", async () => {
-        const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
+    it("renders arbitrary dynamic text using only fixed deployment assets", async () => {
+        const fetchSpy = mockOgAssetFetch()
 
         const response = await renderOgImage(
             "wide",
@@ -177,11 +189,19 @@ describe("renderOgImage", () => {
                 id: "dynamic",
                 question: "Could every shared question be unique",
                 sharerName: "A different person"
-            })
+            }),
+            "https://assets.test"
         )
 
         expect(response.status).toBe(200)
-        expect(fetchSpy).not.toHaveBeenCalled()
+        const fetchedUrls = fetchSpy.mock.calls.map(
+            ([input]) => new URL(typeof input === "string" ? input : input.toString())
+        )
+        expect(fetchedUrls.map((url) => url.pathname).sort()).toEqual([
+            "/og/geist-500.ttf",
+            "/og/geist-700.ttf"
+        ])
+        expect(fetchedUrls.every((url) => url.search === "")).toBe(true)
         fetchSpy.mockRestore()
     })
 })
@@ -216,3 +236,5 @@ describe("OG response caching", () => {
         expect(render).not.toHaveBeenCalled()
     })
 })
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
