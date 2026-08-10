@@ -6,7 +6,6 @@ import type { ReactNode } from "react"
 
 import { ThemeScript } from "@/components/theme-script"
 import { optionalBrowserEnv } from "@/lib/browser-env"
-import { staticOgImageUrl } from "@/lib/og-metadata"
 import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
 import globals_css from "@/styles/globals.css?url"
 import { Providers } from "../providers"
@@ -68,7 +67,7 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 property: "og:image",
-                content: staticOgImageUrl(SITE_URL, "home")
+                content: `${SITE_URL}/api/og?demo=home`
             },
             {
                 property: "og:image:alt",
@@ -109,7 +108,7 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 name: "twitter:image",
-                content: staticOgImageUrl(SITE_URL, "home", "landscape")
+                content: `${SITE_URL}/api/og?demo=home&format=landscape`
             },
             {
                 name: "twitter:image:alt",

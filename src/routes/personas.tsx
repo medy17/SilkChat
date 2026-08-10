@@ -1,4 +1,3 @@
-import { staticOgImageUrl } from "@/lib/og-metadata"
 import { createFileRoute } from "@tanstack/react-router"
 
 const SITE_URL = "https://silkchat.dev"
@@ -8,11 +7,11 @@ export const Route = createFileRoute("/personas")({
         meta: [
             { title: "Personas · SilkChat" },
             { property: "og:title", content: "Who would you like to meet today?" },
-            { property: "og:image", content: staticOgImageUrl(SITE_URL, "personas") },
+            { property: "og:image", content: `${SITE_URL}/api/og?demo=personas` },
             { name: "twitter:title", content: "Who would you like to meet today?" },
             {
                 name: "twitter:image",
-                content: staticOgImageUrl(SITE_URL, "personas", "landscape")
+                content: `${SITE_URL}/api/og?demo=personas&format=landscape`
             }
         ],
         links: [{ rel: "canonical", href: `${SITE_URL}/personas` }]
