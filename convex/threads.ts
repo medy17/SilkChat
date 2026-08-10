@@ -1,5 +1,6 @@
 import { ChatError } from "@/lib/errors"
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
+import type { ModelMessage } from "ai"
 import {
     type FieldPaths,
     type FilterBuilder,
@@ -20,7 +21,7 @@ import {
     query
 } from "./_generated/server"
 import { aggregrateThreadsByFolder } from "./aggregates"
-import { generateThreadName } from "./chat_http/generate_thread_name"
+import { generateShareQuestion, generateThreadName } from "./chat_http/generate_thread_name"
 import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { dbMessagesToCore } from "./lib/db_to_core_messages"
@@ -830,17 +831,29 @@ export const createSharedThread = internalMutation({
         originalThreadId: v.id("threads"),
         authorId: v.string(),
         title: v.string(),
+        shareQuestion: v.string(),
+        sharerName: v.optional(v.string()),
         messages: v.array(v.any()),
         includeAttachments: v.boolean()
     },
     handler: async (
         { db },
-        { originalThreadId, authorId, title, messages, includeAttachments }
+        {
+            originalThreadId,
+            authorId,
+            title,
+            shareQuestion,
+            sharerName,
+            messages,
+            includeAttachments
+        }
     ) => {
         const sharedThreadId = await db.insert("sharedThreads", {
             originalThreadId,
             authorId,
             title,
+            shareQuestion,
+            sharerName,
             createdAt: Date.now(),
             updatedAt: Date.now(),
             messages,
@@ -901,6 +914,37 @@ export const shareThread = action({
 
         aiMessages.reverse()
 
+        const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
+            userId: user.id
+        })
+        const questionMessages: ModelMessage[] = aiMessages.map((message) => ({
+            role: message.role,
+            content: message.parts
+                .map((part) => {
+                    if (part.type === "text") return part.text
+                    if (part.type === "file") return `[file: ${part.filename || "unknown"}]`
+                    if (part.type === "image") return "[image]"
+                    if (part.type === "reasoning") return `[reasoning: ${part.reasoning}]`
+                    if (part.type === "tool-invocation") {
+                        return `[tool: ${part.toolInvocation.toolName}]`
+                    }
+                    return ""
+                })
+                .filter(Boolean)
+                .join(" ")
+        }))
+        const shareQuestion = await generateShareQuestion(
+            ctx,
+            questionMessages,
+            user.id,
+            settings,
+            thread.title
+        )
+        const sharerName =
+            !user.isAnonymous && typeof user.name === "string" && user.name.trim()
+                ? user.name.trim().slice(0, 100)
+                : undefined
+
         // Create shared thread
         const result: {
             sharedThreadId: Id<"sharedThreads">
@@ -908,6 +952,8 @@ export const shareThread = action({
             originalThreadId: threadId,
             authorId: user.id,
             title: thread.title,
+            shareQuestion,
+            sharerName,
             messages: aiMessages,
             includeAttachments
         })

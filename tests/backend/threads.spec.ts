@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { aggregateInsertMock, nanoidMock } = vi.hoisted(() => ({
+const { aggregateInsertMock, generateShareQuestionMock, nanoidMock } = vi.hoisted(() => ({
     aggregateInsertMock: vi.fn(),
+    generateShareQuestionMock: vi.fn(),
     nanoidMock: vi.fn()
 }))
 
@@ -31,7 +32,14 @@ vi.mock("../../convex/_generated/server", () => ({
 
 vi.mock("../../convex/_generated/api", () => ({
     api: {},
-    internal: {}
+    internal: {
+        messages: { getMessagesByThreadId: "getMessagesByThreadId" },
+        settings: { getUserSettingsInternal: "getUserSettingsInternal" },
+        threads: {
+            createSharedThread: "createSharedThread",
+            getThreadById: "getThreadById"
+        }
+    }
 }))
 
 vi.mock("../../convex/aggregates", () => ({
@@ -45,7 +53,12 @@ vi.mock("nanoid", () => ({
 }))
 
 vi.mock("../../convex/chat_http/generate_thread_name", () => ({
+    generateShareQuestion: generateShareQuestionMock,
     generateThreadName: vi.fn()
+}))
+
+vi.mock("../../convex/lib/account_deletion_gate", () => ({
+    assertAccountNotDeletingForAction: vi.fn()
 }))
 
 vi.mock("../../convex/lib/db_to_core_messages", () => ({
@@ -75,7 +88,8 @@ import {
     branchThread,
     createThreadOrInsertMessages,
     importPreparedThread,
-    prepareThreadRetry
+    prepareThreadRetry,
+    shareThread
 } from "../../convex/threads"
 
 type ThreadDoc = Record<string, unknown>
@@ -90,6 +104,9 @@ const branchThreadHandler = branchThread as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const prepareThreadRetryHandler = prepareThreadRetry as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const shareThreadHandler = shareThread as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 type ThreadsCtx = Parameters<typeof createThreadOrInsertMessagesHandler.handler>[0]
@@ -156,6 +173,57 @@ const createCtx = (options?: {
         }
     } as ThreadsCtx
 }
+
+describe("shareThread", () => {
+    it("stores one generated question with the immutable shared snapshot", async () => {
+        vi.mocked(getUserIdentity).mockResolvedValue({
+            id: "user-1",
+            isAnonymous: false,
+            name: "Ahmed"
+        } as never)
+        generateShareQuestionMock.mockResolvedValue("Why do stars shimmer?")
+
+        const runQuery = vi
+            .fn()
+            .mockResolvedValueOnce({ authorId: "user-1", title: "Twinkling Stars" })
+            .mockResolvedValueOnce([
+                {
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Atmospheric turbulence bends light." }],
+                    createdAt: 2,
+                    updatedAt: 2
+                },
+                {
+                    messageId: "user-1",
+                    role: "user",
+                    parts: [{ type: "text", text: "Why do stars shimmer?" }],
+                    createdAt: 1,
+                    updatedAt: 1
+                }
+            ])
+            .mockResolvedValueOnce({ titleGenerationModel: "gpt-4.1-mini" })
+        const runMutation = vi.fn().mockResolvedValue({ sharedThreadId: "shared-1" })
+
+        const result = await shareThreadHandler.handler(
+            { auth: {}, runQuery, runMutation },
+            { threadId: "thread-1" }
+        )
+
+        expect(result).toEqual({ sharedThreadId: "shared-1" })
+        expect(runMutation).toHaveBeenCalledWith(
+            "createSharedThread",
+            expect.objectContaining({
+                shareQuestion: "Why do stars shimmer?",
+                sharerName: "Ahmed",
+                messages: [
+                    expect.objectContaining({ messageId: "user-1" }),
+                    expect.objectContaining({ messageId: "assistant-1" })
+                ]
+            })
+        )
+    })
+})
 
 describe("createThreadOrInsertMessages", () => {
     beforeEach(() => {

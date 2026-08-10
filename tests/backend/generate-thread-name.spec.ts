@@ -1,8 +1,41 @@
 import { describe, expect, it } from "vitest"
 import {
+    fallbackShareQuestion,
     fallbackTitleFromMessages,
-    getTitlePromptMessages
+    getTitlePromptMessages,
+    normalizeShareQuestion
 } from "../../convex/chat_http/generate_thread_name"
+
+describe("share questions", () => {
+    it("keeps generated questions short, clean, and question-shaped", () => {
+        expect(
+            normalizeShareQuestion(
+                'Question: "How can a very long conversation become a warm specific invitation without overwhelming someone opening the link?"'
+            )
+        ).toBe("How can a very long conversation become a warm specific?")
+    })
+
+    it("reuses an opening user question when generation is unavailable", () => {
+        expect(
+            fallbackShareQuestion(
+                [
+                    { role: "user", content: "Why do stars shimmer? I keep noticing it." },
+                    { role: "assistant", content: "It is mostly atmospheric turbulence." }
+                ],
+                "Twinkling Stars"
+            )
+        ).toBe("Why do stars shimmer?")
+    })
+
+    it("turns the existing thread title into a friendly fallback for statements", () => {
+        expect(
+            fallbackShareQuestion(
+                [{ role: "user", content: "Help me make this migration less risky" }],
+                "Safer Database Migration"
+            )
+        ).toBe("What should we know about Safer Database Migration?")
+    })
+})
 
 describe("getTitlePromptMessages", () => {
     it("uses start and recent user or assistant excerpts with thread message numbers", () => {

@@ -27,6 +27,8 @@ export const SharedThread = v.object({
     originalThreadId: v.id("threads"),
     authorId: v.string(),
     title: v.string(),
+    shareQuestion: v.optional(v.string()),
+    sharerName: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     messages: v.array(AIMessage),

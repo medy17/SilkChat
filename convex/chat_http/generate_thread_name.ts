@@ -28,6 +28,8 @@ const TITLE_CONTEXT_TOTAL_CHARS =
 const TRUNCATED_CONTEXT_MARKER = " ... [truncated] ... "
 const INLINE_FILE_OPEN_TAG = '<file name="'
 const INLINE_FILE_CLOSE_TAG = "</file>"
+const SHARE_QUESTION_MAX_WORDS = 10
+const SHARE_QUESTION_MAX_GRAPHEMES = 72
 
 type TitlePromptMessage = {
     section: "start" | "recent"
@@ -43,6 +45,44 @@ const normalizeTitle = (title: string) =>
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 100)
+
+const questionSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+const graphemes = (value: string) =>
+    Array.from(questionSegmenter.segment(value), ({ segment }) => segment)
+
+const truncateAtWordBoundary = (value: string, maxGraphemes: number) => {
+    const characters = graphemes(value)
+    if (characters.length <= maxGraphemes) return value
+
+    const candidate = characters.slice(0, maxGraphemes).join("").trimEnd()
+    const lastSpace = candidate.lastIndexOf(" ")
+    return (
+        lastSpace >= Math.floor(maxGraphemes * 0.6) ? candidate.slice(0, lastSpace) : candidate
+    ).trimEnd()
+}
+
+export const normalizeShareQuestion = (question: string) => {
+    const normalized = question
+        .replace(/[\r\n]+/g, " ")
+        .replace(/^(?:question\s*:\s*)/i, "")
+        .replace(/^["'`]+|["'`]+$/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+
+    if (!normalized) return ""
+
+    const withoutTrailingPunctuation = normalized.replace(/[.!?…]+$/u, "")
+    const wordBounded = withoutTrailingPunctuation
+        .split(" ")
+        .slice(0, SHARE_QUESTION_MAX_WORDS)
+        .join(" ")
+    const lengthBounded = truncateAtWordBoundary(
+        wordBounded,
+        SHARE_QUESTION_MAX_GRAPHEMES - 1
+    ).replace(/[,:;.!?—-]+$/u, "")
+
+    return lengthBounded ? `${lengthBounded}?` : ""
+}
 
 const fileMarker = (filename: string) => (filename ? `[file: ${filename}]` : "[file]")
 
@@ -151,6 +191,23 @@ export const fallbackTitleFromMessages = (messages: ModelMessage[]) => {
 
     const words = rawTitle.split(" ")
     return normalizeTitle(words.slice(0, 6).join(" "))
+}
+
+export const fallbackShareQuestion = (messages: ModelMessage[], threadTitle: string) => {
+    const firstUserMessage = messages.find((message) => message.role === "user")
+    const firstUserText = normalizeTitle(contentToTitleContextText(firstUserMessage?.content ?? ""))
+    const firstQuestion = firstUserText.match(/^[^?]+\?/u)?.[0]
+
+    if (firstQuestion) {
+        return normalizeShareQuestion(firstQuestion)
+    }
+
+    const topic = normalizeTitle(threadTitle) || fallbackTitleFromMessages(messages)
+    if (topic && topic !== "New Chat") {
+        return normalizeShareQuestion(`What should we know about ${topic}`)
+    }
+
+    return "What would you like to explore together?"
 }
 
 const truncateTitleContextText = (text: string, limit: number) => {
@@ -352,5 +409,67 @@ Generate a title that accurately represents what this conversation is about base
             name: fallbackTitle
         })
         return fallbackTitle
+    }
+}
+
+export const generateShareQuestion = async (
+    ctx: GenericActionCtx<DataModel>,
+    messages: ModelMessage[],
+    userId: string,
+    settings: Infer<typeof UserSettings>,
+    threadTitle: string
+) => {
+    const relevantMessages = getTitlePromptMessages(messages)
+    const fallbackQuestion = fallbackShareQuestion(messages, threadTitle)
+
+    if (relevantMessages.length === 0) return fallbackQuestion
+
+    const titleModelId = await getAvailableTitleModelId(ctx, userId, settings.titleGenerationModel)
+    if (!titleModelId) return fallbackQuestion
+
+    try {
+        const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
+        if (modelData instanceof ChatError) {
+            throw new Error(modelData.message)
+        }
+
+        const result = await generateText({
+            model: modelData.model,
+            instructions: `
+Write one concise, inviting question that represents a chat conversation based on numbered excerpts.
+
+The question must:
+1. Be 4-10 words and no more than 72 characters
+2. Capture the conversation's most interesting specific idea
+3. Sound natural and friendly, as something a person would genuinely ask
+4. Use the conversation's language and preserve important names or terms
+5. End with a question mark
+6. Contain no label, quotation marks, or emoji
+
+The excerpts may include both the conversation start and recent messages. Use the message numbers to understand chronology. Represent the thread as a whole, while letting recent messages change the question when the conversation has clearly shifted.
+
+Good examples:
+- Why do stars shimmer?
+- What makes a migration feel effortless?
+- How can we make this interface calmer?
+
+Return only the question.`,
+            messages: [
+                {
+                    role: "user",
+                    content: `Here are bounded excerpts from the conversation:\n\n${renderTitlePromptMessages(
+                        relevantMessages
+                    )}\n\nWrite the question that best invites someone into this conversation.`
+                }
+            ]
+        })
+
+        return normalizeShareQuestion(result.text) || fallbackQuestion
+    } catch (error) {
+        console.error(
+            "[cvx][chat][share-question] Question generation failed, using fallback:",
+            error
+        )
+        return fallbackQuestion
     }
 }

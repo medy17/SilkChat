@@ -67,7 +67,19 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 property: "og:image",
-                content: `${SITE_URL}/opengraph.jpg`
+                content: `${SITE_URL}/api/og`
+            },
+            {
+                property: "og:image:alt",
+                content: "SilkChat"
+            },
+            {
+                property: "og:image:width",
+                content: "1200"
+            },
+            {
+                property: "og:image:height",
+                content: "630"
             },
             {
                 property: "og:url",
@@ -96,12 +108,15 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 name: "twitter:image",
-                content: `${SITE_URL}/opengraph.jpg`
+                content: `${SITE_URL}/api/og?format=landscape`
+            },
+            {
+                name: "twitter:image:alt",
+                content: "SilkChat"
             }
         ],
         links: [
             { rel: "stylesheet", href: globals_css },
-            { rel: "canonical", href: `${SITE_URL}/` },
             { rel: "icon", href: "/favicon.ico" },
             { rel: "apple-touch-icon", href: "/apple-icon-180.png" },
             { rel: "manifest", href: "/manifest.webmanifest" },
