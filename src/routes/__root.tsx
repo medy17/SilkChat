@@ -67,7 +67,7 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 property: "og:image",
-                content: `${SITE_URL}/api/og`
+                content: `${SITE_URL}/api/og?demo=home`
             },
             {
                 property: "og:image:alt",
@@ -108,7 +108,7 @@ export const Route = createRootRouteWithContext<{
             },
             {
                 name: "twitter:image",
-                content: `${SITE_URL}/api/og?format=landscape`
+                content: `${SITE_URL}/api/og?demo=home&format=landscape`
             },
             {
                 name: "twitter:image:alt",

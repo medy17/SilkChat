@@ -12,11 +12,13 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as OgBackgroundsRouteImport } from './routes/og-backgrounds'
 import { Route as OgDemoRouteImport } from './routes/og-demo'
+import { Route as PersonasRouteImport } from './routes/personas'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -50,8 +52,6 @@ import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-s
 import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
 
-const AboutLazyRouteImport = createFileRoute('/about')()
-const PersonasLazyRouteImport = createFileRoute('/personas')()
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
 const PersonasStartLazyRouteImport = createFileRoute('/personas_/start')()
 const ChatFolderFolderIdLazyRouteImport = createFileRoute(
@@ -62,7 +62,7 @@ const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutLazyRoute = AboutLazyRouteImport.update({
+const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
   getParentRoute: () => rootRouteImport,
@@ -92,7 +92,7 @@ const OgDemoRoute = OgDemoRouteImport.update({
   path: '/og-demo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PersonasLazyRoute = PersonasLazyRouteImport.update({
+const PersonasRoute = PersonasRouteImport.update({
   id: '/personas',
   path: '/personas',
   getParentRoute: () => rootRouteImport,
@@ -290,19 +290,19 @@ const ChatFolderFolderIdThreadThreadIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/about': typeof AboutRoute
   '/author': typeof AuthorRoute
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
+  '/personas': typeof PersonasRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
-  '/about': typeof AboutLazyRoute
-  '/personas': typeof PersonasLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -333,19 +333,19 @@ export interface FileRoutesByFullPath {
   '/folder/$folderId/thread/$threadId': typeof ChatFolderFolderIdThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
+  '/about': typeof AboutRoute
   '/author': typeof AuthorRoute
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
+  '/personas': typeof PersonasRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
-  '/about': typeof AboutLazyRoute
-  '/personas': typeof PersonasLazyRoute
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -379,19 +379,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
+  '/about': typeof AboutRoute
   '/author': typeof AuthorRoute
   '/legal': typeof LegalRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
+  '/personas': typeof PersonasRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/tos': typeof TosRoute
   '/settings': typeof SettingsRouteLazyRouteWithChildren
-  '/about': typeof AboutLazyRoute
-  '/personas': typeof PersonasLazyRoute
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
@@ -426,19 +426,19 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/author'
     | '/legal'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
+    | '/personas'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
     | '/terms-of-service'
     | '/tos'
     | '/settings'
-    | '/about'
-    | '/personas'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -469,19 +469,19 @@ export interface FileRouteTypes {
     | '/folder/$folderId/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/about'
     | '/author'
     | '/legal'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
+    | '/personas'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
     | '/terms-of-service'
     | '/tos'
     | '/settings'
-    | '/about'
-    | '/personas'
     | '/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -514,19 +514,19 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_chat'
+    | '/about'
     | '/author'
     | '/legal'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
+    | '/personas'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
     | '/terms-of-service'
     | '/tos'
     | '/settings'
-    | '/about'
-    | '/personas'
     | '/_chat/library'
     | '/api/credit-summary'
     | '/api/model-benchmarks'
@@ -560,19 +560,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
+  AboutRoute: typeof AboutRoute
   AuthorRoute: typeof AuthorRoute
   LegalRoute: typeof LegalRoute
   MeRoute: typeof MeRoute
   OgBackgroundsRoute: typeof OgBackgroundsRoute
   OgDemoRoute: typeof OgDemoRoute
+  PersonasRoute: typeof PersonasRoute
   PrivacyRoute: typeof PrivacyRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsRoute: typeof TermsRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   TosRoute: typeof TosRoute
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
-  AboutLazyRoute: typeof AboutLazyRoute
-  PersonasLazyRoute: typeof PersonasLazyRoute
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   ApiOgRoute: typeof ApiOgRoute
@@ -597,7 +597,7 @@ declare module '@tanstack/react-router' {
       id: '/about'
       path: '/about'
       fullPath: '/about'
-      preLoaderRoute: typeof AboutLazyRouteImport
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/author': {
@@ -639,7 +639,7 @@ declare module '@tanstack/react-router' {
       id: '/personas'
       path: '/personas'
       fullPath: '/personas'
-      preLoaderRoute: typeof PersonasLazyRouteImport
+      preLoaderRoute: typeof PersonasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -962,19 +962,19 @@ const SettingsRouteLazyRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
+  AboutRoute: AboutRoute,
   AuthorRoute: AuthorRoute,
   LegalRoute: LegalRoute,
   MeRoute: MeRoute,
   OgBackgroundsRoute: OgBackgroundsRoute,
   OgDemoRoute: OgDemoRoute,
+  PersonasRoute: PersonasRoute,
   PrivacyRoute: PrivacyRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsRoute: TermsRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   TosRoute: TosRoute,
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
-  AboutLazyRoute: AboutLazyRoute,
-  PersonasLazyRoute: PersonasLazyRoute,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   ApiOgRoute: ApiOgRoute,
