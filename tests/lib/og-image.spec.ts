@@ -11,6 +11,7 @@ import {
     resolveSharedOgQuestion
 } from "@/lib/og-content"
 import { isOgFormat, renderOgImage } from "@/lib/og-image"
+import { STATIC_OG_VERSION, staticOgImageUrl } from "@/lib/og-metadata"
 import {
     IMMUTABLE_OG_CACHE_CONTROL,
     NO_STORE_CACHE_CONTROL,
@@ -41,6 +42,12 @@ describe("isOgFormat", () => {
 })
 
 describe("OG route demos", () => {
+    it("gives static cards one centrally versioned cache-busting URL", () => {
+        expect(staticOgImageUrl("https://silkchat.dev", "about", "landscape")).toBe(
+            `https://silkchat.dev/api/og?demo=about&format=landscape&v=${STATIC_OG_VERSION}`
+        )
+    })
+
     it.each(["home", "about", "personas", "shared"])("recognizes the supported %s demo", (demo) => {
         expect(isOgDemo(demo)).toBe(true)
     })
