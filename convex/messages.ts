@@ -132,12 +132,41 @@ export const getMessagesByThreadId = internalQuery({
 
 export const getPreparedImageGenerationCardResult = query({
     args: {
-        threadId: v.id("threads"),
+        threadId: v.optional(v.id("threads")),
+        sharedThreadId: v.optional(v.id("sharedThreads")),
         messageId: v.string(),
         toolCallId: v.string(),
         cardId: v.string()
     },
-    handler: async ({ db, auth }, { threadId, messageId, toolCallId, cardId }) => {
+    handler: async ({ db, auth }, { threadId, sharedThreadId, messageId, toolCallId, cardId }) => {
+        if (sharedThreadId) {
+            const sharedThread = await db.get(sharedThreadId)
+            if (!sharedThread) return null
+
+            const sharedMessage = sharedThread.messages.find(
+                (message) => message.messageId === messageId
+            )
+            const sharedResult = sharedMessage
+                ? findPreparedImageGenerationResult(sharedMessage.parts, toolCallId, cardId)
+                : null
+            if (!sharedResult) return null
+
+            const messages = await db
+                .query("messages")
+                .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+                .collect()
+            const currentMessage = messages.find(
+                (candidate) => candidate.threadId === sharedThread.originalThreadId
+            )
+
+            return currentMessage
+                ? (findPreparedImageGenerationResult(currentMessage.parts, toolCallId, cardId) ??
+                      sharedResult)
+                : sharedResult
+        }
+
+        if (!threadId) return null
+
         const user = await getUserIdentity(auth, { allowAnons: false })
         if ("error" in user) return null
 

@@ -19,7 +19,8 @@ const handler = (
                 }
             },
             args: {
-                threadId: string
+                threadId?: string
+                sharedThreadId?: string
                 messageId: string
                 toolCallId: string
                 cardId: string
@@ -87,6 +88,84 @@ describe("prepared image generation card query", () => {
         await expect(
             handler(ctx, {
                 threadId: "thread-1",
+                messageId: "assistant-1",
+                toolCallId: "tool-1",
+                cardId: "card-1"
+            })
+        ).resolves.toBeNull()
+        expect(ctx.db.query).not.toHaveBeenCalled()
+    })
+
+    it("cascades a shared card's current result without granting write access", async () => {
+        const sharedResult = { ...preparedResult, status: "pending_confirmation" }
+        const currentResult = {
+            ...preparedResult,
+            status: "completed",
+            assets: [{ imageUrl: "completed-image.png" }]
+        }
+        const cardPart = (result: typeof sharedResult | typeof currentResult) => ({
+            type: "tool-invocation",
+            toolInvocation: {
+                toolName: "prepareImageGeneration",
+                toolCallId: "tool-1",
+                state: "result",
+                result
+            }
+        })
+        const ctx = {
+            auth: { getUserIdentity: vi.fn().mockResolvedValue(null) },
+            db: {
+                get: vi.fn().mockResolvedValue({
+                    _id: "shared-1",
+                    originalThreadId: "thread-1",
+                    messages: [
+                        {
+                            messageId: "assistant-1",
+                            parts: [cardPart(sharedResult)]
+                        }
+                    ]
+                }),
+                query: vi.fn().mockReturnValue({
+                    withIndex: vi.fn().mockReturnValue({
+                        collect: vi.fn().mockResolvedValue([
+                            {
+                                threadId: "thread-1",
+                                messageId: "assistant-1",
+                                parts: [cardPart(currentResult)]
+                            }
+                        ])
+                    })
+                })
+            }
+        }
+
+        await expect(
+            handler(ctx, {
+                sharedThreadId: "shared-1",
+                messageId: "assistant-1",
+                toolCallId: "tool-1",
+                cardId: "card-1"
+            })
+        ).resolves.toEqual(currentResult)
+        expect(ctx.auth.getUserIdentity).not.toHaveBeenCalled()
+    })
+
+    it("does not cascade a card that was not part of the shared snapshot", async () => {
+        const ctx = {
+            auth: { getUserIdentity: vi.fn().mockResolvedValue(null) },
+            db: {
+                get: vi.fn().mockResolvedValue({
+                    _id: "shared-1",
+                    originalThreadId: "thread-1",
+                    messages: []
+                }),
+                query: vi.fn()
+            }
+        }
+
+        await expect(
+            handler(ctx, {
+                sharedThreadId: "shared-1",
                 messageId: "assistant-1",
                 toolCallId: "tool-1",
                 cardId: "card-1"

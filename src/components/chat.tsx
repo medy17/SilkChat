@@ -463,6 +463,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 onBottomStateChange={setIsAtBottom}
                 onScrollDirectionChange={setScrollDirection}
                 threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
+                threadId={threadId ?? routeThreadId}
             />
 
             <motion.div

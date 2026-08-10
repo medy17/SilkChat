@@ -315,6 +315,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 onBottomStateChange={setIsAtBottom}
                 onScrollDirectionChange={setScrollDirection}
                 threadKey={threadId ?? folderId.toString()}
+                threadId={threadId}
             />
 
             <AnimatePresence mode="sync">

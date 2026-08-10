@@ -311,19 +311,23 @@ const PartsRenderer = memo(
         markdown,
         id,
         threadId,
+        sharedThreadId,
         messageId,
         onFilePreview,
         onSwitchModel,
-        isStreaming
+        isStreaming,
+        readOnly = false
     }: {
         part: UIMessage["parts"][number]
         markdown: boolean
         id: string
         threadId?: string
+        sharedThreadId?: string
         messageId: string
         onFilePreview?: (part: { url: string; filename?: string; mediaType?: string }) => void
         onSwitchModel?: (modelId: string) => void
         isStreaming?: boolean
+        readOnly?: boolean
     }) => {
         switch (part.type) {
             case "data-context-error": {
@@ -392,7 +396,7 @@ const PartsRenderer = memo(
             case "tool-get_memory_profile":
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="profile" />
             case "tool-image_generation":
-                return <ImageGenerationToolRenderer toolInvocation={part} />
+                return <ImageGenerationToolRenderer toolInvocation={part} readOnly={readOnly} />
             case "tool-render_chart":
                 return <NativeChartToolRenderer toolInvocation={part} />
             case "tool-render_network":
@@ -402,7 +406,9 @@ const PartsRenderer = memo(
                     <ImageGenerationToolRenderer
                         toolInvocation={part}
                         threadId={threadId}
+                        sharedThreadId={sharedThreadId}
                         messageId={messageId}
+                        readOnly={readOnly}
                     />
                 )
             case "tool-add_memory":
@@ -956,6 +962,7 @@ type MessageRowProps = {
     onFilePreview: (part: PreviewFile) => void
     requiresNativePdfForModelSelection: boolean
     threadId?: string
+    sharedThreadId?: string
     copyOnlyActions?: boolean
 }
 
@@ -975,6 +982,7 @@ const MessageRowComponent = ({
     onFilePreview,
     requiresNativePdfForModelSelection,
     threadId,
+    sharedThreadId,
     copyOnlyActions
 }: MessageRowProps) => {
     const hapticStreamActiveRef = useRef(false)
@@ -1221,9 +1229,11 @@ const MessageRowComponent = ({
                                             ?.threadId as string | undefined) ?? threadId
                                     }
                                     messageId={message.id}
+                                    sharedThreadId={sharedThreadId}
                                     onFilePreview={onFilePreview}
                                     onSwitchModel={onSwitchModel}
                                     isStreaming={isStreamingMessage}
+                                    readOnly={copyOnlyActions}
                                 />
                             ))}
                         </div>
@@ -1250,8 +1260,10 @@ const MessageRowComponent = ({
                                             ?.threadId as string | undefined) ?? threadId
                                     }
                                     messageId={message.id}
+                                    sharedThreadId={sharedThreadId}
                                     onFilePreview={onFilePreview}
                                     isStreaming={isStreamingMessage}
+                                    readOnly={copyOnlyActions}
                                 />
                             </div>
                         ) : null}
@@ -1305,6 +1317,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.onFilePreview === nextProps.onFilePreview &&
     previousProps.requiresNativePdfForModelSelection ===
         nextProps.requiresNativePdfForModelSelection &&
+    previousProps.sharedThreadId === nextProps.sharedThreadId &&
     previousProps.copyOnlyActions === nextProps.copyOnlyActions
 
 const MessageRow = memo(MessageRowComponent, areMessageRowPropsEqual)
@@ -1334,6 +1347,8 @@ export const Messages = forwardRef<
         onBottomStateChange?: (isAtBottom: boolean) => void
         onScrollDirectionChange?: (direction: MessageScrollDirection) => void
         threadKey?: string
+        threadId?: string
+        sharedThreadId?: string
         copyOnlyActions?: boolean
     }
 >(
@@ -1349,6 +1364,8 @@ export const Messages = forwardRef<
             onBottomStateChange,
             onScrollDirectionChange,
             threadKey,
+            threadId,
+            sharedThreadId,
             copyOnlyActions = false
         },
         ref
@@ -1792,7 +1809,8 @@ export const Messages = forwardRef<
                 onCancelEdit={handleCancelEdit}
                 onFilePreview={handleFilePreview}
                 requiresNativePdfForModelSelection={threadHasPdfAttachments}
-                threadId={threadKey}
+                threadId={threadId}
+                sharedThreadId={sharedThreadId}
                 copyOnlyActions={copyOnlyActions}
             />
         ))

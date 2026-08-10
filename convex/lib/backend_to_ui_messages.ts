@@ -11,7 +11,9 @@ type AIUIMessageWithParts = UIMessage<Infer<typeof AIMessage>["metadata"]> & {
 const isExternalFileReference = (value: string) =>
     value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")
 
-export const backendToUiMessages = (messages: Infer<typeof Message>[]): AIUIMessageWithParts[] => {
+export const backendToUiMessages = (
+    messages: Array<Infer<typeof Message> | Infer<typeof AIMessage>>
+): AIUIMessageWithParts[] => {
     if (!messages || messages.length === 0) {
         return []
     }

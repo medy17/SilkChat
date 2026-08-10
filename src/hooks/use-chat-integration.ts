@@ -328,18 +328,12 @@ export function useChatIntegration<IsShared extends boolean>({
 
         if (isShared) {
             if (!sharedThread?.messages) return []
-            // Shared thread messages need threadId for compatibility
-            return backendToUiMessages(
-                sharedThread.messages.map((msg) => ({
-                    ...msg,
-                    threadId: sharedThreadId as Id<"threads">
-                }))
-            )
+            return backendToUiMessages(sharedThread.messages)
         }
 
         if (!threadMessages || "error" in threadMessages) return []
         return backendToUiMessages(threadMessages)
-    }, [threadMessages, sharedThread, isShared, sharedThreadId, pendingBranchHydration, threadId])
+    }, [threadMessages, sharedThread, isShared, pendingBranchHydration, threadId])
     const chatHelpers = useChat({
         id: isShared ? `shared_${sharedThreadId}` : rerenderTrigger,
         // Bound React work during high-frequency streams. The message renderer separately stays

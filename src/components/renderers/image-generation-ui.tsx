@@ -367,11 +367,15 @@ export const ImageGenerationToolRenderer = memo(
     ({
         toolInvocation,
         threadId,
-        messageId
+        sharedThreadId,
+        messageId,
+        readOnly = false
     }: {
         toolInvocation: ImageGenerationToolInvocation
         threadId?: string
+        sharedThreadId?: string
         messageId?: string
+        readOnly?: boolean
     }) => {
         const navigate = useNavigate()
         const { models: sharedModels } = useSharedModels()
@@ -398,13 +402,20 @@ export const ImageGenerationToolRenderer = memo(
                 : undefined
         const persistedPreparedOutput = useQuery(
             api.messages.getPreparedImageGenerationCardResult,
-            localPreparedOutput?.cardId && threadId && messageId
-                ? {
-                      threadId: threadId as Id<"threads">,
-                      messageId,
-                      toolCallId: toolInvocation.toolCallId,
-                      cardId: localPreparedOutput.cardId
-                  }
+            localPreparedOutput?.cardId && messageId && (threadId || sharedThreadId)
+                ? sharedThreadId
+                    ? {
+                          sharedThreadId: sharedThreadId as Id<"sharedThreads">,
+                          messageId,
+                          toolCallId: toolInvocation.toolCallId,
+                          cardId: localPreparedOutput.cardId
+                      }
+                    : {
+                          threadId: threadId as Id<"threads">,
+                          messageId,
+                          toolCallId: toolInvocation.toolCallId,
+                          cardId: localPreparedOutput.cardId
+                      }
                 : "skip"
         ) as PreparedImageGenerationOutput | null | undefined
         const preparedOutput = persistedPreparedOutput ?? localPreparedOutput
@@ -420,9 +431,9 @@ export const ImageGenerationToolRenderer = memo(
         }, [preparedOutput])
         const generatedImages = useQuery(
             api.images.listGeneratedImagesByIds,
-            generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
+            !readOnly && generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
         ) as Doc<"generatedImages">[] | undefined
-        const creditSummary = useQuery(api.credits.getMyCreditSummary)
+        const creditSummary = useQuery(api.credits.getMyCreditSummary, readOnly ? "skip" : {})
         // Accumulate images so a transient `undefined` (which the query returns while it
         // re-subscribes as new variant ids stream in) doesn't drop the currently-viewed
         // image, which would otherwise flash a reload and unmount the open details modal.
@@ -541,7 +552,8 @@ export const ImageGenerationToolRenderer = memo(
                 setActiveAssetIndex((current) => Math.max(0, current - 1))
             const goToNextVariant = () =>
                 setActiveAssetIndex((current) => Math.min(totalSlots - 1, current + 1))
-            const retryableJobIds = status === "storing_failed" ? (output.jobIds ?? []) : []
+            const retryableJobIds =
+                !readOnly && status === "storing_failed" ? (output.jobIds ?? []) : []
             const isRetryingAsset = retryableJobIds.some((jobId) => retryingAssetJobIds.has(jobId))
             const isWorking =
                 status === "submitting" ||
@@ -564,6 +576,7 @@ export const ImageGenerationToolRenderer = memo(
             // The active slot points past the ready assets at a still-generating variant.
             const isPendingSlot = !visibleAsset && isAwaitingVariants
             const canConfirm =
+                !readOnly &&
                 status === "pending_confirmation" &&
                 output.cardId &&
                 threadId &&

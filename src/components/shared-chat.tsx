@@ -60,6 +60,7 @@ export function SharedChat({ sharedThreadId }: SharedChatProps) {
                 messages={messages}
                 status="ready"
                 threadKey={sharedThreadId}
+                sharedThreadId={sharedThreadId}
                 copyOnlyActions
             />
             <div className="absolute right-0 bottom-2 left-0">

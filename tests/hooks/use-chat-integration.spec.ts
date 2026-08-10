@@ -493,8 +493,7 @@ describe("useChatIntegration", () => {
             {
                 id: "backend-shared-1",
                 role: "assistant",
-                parts: [],
-                threadId: "shared-1"
+                parts: []
             }
         ])
         expect(latestUseChatOptions?.id).toBe("shared_shared-1")
@@ -544,12 +543,7 @@ describe("useChatIntegration", () => {
         rerender()
 
         expect(setMessages).toHaveBeenCalledOnce()
-        expect(setMessages).toHaveBeenCalledWith([
-            {
-                ...sharedMessages[0],
-                threadId: "shared-1"
-            }
-        ])
+        expect(setMessages).toHaveBeenCalledWith([sharedMessages[0]])
 
         rerender()
         expect(setMessages).toHaveBeenCalledOnce()
