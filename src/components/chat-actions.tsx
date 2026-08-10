@@ -153,7 +153,8 @@ export const ChatActions = memo(
         onEdit,
         editing = false,
         onCancelEdit,
-        requiresNativePdfForModelSelection = false
+        requiresNativePdfForModelSelection = false,
+        copyOnly = false
     }: {
         role: UIMessage["role"]
         message: UIMessage
@@ -163,6 +164,7 @@ export const ChatActions = memo(
         editing?: boolean
         onCancelEdit?: () => void
         requiresNativePdfForModelSelection?: boolean
+        copyOnly?: boolean
     }) => {
         const [copied, setCopied] = useState(false)
         const footerMode = useMessageFooterStore((state) => state.footerMode)
@@ -371,7 +373,7 @@ export const ChatActions = memo(
                     role === "user" ? "right-0 mt-4" : "left-0 mt-3"
                 )}
             >
-                {editing ? (
+                {!copyOnly && editing ? (
                     <Button
                         variant="ghost"
                         size="icon"
@@ -381,16 +383,16 @@ export const ChatActions = memo(
                     >
                         <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
-                ) : (
+                ) : !copyOnly ? (
                     onRetry && (
                         <RetryMenu
                             onRetry={(configOverride) => onRetry(message, configOverride)}
                             requiresNativePdf={requiresNativePdfForModelSelection}
                         />
                     )
-                )}
+                ) : null}
 
-                {onBranch && (
+                {!copyOnly && onBranch && (
                     <Tooltip delayDuration={150}>
                         <TooltipTrigger asChild>
                             <Button
@@ -409,7 +411,7 @@ export const ChatActions = memo(
                     </Tooltip>
                 )}
 
-                {editing ? (
+                {!copyOnly && editing ? (
                     <Tooltip delayDuration={150}>
                         <TooltipTrigger asChild>
                             <Button
@@ -426,7 +428,7 @@ export const ChatActions = memo(
                             <p>Cancel edit</p>
                         </TooltipContent>
                     </Tooltip>
-                ) : (
+                ) : !copyOnly ? (
                     onEdit && (
                         <Tooltip delayDuration={150}>
                             <TooltipTrigger asChild>
@@ -444,15 +446,16 @@ export const ChatActions = memo(
                             </TooltipContent>
                         </Tooltip>
                     )
-                )}
+                ) : null}
 
-                {hasImageGeneration ? (
+                {hasImageGeneration && !copyOnly ? (
                     <Tooltip delayDuration={150}>
                         <TooltipTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 disabled={editing}
+                                aria-label={`Download ${imageGenerationAssets.length > 1 ? "images" : "image"}`}
                                 className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
                                 onClick={handleDownload}
                             >
@@ -470,6 +473,7 @@ export const ChatActions = memo(
                                 variant="ghost"
                                 size="icon"
                                 disabled={editing}
+                                aria-label={copied ? "Copied" : "Copy message"}
                                 className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
                                 onClick={handleCopy}
                             >
@@ -491,7 +495,7 @@ export const ChatActions = memo(
                     </Tooltip>
                 )}
 
-                {footerMode === "simple" && footerStats?.modelName && (
+                {!copyOnly && footerMode === "simple" && footerStats?.modelName && (
                     <Badge variant="secondary" className="ml-1 h-7">
                         <span className="inline-flex items-center gap-1.5">
                             {ProviderIcon && <ProviderIcon className="size-3.5" />}
@@ -509,7 +513,8 @@ export const ChatActions = memo(
                     </Badge>
                 )}
 
-                {(footerMode === "nerd" || footerMode === "extra-nerdy") &&
+                {!copyOnly &&
+                    (footerMode === "nerd" || footerMode === "extra-nerdy") &&
                     footerSegments.length > 0 && (
                         <AssistantFooterMarquee segments={footerSegments} />
                     )}

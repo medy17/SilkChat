@@ -506,6 +506,55 @@ describe("useChatIntegration", () => {
         expect(result.current.thread).toEqual(sharedThread)
     })
 
+    it("hydrates a shared conversation when its public snapshot arrives after mount", () => {
+        const sharedMessages = [
+            {
+                id: "backend-shared-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Visible on the first visit" }]
+            }
+        ]
+        const queryState: {
+            sharedThread?: { _id: string; messages: typeof sharedMessages }
+        } = {}
+        const setMessages = vi.fn()
+
+        useConvexQueryMock.mockImplementation((query: string) => {
+            if (query === "getSharedThread") return queryState.sharedThread
+            return undefined
+        })
+        useChatMock.mockImplementation(() => ({
+            status: "idle",
+            messages: [],
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+
+        const { rerender } = renderHook(() =>
+            useChatIntegration({
+                threadId: undefined,
+                sharedThreadId: "shared-1",
+                isShared: true
+            })
+        )
+
+        expect(setMessages).not.toHaveBeenCalled()
+
+        queryState.sharedThread = { _id: "shared-1", messages: sharedMessages }
+        rerender()
+
+        expect(setMessages).toHaveBeenCalledOnce()
+        expect(setMessages).toHaveBeenCalledWith([
+            {
+                ...sharedMessages[0],
+                threadId: "shared-1"
+            }
+        ])
+
+        rerender()
+        expect(setMessages).toHaveBeenCalledOnce()
+    })
+
     it("uses pending branch hydration as initial messages before backend messages load", () => {
         const branchMessages: ChatMessage[] = [
             {

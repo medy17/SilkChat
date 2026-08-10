@@ -267,4 +267,37 @@ describe("ChatActions", () => {
         expect(retryMenuMock).toHaveBeenCalled()
         expect(onBranch).toHaveBeenCalledWith(message)
     })
+
+    it("shows only copy for read-only shared messages", () => {
+        const message = {
+            ...createAssistantMessage({
+                modelName: "GPT 5.4 Mini",
+                runtimeProvider: "openrouter"
+            }),
+            parts: [
+                { type: "text", text: "A shared answer" },
+                {
+                    type: "tool-image_generation",
+                    state: "output-available",
+                    output: { assets: [{ imageUrl: "shared-image.png" }] }
+                }
+            ]
+        } as UIMessage
+
+        render(
+            React.createElement(ChatActions, {
+                role: "assistant",
+                message,
+                onRetry: vi.fn(),
+                onBranch: vi.fn(),
+                onEdit: vi.fn(),
+                copyOnly: true
+            })
+        )
+
+        expect(screen.getAllByRole("button")).toHaveLength(1)
+        expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy()
+        expect(screen.queryByText("GPT 5.4 Mini")).toBeNull()
+        expect(retryMenuMock).not.toHaveBeenCalled()
+    })
 })

@@ -278,6 +278,7 @@ export function useChatIntegration<IsShared extends boolean>({
     )
     const seededNextId = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    const hydratedSharedSnapshotRef = useRef<string | undefined>(undefined)
     const previousThreadIdRef = useRef<string | undefined>(threadId)
     // The SDK receives its finish event before the final Convex message snapshot is
     // guaranteed to reach this client's resumed subscription. Keep that completed
@@ -531,6 +532,21 @@ export function useChatIntegration<IsShared extends boolean>({
         streamOriginRef.current = null
         completedLocalMessageRef.current = null
     }, [threadId])
+
+    useEffect(() => {
+        if (!isShared) {
+            hydratedSharedSnapshotRef.current = undefined
+            return
+        }
+
+        if (!sharedThreadId || !sharedThread?.messages) return
+
+        const snapshotKey = `${sharedThreadId}:${getMessagesContentFingerprint(initialMessages)}`
+        if (hydratedSharedSnapshotRef.current === snapshotKey) return
+
+        hydratedSharedSnapshotRef.current = snapshotKey
+        chatHelpers.setMessages(initialMessages)
+    }, [isShared, sharedThreadId, sharedThread, initialMessages, chatHelpers.setMessages])
 
     useEffect(() => {
         if (isShared) return

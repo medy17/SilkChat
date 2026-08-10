@@ -946,7 +946,7 @@ type MessageRowProps = {
     onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
     onSwitchModel?: (modelId: string) => void
     onBranch?: (message: UIMessage) => void
-    onEdit: (message: UIMessage) => void
+    onEdit?: (message: UIMessage) => void
     onSaveEdit: (
         newContent: string,
         remainingFileParts?: FileUIPart[],
@@ -956,6 +956,7 @@ type MessageRowProps = {
     onFilePreview: (part: PreviewFile) => void
     requiresNativePdfForModelSelection: boolean
     threadId?: string
+    copyOnlyActions?: boolean
 }
 
 const MessageRowComponent = ({
@@ -973,7 +974,8 @@ const MessageRowComponent = ({
     onCancelEdit,
     onFilePreview,
     requiresNativePdfForModelSelection,
-    threadId
+    threadId,
+    copyOnlyActions
 }: MessageRowProps) => {
     const hapticStreamActiveRef = useRef(false)
     const responseStartHapticPlayedRef = useRef(false)
@@ -1156,6 +1158,7 @@ const MessageRowComponent = ({
                             editing
                             onCancelEdit={() => cancelEditRequestRef.current?.()}
                             requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                            copyOnly={copyOnlyActions}
                         />
                     </>
                 ) : (
@@ -1262,6 +1265,7 @@ const MessageRowComponent = ({
                                 requiresNativePdfForModelSelection={
                                     requiresNativePdfForModelSelection
                                 }
+                                copyOnly={copyOnlyActions}
                             />
                         ) : !hasActiveTarget &&
                           message.role === "assistant" &&
@@ -1272,6 +1276,7 @@ const MessageRowComponent = ({
                                 onRetry={undefined}
                                 onBranch={onBranch}
                                 onEdit={undefined}
+                                copyOnly={copyOnlyActions}
                             />
                         ) : null}
                     </>
@@ -1299,7 +1304,8 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.onCancelEdit === nextProps.onCancelEdit &&
     previousProps.onFilePreview === nextProps.onFilePreview &&
     previousProps.requiresNativePdfForModelSelection ===
-        nextProps.requiresNativePdfForModelSelection
+        nextProps.requiresNativePdfForModelSelection &&
+    previousProps.copyOnlyActions === nextProps.copyOnlyActions
 
 const MessageRow = memo(MessageRowComponent, areMessageRowPropsEqual)
 MessageRow.displayName = "MessageRow"
@@ -1328,6 +1334,7 @@ export const Messages = forwardRef<
         onBottomStateChange?: (isAtBottom: boolean) => void
         onScrollDirectionChange?: (direction: MessageScrollDirection) => void
         threadKey?: string
+        copyOnlyActions?: boolean
     }
 >(
     (
@@ -1341,7 +1348,8 @@ export const Messages = forwardRef<
             error,
             onBottomStateChange,
             onScrollDirectionChange,
-            threadKey
+            threadKey,
+            copyOnlyActions = false
         },
         ref
     ) => {
@@ -1510,7 +1518,7 @@ export const Messages = forwardRef<
         const lastMessageFooterMetadataKey =
             lastMessage?.role === "assistant" ? getMessageFooterMetadataKey(lastMessage) : undefined
         const lastMessageReasoning = lastMessage ? getMessageReasoningDetails(lastMessage) : null
-        const hasActiveTarget = Boolean(targetFromMessageId)
+        const hasActiveTarget = !copyOnlyActions && Boolean(targetFromMessageId)
         const isStreamingWithoutContent =
             status === "streaming" &&
             lastMessage?.role === "assistant" &&
@@ -1714,7 +1722,8 @@ export const Messages = forwardRef<
 
             return messages.map((message, index) => {
                 const isStreamingMessage = status === "streaming" && message.id === lastMessage?.id
-                const isEditing = targetFromMessageId === message.id && targetMode === "edit"
+                const isEditing =
+                    !copyOnlyActions && targetFromMessageId === message.id && targetMode === "edit"
                 const shouldUseLiveFingerprint = isStreamingMessage || isEditing
 
                 const row = {
@@ -1744,7 +1753,8 @@ export const Messages = forwardRef<
             renderFingerprints,
             status,
             targetFromMessageId,
-            targetMode
+            targetMode,
+            copyOnlyActions
         ])
 
         const keepMountedIndexes = useMemo(() => {
@@ -1775,14 +1785,15 @@ export const Messages = forwardRef<
                 hasActiveTarget={row.hasActiveTarget}
                 retryMessage={row.retryMessage}
                 onRetry={onRetry ? stableOnRetry : undefined}
-                onSwitchModel={handleSwitchModel}
+                onSwitchModel={copyOnlyActions ? undefined : handleSwitchModel}
                 onBranch={onBranch ? stableOnBranch : undefined}
-                onEdit={handleEdit}
+                onEdit={copyOnlyActions ? undefined : handleEdit}
                 onSaveEdit={handleSaveEdit}
                 onCancelEdit={handleCancelEdit}
                 onFilePreview={handleFilePreview}
                 requiresNativePdfForModelSelection={threadHasPdfAttachments}
                 threadId={threadKey}
+                copyOnlyActions={copyOnlyActions}
             />
         ))
         const virtualizedMessageRows = renderedMessageRows.slice(0, virtualizedMessageCount)
