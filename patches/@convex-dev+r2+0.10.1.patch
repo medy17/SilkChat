@@ -47,21 +47,21 @@ index 97c05f0..85aadf6 100644
 +};
  type RunQueryCtx = {
 -    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
-+    runQuery: (...args: any[]) => Promise<any>;
++    runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
  };
  type RunMutationCtx = {
 -    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
 -    runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
-+    runQuery: (...args: any[]) => Promise<any>;
-+    runMutation: (...args: any[]) => Promise<any>;
++    runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
++    runMutation: GenericActionCtx<GenericDataModel>["runMutation"];
  };
  type RunActionCtx = {
 -    runAction: GenericActionCtx<GenericDataModel>["runAction"];
 -    runQuery: GenericQueryCtx<GenericDataModel>["runQuery"];
 -    runMutation: GenericMutationCtx<GenericDataModel>["runMutation"];
-+    runAction: (...args: any[]) => Promise<any>;
-+    runQuery: (...args: any[]) => Promise<any>;
-+    runMutation: (...args: any[]) => Promise<any>;
++    runAction: GenericActionCtx<GenericDataModel>["runAction"];
++    runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
++    runMutation: GenericActionCtx<GenericDataModel>["runMutation"];
  };
 @@ -41,6 +80,8 @@ export declare class R2 {
          R2_ACCESS_KEY_ID?: string;
