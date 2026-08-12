@@ -227,3 +227,46 @@ Before pushing model/provider changes:
 - image model added without a matching fal endpoint adapter
 - reasoning model added without `effort_control`, so the UI/runtime never sends reasoning settings
 - OpenRouter-backed model added but omitted from `VITE_ENABLED_INTERNAL_PROVIDERS` or the relevant `openrouter-*` visibility alias
+
+
+## Writing Model Descriptions for a Model Picker
+
+### Purpose
+Write concise, non-generic descriptions that help users pick the right model. Each description conveys **what the model is**, **how it was built**, **what improved**, and **what it excels at** without leaning on tired phrasing or referential comparisons.
+
+### Core Principles
+
+**1. Anchor with a natural starting point.**
+Open with the provider and the model's identity ("xAI's latest multimodal model entry…", "xAI's latest entry built with…", "OpenAI's previous generation..."). Don't start mid-thought or with a bare gerund — it reads as clipped and unnatural. The opening should orient the user before diving into detail.
+
+**2. State what the model *is*.**
+Classify it plainly: new entry, new base, fine-tune, pre-train, checkpoint, supplemental run, etc. This tells users the nature of the release, not just its behavior.
+
+**3. Name the techniques, not the outcomes.**
+Reference the actual methods used — supplemental training runs, limited release, regenerated SFT trajectories, model-based filtering, RL across specific environments. Specificity is the antidote to generic writing.
+
+**4. Avoid the clichés.**
+Ban phrases like "built for agentic tasks," "for long-horizon coding," "built on top of Y," or "X vs Y." These describe every model and distinguish none. Describe the *actual* behavior instead ("sustains focus across many steps," "self-tests before proceeding"). 
+
+**5. Keep it non-referential.**
+Don't define the model by its predecessor or competitors. Describe it on its own terms. "Trained longer and more carefully than before" is acceptable framing; "builds on Grok 4.5" is not.
+
+**6. Never cite evals or scores.**
+The UI already renders benchmarks visually. Repeating numbers is redundant and wastes your character budget.
+
+
+**7. Length**
+- **short**: ~20 words. One dense sentence — identity + one or two standout strengths.
+- **default**: ~70 words, max 400 chars. Three-beat structure works well: (1) what it is + how it was made, (2) behavioral traits, (3) what it specifically excels at. 
+- Neither of these are minimums however. That should be inferred from other model entries.
+
+## Structural Template (long form)
+1. **Identity + method** — who made it, what it is, and the key technique(s).
+2. **Behavior** — concrete traits users will feel in practice.
+3. **Sweet spot** — the specific kind of work where it shines, phrased precisely.
+
+### Tone Checklist
+- Specific over sweeping.
+- Concrete verbs over buzzwords.
+- Self-contained, not comparative.
+- Confident, not hype-y — no superlatives it can't back up in plain terms.
