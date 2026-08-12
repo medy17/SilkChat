@@ -4,7 +4,11 @@ import {
     nativeChartSchema
 } from "@/lib/native-chart"
 import { describe, expect, it } from "vitest"
-import { NativeChartAdapter, getNativeChartTool } from "../../convex/lib/tools/native_chart"
+import {
+    NativeChartAdapter,
+    getNativeChartTool,
+    withStrictNativeVisualizationTools
+} from "../../convex/lib/tools/native_chart"
 
 const validChart = {
     title: "Quadratic growth",
@@ -79,7 +83,8 @@ describe("native chart contract", () => {
     })
 
     it("registers the chart tool and returns a replayable result", async () => {
-        const tools = getNativeChartTool({ enabled: true })
+        const tools = getNativeChartTool({ enabled: true, strict: true })
+        expect(tools.render_chart?.strict).toBe(true)
         const output = await tools.render_chart?.execute?.(
             nativeChartSchema.parse(validChart),
             {} as never
@@ -107,13 +112,19 @@ describe("native chart contract", () => {
         }
 
         expect(await NativeChartAdapter({ ...baseParams, enabledTools: [] })).toEqual({})
-        expect(
-            Object.keys(
-                await NativeChartAdapter({
-                    ...baseParams,
-                    enabledTools: ["mathematical_instruments"]
-                })
-            )
-        ).toEqual(["render_chart", "render_network"])
+        const tools = await NativeChartAdapter({
+            ...baseParams,
+            enabledTools: ["mathematical_instruments"]
+        })
+
+        expect(Object.keys(tools)).toEqual(["render_chart", "render_network"])
+        expect(tools.render_chart?.strict).toBeUndefined()
+        expect(tools.render_network?.strict).toBeUndefined()
+
+        const strictTools = withStrictNativeVisualizationTools(tools)
+        expect(strictTools).toMatchObject({
+            render_chart: { strict: true },
+            render_network: { strict: true }
+        })
     })
 })

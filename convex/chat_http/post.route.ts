@@ -65,6 +65,7 @@ import {
     PREPARE_IMAGE_GENERATION_TOOL_NAME,
     getPrepareImageGenerationTool
 } from "../lib/tools/image_generation"
+import { withStrictNativeVisualizationTools } from "../lib/tools/native_chart"
 import {
     estimateOpenRouterReservationMicrousd,
     getConfiguredToolUsageMicrousd,
@@ -1730,6 +1731,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                       }
                   })
                 : {}
+            const providerPaidTools =
+                displayProvider === "xai"
+                    ? withStrictNativeVisualizationTools(paidTools)
+                    : paidTools
             const internalTools = getPrepareImageGenerationTool({
                 enabled: hasInternalImagePreparationTool,
                 references: imageReferences,
@@ -1742,7 +1747,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
             const tools: Record<string, Tool> = {
                 ...blockedTools,
-                ...paidTools,
+                ...providerPaidTools,
                 ...internalTools
             }
             const result = streamText({

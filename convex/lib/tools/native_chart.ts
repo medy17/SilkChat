@@ -1,6 +1,6 @@
 import { NATIVE_CHART_TOOL_NAME, nativeChartSchema } from "@/lib/native-chart"
 import { NATIVE_NETWORK_TOOL_NAME, nativeNetworkSchema } from "@/lib/native-network"
-import { tool } from "ai"
+import { type Tool, tool } from "ai"
 import { z } from "zod"
 import { internal } from "../../_generated/api"
 import type { ToolAdapter } from "../toolkit"
@@ -17,17 +17,39 @@ export const MATH_PYTHON_DEPENDENCIES = [
     "pint"
 ] as const
 
-export const getNativeChartTool = ({ enabled }: { enabled: boolean }) => {
+const NATIVE_VISUALIZATION_TOOL_NAMES = new Set([NATIVE_CHART_TOOL_NAME, NATIVE_NETWORK_TOOL_NAME])
+
+export const withStrictNativeVisualizationTools = <T extends Partial<Record<string, Tool>>>(
+    tools: T
+): T =>
+    Object.fromEntries(
+        Object.entries(tools).map(([name, definition]) => [
+            name,
+            definition && NATIVE_VISUALIZATION_TOOL_NAMES.has(name)
+                ? ({ ...definition, strict: true } as Tool)
+                : definition
+        ])
+    ) as T
+
+export const getNativeChartTool = ({
+    enabled,
+    strict = false
+}: {
+    enabled: boolean
+    strict?: boolean
+}) => {
     if (!enabled) return {}
 
     return {
         [NATIVE_CHART_TOOL_NAME]: tool({
+            ...(strict ? { strict: true } : {}),
             description: [
                 "Render a native, interactive chart directly in the conversation.",
                 "This renderer is part of Math Kit, the user-facing name for the mathematical_instruments ability.",
                 "Use this instead of Canvas, Mermaid, HTML, React, ASCII art, or image files whenever a line, bar, area, or scatter chart would help answer the user.",
                 "For sampled mathematical functions and continuous numeric axes, set xScale to linear and provide enough ordered samples for a smooth curve.",
                 "Use concise titles and human-readable series labels. Keep data to the smallest useful set of points.",
+                "Every call must include complete, non-empty series and data arrays. Never send chart metadata first and defer either array to a later call.",
                 "All series values must be numeric or null. Scatter charts require numeric x-axis values.",
                 "Do not call this tool when prose or a small Markdown table communicates the result more clearly."
             ].join("\n"),
@@ -41,11 +63,18 @@ export const getNativeChartTool = ({ enabled }: { enabled: boolean }) => {
     }
 }
 
-export const getNativeNetworkTool = ({ enabled }: { enabled: boolean }) => {
+export const getNativeNetworkTool = ({
+    enabled,
+    strict = false
+}: {
+    enabled: boolean
+    strict?: boolean
+}) => {
     if (!enabled) return {}
 
     return {
         [NATIVE_NETWORK_TOOL_NAME]: tool({
+            ...(strict ? { strict: true } : {}),
             description: [
                 "Render an interactive node-and-edge network directly in the conversation.",
                 "This renderer is part of Math Kit, the user-facing name for the mathematical_instruments ability.",

@@ -228,6 +228,7 @@ Tool routing rules:
 - Answer trivial arithmetic directly. Use \`execute_math\` to verify non-trivial symbolic algebra, numerical methods, statistics, data analysis, units, or graph algorithms.
 - If the user already supplied all chart or network data, call the renderer directly without executing Python first.
 - When computation produces a visualization, call \`execute_math\` first, then pass only the useful computed data to \`render_chart\` or \`render_network\`.
+- Every \`render_chart\` invocation must include complete, non-empty \`series\` and \`data\` arrays in that same invocation. Never send a metadata-only chart call or defer either array to a later call.
 - Use \`execute_code\` instead only for general-purpose JavaScript/Python, arbitrary third-party dependencies, software testing, internet retrieval, or persistent filesystem work. Do not call both executors for the same calculation.
 - Prefer the native renderers over Canvas, Mermaid, HTML, React, ASCII art, Matplotlib images, or other code-generated images whenever the requested visualization fits their contracts.`
         : "Math Kit (internal ability: `mathematical_instruments`) is unavailable with the selected model."

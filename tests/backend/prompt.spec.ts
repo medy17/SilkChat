@@ -36,6 +36,9 @@ describe("buildPrompt", () => {
         expect(enabledPrompt).toContain("the callable tool list is authoritative")
         expect(enabledPrompt).toContain("Use `execute_code` instead only for general-purpose")
         expect(enabledPrompt).toContain("Do not call both executors for the same calculation")
+        expect(enabledPrompt).toContain(
+            "Every `render_chart` invocation must include complete, non-empty `series` and `data` arrays"
+        )
         expect(enabledPrompt).toContain("Do not use Canvas")
         expect(disabledPrompt).toContain(
             "Math Kit (internal ability: `mathematical_instruments`) is unavailable"
