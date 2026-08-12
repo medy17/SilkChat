@@ -480,34 +480,18 @@ export function VercelIcon(props: SVGProps<SVGSVGElement>) {
 export function OpenRouterIcon(props: SVGProps<SVGSVGElement>) {
     return (
         <svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 512 512"
+            width="1em"
+            height="1em"
+            viewBox="0 0 24 24"
             xmlns="http://www.w3.org/2000/svg"
             className="size-4"
             fill="currentColor"
-            stroke="currentColor"
+            fillRule="evenodd"
             aria-label="Logo"
             {...props}
         >
-            <g clipPath="url(#clip0_205_3)">
-                <path
-                    d="M3 248.945C18 248.945 76 236 106 219C136 202 136 202 198 158C276.497 102.293 332 120.945 423 120.945"
-                    strokeWidth="90"
-                />
-                <path d="M511 121.5L357.25 210.268L357.25 32.7324L511 121.5Z" />
-                <path
-                    d="M0 249C15 249 73 261.945 103 278.945C133 295.945 133 295.945 195 339.945C273.497 395.652 329 377 420 377"
-                    strokeWidth="90"
-                />
-                <path d="M508 376.445L354.25 287.678L354.25 465.213L508 376.445Z" />
-            </g>
             <title style={{ display: "none" }}>OpenRouter</title>
-            <defs>
-                <clipPath id="clip0_205_3">
-                    <rect width="512" height="512" fill="white" />
-                </clipPath>
-            </defs>
+            <path d="M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z" />
         </svg>
     )
 }
