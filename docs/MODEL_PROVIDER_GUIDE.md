@@ -203,6 +203,7 @@ Built-in models following this pattern include:
   - `gemini-3.1-flash-lite-image`
   - `gemini-3-pro-image-preview`
 - xAI:
+  - `grok-4.6`
   - `grok-4.5`
   - `grok-4.3`
   - `grok-4-1-fast`

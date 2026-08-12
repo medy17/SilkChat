@@ -9,6 +9,8 @@
 
 - When writing/modifying UI, always use theme based variables. Do not hardcode radius values, use theme.radius.sm/md/lg/xl. IF YOU HARDCODE, YOUR WORK WILL BE AUTOMATICALLY REJECTED.
 
+- Read [MODEL_PROVIDER_GUIDE.md](docs\MODEL_PROVIDER_GUIDE.md) first when tasked with adding or modifying model entries.
+
 - Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
 
 - Local development uses cloud Convex plus the local image optimizer. The user normally runs:
