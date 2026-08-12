@@ -17,8 +17,8 @@ describe("model favorites", () => {
             "gpt-5.6-sol",
             "claude-sonnet-5",
             "gemini-3.5-flash",
-            "grok-4.5",
-            "deepseek-v4-pro"
+            "grok-4.6",
+            "deepseek-v4-pro-0813"
         ])
     })
 

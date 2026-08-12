@@ -4,6 +4,25 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const DEEPSEEK_MODELS: SharedModel[] = [
     {
+        id: "deepseek-v4-pro-0813",
+        name: "DeepSeek V4 Pro 0813",
+        addedOn: "2026-08-12",
+        shortName: "V4 Pro 0813",
+        shortDescription: "GA V4 Pro checkpoint for deep reasoning, coding, and tool-driven work",
+        description:
+            "DeepSeek V4 Pro 0813 is the general-availability release of DeepSeek's large-scale mixture-of-experts flagship. Its million-token context, optional effort-controlled reasoning, and tool use suit difficult STEM problems, repository-scale coding, and involved workflows that benefit from a deeper pass.",
+        releaseOrder: 20260813,
+        adapters: openRouterTextAdapters("deepseek/deepseek-v4-pro-0813"),
+        abilities: ["reasoning", "function_calling", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 384_000,
+        inputUsdPer1MTokens: 0.435,
+        outputUsdPer1MTokens: 0.87,
+        supportsDisablingReasoning: true,
+        reasoningEfforts: ["off", "low", "high"],
+        developer: "DeepSeek"
+    },
+    {
         id: "deepseek-v4-flash-0731",
         name: "DeepSeek V4 Flash 0731",
         addedOn: "2026-07-31",
@@ -28,9 +47,9 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         addedOn: "2026-04-24",
         shortName: "V4 Pro",
         shortDescription:
-            "Open-weight heavyweight for deep reasoning and long-running coding agents",
+            "Preview V4 Pro release for deep reasoning and long-running coding agents",
         description:
-            "DeepSeek V4 Pro is the heavyweight of the V4 pair: a 1.6-trillion-parameter mixture-of-experts model built to reason through difficult STEM problems, steer coding agents, and keep its footing across million-token projects. It is the one to pick when the problem deserves more thought than haste.",
+            "DeepSeek V4 Pro was the preview release of DeepSeek's large-scale mixture-of-experts flagship, built to reason through difficult STEM problems, steer coding agents, and keep its footing across million-token projects. It remains available for workflows tied to the original checkpoint.",
         releaseOrder: 20251203,
         adapters: openRouterTextAdapters("deepseek/deepseek-v4-pro"),
         abilities: ["reasoning", "function_calling"],

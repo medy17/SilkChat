@@ -2,13 +2,28 @@ import type { SharedModel } from "./types"
 
 export const XAI_MODELS: SharedModel[] = [
     {
+        id: "grok-4.6",
+        name: "Grok 4.6",
+        shortName: "Grok 4.6",
+        shortDescription: "xAI reasoning flagship for coding, knowledge work, and STEM",
+        description:
+            "xAI's latest multimodal reasoning model for coding, knowledge work, and STEM. It combines a 500K-token context with image and file understanding, function calling, structured outputs, and adjustable reasoning effort for demanding analysis and implementation work.",
+        addedOn: "2026-08-12",
+        releaseOrder: 20260810,
+        adapters: ["i3-xai:grok-4.6", "xai:grok-4.6", "openrouter:x-ai/grok-4.6"],
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 500_000,
+        inputUsdPer1MTokens: 2,
+        outputUsdPer1MTokens: 6,
+        customIcon: "xai"
+    },
+    {
         id: "grok-4.5",
         name: "Grok 4.5",
         shortName: "Grok 4.5",
-        shortDescription:
-            "xAI Opus-class model tuned for coding, agentic tasks, and knowledge work",
+        shortDescription: "Previous xAI flagship for coding, agentic tasks, and knowledge work",
         description:
-            "xAI's flagship model built on the 1.5T V9 foundation. Delivers Opus-class reasoning with roughly twice the token efficiency and served at fast-model speeds. Strong multimodal understanding, tool use, and a large context window for complex, long-running conversations.",
+            "xAI's previous-generation flagship built on the 1.5T V9 foundation. It combines multimodal reasoning, tool use, and a 500K-token context for complex coding, knowledge work, and long-running conversations.",
         addedOn: "2026-07-09",
         releaseOrder: 20260709,
         adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.5"],

@@ -4,8 +4,8 @@ import { resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 export const FAVORITES_SECTION_ID = "favorites"
 
 export const DEFAULT_FAVORITE_MODEL_IDS = [
-    "deepseek-v4-pro",
-    "grok-4.5",
+    "deepseek-v4-pro-0813",
+    "grok-4.6",
     "gemini-3.5-flash",
     "claude-sonnet-5",
     "gpt-5.6-sol",
