@@ -203,7 +203,6 @@ Built-in models following this pattern include:
   - `gemini-3.1-flash-lite-image`
   - `gemini-3-pro-image-preview`
 - xAI:
-  - `grok-4.6`
   - `grok-4.5`
   - `grok-4.3`
   - `grok-4-1-fast`
@@ -254,6 +253,11 @@ Don't define the model by its predecessor or competitors. Describe it on its own
 
 **6. Never cite evals or scores.**
 The UI already renders benchmarks visually. Repeating numbers is redundant and wastes your character budget.
+
+**7. Updating nearby models**
+When a new model is released, the tenses in the descriptions of the lab's previous releases may need to be updated so check them.
+E.g. If adding GPT 6.7 Ultra, 6.6 Ultra may need to be changed from "OpenAI's latest flagship model for multi-agentic workflows" to "OpenAI's previous generation flagship for multi-agentic workflows."
+The idea is for descriptions to not contradict each other or clash.
 
 
 **7. Length**
