@@ -45,6 +45,22 @@ describe("buildPrompt", () => {
         )
     })
 
+    it("routes electrical work through native schematics and bounded analysis", () => {
+        const enabledPrompt = buildPrompt({ enabledTools: ["electrical_engineering"] })
+        const disabledPrompt = buildPrompt({ enabledTools: [] })
+
+        expect(enabledPrompt).toContain("`analyze_circuit`")
+        expect(enabledPrompt).toContain("`render_schematic`")
+        expect(enabledPrompt).toContain("`render_electrical_plot`")
+        expect(enabledPrompt).toContain("A renderable component is not necessarily analyzable")
+        expect(enabledPrompt).toContain("Use node `0` for ground")
+        expect(enabledPrompt).toContain("never numeric strings")
+        expect(enabledPrompt).toContain("correct the reported paths")
+        expect(disabledPrompt).toContain(
+            "Electrical Engineering Toolkit (internal ability: `electrical_engineering`) is unavailable"
+        )
+    })
+
     it("appends saved user customization when present", () => {
         const prompt = buildPrompt({
             enabledTools: [],
@@ -143,6 +159,7 @@ describe("buildPrompt", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
+                electrical_engineering: { enabled: true, fundingSource: "none" },
                 supermemory: { enabled: false, fundingSource: "none" },
                 mcp: { enabled: false, fundingSource: "none" }
             },
@@ -166,6 +183,7 @@ describe("buildPrompt", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
+                electrical_engineering: { enabled: true, fundingSource: "none" },
                 supermemory: { enabled: true, fundingSource: "byok" },
                 mcp: { enabled: true, fundingSource: "byok" }
             },

@@ -1,3 +1,4 @@
+import { analyzeCircuitInputSchema } from "@/lib/electrical-engineering"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { type Tool, tool } from "ai"
 import type { ResolvedToolAvailabilityMap } from "./availability"
@@ -32,6 +33,13 @@ const BLOCKED_BUILTIN_TOOLS: Record<string, BlockedBuiltinTool> = {
         description:
             "Execute JavaScript or Python. This tool is currently blocked; calling it records the proposed execution but runs no code.",
         inputSchema: codeExecutionInputSchema
+    },
+    analyze_circuit: {
+        ability: "electrical_engineering",
+        label: "Circuit analysis",
+        description:
+            "Analyze a linear electrical circuit. This tool is currently blocked; calling it records the proposed analysis but performs no computation.",
+        inputSchema: analyzeCircuitInputSchema
     },
     get_memory_profile: {
         ability: "supermemory",
@@ -83,10 +91,15 @@ export const resolveBlockedBuiltinToolReasons = ({
 }): Partial<Record<AbilityId, BlockedToolReason>> => {
     const reasons: Partial<Record<AbilityId, BlockedToolReason>> = {}
 
-    for (const ability of ["web_search", "code_execution", "supermemory"] as const) {
+    for (const ability of [
+        "web_search",
+        "code_execution",
+        "electrical_engineering",
+        "supermemory"
+    ] as const) {
         if (callableTools.includes(ability)) continue
 
-        if (ability === "code_execution" && isAnonymous) {
+        if ((ability === "code_execution" || ability === "electrical_engineering") && isAnonymous) {
             reasons[ability] = "auth_required"
         } else if (!toolAvailability[ability]?.enabled) {
             reasons[ability] =

@@ -61,6 +61,7 @@ import {
     sanitizeEnabledTools
 } from "../lib/toolkit"
 import { getBlockedBuiltinTools, resolveBlockedBuiltinToolReasons } from "../lib/tools/blocked"
+import { withStrictElectricalTools } from "../lib/tools/electrical_engineering"
 import {
     PREPARE_IMAGE_GENERATION_TOOL_NAME,
     getPrepareImageGenerationTool
@@ -969,6 +970,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
         if (toolName === "render_chart" || toolName === "render_network") {
             return toolAvailability.mathematical_instruments.fundingSource
         }
+        if (toolName === "analyze_circuit") {
+            return toolAvailability.code_execution.fundingSource
+        }
+        if (toolName === "render_schematic" || toolName === "render_electrical_plot") {
+            return toolAvailability.electrical_engineering.fundingSource
+        }
         return "byok"
     }
     const hasPaidCallableTools = callableEnabledTools.length > 0
@@ -1003,6 +1010,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
         callableEnabledTools.includes("mathematical_instruments") &&
         toolAvailability.code_execution.fundingSource === "deployment"
             ? getConfiguredToolUsageMicrousd("execute_math")
+            : 0,
+        callableEnabledTools.includes("electrical_engineering") &&
+        toolAvailability.code_execution.fundingSource === "deployment"
+            ? getConfiguredToolUsageMicrousd("analyze_circuit")
             : 0
     ]
     const reservedToolMicrousd = hasPaidCallableTools
@@ -1733,7 +1744,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 : {}
             const providerPaidTools =
                 displayProvider === "xai"
-                    ? withStrictNativeVisualizationTools(paidTools)
+                    ? withStrictElectricalTools(withStrictNativeVisualizationTools(paidTools))
                     : paidTools
             const internalTools = getPrepareImageGenerationTool({
                 enabled: hasInternalImagePreparationTool,

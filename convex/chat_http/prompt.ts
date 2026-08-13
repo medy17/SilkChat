@@ -99,7 +99,12 @@ export const buildCapabilityContext = ({
     const addToolLimit = (tool: AbilityId, label: string, unavailableReason: string) => {
         if (enabledTools.includes(tool)) return
 
-        if ((tool === "code_execution" || tool === "mathematical_instruments") && isAnonymous) {
+        if (
+            (tool === "code_execution" ||
+                tool === "mathematical_instruments" ||
+                tool === "electrical_engineering") &&
+            isAnonymous
+        ) {
             limits.push(
                 `- ${label}: unavailable in anonymous chats. The user must sign in before it can be enabled; you cannot use it in this chat.`
             )
@@ -134,6 +139,11 @@ export const buildCapabilityContext = ({
             "unavailable because SilkChat has no sandbox backend configured. Do not ask the user to toggle it; it cannot be used until an administrator configures the deployment."
         )
         addToolLimit("mathematical_instruments", "Math Kit", "unavailable in this deployment.")
+        addToolLimit(
+            "electrical_engineering",
+            "Electrical Engineering Toolkit",
+            "unavailable in this deployment."
+        )
         addToolLimit(
             "supermemory",
             "Memory",
@@ -171,6 +181,7 @@ export const buildPrompt = ({
     const hasWebSearch = enabledTools.includes("web_search")
     const hasCodeExecution = enabledTools.includes("code_execution")
     const hasMathematicalInstruments = enabledTools.includes("mathematical_instruments")
+    const hasElectricalEngineering = enabledTools.includes("electrical_engineering")
     const hasSupermemory = enabledTools.includes("supermemory")
     const hasMCP = enabledTools.includes("mcp")
 
@@ -232,6 +243,26 @@ Tool routing rules:
 - Use \`execute_code\` instead only for general-purpose JavaScript/Python, arbitrary third-party dependencies, software testing, internet retrieval, or persistent filesystem work. Do not call both executors for the same calculation.
 - Prefer the native renderers over Canvas, Mermaid, HTML, React, ASCII art, Matplotlib images, or other code-generated images whenever the requested visualization fits their contracts.`
         : "Math Kit (internal ability: `mathematical_instruments`) is unavailable with the selected model."
+}
+
+## Electrical Engineering Toolkit (internal ability: \`electrical_engineering\`)
+${
+    hasElectricalEngineering
+        ? dedent`
+The Electrical Engineering Toolkit is enabled. Its tools have separate jobs:
+- \`analyze_circuit\`: performs deterministic, unit-aware linear circuit analysis when it appears in the callable tool list. It supports DC operating points, AC points and sweeps, transfer functions, and Thevenin/Norton equivalents for RLC circuits with independent sources.
+- \`render_schematic\`: draws a native electrical schematic from components and node connections. It performs layout but does not solve the circuit.
+- \`render_electrical_plot\`: renders complete numeric waveform, phasor, or Bode data using electrical conventions. It does not evaluate formulas.
+
+Routing rules:
+- Use \`render_schematic\` instead of Mermaid, ASCII art, Canvas, HTML, React, Circuitikz, or an image whenever its component contract fits.
+- Use \`analyze_circuit\` rather than writing solver code for supported linear circuits. The callable tool list is authoritative; schematic rendering can remain available when analysis is not.
+- A renderable component is not necessarily analyzable. Never claim nonlinear simulation for diodes, LEDs, transistors, MOSFETs, non-ideal op-amps, or arbitrary SPICE models.
+- Use node \`0\` for ground. Component current is positive from the first declared node to the second.
+- Every quantity must include units. Every renderer call must contain its complete data in that invocation.
+- Treat each tool schema as an exact contract: preserve required field nesting and JSON types. In waveform \`data\`, \`x\` and every declared series value must be unquoted JSON numbers or \`null\`, never numeric strings. If validation fails, correct the reported paths rather than repeating the same payload.
+- When a solved circuit needs a visual, analyze it first, then pass the circuit or returned plot data to the appropriate renderer.`
+        : "The Electrical Engineering Toolkit (internal ability: `electrical_engineering`) is unavailable with the selected model."
 }
 
 ## Canvas Tool

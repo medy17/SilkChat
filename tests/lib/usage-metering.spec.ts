@@ -31,6 +31,7 @@ describe("hosted usage metering", () => {
         expect(getConfiguredToolUsageMicrousd("web_search")).toBe(5_000)
         expect(getConfiguredToolUsageMicrousd("execute_code")).toBe(5_000)
         expect(getConfiguredToolUsageMicrousd("execute_math")).toBe(5_000)
+        expect(getConfiguredToolUsageMicrousd("analyze_circuit")).toBe(5_000)
 
         process.env.TOOL_USAGE_USD_WEB_SEARCH = "0.01"
         expect(getConfiguredToolUsageMicrousd("web_search")).toBe(10_000)

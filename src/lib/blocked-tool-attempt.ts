@@ -78,6 +78,12 @@ const TOOL_PRESENTATION: Record<string, { ability: AbilityId; label: string }> =
     execute_math: { ability: "mathematical_instruments", label: "Math execution" },
     render_chart: { ability: "mathematical_instruments", label: "Chart renderer" },
     render_network: { ability: "mathematical_instruments", label: "Network renderer" },
+    analyze_circuit: { ability: "electrical_engineering", label: "Circuit analysis" },
+    render_schematic: { ability: "electrical_engineering", label: "Schematic renderer" },
+    render_electrical_plot: {
+        ability: "electrical_engineering",
+        label: "Electrical plot renderer"
+    },
     get_memory_profile: { ability: "supermemory", label: "Memory" },
     add_memory: { ability: "supermemory", label: "Memory" },
     update_memory: { ability: "supermemory", label: "Memory" },
@@ -149,6 +155,8 @@ export const getBlockedToolAttempt = (
     if (
         (ability !== "web_search" &&
             ability !== "code_execution" &&
+            ability !== "mathematical_instruments" &&
+            ability !== "electrical_engineering" &&
             ability !== "supermemory" &&
             ability !== "mcp") ||
         typeof reason !== "string" ||

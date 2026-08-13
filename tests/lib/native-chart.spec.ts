@@ -102,6 +102,7 @@ describe("native chart contract", () => {
             web_search: { enabled: false, fundingSource: "none" as const },
             code_execution: { enabled: false, fundingSource: "none" as const },
             mathematical_instruments: { enabled: true, fundingSource: "none" as const },
+            electrical_engineering: { enabled: true, fundingSource: "none" as const },
             supermemory: { enabled: false, fundingSource: "none" as const },
             mcp: { enabled: false, fundingSource: "none" as const }
         }

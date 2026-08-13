@@ -95,10 +95,19 @@ describe("tool availability", () => {
             enabled: true,
             fundingSource: "none"
         })
+        expect(result.electrical_engineering).toEqual({
+            enabled: true,
+            fundingSource: "none"
+        })
     })
 
     it("withholds sandbox-backed tools from anonymous sessions", () => {
-        const tools = ["web_search", "code_execution", "mathematical_instruments"] as const
+        const tools = [
+            "web_search",
+            "code_execution",
+            "mathematical_instruments",
+            "electrical_engineering"
+        ] as const
 
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: true })).toEqual(["web_search"])
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: false })).toEqual(tools)

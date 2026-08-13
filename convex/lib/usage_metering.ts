@@ -83,7 +83,8 @@ export const estimateOpenRouterReservationMicrousd = ({
 const DEFAULT_TOOL_USAGE_USD: Record<string, number> = {
     web_search: 0.005,
     execute_code: 0.005,
-    execute_math: 0.005
+    execute_math: 0.005,
+    analyze_circuit: 0.005
 }
 
 export const getConfiguredToolUsageMicrousd = (toolName: string) => {

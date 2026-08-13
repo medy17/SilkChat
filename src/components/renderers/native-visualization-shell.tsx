@@ -17,11 +17,15 @@ export type NativeVisualizationSize = {
 }
 
 type NativeVisualizationShellProps = {
-    kind: "chart" | "network"
+    kind: "chart" | "network" | "schematic" | "electrical plot"
     title: string
     description?: string
     icon: ReactNode
-    dataAttribute: "data-native-chart" | "data-native-network"
+    dataAttribute:
+        | "data-native-chart"
+        | "data-native-network"
+        | "data-electrical-schematic"
+        | "data-electrical-plot"
     renderVisualization: (expanded: boolean, size?: NativeVisualizationSize) => ReactNode
 }
 

@@ -44,6 +44,10 @@ export const resolveToolAvailability = (
             enabled: true,
             fundingSource: "none"
         },
+        electrical_engineering: {
+            enabled: true,
+            fundingSource: "none"
+        },
         supermemory: {
             enabled: hasSupermemoryByok,
             fundingSource: hasSupermemoryByok ? "byok" : "none"
@@ -69,6 +73,9 @@ export const enforceToolIdentityPolicy = (
 ): AbilityId[] =>
     isAnonymous
         ? enabledTools.filter(
-              (tool) => tool !== "code_execution" && tool !== "mathematical_instruments"
+              (tool) =>
+                  tool !== "code_execution" &&
+                  tool !== "mathematical_instruments" &&
+                  tool !== "electrical_engineering"
           )
         : enabledTools

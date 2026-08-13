@@ -11,6 +11,7 @@ import {
     sanitizeEnabledTools
 } from "./tools/availability"
 import { CodeExecutionAdapter } from "./tools/code_execution"
+import { ElectricalEngineeringAdapter } from "./tools/electrical_engineering"
 import { MCPAdapter } from "./tools/mcp_adapter"
 import { NativeChartAdapter } from "./tools/native_chart"
 import { SupermemoryAdapter } from "./tools/supermemory"
@@ -21,6 +22,7 @@ export const TOOL_ADAPTERS = [
     WebSearchAdapter,
     CodeExecutionAdapter,
     NativeChartAdapter,
+    ElectricalEngineeringAdapter,
     SupermemoryAdapter,
     MCPAdapter
 ]

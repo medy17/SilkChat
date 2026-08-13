@@ -108,6 +108,7 @@ import {
     Check,
     ChevronDown,
     ChevronUp,
+    CircuitBoard,
     Code,
     FileType,
     Globe,
@@ -478,6 +479,7 @@ function MobileOverflowMenu({
     webSearchAvailable,
     codeExecutionAvailable,
     mathematicalInstrumentsAvailable,
+    electricalEngineeringAvailable,
     hasSupermemory,
     mcpServers,
     currentMcpOverrides,
@@ -504,6 +506,7 @@ function MobileOverflowMenu({
     webSearchAvailable: boolean
     codeExecutionAvailable: boolean
     mathematicalInstrumentsAvailable: boolean
+    electricalEngineeringAvailable: boolean
     hasSupermemory: boolean
     mcpServers: Array<{ name: string }>
     currentMcpOverrides: Record<string, boolean>
@@ -527,6 +530,7 @@ function MobileOverflowMenu({
     const webSearchEnabled = enabledTools.includes("web_search")
     const codeExecutionEnabled = enabledTools.includes("code_execution")
     const mathematicalInstrumentsEnabled = enabledTools.includes("mathematical_instruments")
+    const electricalEngineeringEnabled = enabledTools.includes("electrical_engineering")
     const supermemoryEnabled = enabledTools.includes("supermemory")
     const hasMcpServers = mcpServers.length > 0
 
@@ -640,6 +644,30 @@ function MobileOverflowMenu({
                             </MobileMenuIcon>
                             <span className="min-w-0 flex-1 truncate">
                                 Code execution {codeExecutionEnabled ? "enabled" : "disabled"}
+                            </span>
+                        </button>
+                    )}
+
+                    {!isImageModel && (
+                        <button
+                            type="button"
+                            className={cn(
+                                mobileMenuRowClassName,
+                                (!modelSupportsFunctionCalling ||
+                                    !electricalEngineeringAvailable) &&
+                                    "cursor-not-allowed opacity-50"
+                            )}
+                            disabled={
+                                !modelSupportsFunctionCalling || !electricalEngineeringAvailable
+                            }
+                            onClick={() => onToggleTool("electrical_engineering")}
+                        >
+                            <MobileMenuIcon slashed={!electricalEngineeringEnabled}>
+                                <CircuitBoard className="size-4" />
+                            </MobileMenuIcon>
+                            <span className="min-w-0 flex-1 truncate">
+                                Electrical engineering{" "}
+                                {electricalEngineeringEnabled ? "enabled" : "disabled"}
                             </span>
                         </button>
                     )}
@@ -1030,6 +1058,9 @@ export function useComposerToolbarState(threadId?: string) {
     const mathematicalInstrumentsAvailable = Boolean(
         resolvedToolAvailability?.mathematical_instruments?.enabled
     )
+    const electricalEngineeringAvailable = Boolean(
+        resolvedToolAvailability?.electrical_engineering?.enabled
+    )
     const hasSupermemory = Boolean(resolvedToolAvailability?.supermemory.enabled)
     const mcpServers = (resolvedUserSettings.mcpServers || []).filter(
         (server) => server.enabled !== false
@@ -1045,6 +1076,9 @@ export function useComposerToolbarState(threadId?: string) {
         if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) {
             unavailableTools.add("mathematical_instruments")
         }
+        if (!modelSupportsFunctionCalling || !electricalEngineeringAvailable) {
+            unavailableTools.add("electrical_engineering")
+        }
         if (!hasSupermemory) unavailableTools.add("supermemory")
         if (!hasMcpServers) unavailableTools.add("mcp")
 
@@ -1057,6 +1091,7 @@ export function useComposerToolbarState(threadId?: string) {
         webSearchAvailable,
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
+        electricalEngineeringAvailable,
         hasSupermemory,
         hasMcpServers,
         enabledTools,
@@ -1070,6 +1105,7 @@ export function useComposerToolbarState(threadId?: string) {
         webSearchAvailable && enabledTools.includes("web_search"),
         codeExecutionAvailable && enabledTools.includes("code_execution"),
         mathematicalInstrumentsAvailable && enabledTools.includes("mathematical_instruments"),
+        electricalEngineeringAvailable && enabledTools.includes("electrical_engineering"),
         hasSupermemory && enabledTools.includes("supermemory"),
         hasMcpServers && mcpServers.some((server) => currentMcpOverrides[server.name] !== false)
     ].filter(Boolean).length
@@ -1088,6 +1124,12 @@ export function useComposerToolbarState(threadId?: string) {
         if (
             tool === "mathematical_instruments" &&
             (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable)
+        ) {
+            return
+        }
+        if (
+            tool === "electrical_engineering" &&
+            (!modelSupportsFunctionCalling || !electricalEngineeringAvailable)
         ) {
             return
         }
@@ -1171,6 +1213,7 @@ export function useComposerToolbarState(threadId?: string) {
         webSearchAvailable,
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
+        electricalEngineeringAvailable,
         hasSupermemory,
         mcpServers,
         currentMcpOverrides,
@@ -1278,6 +1321,7 @@ export function ComposerMobileMenu({
                 webSearchAvailable={state.webSearchAvailable}
                 codeExecutionAvailable={state.codeExecutionAvailable}
                 mathematicalInstrumentsAvailable={state.mathematicalInstrumentsAvailable}
+                electricalEngineeringAvailable={state.electricalEngineeringAvailable}
                 hasSupermemory={state.hasSupermemory}
                 mcpServers={state.mcpServers}
                 currentMcpOverrides={state.currentMcpOverrides}

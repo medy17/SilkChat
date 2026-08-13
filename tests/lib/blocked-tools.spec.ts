@@ -9,6 +9,7 @@ const available: ResolvedToolAvailabilityMap = {
     web_search: { enabled: true, fundingSource: "deployment" },
     code_execution: { enabled: true, fundingSource: "deployment" },
     mathematical_instruments: { enabled: true, fundingSource: "none" },
+    electrical_engineering: { enabled: true, fundingSource: "none" },
     supermemory: { enabled: true, fundingSource: "byok" },
     mcp: { enabled: false, fundingSource: "none" }
 }
@@ -28,6 +29,7 @@ describe("blocked built-in tools", () => {
         ).toEqual({
             web_search: "user_disabled",
             code_execution: "auth_required",
+            electrical_engineering: "auth_required",
             supermemory: "not_configured"
         })
     })

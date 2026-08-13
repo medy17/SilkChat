@@ -34,7 +34,15 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, Globe, Image, Settings2, Sigma, SquareTerminal } from "lucide-react"
+import {
+    CircleHelp,
+    CircuitBoard,
+    Globe,
+    Image,
+    Settings2,
+    Sigma,
+    SquareTerminal
+} from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -502,6 +510,9 @@ export const ToolSelectorPopover = memo(
         const mathematicalInstrumentsAvailable = Boolean(
             toolAvailability?.mathematical_instruments?.enabled
         )
+        const electricalEngineeringAvailable = Boolean(
+            toolAvailability?.electrical_engineering?.enabled
+        )
         const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
         const imageDefaults = userSettings?.imageGenerationDefaults
@@ -610,6 +621,16 @@ export const ToolSelectorPopover = memo(
             )
         }
 
+        const handleElectricalEngineeringToggle = () => {
+            if (!modelSupportsFunctionCalling || !electricalEngineeringAvailable) return
+
+            onEnabledToolsChange(
+                enabledTools.includes("electrical_engineering")
+                    ? enabledTools.filter((tool) => tool !== "electrical_engineering")
+                    : [...enabledTools, "electrical_engineering"]
+            )
+        }
+
         const handleMcpServerToggle = (serverName: string, enabled: boolean) => {
             if (threadId) {
                 // Set thread-specific override
@@ -628,6 +649,9 @@ export const ToolSelectorPopover = memo(
                 mathematicalInstrumentsAvailable &&
                 enabledTools.includes("mathematical_instruments")
             ) {
+                count++
+            }
+            if (electricalEngineeringAvailable && enabledTools.includes("electrical_engineering")) {
                 count++
             }
             if (supermemoryAvailable && enabledTools.includes("supermemory")) count++
@@ -699,6 +723,24 @@ export const ToolSelectorPopover = memo(
                                             }
                                             onCheckedChange={handleWebSearchToggle}
                                             disabled={webSearchDisabled}
+                                        />
+                                    </CommandItem>
+
+                                    <CommandItem className="flex items-center justify-between p-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <CircuitBoard className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm">Electrical Engineering</span>
+                                        </div>
+                                        <Switch
+                                            checked={
+                                                electricalEngineeringAvailable &&
+                                                enabledTools.includes("electrical_engineering")
+                                            }
+                                            onCheckedChange={handleElectricalEngineeringToggle}
+                                            disabled={
+                                                !modelSupportsFunctionCalling ||
+                                                !electricalEngineeringAvailable
+                                            }
                                         />
                                     </CommandItem>
 

@@ -73,7 +73,10 @@ import {
 import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { BlockedToolCard } from "./renderers/blocked-tool-card"
+import { CircuitAnalysisToolRenderer } from "./renderers/circuit-analysis-tool"
 import { CodeExecutionGroupRenderer } from "./renderers/code-execution-group"
+import { ElectricalPlotToolRenderer } from "./renderers/electrical-plot-tool"
+import { ElectricalSchematicToolRenderer } from "./renderers/electrical-schematic-tool"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
@@ -401,6 +404,12 @@ const PartsRenderer = memo(
                 return <NativeChartToolRenderer toolInvocation={part} />
             case "tool-render_network":
                 return <NativeNetworkToolRenderer toolInvocation={part} />
+            case "tool-analyze_circuit":
+                return <CircuitAnalysisToolRenderer toolInvocation={part} />
+            case "tool-render_schematic":
+                return <ElectricalSchematicToolRenderer toolInvocation={part} />
+            case "tool-render_electrical_plot":
+                return <ElectricalPlotToolRenderer toolInvocation={part} />
             case "tool-prepareImageGeneration":
                 return (
                     <ImageGenerationToolRenderer
