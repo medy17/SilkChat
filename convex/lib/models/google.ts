@@ -22,13 +22,33 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-3.7-flash",
+        name: "Gemini 3.7 Flash",
+        addedOn: "2026-08-13",
+        shortName: "3.7 Flash",
+        shortDescription: "Responsive multimodal model for coding and multi-step reasoning",
+        description:
+            "Google's fast multimodal model for coding, tool use, and complex multi-step reasoning. It pairs responsive generation with reliable problem solving across text, images, audio, video, and files.",
+        developer: "Google",
+        releaseOrder: 20260813,
+        adapters: googleTextAdapters("gemini-3.7-flash"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 0.375,
+        outputUsdPer1MTokens: 1.875,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
+    },
+    {
         id: "gemini-3.6-flash",
         name: "Gemini 3.6 Flash",
         addedOn: "2026-07-21",
         shortName: "3.6 Flash",
         shortDescription: "Fast, capable Gemini model for multimodal reasoning and coding",
         description:
-            "Google's latest high-efficiency multimodal model for responsive reasoning, coding, and agentic workflows. Flash-tier speed with configurable thinking for workloads that need a flexible balance of capability and cost.",
+            "Google's high-efficiency multimodal model for responsive reasoning, coding, and agentic workflows. Flash-tier speed with configurable thinking for workloads that need a flexible balance of capability and cost.",
         developer: "Google",
         releaseOrder: 20260721,
         adapters: googleTextAdapters("gemini-3.6-flash"),
