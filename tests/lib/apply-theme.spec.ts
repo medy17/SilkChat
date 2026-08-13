@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 
-import { USER_MESSAGE_FALLBACKS, applyThemeToElement } from "@/lib/apply-theme"
+import {
+    APP_SURFACE_FALLBACKS,
+    USER_MESSAGE_FALLBACKS,
+    applyThemeToElement
+} from "@/lib/apply-theme"
 import { describe, expect, it } from "vitest"
 
 const createThemeState = (dark: Record<string, string>) => ({
@@ -23,14 +27,8 @@ describe("applyThemeToElement user message color", () => {
             USER_MESSAGE_FALLBACKS.default.dark
         )
 
-        applyThemeToElement(
-            createThemeState({ secondary: "oklch(0.4 0.12 145)" }),
-            root,
-            "dark"
-        )
-        expect(root.style.getPropertyValue("--user-message")).toBe(
-            USER_MESSAGE_FALLBACKS.theme
-        )
+        applyThemeToElement(createThemeState({ secondary: "oklch(0.4 0.12 145)" }), root, "dark")
+        expect(root.style.getPropertyValue("--user-message")).toBe(USER_MESSAGE_FALLBACKS.theme)
     })
 
     it("preserves a theme-provided bubble color", () => {
@@ -47,5 +45,32 @@ describe("applyThemeToElement user message color", () => {
         )
 
         expect(root.style.getPropertyValue("--user-message")).toBe(userMessage)
+    })
+
+    it("resets app-specific surfaces when the next theme does not provide them", () => {
+        const root = document.createElement("div")
+
+        applyThemeToElement(
+            createThemeState({
+                composer: "#2c2631",
+                "code-background": "#1f1a24",
+                "code-foreground": "#d8c3ef",
+                "user-message-foreground": "#f2ebfa"
+            }),
+            root,
+            "dark"
+        )
+        applyThemeToElement(createThemeState({}), root, "dark")
+
+        expect(root.style.getPropertyValue("--composer")).toBe(APP_SURFACE_FALLBACKS.composer.dark)
+        expect(root.style.getPropertyValue("--code-background")).toBe(
+            APP_SURFACE_FALLBACKS["code-background"]
+        )
+        expect(root.style.getPropertyValue("--code-foreground")).toBe(
+            APP_SURFACE_FALLBACKS["code-foreground"]
+        )
+        expect(root.style.getPropertyValue("--user-message-foreground")).toBe(
+            APP_SURFACE_FALLBACKS["user-message-foreground"]
+        )
     })
 })

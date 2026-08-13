@@ -17,6 +17,16 @@ export const USER_MESSAGE_FALLBACKS = {
     }
 } as const
 
+export const APP_SURFACE_FALLBACKS = {
+    "user-message-foreground": "var(--foreground)",
+    composer: {
+        light: "color-mix(in oklab, var(--background) 80%, transparent)",
+        dark: "var(--sidebar)"
+    },
+    "code-background": "var(--background)",
+    "code-foreground": "var(--foreground)"
+} as const
+
 type ApplyThemeOptions = {
     isDefaultTheme?: boolean
 }
@@ -51,6 +61,31 @@ export function applyThemeToElement(
             ? USER_MESSAGE_FALLBACKS.default[resolvedMode]
             : USER_MESSAGE_FALLBACKS.theme)
     element.style.setProperty("--user-message", userMessage)
+
+    element.style.setProperty(
+        "--user-message-foreground",
+        modeVars["user-message-foreground"] ??
+            themeState.cssVars.theme["user-message-foreground"] ??
+            APP_SURFACE_FALLBACKS["user-message-foreground"]
+    )
+    element.style.setProperty(
+        "--composer",
+        modeVars.composer ??
+            themeState.cssVars.theme.composer ??
+            APP_SURFACE_FALLBACKS.composer[resolvedMode]
+    )
+    element.style.setProperty(
+        "--code-background",
+        modeVars["code-background"] ??
+            themeState.cssVars.theme["code-background"] ??
+            APP_SURFACE_FALLBACKS["code-background"]
+    )
+    element.style.setProperty(
+        "--code-foreground",
+        modeVars["code-foreground"] ??
+            themeState.cssVars.theme["code-foreground"] ??
+            APP_SURFACE_FALLBACKS["code-foreground"]
+    )
 
     // Update data attribute for CSS selectors
     element.setAttribute("data-theme", resolvedMode)

@@ -1145,7 +1145,7 @@ const MessageRowComponent = ({
                     message.role === "assistant" && isFirstMessage && "mt-12",
                     message.role === "user" &&
                         !isEditing &&
-                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-foreground",
+                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-user-message-foreground",
                     message.role === "user" && isEditing && "mt-12 ml-auto w-full"
                 )}
             >

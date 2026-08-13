@@ -1,9 +1,9 @@
+import { APP_SURFACE_FALLBACKS, USER_MESSAGE_FALLBACKS } from "@/lib/apply-theme"
 import {
     GOOGLE_THEME_FONT_AXES,
     LOCAL_THEME_FONT_FAMILY_NAMES,
     WEB_SAFE_FONT_FAMILY_NAMES
 } from "@/lib/theme-font-config"
-import { USER_MESSAGE_FALLBACKS } from "@/lib/apply-theme"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 
 export function ThemeScript() {
@@ -14,6 +14,7 @@ export function ThemeScript() {
       const defaultThemePreset = ${JSON.stringify(DEFAULT_THEME_PRESET)};
       const legacyGreenThemePreset = ${JSON.stringify(LEGACY_GREEN_THEME_PRESET)};
       const userMessageFallbacks = ${JSON.stringify(USER_MESSAGE_FALLBACKS)};
+      const appSurfaceFallbacks = ${JSON.stringify(APP_SURFACE_FALLBACKS)};
       const DEFAULT_FONT_AXES = "wght@400";
       const GOOGLE_FONT_AXES = ${JSON.stringify(GOOGLE_THEME_FONT_AXES)};
       const SYSTEM_FONTS = new Set([
@@ -165,7 +166,23 @@ export function ThemeScript() {
           baseStyles?.["user-message"] ||
           (isDefaultTheme
             ? userMessageFallbacks.default[mode]
-            : userMessageFallbacks.theme)
+            : userMessageFallbacks.theme),
+        "user-message-foreground":
+          activeStyles?.["user-message-foreground"] ||
+          baseStyles?.["user-message-foreground"] ||
+          appSurfaceFallbacks["user-message-foreground"],
+        composer:
+          activeStyles?.composer ||
+          baseStyles?.composer ||
+          appSurfaceFallbacks.composer[mode],
+        "code-background":
+          activeStyles?.["code-background"] ||
+          baseStyles?.["code-background"] ||
+          appSurfaceFallbacks["code-background"],
+        "code-foreground":
+          activeStyles?.["code-foreground"] ||
+          baseStyles?.["code-foreground"] ||
+          appSurfaceFallbacks["code-foreground"]
       };
 
       for (const styleName of Object.keys(stylesToApply)) {

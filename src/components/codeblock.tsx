@@ -82,14 +82,14 @@ export const Codeblock = memo(
         if (!children) return null
 
         return isBlockCode ? (
-            <div className="relative mt-1 mb-1 flex flex-col overflow-hidden rounded-lg border border-border bg-background">
+            <div className="relative mt-1 mb-1 flex flex-col overflow-hidden rounded-lg border border-border bg-code-background text-code-foreground">
                 {supportsArtifact ? (
                     <Tabs
                         value={activeTab}
                         onValueChange={(value) => setActiveTab(value as "code" | "preview")}
                         className="gap-0"
                     >
-                        <div className="flex items-center gap-2 rounded-t-md border-border border-b bg-muted px-2 py-1">
+                        <div className="flex items-center gap-2 rounded-t-md border-border border-b bg-code-background px-2 py-1">
                             <span className="pl-2 font-mono text-muted-foreground text-xs">
                                 {language}
                             </span>
@@ -232,7 +232,7 @@ export const Codeblock = memo(
                     </Tabs>
                 ) : (
                     <>
-                        <div className="flex items-center gap-2 rounded-t-md border-border border-b bg-muted px-2 py-1">
+                        <div className="flex items-center gap-2 rounded-t-md border-border border-b bg-code-background px-2 py-1">
                             <span className="pl-2 font-mono text-muted-foreground text-xs">
                                 {language}
                             </span>
