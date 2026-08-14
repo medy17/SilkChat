@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
@@ -57,9 +58,7 @@ import {
     getFileAcceptAttribute,
     getFileTypeInfo,
     isDocumentExtension,
-    isImageMimeType,
-    isSvgExtension,
-    isSvgMimeType
+    isImageMimeType
 } from "@/lib/file_constants"
 import { getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import {
@@ -91,6 +90,7 @@ import {
 } from "@/lib/pasted-text"
 import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
 import { appendQuotedSelection } from "@/lib/quote-selection"
+import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import {
     clearThreadDraft,
@@ -188,8 +188,9 @@ const resolveByokContextHint = (
 interface LocalUploadingFile {
     id: string
     file: File
+    startedAt: number
     progress: number
-    status: "uploading" | "success" | "error"
+    status: "uploading" | "success" | "ready" | "error"
     previewUrl?: string
     error?: string
     abortController: AbortController
@@ -1386,7 +1387,8 @@ export const MultimodalInput = forwardRef<
     )
     const [localUploadingFiles, setLocalUploadingFiles] = useState<LocalUploadingFile[]>([])
     const [documentConversionBatches, setDocumentConversionBatches] = useState(0)
-    const attachmentsBusy = localUploadingFiles.length > 0 || documentConversionBatches > 0
+    const attachmentsBusy =
+        localUploadingFiles.some((file) => file.status !== "error") || documentConversionBatches > 0
     const [dialogFile, setDialogFile] = useState<{
         content: string
         fileName: string
@@ -1794,17 +1796,14 @@ export const MultimodalInput = forwardRef<
                 const largePasteSource = largePasteUploadSourcesRef.current.get(file)
                 let previewUrl: string | undefined
 
-                if (
-                    isImageMimeType(file.type) &&
-                    !isSvgMimeType(file.type) &&
-                    !isSvgExtension(file.name)
-                ) {
+                if (getFileTypeInfo(file.name, file.type).isImage) {
                     previewUrl = URL.createObjectURL(file)
                 }
 
                 return {
                     id,
                     file,
+                    startedAt: Date.now(),
                     progress: 0,
                     status: "uploading" as const,
                     previewUrl,
@@ -1872,13 +1871,28 @@ export const MultimodalInput = forwardRef<
                         }
                     }
 
-                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    const minimumProgressDuration = 500
+                    const remainingProgressDuration = Math.max(
+                        0,
+                        minimumProgressDuration - (Date.now() - localFile.startedAt)
+                    )
+                    if (remainingProgressDuration > 0) {
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, remainingProgressDuration)
+                        )
+                    }
 
                     setLocalUploadingFiles((prev) =>
                         prev.map((f) => (f.id === localFile.id ? { ...f, status: "success" } : f))
                     )
 
                     await new Promise((resolve) => setTimeout(resolve, 500))
+
+                    setLocalUploadingFiles((prev) =>
+                        prev.map((f) => (f.id === localFile.id ? { ...f, status: "ready" } : f))
+                    )
+
+                    await new Promise((resolve) => setTimeout(resolve, 200))
 
                     if (localFile.abortController.signal.aborted) {
                         await deleteFileMutation({ key: result.key }).catch(console.error)
@@ -1927,15 +1941,6 @@ export const MultimodalInput = forwardRef<
                                 : f
                         )
                     )
-
-                    setTimeout(() => {
-                        if (localFile.previewUrl) {
-                            URL.revokeObjectURL(localFile.previewUrl)
-                        }
-                        setLocalUploadingFiles((prev) => {
-                            return prev.filter((f) => f.id !== localFile.id)
-                        })
-                    }, 2000)
                 }
             })
 
@@ -2000,11 +2005,18 @@ export const MultimodalInput = forwardRef<
             delete next[key]
             return next
         })
-        if (key.startsWith("inline-document:")) return
+        if (key.startsWith("inline-document:")) {
+            toast.success("Attachment deleted")
+            return
+        }
 
         deleteFileMutation({ key })
             .then((result) => {
-                if (!result.success) {
+                if (result.success) {
+                    toast.success("Attachment deleted")
+                } else if (result.error === "File not found") {
+                    toast.info("Attachment was already deleted")
+                } else {
                     toast.error(result.error || "Failed to delete attachment")
                 }
             })
@@ -2015,6 +2027,9 @@ export const MultimodalInput = forwardRef<
 
     const handleRemoveUploadingFile = (localFile: LocalUploadingFile) => {
         localFile.abortController.abort()
+        if (localFile.previewUrl) {
+            URL.revokeObjectURL(localFile.previewUrl)
+        }
         setLocalUploadingFiles((current) => current.filter((file) => file.id !== localFile.id))
     }
 
@@ -2093,14 +2108,6 @@ export const MultimodalInput = forwardRef<
         ]
     )
 
-    const formatFileSize = (bytes: number): string => {
-        if (bytes === 0) return "0 Bytes"
-        const k = 1024
-        const sizes = ["Bytes", "KB", "MB", "GB"]
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
-    }
-
     const getFileType = (
         uploadedFile: ExtendedUploadedFile
     ): { isImage: boolean; isCode: boolean; isText: boolean } => {
@@ -2122,6 +2129,7 @@ export const MultimodalInput = forwardRef<
 
     const renderLocalUploadingFile = (localFile: LocalUploadingFile) => {
         const { isImage, isCode } = getFileTypeInfo(localFile.file.name, localFile.file.type)
+        const actionLabel = localFile.status === "error" ? "Remove failed upload" : "Cancel upload"
         const icon =
             localFile.tileKind === "large-paste" ? (
                 <FileText className="size-4 text-primary" />
@@ -2156,40 +2164,48 @@ export const MultimodalInput = forwardRef<
                     className={cn(!isImage && "w-auto min-w-[5rem]")}
                 />
 
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => handleRemoveUploadingFile(localFile)}
-                    title="Remove attachment"
-                    className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
-                    style={{ borderRadius: "var(--radius-xl)" }}
-                >
-                    <X className="size-3.5" />
-                </Button>
+                <Tooltip delayDuration={150}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            onClick={() => handleRemoveUploadingFile(localFile)}
+                            aria-label={actionLabel}
+                            className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                            style={{ borderRadius: "var(--radius-xl)" }}
+                        >
+                            <X className="size-4 md:size-3" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                        <p>{actionLabel}</p>
+                    </TooltipContent>
+                </Tooltip>
             </div>
         )
     }
 
     const renderFilePreview = (uploadedFile: ExtendedUploadedFile) => {
         const content = fileContents[uploadedFile.key]
-        const { isImage } = getFileType(uploadedFile)
+        const fileType = uploadedFile.file?.type || uploadedFile.fileType
+        const { isImage, isSvg } = getFileTypeInfo(uploadedFile.fileName, fileType)
+        const previewUrl = isImage
+            ? isSvg
+                ? getPublicR2AssetUrl(uploadedFile.key)
+                : content
+            : undefined
 
         return (
             <div key={uploadedFile.key} className="group relative">
                 <AttachmentTile
                     fileName={uploadedFile.displayName ?? uploadedFile.fileName}
                     kind={uploadedFile.tileKind ?? "attachment"}
-                    detail={
-                        uploadedFile.fileSize > 0
-                            ? formatFileSize(uploadedFile.fileSize)
-                            : undefined
-                    }
                     icon={getFileIcon(uploadedFile)}
-                    previewUrl={content && isImage ? content : undefined}
+                    previewUrl={previewUrl}
                     onClick={() => {
                         setDialogFile({
-                            content,
+                            content: previewUrl ?? content,
                             fileName: uploadedFile.fileName,
                             fileType: uploadedFile.fileType
                         })
@@ -2206,23 +2222,30 @@ export const MultimodalInput = forwardRef<
                             </button>
                         ) : undefined
                     }
-                    className={cn(!(content && isImage) && "w-auto min-w-[5rem]")}
+                    className={cn(!previewUrl && "w-auto min-w-[5rem]")}
                 />
 
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveFile(uploadedFile.key)
-                    }}
-                    title="Remove attachment"
-                    className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
-                    style={{ borderRadius: "var(--radius-xl)" }}
-                >
-                    <X className="size-3.5" />
-                </Button>
+                <Tooltip delayDuration={150}>
+                    <TooltipTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleRemoveFile(uploadedFile.key)
+                            }}
+                            aria-label="Remove attachment"
+                            className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                            style={{ borderRadius: "var(--radius-xl)" }}
+                        >
+                            <X className="size-4 md:size-3" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                        <p>Remove attachment</p>
+                    </TooltipContent>
+                </Tooltip>
             </div>
         )
     }

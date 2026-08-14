@@ -1,6 +1,7 @@
 import type { AttachmentTileKind } from "@/lib/attachment-tile"
 import { cn } from "@/lib/utils"
-import { Check, FileText, FileType } from "lucide-react"
+import { Check, CircleAlert, FileText, FileType } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import type { ReactNode } from "react"
 
 export type AttachmentTileStatus = "ready" | "uploading" | "success" | "error"
@@ -62,17 +63,12 @@ export const AttachmentTile = ({
     )
 
     const content = previewUrl ? (
-        <>
-            <img
-                src={previewUrl}
-                alt=""
-                className={cn(
-                    "h-full w-full object-cover transition-all",
-                    status === "uploading" && "opacity-40 blur-[2px]"
-                )}
-                style={{ borderRadius: "calc(var(--radius) - 2px)" }}
-            />
-        </>
+        <img
+            src={previewUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            style={{ borderRadius: "calc(var(--radius) - 2px)" }}
+        />
     ) : (
         textContent
     )
@@ -88,8 +84,7 @@ export const AttachmentTile = ({
 
     const mainClasses = cn(
         "flex min-h-12 w-full min-w-0 items-center gap-2 px-3 text-left outline-none",
-        previewUrl && "h-full p-0",
-        status === "uploading" && !previewUrl && "opacity-40 blur-[2px]"
+        previewUrl && "h-full p-0"
     )
     const mainContent = onClick ? (
         <button
@@ -110,46 +105,73 @@ export const AttachmentTile = ({
     return (
         <div className={classes} style={{ borderRadius: "var(--radius)" }}>
             {mainContent}
-            {status === "uploading" && (
-                <div
-                    className={cn(
-                        "absolute inset-x-0 top-0 z-10 flex min-h-12 flex-col items-center justify-center gap-1",
-                        previewUrl ? "bg-black/20 text-white" : "bg-background/50 text-foreground"
-                    )}
-                >
-                    <span
-                        className={cn(
-                            "font-semibold text-[0.625rem] leading-none",
-                            previewUrl && "drop-shadow-md"
-                        )}
+            <AnimatePresence mode="wait">
+                {status === "uploading" || status === "success" ? (
+                    <motion.div
+                        key="upload"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/80 text-foreground backdrop-blur-sm"
                     >
-                        {Math.round(normalizedProgress)}%
-                    </span>
-                    <span
-                        className={cn(
-                            "h-1 overflow-hidden",
-                            previewUrl ? "w-8" : "w-[calc(100%-1.5rem)]",
-                            previewUrl ? "bg-white/30" : "bg-border"
-                        )}
-                        style={{ borderRadius: "var(--radius)" }}
+                        <div className="relative flex h-8 w-full items-center justify-center">
+                            <div
+                                className={cn(
+                                    "absolute inset-x-0 flex flex-col items-center justify-center gap-1 transition-all duration-200 ease-out",
+                                    status === "success"
+                                        ? "scale-95 opacity-0"
+                                        : "scale-100 opacity-100"
+                                )}
+                            >
+                                <span className="font-semibold text-[0.625rem] leading-none">
+                                    {Math.round(normalizedProgress)}%
+                                </span>
+                                <span
+                                    className={cn(
+                                        "h-1 overflow-hidden bg-foreground/30",
+                                        previewUrl ? "w-8" : "w-[calc(100%-1.5rem)]"
+                                    )}
+                                    style={{ borderRadius: "var(--radius)" }}
+                                >
+                                    <motion.span
+                                        className="block h-full bg-foreground"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${normalizedProgress}%` }}
+                                        transition={{ duration: 0.3, ease: "easeOut" }}
+                                        style={{ borderRadius: "var(--radius)" }}
+                                    />
+                                </span>
+                            </div>
+                            <Check
+                                className={cn(
+                                    "absolute size-5 transition-all duration-200 ease-out",
+                                    status === "success"
+                                        ? "scale-100 opacity-100"
+                                        : "scale-95 opacity-0"
+                                )}
+                                aria-hidden="true"
+                            />
+                        </div>
+                    </motion.div>
+                ) : status === "error" ? (
+                    <motion.div
+                        key="error"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm"
                     >
-                        <span
-                            className={cn(
-                                "block h-full transition-all duration-200",
-                                previewUrl ? "bg-white" : "bg-primary"
-                            )}
-                            style={{ width: `${normalizedProgress}%` }}
-                        />
-                    </span>
-                </div>
-            )}
-            {status === "success" && (
-                <div className="absolute inset-x-0 top-0 z-10 flex min-h-12 items-center justify-center bg-black/20">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/90 text-primary-foreground">
-                        <Check className="size-3" />
-                    </span>
-                </div>
-            )}
+                        <span className="flex max-w-[90%] items-center gap-1 bg-destructive/10 px-2 py-1 font-medium text-destructive text-xs">
+                            <CircleAlert className="size-3 shrink-0" />
+                            <span className={cn("truncate", previewUrl && "sr-only")}>
+                                Upload failed
+                            </span>
+                        </span>
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
             {secondaryAction && !previewUrl && (
                 <div className="-mt-1 pb-1 pl-9">{secondaryAction}</div>
             )}

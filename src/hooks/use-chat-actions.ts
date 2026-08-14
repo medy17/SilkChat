@@ -302,12 +302,53 @@ export function useChatActions<TMessage extends UIMessage>({
                 .find((candidate) => candidate.role === "assistant")?.id
 
             if (deletedUrls && deletedUrls.length > 0) {
-                deletedUrls.forEach((url) => {
-                    const key = extractR2KeyFromUrl(url)
-                    if (key) {
-                        deleteFileMutation({ key }).catch(console.error)
-                    }
-                })
+                const deletionKeys = deletedUrls
+                    .map((url) => extractR2KeyFromUrl(url))
+                    .filter((key): key is string => Boolean(key))
+
+                if (deletionKeys.length > 0) {
+                    void Promise.allSettled(
+                        deletionKeys.map((key) => deleteFileMutation({ key }))
+                    ).then((results) => {
+                        let deletedCount = 0
+                        let alreadyDeletedCount = 0
+                        let failedCount = 0
+
+                        for (const result of results) {
+                            if (result.status === "rejected") {
+                                failedCount += 1
+                            } else if (result.value?.success) {
+                                deletedCount += 1
+                            } else if (result.value?.error === "File not found") {
+                                alreadyDeletedCount += 1
+                            } else {
+                                failedCount += 1
+                            }
+                        }
+
+                        if (deletedCount > 0) {
+                            toast.success(
+                                deletedCount === 1
+                                    ? "Attachment deleted"
+                                    : `${deletedCount} attachments deleted`
+                            )
+                        }
+                        if (alreadyDeletedCount > 0) {
+                            toast.info(
+                                alreadyDeletedCount === 1
+                                    ? "Attachment was already deleted"
+                                    : `${alreadyDeletedCount} attachments were already deleted`
+                            )
+                        }
+                        if (failedCount > 0) {
+                            toast.error(
+                                failedCount === 1
+                                    ? "Failed to delete attachment"
+                                    : `Failed to delete ${failedCount} attachments`
+                            )
+                        }
+                    })
+                }
             }
 
             // Truncate messages and update the edited message

@@ -115,6 +115,7 @@ import { Button } from "./ui/button"
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Loader } from "./ui/loader"
 import { Textarea } from "./ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const extractFileName = (url: string) => {
     if (url.startsWith("data:")) return "Inline file"
@@ -459,7 +460,7 @@ type EditUploadingFile = {
     displayName: string
     tileKind: "attachment" | "large-paste"
     progress: number
-    status: "uploading" | "success" | "error"
+    status: "uploading" | "success" | "ready" | "error"
     previewUrl?: string
     error?: string
 }
@@ -487,6 +488,7 @@ const EditableMessage = memo(
         const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
         const deleteFileMutation = useMutation(api.attachments.deleteFile)
         const fileInputRef = useRef<HTMLInputElement>(null)
+        const activeUploadControllersRef = useRef(new Set<AbortController>())
         const threadId = location.pathname.includes("/thread/")
             ? location.pathname.split("/thread/")[1]?.split("/")[0]
             : undefined
@@ -536,12 +538,18 @@ const EditableMessage = memo(
             editedContent !== textContent ||
             deletedUrls.length > 0 ||
             addedFiles.length > 0 ||
+            uploadingFiles.length > 0 ||
             selectedModel !== initialEditSettingsRef.current.selectedModel ||
             reasoningEffort !== initialEditSettingsRef.current.reasoningEffort ||
             haveToolsChanged
 
         const uploadFile = useCallback(
-            async (file: File, onProgress: (progress: number) => void): Promise<UploadedFile> => {
+            async (
+                file: File,
+                onProgress: (progress: number) => void,
+                onReservationCreated: (key: string) => void,
+                signal: AbortSignal
+            ): Promise<UploadedFile> => {
                 const jwt = await resolveJwtToken(token)
                 if (!jwt) {
                     throw new Error("Authentication token unavailable")
@@ -553,7 +561,9 @@ const EditableMessage = memo(
                     uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
                     policyVersion,
                     onProgress,
-                    onPolicyVersionMismatch: invalidateUploadPolicy
+                    onPolicyVersionMismatch: invalidateUploadPolicy,
+                    onReservationCreated,
+                    signal
                 })
             },
             [invalidateUploadPolicy, policyVersion, token]
@@ -601,15 +611,20 @@ const EditableMessage = memo(
 
                 setUploading(true)
                 setUploadingFiles((current) => [...current, ...pendingFiles])
+                const abortController = new AbortController()
+                activeUploadControllersRef.current.add(abortController)
                 const uploaded: UploadedFile[] = []
+                const reservedKeys = new Set<string>()
                 let activeFileId: string | undefined
                 try {
                     for (const pendingFile of pendingFiles) {
+                        abortController.signal.throwIfAborted()
                         activeFileId = pendingFile.id
                         const ingested = await ingestChatAttachment(pendingFile.file, {
                             canReferenceLongTextAttachments:
                                 modelSupportsFunctionCalling && codeExecutionAvailable
                         })
+                        abortController.signal.throwIfAborted()
                         setUploadingFiles((current) =>
                             current.map((file) =>
                                 file.id === pendingFile.id
@@ -643,20 +658,27 @@ const EditableMessage = memo(
                             ingested.file,
                             uploadPolicy
                         )
+                        abortController.signal.throwIfAborted()
                         uploaded.push(
                             finalizeIngestedUpload(
-                                await uploadFile(uploadableFile, (progress) => {
-                                    setUploadingFiles((current) =>
-                                        current.map((file) =>
-                                            file.id === pendingFile.id
-                                                ? { ...file, progress }
-                                                : file
+                                await uploadFile(
+                                    uploadableFile,
+                                    (progress) => {
+                                        setUploadingFiles((current) =>
+                                            current.map((file) =>
+                                                file.id === pendingFile.id
+                                                    ? { ...file, progress }
+                                                    : file
+                                            )
                                         )
-                                    )
-                                }),
+                                    },
+                                    (key) => reservedKeys.add(key),
+                                    abortController.signal
+                                ),
                                 ingested
                             )
                         )
+                        abortController.signal.throwIfAborted()
                         setUploadingFiles((current) =>
                             current.map((file) =>
                                 file.id === pendingFile.id
@@ -666,6 +688,16 @@ const EditableMessage = memo(
                         )
                     }
                     await new Promise((resolve) => setTimeout(resolve, 500))
+                    abortController.signal.throwIfAborted()
+                    setUploadingFiles((current) =>
+                        current.map((file) =>
+                            pendingFiles.some((pending) => pending.id === file.id)
+                                ? { ...file, status: "ready" }
+                                : file
+                        )
+                    )
+                    await new Promise((resolve) => setTimeout(resolve, 200))
+                    abortController.signal.throwIfAborted()
                     setAddedFiles((current) => [...current, ...uploaded])
                     setUploadingFiles((current) =>
                         current.filter(
@@ -676,6 +708,26 @@ const EditableMessage = memo(
                         if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
                     }
                 } catch (error) {
+                    const storedKeys = new Set([
+                        ...reservedKeys,
+                        ...uploaded.filter((file) => !file.inlineDataUrl).map((file) => file.key)
+                    ])
+
+                    if (abortController.signal.aborted) {
+                        void Promise.allSettled(
+                            [...storedKeys].map((key) => deleteFileMutation({ key }))
+                        )
+                        setUploadingFiles((current) =>
+                            current.filter(
+                                (file) => !pendingFiles.some((pending) => pending.id === file.id)
+                            )
+                        )
+                        for (const file of pendingFiles) {
+                            if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
+                        }
+                        return
+                    }
+
                     const errorMessage = error instanceof Error ? error.message : "Upload failed"
                     setUploadingFiles((current) =>
                         current.map((file) =>
@@ -685,9 +737,7 @@ const EditableMessage = memo(
                         )
                     )
                     await Promise.allSettled(
-                        uploaded
-                            .filter((file) => !file.inlineDataUrl)
-                            .map((file) => deleteFileMutation({ key: file.key }))
+                        [...storedKeys].map((key) => deleteFileMutation({ key }))
                     )
                     toast.error(errorMessage)
                     setTimeout(() => {
@@ -701,6 +751,7 @@ const EditableMessage = memo(
                         }
                     }, 2000)
                 } finally {
+                    activeUploadControllersRef.current.delete(abortController)
                     setUploading(false)
                     if (fileInputRef.current) {
                         fileInputRef.current.value = ""
@@ -741,8 +792,26 @@ const EditableMessage = memo(
 
         const removeAddedFile = (file: UploadedFile) => {
             setAddedFiles((current) => current.filter((addedFile) => addedFile.key !== file.key))
-            if (file.inlineDataUrl) return
-            deleteFileMutation({ key: file.key }).catch(console.error)
+            if (file.inlineDataUrl) {
+                toast.success("Attachment deleted")
+                return
+            }
+
+            deleteFileMutation({ key: file.key })
+                .then((result) => {
+                    if (result.success) {
+                        toast.success("Attachment deleted")
+                    } else if (result.error === "File not found") {
+                        toast.info("Attachment was already deleted")
+                    } else {
+                        toast.error(result.error || "Failed to delete attachment")
+                    }
+                })
+                .catch((error) => {
+                    toast.error(
+                        error instanceof Error ? error.message : "Failed to delete attachment"
+                    )
+                })
         }
 
         const handleSave = () => {
@@ -765,10 +834,50 @@ const EditableMessage = memo(
         }
 
         const discardAddedFiles = useCallback(() => {
-            for (const file of addedFiles) {
-                if (file.inlineDataUrl) continue
-                deleteFileMutation({ key: file.key }).catch(console.error)
-            }
+            const storedFiles = addedFiles.filter((file) => !file.inlineDataUrl)
+            if (storedFiles.length === 0) return
+
+            void Promise.allSettled(
+                storedFiles.map((file) => deleteFileMutation({ key: file.key }))
+            ).then((results) => {
+                let deletedCount = 0
+                let alreadyDeletedCount = 0
+                let failedCount = 0
+
+                for (const result of results) {
+                    if (result.status === "rejected") {
+                        failedCount += 1
+                    } else if (result.value?.success) {
+                        deletedCount += 1
+                    } else if (result.value?.error === "File not found") {
+                        alreadyDeletedCount += 1
+                    } else {
+                        failedCount += 1
+                    }
+                }
+
+                if (deletedCount > 0) {
+                    toast.success(
+                        deletedCount === 1
+                            ? "Attachment deleted"
+                            : `${deletedCount} attachments deleted`
+                    )
+                }
+                if (alreadyDeletedCount > 0) {
+                    toast.info(
+                        alreadyDeletedCount === 1
+                            ? "Attachment was already deleted"
+                            : `${alreadyDeletedCount} attachments were already deleted`
+                    )
+                }
+                if (failedCount > 0) {
+                    toast.error(
+                        failedCount === 1
+                            ? "Failed to delete attachment"
+                            : `Failed to delete ${failedCount} attachments`
+                    )
+                }
+            })
         }, [addedFiles, deleteFileMutation])
 
         const restoreInitialEditSettings = useCallback(() => {
@@ -779,13 +888,26 @@ const EditableMessage = memo(
             setReasoningEffort(initialSettings.reasoningEffort)
         }, [setEnabledTools, setReasoningEffort, setSelectedModel])
 
+        const cancelActiveUploads = useCallback(() => {
+            for (const controller of activeUploadControllersRef.current) {
+                controller.abort()
+            }
+        }, [])
+
         const commitCancel = useCallback(() => {
+            cancelActiveUploads()
             if (addedFiles.length > 0) {
                 discardAddedFiles()
             }
             restoreInitialEditSettings()
             onCancel()
-        }, [addedFiles.length, discardAddedFiles, onCancel, restoreInitialEditSettings])
+        }, [
+            addedFiles.length,
+            cancelActiveUploads,
+            discardAddedFiles,
+            onCancel,
+            restoreInitialEditSettings
+        ])
 
         const requestCancel = useCallback(() => {
             if (!hasUnsavedChanges) {
@@ -809,6 +931,8 @@ const EditableMessage = memo(
                 cancelRequestRef.current = null
             }
         }, [cancelRequestRef, requestCancel])
+
+        useEffect(() => cancelActiveUploads, [cancelActiveUploads])
 
         const handleKeyDown = (e: React.KeyboardEvent) => {
             if (matchesSaveMessageEditShortcut(e)) {
@@ -848,6 +972,9 @@ const EditableMessage = memo(
                                 const isCompact = totalAttachmentCount > 1
                                 const filename = part.filename || extractFileName(part.url)
                                 const tileKind = getAttachmentTileKind(part.mediaType)
+                                const actionLabel = isRemoved
+                                    ? "Restore attachment"
+                                    : "Remove attachment from message"
 
                                 const handleToggleRemove = () => {
                                     setDeletedUrls((prev) =>
@@ -902,34 +1029,33 @@ const EditableMessage = memo(
                                             </div>
                                         )}
 
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon"
-                                            onClick={handleToggleRemove}
-                                            title={
-                                                isRemoved
-                                                    ? "Restore attachment"
-                                                    : "Remove attachment from message"
-                                            }
-                                            className={cn(
-                                                "absolute h-6 w-6 opacity-100 shadow-sm transition-opacity md:opacity-0 md:group-hover:opacity-100",
-                                                isRemoved
-                                                    ? "top-1 right-1 bg-background/80 text-foreground"
-                                                    : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground",
-                                                !isRemoved &&
-                                                    (!isCompact && !isImage
-                                                        ? "-translate-y-1/2 top-1/2 right-2"
-                                                        : "top-1 right-1")
-                                            )}
-                                            style={{ borderRadius: "var(--radius-xl)" }}
-                                        >
-                                            {isRemoved ? (
-                                                <RotateCcw className="size-3.5" />
-                                            ) : (
-                                                <X className="size-3.5" />
-                                            )}
-                                        </Button>
+                                        <Tooltip delayDuration={150}>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    onClick={handleToggleRemove}
+                                                    aria-label={actionLabel}
+                                                    className={cn(
+                                                        "-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 opacity-100 shadow-sm transition-opacity md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100",
+                                                        isRemoved
+                                                            ? "bg-background/80 text-foreground"
+                                                            : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground"
+                                                    )}
+                                                    style={{ borderRadius: "var(--radius-xl)" }}
+                                                >
+                                                    {isRemoved ? (
+                                                        <RotateCcw className="size-4 md:size-3" />
+                                                    ) : (
+                                                        <X className="size-4 md:size-3" />
+                                                    )}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">
+                                                <p>{actionLabel}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     </div>
                                 )
                             })}
@@ -981,17 +1107,24 @@ const EditableMessage = memo(
                                             className="h-12"
                                         />
 
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon"
-                                            onClick={() => removeAddedFile(file)}
-                                            title="Remove attachment from message"
-                                            className="absolute top-1 right-1 h-6 w-6 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
-                                            style={{ borderRadius: "var(--radius-xl)" }}
-                                        >
-                                            <X className="size-3.5" />
-                                        </Button>
+                                        <Tooltip delayDuration={150}>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    onClick={() => removeAddedFile(file)}
+                                                    aria-label="Remove attachment from message"
+                                                    className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                                                    style={{ borderRadius: "var(--radius-xl)" }}
+                                                >
+                                                    <X className="size-4 md:size-3" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">
+                                                <p>Remove attachment from message</p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     </div>
                                 )
                             })}

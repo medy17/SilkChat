@@ -183,6 +183,7 @@ export const uploadChatAttachment = async ({
     policyVersion,
     onProgress,
     onPolicyVersionMismatch,
+    onReservationCreated,
     signal
 }: {
     file: File
@@ -191,6 +192,7 @@ export const uploadChatAttachment = async ({
     policyVersion?: string
     onProgress?: (progress: number) => void
     onPolicyVersionMismatch?: (serverPolicyVersion: string) => void
+    onReservationCreated?: (key: string) => void
     signal?: AbortSignal
 }): Promise<UploadedFileWithSource> => {
     const result = await uploadFileDirect({
@@ -201,6 +203,7 @@ export const uploadChatAttachment = async ({
         policyVersion,
         onProgress,
         onPolicyVersionMismatch,
+        onReservationCreated,
         signal
     })
     return { ...result, file }

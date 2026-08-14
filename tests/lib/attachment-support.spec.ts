@@ -74,6 +74,22 @@ describe("getAttachmentValidationError", () => {
         ).toBeNull()
     })
 
+    it("rejects oversized images before adding them to the upload queue", () => {
+        expect(
+            getAttachmentValidationError(
+                {
+                    name: "oversized.png",
+                    mimeType: "image/png",
+                    size: MAX_FILE_SIZE + 1
+                },
+                {
+                    supportsVision: true,
+                    supportsNativePdf: true
+                }
+            )
+        ).toBe("oversized.png: File size exceeds 15MB limit")
+    })
+
     it.each(["report.docx", "slides.pptx", "workbook.xlsx", "notes.odt", "data.ods", "deck.odp"])(
         "accepts browser-convertible document format %s",
         (name) => {

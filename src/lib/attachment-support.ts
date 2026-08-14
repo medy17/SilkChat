@@ -97,11 +97,7 @@ export const getAttachmentValidationError = (
         return `${file.name}: Current model doesn't support PDF files`
     }
 
-    if (
-        !fileTypeInfo.isVisionImage &&
-        typeof file.size === "number" &&
-        file.size > policy.maxFileSize
-    ) {
+    if (typeof file.size === "number" && file.size > policy.maxFileSize) {
         return `${file.name}: File size exceeds ${formatFileSizeLimit(policy.maxFileSize)} limit`
     }
 

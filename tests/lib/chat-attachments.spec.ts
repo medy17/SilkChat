@@ -47,6 +47,7 @@ describe("chat-attachments", () => {
 
     it("sends the cached policy version and reports server version changes", async () => {
         const onPolicyVersionMismatch = vi.fn()
+        const onReservationCreated = vi.fn()
         const fetchMock = vi
             .fn()
             .mockResolvedValueOnce(
@@ -95,7 +96,8 @@ describe("chat-attachments", () => {
                 jwt: "jwt",
                 uploadUrl: "https://example.com/upload",
                 policyVersion: "client-version",
-                onPolicyVersionMismatch
+                onPolicyVersionMismatch,
+                onReservationCreated
             })
         ).resolves.toMatchObject({
             key: "attachments/user-1/file.txt",
@@ -131,5 +133,7 @@ describe("chat-attachments", () => {
         )
         expect(onPolicyVersionMismatch).toHaveBeenCalledTimes(2)
         expect(onPolicyVersionMismatch).toHaveBeenCalledWith("server-version")
+        expect(onReservationCreated).toHaveBeenCalledOnce()
+        expect(onReservationCreated).toHaveBeenCalledWith("attachments/user-1/file.txt")
     })
 })

@@ -23,6 +23,7 @@ type UploadOptions = {
     policyVersion?: string
     onProgress?: (progress: number) => void
     onPolicyVersionMismatch?: (serverPolicyVersion: string) => void
+    onReservationCreated?: (key: string) => void
     signal?: AbortSignal
 }
 
@@ -121,6 +122,7 @@ export const uploadFileDirect = async ({
     policyVersion,
     onProgress,
     onPolicyVersionMismatch,
+    onReservationCreated,
     signal
 }: UploadOptions): Promise<DirectUploadedFile> => {
     assertLocalFileSize(file, purpose)
@@ -143,6 +145,7 @@ export const uploadFileDirect = async ({
         headers: Record<string, string>
         fileType: string
     }
+    onReservationCreated?.(reservation.key)
 
     if (onProgress) {
         await putWithProgress({
