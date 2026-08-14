@@ -1,5 +1,10 @@
 import type { UIMessage } from "ai"
 import type { Infer } from "convex/values"
+import { markLargePasteMediaType } from "../../src/lib/attachment-tile"
+import {
+    createInlineDocumentDataUrl,
+    getClientDocumentContextMetadata
+} from "../../src/lib/document-context"
 import type { Message } from "../schema"
 import type { AIMessage } from "../schema/message"
 import { getPersistedToolError, getPersistedToolErrorText } from "./persisted_tool_error"
@@ -44,6 +49,18 @@ export const backendToUiMessages = (
                         return {
                             type: "reasoning" as const,
                             text: part.reasoning
+                        }
+                    }
+
+                    if (part.type === "text") {
+                        const documentMetadata = getClientDocumentContextMetadata(part.text)
+                        if (documentMetadata) {
+                            return {
+                                type: "file" as const,
+                                filename: documentMetadata.fileName,
+                                mediaType: markLargePasteMediaType("text/markdown"),
+                                url: createInlineDocumentDataUrl(part.text)
+                            }
                         }
                     }
 

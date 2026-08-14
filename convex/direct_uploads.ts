@@ -8,6 +8,7 @@ import {
     formatFileSizeLimit,
     getCorrectMimeType,
     getFileTypeInfo,
+    isDocumentExtension,
     isSupportedFile
 } from "./lib/file_constants"
 import { getUserIdentity } from "./lib/identity"
@@ -87,7 +88,7 @@ export const getDirectUploadPolicy = (request: DirectUploadRequest) => {
             if (fileSize > MAX_FILE_SIZE) {
                 throw new Error(`File size exceeds ${formatFileSizeLimit(MAX_FILE_SIZE)} limit`)
             }
-            if (!isSupportedFile(fileName, fileType)) {
+            if (!isSupportedFile(fileName, fileType) || isDocumentExtension(fileName)) {
                 throw new Error(`Unsupported file type: ${fileName}`)
             }
             return {

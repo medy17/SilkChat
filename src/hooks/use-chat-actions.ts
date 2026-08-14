@@ -6,6 +6,7 @@ import {
     getRetryTargetAssistantConfig,
     resolveAssistantConfigOverride
 } from "@/lib/assistant-config"
+import { getAttachmentTileMediaType } from "@/lib/attachment-tile"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
@@ -144,8 +145,8 @@ export function useChatActions<TMessage extends UIMessage>({
                     ...finalFiles.map((file) => {
                         return {
                             type: "file",
-                            url: getPublicR2AssetUrl(file.key),
-                            mediaType: file.fileType,
+                            url: file.inlineDataUrl ?? getPublicR2AssetUrl(file.key),
+                            mediaType: getAttachmentTileMediaType(file.fileType, file.tileKind),
                             filename: file.fileName
                         } satisfies FileUIPart
                     }),

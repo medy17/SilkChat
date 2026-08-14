@@ -16,6 +16,7 @@ import {
     formatFileSizeLimit,
     getCorrectMimeType,
     getFileTypeInfo,
+    isDocumentExtension,
     isSupportedFile
 } from "./lib/file_constants"
 import type { UploadPolicy } from "./lib/file_constants"
@@ -147,7 +148,7 @@ export const uploadFile = httpAction(async (ctx, request) => {
         }
 
         // Validate file type
-        if (!isSupportedFile(fileName, file.type)) {
+        if (!isSupportedFile(fileName, file.type) || isDocumentExtension(fileName)) {
             return new Response(
                 JSON.stringify({
                     error: `Unsupported file type: ${fileName}`

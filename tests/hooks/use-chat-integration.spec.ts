@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ChatMessage } from "@/lib/chat-store"
+import { createInlineDocumentDataUrl } from "@/lib/document-context"
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -369,6 +370,52 @@ describe("useChatIntegration", () => {
 
         expect(useChatStore.getState().shouldUpdateQuery).toBe(false)
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(false)
+    })
+
+    it("turns a client-converted document tile into model-ready text before sending", async () => {
+        const documentContext =
+            '<file name="week1_IntroductionCAO lecture.pptx" source-format="pptx" converted-by="anydoc-wasm">\n# Week 1\n</file>'
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status: "idle",
+                messages: [],
+                setMessages: vi.fn(),
+                resumeStream: vi.fn()
+            }
+        })
+        nanoidMock.mockReturnValueOnce("client-1").mockReturnValueOnce("assistant-1")
+
+        renderHook(() => useChatIntegration({ threadId: "thread-1" }))
+
+        const sendRequest = (await transportConfigs[0].prepareSendMessagesRequest({
+            body: {},
+            messages: [
+                {
+                    id: "user-1",
+                    role: "user",
+                    parts: [
+                        {
+                            type: "file",
+                            url: createInlineDocumentDataUrl(documentContext),
+                            mediaType: "text/markdown",
+                            filename: "week1_IntroductionCAO lecture.pptx"
+                        },
+                        {
+                            type: "text",
+                            text: "Summarise my week 1 areas of concentration"
+                        }
+                    ]
+                }
+            ]
+        })) as {
+            body: { message: { parts: unknown[] } }
+        }
+
+        expect(sendRequest.body.message.parts).toEqual([
+            { type: "text", text: documentContext },
+            { type: "text", text: "Summarise my week 1 areas of concentration" }
+        ])
     })
 
     it("keeps a first-turn POST marked as direct when its new thread id arrives", async () => {

@@ -163,7 +163,7 @@ export const saveThreadDraft = (draft: ThreadDraft): boolean => {
         // The uploaded object is the durable draft state. Keeping the source paste here can
         // stringify megabytes on every composer edit and can exceed localStorage quotas.
         attachments: draft.attachments.map(
-            ({ pastedText: _pastedText, ...attachment }) => attachment
+            ({ largePasteContent: _largePasteContent, ...attachment }) => attachment
         )
     }
     const existing = registry.drafts[draft.key]

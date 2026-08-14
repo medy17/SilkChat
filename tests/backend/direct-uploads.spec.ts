@@ -101,6 +101,26 @@ describe("direct uploads", () => {
         ).toMatchObject({ contentType: "text/plain" })
     })
 
+    it("rejects raw Office binaries because the browser must convert them first", () => {
+        expect(() =>
+            getDirectUploadPolicy({
+                purpose: "attachment",
+                fileName: "report.docx",
+                fileType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileSize: 4
+            })
+        ).toThrow("Unsupported file type")
+
+        expect(
+            getDirectUploadPolicy({
+                purpose: "attachment",
+                fileName: "report.docx.md",
+                fileType: "text/markdown",
+                fileSize: 4
+            })
+        ).toMatchObject({ contentType: "text/plain" })
+    })
+
     it("reserves one server-generated key with exact signed constraints", async () => {
         r2Mock.createDirectUpload.mockResolvedValue({
             key: "attachments/user-1/key-file.txt",

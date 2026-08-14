@@ -74,6 +74,32 @@ describe("getAttachmentValidationError", () => {
         ).toBeNull()
     })
 
+    it.each(["report.docx", "slides.pptx", "workbook.xlsx", "notes.odt", "data.ods", "deck.odp"])(
+        "accepts browser-convertible document format %s",
+        (name) => {
+            expect(isSupportedFile(name)).toBe(true)
+            expect(
+                getAttachmentValidationError(
+                    { name, size: 1024 },
+                    { supportsVision: false, supportsNativePdf: false }
+                )
+            ).toBeNull()
+        }
+    )
+
+    it.each(["legacy.xls", "macros.xlsm", "binary.xlsb", "slideshow.ppsx", "macros.docm"])(
+        "rejects document format %s when the browser converter does not support it",
+        (name) => {
+            expect(isSupportedFile(name)).toBe(false)
+            expect(
+                getAttachmentValidationError(
+                    { name, size: 1024 },
+                    { supportsVision: false, supportsNativePdf: false }
+                )
+            ).toContain("Unsupported file type")
+        }
+    )
+
     it("uses the configured attachment limits", () => {
         expect(MAX_FILE_SIZE).toBe(15 * 1024 * 1024)
         expect(MAX_ATTACHMENTS_PER_THREAD).toBe(100)

@@ -274,6 +274,57 @@ describe("useChatActions", () => {
         expect(useChatStore.getState().uploadedFiles).toEqual([])
     })
 
+    it("sends a large-paste tile with inline content and preserved tile semantics", () => {
+        const sendMessage = vi.fn()
+        const inlineDataUrl =
+            "data:text/markdown;charset=utf-8,%3Cfile%20converted-by%3D%22anydoc-wasm%22%3Eslides%3C%2Ffile%3E"
+
+        useChatStore.getState().setUploadedFiles([
+            {
+                key: "inline-document:1",
+                fileName: "slides.pptx",
+                fileType: "text/markdown",
+                fileSize: 10,
+                uploadedAt: 1,
+                tileKind: "large-paste",
+                inlineDataUrl
+            }
+        ])
+
+        const { result } = renderHook(() =>
+            useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                fallbackModelId: undefined,
+                chat: {
+                    status: "idle",
+                    sendMessage,
+                    stop: vi.fn(),
+                    messages: [],
+                    setMessages: vi.fn(),
+                    regenerate: vi.fn()
+                }
+            })
+        )
+
+        result.current.handleInputSubmit("summarise")
+
+        expect(sendMessage).toHaveBeenCalledWith({
+            id: "generated-message-id",
+            role: "user",
+            parts: [
+                {
+                    type: "file",
+                    url: inlineDataUrl,
+                    mediaType: "text/markdown;silkchat=large-paste",
+                    filename: "slides.pptx"
+                },
+                { type: "text", text: "summarise" }
+            ]
+        })
+    })
+
     it("waits for the destructive server mutation before regenerating", async () => {
         const setMessages = vi.fn()
         const regenerate = vi.fn()

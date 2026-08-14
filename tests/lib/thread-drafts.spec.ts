@@ -65,7 +65,8 @@ describe("thread drafts", () => {
                 {
                     ...attachment("pasted-file"),
                     source: "pasted-text",
-                    pastedText: "large source".repeat(10_000)
+                    tileKind: "large-paste",
+                    largePasteContent: "large source".repeat(10_000)
                 }
             ],
             updatedAt: 10
@@ -75,7 +76,10 @@ describe("thread drafts", () => {
             key: "pasted-file",
             source: "pasted-text"
         })
-        expect(loadThreadDraft(scope)?.attachments[0]).not.toHaveProperty("pastedText")
+        expect(loadThreadDraft(scope)?.attachments[0]).not.toHaveProperty("largePasteContent")
+        expect(loadThreadDraft(scope)?.attachments[0]).toMatchObject({
+            tileKind: "large-paste"
+        })
     })
 
     it("clears a submitted draft without scheduling its message attachments for deletion", () => {

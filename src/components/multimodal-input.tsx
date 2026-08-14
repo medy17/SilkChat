@@ -1,3 +1,4 @@
+import { AttachmentTile } from "@/components/attachment-tile"
 import { SupermemoryIcon } from "@/components/brand-icons"
 import { IntentGuide } from "@/components/intent-guide"
 import { ModelSelector } from "@/components/model-selector"
@@ -23,9 +24,16 @@ import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import {
+    type AttachmentIngestResult,
+    createInlineIngestedFile,
+    finalizeIngestedUpload,
+    ingestChatAttachment
+} from "@/lib/attachment-ingest"
+import {
     getAttachmentValidationError,
     hasPdfAttachmentInUploadedFiles
 } from "@/lib/attachment-support"
+import type { AttachmentTileKind } from "@/lib/attachment-tile"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
 import {
@@ -48,6 +56,7 @@ import {
     estimateTokenCount,
     getFileAcceptAttribute,
     getFileTypeInfo,
+    isDocumentExtension,
     isImageMimeType,
     isSvgExtension,
     isSvgMimeType
@@ -75,7 +84,6 @@ import {
 } from "@/lib/models-providers-shared"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import {
-    type PastedTextDisposition,
     classifyPastedText,
     getEnabledToolsForPastedText,
     getPastedTextNames,
@@ -109,6 +117,7 @@ import {
     ChevronDown,
     ChevronUp,
     Code,
+    FileText,
     FileType,
     Globe,
     Image as ImageIcon,
@@ -184,15 +193,17 @@ interface LocalUploadingFile {
     previewUrl?: string
     error?: string
     abortController: AbortController
-    pastedText?: string
+    tileKind: AttachmentTileKind
+    largePasteContent?: string
+    largePasteSource?: "pasted-text" | "document"
     displayName?: string
-    contextDelivery?: Exclude<PastedTextDisposition, "inline">
 }
 
-type PastedTextUploadSource = {
-    text: string
+type LargePasteUploadSource = {
+    content: string
     displayName: string
-    contextDelivery: Exclude<PastedTextDisposition, "inline">
+    source: "pasted-text" | "document"
+    ingested?: AttachmentIngestResult
 }
 
 const isPositiveFiniteNumber = (value: unknown): value is number =>
@@ -1365,7 +1376,7 @@ export const MultimodalInput = forwardRef<
     const promptInputRef = useRef<PromptInputRef>(null)
     const composerViewportRef = useRef<HTMLDivElement>(null)
     const pastedTextCounterRef = useRef(0)
-    const pastedTextUploadSourcesRef = useRef(new WeakMap<File, PastedTextUploadSource>())
+    const largePasteUploadSourcesRef = useRef(new WeakMap<File, LargePasteUploadSource>())
     const draftScope = useMemo(() => ({ threadId, folderId }), [folderId, threadId])
     const draftKey = getThreadDraftKey(draftScope)
 
@@ -1374,6 +1385,8 @@ export const MultimodalInput = forwardRef<
         {}
     )
     const [localUploadingFiles, setLocalUploadingFiles] = useState<LocalUploadingFile[]>([])
+    const [documentConversionBatches, setDocumentConversionBatches] = useState(0)
+    const attachmentsBusy = localUploadingFiles.length > 0 || documentConversionBatches > 0
     const [dialogFile, setDialogFile] = useState<{
         content: string
         fileName: string
@@ -1399,8 +1412,8 @@ export const MultimodalInput = forwardRef<
     }
 
     useEffect(() => {
-        setUploading(localUploadingFiles.length > 0)
-    }, [localUploadingFiles.length, setUploading])
+        setUploading(attachmentsBusy)
+    }, [attachmentsBusy, setUploading])
 
     const {
         state: voiceState,
@@ -1440,6 +1453,8 @@ export const MultimodalInput = forwardRef<
             promptInputRef.current?.focus()
             return
         }
+
+        if (attachmentsBusy) return
 
         if (isImageGenerationPending && !imageGenerationGateBypassRef.current) {
             toast.warning("An image is still generating in this chat.", {
@@ -1639,6 +1654,14 @@ export const MultimodalInput = forwardRef<
         }
     }
 
+    const showTextInComposer = useCallback((text: string) => {
+        const currentValue = promptInputRef.current?.getValue() || ""
+        const nextValue = mergePastedTextIntoDraft(currentValue, text)
+        promptInputRef.current?.setValue(nextValue)
+        promptInputRef.current?.focus()
+        setInputValue(nextValue)
+    }, [])
+
     const uploadFileWithProgress = useCallback(
         async (
             file: File,
@@ -1698,9 +1721,77 @@ export const MultimodalInput = forwardRef<
 
             if (validFiles.length === 0) return
 
-            const newLocalFiles = validFiles.map((file) => {
+            const filesReadyForUpload: File[] = []
+            const hasDocuments = validFiles.some((file) => isDocumentExtension(file.name))
+            if (hasDocuments) {
+                setDocumentConversionBatches((current) => current + 1)
+            }
+
+            try {
+                for (const file of validFiles) {
+                    if (!isDocumentExtension(file.name)) {
+                        filesReadyForUpload.push(file)
+                        continue
+                    }
+
+                    try {
+                        const ingested = await ingestChatAttachment(file, {
+                            canReferenceLongTextAttachments:
+                                modelSupportsFunctionCalling && codeExecutionAvailable
+                        })
+                        const decision = ingested.decision
+                        if (!decision || !ingested.content) continue
+
+                        if (ingested.delivery === "inline") {
+                            const inlineFile = createInlineIngestedFile(ingested)
+                            setFileContents((current) => ({
+                                ...current,
+                                [inlineFile.key]: ingested.content!
+                            }))
+                            addUploadedFile(inlineFile)
+                            continue
+                        }
+
+                        const nextEnabledTools = getEnabledToolsForPastedText(
+                            decision,
+                            enabledTools
+                        )
+                        if (nextEnabledTools !== enabledTools) {
+                            setEnabledTools(nextEnabledTools)
+                            toast.info("Code execution enabled for this document")
+                        }
+
+                        largePasteUploadSourcesRef.current.set(ingested.file, {
+                            content: ingested.content,
+                            displayName: ingested.displayName,
+                            source: "document",
+                            ingested
+                        })
+                        filesReadyForUpload.push(ingested.file)
+                    } catch (error) {
+                        toast.error(
+                            error instanceof Error
+                                ? error.message
+                                : `${file.name}: Document conversion failed`
+                        )
+                    }
+                }
+            } finally {
+                if (hasDocuments) {
+                    setDocumentConversionBatches((current) => Math.max(0, current - 1))
+                }
+            }
+
+            if (filesReadyForUpload.length === 0) {
+                if (uploadInputRef.current) {
+                    uploadInputRef.current.value = ""
+                }
+                return
+            }
+
+            const newLocalFiles = filesReadyForUpload.map<LocalUploadingFile>((file) => {
                 const id = Math.random().toString(36).substring(7)
-                const pastedTextSource = pastedTextUploadSourcesRef.current.get(file)
+                const largePasteSource = largePasteUploadSourcesRef.current.get(file)
                 let previewUrl: string | undefined
 
                 if (
@@ -1718,9 +1809,10 @@ export const MultimodalInput = forwardRef<
                     status: "uploading" as const,
                     previewUrl,
                     abortController: new AbortController(),
-                    pastedText: pastedTextSource?.text,
-                    displayName: pastedTextSource?.displayName,
-                    contextDelivery: pastedTextSource?.contextDelivery
+                    tileKind: largePasteSource ? "large-paste" : "attachment",
+                    largePasteContent: largePasteSource?.content,
+                    largePasteSource: largePasteSource?.source,
+                    displayName: largePasteSource?.displayName
                 }
             })
 
@@ -1728,6 +1820,7 @@ export const MultimodalInput = forwardRef<
 
             newLocalFiles.forEach(async (localFile) => {
                 try {
+                    const largePasteSource = largePasteUploadSourcesRef.current.get(localFile.file)
                     const fileToUpload = await prepareChatAttachmentForUpload(
                         localFile.file,
                         uploadPolicy
@@ -1756,7 +1849,9 @@ export const MultimodalInput = forwardRef<
                     )
 
                     if (result.file) {
-                        const content = await readChatAttachmentContent(result.file)
+                        const content =
+                            largePasteSource?.content ??
+                            (await readChatAttachmentContent(result.file))
                         setFileContents((prev) => ({
                             ...prev,
                             [result.key]: content
@@ -1793,15 +1888,17 @@ export const MultimodalInput = forwardRef<
                         return
                     }
 
-                    const uploadedResult: ExtendedUploadedFile = localFile.pastedText
-                        ? {
-                              ...result,
-                              source: "pasted-text",
-                              displayName: localFile.displayName,
-                              contextDelivery: localFile.contextDelivery,
-                              pastedText: localFile.pastedText
-                          }
-                        : result
+                    const uploadedResult: ExtendedUploadedFile = largePasteSource?.ingested
+                        ? finalizeIngestedUpload(result, largePasteSource.ingested)
+                        : largePasteSource
+                          ? {
+                                ...result,
+                                source: "pasted-text",
+                                tileKind: "large-paste",
+                                displayName: largePasteSource.displayName,
+                                largePasteContent: largePasteSource.content
+                            }
+                          : { ...result, tileKind: "attachment" }
 
                     addUploadedFile(uploadedResult)
 
@@ -1849,9 +1946,13 @@ export const MultimodalInput = forwardRef<
         [
             uploadFileWithProgress,
             addUploadedFile,
+            codeExecutionAvailable,
             deleteFileMutation,
+            enabledTools,
+            modelSupportsFunctionCalling,
             modelSupportsVision,
             modelSupportsNativePdf,
+            setEnabledTools,
             uploadPolicy
         ]
     )
@@ -1899,6 +2000,8 @@ export const MultimodalInput = forwardRef<
             delete next[key]
             return next
         })
+        if (key.startsWith("inline-document:")) return
+
         deleteFileMutation({ key })
             .then((result) => {
                 if (!result.success) {
@@ -1915,30 +2018,22 @@ export const MultimodalInput = forwardRef<
         setLocalUploadingFiles((current) => current.filter((file) => file.id !== localFile.id))
     }
 
-    const showPastedTextInComposer = useCallback((pastedText: string) => {
-        const currentValue = promptInputRef.current?.getValue() || ""
-        const nextValue = mergePastedTextIntoDraft(currentValue, pastedText)
-        promptInputRef.current?.setValue(nextValue)
-        promptInputRef.current?.focus()
-        setInputValue(nextValue)
-    }, [])
-
     const handleShowUploadingPastedText = (localFile: LocalUploadingFile) => {
-        if (!localFile.pastedText) return
+        if (!localFile.largePasteContent || localFile.largePasteSource !== "pasted-text") return
 
         localFile.abortController.abort()
         setLocalUploadingFiles((prev) => {
             return prev.filter((file) => file.id !== localFile.id)
         })
-        showPastedTextInComposer(localFile.pastedText)
+        showTextInComposer(localFile.largePasteContent)
     }
 
     const handleShowUploadedPastedText = (uploadedFile: ExtendedUploadedFile) => {
-        const pastedText = uploadedFile.pastedText
-        if (!pastedText) return
+        const pastedText = uploadedFile.largePasteContent
+        if (!pastedText || uploadedFile.source !== "pasted-text") return
 
         handleRemoveFile(uploadedFile.key)
-        showPastedTextInComposer(pastedText)
+        showTextInComposer(pastedText)
     }
 
     const handlePaste = useCallback(
@@ -1982,10 +2077,10 @@ export const MultimodalInput = forwardRef<
             pastedTextCounterRef.current += 1
             const names = getPastedTextNames(pastedTextCounterRef.current)
             const pastedFile = new File([pastedText], names.fileName, { type: "text/plain" })
-            pastedTextUploadSourcesRef.current.set(pastedFile, {
-                text: pastedText,
+            largePasteUploadSourcesRef.current.set(pastedFile, {
+                content: pastedText,
                 displayName: names.displayName,
-                contextDelivery: decision.disposition
+                source: "pasted-text"
             })
             await handleFileUpload([pastedFile])
         },
@@ -2014,6 +2109,10 @@ export const MultimodalInput = forwardRef<
     }
 
     const getFileIcon = (uploadedFile: ExtendedUploadedFile) => {
+        if (uploadedFile.tileKind === "large-paste") {
+            return <FileText className="size-4 text-primary" />
+        }
+
         const { isImage, isCode } = getFileType(uploadedFile)
 
         if (isImage) return <ImageIcon className="size-4 text-blue-500" />
@@ -2023,102 +2122,39 @@ export const MultimodalInput = forwardRef<
 
     const renderLocalUploadingFile = (localFile: LocalUploadingFile) => {
         const { isImage, isCode } = getFileTypeInfo(localFile.file.name, localFile.file.type)
+        const icon =
+            localFile.tileKind === "large-paste" ? (
+                <FileText className="size-4 text-primary" />
+            ) : isCode ? (
+                <Code className="size-4 text-green-500" />
+            ) : (
+                <FileType className="size-4 text-gray-500" />
+            )
 
         return (
             <div key={localFile.id} className="group relative">
-                <div
-                    className={cn(
-                        "relative flex h-12 max-w-[12.5rem] items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-colors",
-                        isImage ? "w-12" : "w-auto min-w-[5rem]",
-                        localFile.pastedText && "h-auto min-h-12 py-1"
-                    )}
-                    style={{ borderRadius: "var(--radius)" }}
-                >
-                    {isImage && localFile.previewUrl ? (
-                        <>
-                            <img
-                                src={localFile.previewUrl}
-                                alt=""
-                                className={cn(
-                                    "h-full w-full object-cover transition-all",
-                                    localFile.status === "uploading" && "opacity-40 blur-[2px]"
-                                )}
-                                style={{ borderRadius: "calc(var(--radius) - 2px)" }}
-                            />
-                            {localFile.status === "uploading" && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/20">
-                                    <span className="font-semibold text-[0.625rem] text-white drop-shadow-md">
-                                        {localFile.progress}%
-                                    </span>
-                                    <div
-                                        className="h-1 w-8 overflow-hidden bg-white/30"
-                                        style={{ borderRadius: "var(--radius)" }}
-                                    >
-                                        <div
-                                            className="h-full bg-white transition-all duration-200"
-                                            style={{ width: `${localFile.progress}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                            {localFile.status === "success" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/90 text-primary-foreground">
-                                        <Check className="size-3" />
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="flex w-full items-center justify-start gap-2 px-2 font-medium text-sm">
-                            <div className="shrink-0">
-                                {isCode ? (
-                                    <Code className="size-4 text-green-500" />
-                                ) : (
-                                    <FileType className="size-4 text-gray-500" />
-                                )}
-                            </div>
-                            <div className="flex min-w-0 flex-col items-start overflow-hidden">
-                                <span className="w-full truncate text-ellipsis text-left">
-                                    {localFile.displayName ?? localFile.file.name}
-                                </span>
-                                {localFile.status === "uploading" ? (
-                                    <div className="mt-1 flex w-full items-center gap-2">
-                                        <div
-                                            className="h-1 flex-1 overflow-hidden bg-border"
-                                            style={{ borderRadius: "var(--radius)" }}
-                                        >
-                                            <div
-                                                className="h-full bg-primary transition-all duration-200"
-                                                style={{
-                                                    width: `${localFile.progress}%`
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ) : localFile.status === "success" ? (
-                                    <div className="mt-0.5 flex items-center gap-1 text-primary text-xs">
-                                        <Check className="size-3" />
-                                        <span>Uploaded</span>
-                                    </div>
-                                ) : (
-                                    <span className="w-full truncate text-left text-destructive text-xs">
-                                        Error
-                                    </span>
-                                )}
-                                {localFile.pastedText && (
-                                    <button
-                                        type="button"
-                                        className="mt-0.5 truncate text-left text-primary text-xs hover:underline"
-                                        onClick={() => handleShowUploadingPastedText(localFile)}
-                                    >
-                                        Show as text
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <AttachmentTile
+                    fileName={localFile.displayName ?? localFile.file.name}
+                    kind={localFile.tileKind}
+                    icon={icon}
+                    status={localFile.status}
+                    progress={localFile.progress}
+                    error={localFile.error}
+                    previewUrl={isImage ? localFile.previewUrl : undefined}
+                    secondaryAction={
+                        localFile.largePasteSource === "pasted-text" &&
+                        localFile.largePasteContent ? (
+                            <button
+                                type="button"
+                                className="mt-0.5 truncate text-left text-primary text-xs hover:underline"
+                                onClick={() => handleShowUploadingPastedText(localFile)}
+                            >
+                                Show as text
+                            </button>
+                        ) : undefined
+                    }
+                    className={cn(!isImage && "w-auto min-w-[5rem]")}
+                />
 
                 <Button
                     type="button"
@@ -2141,57 +2177,37 @@ export const MultimodalInput = forwardRef<
 
         return (
             <div key={uploadedFile.key} className="group relative">
-                <div
-                    className={cn(
-                        "relative flex max-w-[12.5rem] flex-col overflow-hidden border-2 border-border bg-secondary/50 transition-colors hover:bg-secondary/80",
-                        isImage ? "h-12 w-12" : "min-h-12 w-auto"
-                    )}
-                    style={{ borderRadius: "var(--radius)" }}
-                >
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setDialogFile({
-                                content,
-                                fileName: uploadedFile.fileName,
-                                fileType: uploadedFile.fileType
-                            })
-                            setDialogOpen(true)
-                        }}
-                        className="flex h-12 w-full items-center justify-center"
-                    >
-                        {content && isImage ? (
-                            <img
-                                src={content}
-                                alt=""
-                                className="h-full w-full object-cover"
-                                style={{ borderRadius: "calc(var(--radius) - 2px)" }}
-                            />
-                        ) : (
-                            <div className="flex w-full items-center justify-start gap-2 px-2 font-medium text-sm">
-                                <div className="shrink-0">{getFileIcon(uploadedFile)}</div>
-                                <div className="flex min-w-0 flex-col items-start overflow-hidden">
-                                    <span className="w-full truncate text-ellipsis text-left">
-                                        {uploadedFile.displayName ?? uploadedFile.fileName}
-                                    </span>
-                                    <span className="truncate text-ellipsis text-muted-foreground text-xs">
-                                        {formatFileSize(uploadedFile.fileSize)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </button>
-
-                    {uploadedFile.source === "pasted-text" && uploadedFile.pastedText && (
-                        <button
-                            type="button"
-                            onClick={() => handleShowUploadedPastedText(uploadedFile)}
-                            className="max-w-full truncate px-2 pb-1 text-left text-primary text-xs hover:underline"
-                        >
-                            Show as text
-                        </button>
-                    )}
-                </div>
+                <AttachmentTile
+                    fileName={uploadedFile.displayName ?? uploadedFile.fileName}
+                    kind={uploadedFile.tileKind ?? "attachment"}
+                    detail={
+                        uploadedFile.fileSize > 0
+                            ? formatFileSize(uploadedFile.fileSize)
+                            : undefined
+                    }
+                    icon={getFileIcon(uploadedFile)}
+                    previewUrl={content && isImage ? content : undefined}
+                    onClick={() => {
+                        setDialogFile({
+                            content,
+                            fileName: uploadedFile.fileName,
+                            fileType: uploadedFile.fileType
+                        })
+                        setDialogOpen(true)
+                    }}
+                    secondaryAction={
+                        uploadedFile.source === "pasted-text" && uploadedFile.largePasteContent ? (
+                            <button
+                                type="button"
+                                onClick={() => handleShowUploadedPastedText(uploadedFile)}
+                                className="max-w-full truncate text-left text-primary text-xs hover:underline"
+                            >
+                                Show as text
+                            </button>
+                        ) : undefined
+                    }
+                    className={cn(!(content && isImage) && "w-auto min-w-[5rem]")}
+                />
 
                 <Button
                     type="button"

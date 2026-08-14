@@ -1,3 +1,4 @@
+import { createReadStream, statSync } from "node:fs"
 import http from "node:http"
 import path from "node:path"
 import babel from "@rolldown/plugin-babel"
@@ -15,6 +16,11 @@ import {
 } from "./src/lib/local-image-optimizer"
 
 const sandpackSsrStub = path.resolve(__dirname, "./src/lib/sandpack-react-ssr-stub.tsx")
+const anydocWasmDevRoute = "/vendor/anydoc/anydoc_wasm_bg.wasm"
+const anydocWasmPath = path.resolve(
+    __dirname,
+    "./node_modules/@firecrawl/anydoc-wasm/anydoc_wasm_bg.wasm"
+)
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "")
@@ -99,6 +105,33 @@ export default defineConfig(({ mode }) => {
             }
         } satisfies PluginOption)
 
+    const anydocWasmDevPlugin: PluginOption = {
+        name: "anydoc-wasm-dev-asset",
+        apply: "serve",
+        enforce: "pre",
+        configureServer(server) {
+            server.middlewares.use(anydocWasmDevRoute, (req, res, next) => {
+                if (req.method !== "GET" && req.method !== "HEAD") {
+                    next()
+                    return
+                }
+
+                const { size } = statSync(anydocWasmPath)
+                res.statusCode = 200
+                res.setHeader("content-type", "application/wasm")
+                res.setHeader("content-length", String(size))
+                res.setHeader("cache-control", "no-cache")
+
+                if (req.method === "HEAD") {
+                    res.end()
+                    return
+                }
+
+                createReadStream(anydocWasmPath).pipe(res)
+            })
+        }
+    }
+
     return {
         resolve: {
             alias: {
@@ -116,6 +149,7 @@ export default defineConfig(({ mode }) => {
             proxy: Object.keys(proxy).length > 0 ? proxy : undefined
         },
         plugins: [
+            anydocWasmDevPlugin,
             localImageOptimizerPlugin,
             (process.env.ANALYZE && analyzer()) || null,
             {

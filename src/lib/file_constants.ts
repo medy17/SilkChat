@@ -57,6 +57,35 @@ export const SUPPORTED_TEXT_EXTENSIONS = [
     ...SUPPORTED_CODE_EXTENSIONS
 ] as const
 
+// Document formats converted to Markdown in the browser with Anydoc WASM.
+// This includes Microsoft Office, legacy Office containers, OpenDocument,
+// RTF, and EPUB. CSV remains on the ordinary plain-text path.
+export const SUPPORTED_DOCUMENT_EXTENSIONS = [
+    ".doc",
+    ".docx",
+    ".ppt",
+    ".pptx",
+    ".xlsx",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".rtf",
+    ".epub"
+] as const
+
+export const DOCUMENT_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".odt": "application/vnd.oasis.opendocument.text",
+    ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+    ".odp": "application/vnd.oasis.opendocument.presentation",
+    ".rtf": "application/rtf",
+    ".epub": "application/epub+zip"
+}
+
 // Supported raster MIME types for images
 export const SUPPORTED_RASTER_IMAGE_MIME_TYPES = [
     "image/png",
@@ -97,6 +126,7 @@ export const SUPPORTED_TEXT_MIME_TYPES = [
 export const ALL_SUPPORTED_EXTENSIONS = [
     ...SUPPORTED_IMAGE_EXTENSIONS,
     ...SUPPORTED_TEXT_EXTENSIONS,
+    ...SUPPORTED_DOCUMENT_EXTENSIONS,
     ".pdf"
 ] as const
 
@@ -134,6 +164,7 @@ export type UploadPolicy = {
     supportedVectorImageExtensions: readonly string[]
     supportedCodeExtensions: readonly string[]
     supportedPlainTextExtensions: readonly string[]
+    supportedDocumentExtensions: readonly string[]
     supportedRasterImageMimeTypes: readonly string[]
     supportedVectorImageMimeTypes: readonly string[]
     supportedTextMimeTypes: readonly string[]
@@ -153,6 +184,7 @@ export const DEFAULT_UPLOAD_POLICY = {
     supportedVectorImageExtensions: SUPPORTED_VECTOR_IMAGE_EXTENSIONS,
     supportedCodeExtensions: SUPPORTED_CODE_EXTENSIONS,
     supportedPlainTextExtensions: SUPPORTED_PLAIN_TEXT_EXTENSIONS,
+    supportedDocumentExtensions: SUPPORTED_DOCUMENT_EXTENSIONS,
     supportedRasterImageMimeTypes: SUPPORTED_RASTER_IMAGE_MIME_TYPES,
     supportedVectorImageMimeTypes: SUPPORTED_VECTOR_IMAGE_MIME_TYPES,
     supportedTextMimeTypes: SUPPORTED_TEXT_MIME_TYPES,
@@ -208,6 +240,11 @@ export const isTextExtension = (filename: string) => {
     return ext ? (SUPPORTED_TEXT_EXTENSIONS as readonly string[]).includes(ext) : false
 }
 
+export const isDocumentExtension = (filename: string) => {
+    const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0]
+    return ext ? (SUPPORTED_DOCUMENT_EXTENSIONS as readonly string[]).includes(ext) : false
+}
+
 export const isImageMimeType = (mimeType: string) => {
     return (
         mimeType.startsWith("image/") ||
@@ -237,16 +274,17 @@ export const isSupportedFile = (filename: string, mimeType?: string) => {
         filename.toLowerCase().endsWith(".pdf") ||
         mimeType === "application/pdf" ||
         mimeType === "application/x-pdf"
-    return isImage || isText || isPdf
+    return isImage || isText || isPdf || isDocumentExtension(filename)
 }
 
 // Get file accept attribute for input element
 export const getFileAcceptAttribute = (includeImages = true) => {
     const textExtensions = SUPPORTED_TEXT_EXTENSIONS.join(",")
+    const documentExtensions = SUPPORTED_DOCUMENT_EXTENSIONS.join(",")
     if (includeImages) {
-        return `image/*,.pdf,${textExtensions}`
+        return `image/*,.pdf,${textExtensions},${documentExtensions}`
     }
-    return `${textExtensions},.svg`
+    return `${textExtensions},${documentExtensions},.svg`
 }
 
 export const estimateTokenCount = (text: string): number => {
@@ -303,6 +341,8 @@ export interface FileTypeInfo {
     isSvg: boolean
     isCode: boolean
     isText: boolean
+    isDocument: boolean
+    documentFormat?: string
     extension?: string
     isPdf?: boolean
 }
@@ -323,7 +363,15 @@ export const getFileTypeInfo = (filename: string, mimeType?: string) => {
 
     // For text files, extension is more reliable than MIME type
     // (browsers often return application/octet-stream for code files)
-    const isText = isCode || isPlainText || isTextExtension(fileName) || isSvg
+    const isDocument = extension
+        ? (SUPPORTED_DOCUMENT_EXTENSIONS as readonly string[]).includes(extension)
+        : false
+    const isText =
+        isCode ||
+        isPlainText ||
+        isTextExtension(fileName) ||
+        isSvg ||
+        (mimeType ? isTextMimeType(mimeType) : false)
 
     // If not detected by extension, fall back to MIME type for images
     const finalIsImage = isImage || (mimeType ? isImageMimeType(mimeType) : false)
@@ -343,6 +391,8 @@ export const getFileTypeInfo = (filename: string, mimeType?: string) => {
         isSvg,
         isCode,
         isText,
+        isDocument,
+        documentFormat: isDocument ? extension?.slice(1) : undefined,
         extension,
         isPdf
     } satisfies FileTypeInfo
@@ -356,6 +406,10 @@ export const getCorrectMimeType = (filename: string, browserMimeType?: string): 
     // uploads never receive application/x-pdf or application/octet-stream.
     if (fileInfo.isPdf) {
         return "application/pdf"
+    }
+
+    if (fileInfo.isDocument && fileInfo.extension) {
+        return DOCUMENT_MIME_TYPES_BY_EXTENSION[fileInfo.extension] ?? "application/octet-stream"
     }
 
     // If it's an image and browser provided a valid image MIME type, use it

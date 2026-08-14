@@ -4,14 +4,29 @@ import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
+import {
+    createInlineIngestedFile,
+    finalizeIngestedUpload,
+    ingestChatAttachment
+} from "@/lib/attachment-ingest"
 import { getAttachmentValidationError, hasPdfAttachmentInMessages } from "@/lib/attachment-support"
+import {
+    getAttachmentTileKind,
+    getAttachmentTileMediaType,
+    isLargePasteMediaType
+} from "@/lib/attachment-tile"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { getToolFailureAttempt, getToolFailureAttempts } from "@/lib/blocked-tool-attempt"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
-import { getFileAcceptAttribute, getFileTypeInfo, isImageMimeType } from "@/lib/file_constants"
+import {
+    getFileAcceptAttribute,
+    getFileTypeInfo,
+    isDocumentExtension,
+    isImageMimeType
+} from "@/lib/file_constants"
 import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
 import {
     matchesCancelMessageEditShortcut,
@@ -28,6 +43,7 @@ import {
 } from "@/lib/message-render-fingerprint"
 import { getMessageWebSearches } from "@/lib/message-web-searches"
 import { useModelStore } from "@/lib/model-store"
+import { getEnabledToolsForPastedText } from "@/lib/pasted-text"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { isTabularTextFile } from "@/lib/tabular-file-preview"
@@ -38,6 +54,7 @@ import { useMutation } from "convex/react"
 import {
     Code,
     Download,
+    FileText,
     FileType,
     FileType2,
     Image as ImageIcon,
@@ -61,6 +78,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 import { Virtualizer, type VirtualizerHandle } from "virtua"
+import { AttachmentTile } from "./attachment-tile"
 import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -110,6 +128,10 @@ const extractFileName = (url: string) => {
 }
 
 const getFileIcon = (part: { url: string; filename?: string; mediaType?: string }) => {
+    if (isLargePasteMediaType(part.mediaType)) {
+        return <FileText className="size-4 text-primary" />
+    }
+
     const resolvedFileName = part.filename || extractFileName(part.url)
     const { isImage, isCode, isPdf } = getFileTypeInfo(resolvedFileName, part.mediaType)
 
@@ -172,6 +194,7 @@ const FileAttachment = memo(
         const extractedFileName = extractFileName(part.url)
         const fileName = part.filename || extractedFileName
         const { isImage } = getFileTypeInfo(fileName, part.mediaType)
+        const isLargePaste = isLargePasteMediaType(part.mediaType)
         const [imageError, setImageError] = useState(false)
 
         const handleInteraction = () => {
@@ -226,21 +249,12 @@ const FileAttachment = memo(
         }
 
         return (
-            <div
-                className="group relative inline-flex cursor-pointer items-center gap-2 rounded-lg border bg-secondary/50 p-3 transition-colors hover:bg-secondary/80"
-                onClick={handleInteraction}
-                onKeyDown={handleKeyDown}
-                tabIndex={onPreview ? 0 : -1}
-                role={onPreview ? "button" : undefined}
-            >
-                <div className="flex items-center gap-2">
-                    {getFileIcon(part)}
-                    <div className="flex flex-col">
-                        <span className="font-medium text-sm">{fileName}</span>
-                        <span className="text-muted-foreground text-xs">File</span>
-                    </div>
-                </div>
-            </div>
+            <AttachmentTile
+                fileName={fileName}
+                kind={isLargePaste ? "large-paste" : "attachment"}
+                icon={getFileIcon(part)}
+                onClick={onPreview ? handleInteraction : undefined}
+            />
         )
     }
 )
@@ -259,9 +273,29 @@ const CompactAttachment = memo(
     }) => {
         const fileName = part.filename || extractFileName(part.url)
         const { isImage } = getFileTypeInfo(fileName, part.mediaType)
+        const isLargePaste = isLargePasteMediaType(part.mediaType)
         const [imageError, setImageError] = useState(false)
 
         const showImage = isImage && !imageError
+
+        if (!showImage) {
+            return (
+                <AttachmentTile
+                    fileName={fileName}
+                    kind={isLargePaste ? "large-paste" : "attachment"}
+                    detail={isImage ? "Unavailable" : undefined}
+                    icon={
+                        isImage ? (
+                            <ImageIcon className="size-4 text-muted-foreground" />
+                        ) : (
+                            getFileIcon(part)
+                        )
+                    }
+                    onClick={() => onPreview?.()}
+                    className="h-12"
+                />
+            )
+        }
 
         return (
             <button
@@ -282,23 +316,7 @@ const CompactAttachment = memo(
                         style={{ borderRadius: "calc(var(--radius) - 2px)" }}
                         onError={() => setImageError(true)}
                     />
-                ) : (
-                    <div className="flex min-w-0 items-center gap-2 text-foreground">
-                        {isImage ? (
-                            <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
-                        ) : (
-                            getFileIcon(part)
-                        )}
-                        <div className="flex min-w-0 flex-col">
-                            <span className="max-w-[8.5rem] truncate font-medium text-xs">
-                                {fileName}
-                            </span>
-                            <span className="text-muted-foreground text-xs">
-                                {isImage ? "Unavailable" : "File"}
-                            </span>
-                        </div>
-                    </div>
-                )}
+                ) : null}
             </button>
         )
     }
@@ -435,6 +453,17 @@ const PartsRenderer = memo(
 )
 PartsRenderer.displayName = "PartsRenderer"
 
+type EditUploadingFile = {
+    id: string
+    file: File
+    displayName: string
+    tileKind: "attachment" | "large-paste"
+    progress: number
+    status: "uploading" | "success" | "error"
+    previewUrl?: string
+    error?: string
+}
+
 const EditableMessage = memo(
     ({
         message,
@@ -471,7 +500,12 @@ const EditableMessage = memo(
             setReasoningEffort
         } = useModelStore()
         const composerToolbar = useComposerToolbarState(threadId)
-        const { modelSupportsVision, modelSupportsNativePdf } = composerToolbar
+        const {
+            modelSupportsFunctionCalling,
+            modelSupportsVision,
+            modelSupportsNativePdf,
+            codeExecutionAvailable
+        } = composerToolbar
 
         const textContent = message.parts
             .filter((part) => part.type === "text")
@@ -483,6 +517,7 @@ const EditableMessage = memo(
         const [editedContent, setEditedContent] = useState(textContent)
         const [deletedUrls, setDeletedUrls] = useState<string[]>([])
         const [addedFiles, setAddedFiles] = useState<UploadedFile[]>([])
+        const [uploadingFiles, setUploadingFiles] = useState<EditUploadingFile[]>([])
         const [uploading, setUploading] = useState(false)
         const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
         const initialEditSettingsRef = useRef({
@@ -506,7 +541,7 @@ const EditableMessage = memo(
             haveToolsChanged
 
         const uploadFile = useCallback(
-            async (file: File): Promise<UploadedFile> => {
+            async (file: File, onProgress: (progress: number) => void): Promise<UploadedFile> => {
                 const jwt = await resolveJwtToken(token)
                 if (!jwt) {
                     throw new Error("Authentication token unavailable")
@@ -517,6 +552,7 @@ const EditableMessage = memo(
                     jwt,
                     uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
                     policyVersion,
+                    onProgress,
                     onPolicyVersionMismatch: invalidateUploadPolicy
                 })
             },
@@ -550,15 +586,120 @@ const EditableMessage = memo(
                     return
                 }
 
+                const pendingFiles = files.map<EditUploadingFile>((file) => {
+                    const { isImage } = getFileTypeInfo(file.name, file.type)
+                    return {
+                        id: crypto.randomUUID(),
+                        file,
+                        displayName: file.name,
+                        tileKind: isDocumentExtension(file.name) ? "large-paste" : "attachment",
+                        progress: 0,
+                        status: "uploading",
+                        previewUrl: isImage ? URL.createObjectURL(file) : undefined
+                    }
+                })
+
                 setUploading(true)
+                setUploadingFiles((current) => [...current, ...pendingFiles])
+                const uploaded: UploadedFile[] = []
+                let activeFileId: string | undefined
                 try {
-                    const uploadableFiles = await Promise.all(
-                        files.map((file) => prepareChatAttachmentForUpload(file, uploadPolicy))
-                    )
-                    const uploaded = await Promise.all(uploadableFiles.map(uploadFile))
+                    for (const pendingFile of pendingFiles) {
+                        activeFileId = pendingFile.id
+                        const ingested = await ingestChatAttachment(pendingFile.file, {
+                            canReferenceLongTextAttachments:
+                                modelSupportsFunctionCalling && codeExecutionAvailable
+                        })
+                        setUploadingFiles((current) =>
+                            current.map((file) =>
+                                file.id === pendingFile.id
+                                    ? { ...file, displayName: ingested.displayName }
+                                    : file
+                            )
+                        )
+                        if (ingested.decision) {
+                            const nextEnabledTools = getEnabledToolsForPastedText(
+                                ingested.decision,
+                                enabledTools
+                            )
+                            if (nextEnabledTools !== enabledTools) {
+                                setEnabledTools(nextEnabledTools)
+                            }
+                        }
+
+                        if (ingested.delivery === "inline") {
+                            uploaded.push(createInlineIngestedFile(ingested))
+                            setUploadingFiles((current) =>
+                                current.map((file) =>
+                                    file.id === pendingFile.id
+                                        ? { ...file, progress: 100, status: "success" }
+                                        : file
+                                )
+                            )
+                            continue
+                        }
+
+                        const uploadableFile = await prepareChatAttachmentForUpload(
+                            ingested.file,
+                            uploadPolicy
+                        )
+                        uploaded.push(
+                            finalizeIngestedUpload(
+                                await uploadFile(uploadableFile, (progress) => {
+                                    setUploadingFiles((current) =>
+                                        current.map((file) =>
+                                            file.id === pendingFile.id
+                                                ? { ...file, progress }
+                                                : file
+                                        )
+                                    )
+                                }),
+                                ingested
+                            )
+                        )
+                        setUploadingFiles((current) =>
+                            current.map((file) =>
+                                file.id === pendingFile.id
+                                    ? { ...file, progress: 100, status: "success" }
+                                    : file
+                            )
+                        )
+                    }
+                    await new Promise((resolve) => setTimeout(resolve, 500))
                     setAddedFiles((current) => [...current, ...uploaded])
+                    setUploadingFiles((current) =>
+                        current.filter(
+                            (file) => !pendingFiles.some((pending) => pending.id === file.id)
+                        )
+                    )
+                    for (const file of pendingFiles) {
+                        if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
+                    }
                 } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Upload failed")
+                    const errorMessage = error instanceof Error ? error.message : "Upload failed"
+                    setUploadingFiles((current) =>
+                        current.map((file) =>
+                            file.id === activeFileId
+                                ? { ...file, status: "error", error: errorMessage }
+                                : file
+                        )
+                    )
+                    await Promise.allSettled(
+                        uploaded
+                            .filter((file) => !file.inlineDataUrl)
+                            .map((file) => deleteFileMutation({ key: file.key }))
+                    )
+                    toast.error(errorMessage)
+                    setTimeout(() => {
+                        setUploadingFiles((current) =>
+                            current.filter(
+                                (file) => !pendingFiles.some((pending) => pending.id === file.id)
+                            )
+                        )
+                        for (const file of pendingFiles) {
+                            if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
+                        }
+                    }, 2000)
                 } finally {
                     setUploading(false)
                     if (fileInputRef.current) {
@@ -566,7 +707,18 @@ const EditableMessage = memo(
                     }
                 }
             },
-            [modelSupportsNativePdf, modelSupportsVision, uploadFile, uploadPolicy, uploading]
+            [
+                codeExecutionAvailable,
+                deleteFileMutation,
+                enabledTools,
+                modelSupportsFunctionCalling,
+                modelSupportsNativePdf,
+                modelSupportsVision,
+                setEnabledTools,
+                uploadFile,
+                uploadPolicy,
+                uploading
+            ]
         )
 
         const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -589,6 +741,7 @@ const EditableMessage = memo(
 
         const removeAddedFile = (file: UploadedFile) => {
             setAddedFiles((current) => current.filter((addedFile) => addedFile.key !== file.key))
+            if (file.inlineDataUrl) return
             deleteFileMutation({ key: file.key }).catch(console.error)
         }
 
@@ -598,8 +751,8 @@ const EditableMessage = memo(
                 (file) =>
                     ({
                         type: "file",
-                        url: getPublicR2AssetUrl(file.key),
-                        mediaType: file.fileType,
+                        url: file.inlineDataUrl ?? getPublicR2AssetUrl(file.key),
+                        mediaType: getAttachmentTileMediaType(file.fileType, file.tileKind),
                         filename: file.fileName
                     }) satisfies FileUIPart
             )
@@ -613,6 +766,7 @@ const EditableMessage = memo(
 
         const discardAddedFiles = useCallback(() => {
             for (const file of addedFiles) {
+                if (file.inlineDataUrl) continue
                 deleteFileMutation({ key: file.key }).catch(console.error)
             }
         }, [addedFiles, deleteFileMutation])
@@ -667,7 +821,7 @@ const EditableMessage = memo(
             }
         }
 
-        const totalAttachmentCount = fileParts.length + addedFiles.length
+        const totalAttachmentCount = fileParts.length + addedFiles.length + uploadingFiles.length
 
         return (
             <>
@@ -693,6 +847,7 @@ const EditableMessage = memo(
                                 const isRemoved = deletedUrls.includes(part.url)
                                 const isCompact = totalAttachmentCount > 1
                                 const filename = part.filename || extractFileName(part.url)
+                                const tileKind = getAttachmentTileKind(part.mediaType)
 
                                 const handleToggleRemove = () => {
                                     setDeletedUrls((prev) =>
@@ -703,44 +858,42 @@ const EditableMessage = memo(
                                 }
 
                                 return (
-                                    <div
-                                        key={index}
-                                        className={cn(
-                                            "group relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 transition-all hover:bg-secondary/80",
-                                            isCompact || !isImage
-                                                ? "h-12 w-auto min-w-12 max-w-52"
-                                                : "h-auto max-h-64 w-auto max-w-full",
-                                            isImage && isCompact ? "w-12 p-0" : "px-3",
-                                            isRemoved && "opacity-50 grayscale-[50%]"
-                                        )}
-                                        style={{ borderRadius: "var(--radius)" }}
-                                    >
+                                    <div key={index} className="group relative shrink-0">
                                         {isImage ? (
-                                            <img
-                                                src={resolvePublicFileUrl(part.url)}
-                                                alt={filename}
+                                            <div
                                                 className={cn(
-                                                    "object-cover",
+                                                    "flex items-center justify-center overflow-hidden border-2 border-border bg-secondary/50",
                                                     isCompact
-                                                        ? "h-full w-full"
-                                                        : "h-auto max-h-64 w-auto"
+                                                        ? "h-12 w-12"
+                                                        : "h-auto max-h-64 w-auto max-w-full",
+                                                    isRemoved && "opacity-50 grayscale-[50%]"
                                                 )}
-                                                style={{
-                                                    borderRadius: "calc(var(--radius) - 2px)"
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="flex min-w-0 items-center gap-2 text-foreground">
-                                                {getFileIcon(part)}
-                                                <div className="flex min-w-0 flex-col">
-                                                    <span className="max-w-[8.5rem] truncate font-medium text-xs">
-                                                        {filename}
-                                                    </span>
-                                                    <span className="text-muted-foreground text-xs">
-                                                        Existing
-                                                    </span>
-                                                </div>
+                                                style={{ borderRadius: "var(--radius)" }}
+                                            >
+                                                <img
+                                                    src={resolvePublicFileUrl(part.url)}
+                                                    alt={filename}
+                                                    className={cn(
+                                                        "object-cover",
+                                                        isCompact
+                                                            ? "h-full w-full"
+                                                            : "h-auto max-h-64 w-auto"
+                                                    )}
+                                                    style={{
+                                                        borderRadius: "calc(var(--radius) - 2px)"
+                                                    }}
+                                                />
                                             </div>
+                                        ) : (
+                                            <AttachmentTile
+                                                fileName={filename}
+                                                kind={tileKind}
+                                                icon={getFileIcon(part)}
+                                                className={cn(
+                                                    "h-12",
+                                                    isRemoved && "opacity-50 grayscale-[50%]"
+                                                )}
+                                            />
                                         )}
 
                                         {isRemoved && (
@@ -781,41 +934,52 @@ const EditableMessage = memo(
                                 )
                             })}
 
-                            {addedFiles.map((file) => {
-                                const isImage = isImageMimeType(file.fileType)
-
-                                return (
-                                    <div
-                                        key={file.key}
-                                        className="group relative flex h-12 min-w-12 max-w-52 shrink-0 items-center justify-center overflow-hidden border-2 border-border bg-secondary/50 px-3 transition-all hover:bg-secondary/80"
-                                        style={{ borderRadius: "var(--radius)" }}
-                                    >
-                                        <div className="flex min-w-0 items-center gap-2 text-foreground">
-                                            {isImage ? (
-                                                <img
-                                                    src={getPublicR2AssetUrl(file.key)}
-                                                    alt={file.fileName}
-                                                    className="size-8 object-cover"
-                                                    style={{
-                                                        borderRadius: "calc(var(--radius) - 2px)"
-                                                    }}
-                                                />
+                            {uploadingFiles.map((file) => (
+                                <div key={file.id} className="relative shrink-0">
+                                    <AttachmentTile
+                                        fileName={file.displayName}
+                                        kind={file.tileKind}
+                                        icon={
+                                            file.tileKind === "large-paste" ? (
+                                                <FileText className="size-4 text-primary" />
                                             ) : (
                                                 getFileIcon({
-                                                    url: getPublicR2AssetUrl(file.key),
-                                                    filename: file.fileName,
-                                                    mediaType: file.fileType
+                                                    url: "",
+                                                    filename: file.file.name,
+                                                    mediaType: file.file.type
                                                 })
-                                            )}
-                                            <div className="flex min-w-0 flex-col">
-                                                <span className="max-w-[8.5rem] truncate font-medium text-xs">
-                                                    {file.fileName}
-                                                </span>
-                                                <span className="text-muted-foreground text-xs">
-                                                    New
-                                                </span>
-                                            </div>
-                                        </div>
+                                            )
+                                        }
+                                        status={file.status}
+                                        progress={file.progress}
+                                        error={file.error}
+                                        previewUrl={file.previewUrl}
+                                        className={cn(!file.previewUrl && "h-12")}
+                                    />
+                                </div>
+                            ))}
+
+                            {addedFiles.map((file) => {
+                                const isImage = isImageMimeType(file.fileType)
+                                const tileKind = file.tileKind ?? "attachment"
+                                const publicUrl = getPublicR2AssetUrl(file.key)
+
+                                return (
+                                    <div key={file.key} className="group relative shrink-0">
+                                        <AttachmentTile
+                                            fileName={file.displayName ?? file.fileName}
+                                            kind={tileKind}
+                                            icon={getFileIcon({
+                                                url: publicUrl,
+                                                filename: file.fileName,
+                                                mediaType: getAttachmentTileMediaType(
+                                                    file.fileType,
+                                                    tileKind
+                                                )
+                                            })}
+                                            previewUrl={isImage ? publicUrl : undefined}
+                                            className="h-12"
+                                        />
 
                                         <Button
                                             type="button"

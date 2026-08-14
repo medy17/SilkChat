@@ -1,3 +1,4 @@
+import type { AttachmentTileKind } from "@/lib/attachment-tile"
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { create } from "zustand"
@@ -31,10 +32,11 @@ export interface UploadedFile {
     fileType: string
     fileSize: number
     uploadedAt: number
-    source?: "upload" | "pasted-text"
+    source?: "upload" | "pasted-text" | "document"
+    tileKind?: AttachmentTileKind
     displayName?: string
-    contextDelivery?: "url" | "attachment"
-    pastedText?: string
+    largePasteContent?: string
+    inlineDataUrl?: string
 }
 
 export type PersonaSelection =

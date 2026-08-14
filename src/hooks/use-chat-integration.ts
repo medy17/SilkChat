@@ -9,6 +9,7 @@ import { browserEnv } from "@/lib/browser-env"
 import { type ChatMessage, useChatStore } from "@/lib/chat-store"
 import { createChatTransportFetch } from "@/lib/chat-transport-fetch"
 import { getActiveDevContextOverride } from "@/lib/dev-overrides"
+import { decodeInlineDocumentDataUrl } from "@/lib/document-context"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
@@ -41,6 +42,12 @@ const normalizeUserMessageParts = (
         }
 
         if (part.type === "file") {
+            const inlineDocument = decodeInlineDocumentDataUrl(part.url)
+            if (inlineDocument) {
+                normalizedParts.push({ type: "text", text: inlineDocument })
+                return normalizedParts
+            }
+
             normalizedParts.push({
                 type: "file",
                 data: normalizeAttachmentData(part.url),
