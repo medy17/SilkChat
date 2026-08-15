@@ -22,7 +22,7 @@ import { useQuery } from "convex/react"
 import { Check, ChevronDown, Plus, Sparkles } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { nanoid } from "nanoid"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 type PersonaOption = {
@@ -55,6 +55,7 @@ const PERSONA_POPOVER_CONTENT_CLASS =
 const PERSONA_MENU_ITEM_CLASS =
     "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
 const PERSONA_PICKER_REVALIDATION_DELAY_MS = 240
+const PERSONA_TOOLBAR_SAFETY_SPACE_PX = 24
 
 function PersonaSelectItem({ persona }: { persona: PersonaOption }) {
     return (
@@ -77,6 +78,10 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     const isMobile = useIsMobile()
     const [isPickerOpen, setIsPickerOpen] = useState(false)
     const [canRevalidatePickerOptions, setCanRevalidatePickerOptions] = useState(true)
+    const [useShortLabel, setUseShortLabel] = useState(false)
+    const selectorRootRef = useRef<HTMLDivElement>(null)
+    const fullLabelMeasureRef = useRef<HTMLSpanElement>(null)
+    const shortLabelMeasureRef = useRef<HTMLSpanElement>(null)
     const { selectedModel, setSelectedModel } = useModelStore()
     const { selectedPersona, setSelectedPersona, setPendingPersonaOpening } = useChatStore()
     const thread = useQuery(
@@ -146,10 +151,55 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
         [allOptions, selectedPersona]
     )
     const selectedLabel = selectedOption
-        ? isMobile
+        ? isMobile || useShortLabel
             ? selectedOption.shortName
             : selectedOption.name
         : "Default"
+
+    const updateSelectedLabelLength = useCallback(() => {
+        const selectorRoot = selectorRootRef.current
+        const toolbarGroup = selectorRoot?.parentElement
+        const fullLabelWidth = fullLabelMeasureRef.current?.offsetWidth
+        const shortLabelWidth = shortLabelMeasureRef.current?.offsetWidth
+
+        if (!selectedOption || !selectorRoot || !toolbarGroup || !fullLabelWidth) {
+            setUseShortLabel(false)
+            return
+        }
+
+        const toolbarStyle = window.getComputedStyle(toolbarGroup)
+        const gap = Number.parseFloat(toolbarStyle.columnGap || toolbarStyle.gap) || 0
+        const toolbarChildren = Array.from(toolbarGroup.children)
+        const occupiedWidth = toolbarChildren.reduce(
+            (total, child) =>
+                total +
+                (child instanceof HTMLElement
+                    ? child.offsetWidth
+                    : child.getBoundingClientRect().width),
+            gap * Math.max(0, toolbarChildren.length - 1)
+        )
+        const currentLabelWidth =
+            isMobile || useShortLabel ? (shortLabelWidth ?? fullLabelWidth) : fullLabelWidth
+        const fullLabelOccupiedWidth = occupiedWidth + fullLabelWidth - currentLabelWidth
+        const hasRoomForFullLabel =
+            fullLabelOccupiedWidth + PERSONA_TOOLBAR_SAFETY_SPACE_PX <= toolbarGroup.clientWidth
+
+        setUseShortLabel(!hasRoomForFullLabel)
+    }, [isMobile, selectedOption, useShortLabel])
+
+    useLayoutEffect(() => {
+        updateSelectedLabelLength()
+
+        const selectorRoot = selectorRootRef.current
+        const toolbarGroup = selectorRoot?.parentElement
+        if (!toolbarGroup || typeof ResizeObserver === "undefined") return
+
+        const observer = new ResizeObserver(updateSelectedLabelLength)
+        observer.observe(toolbarGroup)
+        for (const child of toolbarGroup.children) observer.observe(child)
+
+        return () => observer.disconnect()
+    }, [updateSelectedLabelLength])
 
     const lockedPersonaName =
         threadId &&
@@ -214,7 +264,16 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
     }
 
     return (
-        <motion.div layout className="shrink-0 overflow-hidden">
+        <motion.div ref={selectorRootRef} layout className="shrink-0 overflow-hidden">
+            {selectedOption && (
+                <span
+                    aria-hidden="true"
+                    className="invisible fixed whitespace-nowrap @3xl:text-sm text-xs"
+                >
+                    <span ref={fullLabelMeasureRef}>{selectedOption.name}</span>
+                    <span ref={shortLabelMeasureRef}>{selectedOption.shortName}</span>
+                </span>
+            )}
             <AnimatePresence initial={false} mode="popLayout">
                 {!threadId ? (
                     <motion.div
@@ -229,7 +288,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                             <PopoverTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex h-8 @3xl:min-w-[13.75rem] min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
+                                    className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
                                     aria-label="Select persona"
                                     title="Select persona"
                                 >
@@ -244,7 +303,7 @@ export function PersonaSelector({ threadId }: { threadId?: string }) {
                                         ) : (
                                             <Sparkles className="size-4 shrink-0" />
                                         )}
-                                        <span className="hidden truncate min-[390px]:block">
+                                        <span className="hidden whitespace-nowrap min-[390px]:block">
                                             {selectedLabel}
                                         </span>
                                     </div>
