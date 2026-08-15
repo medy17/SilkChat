@@ -1,12 +1,9 @@
-import { MCPServersCard } from "@/components/settings/mcp-servers-card"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { SupermemoryCard } from "@/components/settings/supermemory-card"
 import { api } from "@/convex/_generated/api"
-import type { MCPServerConfig } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import type { Infer } from "convex/values"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -60,22 +57,6 @@ export function SearchMemoryToolsSettingsContent() {
         }
     }
 
-    const handleMCPServersUpdate = async (servers: Infer<typeof MCPServerConfig>[]) => {
-        if (!session.user) return
-
-        setIsLoading(true)
-        try {
-            await updateSettings({ mcpServers: servers })
-            toast.success("MCP servers updated")
-        } catch (error) {
-            toast.error("Failed to update MCP servers")
-            console.error(error)
-            throw error
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
     return (
         <div className="space-y-8">
             {/* Supermemory Section */}
@@ -93,13 +74,6 @@ export function SearchMemoryToolsSettingsContent() {
                     loading={isLoading}
                 />
             </div>
-
-            {/* MCP Servers Section */}
-            <MCPServersCard
-                userSettings={userSettings}
-                onSave={handleMCPServersUpdate}
-                loading={isLoading}
-            />
         </div>
     )
 }

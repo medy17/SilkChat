@@ -501,7 +501,7 @@ const EditableMessage = memo(
             reasoningEffort,
             setReasoningEffort
         } = useModelStore()
-        const composerToolbar = useComposerToolbarState(threadId)
+        const composerToolbar = useComposerToolbarState()
         const {
             modelSupportsFunctionCalling,
             modelSupportsVision,

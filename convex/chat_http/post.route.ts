@@ -784,7 +784,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
         targetFromMessageId?: string
         targetMode?: "normal" | "edit" | "retry"
         toolCallLimitFloorOverride?: number
-        mcpOverrides?: Record<string, boolean>
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
@@ -913,19 +912,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
         userId: user.id
     })
-    const filteredSettings = {
-        ...settings,
-        mcpServers: settings.mcpServers?.filter((server: { name: string; enabled?: boolean }) => {
-            if (server.enabled === false) return false
-            const overrideValue = body.mcpOverrides?.[server.name]
-            return overrideValue !== false
-        })
-    }
     const requestedEnabledTools = Array.from(new Set(body.enabledTools))
-    if ((filteredSettings.mcpServers ?? []).length > 0) {
-        requestedEnabledTools.push("mcp")
-    }
-    const toolAvailability = resolveToolAvailability(filteredSettings)
+    const toolAvailability = resolveToolAvailability(settings)
     const resolvedEnabledTools = enforceToolIdentityPolicy(
         sanitizeEnabledTools(requestedEnabledTools, toolAvailability),
         { isAnonymous: user.isAnonymous }
@@ -1696,7 +1684,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
             const usesOpenRouter = modelData.runtimeProvider === "openrouter"
             const paidTools = hasPaidCallableTools
-                ? await getToolkit(ctx, callableEnabledTools, filteredSettings, {
+                ? await getToolkit(ctx, callableEnabledTools, settings, {
                       consumeToolCall: async ({ toolName, toolCallId }) => {
                           const fundingSource = getToolFundingSource(toolName)
                           const toolIsDeploymentFunded = fundingSource === "deployment"

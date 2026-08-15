@@ -58,7 +58,6 @@ describe("buildPrompt", () => {
                 titleGenerationModel: "gemini-3.1-flash-lite",
                 toolCallLimitPerTurn: 3,
                 customThemes: [],
-                mcpServers: [],
                 generalProviders: {
                     supermemory: undefined,
                     firecrawl: undefined,
@@ -143,8 +142,7 @@ describe("buildPrompt", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
-                supermemory: { enabled: false, fundingSource: "none" },
-                mcp: { enabled: false, fundingSource: "none" }
+                supermemory: { enabled: false, fundingSource: "none" }
             },
             modelAbilities: ["function_calling", "vision"],
             isAnonymous: false
@@ -166,8 +164,7 @@ describe("buildPrompt", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
-                supermemory: { enabled: true, fundingSource: "byok" },
-                mcp: { enabled: true, fundingSource: "byok" }
+                supermemory: { enabled: true, fundingSource: "byok" }
             },
             modelAbilities: [],
             isAnonymous: false
@@ -194,7 +191,6 @@ describe("buildPrompt", () => {
                 titleGenerationModel: "gemini-3.1-flash-lite",
                 toolCallLimitPerTurn: 3,
                 customThemes: [],
-                mcpServers: [],
                 imageGenerationDefaults: { resolution: "2K", variants: 2 },
                 generalProviders: {
                     supermemory: undefined,

@@ -139,11 +139,6 @@ export const buildCapabilityContext = ({
             "Memory",
             "unavailable because the user has no enabled Supermemory BYOK key. You may suggest configuring one in Settings, but you cannot use or request memory now."
         )
-        addToolLimit(
-            "mcp",
-            "MCP tools",
-            "unavailable because the user has no enabled MCP server for this chat. You may suggest configuring or enabling a server, but you cannot use or request MCP tools now."
-        )
     }
 
     if (!modelAbilities.includes("vision")) {
@@ -172,7 +167,6 @@ export const buildPrompt = ({
     const hasCodeExecution = enabledTools.includes("code_execution")
     const hasMathematicalInstruments = enabledTools.includes("mathematical_instruments")
     const hasSupermemory = enabledTools.includes("supermemory")
-    const hasMCP = enabledTools.includes("mcp")
 
     // A persona owns the assistant's identity. Injecting the default "Silky"
     // identity alongside it fights the persona for who the assistant *is*, so we
@@ -400,16 +394,6 @@ You have access to persistent memory across conversations:
 - Do not loop on identical tool calls. At most, make one meaningfully refined search when the first query was clearly too broad or irrelevant.
 - If an explicit save request fails, clearly say it was not saved. For other tool failures, continue with available context and briefly disclose the limitation only when it affects the answer.
 - Use remembered context naturally without exposing memory IDs, metadata, scores, tool mechanics, or storage internals. Memory should feel like continuity, not surveillance.`
-        )
-
-    if (hasMCP)
-        layers.push(
-            dedent`
-## MCP Tools
-You have access to Model Context Protocol (MCP) tools from configured servers:
-- Tools are prefixed with the server name (e.g., "servername_toolname")
-- These tools provide additional capabilities based on the connected MCP servers
-- Use them as needed based on their descriptions and the user's request`
         )
 
     if (imageGenerationTool?.enabled) {

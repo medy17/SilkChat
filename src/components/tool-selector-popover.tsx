@@ -1,5 +1,4 @@
-import { MCPIcon, SupermemoryIcon } from "@/components/brand-icons"
-import { Badge } from "@/components/ui/badge"
+import { SupermemoryIcon } from "@/components/brand-icons"
 import { Button } from "@/components/ui/button"
 import {
     Command,
@@ -24,7 +23,6 @@ import {
     type ImageDefaultResolution,
     MAX_DEFAULT_VARIANTS
 } from "@/lib/image-generation-defaults"
-import { useModelStore } from "@/lib/model-store"
 import type { AbilityId } from "@/lib/tool-abilities"
 import {
     DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
@@ -39,7 +37,6 @@ import { memo, useState } from "react"
 import { toast } from "sonner"
 
 type ToolSelectorPopoverProps = {
-    threadId?: string
     enabledTools: AbilityId[]
     onEnabledToolsChange: (tools: AbilityId[]) => void
     modelSupportsFunctionCalling: boolean
@@ -455,7 +452,6 @@ function SilkScreenInfoButton({
 
 export const ToolSelectorPopover = memo(
     ({
-        threadId,
         enabledTools,
         onEnabledToolsChange,
         modelSupportsFunctionCalling,
@@ -466,9 +462,6 @@ export const ToolSelectorPopover = memo(
         const session = useSession()
         const isMobile = useIsMobile()
         const [open, setOpen] = useState(false)
-        const { setMcpOverride, setDefaultMcpOverride, mcpOverrides, defaultMcpOverrides } =
-            useModelStore()
-
         const userSettings = useConvexQuery(
             api.settings.getUserSettings,
             session.user?.id ? {} : "skip"
@@ -560,16 +553,6 @@ export const ToolSelectorPopover = memo(
 
         if (!userSettings || !toolAvailability) return webSearchButton
 
-        const mcpServers = (userSettings.mcpServers || []).filter(
-            (server) => server.enabled !== false
-        )
-        const hasMcpServers = mcpServers.length > 0
-
-        // Calculate effective MCP overrides directly to ensure re-renders
-        const currentMcpOverrides = threadId
-            ? { ...defaultMcpOverrides, ...(mcpOverrides[threadId] || {}) }
-            : { ...defaultMcpOverrides }
-
         const handleWebSearchToggle = () => {
             if (webSearchDisabled) return
 
@@ -610,16 +593,6 @@ export const ToolSelectorPopover = memo(
             )
         }
 
-        const handleMcpServerToggle = (serverName: string, enabled: boolean) => {
-            if (threadId) {
-                // Set thread-specific override
-                setMcpOverride(threadId, serverName, enabled)
-            } else {
-                // Set default override for new chats
-                setDefaultMcpOverride(serverName, enabled)
-            }
-        }
-
         const getActiveToolsCount = () => {
             let count = 0
             if (webSearchAvailable && enabledTools.includes("web_search")) count++
@@ -631,13 +604,6 @@ export const ToolSelectorPopover = memo(
                 count++
             }
             if (supermemoryAvailable && enabledTools.includes("supermemory")) count++
-            if (hasMcpServers) {
-                // Count enabled MCP servers for this thread
-                const enabledMcpCount = mcpServers.filter(
-                    (server) => currentMcpOverrides[server.name] !== false // Default to enabled
-                ).length
-                if (enabledMcpCount > 0) count++
-            }
             return count
         }
 
@@ -872,60 +838,6 @@ export const ToolSelectorPopover = memo(
                                             </button>
                                         </div>
                                     </CommandItem>
-                                </CommandGroup>
-
-                                <CommandGroup heading="MCP Servers">
-                                    {hasMcpServers ? (
-                                        mcpServers.map((server) => {
-                                            const isEnabled =
-                                                currentMcpOverrides[server.name] !== false
-                                            return (
-                                                <CommandItem
-                                                    key={server.name}
-                                                    className="flex items-center justify-between p-3"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex size-4 items-center justify-center">
-                                                            <MCPIcon />
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm">
-                                                                {server.name}
-                                                            </span>
-                                                            <Badge
-                                                                variant="secondary"
-                                                                className="text-xs"
-                                                            >
-                                                                {server.type.toUpperCase()}
-                                                            </Badge>
-                                                        </div>
-                                                    </div>
-                                                    <Switch
-                                                        checked={isEnabled}
-                                                        onCheckedChange={(enabled) =>
-                                                            handleMcpServerToggle(
-                                                                server.name,
-                                                                enabled
-                                                            )
-                                                        }
-                                                    />
-                                                </CommandItem>
-                                            )
-                                        })
-                                    ) : (
-                                        <CommandItem
-                                            className="flex cursor-not-allowed items-center justify-between p-3 opacity-50"
-                                            disabled
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex size-4 items-center justify-center">
-                                                    <MCPIcon />
-                                                </div>
-                                                <span className="text-sm">MCP Servers</span>
-                                            </div>
-                                            <Switch checked={false} disabled />
-                                        </CommandItem>
-                                    )}
                                 </CommandGroup>
 
                                 <CommandGroup heading="Limits">

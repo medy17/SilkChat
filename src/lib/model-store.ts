@@ -26,15 +26,6 @@ export type ModelStore = {
 
     reasoningEffort: ReasoningEffort
     setReasoningEffort: (effort: ReasoningEffort) => void
-
-    mcpOverrides: Record<string, Record<string, boolean>>
-    setMcpOverride: (threadId: string, serverName: string, enabled: boolean) => void
-    getMcpOverrides: (threadId: string) => Record<string, boolean>
-    clearMcpOverrides: (threadId: string) => void
-    // Default overrides for new chats
-    defaultMcpOverrides: Record<string, boolean>
-    setDefaultMcpOverride: (serverName: string, enabled: boolean) => void
-    getEffectiveMcpOverrides: (threadId?: string) => Record<string, boolean>
 }
 
 if (typeof window !== "undefined") {
@@ -69,8 +60,6 @@ export const useModelStore = create<ModelStore>()(
             selectedImageSize: initialConfig.selectedImageSize as ImageSize,
             selectedImageResolution: initialConfig.selectedImageResolution as ImageResolution,
             reasoningEffort: initialConfig.reasoningEffort as ReasoningEffort,
-            mcpOverrides: {},
-            defaultMcpOverrides: {},
             setSelectedModel: (model) => {
                 const currentState = get()
                 if (currentState.selectedModel !== model) {
@@ -139,60 +128,6 @@ export const useModelStore = create<ModelStore>()(
                         effort
                     )
                 }
-            },
-            setMcpOverride: (threadId, serverName, enabled) => {
-                console.log("[Store] setMcpOverride called:", { threadId, serverName, enabled })
-                set((state) => {
-                    const newOverrides = {
-                        ...state.mcpOverrides,
-                        [threadId]: {
-                            ...state.mcpOverrides[threadId],
-                            [serverName]: enabled
-                        }
-                    }
-                    console.log("[Store] New thread overrides:", newOverrides)
-                    return { mcpOverrides: newOverrides }
-                })
-            },
-            getMcpOverrides: (threadId) => get().mcpOverrides[threadId] || {},
-            clearMcpOverrides: (threadId) =>
-                set((state) => {
-                    const newOverrides = { ...state.mcpOverrides }
-                    delete newOverrides[threadId]
-                    return { mcpOverrides: newOverrides }
-                }),
-            setDefaultMcpOverride: (serverName, enabled) => {
-                console.log("[Store] setDefaultMcpOverride called:", { serverName, enabled })
-                set((state) => {
-                    const newDefaults = {
-                        ...state.defaultMcpOverrides,
-                        [serverName]: enabled
-                    }
-                    console.log("[Store] New default overrides:", newDefaults)
-                    return { defaultMcpOverrides: newDefaults }
-                })
-            },
-            getEffectiveMcpOverrides: (threadId) => {
-                const currentState = get()
-                console.log("[Store] getEffectiveMcpOverrides called:", { threadId })
-                console.log("[Store] Current state:", {
-                    defaultMcpOverrides: currentState.defaultMcpOverrides,
-                    threadOverrides: currentState.mcpOverrides[threadId || ""] || {}
-                })
-
-                // If no threadId, return default overrides
-                if (!threadId) {
-                    const result = { ...currentState.defaultMcpOverrides }
-                    console.log("[Store] Returning default overrides:", result)
-                    return result
-                }
-                // Combine thread-specific overrides with defaults (thread-specific takes precedence)
-                const result = {
-                    ...currentState.defaultMcpOverrides,
-                    ...(currentState.mcpOverrides[threadId] || {})
-                }
-                console.log("[Store] Returning combined overrides:", result)
-                return result
             }
         }),
         {

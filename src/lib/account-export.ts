@@ -95,11 +95,7 @@ const buildAccountExportFiles = ({
             exportedConversationCount: threadFiles.length
         },
         security: {
-            redactedValues: [
-                "AI provider credentials",
-                "custom provider credentials",
-                "MCP header values"
-            ]
+            redactedValues: ["AI provider credentials", "custom provider credentials"]
         }
     }
 

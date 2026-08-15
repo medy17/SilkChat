@@ -1,6 +1,5 @@
 # CURRENT BACKLOG
 
-- MCP feature is lagging behind and cannot use most modern MCP offerings.
 - Improve composer styling and effects (thinking of floating composer on the bottom for mobile and keeping docked for desktop).
 
 ### Completed:

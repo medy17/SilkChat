@@ -6,7 +6,6 @@ export const DefaultSettings = (userId: string) => ({
     titleGenerationModel: "gemini-3.1-flash-lite",
     toolCallLimitPerTurn: 3,
     customThemes: [],
-    mcpServers: [],
     invertSendNewlineBehavior: false,
     imageGenerationDefaults: undefined,
     generalProviders: {

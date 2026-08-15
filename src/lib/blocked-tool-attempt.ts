@@ -88,9 +88,6 @@ const TOOL_PRESENTATION: Record<string, { ability: AbilityId; label: string }> =
 const MALFORMED_TOOL_ERROR_PATTERN =
     /(?:AI_InvalidToolInputError|Invalid input for tool|Type validation failed|invalid tool input)/i
 
-const humanizeToolName = (toolName: string) =>
-    toolName.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase())
-
 const getInvocationToolName = (part: UIMessage["parts"][number] & { toolName?: string }) =>
     asTrimmedString(part.toolName) ?? part.type.replace(/^tool-/, "")
 
@@ -111,10 +108,8 @@ export const getMalformedToolAttempt = (
     if (!isLiveMalformedAttempt) return null
 
     const toolName = getInvocationToolName(invocation)
-    const presentation = TOOL_PRESENTATION[toolName] ?? {
-        ability: "mcp" as const,
-        label: humanizeToolName(toolName)
-    }
+    const presentation = TOOL_PRESENTATION[toolName]
+    if (!presentation) return null
 
     return {
         ability: presentation.ability,
@@ -147,10 +142,7 @@ export const getBlockedToolAttempt = (
     const toolLabel = asTrimmedString(invocation.output.toolLabel)
 
     if (
-        (ability !== "web_search" &&
-            ability !== "code_execution" &&
-            ability !== "supermemory" &&
-            ability !== "mcp") ||
+        (ability !== "web_search" && ability !== "code_execution" && ability !== "supermemory") ||
         typeof reason !== "string" ||
         !BLOCKED_REASONS.has(reason as BlockedToolReason) ||
         !toolLabel

@@ -35,7 +35,6 @@ vi.mock("@/lib/default-user-settings", () => ({
         titleGenerationModel: "gemini-3.1-flash-lite",
         toolCallLimitPerTurn: 3,
         customThemes: [],
-        mcpServers: [],
         invertSendNewlineBehavior: false,
         generalProviders: {
             supermemory: undefined,
@@ -484,7 +483,6 @@ describe("settings", () => {
                 customThemes: [],
                 titleGenerationModel: "shared-text",
                 toolCallLimitPerTurn: 3,
-                mcpServers: [],
                 customization: undefined,
                 onboardingCompleted: true
             },
@@ -560,7 +558,6 @@ describe("settings", () => {
                     customThemes: [],
                     titleGenerationModel: "shared-text",
                     toolCallLimitPerTurn: 3,
-                    mcpServers: [],
                     customization: undefined,
                     onboardingCompleted: false
                 },
@@ -582,7 +579,6 @@ describe("settings", () => {
             titleGenerationModel: "shared-text",
             toolCallLimitPerTurn: 3,
             customThemes: [],
-            mcpServers: [],
             invertSendNewlineBehavior: false,
             generalProviders: {
                 supermemory: undefined,
@@ -619,7 +615,6 @@ describe("settings", () => {
             titleGenerationModel: "shared-text",
             toolCallLimitPerTurn: 3,
             customThemes: [],
-            mcpServers: [],
             invertSendNewlineBehavior: false,
             generalProviders: {
                 supermemory: undefined,
@@ -663,7 +658,6 @@ describe("settings", () => {
             titleGenerationModel: "shared-text",
             toolCallLimitPerTurn: 3,
             customThemes: [],
-            mcpServers: [],
             invertSendNewlineBehavior: false,
             generalProviders: {
                 supermemory: undefined,
@@ -700,7 +694,6 @@ describe("settings", () => {
             titleGenerationModel: "shared-text",
             toolCallLimitPerTurn: 3,
             customThemes: [],
-            mcpServers: [],
             invertSendNewlineBehavior: false,
             imageGenerationDefaults: { variants: 3 },
             generalProviders: {

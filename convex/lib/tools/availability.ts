@@ -29,8 +29,6 @@ export const resolveToolAvailability = (
     const hasSearchDeployment = Boolean(getDeploymentSearchApiKey())
     const hasCodeExecutionDeployment = hasVercelSandboxCredentials()
     const hasSupermemoryByok = hasEnabledProviderKey(userSettings.generalProviders?.supermemory)
-    const hasMcpServers = (userSettings.mcpServers ?? []).some((server) => server.enabled !== false)
-
     return {
         web_search: {
             enabled: hasSearchDeployment,
@@ -47,10 +45,6 @@ export const resolveToolAvailability = (
         supermemory: {
             enabled: hasSupermemoryByok,
             fundingSource: hasSupermemoryByok ? "byok" : "none"
-        },
-        mcp: {
-            enabled: hasMcpServers,
-            fundingSource: hasMcpServers ? "byok" : "none"
         }
     }
 }

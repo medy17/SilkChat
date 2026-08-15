@@ -22,8 +22,7 @@ describe("WebSearchAdapter", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: false, fundingSource: "none" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
-                supermemory: { enabled: false, fundingSource: "none" },
-                mcp: { enabled: false, fundingSource: "none" }
+                supermemory: { enabled: false, fundingSource: "none" }
             },
             userSettings: {} as never,
             ctx: {} as never

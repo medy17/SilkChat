@@ -10,7 +10,6 @@ const createSettings = (overrides: Record<string, unknown> = {}) =>
         userId: "user-1",
         customModels: {},
         titleGenerationModel: "model",
-        mcpServers: [],
         coreAIProviders: {},
         customAIProviders: {},
         generalProviders: {
@@ -77,17 +76,13 @@ describe("tool availability", () => {
         })
     })
 
-    it("keeps supermemory and mcp user-provisioned", () => {
+    it("keeps supermemory user-provisioned", () => {
         process.env.PERPLEXITY_API_KEY = "deployment-perplexity-key"
 
         const result = resolveToolAvailability(createSettings())
 
         expect(result.web_search.fundingSource).toBe("deployment")
         expect(result.supermemory).toEqual({
-            enabled: false,
-            fundingSource: "none"
-        })
-        expect(result.mcp).toEqual({
             enabled: false,
             fundingSource: "none"
         })

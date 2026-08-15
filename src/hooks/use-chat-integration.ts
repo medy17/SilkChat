@@ -354,12 +354,8 @@ export function useChatIntegration<IsShared extends boolean>({
                   fetch: createChatTransportFetch(),
                   async prepareSendMessagesRequest({ body, messages }) {
                       const currentContext = latestRequestContextRef.current
-                      const {
-                          selectedModel,
-                          enabledTools,
-                          reasoningEffort,
-                          getEffectiveMcpOverrides
-                      } = useModelStore.getState()
+                      const { selectedModel, enabledTools, reasoningEffort } =
+                          useModelStore.getState()
                       const { selectedPersona, pendingPersonaOpening } = useChatStore.getState()
                       const jwt = await resolveJwtToken(currentContext.token)
                       if (!jwt) {
@@ -381,8 +377,6 @@ export function useChatIntegration<IsShared extends boolean>({
                       completedLocalMessageRef.current = null
 
                       const message = messages[messages.length - 1]
-                      const mcpOverrides = getEffectiveMcpOverrides(currentContext.threadId)
-
                       const requestBody = body as Record<string, unknown> & {
                           modelIdOverride?: string
                           reasoningEffortOverride?: ReasoningEffort
@@ -406,7 +400,6 @@ export function useChatIntegration<IsShared extends boolean>({
                               folderId: currentContext.folderId,
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,
-                              mcpOverrides,
                               clientId,
                               personaSelection: currentContext.threadId
                                   ? undefined

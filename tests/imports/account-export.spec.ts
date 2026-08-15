@@ -9,7 +9,7 @@ import {
 import { BlobReader, TextWriter, ZipReader } from "@zip.js/zip.js"
 
 describe("account-export", () => {
-    it("redacts provider credentials and MCP header values while preserving configuration", () => {
+    it("redacts provider credentials while preserving configuration", () => {
         expect(
             sanitizeAccountExportSettings({
                 coreAIProviders: {
@@ -20,14 +20,7 @@ describe("account-export", () => {
                         endpoint: "https://example.com",
                         encryptedKey: "custom-ciphertext"
                     }
-                },
-                mcpServers: [
-                    {
-                        name: "private",
-                        url: "https://mcp.example.com",
-                        headers: [{ key: "Authorization", value: "Bearer secret" }]
-                    }
-                ]
+                }
             })
         ).toEqual({
             coreAIProviders: {
@@ -38,14 +31,7 @@ describe("account-export", () => {
                     endpoint: "https://example.com",
                     encryptedKey: "[REDACTED]"
                 }
-            },
-            mcpServers: [
-                {
-                    name: "private",
-                    url: "https://mcp.example.com",
-                    headers: [{ key: "Authorization", value: "[REDACTED]" }]
-                }
-            ]
+            }
         })
     })
 

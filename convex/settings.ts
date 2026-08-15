@@ -471,24 +471,6 @@ export const updateUserSettings = mutation({
                 enabled: v.boolean(),
                 newKey: v.optional(v.string())
             })
-        ),
-        mcpServers: v.optional(
-            v.array(
-                v.object({
-                    name: v.string(),
-                    url: v.string(),
-                    type: v.union(v.literal("sse"), v.literal("http")),
-                    enabled: v.optional(v.boolean()),
-                    headers: v.optional(
-                        v.array(
-                            v.object({
-                                key: v.string(),
-                                value: v.string()
-                            })
-                        )
-                    )
-                })
-            )
         )
     },
     handler: async (ctx, args) => {
@@ -713,26 +695,6 @@ export const updateUserSettingsPartial = mutation({
             )
         ),
 
-        // MCP Servers
-        mcpServers: v.optional(
-            v.array(
-                v.object({
-                    name: v.string(),
-                    url: v.string(),
-                    type: v.union(v.literal("sse"), v.literal("http")),
-                    enabled: v.optional(v.boolean()),
-                    headers: v.optional(
-                        v.array(
-                            v.object({
-                                key: v.string(),
-                                value: v.string()
-                            })
-                        )
-                    )
-                })
-            )
-        ),
-
         // Custom themes
         addTheme: v.optional(v.string()),
         removeTheme: v.optional(v.string())
@@ -843,11 +805,6 @@ export const updateUserSettingsPartial = mutation({
                     }
                 }
             }
-        }
-
-        // Update MCP servers
-        if (args.mcpServers !== undefined) {
-            newSettings.mcpServers = args.mcpServers
         }
 
         // Handle theme updates

@@ -31,21 +31,6 @@ export const UserCustomization = v.object({
     additionalContext: v.optional(v.string())
 })
 
-export const MCPServerConfig = v.object({
-    name: v.string(),
-    url: v.string(),
-    type: v.union(v.literal("sse"), v.literal("http")),
-    enabled: v.optional(v.boolean()),
-    headers: v.optional(
-        v.array(
-            v.object({
-                key: v.string(),
-                value: v.string()
-            })
-        )
-    )
-})
-
 export const ImageResolutionSchema = v.union(v.literal("1K"), v.literal("2K"), v.literal("4K"))
 
 // Per-user defaults for the SilkScreen image tool. These are soft preferences: they
@@ -95,7 +80,6 @@ export const NonSensitiveUserSettings = v.object({
     titleGenerationModel: v.string(),
     toolCallLimitPerTurn: v.optional(v.number()),
     customThemes: v.optional(v.array(v.string())),
-    mcpServers: v.optional(v.array(MCPServerConfig)),
     invertSendNewlineBehavior: v.optional(v.boolean()),
     customization: v.optional(UserCustomization),
     imageGenerationDefaults: v.optional(ImageGenerationDefaults),

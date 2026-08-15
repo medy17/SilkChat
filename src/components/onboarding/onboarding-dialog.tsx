@@ -177,19 +177,6 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                     <Card className="p-4 shadow-none">
                         <div className="flex items-start space-x-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                                <Zap className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="flex-1 space-y-1">
-                                <div className="font-medium text-sm">MCP Tools</div>
-                                <div className="text-muted-foreground text-xs leading-relaxed">
-                                    Connect external tools via Model Context Protocol over HTTP/MCP
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                    <Card className="p-4 shadow-none">
-                        <div className="flex items-start space-x-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                                 <Bot className="h-5 w-5 text-primary" />
                             </div>
                             <div className="flex-1 space-y-1">

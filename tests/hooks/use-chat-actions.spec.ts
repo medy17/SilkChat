@@ -102,9 +102,7 @@ const resetChatStore = () => {
         reasoningEffort: "off",
         enabledTools: ["web_search"],
         selectedImageSize: "1024x1024",
-        selectedImageResolution: "1K",
-        mcpOverrides: {},
-        defaultMcpOverrides: {}
+        selectedImageResolution: "1K"
     })
 }
 

@@ -155,9 +155,7 @@ const resetModelStore = () => {
         enabledTools: ["web_search"] as ModelStore["enabledTools"],
         selectedImageSize: "1024x1024" as ModelStore["selectedImageSize"],
         selectedImageResolution: "high" as ModelStore["selectedImageResolution"],
-        reasoningEffort: "high",
-        mcpOverrides: {},
-        defaultMcpOverrides: {}
+        reasoningEffort: "high"
     })
 }
 
@@ -243,16 +241,10 @@ describe("useChatIntegration", () => {
             .mockReturnValueOnce("generated-2")
         useModelStore.setState({
             selectedModel: "model-1",
-            enabledTools: ["web_search", "mcp"] as ModelStore["enabledTools"],
+            enabledTools: ["web_search", "supermemory"] as ModelStore["enabledTools"],
             selectedImageSize: "1536x1024" as ModelStore["selectedImageSize"],
             selectedImageResolution: "medium" as ModelStore["selectedImageResolution"],
-            reasoningEffort: "medium",
-            defaultMcpOverrides: { alpha: true },
-            mcpOverrides: {
-                "thread-1": {
-                    beta: false
-                }
-            }
+            reasoningEffort: "medium"
         })
         useChatStore.setState({
             shouldUpdateQuery: true,
@@ -322,13 +314,9 @@ describe("useChatIntegration", () => {
                     role: "user",
                     messageId: "user-message-1"
                 },
-                enabledTools: ["web_search", "mcp"],
+                enabledTools: ["web_search", "supermemory"],
                 folderId: "folder-1",
                 reasoningEffort: "medium",
-                mcpOverrides: {
-                    alpha: true,
-                    beta: false
-                },
                 clientId: "client-1"
             }
         })

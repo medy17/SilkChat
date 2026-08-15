@@ -131,7 +131,7 @@ describe("persistence", () => {
 
         saveAIConfig({
             selectedModel: "gemini-3-flash-preview",
-            enabledTools: ["web_search", "mcp"],
+            enabledTools: ["web_search", "supermemory"],
             selectedImageSize: "1:1",
             selectedImageResolution: "1K",
             reasoningEffort: "low"
@@ -141,7 +141,7 @@ describe("persistence", () => {
         expect(storage.snapshot()).toMatchObject({
             "ai-config": JSON.stringify({
                 selectedModel: "gemini-3-flash-preview",
-                enabledTools: ["web_search", "mcp"],
+                enabledTools: ["web_search", "supermemory"],
                 selectedImageSize: "1:1",
                 selectedImageResolution: "1K",
                 reasoningEffort: "low"

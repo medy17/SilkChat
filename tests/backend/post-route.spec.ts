@@ -165,10 +165,6 @@ vi.mock("../../convex/lib/toolkit", () => ({
                     generalProviders?.supermemory?.enabled === true &&
                     Boolean(generalProviders.supermemory.encryptedKey),
                 fundingSource: "byok"
-            },
-            mcp: {
-                enabled: Array.isArray(settings.mcpServers) && settings.mcpServers.length > 0,
-                fundingSource: "byok"
             }
         }
     },
@@ -612,8 +608,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -685,8 +680,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -771,8 +765,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -861,8 +854,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 case "getThreadPersonaSnapshotInternal":
                     return null
@@ -991,8 +983,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 case "getThreadPersonaSnapshotInternal":
                     return null
@@ -1089,8 +1080,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -1168,8 +1158,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -1244,8 +1233,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -1322,8 +1310,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 default:
                     throw new Error(`Unexpected query: ${name}`)
@@ -1402,8 +1389,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 case "getThreadPersonaSnapshotInternal":
                     return null
@@ -1515,9 +1501,7 @@ describe("chatPOST", () => {
         expect(buildPromptMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 enabledTools: ["web_search"],
-                userSettings: expect.objectContaining({
-                    mcpServers: []
-                }),
+                userSettings: expect.objectContaining({}),
                 personaPrompt: undefined,
                 includeTemporalContext: false
             })
@@ -1525,9 +1509,7 @@ describe("chatPOST", () => {
         expect(getToolkitMock).toHaveBeenCalledWith(
             ctx,
             ["web_search"],
-            expect.objectContaining({
-                mcpServers: []
-            }),
+            expect.objectContaining({}),
             expect.any(Object)
         )
         expect(isStepCountMock).toHaveBeenCalledWith(100)
@@ -1684,8 +1666,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 case "getThreadPersonaSnapshotInternal":
                     return null
@@ -1850,8 +1831,7 @@ describe("chatPOST", () => {
                         searchProvider: "firecrawl",
                         searchIncludeSourcesByDefault: false,
                         toolCallLimitPerTurn: 3,
-                        generalProviders: {},
-                        mcpServers: []
+                        generalProviders: {}
                     }
                 case "getThreadPersonaSnapshotInternal":
                     return null
@@ -1976,9 +1956,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2100,9 +2078,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2213,9 +2189,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2316,9 +2290,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getThreadPersonaSnapshotInternal":
                     return null
                 default:
@@ -2417,9 +2389,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getUserCreditPlanInternal":
                     return "pro"
                 case "getThreadPersonaSnapshotInternal":
@@ -2525,9 +2495,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getUserCreditPlanInternal":
                     return "pro"
                 case "getThreadPersonaSnapshotInternal":
@@ -2677,9 +2645,7 @@ describe("chatPOST", () => {
                 case "getMessagesByThreadId":
                     return [{ _id: "db-message-1" }]
                 case "getUserSettingsInternal":
-                    return {
-                        mcpServers: []
-                    }
+                    return {}
                 case "getUserCreditPlanInternal":
                     return "pro"
                 case "getThreadPersonaSnapshotInternal":

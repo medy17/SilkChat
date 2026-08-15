@@ -109,9 +109,7 @@ export const BlockedToolCard = memo(
         const enableableAbilities = [
             ...new Set(
                 attempts
-                    .filter(
-                        (attempt) => attempt.reason === "user_disabled" && attempt.ability !== "mcp"
-                    )
+                    .filter((attempt) => attempt.reason === "user_disabled")
                     .map((attempt) => attempt.ability)
             )
         ]
@@ -293,7 +291,7 @@ export const BlockedToolCard = memo(
                                     <Settings className="size-4" />
                                     {ability === "supermemory"
                                         ? "Set up Supermemory"
-                                        : "Manage MCP servers"}
+                                        : "Configure tools"}
                                 </Button>
                             ))}
                             {requiresAuth && (

@@ -491,8 +491,6 @@ function MobileOverflowMenu({
     codeExecutionAvailable,
     mathematicalInstrumentsAvailable,
     hasSupermemory,
-    mcpServers,
-    currentMcpOverrides,
     toolCallLimitPerTurn,
     toolLimitInteractive,
     onSetToolCallLimit,
@@ -500,7 +498,6 @@ function MobileOverflowMenu({
     imageDefaultVariants,
     onSetImageDefaults,
     onToggleTool,
-    onToggleMcpServer,
     onAttachClick
 }: {
     open: boolean
@@ -517,8 +514,6 @@ function MobileOverflowMenu({
     codeExecutionAvailable: boolean
     mathematicalInstrumentsAvailable: boolean
     hasSupermemory: boolean
-    mcpServers: Array<{ name: string }>
-    currentMcpOverrides: Record<string, boolean>
     toolCallLimitPerTurn: number
     toolLimitInteractive: boolean
     onSetToolCallLimit: (nextLimit: number) => void
@@ -529,7 +524,6 @@ function MobileOverflowMenu({
         variants?: number
     }) => void
     onToggleTool: (tool: AbilityId) => void
-    onToggleMcpServer: (serverName: string) => void
     onAttachClick: () => void
 }) {
     const { enabledTools, reasoningEffort, setReasoningEffort } = useModelStore()
@@ -540,7 +534,6 @@ function MobileOverflowMenu({
     const codeExecutionEnabled = enabledTools.includes("code_execution")
     const mathematicalInstrumentsEnabled = enabledTools.includes("mathematical_instruments")
     const supermemoryEnabled = enabledTools.includes("supermemory")
-    const hasMcpServers = mcpServers.length > 0
 
     useEffect(() => {
         if (!open) {
@@ -755,48 +748,6 @@ function MobileOverflowMenu({
                     {!isImageModel && (
                         <div className="border-border/60 border-t pt-2">
                             <p className="px-2.5 pb-1 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-[0.16em]">
-                                MCP Servers
-                            </p>
-                            <div className="space-y-1">
-                                {hasMcpServers ? (
-                                    mcpServers.map((server) => {
-                                        const isEnabled = currentMcpOverrides[server.name] !== false
-
-                                        return (
-                                            <button
-                                                key={server.name}
-                                                type="button"
-                                                className={mobileMenuRowClassName}
-                                                onClick={() => onToggleMcpServer(server.name)}
-                                            >
-                                                <span className="min-w-0 flex-1 truncate">
-                                                    {server.name}{" "}
-                                                    {isEnabled ? "enabled" : "disabled"}
-                                                </span>
-                                            </button>
-                                        )
-                                    })
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className={cn(
-                                            mobileMenuRowClassName,
-                                            "cursor-not-allowed opacity-50"
-                                        )}
-                                        disabled
-                                    >
-                                        <span className="min-w-0 flex-1 truncate">
-                                            MCP Servers disabled
-                                        </span>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {!isImageModel && (
-                        <div className="border-border/60 border-t pt-2">
-                            <p className="px-2.5 pb-1 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-[0.16em]">
                                 Image Defaults
                             </p>
                             <div
@@ -956,22 +907,13 @@ function MobileOverflowMenu({
     )
 }
 
-export function useComposerToolbarState(threadId?: string) {
+export function useComposerToolbarState() {
     const session = useSession()
     const auth = useConvexAuth()
     const { models: sharedModels } = useSharedModels()
     const creditPlan = usePrototypeCreditPlan()
-    const {
-        selectedModel,
-        enabledTools,
-        setEnabledTools,
-        reasoningEffort,
-        setReasoningEffort,
-        mcpOverrides,
-        defaultMcpOverrides,
-        setMcpOverride,
-        setDefaultMcpOverride
-    } = useModelStore()
+    const { selectedModel, enabledTools, setEnabledTools, reasoningEffort, setReasoningEffort } =
+        useModelStore()
 
     const [pendingToolCallLimitPerTurn, setPendingToolCallLimitPerTurn] = useState<number | null>(
         null
@@ -1043,10 +985,6 @@ export function useComposerToolbarState(threadId?: string) {
         resolvedToolAvailability?.mathematical_instruments?.enabled
     )
     const hasSupermemory = Boolean(resolvedToolAvailability?.supermemory.enabled)
-    const mcpServers = (resolvedUserSettings.mcpServers || []).filter(
-        (server) => server.enabled !== false
-    )
-    const hasMcpServers = mcpServers.length > 0
     const invertSendNewlineBehavior = resolvedUserSettings.invertSendNewlineBehavior === true
 
     useEffect(() => {
@@ -1058,7 +996,6 @@ export function useComposerToolbarState(threadId?: string) {
             unavailableTools.add("mathematical_instruments")
         }
         if (!hasSupermemory) unavailableTools.add("supermemory")
-        if (!hasMcpServers) unavailableTools.add("mcp")
 
         const nextEnabledTools = enabledTools.filter((tool) => !unavailableTools.has(tool))
         if (nextEnabledTools.length !== enabledTools.length) {
@@ -1070,20 +1007,15 @@ export function useComposerToolbarState(threadId?: string) {
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
         hasSupermemory,
-        hasMcpServers,
         enabledTools,
         setEnabledTools
     ])
 
-    const currentMcpOverrides = threadId
-        ? { ...defaultMcpOverrides, ...(mcpOverrides[threadId] || {}) }
-        : { ...defaultMcpOverrides }
     const activeToolCount = [
         webSearchAvailable && enabledTools.includes("web_search"),
         codeExecutionAvailable && enabledTools.includes("code_execution"),
         mathematicalInstrumentsAvailable && enabledTools.includes("mathematical_instruments"),
-        hasSupermemory && enabledTools.includes("supermemory"),
-        hasMcpServers && mcpServers.some((server) => currentMcpOverrides[server.name] !== false)
+        hasSupermemory && enabledTools.includes("supermemory")
     ].filter(Boolean).length
     const toolLimitInteractive = activeToolCount > 0
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(
@@ -1104,24 +1036,12 @@ export function useComposerToolbarState(threadId?: string) {
             return
         }
         if (tool === "supermemory" && !hasSupermemory) return
-        if (tool === "mcp" && !hasMcpServers) return
 
         setEnabledTools(
             enabledTools.includes(tool)
                 ? enabledTools.filter((enabledTool) => enabledTool !== tool)
                 : [...enabledTools, tool]
         )
-    }
-
-    const handleMcpServerToggle = (serverName: string) => {
-        const isEnabled = currentMcpOverrides[serverName] !== false
-
-        if (threadId) {
-            setMcpOverride(threadId, serverName, !isEnabled)
-            return
-        }
-
-        setDefaultMcpOverride(serverName, !isEnabled)
     }
 
     useEffect(() => {
@@ -1184,8 +1104,6 @@ export function useComposerToolbarState(threadId?: string) {
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
         hasSupermemory,
-        mcpServers,
-        currentMcpOverrides,
         toolLimitInteractive,
         displayedToolCallLimitPerTurn,
         handleToolCallLimitUpdate,
@@ -1193,7 +1111,6 @@ export function useComposerToolbarState(threadId?: string) {
         imageDefaultVariants,
         handleImageDefaultsUpdate,
         handleToolToggle,
-        handleMcpServerToggle,
         invertSendNewlineBehavior
     }
 }
@@ -1243,7 +1160,6 @@ export function ComposerDesktopActions({
 
                     <PromptInputAction tooltip="Tools">
                         <ToolSelectorPopover
-                            threadId={threadId}
                             enabledTools={enabledTools}
                             onEnabledToolsChange={setEnabledTools}
                             modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
@@ -1291,8 +1207,6 @@ export function ComposerMobileMenu({
                 codeExecutionAvailable={state.codeExecutionAvailable}
                 mathematicalInstrumentsAvailable={state.mathematicalInstrumentsAvailable}
                 hasSupermemory={state.hasSupermemory}
-                mcpServers={state.mcpServers}
-                currentMcpOverrides={state.currentMcpOverrides}
                 toolCallLimitPerTurn={state.displayedToolCallLimitPerTurn}
                 toolLimitInteractive={state.toolLimitInteractive}
                 onSetToolCallLimit={state.handleToolCallLimitUpdate}
@@ -1300,7 +1214,6 @@ export function ComposerMobileMenu({
                 imageDefaultVariants={state.imageDefaultVariants}
                 onSetImageDefaults={state.handleImageDefaultsUpdate}
                 onToggleTool={state.handleToolToggle}
-                onToggleMcpServer={state.handleMcpServerToggle}
                 onAttachClick={onAttachClick}
             />
         </div>
@@ -1345,7 +1258,7 @@ export const MultimodalInput = forwardRef<
     )
     const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
     const isTouchDevice = useIsTouchDevice()
-    const composerToolbar = useComposerToolbarState(threadId)
+    const composerToolbar = useComposerToolbarState()
     const {
         userSettings,
         selectedSharedModel,

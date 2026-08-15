@@ -11,7 +11,6 @@ import {
     sanitizeEnabledTools
 } from "./tools/availability"
 import { CodeExecutionAdapter } from "./tools/code_execution"
-import { MCPAdapter } from "./tools/mcp_adapter"
 import { NativeChartAdapter } from "./tools/native_chart"
 import { SupermemoryAdapter } from "./tools/supermemory"
 import { WebSearchAdapter } from "./tools/web_search"
@@ -21,8 +20,7 @@ export const TOOL_ADAPTERS = [
     WebSearchAdapter,
     CodeExecutionAdapter,
     NativeChartAdapter,
-    SupermemoryAdapter,
-    MCPAdapter
+    SupermemoryAdapter
 ]
 export { ABILITIES }
 export type { AbilityId }
