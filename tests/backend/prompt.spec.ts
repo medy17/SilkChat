@@ -150,10 +150,8 @@ describe("buildPrompt", () => {
 
         expect(context).toContain("Code execution: not enabled by the user")
         expect(context).toContain("ask them to enable it in Tools")
-        expect(context).toContain(
-            "Memory: unavailable because the user has no enabled Supermemory BYOK key"
-        )
-        expect(context).toContain("you cannot use or request memory now")
+        expect(context).toContain("Memory: unavailable right now")
+        expect(context).toContain("cannot use or request Memory now")
     })
 
     it("does not advertise callable tools to a model without function calling", () => {
@@ -164,7 +162,7 @@ describe("buildPrompt", () => {
                 web_search: { enabled: true, fundingSource: "deployment" },
                 code_execution: { enabled: true, fundingSource: "deployment" },
                 mathematical_instruments: { enabled: true, fundingSource: "none" },
-                supermemory: { enabled: true, fundingSource: "byok" }
+                supermemory: { enabled: true, fundingSource: "deployment" }
             },
             modelAbilities: [],
             isAnonymous: false

@@ -43,6 +43,7 @@ describe("account-export", () => {
             settings: {},
             personas: [],
             projects: [],
+            memories: [],
             storedFiles: [],
             threadFiles: [],
             threadCount: 0
@@ -69,6 +70,7 @@ describe("account-export", () => {
             settings: {},
             personas: [],
             projects: [],
+            memories: [{ id: "memory-1", memory: "Prefers concise answers" }],
             storedFiles: [
                 {
                     key: "attachments/user-1/report.pdf",
@@ -113,6 +115,15 @@ describe("account-export", () => {
         }
         expect(await fileIndexEntry.getData(new TextWriter(), { password })).toContain(
             "https://assets.example.com/attachments/user-1/report.pdf"
+        )
+        const memoriesEntry = entries.find(
+            (entry) => entry.filename === "memory/memories.json" && "getData" in entry
+        )
+        if (!memoriesEntry || !("getData" in memoriesEntry)) {
+            throw new Error("Expected hosted memory export")
+        }
+        expect(await memoriesEntry.getData(new TextWriter(), { password })).toContain(
+            "Prefers concise answers"
         )
 
         await expect(

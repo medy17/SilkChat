@@ -7,7 +7,7 @@ export const Route = createLazyFileRoute("/privacy-policy")({
     component: PrivacyPolicyPage
 })
 
-const EFFECTIVE_DATE = "April 30, 2026"
+const EFFECTIVE_DATE = "August 16, 2026"
 const APP_NAME = "SilkChat"
 const COMPANY_NAME = "DropSilk"
 const APP_URL = "https://silkchat.dev"
@@ -39,9 +39,10 @@ function PrivacyPolicyPage() {
                     <p className="text-muted-foreground">
                         Welcome to {APP_NAME}, operated by {COMPANY_NAME} ("we", "us", "our"). This
                         Privacy Policy explains how we collect, use, store, disclose, and protect
-                        personal data when you use {APP_NAME}, including chat, file upload, image
-                        generation, personalization, and related account features available through{" "}
-                        <ExternalLink href={APP_URL}>{APP_URL}</ExternalLink> (the "Service").
+                        personal data when you use {APP_NAME}, including chat, Memory, file upload,
+                        image generation, personalization, and related account features available
+                        through <ExternalLink href={APP_URL}>{APP_URL}</ExternalLink> (the
+                        "Service").
                     </p>
                     <p className="text-muted-foreground">
                         We are based in Malaysia. Our primary compliance framework is Malaysia's
@@ -99,7 +100,26 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="2.3 Settings, personalization, and provider configuration">
+                    <PolicySubsection title="2.3 Memory">
+                        <PolicyList>
+                            <PolicyItem>
+                                Information you add to Memory, edit, or approve, along with useful
+                                details identified from chats while Memory is on.
+                            </PolicyItem>
+                            <PolicyItem>
+                                When Memory is on for a message, the text of that message and the
+                                assistant's reply may be processed so relevant details can be
+                                recalled in future chats. Attachments are not included in this
+                                process.
+                            </PolicyItem>
+                            <PolicyItem>
+                                We associate saved memories with your account and may store related
+                                timestamps and processing information.
+                            </PolicyItem>
+                        </PolicyList>
+                    </PolicySubsection>
+
+                    <PolicySubsection title="2.4 Settings, personalization, and provider configuration">
                         <PolicyList>
                             <PolicyItem>
                                 UI preferences, saved themes, onboarding state, and personalization
@@ -117,7 +137,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="2.4 Technical, device, and log data">
+                    <PolicySubsection title="2.5 Technical, device, and log data">
                         <PolicyList>
                             <PolicyItem>
                                 IP address, browser type, browser version, operating system, device
@@ -134,7 +154,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="2.5 Usage and analytics data">
+                    <PolicySubsection title="2.6 Usage and analytics data">
                         <PolicyList>
                             <PolicyItem>
                                 Product analytics events, such as feature interactions, model
@@ -147,7 +167,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="2.6 Billing and payment data">
+                    <PolicySubsection title="2.7 Billing and payment data">
                         <PolicyList>
                             <PolicyItem>
                                 Users are on the free plan by default. If you upgrade to Pro, you
@@ -167,7 +187,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="2.7 Cookies and similar technologies">
+                    <PolicySubsection title="2.8 Cookies and similar technologies">
                         <PolicyList>
                             <PolicyItem>
                                 Essential cookies or equivalent session mechanisms used for sign-in,
@@ -199,6 +219,10 @@ function PrivacyPolicyPage() {
                             <PolicyItem>
                                 To store your threads, files, generated outputs, preferences, and
                                 configured settings.
+                            </PolicyItem>
+                            <PolicyItem>
+                                When Memory is on, to recall relevant details for the current chat
+                                and remember useful context for future chats.
                             </PolicyItem>
                             <PolicyItem>
                                 To debug issues, monitor reliability, prevent abuse, and maintain
@@ -273,7 +297,21 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="4.2 Hosting, backend, and storage providers">
+                    <PolicySubsection title="4.2 Memory">
+                        <PolicyList>
+                            <PolicyItem>
+                                <strong>Supermemory</strong> processes and stores conversation text
+                                and saved memories on our behalf so Memory can recall useful details
+                                in future chats. It also processes changes you make or approve.
+                                Privacy policy:{" "}
+                                <ExternalLink href="https://supermemory.ai/privacy/">
+                                    supermemory.ai/privacy/
+                                </ExternalLink>
+                            </PolicyItem>
+                        </PolicyList>
+                    </PolicySubsection>
+
+                    <PolicySubsection title="4.3 Hosting, backend, and storage providers">
                         <PolicyList>
                             <PolicyItem>
                                 <strong>Vercel</strong>: Used for web hosting, deployment, and edge
@@ -297,7 +335,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="4.3 Authentication and identity providers">
+                    <PolicySubsection title="4.4 Authentication and identity providers">
                         <PolicyList>
                             <PolicyItem>
                                 <strong>Better Auth</strong>: Used as the authentication framework
@@ -315,7 +353,7 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
-                    <PolicySubsection title="4.4 Analytics, email, and payments">
+                    <PolicySubsection title="4.5 Analytics, email, and payments">
                         <PolicyList>
                             <PolicyItem>
                                 <strong>PostHog</strong>: Used for product analytics when enabled.
@@ -360,10 +398,17 @@ function PrivacyPolicyPage() {
                             necessary to operate your chosen configuration.
                         </PolicyItem>
                         <PolicyItem>
+                            <strong>Memory</strong>: Saved memories and the conversation text used
+                            to create them may be retained while your account remains active.
+                            Forgetting a memory removes it from active use, although Supermemory may
+                            retain deleted or replaced records according to its own retention
+                            practices.
+                        </PolicyItem>
+                        <PolicyItem>
                             <strong>Export capability</strong>: The app supports export of
                             individual threads and a self-service account archive containing profile
-                            data, preferences, personas, projects, conversations, and an index of
-                            links to uploaded and generated files. Stored credentials and
+                            data, preferences, personas, projects, memories, conversations, and an
+                            index of links to uploaded and generated files. Stored credentials and
                             authentication secrets are excluded. Account archives are assembled and
                             encrypted by our backend, stored in encrypted form, and delivered by
                             email link. The one-time ZIP password is generated when you request the
@@ -382,14 +427,14 @@ function PrivacyPolicyPage() {
                             {": "}
                             The deletion process removes your account and user-owned data, including
                             chats, messages, attachments, imports, personas, settings, encrypted
-                            provider credentials, generated images, usage records, and
+                            provider credentials, generated images, Memory data, usage records, and
                             authentication records. We retain limited records and a minimal
                             pseudonymized record containing identity hashes, aggregate usage,
                             deletion timestamps, and limited subscription or refund context where
                             needed for fraud and abuse prevention, usage-limit enforcement,
                             subscription handling, and processing late billing events. This record
-                            does not contain your messages, files, settings, email address, or OAuth
-                            identifier.
+                            does not contain your messages, memories, files, settings, email
+                            address, or OAuth identifier.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Inactive accounts</strong>: We do not preemptively delete
@@ -415,7 +460,7 @@ function PrivacyPolicyPage() {
                     <PolicyList>
                         <PolicyItem>
                             We do not use your prompts, messages, uploads, generated images, or
-                            other user content to train, fine-tune, or improve our own AI models.
+                            memories to train, fine-tune, or improve our own AI models.
                         </PolicyItem>
                         <PolicyItem>
                             Where available, we intend to use provider settings or API terms that
@@ -483,6 +528,18 @@ function PrivacyPolicyPage() {
 
                     <PolicySubsection title="7.4 Product-level controls currently available">
                         <PolicyList>
+                            <PolicyItem>
+                                Memory is on by default when it is available. You may turn it off in
+                                the composer before sending a message. When it is off, that message
+                                and its reply are not used by Memory, and no saved memories are
+                                added to the request.
+                            </PolicyItem>
+                            <PolicyItem>
+                                From Memory settings, you may review current active memories, add or
+                                edit a memory, or ask the Service to forget one. Explicit memory
+                                changes requested in chat require confirmation before they are
+                                applied.
+                            </PolicyItem>
                             <PolicyItem>
                                 You may delete supported chat threads and generated images directly
                                 from the product interface.

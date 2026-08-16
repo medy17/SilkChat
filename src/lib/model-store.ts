@@ -1,6 +1,7 @@
 import type { ImageResolution, ImageSize, ReasoningEffortTier } from "@/convex/lib/models"
 import {
     type AIConfig,
+    enableHostedMemoryOnce,
     loadAIConfig,
     saveAIConfig,
     setDefaultModelToLunaOnce
@@ -29,8 +30,9 @@ export type ModelStore = {
 }
 
 if (typeof window !== "undefined") {
-    // TODO(next commit): Remove this one-off existing-user migration and its tests/export.
+    // One-time preference rollouts for existing browsers.
     setDefaultModelToLunaOnce(window.localStorage)
+    enableHostedMemoryOnce(window.localStorage)
 }
 
 const initialConfig = loadAIConfig()

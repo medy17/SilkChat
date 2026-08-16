@@ -4,13 +4,47 @@ import type { GenericActionCtx } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "./_generated/api"
 import type { DataModel, Id } from "./_generated/dataModel"
-import { action } from "./_generated/server"
+import { action, internalAction } from "./_generated/server"
 import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { getUserIdentity } from "./lib/identity"
+import {
+    type SupermemoryMemoryListResponse,
+    getSupermemoryApiKey,
+    getSupermemoryContainerTag,
+    getSupermemoryConversationCustomId,
+    supermemoryRequest
+} from "./lib/supermemory_api"
 import {
     type PreparedMemoryChange,
     applyPreparedMemoryChange
 } from "./lib/supermemory_memory_change"
+
+export const ingestConversationTurn = internalAction({
+    args: {
+        userId: v.string(),
+        threadId: v.id("threads"),
+        content: v.string()
+    },
+    handler: async (_ctx, { userId, threadId, content }) => {
+        const apiKey = getSupermemoryApiKey()
+        const normalizedContent = content.trim()
+        if (!apiKey || !normalizedContent) return
+
+        try {
+            await supermemoryRequest<{ id: string; status: string }>(apiKey, "/v3/documents", {
+                body: {
+                    content: normalizedContent,
+                    containerTag: await getSupermemoryContainerTag(userId),
+                    customId: await getSupermemoryConversationCustomId(userId, String(threadId)),
+                    metadata: { type: "conversation", source: "silkchat" },
+                    dreaming: "dynamic"
+                }
+            })
+        } catch (error) {
+            console.error("[cvx][chat][memory] Failed to ingest conversation turn:", error)
+        }
+    }
+})
 
 const getOwnedThread = async (
     ctx: GenericActionCtx<DataModel>,
@@ -68,11 +102,9 @@ export const confirmPreparedMemoryChange = action({
             throw new ConvexError(message)
         }
 
-        const apiKey = await ctx.runQuery(internal.settings.getSupermemoryKey, {
-            userId: user.id
-        })
+        const apiKey = getSupermemoryApiKey()
         if (!apiKey) {
-            const message = "Supermemory is no longer configured. Add your API key in settings."
+            const message = "Memory isn't available right now."
             await failCard(message)
             throw new ConvexError(message)
         }
@@ -80,7 +112,7 @@ export const confirmPreparedMemoryChange = action({
         try {
             const applied = await applyPreparedMemoryChange({
                 apiKey,
-                containerTag: user.id,
+                containerTag: await getSupermemoryContainerTag(user.id),
                 change
             })
 
@@ -107,6 +139,101 @@ export const confirmPreparedMemoryChange = action({
             await failCard(message)
             throw new ConvexError(message)
         }
+    }
+})
+
+const getHostedMemoryIdentity = async (ctx: GenericActionCtx<DataModel>) => {
+    const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+    if ("error" in user) throw new ConvexError("Unauthorized.")
+    await assertAccountNotDeletingForAction(ctx, user.id)
+
+    const apiKey = getSupermemoryApiKey()
+    if (!apiKey) throw new ConvexError("Memory isn't available right now.")
+
+    return {
+        apiKey,
+        containerTag: await getSupermemoryContainerTag(user.id)
+    }
+}
+
+export const listMemories = action({
+    args: {
+        page: v.optional(v.number()),
+        limit: v.optional(v.number())
+    },
+    handler: async (ctx, { page = 1, limit = 20 }) => {
+        const { apiKey, containerTag } = await getHostedMemoryIdentity(ctx)
+        const safePage = Math.max(1, Math.floor(page))
+        const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)))
+        return await supermemoryRequest<SupermemoryMemoryListResponse>(
+            apiKey,
+            "/v4/memories/list",
+            {
+                body: {
+                    containerTags: [containerTag],
+                    page: safePage,
+                    limit: safeLimit,
+                    order: "desc",
+                    sort: "updatedAt"
+                }
+            }
+        )
+    }
+})
+
+export const createMemory = action({
+    args: { content: v.string() },
+    handler: async (ctx, { content }) => {
+        const normalizedContent = content.trim()
+        if (!normalizedContent) throw new ConvexError("Memory content is required.")
+        if (normalizedContent.length > 10_000) {
+            throw new ConvexError("Memory content must be 10,000 characters or fewer.")
+        }
+        const { apiKey, containerTag } = await getHostedMemoryIdentity(ctx)
+        return await supermemoryRequest<{ memories: Array<{ id: string; memory: string }> }>(
+            apiKey,
+            "/v4/memories",
+            {
+                body: {
+                    containerTag,
+                    memories: [{ content: normalizedContent, isStatic: true }]
+                }
+            }
+        )
+    }
+})
+
+export const updateMemory = action({
+    args: { memoryId: v.string(), content: v.string() },
+    handler: async (ctx, { memoryId, content }) => {
+        const normalizedContent = content.trim()
+        if (!memoryId.trim() || !normalizedContent) {
+            throw new ConvexError("Memory ID and content are required.")
+        }
+        if (normalizedContent.length > 10_000) {
+            throw new ConvexError("Memory content must be 10,000 characters or fewer.")
+        }
+        const { apiKey, containerTag } = await getHostedMemoryIdentity(ctx)
+        return await supermemoryRequest<{ id: string; memory: string }>(apiKey, "/v4/memories", {
+            method: "PATCH",
+            body: { id: memoryId, containerTag, newContent: normalizedContent }
+        })
+    }
+})
+
+export const forgetMemory = action({
+    args: { memoryId: v.string() },
+    handler: async (ctx, { memoryId }) => {
+        if (!memoryId.trim()) throw new ConvexError("Memory ID is required.")
+        const { apiKey, containerTag } = await getHostedMemoryIdentity(ctx)
+        return await supermemoryRequest<{ id: string; forgotten: boolean }>(
+            apiKey,
+            "/v4/memories",
+            {
+                method: "DELETE",
+                body: { id: memoryId, containerTag, reason: "Removed by the user in SilkChat." }
+            }
+        )
     }
 })
 

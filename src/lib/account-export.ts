@@ -59,6 +59,7 @@ const buildAccountExportFiles = ({
     settings,
     personas,
     projects,
+    memories,
     storedFiles,
     threadFiles,
     threadCount
@@ -68,6 +69,7 @@ const buildAccountExportFiles = ({
     settings: unknown
     personas: unknown[]
     projects: unknown[]
+    memories: unknown[]
     storedFiles: AccountExportStoredFile[]
     threadFiles: AccountExportFile[]
     threadCount: number
@@ -88,6 +90,8 @@ const buildAccountExportFiles = ({
             settings: "account/settings.json",
             personas: "account/personas.json",
             projects: "account/projects.json",
+            memories: "memory/memories.json",
+            memoryCount: memories.length,
             storedFiles: "files/index.json",
             storedFileCount: publicStoredFiles.length,
             conversationsDirectory: "conversations/",
@@ -110,6 +114,7 @@ const buildAccountExportFiles = ({
             },
             { name: "account/personas.json", content: json(personas) },
             { name: "account/projects.json", content: json(projects) },
+            { name: "memory/memories.json", content: json(memories) },
             {
                 name: "files/index.json",
                 content: json({

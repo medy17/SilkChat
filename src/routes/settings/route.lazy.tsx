@@ -16,6 +16,7 @@ import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@ta
 import {
     BarChart3,
     Bot,
+    BrainCircuit,
     CreditCard,
     PaintBucket,
     Paperclip,
@@ -41,6 +42,11 @@ const settingsNavItems = [
         title: "AI Setup",
         href: "/settings/ai-setup",
         icon: Bot
+    },
+    {
+        title: "Memory",
+        href: "/settings/memory",
+        icon: BrainCircuit
     },
     {
         title: "Behavior",
@@ -80,7 +86,7 @@ const legacySettingsRouteMap: Record<string, SettingsNavHref> = {
     "/settings/profile": "/settings/account",
     "/settings/providers": "/settings/ai-setup",
     "/settings/models": "/settings/ai-setup",
-    "/settings/ai-options": "/settings/ai-setup",
+    "/settings/ai-options": "/settings/memory",
     "/settings/customization": "/settings/behavior",
     "/settings/attachments": "/settings/files"
 }

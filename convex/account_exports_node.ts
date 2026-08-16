@@ -25,6 +25,7 @@ import { authComponent } from "./auth"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserVisibleFilePrefixes } from "./lib/file_listing"
 import { getUserIdentity } from "./lib/identity"
+import { listAllSupermemoryMemories } from "./lib/supermemory_api"
 
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 const TURNSTILE_ACTION = "account_export"
@@ -237,18 +238,22 @@ export const buildAccountExport = internalAction({
             const exportedAt = Date.now()
             const convexSiteUrl = getConvexSiteUrl()
             const publicAssetBaseUrl = getPublicAssetBaseUrl()
-            const [profile, settings, collections, storedFiles, threads] = await Promise.all([
-                loadAccountProfile(ctx, args.authId, {
-                    id: args.userId,
-                    email: claim.email
-                }),
-                ctx.runQuery(internal.settings.getUserSettingsInternal, { userId: args.userId }),
-                ctx.runQuery(internal.account_exports.getAccountExportCollections, {
-                    userId: args.userId
-                }),
-                loadStoredFiles(ctx, args.userId, publicAssetBaseUrl),
-                loadThreads(ctx, args.userId)
-            ])
+            const [profile, settings, collections, storedFiles, threads, memories] =
+                await Promise.all([
+                    loadAccountProfile(ctx, args.authId, {
+                        id: args.userId,
+                        email: claim.email
+                    }),
+                    ctx.runQuery(internal.settings.getUserSettingsInternal, {
+                        userId: args.userId
+                    }),
+                    ctx.runQuery(internal.account_exports.getAccountExportCollections, {
+                        userId: args.userId
+                    }),
+                    loadStoredFiles(ctx, args.userId, publicAssetBaseUrl),
+                    loadThreads(ctx, args.userId),
+                    listAllSupermemoryMemories(args.userId)
+                ])
 
             const threadFiles: AccountExportFile[] = []
             for (const thread of threads) {
@@ -295,6 +300,7 @@ export const buildAccountExport = internalAction({
                 settings,
                 personas: collections.personas,
                 projects: collections.projects,
+                memories,
                 storedFiles,
                 threadFiles,
                 threadCount: threads.length

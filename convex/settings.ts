@@ -240,7 +240,16 @@ const getSettings = async (
     if (!settings) {
         return DefaultSettings(userId)
     }
-    return normalizeSettingsCustomModels(settings)
+    const normalized = normalizeSettingsCustomModels(settings)
+    return {
+        ...normalized,
+        generalProviders: {
+            ...normalized.generalProviders,
+            // Hosted memory replaced the legacy per-user Supermemory credential.
+            // Never return an obsolete encrypted secret to application clients.
+            supermemory: undefined
+        }
+    }
 }
 export const getUserSettingsInternal = internalQuery({
     args: {
@@ -454,23 +463,6 @@ export const updateUserSettings = mutation({
                 apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
                 newKey: v.optional(v.string())
             })
-        ),
-        generalProviders: v.optional(
-            v.object({
-                supermemory: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string())
-                    })
-                )
-            })
-        ),
-        // Keeping backward compatibility
-        supermemory: v.optional(
-            v.object({
-                enabled: v.boolean(),
-                newKey: v.optional(v.string())
-            })
         )
     },
     handler: async (ctx, args) => {
@@ -490,7 +482,7 @@ export const updateUserSettings = mutation({
             coreAIProviders: {},
             customAIProviders: {},
             generalProviders: {
-                supermemory: settings.generalProviders?.supermemory,
+                supermemory: undefined,
                 firecrawl: settings.generalProviders?.firecrawl,
                 tavily: settings.generalProviders?.tavily,
                 brave: settings.generalProviders?.brave,
@@ -524,25 +516,6 @@ export const updateUserSettings = mutation({
                 encryptedKey: provider.newKey
                     ? await encryptKey(provider.newKey)
                     : settings.customAIProviders[providerId].encryptedKey
-            }
-        }
-
-        if (args.generalProviders?.supermemory) {
-            newSettings.generalProviders.supermemory = {
-                enabled: args.generalProviders.supermemory.enabled,
-                encryptedKey: args.generalProviders.supermemory.newKey
-                    ? await encryptKey(args.generalProviders.supermemory.newKey)
-                    : settings.generalProviders?.supermemory?.encryptedKey || ""
-            }
-        }
-
-        // Handle backward compatibility for supermemory
-        if (args.supermemory) {
-            newSettings.generalProviders.supermemory = {
-                enabled: args.supermemory.enabled,
-                encryptedKey: args.supermemory.newKey
-                    ? await encryptKey(args.supermemory.newKey)
-                    : settings.generalProviders?.supermemory?.encryptedKey || ""
             }
         }
 
@@ -608,29 +581,6 @@ export const deleteUserTheme = mutation({
     }
 })
 
-export const getSupermemoryKey = internalQuery({
-    args: {
-        userId: v.string()
-    },
-    handler: async (ctx, args): Promise<string | null> => {
-        const settings = await getSettings(ctx, args.userId)
-
-        if (
-            !settings.generalProviders?.supermemory?.enabled ||
-            !settings.generalProviders?.supermemory.encryptedKey
-        ) {
-            return null
-        }
-
-        try {
-            return await decryptKey(settings.generalProviders?.supermemory.encryptedKey)
-        } catch (error) {
-            console.error("Failed to decrypt supermemory key:", error)
-            return null
-        }
-    }
-})
-
 export const updateUserSettingsPartial = mutation({
     args: {
         // Base settings (partial)
@@ -665,17 +615,6 @@ export const updateUserSettingsPartial = mutation({
                 )
             )
         ),
-        generalProviderUpdates: v.optional(
-            v.object({
-                supermemory: v.optional(
-                    v.object({
-                        enabled: v.boolean(),
-                        newKey: v.optional(v.string())
-                    })
-                )
-            })
-        ),
-
         // Custom models
         customModelUpdates: v.optional(
             v.record(
@@ -778,16 +717,6 @@ export const updateUserSettingsPartial = mutation({
                             : settings.customAIProviders[providerId]?.encryptedKey || ""
                     }
                 }
-            }
-        }
-
-        const supermemoryUpdate = args.generalProviderUpdates?.supermemory
-        if (supermemoryUpdate) {
-            newSettings.generalProviders.supermemory = {
-                enabled: supermemoryUpdate.enabled,
-                encryptedKey: supermemoryUpdate.newKey
-                    ? await encryptKey(supermemoryUpdate.newKey)
-                    : settings.generalProviders?.supermemory?.encryptedKey || ""
             }
         }
 

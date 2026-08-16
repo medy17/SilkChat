@@ -144,9 +144,8 @@ composer; the eyebrow occasionally glints. Ambient motion and the glint respect
 
 ## Known Gaps and Deliberate Omissions
 
-- **Supermemory discovery:** Supermemory is not an intent. It remains in the composer tool menu,
-  which gives it a relatively small discovery surface. The intended future direction is a hosted,
-  contextual affordance rather than forcing this specialized tool into the generic intent list.
+- **Memory discovery:** Memory is not an intent. It remains a turn-by-turn tool in the composer
+  menu and has a dedicated Memory settings page for reviewing and managing saved memories.
 - **Local geo fidelity:** local trends follow browser language, not network location. There is no
   deterministic development override or IP-geolocation helper. This is acceptable until regional
   testing becomes frequent enough to justify a dev-tool control.

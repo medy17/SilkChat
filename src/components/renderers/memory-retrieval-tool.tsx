@@ -1,7 +1,6 @@
-import { SupermemoryIcon } from "@/components/brand-icons"
 import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
-import { AlertCircle, ChevronDown, Loader2 } from "lucide-react"
+import { AlertCircle, BrainCircuit, ChevronDown, Loader2 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 
 type MemoryRetrievalInvocation = UIToolInvocation<{
@@ -81,7 +80,7 @@ export const MemoryRetrievalToolRenderer = memo(
                       }
                   ]
         const resultCount = sections.reduce((total, section) => total + section.items.length, 0)
-        const title = mode === "search" ? "Memory Search" : "Memory Profile"
+        const title = mode === "search" ? "Memory search" : "What I remember"
 
         useEffect(() => {
             if (!contentRef.current || !innerRef.current) return
@@ -114,7 +113,7 @@ export const MemoryRetrievalToolRenderer = memo(
                         ) : failed ? (
                             <AlertCircle className="size-4 text-destructive" />
                         ) : (
-                            <SupermemoryIcon className="size-4 text-primary" />
+                            <BrainCircuit className="size-4 text-primary" />
                         )}
                         <span
                             className={cn(
@@ -125,7 +124,7 @@ export const MemoryRetrievalToolRenderer = memo(
                             {isLoading
                                 ? mode === "search"
                                     ? "Searching memory"
-                                    : "Loading memory profile"
+                                    : "Checking what I remember"
                                 : title}
                         </span>
 

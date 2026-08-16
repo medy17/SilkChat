@@ -140,20 +140,18 @@ vi.mock("../../convex/lib/toolkit", () => ({
     enforceToolIdentityPolicy: (
         enabledTools: string[],
         { isAnonymous }: { isAnonymous: boolean }
-    ) => (isAnonymous ? enabledTools.filter((tool) => tool !== "code_execution") : enabledTools),
-    resolveToolAvailability: (
-        settings: Record<
-            string,
-            | string
-            | Array<{ enabled?: boolean }>
-            | Record<string, { enabled?: boolean; encryptedKey?: string } | undefined>
-            | undefined
-        >
-    ) => {
-        const generalProviders = settings.generalProviders as
-            | Record<string, { enabled?: boolean; encryptedKey?: string } | undefined>
-            | undefined
+    ) =>
+        isAnonymous
+            ? enabledTools.filter(
+                  (tool) =>
+                      tool !== "code_execution" &&
+                      tool !== "mathematical_instruments" &&
+                      tool !== "supermemory"
+              )
+            : enabledTools,
+    resolveToolAvailability: () => {
         const hasSearchDeployment = Boolean(process.env.PERPLEXITY_API_KEY)
+        const hasMemoryDeployment = Boolean(process.env.SUPERMEMORY_API_KEY)
 
         return {
             web_search: {
@@ -161,10 +159,8 @@ vi.mock("../../convex/lib/toolkit", () => ({
                 fundingSource: hasSearchDeployment ? "deployment" : "none"
             },
             supermemory: {
-                enabled:
-                    generalProviders?.supermemory?.enabled === true &&
-                    Boolean(generalProviders.supermemory.encryptedKey),
-                fundingSource: "byok"
+                enabled: hasMemoryDeployment,
+                fundingSource: hasMemoryDeployment ? "deployment" : "none"
             }
         }
     },
@@ -468,6 +464,7 @@ describe("chatPOST", () => {
         isStepCountMock.mockReset().mockReturnValue("stop-after-100")
         streamTextMock.mockReset()
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
+        Reflect.deleteProperty(process.env, "SUPERMEMORY_API_KEY")
         vi.spyOn(console, "error").mockImplementation(() => {})
     })
 
@@ -572,16 +569,18 @@ describe("chatPOST", () => {
     })
 
     it("rejects free users when the selected model requires pro", async () => {
+        process.env.SUPERMEMORY_API_KEY = "deployment-memory-key"
+        const fetchMock = vi.spyOn(globalThis, "fetch")
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
             model: { modelType: "text" },
             modelName: "Shared Text",
             providerSource: "internal",
-            abilities: [],
+            abilities: ["function_calling"],
             registry: {
                 models: {
                     "shared-text": {
-                        abilities: []
+                        abilities: ["function_calling"]
                     }
                 }
             },
@@ -624,7 +623,7 @@ describe("chatPOST", () => {
                     role: "user",
                     parts: [{ type: "text", text: "hello" }]
                 },
-                enabledTools: [],
+                enabledTools: ["supermemory"],
                 reasoningEffort: "off"
             })
         )
@@ -638,6 +637,7 @@ describe("chatPOST", () => {
             "createThreadOrInsertMessages",
             expect.anything()
         )
+        expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it("returns rate_limit when monthly included usage is exhausted", async () => {
@@ -712,7 +712,7 @@ describe("chatPOST", () => {
         )
     })
 
-    it("persists hosted context-limit rejections without reserving credits or calling the model", async () => {
+    it("releases the early model reservation when persisting a hosted context-limit rejection", async () => {
         const largeText = "x".repeat(24_000)
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock
@@ -745,6 +745,15 @@ describe("chatPOST", () => {
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "releaseReservedCreditForMessage":
+                    return null
                 case "createThreadOrInsertMessages":
                     return {
                         threadId: "thread-1",
@@ -791,10 +800,11 @@ describe("chatPOST", () => {
         expect(responseText).toContain("switch to BYOK")
         expect(responseText).toContain('"threadId":"thread-1"')
         expect(streamTextMock).not.toHaveBeenCalled()
-        expect(ctx.runMutation).not.toHaveBeenCalledWith(
-            "reserveCreditForMessage",
-            expect.anything()
-        )
+        expect(ctx.runMutation).toHaveBeenCalledWith("reserveCreditForMessage", expect.anything())
+        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
         expect(ctx.runMutation).toHaveBeenCalledWith(
             "patchMessage",
             expect.objectContaining({
@@ -1060,6 +1070,15 @@ describe("chatPOST", () => {
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
+                case "reserveCreditForMessage":
+                    return {
+                        allowed: true,
+                        bypassed: false,
+                        existing: false,
+                        committed: false
+                    }
+                case "releaseReservedCreditForMessage":
+                    return null
                 case "createThreadOrInsertMessages":
                     return {
                         threadId: "thread-1",
@@ -1104,10 +1123,11 @@ describe("chatPOST", () => {
         expect(response.status).toBe(200)
         await expect(response.text()).resolves.toContain("too long for the selected model")
         expect(streamTextMock).not.toHaveBeenCalled()
-        expect(ctx.runMutation).not.toHaveBeenCalledWith(
-            "reserveCreditForMessage",
-            expect.anything()
-        )
+        expect(ctx.runMutation).toHaveBeenCalledWith("reserveCreditForMessage", expect.anything())
+        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+            userId: "user-1",
+            messageKey: "assistant-1:model"
+        })
     })
 
     it("releases the reserved model charge when tool budget reservation fails", async () => {

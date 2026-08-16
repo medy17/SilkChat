@@ -1,5 +1,4 @@
 import { AttachmentTile } from "@/components/attachment-tile"
-import { SupermemoryIcon } from "@/components/brand-icons"
 import { IntentGuide } from "@/components/intent-guide"
 import { ModelSelector } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
@@ -113,6 +112,7 @@ import type { UIMessage } from "ai"
 import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import {
     ArrowUp,
+    BrainCircuit,
     Check,
     ChevronDown,
     ChevronUp,
@@ -490,7 +490,7 @@ function MobileOverflowMenu({
     webSearchAvailable,
     codeExecutionAvailable,
     mathematicalInstrumentsAvailable,
-    hasSupermemory,
+    memoryAvailable,
     toolCallLimitPerTurn,
     toolLimitInteractive,
     onSetToolCallLimit,
@@ -513,7 +513,7 @@ function MobileOverflowMenu({
     webSearchAvailable: boolean
     codeExecutionAvailable: boolean
     mathematicalInstrumentsAvailable: boolean
-    hasSupermemory: boolean
+    memoryAvailable: boolean
     toolCallLimitPerTurn: number
     toolLimitInteractive: boolean
     onSetToolCallLimit: (nextLimit: number) => void
@@ -533,7 +533,7 @@ function MobileOverflowMenu({
     const webSearchEnabled = enabledTools.includes("web_search")
     const codeExecutionEnabled = enabledTools.includes("code_execution")
     const mathematicalInstrumentsEnabled = enabledTools.includes("mathematical_instruments")
-    const supermemoryEnabled = enabledTools.includes("supermemory")
+    const memoryEnabled = enabledTools.includes("supermemory")
 
     useEffect(() => {
         if (!open) {
@@ -654,6 +654,26 @@ function MobileOverflowMenu({
                             type="button"
                             className={cn(
                                 mobileMenuRowClassName,
+                                (!modelSupportsFunctionCalling || !memoryAvailable) &&
+                                    "cursor-not-allowed opacity-50"
+                            )}
+                            disabled={!modelSupportsFunctionCalling || !memoryAvailable}
+                            onClick={() => onToggleTool("supermemory")}
+                        >
+                            <MobileMenuIcon slashed={!memoryEnabled}>
+                                <BrainCircuit className="size-4" />
+                            </MobileMenuIcon>
+                            <span className="min-w-0 flex-1 truncate">
+                                Memory {memoryEnabled ? "enabled" : "disabled"}
+                            </span>
+                        </button>
+                    )}
+
+                    {!isImageModel && (
+                        <button
+                            type="button"
+                            className={cn(
+                                mobileMenuRowClassName,
                                 (!modelSupportsFunctionCalling ||
                                     !mathematicalInstrumentsAvailable) &&
                                     "cursor-not-allowed opacity-50"
@@ -708,25 +728,6 @@ function MobileOverflowMenu({
                             </MobileMenuIcon>
                             <span className="min-w-0 flex-1 truncate">
                                 Search {webSearchEnabled ? "enabled" : "disabled"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                !hasSupermemory && "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={!hasSupermemory}
-                            onClick={() => onToggleTool("supermemory")}
-                        >
-                            <MobileMenuIcon slashed={!supermemoryEnabled}>
-                                <SupermemoryIcon />
-                            </MobileMenuIcon>
-                            <span className="min-w-0 flex-1 truncate">
-                                Supermemory {supermemoryEnabled ? "enabled" : "disabled"}
                             </span>
                         </button>
                     )}
@@ -984,7 +985,7 @@ export function useComposerToolbarState() {
     const mathematicalInstrumentsAvailable = Boolean(
         resolvedToolAvailability?.mathematical_instruments?.enabled
     )
-    const hasSupermemory = Boolean(resolvedToolAvailability?.supermemory.enabled)
+    const hostedMemoryAvailable = Boolean(resolvedToolAvailability?.supermemory.enabled)
     const invertSendNewlineBehavior = resolvedUserSettings.invertSendNewlineBehavior === true
 
     useEffect(() => {
@@ -995,8 +996,6 @@ export function useComposerToolbarState() {
         if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) {
             unavailableTools.add("mathematical_instruments")
         }
-        if (!hasSupermemory) unavailableTools.add("supermemory")
-
         const nextEnabledTools = enabledTools.filter((tool) => !unavailableTools.has(tool))
         if (nextEnabledTools.length !== enabledTools.length) {
             setEnabledTools(nextEnabledTools)
@@ -1006,7 +1005,6 @@ export function useComposerToolbarState() {
         webSearchAvailable,
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
-        hasSupermemory,
         enabledTools,
         setEnabledTools
     ])
@@ -1015,7 +1013,9 @@ export function useComposerToolbarState() {
         webSearchAvailable && enabledTools.includes("web_search"),
         codeExecutionAvailable && enabledTools.includes("code_execution"),
         mathematicalInstrumentsAvailable && enabledTools.includes("mathematical_instruments"),
-        hasSupermemory && enabledTools.includes("supermemory")
+        modelSupportsFunctionCalling &&
+            hostedMemoryAvailable &&
+            enabledTools.includes("supermemory")
     ].filter(Boolean).length
     const toolLimitInteractive = activeToolCount > 0
     const effectiveToolCallLimitPerTurn = clampToolCallLimitPerTurn(
@@ -1035,7 +1035,9 @@ export function useComposerToolbarState() {
         ) {
             return
         }
-        if (tool === "supermemory" && !hasSupermemory) return
+        if (tool === "supermemory" && (!modelSupportsFunctionCalling || !hostedMemoryAvailable)) {
+            return
+        }
 
         setEnabledTools(
             enabledTools.includes(tool)
@@ -1103,7 +1105,7 @@ export function useComposerToolbarState() {
         webSearchAvailable,
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
-        hasSupermemory,
+        hostedMemoryAvailable,
         toolLimitInteractive,
         displayedToolCallLimitPerTurn,
         handleToolCallLimitUpdate,
@@ -1206,7 +1208,7 @@ export function ComposerMobileMenu({
                 webSearchAvailable={state.webSearchAvailable}
                 codeExecutionAvailable={state.codeExecutionAvailable}
                 mathematicalInstrumentsAvailable={state.mathematicalInstrumentsAvailable}
-                hasSupermemory={state.hasSupermemory}
+                memoryAvailable={state.hostedMemoryAvailable}
                 toolCallLimitPerTurn={state.displayedToolCallLimitPerTurn}
                 toolLimitInteractive={state.toolLimitInteractive}
                 onSetToolCallLimit={state.handleToolCallLimitUpdate}

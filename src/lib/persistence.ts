@@ -16,6 +16,7 @@ const MODEL_STORAGE_KEY = "model-storage"
 const USER_INPUT_KEY = "user-input"
 const LUNA_DEFAULT_MODEL_ID = "gpt-5.6-luna"
 export const LUNA_DEFAULT_MODEL_MIGRATION_KEY = "default-model-gpt-5.6-luna:v1"
+export const HOSTED_MEMORY_DEFAULT_ROLLOUT_KEY = "hosted-memory-default:v1"
 const LEGACY_REASONING_VARIANT_MODEL_IDS: Record<
     string,
     {
@@ -42,11 +43,52 @@ const safeRemoveItem = (key: string): void => {
 
 const defaultAIConfig = (): AIConfig => ({
     selectedModel: null,
-    enabledTools: [],
+    enabledTools: ["supermemory"],
     selectedImageSize: "1:1",
     selectedImageResolution: "1K",
     reasoningEffort: "off"
 })
+
+export const enableHostedMemoryOnce = (storage: Storage): void => {
+    try {
+        if (storage.getItem(HOSTED_MEMORY_DEFAULT_ROLLOUT_KEY) === "true") return
+
+        const storedConfig = storage.getItem(AI_CONFIG_KEY)
+        const config = storedConfig
+            ? { ...defaultAIConfig(), ...JSON.parse(storedConfig) }
+            : defaultAIConfig()
+        config.enabledTools = Array.from(
+            new Set([
+                ...(Array.isArray(config.enabledTools) ? config.enabledTools : []),
+                "supermemory"
+            ])
+        )
+        storage.setItem(AI_CONFIG_KEY, JSON.stringify(AIConfigSchema.parse(config)))
+
+        const storedModelState = storage.getItem(MODEL_STORAGE_KEY)
+        if (storedModelState) {
+            const modelState = JSON.parse(storedModelState)
+            const enabledTools = Array.isArray(modelState.state?.enabledTools)
+                ? modelState.state.enabledTools
+                : []
+            storage.setItem(
+                MODEL_STORAGE_KEY,
+                JSON.stringify({
+                    ...modelState,
+                    state: {
+                        ...(modelState.state ?? {}),
+                        enabledTools: Array.from(new Set([...enabledTools, "supermemory"]))
+                    },
+                    version: modelState.version ?? 0
+                })
+            )
+        }
+
+        storage.setItem(HOSTED_MEMORY_DEFAULT_ROLLOUT_KEY, "true")
+    } catch {
+        // A later load can retry after malformed or unavailable storage recovers.
+    }
+}
 
 export const setDefaultModelToLunaOnce = (storage: Storage): void => {
     try {

@@ -111,6 +111,7 @@ export const UserSettings = v.object({
     coreAIProviders: v.record(v.string(), CoreAIProvider),
     customAIProviders: v.record(v.string(), CustomAIProvider),
     generalProviders: v.object({
+        // Transitional storage compatibility for retired per-user Supermemory keys.
         supermemory: v.optional(GeneralProviderConfig),
         // Transitional storage compatibility for retired search BYOK keys.
         firecrawl: v.optional(GeneralProviderConfig),

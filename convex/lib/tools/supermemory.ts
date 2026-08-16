@@ -1,9 +1,10 @@
 import { tool } from "ai"
 import { z } from "zod"
-import { internal } from "../../_generated/api"
 import {
     type SupermemoryMemorySearchResponse,
     type SupermemoryProfileResponse,
+    getSupermemoryApiKey,
+    getSupermemoryContainerTag,
     supermemoryRequest
 } from "../supermemory_api"
 import type { ToolAdapter } from "../toolkit"
@@ -67,13 +68,11 @@ const normalizeMetadata = (
         : {})
 })
 
-export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userSettings }) => {
+export const SupermemoryAdapter: ToolAdapter = async ({ enabledTools, userSettings }) => {
     if (!enabledTools.includes("supermemory")) return {}
 
-    const getApiKey = () =>
-        ctx.runQuery(internal.settings.getSupermemoryKey, {
-            userId: userSettings.userId
-        })
+    const apiKey = getSupermemoryApiKey()
+    const containerTagPromise = getSupermemoryContainerTag(userSettings.userId)
 
     // One adapter is constructed per turn. This prevents a model from creating duplicate
     // confirmation cards for the same mutation while still allowing distinct changes.
@@ -108,11 +107,10 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
             inputSchema: supermemoryInputSchemas.get_memory_profile,
             execute: async () => {
                 try {
-                    const apiKey = await getApiKey()
                     if (!apiKey) {
                         return {
                             success: false,
-                            error: "Supermemory is not configured. Please add your API key in settings."
+                            error: "Memory isn't available right now."
                         }
                     }
 
@@ -120,7 +118,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                         apiKey,
                         "/v4/profile",
                         {
-                            body: { containerTag: userSettings.userId }
+                            body: { containerTag: await containerTagPromise }
                         }
                     )
                     const stableFacts = response.profile.static ?? []
@@ -146,7 +144,7 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
 
         add_memory: tool({
             description: [
-                "Prepare a durable memory for the user to review and confirm.",
+                "Prepare a saved memory for the user to review and confirm.",
                 "This does not save anything immediately. A successful result is a pending confirmation card.",
                 "Use concise, factual, self-contained content that remains useful without the current conversation."
             ].join("\n"),
@@ -193,17 +191,14 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
         }),
 
         search_memories: tool({
-            description:
-                "Search the user's stored memories for relevant cross-conversation context.",
+            description: "Search the user's saved memories for details from previous chats.",
             inputSchema: supermemoryInputSchemas.search_memories,
             execute: async ({ query, limit = 5 }) => {
                 try {
-                    const apiKey = await getApiKey()
-
                     if (!apiKey) {
                         return {
                             success: false,
-                            error: "Supermemory is not configured. Please add your API key in settings."
+                            error: "Memory isn't available right now."
                         }
                     }
 
@@ -215,8 +210,9 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                                 q: query,
                                 limit,
                                 threshold: 0.5,
-                                containerTag: userSettings.userId,
-                                searchMode: "memories"
+                                containerTag: await containerTagPromise,
+                                searchMode: "memories",
+                                include: { relatedMemories: true }
                             }
                         }
                     )
@@ -228,7 +224,17 @@ export const SupermemoryAdapter: ToolAdapter = async ({ ctx, enabledTools, userS
                             score: result.similarity,
                             metadata: result.metadata,
                             memoryId: result.id,
-                            updatedAt: result.updatedAt
+                            updatedAt: result.updatedAt,
+                            relatedMemories: [
+                                ...(result.context?.parents ?? []),
+                                ...(result.context?.children ?? [])
+                            ]
+                                .filter((related) => Boolean(related.memory))
+                                .map((related) => ({
+                                    content: related.memory,
+                                    relation: related.relation,
+                                    memoryId: related.id
+                                }))
                         }))
 
                     return {

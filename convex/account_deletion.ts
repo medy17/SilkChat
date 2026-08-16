@@ -32,6 +32,7 @@ import {
     getActiveAccountDeletionJob
 } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
+import { deleteSupermemoryContainer } from "./lib/supermemory_api"
 
 type AccountDeletionPurgeResult = {
     completed: boolean
@@ -1325,6 +1326,8 @@ export const processAccountDeletionJob = internalAction({
                     creditSnapshot
                 }
             )
+
+            await deleteSupermemoryContainer(userId)
 
             await deleteAuthUser(ctx, prepared.authId ?? auth?.authId)
 

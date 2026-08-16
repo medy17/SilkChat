@@ -84,7 +84,7 @@ const getDescription = (attempts: ToolFailureAttempt[]) => {
         case "auth_required":
             return `This tool call was captured but requires sign-in before it can run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
         case "deployment_unavailable":
-            return `This SilkChat deployment could not run this tool call. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
+            return `${attempt.toolLabel} isn't available right now, so this call did not run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
         case "malformed_tool_call":
             return `This ${attempt.toolLabel.toLowerCase()} call had incomplete or invalid arguments and did not run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
     }
@@ -283,14 +283,14 @@ export const BlockedToolCard = memo(
                                         void navigate({
                                             to:
                                                 ability === "supermemory"
-                                                    ? "/settings/providers"
+                                                    ? "/settings/memory"
                                                     : "/settings/ai-options"
                                         })
                                     }
                                 >
                                     <Settings className="size-4" />
                                     {ability === "supermemory"
-                                        ? "Set up Supermemory"
+                                        ? "Manage memory"
                                         : "Configure tools"}
                                 </Button>
                             ))}

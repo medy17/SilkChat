@@ -89,8 +89,7 @@ export const resolveBlockedBuiltinToolReasons = ({
         if (ability === "code_execution" && isAnonymous) {
             reasons[ability] = "auth_required"
         } else if (!toolAvailability[ability]?.enabled) {
-            reasons[ability] =
-                ability === "supermemory" ? "not_configured" : "deployment_unavailable"
+            reasons[ability] = "deployment_unavailable"
         } else if (!requestedTools.includes(ability)) {
             reasons[ability] = "user_disabled"
         }

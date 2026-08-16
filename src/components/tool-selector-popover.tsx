@@ -1,4 +1,3 @@
-import { SupermemoryIcon } from "@/components/brand-icons"
 import { Button } from "@/components/ui/button"
 import {
     Command,
@@ -32,7 +31,15 @@ import {
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
-import { CircleHelp, Globe, Image, Settings2, Sigma, SquareTerminal } from "lucide-react"
+import {
+    BrainCircuit,
+    CircleHelp,
+    Globe,
+    Image,
+    Settings2,
+    Sigma,
+    SquareTerminal
+} from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -269,22 +276,15 @@ function MathematicalInstrumentsInfoButton({
     )
 }
 
-function SupermemoryInfoButton({
-    isMobile,
-    available
-}: {
-    isMobile: boolean
-    available: boolean
-}) {
+function MemoryInfoButton({ isMobile, available }: { isMobile: boolean; available: boolean }) {
     const [open, setOpen] = useState(false)
     const trigger = (
         <button
             type="button"
-            aria-label="Show Supermemory details"
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onPointerDown={(event) => {
-                event.stopPropagation()
-            }}
+            aria-label="Show Memory details"
+            className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            style={{ borderRadius: "var(--radius-xl)" }}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -297,9 +297,10 @@ function SupermemoryInfoButton({
     const content = (
         <div className="space-y-3 p-3 text-sm">
             <div>
-                <div className="font-medium text-foreground">Supermemory</div>
+                <div className="font-medium text-foreground">Memory</div>
                 <p className="mt-1 text-muted-foreground text-xs">
-                    Remember details you share for personalisation and future reference.
+                    Remember useful details for future chats. You can review or forget anything
+                    saved to Memory.
                 </p>
             </div>
             <div className="flex justify-between gap-4 text-xs">
@@ -318,8 +319,8 @@ function SupermemoryInfoButton({
                 <ResponsivePopoverContent
                     className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
                     overlayClassName="z-[90]"
-                    title="Supermemory"
-                    description="Cross-conversation memory details"
+                    title="Memory"
+                    description="What Memory does and whether it is available"
                 >
                     {content}
                 </ResponsivePopoverContent>
@@ -495,7 +496,9 @@ export const ToolSelectorPopover = memo(
         const mathematicalInstrumentsAvailable = Boolean(
             toolAvailability?.mathematical_instruments?.enabled
         )
-        const supermemoryAvailable = Boolean(toolAvailability?.supermemory.enabled)
+        const memoryAvailable =
+            modelSupportsFunctionCalling && Boolean(toolAvailability?.supermemory.enabled)
+        const memoryEnabled = memoryAvailable && enabledTools.includes("supermemory")
         const webSearchDisabled = !modelSupportsFunctionCalling || !webSearchAvailable
         const imageDefaults = userSettings?.imageGenerationDefaults
         const defaultImageResolution: ImageDefaultResolution =
@@ -563,16 +566,6 @@ export const ToolSelectorPopover = memo(
             )
         }
 
-        const handleSupermemoryToggle = () => {
-            if (!supermemoryAvailable) return
-
-            onEnabledToolsChange(
-                enabledTools.includes("supermemory")
-                    ? enabledTools.filter((tool) => tool !== "supermemory")
-                    : [...enabledTools, "supermemory"]
-            )
-        }
-
         const handleCodeExecutionToggle = () => {
             if (!modelSupportsFunctionCalling || !codeExecutionAvailable) return
 
@@ -580,6 +573,15 @@ export const ToolSelectorPopover = memo(
                 enabledTools.includes("code_execution")
                     ? enabledTools.filter((tool) => tool !== "code_execution")
                     : [...enabledTools, "code_execution"]
+            )
+        }
+
+        const handleMemoryToggle = () => {
+            if (!memoryAvailable) return
+            onEnabledToolsChange(
+                memoryEnabled
+                    ? enabledTools.filter((tool) => tool !== "supermemory")
+                    : [...enabledTools, "supermemory"]
             )
         }
 
@@ -603,7 +605,7 @@ export const ToolSelectorPopover = memo(
             ) {
                 count++
             }
-            if (supermemoryAvailable && enabledTools.includes("supermemory")) count++
+            if (memoryEnabled) count++
             return count
         }
 
@@ -713,23 +715,18 @@ export const ToolSelectorPopover = memo(
                                     </CommandItem>
 
                                     <CommandItem className="flex items-center justify-between p-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex size-4 items-center justify-center">
-                                                <SupermemoryIcon />
-                                            </div>
-                                            <span className="text-sm">Supermemory</span>
-                                            <SupermemoryInfoButton
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <BrainCircuit className="size-4 shrink-0" />
+                                            <span className="text-sm">Memory</span>
+                                            <MemoryInfoButton
                                                 isMobile={isMobile}
-                                                available={supermemoryAvailable}
+                                                available={memoryAvailable}
                                             />
                                         </div>
                                         <Switch
-                                            checked={
-                                                supermemoryAvailable &&
-                                                enabledTools.includes("supermemory")
-                                            }
-                                            onCheckedChange={handleSupermemoryToggle}
-                                            disabled={!supermemoryAvailable}
+                                            checked={memoryEnabled}
+                                            onCheckedChange={handleMemoryToggle}
+                                            disabled={!memoryAvailable}
                                         />
                                     </CommandItem>
 

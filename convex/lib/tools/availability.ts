@@ -1,6 +1,7 @@
 import type { AbilityId } from "@/lib/tool-abilities"
 import type { Infer } from "convex/values"
 import type { UserSettings } from "../../schema/settings"
+import { getSupermemoryApiKey } from "../supermemory_api"
 
 export type ToolFundingSource = "byok" | "deployment" | "none"
 
@@ -20,15 +21,12 @@ const hasVercelSandboxCredentials = () =>
             process.env.VERCEL_TOKEN?.trim()
     )
 
-const hasEnabledProviderKey = (provider: { enabled: boolean; encryptedKey: string } | undefined) =>
-    provider?.enabled === true && Boolean(provider.encryptedKey)
-
 export const resolveToolAvailability = (
-    userSettings: Infer<typeof UserSettings>
+    _userSettings: Infer<typeof UserSettings>
 ): ResolvedToolAvailabilityMap => {
     const hasSearchDeployment = Boolean(getDeploymentSearchApiKey())
     const hasCodeExecutionDeployment = hasVercelSandboxCredentials()
-    const hasSupermemoryByok = hasEnabledProviderKey(userSettings.generalProviders?.supermemory)
+    const hasSupermemoryDeployment = Boolean(getSupermemoryApiKey())
     return {
         web_search: {
             enabled: hasSearchDeployment,
@@ -43,8 +41,8 @@ export const resolveToolAvailability = (
             fundingSource: "none"
         },
         supermemory: {
-            enabled: hasSupermemoryByok,
-            fundingSource: hasSupermemoryByok ? "byok" : "none"
+            enabled: hasSupermemoryDeployment,
+            fundingSource: hasSupermemoryDeployment ? "deployment" : "none"
         }
     }
 }
@@ -63,6 +61,9 @@ export const enforceToolIdentityPolicy = (
 ): AbilityId[] =>
     isAnonymous
         ? enabledTools.filter(
-              (tool) => tool !== "code_execution" && tool !== "mathematical_instruments"
+              (tool) =>
+                  tool !== "code_execution" &&
+                  tool !== "mathematical_instruments" &&
+                  tool !== "supermemory"
           )
         : enabledTools

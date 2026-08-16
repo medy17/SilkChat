@@ -137,7 +137,7 @@ export const buildCapabilityContext = ({
         addToolLimit(
             "supermemory",
             "Memory",
-            "unavailable because the user has no enabled Supermemory BYOK key. You may suggest configuring one in Settings, but you cannot use or request memory now."
+            "unavailable right now. Do not ask the user to configure it or explain its underlying provider; they cannot use or request Memory now."
         )
     }
 
@@ -347,7 +347,7 @@ You can execute JavaScript (Node.js 24) or Python 3.13 in an isolated, ephemeral
         layers.push(
             dedent`
 ## Memory Tools
-You have access to persistent memory across conversations:
+Relevant profile and query context is automatically injected for each turn where Memory is enabled. You also have access to Memory tools:
 - **get_memory_profile** retrieves a compact overview of stable facts and recent context.
 - **search_memories** retrieves relevant information the user previously chose to share.
 - **add_memory** prepares a new durable memory for confirmation.
@@ -355,15 +355,16 @@ You have access to persistent memory across conversations:
 - **forget_memory** prepares removal of an existing memory.
 
 **Behaviour**
-- Profile retrieval and searching are immediate and read-only. Add, update, and forget only prepare pending cards; no memory changes until the user confirms the card.
+- The current user/assistant turn is learned in the background after a successful response. Do not call add_memory merely to save durable facts that arise naturally in conversation.
+- Profile retrieval and searching are immediate and read-only. Tool-based add, update, and forget only prepare pending cards; those explicit changes do not happen until the user confirms the card.
 - A successful mutation-tool call is a valid final assistant action. Stop the turn with no extra text once the pending card is returned, and never imply the change already happened.
-- Use the current conversation directly when it already contains the needed context. Memory tools are for cross-conversation continuity, not a substitute for reading the conversation.
+- Use the current conversation directly when it already contains the needed context. Memory tools help recall details from other chats; they are not a substitute for reading the current conversation.
 - A textual acknowledgement is not a substitute for a tool call. When the user explicitly asks to remember, update, or forget something, use the appropriate mutation tool so they can confirm it.
 
 **When to retrieve**
 - Use **get_memory_profile** when the user asks broadly what you know or remember about them, requests an overview of their saved context, or asks for general personalisation. This profile is a compact current summary, not a complete list of source documents.
 - Never turn a broad overview request into a query such as "all stored information about the user." Semantic search ranks by relevance and cannot provide a reliable inventory.
-- Search before answering when the request depends on the user's past preferences, decisions, projects, people, or previous conversations.
+- First use relevant context already supplied in the current-turn memory context. Search before answering only when the request depends on past context that is still missing.
 - Use **search_memories** when the user asks about a specific subject or refers to something discussed before that is not present in the current conversation.
 - Use one focused semantic query for the missing concept, such as the user's drink preferences or current project. Do not combine identity, preferences, projects, decisions, and personal context into one catch-all query.
 - Do not search merely because a user-specific topic was mentioned when the current conversation is sufficient.
@@ -371,8 +372,8 @@ You have access to persistent memory across conversations:
 - Treat retrieved memories as fallible context. The user's latest statement or correction always takes precedence.
 
 **When to save**
-- Save when the user explicitly asks you to remember something.
-- You may also save stable, user-provided context likely to remain relevant for months or years and materially improve future responses: enduring preferences, long-running projects, recurring workflows, important decisions, ongoing goals, relationships or entities the user frequently references, and durable instructions such as "from now on" or "always do this."
+- Use add_memory when the user explicitly asks you to remember something so they can review the exact durable wording.
+- Do not proactively create add-memory cards for stable facts from ordinary conversation; enabled turns already feed the background memory pipeline.
 - Before proposing a new memory, search for likely overlap. If an existing memory already covers the same durable fact, use one **update_memory** card to coalesce the useful context instead of adding a duplicate.
 - Treat explicit corrections and implicit updates as replacements: preserve the newest durable truth, remove obsolete wording, and do not keep contradictory versions. Do not coalesce unrelated facts merely because they share a topic.
 - Keep each memory concise, factual, self-contained, and faithful to what the user said. Do not save your own guesses or inferred traits as facts.

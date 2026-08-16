@@ -1,10 +1,9 @@
-import { SupermemoryIcon } from "@/components/brand-icons"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { UIToolInvocation } from "ai"
-import { useAction } from "convex/react"
-import { AlertCircle, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
+import { useAction, useQuery } from "convex/react"
+import { AlertCircle, BrainCircuit, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
@@ -41,7 +40,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 const operationDetails = {
     add: {
         title: "Remember this",
-        description: "Add this to persistent memory",
+        description: "Save this for future chats",
         confirmLabel: "Remember",
         completedLabel: "Remembered",
         icon: Plus
@@ -55,7 +54,7 @@ const operationDetails = {
     },
     forget: {
         title: "Forget memory",
-        description: "Remove this from persistent memory",
+        description: "Stop remembering this in future chats",
         confirmLabel: "Forget",
         completedLabel: "Forgotten",
         icon: Trash2
@@ -76,6 +75,9 @@ export const MemoryToolRenderer = memo(
         const cancelMemoryChange = useAction(api.supermemory_node.cancelPreparedMemoryChange)
         const [isConfirming, setIsConfirming] = useState(false)
         const [isCancelling, setIsCancelling] = useState(false)
+        const [optimisticOutput, setOptimisticOutput] = useState<PreparedMemoryChangeOutput | null>(
+            null
+        )
 
         const isLoading =
             toolInvocation.state === "input-streaming" || toolInvocation.state === "input-available"
@@ -85,7 +87,19 @@ export const MemoryToolRenderer = memo(
             toolInvocation.output !== null
                 ? (toolInvocation.output as PreparedMemoryChangeOutput)
                 : undefined
-        const preparedOutput = output?.kind === "prepared_memory_change" ? output : undefined
+        const localPreparedOutput = output?.kind === "prepared_memory_change" ? output : undefined
+        const persistedPreparedOutput = useQuery(
+            api.messages.getPreparedMemoryChangeCardResult,
+            localPreparedOutput?.cardId && threadId && messageId
+                ? {
+                      threadId: threadId as Id<"threads">,
+                      messageId,
+                      toolCallId: toolInvocation.toolCallId,
+                      cardId: localPreparedOutput.cardId
+                  }
+                : "skip"
+        ) as PreparedMemoryChangeOutput | null | undefined
+        const preparedOutput = optimisticOutput ?? persistedPreparedOutput ?? localPreparedOutput
 
         if (isLoading) {
             return (
@@ -135,7 +149,12 @@ export const MemoryToolRenderer = memo(
             if (!canAct) return
             setIsConfirming(true)
             try {
-                await confirmMemoryChange(actionArgs())
+                const result = await confirmMemoryChange(actionArgs())
+                setOptimisticOutput({
+                    ...change,
+                    status: "completed",
+                    ...(result.memoryId ? { memoryId: result.memoryId } : {})
+                })
                 toast.success(details.completedLabel)
             } catch (error) {
                 toast.error(getErrorMessage(error, "Could not apply memory change"))
@@ -149,6 +168,7 @@ export const MemoryToolRenderer = memo(
             setIsCancelling(true)
             try {
                 await cancelMemoryChange(actionArgs())
+                setOptimisticOutput({ ...change, status: "cancelled" })
             } catch (error) {
                 toast.error(getErrorMessage(error, "Could not cancel memory change"))
             } finally {
@@ -166,7 +186,7 @@ export const MemoryToolRenderer = memo(
             >
                 <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-primary/10 text-primary">
-                        <SupermemoryIcon className="size-5" />
+                        <BrainCircuit className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

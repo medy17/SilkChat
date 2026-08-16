@@ -53,6 +53,12 @@ import {
 import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
 import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import {
+    extractVisibleMessageText,
+    getSupermemoryTurnContext,
+    isHostedMemoryEnabledForTurn,
+    prepareSupermemoryConversationTurn
+} from "../lib/supermemory_chat"
+import {
     type AbilityId,
     type ToolFundingSource,
     enforceToolIdentityPolicy,
@@ -909,17 +915,57 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const modelCreditMessageKey = `${assistantRequestMessageId}:model`
     const toolBudgetMessageKey = `${assistantRequestMessageId}:tool-budget`
     const toolCallMessageKeyPrefix = `${assistantRequestMessageId}:tool`
+
+    const getUsageReservationMicrousd = () =>
+        modelData.providerSource === "internal"
+            ? estimateOpenRouterReservationMicrousd({
+                  estimatedInputTokens: estimatedPromptTokens,
+                  maxOutputTokens: maxTokens,
+                  inputUsdPer1MTokens: selectedRegistryModel?.inputUsdPer1MTokens,
+                  outputUsdPer1MTokens: selectedRegistryModel?.outputUsdPer1MTokens
+              })
+            : undefined
+
+    const reserveModelCredit = () =>
+        ctx.runMutation(internal.credits.reserveCreditForMessage, {
+            userId: user.id,
+            threadId: body.id as Id<"threads"> | undefined,
+            messageId: assistantRequestMessageId,
+            messageKey: modelCreditMessageKey,
+            modelId: body.model,
+            providerSource: modelData.providerSource,
+            feature: modelCreditCharge.feature,
+            counted: modelCreditCharge.counted,
+            ...(getUsageReservationMicrousd() !== undefined
+                ? {
+                      reservedMicrousd: getUsageReservationMicrousd(),
+                      pricingSource: "openrouter_estimate" as const
+                  }
+                : {}),
+            requiredPlan: requiredPlanForModel
+        })
+    const releaseModelCreditReservation = () =>
+        ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
+            userId: user.id,
+            messageKey: modelCreditMessageKey
+        })
+
     const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
         userId: user.id
     })
-    const requestedEnabledTools = Array.from(new Set(body.enabledTools))
     const toolAvailability = resolveToolAvailability(settings)
+    const requestedEnabledTools = Array.from(new Set(body.enabledTools))
     const resolvedEnabledTools = enforceToolIdentityPolicy(
         sanitizeEnabledTools(requestedEnabledTools, toolAvailability),
         { isAnonymous: user.isAnonymous }
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
+    const memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
+        resolvedEnabledTools,
+        modelSupportsFunctionCalling
+    )
+    let memoryTurnContext = ""
     const blockedBuiltinToolReasons = modelSupportsFunctionCalling
         ? resolveBlockedBuiltinToolReasons({
               requestedTools: requestedEnabledTools,
@@ -942,6 +988,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }),
             buildTemporalContext(),
             buildToolBudgetContext(toolCallLimitPerTurn),
+            memoryTurnContext,
             availableImageReferenceLabels
                 ? buildImageReferenceContext(availableImageReferenceLabels)
                 : ""
@@ -957,7 +1004,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
         if (toolName === "render_chart" || toolName === "render_network") {
             return toolAvailability.mathematical_instruments.fundingSource
         }
-        return "byok"
+        if (
+            toolName === "get_memory_profile" ||
+            toolName === "add_memory" ||
+            toolName === "update_memory" ||
+            toolName === "forget_memory" ||
+            toolName === "search_memories"
+        ) {
+            return toolAvailability.supermemory.fundingSource
+        }
+        return "none"
     }
     const hasPaidCallableTools = callableEnabledTools.length > 0
     const hasInternalImagePreparationTool =
@@ -1078,6 +1134,90 @@ export const chatPOST = httpAction(async (ctx, req) => {
         }
     }
 
+    let creditReservation = await reserveModelCredit()
+
+    if (!creditReservation.allowed) {
+        if (creditReservation.reason === "plan") {
+            return new ChatError("forbidden:chat", "Pro plan required for the selected model.", {
+                kind: "plan_required",
+                requiredPlan: creditReservation.requiredPlan ?? "pro",
+                currentPlan: creditReservation.plan,
+                feature: modelCreditCharge.feature
+            }).toResponse()
+        }
+
+        if (modelData.providerSource === "internal") {
+            const fallbackModelData = await getModel(ctx, body.model, {
+                reasoningEffort: body.reasoningEffort,
+                openRouterByokOnly: true
+            })
+
+            if (fallbackModelData && !(fallbackModelData instanceof ChatError)) {
+                const fallbackViolation = getContextLimitViolation({
+                    estimatedTokens: estimatedPromptTokens,
+                    limits: contextLimits,
+                    providerSource: fallbackModelData.providerSource,
+                    modelId: body.model
+                })
+
+                if (!fallbackViolation) {
+                    modelData = fallbackModelData
+                    model = modelData.model
+                    modelName = modelData.modelName
+                    displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
+                    maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
+                    modelCreditCharge = resolveModelCreditCharge(
+                        model.modelType,
+                        modelData.providerSource
+                    )
+                    creditReservation = await reserveModelCredit()
+                }
+            }
+        }
+
+        if (!creditReservation.allowed) {
+            if (creditReservation.reason === "usage") {
+                return new ChatError(
+                    "rate_limit:chat",
+                    "Included usage limit reached for the selected request.",
+                    {
+                        kind: "usage_limit_exceeded",
+                        window: creditReservation.window,
+                        usedUsd: creditReservation.usedUsd,
+                        limitUsd: creditReservation.limitUsd,
+                        remainingUsd: creditReservation.remainingUsd,
+                        recoversAt: creditReservation.recoversAt ?? undefined
+                    }
+                ).toResponse()
+            }
+            console.error("[cvx][chat] Unexpected credit reservation refusal", creditReservation)
+            throw new Error("Unexpected credit reservation refusal")
+        }
+    }
+
+    if (memoryEnabledForTurn && contextViolation?.limitType !== "model") {
+        memoryTurnContext = await getSupermemoryTurnContext(
+            user.id,
+            extractVisibleMessageText(body.message.parts)
+        )
+        if (memoryTurnContext) {
+            estimatedPromptTokens += estimateModelMessagesTokens([
+                { role: "system", content: memoryTurnContext }
+            ])
+            const memoryAdjustedContextViolation = getContextLimitViolation({
+                estimatedTokens: estimatedPromptTokens,
+                limits: contextLimits,
+                providerSource: modelData.providerSource,
+                modelId: body.model
+            })
+            contextViolation = memoryAdjustedContextViolation
+            contextViolationReason =
+                memoryAdjustedContextViolation?.limitType === "hosted"
+                    ? (contextViolationReason ?? "thread")
+                    : undefined
+        }
+    }
+
     let contextRouting: ContextRoutingMetadata | undefined
     if (contextViolation?.limitType === "hosted") {
         const fallbackModelData = await getModel(ctx, body.model, {
@@ -1094,6 +1234,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             })
 
             if (!fallbackViolation) {
+                await releaseModelCreditReservation()
                 modelData = fallbackModelData
                 model = modelData.model
                 modelName = modelData.modelName
@@ -1103,6 +1244,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     model.modelType,
                     modelData.providerSource
                 )
+                creditReservation = await reserveModelCredit()
+                if (!creditReservation.allowed) {
+                    console.error(
+                        "[cvx][chat] BYOK context fallback credit reservation was refused",
+                        creditReservation
+                    )
+                    throw new Error("Failed to reserve the BYOK context fallback request")
+                }
                 contextRouting = {
                     mode: "byok_fallback",
                     reason: contextViolationReason ?? "thread",
@@ -1135,6 +1284,12 @@ export const chatPOST = httpAction(async (ctx, req) => {
     }
 
     if (contextViolation) {
+        await releaseModelCreditReservation().catch((releaseError) =>
+            console.error(
+                "[cvx][chat] Failed to release model reservation after context rejection:",
+                releaseError
+            )
+        )
         const mutationResult = await createMutationResult()
         if (mutationResult instanceof ChatError) {
             return mutationResult.toResponse()
@@ -1215,112 +1370,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 headers: UI_MESSAGE_STREAM_HEADERS
             }
         )
-    }
-
-    const getUsageReservationMicrousd = () =>
-        modelData.providerSource === "internal"
-            ? estimateOpenRouterReservationMicrousd({
-                  estimatedInputTokens: estimatedPromptTokens,
-                  maxOutputTokens: maxTokens,
-                  inputUsdPer1MTokens: selectedRegistryModel?.inputUsdPer1MTokens,
-                  outputUsdPer1MTokens: selectedRegistryModel?.outputUsdPer1MTokens
-              })
-            : undefined
-
-    let creditReservation = await ctx.runMutation(internal.credits.reserveCreditForMessage, {
-        userId: user.id,
-        threadId: body.id as Id<"threads"> | undefined,
-        messageId: assistantRequestMessageId,
-        messageKey: modelCreditMessageKey,
-        modelId: body.model,
-        providerSource: modelData.providerSource,
-        feature: modelCreditCharge.feature,
-        counted: modelCreditCharge.counted,
-        ...(getUsageReservationMicrousd() !== undefined
-            ? {
-                  reservedMicrousd: getUsageReservationMicrousd(),
-                  pricingSource: "openrouter_estimate" as const
-              }
-            : {}),
-        requiredPlan: requiredPlanForModel
-    })
-
-    if (!creditReservation.allowed) {
-        if (creditReservation.reason === "plan") {
-            return new ChatError("forbidden:chat", "Pro plan required for the selected model.", {
-                kind: "plan_required",
-                requiredPlan: creditReservation.requiredPlan ?? "pro",
-                currentPlan: creditReservation.plan,
-                feature: modelCreditCharge.feature
-            }).toResponse()
-        }
-
-        if (modelData.providerSource === "internal") {
-            const fallbackModelData = await getModel(ctx, body.model, {
-                reasoningEffort: body.reasoningEffort,
-                openRouterByokOnly: true
-            })
-
-            if (fallbackModelData && !(fallbackModelData instanceof ChatError)) {
-                const fallbackViolation = getContextLimitViolation({
-                    estimatedTokens: immediateEstimatedTokens,
-                    limits: contextLimits,
-                    providerSource: fallbackModelData.providerSource,
-                    modelId: body.model
-                })
-
-                if (!fallbackViolation) {
-                    modelData = fallbackModelData
-                    model = modelData.model
-                    modelName = modelData.modelName
-                    displayProvider = resolveDisplayProvider(body.model, modelData.runtimeProvider)
-                    maxTokens = resolveMaxOutputTokens(modelData.registry.models[body.model])
-                    modelCreditCharge = resolveModelCreditCharge(
-                        model.modelType,
-                        modelData.providerSource
-                    )
-                    creditReservation = await ctx.runMutation(
-                        internal.credits.reserveCreditForMessage,
-                        {
-                            userId: user.id,
-                            threadId: body.id as Id<"threads"> | undefined,
-                            messageId: assistantRequestMessageId,
-                            messageKey: modelCreditMessageKey,
-                            modelId: body.model,
-                            providerSource: modelData.providerSource,
-                            feature: modelCreditCharge.feature,
-                            counted: modelCreditCharge.counted,
-                            ...(getUsageReservationMicrousd() !== undefined
-                                ? {
-                                      reservedMicrousd: getUsageReservationMicrousd(),
-                                      pricingSource: "openrouter_estimate" as const
-                                  }
-                                : {}),
-                            requiredPlan: requiredPlanForModel
-                        }
-                    )
-                }
-            }
-        }
-
-        if (!creditReservation.allowed) {
-            if (creditReservation.reason === "usage") {
-                return new ChatError(
-                    "rate_limit:chat",
-                    "Included usage limit reached for the selected request.",
-                    {
-                        kind: "usage_limit_exceeded",
-                        window: creditReservation.window,
-                        usedUsd: creditReservation.usedUsd,
-                        limitUsd: creditReservation.limitUsd,
-                        remainingUsd: creditReservation.remainingUsd,
-                        recoversAt: creditReservation.recoversAt ?? undefined
-                    }
-                ).toResponse()
-            }
-            console.error("[cvx][chat] Unexpected credit reservation refusal", creditReservation)
-            throw new Error("Unexpected credit reservation refusal")
-        }
     }
 
     let toolBudgetReservation: {
@@ -1814,9 +1863,11 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
             await Promise.allSettled(uploadPromises)
 
+            const finishReason = await result.finishReason
+
             writer.write({
                 type: "finish",
-                finishReason: await result.finishReason,
+                finishReason,
                 messageMetadata: {
                     threadId: mutationResult.threadId,
                     streamId,
@@ -1885,6 +1936,31 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ...(contextRouting ? { contextRouting } : {})
                 }
             })
+
+            if (memoryEnabledForTurn && finishReason !== "error") {
+                const conversationTurn = prepareSupermemoryConversationTurn({
+                    userParts: body.message.parts,
+                    assistantParts: parts
+                })
+                if (conversationTurn) {
+                    try {
+                        await ctx.scheduler.runAfter(
+                            0,
+                            internal.supermemory_node.ingestConversationTurn,
+                            {
+                                userId: user.id,
+                                threadId: mutationResult.threadId,
+                                content: conversationTurn
+                            }
+                        )
+                    } catch (error) {
+                        console.error(
+                            "[cvx][chat][memory] Failed to schedule conversation ingestion:",
+                            error
+                        )
+                    }
+                }
+            }
 
             await finalizeToolBudgetReservation()
             await settleModelCreditReservation()

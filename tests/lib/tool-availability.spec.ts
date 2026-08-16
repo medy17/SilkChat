@@ -24,6 +24,7 @@ describe("tool availability", () => {
         Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
         Reflect.deleteProperty(process.env, "VERCEL_PROJECT_ID")
         Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
+        Reflect.deleteProperty(process.env, "SUPERMEMORY_API_KEY")
     })
 
     it("enables web search only when Perplexity is deployment-configured", () => {
@@ -76,15 +77,16 @@ describe("tool availability", () => {
         })
     })
 
-    it("keeps supermemory user-provisioned", () => {
+    it("enables memory only when Supermemory is deployment-configured", () => {
         process.env.PERPLEXITY_API_KEY = "deployment-perplexity-key"
+        process.env.SUPERMEMORY_API_KEY = "deployment-supermemory-key"
 
         const result = resolveToolAvailability(createSettings())
 
         expect(result.web_search.fundingSource).toBe("deployment")
         expect(result.supermemory).toEqual({
-            enabled: false,
-            fundingSource: "none"
+            enabled: true,
+            fundingSource: "deployment"
         })
         expect(result.mathematical_instruments).toEqual({
             enabled: true,
@@ -93,7 +95,12 @@ describe("tool availability", () => {
     })
 
     it("withholds sandbox-backed tools from anonymous sessions", () => {
-        const tools = ["web_search", "code_execution", "mathematical_instruments"] as const
+        const tools = [
+            "web_search",
+            "code_execution",
+            "mathematical_instruments",
+            "supermemory"
+        ] as const
 
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: true })).toEqual(["web_search"])
         expect(enforceToolIdentityPolicy([...tools], { isAnonymous: false })).toEqual(tools)

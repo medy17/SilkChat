@@ -40,6 +40,7 @@ import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
 import { Route as SettingsFilesRouteImport } from './routes/settings/files'
+import { Route as SettingsMemoryRouteImport } from './routes/settings/memory'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
 import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
@@ -222,6 +223,11 @@ const SettingsFilesRoute = SettingsFilesRouteImport.update({
   path: '/files',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsMemoryRoute = SettingsMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsModelsRoute = SettingsModelsRouteImport.update({
   id: '/models',
   path: '/models',
@@ -318,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
+  '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -361,6 +368,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
+  '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -407,6 +415,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
+  '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -454,6 +463,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
+    | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -497,6 +507,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
+    | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/customization'
     | '/settings/files'
+    | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
     | '/settings/profile'
@@ -803,6 +815,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsFilesRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/memory': {
+      id: '/settings/memory'
+      path: '/memory'
+      fullPath: '/settings/memory'
+      preLoaderRoute: typeof SettingsMemoryRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/models': {
       id: '/settings/models'
       path: '/models'
@@ -933,6 +952,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsCustomizationRoute: typeof SettingsCustomizationRoute
   SettingsFilesRoute: typeof SettingsFilesRoute
+  SettingsMemoryRoute: typeof SettingsMemoryRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
   SettingsPersonasRoute: typeof SettingsPersonasRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
@@ -950,6 +970,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsCustomizationRoute: SettingsCustomizationRoute,
   SettingsFilesRoute: SettingsFilesRoute,
+  SettingsMemoryRoute: SettingsMemoryRoute,
   SettingsModelsRoute: SettingsModelsRoute,
   SettingsPersonasRoute: SettingsPersonasRoute,
   SettingsProfileRoute: SettingsProfileRoute,

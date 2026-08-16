@@ -435,7 +435,7 @@ describe("settings", () => {
         })
     })
 
-    it("preserves existing encrypted keys when updates omit newKey values", async () => {
+    it("preserves active provider keys while retiring a legacy Supermemory key", async () => {
         const ctx = createCtx({
             _id: "settings-id",
             userId: "user-1",
@@ -497,11 +497,6 @@ describe("settings", () => {
                     endpoint: "https://custom.example.com/v1",
                     name: "Custom Provider"
                 }
-            },
-            generalProviders: {
-                supermemory: {
-                    enabled: true
-                }
             }
         })
 
@@ -527,10 +522,7 @@ describe("settings", () => {
                     }
                 },
                 generalProviders: expect.objectContaining({
-                    supermemory: {
-                        enabled: true,
-                        encryptedKey: "existing-supermemory-key"
-                    },
+                    supermemory: undefined,
                     brave: {
                         enabled: true,
                         encryptedKey: "existing-brave-key",

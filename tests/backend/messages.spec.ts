@@ -6,7 +6,11 @@ vi.mock("../../convex/_generated/server", () => ({
     query: (config: unknown) => config
 }))
 
-import { getPreparedImageGenerationCardResult, patchMessage } from "../../convex/messages"
+import {
+    getPreparedImageGenerationCardResult,
+    getPreparedMemoryChangeCardResult,
+    patchMessage
+} from "../../convex/messages"
 
 const handler = (
     getPreparedImageGenerationCardResult as unknown as {
@@ -69,6 +73,20 @@ const createCtx = ({ authorId = "user-1" }: { authorId?: string } = {}) => ({
         })
     }
 })
+
+const memoryHandler = (
+    getPreparedMemoryChangeCardResult as unknown as {
+        handler: (
+            ctx: ReturnType<typeof createCtx>,
+            args: {
+                threadId: string
+                messageId: string
+                toolCallId: string
+                cardId: string
+            }
+        ) => Promise<unknown>
+    }
+).handler
 
 describe("prepared image generation card query", () => {
     it("returns the persisted card result for its thread owner", async () => {
@@ -169,6 +187,68 @@ describe("prepared image generation card query", () => {
                 messageId: "assistant-1",
                 toolCallId: "tool-1",
                 cardId: "card-1"
+            })
+        ).resolves.toBeNull()
+        expect(ctx.db.query).not.toHaveBeenCalled()
+    })
+})
+
+describe("prepared memory change card query", () => {
+    const completedMemoryResult = {
+        success: true,
+        kind: "prepared_memory_change",
+        status: "completed",
+        operation: "add",
+        cardId: "memory-card-1",
+        content: "User loves Pepsi."
+    }
+
+    const createMemoryCtx = ({ authorId = "user-1" }: { authorId?: string } = {}) => {
+        const ctx = createCtx({ authorId })
+        ctx.db.query.mockReturnValue({
+            withIndex: vi.fn().mockReturnValue({
+                collect: vi.fn().mockResolvedValue([
+                    {
+                        threadId: "thread-1",
+                        messageId: "assistant-1",
+                        parts: [
+                            {
+                                type: "tool-invocation",
+                                toolInvocation: {
+                                    toolName: "add_memory",
+                                    toolCallId: "memory-tool-1",
+                                    state: "result",
+                                    result: completedMemoryResult
+                                }
+                            }
+                        ]
+                    }
+                ])
+            })
+        })
+        return ctx
+    }
+
+    it("returns the persisted terminal result for the thread owner", async () => {
+        await expect(
+            memoryHandler(createMemoryCtx(), {
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                toolCallId: "memory-tool-1",
+                cardId: "memory-card-1"
+            })
+        ).resolves.toEqual(completedMemoryResult)
+    })
+
+    it("does not expose a memory card from another user's thread", async () => {
+        const ctx = createMemoryCtx({ authorId: "user-2" })
+
+        await expect(
+            memoryHandler(ctx, {
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                toolCallId: "memory-tool-1",
+                cardId: "memory-card-1"
             })
         ).resolves.toBeNull()
         expect(ctx.db.query).not.toHaveBeenCalled()

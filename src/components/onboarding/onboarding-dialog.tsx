@@ -13,8 +13,8 @@ import {
     ArrowLeft,
     ArrowRight,
     BarChart3,
-    Bot,
     Box,
+    BrainCircuit,
     Command,
     Edit,
     FileImage,
@@ -28,8 +28,7 @@ import {
     Play,
     Search,
     Sparkles,
-    Wand2,
-    Zap
+    Wand2
 } from "lucide-react"
 import { CheckCircle, MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
 import { AnimatePresence, MotionConfig, motion } from "motion/react"
@@ -169,30 +168,32 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     },
     {
         id: "integrations",
-        title: "Powerful Integrations",
-        icon: Zap,
+        title: "Memory",
+        icon: BrainCircuit,
         content: (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-2">
                     <Card className="p-4 shadow-none">
                         <div className="flex items-start space-x-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                                <Bot className="h-5 w-5 text-primary" />
+                                <BrainCircuit className="h-5 w-5 text-primary" />
                             </div>
                             <div className="flex-1 space-y-1">
-                                <div className="font-medium text-sm">Supermemory AI Memory</div>
+                                <div className="font-medium text-sm">
+                                    Pick up where you left off
+                                </div>
                                 <div className="text-muted-foreground text-xs leading-relaxed">
-                                    Add persistent memory across conversations (BYOK)
+                                    Review or forget anything saved to Memory.
                                 </div>
                             </div>
                         </div>
                     </Card>
                 </div>
                 <div className="space-y-3">
-                    <h3 className="font-semibold text-xl tracking-tight">Powerful Integrations</h3>
+                    <h3 className="font-semibold text-xl tracking-tight">Remember what matters</h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                        SilkChat comes built-in with powerful connectors to enhance your AI
-                        experience.
+                        Turn Memory on when you want SilkChat to carry useful details into future
+                        chats.
                     </p>
                 </div>
             </div>

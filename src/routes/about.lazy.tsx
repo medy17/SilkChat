@@ -42,7 +42,7 @@ const FEATURES = [
     },
     {
         title: "Memory across conversations",
-        body: "Connect your Supermemory account and models can carry context between chats."
+        body: "Memory helps SilkChat pick up where you left off. Turn it on or off whenever you send a message."
     },
     {
         title: "Reasoning control",

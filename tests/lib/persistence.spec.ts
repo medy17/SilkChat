@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
+    HOSTED_MEMORY_DEFAULT_ROLLOUT_KEY,
     LUNA_DEFAULT_MODEL_MIGRATION_KEY,
+    enableHostedMemoryOnce,
     loadAIConfig,
     loadUserInput,
     saveAIConfig,
@@ -34,7 +36,7 @@ describe("persistence", () => {
     it("returns SSR-safe defaults when window is unavailable", () => {
         expect(loadAIConfig()).toEqual({
             selectedModel: null,
-            enabledTools: [],
+            enabledTools: ["supermemory"],
             selectedImageSize: "1:1",
             selectedImageResolution: "1K",
             reasoningEffort: "off"
@@ -52,7 +54,7 @@ describe("persistence", () => {
 
         expect(loadAIConfig()).toEqual({
             selectedModel: null,
-            enabledTools: [],
+            enabledTools: ["supermemory"],
             selectedImageSize: "1:1",
             selectedImageResolution: "1K",
             reasoningEffort: "off"
@@ -208,5 +210,41 @@ describe("persistence", () => {
         expect(storage.snapshot()).toEqual({
             [LUNA_DEFAULT_MODEL_MIGRATION_KEY]: "true"
         })
+    })
+
+    it("enables hosted memory in existing composer preferences exactly once", () => {
+        const storage = createStorageMock({
+            "ai-config": JSON.stringify({
+                selectedModel: "gpt-5.6-luna",
+                enabledTools: ["web_search"],
+                selectedImageSize: "1:1",
+                selectedImageResolution: "1K",
+                reasoningEffort: "off"
+            }),
+            "model-storage": JSON.stringify({
+                state: { enabledTools: ["web_search"] },
+                version: 0
+            })
+        })
+
+        enableHostedMemoryOnce(storage as unknown as Storage)
+
+        expect(JSON.parse(storage.snapshot()["ai-config"]).enabledTools).toEqual([
+            "web_search",
+            "supermemory"
+        ])
+        expect(JSON.parse(storage.snapshot()["model-storage"]).state.enabledTools).toEqual([
+            "web_search",
+            "supermemory"
+        ])
+        expect(storage.snapshot()[HOSTED_MEMORY_DEFAULT_ROLLOUT_KEY]).toBe("true")
+
+        storage.setItem(
+            "model-storage",
+            JSON.stringify({ state: { enabledTools: [] }, version: 0 })
+        )
+        enableHostedMemoryOnce(storage as unknown as Storage)
+
+        expect(JSON.parse(storage.snapshot()["model-storage"]).state.enabledTools).toEqual([])
     })
 })

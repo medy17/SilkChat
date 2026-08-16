@@ -61,7 +61,7 @@ Stores the user/auth IDs, status, phase, acknowledgement audit fields, retry sta
 
 ## Purge Scope
 
-The purge covers user-owned application records, including chat data, imports, personas, settings and encrypted keys, generated images and jobs, usage and reservations, access/billing rows, and auth-related records. It also removes R2 objects found through author metadata and known generated derivative keys.
+The purge covers user-owned application records, including chat data, imports, personas, settings and encrypted keys, generated images and jobs, usage and reservations, access/billing rows, and auth-related records. It also removes the user's hosted-memory container and R2 objects found through author metadata and known generated derivative keys.
 
 Durable suppression and neutral subscription-link rows are deliberately outside the user-content cascade.
 

@@ -25,20 +25,23 @@ export const applyPreparedMemoryChange = async ({
 
     if (change.operation === "add") {
         if (!change.content?.trim()) throw new Error("The proposed memory is empty.")
-        const response = await supermemoryRequest<SupermemoryMutationResponse>(
-            apiKey,
-            "/v3/documents",
-            {
-                body: {
-                    content: change.content.trim(),
-                    containerTag,
-                    ...(change.metadata && Object.keys(change.metadata).length > 0
-                        ? { metadata: change.metadata }
-                        : {})
-                }
+        const response = await supermemoryRequest<{
+            memories: Array<{ id: string; memory: string }>
+        }>(apiKey, "/v4/memories", {
+            body: {
+                containerTag,
+                memories: [
+                    {
+                        content: change.content.trim(),
+                        isStatic: true,
+                        ...(change.metadata && Object.keys(change.metadata).length > 0
+                            ? { metadata: change.metadata }
+                            : {})
+                    }
+                ]
             }
-        )
-        return { operation: change.operation, memoryId: response.id }
+        })
+        return { operation: change.operation, memoryId: response.memories[0]?.id }
     }
 
     if (change.operation === "update") {
