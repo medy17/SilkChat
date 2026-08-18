@@ -1,7 +1,7 @@
-diff --git a/dist/parse-ingredient.mjs b/dist/parse-ingredient.mjs
+diff --git a/node_modules/parse-ingredient/dist/parse-ingredient.mjs b/node_modules/parse-ingredient/dist/parse-ingredient.mjs
 index 6675358fdaef9073741634e68dd01045de65b5ad..35a91b3fb2be7f594d96e5204dbcdadddefb1504 100644
---- a/dist/parse-ingredient.mjs
-+++ b/dist/parse-ingredient.mjs
+--- a/node_modules/parse-ingredient/dist/parse-ingredient.mjs
++++ b/node_modules/parse-ingredient/dist/parse-ingredient.mjs
 @@ -318,6 +318,13 @@ const unitsOfMeasure = {
  		type: "mass",
  		conversionFactor: 1

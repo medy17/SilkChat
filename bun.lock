@@ -158,7 +158,6 @@
   },
   "patchedDependencies": {
     "@openrouter/ai-sdk-provider@3.0.0": "bun-patches/@openrouter%2Fai-sdk-provider@3.0.0.patch",
-    "parse-ingredient@2.2.0": "bun-patches/parse-ingredient@2.2.0.patch",
   },
   "overrides": {
     "@hono/node-server": "^1.19.13",

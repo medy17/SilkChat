@@ -1,0 +1,12 @@
+diff --git a/node_modules/resumable-stream/dist/redis.js b/node_modules/resumable-stream/dist/redis.js
+--- a/node_modules/resumable-stream/dist/redis.js
++++ b/node_modules/resumable-stream/dist/redis.js
+@@ -16,7 +16,7 @@ var __exportStar = (this && this.__exportStar) || function (m, exports) {
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.createResumableStreamContext = exports.resumeStream = void 0;
+ const get_redis_url_1 = require("./get-redis-url");
+-const redis_1 = require("redis");
++const redis_1 = require("@upstash/redis");
+ const runtime_1 = require("./runtime");
+ __exportStar(require("./types"), exports);
+ var runtime_2 = require("./runtime");
