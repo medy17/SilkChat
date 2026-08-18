@@ -12,6 +12,21 @@ type AuthUser = {
     name?: unknown
 }
 
+export const deliverWelcomeEmail = internalAction({
+    args: {
+        authUserId: v.string(),
+        email: v.string(),
+        name: v.optional(v.string())
+    },
+    handler: async (_ctx, { authUserId, email, name }) => {
+        const { sendWelcomeEmail } = await import("../src/lib/email")
+        await sendWelcomeEmail({
+            user: { email, name },
+            idempotencyKey: `welcome/${authUserId}`
+        })
+    }
+})
+
 export const deliverInactiveAccountNotice = internalAction({
     args: {
         activityId: v.id("accountActivities")

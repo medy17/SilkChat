@@ -11,16 +11,17 @@ The mail setup is:
 
 - `src/lib/email.ts` supports `resend`, `ses`, and a local mock provider.
 - The default provider is `resend`.
-- Templates cover:
-  - sign-in OTP
-  - email verification
-  - password reset
-- These helpers are present, but they are not currently wired into the auth flow.
-- Live product flows must call the mail utility explicitly; the auth flow does not call these templates.
+- Templates cover the three live product emails:
+  - welcome after OAuth account creation
+  - encrypted account export delivery
+  - inactive-account reminder
+- Password, verification, and OTP emails are intentionally not implemented because authentication
+  is OAuth-first.
 
 ## Environment Variables
 
-These variables are read by the app server, not Convex:
+These variables are read by the Convex Node actions that deliver email. Configure them in each
+Convex deployment environment. Local Node execution also loads `envs/.env.local`.
 
 ```bash
 EMAIL_PROVIDER=resend
@@ -40,7 +41,12 @@ Notes:
 
 Use `Resend` for:
 
-- messages sent explicitly through `src/lib/email.ts`
+- the welcome email scheduled when Better Auth creates an OAuth user
+- account export delivery
+- the one-time inactive-account reminder
+
+All three flows use stable idempotency keys so a repeated delivery attempt does not produce a
+duplicate Resend message.
 
 ### Inbound
 
@@ -101,7 +107,7 @@ EMAIL_FROM=noreply@silkchat.dev
 RESEND_API_KEY=re_your_real_key_here
 ```
 
-In Vercel production env:
+In each Convex deployment environment:
 
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM`
@@ -115,7 +121,8 @@ The current send path is:
 - `sendWithResend()` in [`src/lib/email.ts`](../src/lib/email.ts)
 - templates in [`src/lib/email-templates.tsx`](../src/lib/email-templates.tsx)
 
-The mail utility is not called by live auth actions.
+The Better Auth user-creation trigger schedules the welcome email as a background Convex Node
+action. Email-provider failures therefore do not block OAuth account creation.
 
 ## Cloudflare Email Routing Setup
 
@@ -202,4 +209,4 @@ Note:
 - Using a sender address on a domain that Resend has not verified
 - Orange-cloud proxying email DNS records in Cloudflare
 - Expecting Cloudflare Email Routing to provide IMAP mailboxes
-- Expecting the current app to send auth emails automatically when those hooks are not yet wired
+- Adding password-based auth without first implementing its verification and recovery emails

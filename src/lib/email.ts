@@ -4,10 +4,7 @@ import { Resend } from "resend"
 import { resolveEmailIdempotencyKey } from "./email-idempotency"
 import {
     AccountExportEmailTemplate,
-    EmailVerificationTemplate,
     InactiveAccountNoticeEmailTemplate,
-    OTPEmailTemplate,
-    PasswordResetTemplate,
     WelcomeEmailTemplate
 } from "./email-templates"
 import { loadServerEnv } from "./load-server-env"
@@ -240,49 +237,11 @@ class EmailService {
         }
     }
 
-    async sendVerificationEmail(data: {
+    async sendWelcomeEmail(data: {
         user: { email: string; name?: string }
-        url: string
-        token: string
+        appUrl?: string
+        idempotencyKey?: string
     }) {
-        const html = await render(
-            EmailVerificationTemplate({
-                name: data.user.name,
-                verificationUrl: data.url
-            })
-        )
-
-        console.debug(`Sending verification email to ${data.user.email} with URL: ${data.url}`)
-
-        await this.sendEmail({
-            to: data.user.email,
-            subject: "Verify your email address - SilkChat",
-            html,
-            text: `Hi ${data.user.name || ""},\n\nPlease verify your email address by clicking this link: ${data.url}\n\nIf you didn't create an account, you can safely ignore this email.`
-        })
-    }
-
-    async sendPasswordResetEmail(data: {
-        user: { email: string; name?: string }
-        url: string
-        token: string
-    }) {
-        const html = await render(
-            PasswordResetTemplate({
-                name: data.user.name,
-                resetUrl: data.url
-            })
-        )
-
-        await this.sendEmail({
-            to: data.user.email,
-            subject: "Reset your password - SilkChat",
-            html,
-            text: `Hi ${data.user.name || ""},\n\nYou can reset your password by clicking this link: ${data.url}\n\nIf you didn't request a password reset, you can safely ignore this email.`
-        })
-    }
-
-    async sendWelcomeEmail(data: { user: { email: string; name?: string }; appUrl?: string }) {
         const appUrl = data.appUrl || this.getAppUrl()
         const supportEmail = this.getSupportEmail()
         const html = await render(
@@ -298,7 +257,8 @@ class EmailService {
             to: data.user.email,
             subject: "Welcome to SilkChat",
             html,
-            text: `${data.user.name ? `Hi ${data.user.name},` : "Hi,"}\n\nWelcome to SilkChat. Your account is ready.\n\nSilkChat gives you one place to work across leading AI models, with web search, image generation, and live code previews built in.\n\nOpen SilkChat: ${appUrl}\n\nA few good places to start:\n- Try the built-in models\n- Connect your own API keys if you want more control\n- Explore onboarding, themes, and the available tools after sign-in\n\nIf you need help, contact us at ${supportEmail}.\n\nThe SilkChat Team`
+            idempotencyKey: data.idempotencyKey,
+            text: `${data.user.name ? `Hi ${data.user.name},` : "Hi,"}\n\nWelcome to SilkChat. Your workspace is ready.\n\nBring the models you use into one place, search the web, generate images, and work with live code previews without breaking your flow.\n\nStart chatting: ${appUrl}\n\nIf you need help, contact us at ${supportEmail}.\n\nThe SilkChat Team`
         })
     }
 
@@ -364,73 +324,15 @@ class EmailService {
             text: `Silky misses you\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nIt's been a while since you logged in. Your chats, generated images, and files remain available whenever you're ready.\n\nReturn to SilkChat: ${appUrl}\n\nIf you'd like to export your SilkChat data or delete your account instead, you can do that from your account settings: ${accountUrl}\n\nIf you need help, contact us at ${supportEmail}.\n\nThis is the only inactivity reminder we will send for this account.\n\nThe SilkChat Team`
         })
     }
-
-    async sendOTPEmail(data: {
-        email: string
-        otp: string
-        type: "sign-in" | "email-verification" | "forget-password"
-    }) {
-        const getSubjectAndTemplate = async () => {
-            switch (data.type) {
-                case "sign-in":
-                    return {
-                        subject: "Your sign-in code - SilkChat",
-                        html: await render(
-                            OTPEmailTemplate({
-                                otp: data.otp,
-                                type: "sign-in"
-                            })
-                        ),
-                        text: `Your sign-in code for SilkChat is: ${data.otp}\n\nThis code will expire in 5 minutes.`
-                    }
-                case "email-verification":
-                    return {
-                        subject: "Verify your email - SilkChat",
-                        html: await render(
-                            OTPEmailTemplate({
-                                otp: data.otp,
-                                type: "email-verification"
-                            })
-                        ),
-                        text: `Your email verification code for SilkChat is: ${data.otp}\n\nThis code will expire in 5 minutes.`
-                    }
-                case "forget-password":
-                    return {
-                        subject: "Reset your password - SilkChat",
-                        html: await render(
-                            OTPEmailTemplate({
-                                otp: data.otp,
-                                type: "forget-password"
-                            })
-                        ),
-                        text: `Your password reset code for SilkChat is: ${data.otp}\n\nThis code will expire in 5 minutes.`
-                    }
-            }
-        }
-
-        const { subject, html, text } = await getSubjectAndTemplate()
-
-        console.debug(`Sending ${data.type} OTP email to ${data.email} with code: ${data.otp}`)
-
-        await this.sendEmail({
-            to: data.email,
-            subject,
-            html,
-            text
-        })
-    }
 }
 
 // Export singleton instance
 export const emailService = new EmailService()
 
-// Export individual functions for Better Auth
+// Export the provider-level sender and live product email helpers.
 export const sendEmail = emailService.sendEmail.bind(emailService)
-export const sendVerificationEmail = emailService.sendVerificationEmail.bind(emailService)
-export const sendPasswordResetEmail = emailService.sendPasswordResetEmail.bind(emailService)
 export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
 export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
 export const sendInactiveAccountNoticeEmail =
     emailService.sendInactiveAccountNoticeEmail.bind(emailService)
-export const sendOTPEmail = emailService.sendOTPEmail.bind(emailService)
 export const isEmailConfigured = emailService.isConfigured.bind(emailService)

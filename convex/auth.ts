@@ -82,6 +82,17 @@ export const authComponent: ReturnType<typeof createClient<DataModel>> = createC
                         userId: getAppUserId(user),
                         email: user.email
                     })
+                    if (user.email) {
+                        await ctx.scheduler.runAfter(
+                            0,
+                            internal.account_activity_node.deliverWelcomeEmail,
+                            {
+                                authUserId: user._id,
+                                email: user.email,
+                                ...(user.name ? { name: user.name } : {})
+                            }
+                        )
+                    }
                 },
                 onUpdate: async (ctx, user) => {
                     await recordAuthenticatedActivity(ctx, user._id)
