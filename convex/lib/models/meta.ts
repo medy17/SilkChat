@@ -10,16 +10,39 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const META_MODELS: SharedModel[] = [
     {
+        id: "muse-spark-1.2",
+        name: "Muse Spark 1.2",
+        addedOn: "2026-08-05",
+        shortName: "Muse Spark 1.2",
+        shortDescription:
+            "Multimodal reasoning model for complex agents, visual coding, and computer interaction",
+        description:
+            "Muse Spark 1.2 is Meta's multimodal reasoning model for complex agents. It combines a million-token context with text, image, video, audio, and PDF understanding, tool use, structured output, and fine-grained effort control for visual coding, computer interaction, and involved multi-step work.",
+        releaseOrder: 20260805,
+        adapters: openRouterTextAdapters("meta/muse-spark-1.2"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        inputUsdPer1MTokens: 1.25,
+        outputUsdPer1MTokens: 4.25,
+        reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "medium",
+        developer: "Meta",
+        customIcon: "meta"
+    },
+    {
         id: "muse-spark-1.1",
         name: "Muse Spark 1.1",
         addedOn: "2026-07-09",
         shortName: "Muse Spark 1.1",
-        shortDescription: "Fast multimodal agent that plans broadly, delegates well, and gets moving",
+        shortDescription:
+            "Fast multimodal agent that plans broadly, delegates well, and gets moving",
         description:
             "Muse Spark 1.1 is Meta's nimble multimodal reasoning model for coding, computer use, and ambitious agentic work. It can manage a million-token context, coordinate subagents, and move fluidly between seeing, planning, scripting, and clicking.",
         releaseOrder: 20260716,
         adapters: openRouterTextAdapters("meta/muse-spark-1.1"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "medium",
         developer: "Meta",
         customIcon: "meta"
     },
@@ -44,7 +67,8 @@ export const META_MODELS: SharedModel[] = [
         name: "Llama 4 Maverick 17B 128E Instruct",
         addedOn: "2025-04-05",
         shortName: "Maverick 17B",
-        shortDescription: "Creative multimodal workhorse with sharper reasoning and a larger expert bench",
+        shortDescription:
+            "Creative multimodal workhorse with sharper reasoning and a larger expert bench",
         description:
             "Llama 4 Maverick is Meta's open-weight generalist for high-quality chat, creative writing, coding, and precise image understanding. Its 128-expert mixture gives it more range than Scout while keeping only 17B parameters active at a time.",
         releaseOrder: 20250405,

@@ -4,6 +4,26 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const ZAI_MODELS: SharedModel[] = [
     {
+        id: "glm-5.3",
+        name: "GLM 5.3",
+        addedOn: "2026-08-18",
+        shortName: "GLM 5.3",
+        shortDescription:
+            "Million-token reasoning flagship for complex software engineering and sustained agent work",
+        description:
+            "GLM 5.3 is Z.ai's large-scale reasoning model for complex software engineering and sustained agent work. Its million-token context, 131K-token output ceiling, tool use, and controllable reasoning suit repository-wide changes, difficult debugging, and long execution chains.",
+        releaseOrder: 20260818,
+        adapters: openRouterTextAdapters("z-ai/glm-5.3"),
+        abilities: ["reasoning", "function_calling", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 131_072,
+        inputUsdPer1MTokens: 1.4,
+        outputUsdPer1MTokens: 4.4,
+        reasoningEfforts: ["low", "high"],
+        defaultReasoningEffort: "high",
+        developer: "Z.ai"
+    },
+    {
         id: "glm-5.2",
         name: "GLM 5.2",
         addedOn: "2026-06-16",
@@ -50,7 +70,8 @@ export const ZAI_MODELS: SharedModel[] = [
         name: "GLM 5",
         addedOn: "2026-02-12",
         shortName: "GLM 5",
-        shortDescription: "Open engineering heavyweight for ambitious systems and autonomous agents",
+        shortDescription:
+            "Open engineering heavyweight for ambitious systems and autonomous agents",
         description:
             "GLM 5 moved the family from vibe coding toward agentic engineering. Its blend of deep reasoning, systems-level coding, and long-range planning makes it a serious builder for backends, complex refactors, research, and polished office deliverables.",
         releaseOrder: 20260211,
