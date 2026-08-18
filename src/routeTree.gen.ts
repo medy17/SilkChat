@@ -29,6 +29,7 @@ import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiOgRouteImport } from './routes/api/og'
+import { Route as ApiRecipeVisualsRouteImport } from './routes/api/recipe-visuals'
 import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
 import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
@@ -157,6 +158,11 @@ const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
 const ApiOgRoute = ApiOgRouteImport.update({
   id: '/api/og',
   path: '/api/og',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecipeVisualsRoute = ApiRecipeVisualsRouteImport.update({
+  id: '/api/recipe-visuals',
+  path: '/api/recipe-visuals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
+  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -357,6 +364,7 @@ export interface FileRoutesByTo {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
+  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -404,6 +412,7 @@ export interface FileRoutesById {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
+  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -452,6 +461,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
+    | '/api/recipe-visuals'
     | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
@@ -496,6 +506,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
+    | '/api/recipe-visuals'
     | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
+    | '/api/recipe-visuals'
     | '/api/search-trends'
     | '/auth/$pathname'
     | '/settings/account'
@@ -588,6 +600,7 @@ export interface RootRouteChildren {
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   ApiOgRoute: typeof ApiOgRoute
+  ApiRecipeVisualsRoute: typeof ApiRecipeVisualsRoute
   ApiSearchTrendsRoute: typeof ApiSearchTrendsRoute
   AuthPathnameRoute: typeof AuthPathnameRoute
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
@@ -729,6 +742,13 @@ declare module '@tanstack/react-router' {
       path: '/api/og'
       fullPath: '/api/og'
       preLoaderRoute: typeof ApiOgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recipe-visuals': {
+      id: '/api/recipe-visuals'
+      path: '/api/recipe-visuals'
+      fullPath: '/api/recipe-visuals'
+      preLoaderRoute: typeof ApiRecipeVisualsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/search-trends': {
@@ -999,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   ApiOgRoute: ApiOgRoute,
+  ApiRecipeVisualsRoute: ApiRecipeVisualsRoute,
   ApiSearchTrendsRoute: ApiSearchTrendsRoute,
   AuthPathnameRoute: AuthPathnameRoute,
   PersonasStartLazyRoute: PersonasStartLazyRoute,

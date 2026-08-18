@@ -1,0 +1,119 @@
+diff --git a/dist/parse-ingredient.mjs b/dist/parse-ingredient.mjs
+index 6675358fdaef9073741634e68dd01045de65b5ad..35a91b3fb2be7f594d96e5204dbcdadddefb1504 100644
+--- a/dist/parse-ingredient.mjs
++++ b/dist/parse-ingredient.mjs
+@@ -318,6 +318,13 @@ const unitsOfMeasure = {
+ 		type: "mass",
+ 		conversionFactor: 1
+ 	},
++	microgram: {
++		short: "mcg",
++		plural: "micrograms",
++		alternates: ["μg"],
++		type: "mass",
++		conversionFactor: 0.000001
++	},
+ 	kilogram: {
+ 		short: "kg",
+ 		plural: "kilograms",
+@@ -350,10 +357,17 @@ const unitsOfMeasure = {
+ 		type: "mass",
+ 		conversionFactor: 453.59237
+ 	},
++	stone: {
++		short: "st",
++		plural: "stone",
++		alternates: [],
++		type: "mass",
++		conversionFactor: 6350.29318
++	},
+ 	cup: {
+ 		short: "c",
+ 		plural: "cups",
+-		alternates: ["c.", "C"],
++		alternates: ["c.", "C", "cup-us", "cup-metric", "cup-imperial"],
+ 		type: "volume",
+ 		conversionFactor: {
+ 			us: 236.58824,
+@@ -368,6 +382,13 @@ const unitsOfMeasure = {
+ 		type: "volume",
+ 		conversionFactor: 100
+ 	},
++	centiliter: {
++		short: "cl",
++		plural: "centiliters",
++		alternates: [],
++		type: "volume",
++		conversionFactor: 10
++	},
+ 	"fluid ounce": {
+ 		short: "fl oz",
+ 		plural: "fluid ounces",
+@@ -383,7 +404,9 @@ const unitsOfMeasure = {
+ 			"fl-ounce",
+ 			"fl-ounces",
+ 			"fluid oz",
+-			"fluid-oz"
++			"fluid-oz",
++			"fl-oz-us",
++			"fl-oz-imperial"
+ 		],
+ 		type: "volume",
+ 		conversionFactor: {
+@@ -394,7 +417,7 @@ const unitsOfMeasure = {
+ 	gallon: {
+ 		short: "gal",
+ 		plural: "gallons",
+-		alternates: ["gal."],
++		alternates: ["gal.", "gallon-us", "gallon-imperial"],
+ 		type: "volume",
+ 		conversionFactor: {
+ 			us: 3785.4118,
+@@ -422,7 +445,7 @@ const unitsOfMeasure = {
+ 	pint: {
+ 		short: "pt",
+ 		plural: "pints",
+-		alternates: ["pt."],
++		alternates: ["pt.", "pint-us", "pint-imperial"],
+ 		type: "volume",
+ 		conversionFactor: {
+ 			us: 473.17647,
+@@ -435,7 +458,9 @@ const unitsOfMeasure = {
+ 		alternates: [
+ 			"qt.",
+ 			"qts",
+-			"qts."
++			"qts.",
++			"quart-us",
++			"quart-imperial"
+ 		],
+ 		type: "volume",
+ 		conversionFactor: {
+@@ -460,6 +485,27 @@ const unitsOfMeasure = {
+ 			metric: 15
+ 		}
+ 	},
++	"australian tablespoon": {
++		short: "tbsp-au",
++		plural: "Australian tablespoons",
++		alternates: [],
++		type: "volume",
++		conversionFactor: 20
++	},
++	dessertspoon: {
++		short: "dsp",
++		plural: "dessertspoons",
++		alternates: [],
++		type: "volume",
++		conversionFactor: 10
++	},
++	"japanese cup": {
++		short: "cup-jp",
++		plural: "Japanese cups",
++		alternates: [],
++		type: "volume",
++		conversionFactor: 200
++	},
+ 	teaspoon: {
+ 		short: "tsp",
+ 		plural: "teaspoons",

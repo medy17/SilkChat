@@ -1,8 +1,10 @@
 import "katex/dist/katex.min.css"
 import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
+import { parseRecipeBlock, splitRecipeContent } from "@/lib/recipe"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
+import { RecipeCard } from "./recipe-card"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
 const SINGLE_DOLLAR_BLOCK_PATTERN = /(^|\n)([ \t]*)\$[ \t]*\n([\s\S]*?)\n[ \t]*\$([ \t]*(?=\n|$))/g
@@ -35,6 +37,21 @@ export const normalizeMarkdownMathDelimiters = (content: string) =>
             looksLikeMath(expression) ? `${prefix}$$${expression}$$` : `${prefix}$${expression}$`
         )
 
+const MarkdownBody = ({ content, isAnimating }: { content: string; isAnimating: boolean }) => (
+    <Streamdown
+        animated={false}
+        className="markdown-content not-prose"
+        components={streamdownComponents}
+        controls={false}
+        isAnimating={isAnimating}
+        linkSafety={{ enabled: false }}
+        mode={isAnimating ? "streaming" : "static"}
+        plugins={streamdownPlugins}
+    >
+        {normalizeMarkdownMathDelimiters(content)}
+    </Streamdown>
+)
+
 export const MemoizedMarkdown = memo(
     ({
         content,
@@ -56,19 +73,33 @@ export const MemoizedMarkdown = memo(
             )
         }
 
+        const segments = splitRecipeContent(content)
+
         return (
-            <Streamdown
-                animated={false}
-                className="markdown-content not-prose"
-                components={streamdownComponents}
-                controls={false}
-                isAnimating={isAnimating}
-                linkSafety={{ enabled: false }}
-                mode={isAnimating ? "streaming" : "static"}
-                plugins={streamdownPlugins}
-            >
-                {normalizeMarkdownMathDelimiters(content)}
-            </Streamdown>
+            <>
+                {segments.map((segment, index) => {
+                    if (segment.type === "markdown") {
+                        return (
+                            <MarkdownBody
+                                key={`markdown-${index}`}
+                                content={segment.content}
+                                isAnimating={isAnimating}
+                            />
+                        )
+                    }
+
+                    const recipe = parseRecipeBlock(segment.content, segment.openingAttributes)
+                    if (recipe) return <RecipeCard key={`recipe-${index}`} recipe={recipe} />
+
+                    return (
+                        <MarkdownBody
+                            key={`recipe-fallback-${index}`}
+                            content={segment.content}
+                            isAnimating={isAnimating}
+                        />
+                    )
+                })}
+            </>
         )
     }
 )

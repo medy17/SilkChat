@@ -22,6 +22,11 @@
     cursor: pointer;
 }
 
+[data-recipe-visual-attribution] {
+    -webkit-text-size-adjust: none !important;
+    text-size-adjust: none !important;
+}
+
 :root {
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(48 96% 89%);
@@ -82,6 +87,58 @@
 
 .markdown-content .katex-display > .katex {
     white-space: nowrap;
+}
+
+@page {
+    margin: 16mm;
+}
+
+@media print {
+    html.recipe-printing,
+    html.recipe-printing body {
+        overflow: visible !important;
+        background: white !important;
+    }
+
+    html.recipe-printing body > :not([data-recipe-print-root]) {
+        display: none !important;
+    }
+
+    html.recipe-printing [data-recipe-print-root] {
+        display: block !important;
+        position: static !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        border: 0;
+        box-shadow: none;
+        color: black;
+        background: white;
+    }
+
+    html.recipe-printing [data-recipe-print-hide] {
+        display: none !important;
+    }
+
+    html.recipe-printing [data-recipe-print-timer-control] {
+        display: none !important;
+    }
+
+    html.recipe-printing [data-recipe-print-only] {
+        display: inline !important;
+    }
+
+    html.recipe-printing [data-recipe-print-item] {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    html.recipe-printing [data-recipe-print-root] h2 {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
 }
 
 /** Sandpack Styling */

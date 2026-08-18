@@ -4,11 +4,15 @@ import { convex } from "@convex-dev/better-auth/plugins"
 import { betterAuth } from "better-auth"
 import { components, internal } from "./_generated/api.js"
 import type { DataModel } from "./_generated/dataModel.js"
-import { internalAction, query } from "./_generated/server"
+import { internalAction, mutation, query } from "./_generated/server"
 import authConfig from "./auth.config"
 import { recordAuthenticatedActivity, removeAccountActivity } from "./lib/account_activity"
 import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_restore"
 import { buildAuthBaseURLConfig, hasLoopbackAuthHost } from "./lib/auth_origins"
+import { getUserIdentity } from "./lib/identity"
+
+const RECIPE_VISUAL_RATE_LIMIT = 30
+const RECIPE_VISUAL_RATE_WINDOW_MS = 10 * 60 * 1000
 
 const betterAuthComponent = (
     components as typeof components & {
@@ -210,6 +214,46 @@ export const getCurrentUser = query({
                     : user._id,
             authId: user._id
         }
+    }
+})
+
+export const consumeRecipeVisualSearchQuota = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in identity) {
+            return { allowed: false, retryAfterSeconds: 0, unauthorized: true }
+        }
+
+        const now = Date.now()
+        const key = `recipe-visuals:${identity.id}`
+        const existing = await ctx.db
+            .query("rateLimit")
+            .withIndex("key", (q) => q.eq("key", key))
+            .first()
+
+        if (!existing || now - existing.lastRequest >= RECIPE_VISUAL_RATE_WINDOW_MS) {
+            if (existing) {
+                await ctx.db.patch(existing._id, { count: 1, lastRequest: now })
+            } else {
+                await ctx.db.insert("rateLimit", { key, count: 1, lastRequest: now })
+            }
+            return { allowed: true, retryAfterSeconds: 0, unauthorized: false }
+        }
+
+        if (existing.count >= RECIPE_VISUAL_RATE_LIMIT) {
+            return {
+                allowed: false,
+                retryAfterSeconds: Math.max(
+                    1,
+                    Math.ceil((RECIPE_VISUAL_RATE_WINDOW_MS - (now - existing.lastRequest)) / 1000)
+                ),
+                unauthorized: false
+            }
+        }
+
+        await ctx.db.patch(existing._id, { count: existing.count + 1 })
+        return { allowed: true, retryAfterSeconds: 0, unauthorized: false }
     }
 })
 

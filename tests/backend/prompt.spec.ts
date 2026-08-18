@@ -18,6 +18,35 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("Single-dollar delimiters ($L_{0}$) are forbidden.")
     })
 
+    it("documents the native recipe contract with types and graceful fallback examples", () => {
+        const prompt = buildPrompt({ enabledTools: [] })
+
+        expect(prompt).toContain("## Native Recipe Format")
+        expect(prompt).toContain('<recipe servings="2" visual="tomato lentil soup">')
+        expect(prompt).toContain('unit="g" scale')
+        expect(prompt).toContain("'qty.unit' is exactly one of these closed types")
+        expect(prompt).toContain("<ingredients>")
+        expect(prompt).toContain("<steps>")
+        expect(prompt).toContain("attribute-free structural tags")
+        expect(prompt).toContain("'description' is a required attribute-free tag")
+        expect(prompt).toContain("cup-us, cup-metric, cup-imperial, cup-jp, pint-us, pint-imperial")
+        expect(prompt).toContain("When a scalable amount is repeated in a step, wrap it there too")
+        expect(prompt).toContain("'step' has no attributes")
+        expect(prompt).toContain("An optional attribute-free 'visual' tag inside a step")
+        expect(prompt).toContain("Visual cues are broad search queries, not captions")
+        expect(prompt).toContain("<visual>foil covered lamb roasting pan</visual>")
+        expect(prompt).toContain("If a useful cue cannot fit in 2 to 5 keywords, omit it")
+        expect(prompt).toContain("Do not put instructions, URLs, or invented image references")
+        expect(prompt).toContain("no more than three visual cues total per recipe")
+        expect(prompt).toContain("Compact example — localized text")
+        expect(prompt).toContain("<description>赤レンズ豆と野菜をやさしく煮込む")
+        expect(prompt).toContain("2. <step>塩で味を調え、温かいうちに出します。</step>")
+        expect(prompt).toContain("write 1.5 tbsp rather than 1½ tbsp")
+        expect(prompt).toContain('<timer value="PT18M">18分</timer>')
+        expect(prompt).toContain('<qty value="3" unit="count" scale>3個</qty>')
+        expect(prompt).toContain("leave that phrase as ordinary readable text")
+    })
+
     it("advertises native visualizations and computation only with Math Kit enabled", () => {
         const enabledPrompt = buildPrompt({
             enabledTools: ["mathematical_instruments"]
