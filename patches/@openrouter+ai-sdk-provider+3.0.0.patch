@@ -1,7 +1,7 @@
-diff --git a/dist/index.js b/dist/index.js
+diff --git a/node_modules/@openrouter/ai-sdk-provider/dist/index.js b/node_modules/@openrouter/ai-sdk-provider/dist/index.js
 index 5ebd3756860e75d89ef13b683310a4fe066bdd62..287b23d26e3995f8e51c3b7f935e04a66fbe25e5 100644
---- a/dist/index.js
-+++ b/dist/index.js
+--- a/node_modules/@openrouter/ai-sdk-provider/dist/index.js
++++ b/node_modules/@openrouter/ai-sdk-provider/dist/index.js
 @@ -3657,7 +3657,8 @@ var OpenRouterChatLanguageModel = class {
              function: {
                name: tool2.name,
@@ -12,10 +12,10 @@ index 5ebd3756860e75d89ef13b683310a4fe066bdd62..287b23d26e3995f8e51c3b7f935e04a6
              }
            }, eagerInputStreaming != null && {
              eager_input_streaming: eagerInputStreaming
-diff --git a/dist/internal/index.js b/dist/internal/index.js
+diff --git a/node_modules/@openrouter/ai-sdk-provider/dist/internal/index.js b/node_modules/@openrouter/ai-sdk-provider/dist/internal/index.js
 index ba7bca933a29fd4729b5e9f525512dbed39e6e6f..87bdfbdadc78391e3c38f2dcf99f1bcfdbedaf94 100644
---- a/dist/internal/index.js
-+++ b/dist/internal/index.js
+--- a/node_modules/@openrouter/ai-sdk-provider/dist/internal/index.js
++++ b/node_modules/@openrouter/ai-sdk-provider/dist/internal/index.js
 @@ -3581,7 +3581,8 @@ var OpenRouterChatLanguageModel = class {
              function: {
                name: tool.name,
