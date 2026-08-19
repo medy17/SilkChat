@@ -14,7 +14,7 @@ describe("buildPrompt", () => {
             enabledTools: []
         })
 
-        expect(prompt).toContain("Inline math: Use double-dollar delimiters like $$L_{0}$$.")
+        expect(prompt).toContain("double-dollar delimiters for inline math ($$L_{0}$$)")
         expect(prompt).toContain("Single-dollar delimiters ($L_{0}$) are forbidden.")
     })
 
@@ -68,7 +68,7 @@ describe("buildPrompt", () => {
         expect(enabledPrompt).toContain(
             "Every `render_chart` invocation must include complete, non-empty `series` and `data` arrays"
         )
-        expect(enabledPrompt).toContain("Do not use Canvas")
+        expect(enabledPrompt).toContain("Prefer the native renderers over Canvas")
         expect(disabledPrompt).toContain(
             "Math Kit (internal ability: `mathematical_instruments`) is unavailable"
         )
