@@ -368,7 +368,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="md:-bottom-10 absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6"
+                        className="md:-bottom-10 pointer-events-none absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6"
                         style={{
                             bottom: "calc(-1 * var(--chat-composer-overlap))"
                         }}

@@ -2346,7 +2346,7 @@ export const MultimodalInput = forwardRef<
                         state={voiceState}
                         onStop={stopRecording}
                         className={cn(
-                            "mx-auto w-full",
+                            "pointer-events-auto mx-auto w-full",
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     />
@@ -2382,7 +2382,7 @@ export const MultimodalInput = forwardRef<
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={240}
                     className={cn(
-                        "mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        "pointer-events-auto mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                         isCompactTouchComposer && "p-2",
                         isNewChatComposer && "rounded-[var(--radius-lg)]",
                         getChatWidthClass(chatWidthState.chatWidth)
