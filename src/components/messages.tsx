@@ -1137,6 +1137,7 @@ const EditableMessage = memo(
                                 <ModelSelector
                                     selectedModel={selectedModel}
                                     onModelChange={setSelectedModel}
+                                    telemetrySurface="message_edit"
                                     side="top"
                                     className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
                                     requiresNativePdf={requiresNativePdfForModelSelection}

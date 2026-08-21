@@ -2,9 +2,11 @@ import type { SharedModel } from "@/convex/lib/models"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { type ParsedChatError, type SuggestedModel, parseChatError } from "@/lib/errors"
 import { useSharedModels } from "@/lib/shared-models"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { AlertTriangle, CreditCard, Key, Lock, Pencil, RotateCcw } from "lucide-react"
-import { memo, useCallback, useMemo } from "react"
+import { memo, useCallback, useEffect, useMemo } from "react"
 import { getProviderIcon } from "./model-selector"
 import { Button } from "./ui/button"
 
@@ -131,7 +133,8 @@ export const ChatErrorNotice = memo(
         onRetry?: () => void
         onSwitchModel?: (modelId: string) => void
     }) => {
-        const presentation = useMemo(() => describeChatError(parseChatError(error)), [error])
+        const parsedError = useMemo(() => parseChatError(error), [error])
+        const presentation = useMemo(() => describeChatError(parsedError), [parsedError])
         const Icon = presentation.icon
         const startNewChat = useStartNewChat()
         const isMobile = useIsMobile()
@@ -143,6 +146,18 @@ export const ChatErrorNotice = memo(
         const suggestedModels = presentation.suggestedModels ?? []
         // Keep the row compact on mobile.
         const visibleSuggestions = isMobile ? suggestedModels.slice(0, 2) : suggestedModels
+
+        useEffect(() => {
+            const detail = parsedError?.detail
+            if (detail?.kind !== "usage_limit_exceeded") return
+
+            captureBrowserEvent(TELEMETRY_EVENTS.usageLimitEncountered, {
+                window: detail.window,
+                used_usd: detail.usedUsd ?? null,
+                limit_usd: detail.limitUsd ?? null,
+                remaining_usd: detail.remainingUsd ?? null
+            })
+        }, [parsedError])
 
         const renderCta = (cta: ErrorCta, variant: "default" | "outline") => {
             const CtaIcon = cta.icon

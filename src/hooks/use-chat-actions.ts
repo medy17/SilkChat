@@ -11,11 +11,13 @@ import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-st
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
 import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { useNavigate } from "@tanstack/react-router"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
 import { toast } from "sonner"
 
@@ -90,6 +92,15 @@ export function useChatActions<TMessage extends UIMessage>({
     const prepareThreadRetryMutation = useMutation(api.threads.prepareThreadRetry)
     const navigate = useNavigate()
     const retryPreparationInFlightRef = useRef(false)
+    const generationStartedAtRef = useRef<number | null>(null)
+
+    useEffect(() => {
+        if (composerStatus === "submitted" || composerStatus === "streaming") {
+            generationStartedAtRef.current ??= Date.now()
+            return
+        }
+        generationStartedAtRef.current = null
+    }, [composerStatus])
 
     const primeMessageUpdates = useCallback(() => {
         if (!threadId) {
@@ -116,6 +127,23 @@ export function useChatActions<TMessage extends UIMessage>({
     const handleInputSubmit = useCallback(
         (inputValue?: string, fileValues?: UploadedFile[]) => {
             if (composerStatus === "streaming") {
+                const lastMessage = messages.at(-1)
+                const hadVisibleOutput = Boolean(
+                    lastMessage?.role === "assistant" &&
+                        lastMessage.parts.some(
+                            (part) => part.type === "text" && part.text.trim().length > 0
+                        )
+                )
+                captureBrowserEvent(TELEMETRY_EVENTS.generationStopped, {
+                    thread_id: threadId ?? null,
+                    message_id: lastMessage?.role === "assistant" ? lastMessage.id : null,
+                    model_id: selectedModel,
+                    elapsed_ms:
+                        generationStartedAtRef.current === null
+                            ? null
+                            : Date.now() - generationStartedAtRef.current,
+                    had_visible_output: hadVisibleOutput
+                })
                 if (threadId) {
                     setPendingStream(threadId, false)
                     setManuallyStoppedThread(threadId, true)
@@ -163,6 +191,8 @@ export function useChatActions<TMessage extends UIMessage>({
             stop,
             stopRemoteStream,
             composerStatus,
+            messages,
+            selectedModel,
             threadId,
             uploadedFiles,
             setUploadedFiles,
@@ -193,6 +223,19 @@ export function useChatActions<TMessage extends UIMessage>({
                 availableModels,
                 fallbackModelId
             })
+            const originalModelId = persistedAssistantConfig?.modelId ?? selectedModel
+            const retryModelId = resolvedRetryConfig?.modelIdOverride ?? selectedModel
+            const captureRetryRequested = () =>
+                captureBrowserEvent(TELEMETRY_EVENTS.retryRequested, {
+                    thread_id: threadId ?? null,
+                    target_message_id: message.id,
+                    retry_type:
+                        originalModelId && retryModelId && originalModelId !== retryModelId
+                            ? "different_model"
+                            : "same_model",
+                    original_model_id: originalModelId,
+                    selected_model_id: retryModelId
+                })
 
             flushSync(() => {
                 setTargetFromMessageId(undefined)
@@ -212,6 +255,7 @@ export function useChatActions<TMessage extends UIMessage>({
             }
 
             if (!threadId) {
+                captureRetryRequested()
                 if (retriedAssistantMessageId) {
                     useMessageFooterStore.getState().clearFooterMetadata(retriedAssistantMessageId)
                 }
@@ -229,6 +273,7 @@ export function useChatActions<TMessage extends UIMessage>({
 
             if (retryPreparationInFlightRef.current) return
             retryPreparationInFlightRef.current = true
+            captureRetryRequested()
             if (retriedAssistantMessageId) {
                 useMessageFooterStore.getState().clearFooterMetadata(retriedAssistantMessageId)
             }
@@ -419,6 +464,13 @@ export function useChatActions<TMessage extends UIMessage>({
                         )
                         return
                     }
+
+                    captureBrowserEvent(TELEMETRY_EVENTS.conversationBranched, {
+                        source_thread_id: threadId,
+                        new_thread_id: String(result.threadId),
+                        source_message_id: message.id,
+                        source_message_index: messageIndex
+                    })
 
                     flushSync(() => {
                         setTargetFromMessageId(undefined)

@@ -24,6 +24,8 @@ import {
 } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { cn, copyToClipboard } from "@/lib/utils"
 import type { UIMessage } from "ai"
 import {
@@ -347,11 +349,25 @@ export const ChatActions = memo(
                 .join("\n")
 
             await copyToClipboard(textContent)
+            if (role === "assistant") {
+                captureBrowserEvent(TELEMETRY_EVENTS.responseActioned, {
+                    message_id: message.id,
+                    action: "copy",
+                    asset_count: 0,
+                    model_id: metadata?.modelId ?? null
+                })
+            }
             setCopied(true)
             setTimeout(() => setCopied(false), 1500)
         }
 
         const handleDownload = async () => {
+            captureBrowserEvent(TELEMETRY_EVENTS.responseActioned, {
+                message_id: message.id,
+                action: "download",
+                asset_count: imageGenerationAssets.length,
+                model_id: metadata?.modelId ?? null
+            })
             if (imageGenerationAssets.length === 1) {
                 const url = getPublicR2AssetUrl(imageGenerationAssets[0])
                 window.open(url, "_blank")

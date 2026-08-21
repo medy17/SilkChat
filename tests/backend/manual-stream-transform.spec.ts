@@ -21,6 +21,11 @@ const collectChunks = async (
         userId?: string
         allowReasoning?: boolean
         onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
+        onToolResult?: (toolResult: {
+            toolCallId: string
+            toolName: string
+            succeeded: boolean
+        }) => void
     }
 ) => {
     const parts: StoredParts = []
@@ -46,7 +51,8 @@ const collectChunks = async (
         streamMetrics,
         {
             allowReasoning: options?.allowReasoning,
-            onToolCall: options?.onToolCall
+            onToolCall: options?.onToolCall,
+            onToolResult: options?.onToolResult
         }
     )
 
@@ -115,19 +121,29 @@ describe("manualStreamTransform", () => {
     it("finalizes malformed tool calls with a sanitized durable failure", async () => {
         const rawValidationTrace =
             "AI_InvalidToolInputError: Invalid input for tool execute_code: secret validation trace"
-        const result = await collectChunks([
-            {
-                type: "tool-call",
-                toolCallId: "call-1",
-                toolName: "execute_code",
-                input: { purpose: "Deeper analysis", code: "print(42)" }
-            },
-            {
-                type: "tool-error",
-                toolCallId: "call-1",
-                error: rawValidationTrace
-            }
-        ])
+        const onToolResult = vi.fn()
+        const result = await collectChunks(
+            [
+                {
+                    type: "tool-call",
+                    toolCallId: "call-1",
+                    toolName: "execute_code",
+                    input: { purpose: "Deeper analysis", code: "print(42)" }
+                },
+                {
+                    type: "tool-error",
+                    toolCallId: "call-1",
+                    error: rawValidationTrace
+                }
+            ],
+            { onToolResult }
+        )
+
+        expect(onToolResult).toHaveBeenCalledWith({
+            toolCallId: "call-1",
+            toolName: "execute_code",
+            succeeded: false
+        })
 
         expect(result.parts).toEqual([
             {
@@ -233,6 +249,7 @@ describe("manualStreamTransform", () => {
 
     it("persists tool calls/results and forwards tool and error output", async () => {
         const onToolCall = vi.fn()
+        const onToolResult = vi.fn()
         const result = await collectChunks(
             [
                 {
@@ -251,13 +268,18 @@ describe("manualStreamTransform", () => {
                     error: new Error("stream broke")
                 }
             ],
-            { onToolCall }
+            { onToolCall, onToolResult }
         )
 
         expect(onToolCall).toHaveBeenCalledTimes(1)
         expect(onToolCall).toHaveBeenCalledWith({
             toolCallId: "call-1",
             toolName: "web_search"
+        })
+        expect(onToolResult).toHaveBeenCalledWith({
+            toolCallId: "call-1",
+            toolName: "web_search",
+            succeeded: true
         })
 
         expect(result.parts).toEqual([

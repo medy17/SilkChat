@@ -67,6 +67,8 @@ import {
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { Link } from "@tanstack/react-router"
@@ -1036,6 +1038,7 @@ const ModelCard = React.memo(function ModelCard({
     model,
     selectedModel,
     onModelChange,
+    onManualSelection,
     onClose,
     currentProviders,
     disabled,
@@ -1045,11 +1048,13 @@ const ModelCard = React.memo(function ModelCard({
     isNewRelease,
     badgeLabel,
     badgeVariant = "secondary",
-    mobile
+    mobile,
+    telemetrySurface
 }: {
     model: DisplayModel
     selectedModel: string
     onModelChange: (modelId: string) => void
+    onManualSelection: () => void
     onClose: () => void
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     disabled?: boolean
@@ -1060,6 +1065,7 @@ const ModelCard = React.memo(function ModelCard({
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
     mobile: boolean
+    telemetrySurface: "composer" | "message_edit" | "persona_settings"
 }) {
     const isSelected = model.id === selectedModel
     const cardRef = React.useRef<HTMLDivElement>(null)
@@ -1089,6 +1095,14 @@ const ModelCard = React.memo(function ModelCard({
 
     const selectModel = () => {
         if (disabled) return
+        if (model.id !== selectedModel) {
+            onManualSelection()
+            captureBrowserEvent(TELEMETRY_EVENTS.modelManuallySelected, {
+                previous_model_id: selectedModel,
+                selected_model_id: model.id,
+                surface: telemetrySurface
+            })
+        }
         onModelChange(model.id)
         onClose()
     }
@@ -1213,7 +1227,8 @@ export function ModelSelector({
     modal = true,
     requiresNativePdf = false,
     byokContextHint,
-    onOpenChange
+    onOpenChange,
+    telemetrySurface
 }: {
     selectedModel: string
     onModelChange: (modelId: string) => void
@@ -1232,9 +1247,11 @@ export function ModelSelector({
         ariaLabel: string
     }
     onOpenChange?: (open: boolean) => void
+    telemetrySurface: "composer" | "message_edit" | "persona_settings"
 }) {
     const auth = useConvexAuth()
     const session = useSession()
+    const isMobile = useIsMobile()
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
         {
@@ -1246,12 +1263,39 @@ export function ModelSelector({
     )
 
     const [open, setOpenState] = React.useState(false)
+    const openRef = React.useRef(false)
+    const selectorTelemetryRef = React.useRef({
+        availableModelCount: 0,
+        resultCount: 0,
+        searchCharacterCount: 0,
+        selectionMade: false
+    })
     const setOpen = React.useCallback(
         (nextOpen: boolean) => {
+            if (nextOpen === openRef.current) return
+            openRef.current = nextOpen
+            const metrics = selectorTelemetryRef.current
+            if (nextOpen) {
+                metrics.selectionMade = false
+                captureBrowserEvent(TELEMETRY_EVENTS.modelSelectorOpened, {
+                    surface: telemetrySurface,
+                    presentation: isMobile ? "mobile" : "desktop",
+                    available_model_count: metrics.availableModelCount
+                })
+            } else {
+                captureBrowserEvent(TELEMETRY_EVENTS.modelSelectorClosed, {
+                    surface: telemetrySurface,
+                    presentation: isMobile ? "mobile" : "desktop",
+                    selection_made: metrics.selectionMade,
+                    search_used: metrics.searchCharacterCount > 0,
+                    search_character_count: metrics.searchCharacterCount,
+                    result_count: metrics.resultCount
+                })
+            }
             setOpenState(nextOpen)
             onOpenChange?.(nextOpen)
         },
-        [onOpenChange]
+        [isMobile, onOpenChange, telemetrySurface]
     )
     const [searchValue, setSearchValue] = React.useState("")
     const [expandedLegacySections, setExpandedLegacySections] = React.useState<
@@ -1260,7 +1304,6 @@ export function ModelSelector({
     const triggerRef = React.useRef<HTMLSpanElement>(null)
     const [desktopAlignOffset, setDesktopAlignOffset] = React.useState(0)
     const [desktopPopoverWidth, setDesktopPopoverWidth] = React.useState<number | null>(null)
-    const isMobile = useIsMobile()
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
     const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
@@ -1306,6 +1349,7 @@ export function ModelSelector({
     const { availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
+    selectorTelemetryRef.current.availableModelCount = availableModels.length
     const { models: sharedModels } = useSharedModels()
     const newModelIds = React.useMemo(
         () =>
@@ -1598,7 +1642,7 @@ export function ModelSelector({
         document.addEventListener(OPEN_MODEL_PICKER_SHORTCUT_EVENT, handleOpenShortcut)
         return () =>
             document.removeEventListener(OPEN_MODEL_PICKER_SHORTCUT_EVENT, handleOpenShortcut)
-    }, [shortcutTarget])
+    }, [setOpen, shortcutTarget])
 
     React.useLayoutEffect(() => {
         if (!open) return
@@ -1667,6 +1711,11 @@ export function ModelSelector({
             }))
             .filter((section) => section.models.length > 0)
     }, [providerSections, searchValue])
+    selectorTelemetryRef.current.searchCharacterCount = searchValue.trim().length
+    selectorTelemetryRef.current.resultCount = filteredSections.reduce(
+        (total, section) => total + section.models.length,
+        0
+    )
 
     const selectedProviderId = React.useMemo(
         () =>
@@ -1737,6 +1786,9 @@ export function ModelSelector({
                         model={model}
                         selectedModel={selectedModel}
                         onModelChange={onModelChange}
+                        onManualSelection={() => {
+                            selectorTelemetryRef.current.selectionMade = true
+                        }}
                         onClose={() => setOpen(false)}
                         currentProviders={currentProviders}
                         disabled={isModelDisabled(model)}
@@ -1745,6 +1797,7 @@ export function ModelSelector({
                         onToggleFavorite={toggleFavorite}
                         isNewRelease={newModelIds.has(model.id)}
                         mobile={isMobile}
+                        telemetrySurface={telemetrySurface}
                         badgeLabel={
                             requiresNativePdf && !modelSupportsNativePdf(model)
                                 ? "PDF Required"

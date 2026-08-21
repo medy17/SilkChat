@@ -54,6 +54,7 @@ import {
 import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
 import {
     captureServerAiGeneration,
+    captureServerAiSpan,
     captureServerEvent,
     captureServerException
 } from "../lib/posthog"
@@ -960,6 +961,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         userId: user.id
     })
     const telemetryEnabled = settings.telemetryEnabled !== false
+    const telemetryTargetMode = body.targetMode ?? "normal"
     const toolAvailability = resolveToolAvailability(settings)
     const requestedEnabledTools = Array.from(new Set(body.enabledTools))
     const resolvedEnabledTools = enforceToolIdentityPolicy(
@@ -1551,6 +1553,15 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const streamMetrics: {
         firstVisibleAtMs?: number
     } = {}
+    const toolTelemetry = new Map<
+        string,
+        {
+            toolName: string
+            startedAt: number
+            completedAt?: number
+            succeeded?: boolean
+        }
+    >()
     const getTimeToFirstVisibleMs = () =>
         streamMetrics.firstVisibleAtMs !== undefined
             ? Math.max(0, streamMetrics.firstVisibleAtMs - streamStartTime)
@@ -1816,7 +1827,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             message_id: mutationResult.assistantMessageId,
                             model_id: body.model,
                             provider: modelData.runtimeProvider,
-                            enabled_tool_count: Object.keys(tools).length
+                            target_mode: telemetryTargetMode,
+                            enabled_tool_count: callableEnabledTools.length,
+                            enabled_tool_ids: callableEnabledTools,
+                            available_tool_names: Object.keys(tools)
                         }
                     })
                 }
@@ -1887,6 +1901,21 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             onPartsChanged: scheduleLiveAssistantPersist,
                             onFirstVisible: () => {
                                 shouldChargeModelReservation = true
+                            },
+                            onToolCall: ({ toolCallId, toolName }) => {
+                                toolTelemetry.set(toolCallId, {
+                                    toolName,
+                                    startedAt: Date.now()
+                                })
+                            },
+                            onToolResult: ({ toolCallId, toolName, succeeded }) => {
+                                const existing = toolTelemetry.get(toolCallId)
+                                toolTelemetry.set(toolCallId, {
+                                    toolName,
+                                    startedAt: existing?.startedAt ?? Date.now(),
+                                    completedAt: Date.now(),
+                                    succeeded
+                                })
                             }
                         }
                     )
@@ -1902,6 +1931,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         part.type === "tool-invocation" && part.toolInvocation.state === "result"
                             ? [part.toolInvocation.toolCallId]
                             : []
+                    )
+                )
+                const usedToolNames = Array.from(
+                    new Set(
+                        parts.flatMap((part) =>
+                            part.type === "tool-invocation" &&
+                            part.toolInvocation.state === "result"
+                                ? [part.toolInvocation.toolName]
+                                : []
+                        )
                     )
                 )
 
@@ -2017,6 +2056,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 message_id: mutationResult.assistantMessageId,
                                 model_id: body.model,
                                 provider: modelData.runtimeProvider,
+                                target_mode: telemetryTargetMode,
                                 finish_reason: finishReason,
                                 duration_ms: durationMs,
                                 time_to_first_visible_ms: getTimeToFirstVisibleMs() ?? null,
@@ -2024,6 +2064,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 completion_tokens: totalTokenUsage.completionTokens,
                                 reasoning_tokens: totalTokenUsage.reasoningTokens,
                                 tool_call_count: completedToolCallIds.size,
+                                used_tool_names: usedToolNames,
                                 estimated_cost_usd: totalTokenUsage.estimatedCostUsd ?? null
                             }
                         }),
@@ -2039,8 +2080,26 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             outputTokens: totalTokenUsage.completionTokens,
                             totalCostUsd: totalTokenUsage.estimatedCostUsd,
                             finishReason,
-                            functionName: "chat-generation"
-                        })
+                            functionName: "chat-generation",
+                            targetMode: telemetryTargetMode,
+                            enabledToolIds: callableEnabledTools,
+                            usedToolNames
+                        }),
+                        ...Array.from(toolTelemetry.entries()).flatMap(([toolCallId, toolCall]) =>
+                            toolCall.completedAt === undefined || toolCall.succeeded === undefined
+                                ? []
+                                : [
+                                      captureServerAiSpan({
+                                          distinctId: user.id,
+                                          traceId: streamId,
+                                          sessionId: String(mutationResult.threadId),
+                                          spanId: toolCallId,
+                                          spanName: toolCall.toolName,
+                                          latencyMs: toolCall.completedAt - toolCall.startedAt,
+                                          isError: !toolCall.succeeded
+                                      })
+                                  ]
+                        )
                     ])
                 }
 
@@ -2074,6 +2133,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                 message_id: mutationResult.assistantMessageId,
                                 model_id: body.model,
                                 provider: modelData.runtimeProvider,
+                                target_mode: telemetryTargetMode,
                                 duration_ms: Date.now() - streamStartTime,
                                 error_type: getErrorType(error)
                             }
@@ -2100,8 +2160,25 @@ export const chatPOST = httpAction(async (ctx, req) => {
                             latencyMs: Date.now() - streamStartTime,
                             isError: true,
                             errorType: getErrorType(error),
-                            functionName: "chat-generation"
-                        })
+                            functionName: "chat-generation",
+                            targetMode: telemetryTargetMode,
+                            enabledToolIds: callableEnabledTools
+                        }),
+                        ...Array.from(toolTelemetry.entries()).flatMap(([toolCallId, toolCall]) =>
+                            toolCall.completedAt === undefined || toolCall.succeeded === undefined
+                                ? []
+                                : [
+                                      captureServerAiSpan({
+                                          distinctId: user.id,
+                                          traceId: streamId,
+                                          sessionId: String(mutationResult.threadId),
+                                          spanId: toolCallId,
+                                          spanName: toolCall.toolName,
+                                          latencyMs: toolCall.completedAt - toolCall.startedAt,
+                                          isError: !toolCall.succeeded
+                                      })
+                                  ]
+                        )
                     ])
                 }
                 throw error

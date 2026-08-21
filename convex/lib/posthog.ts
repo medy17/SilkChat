@@ -1,4 +1,8 @@
-import type { TelemetryEventName, TelemetryEventProperties } from "@/lib/telemetry/events"
+import type {
+    TelemetryEventName,
+    TelemetryEventProperties,
+    TelemetryTargetMode
+} from "@/lib/telemetry/events"
 import { getTelemetryEnvironment } from "@/lib/telemetry/events"
 
 type PostHogProperties = Record<string, unknown>
@@ -136,6 +140,9 @@ export const captureServerAiGeneration = async (args: {
     isError?: boolean
     errorType?: string
     functionName: string
+    targetMode?: TelemetryTargetMode
+    enabledToolIds?: string[]
+    usedToolNames?: string[]
 }) => {
     await sendEvent({
         distinctId: args.distinctId,
@@ -155,7 +162,35 @@ export const captureServerAiGeneration = async (args: {
             $ai_error_type: args.errorType,
             $ai_input: undefined,
             $ai_output_choices: undefined,
-            function_name: args.functionName
+            function_name: args.functionName,
+            target_mode: args.targetMode,
+            enabled_tool_ids: args.enabledToolIds,
+            used_tool_names: args.usedToolNames
+        }
+    })
+}
+
+export const captureServerAiSpan = async (args: {
+    distinctId: string
+    traceId: string
+    sessionId: string
+    spanId: string
+    spanName: string
+    latencyMs: number
+    isError: boolean
+}) => {
+    await sendEvent({
+        distinctId: args.distinctId,
+        event: "$ai_span",
+        properties: {
+            $ai_trace_id: args.traceId,
+            $ai_session_id: args.sessionId,
+            $ai_span_id: args.spanId,
+            $ai_span_name: args.spanName,
+            $ai_latency: args.latencyMs / 1000,
+            $ai_is_error: args.isError,
+            $ai_input_state: undefined,
+            $ai_output_state: undefined
         }
     })
 }

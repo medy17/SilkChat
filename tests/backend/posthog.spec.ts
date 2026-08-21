@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { captureServerAiGeneration, captureServerException } from "../../convex/lib/posthog"
+import {
+    captureServerAiGeneration,
+    captureServerAiSpan,
+    captureServerException
+} from "../../convex/lib/posthog"
 
 describe("PostHog Convex transport", () => {
     const fetchMock = vi.fn()
@@ -76,5 +80,35 @@ describe("PostHog Convex transport", () => {
                 $exception_message: "Backend operation failed"
             }
         })
+    })
+
+    it("sends tool spans without tool input or output", async () => {
+        await captureServerAiSpan({
+            distinctId: "user-1",
+            traceId: "trace-1",
+            sessionId: "thread-1",
+            spanId: "tool-call-1",
+            spanName: "web_search",
+            latencyMs: 850,
+            isError: false
+        })
+
+        const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+        const serializedPayload = String(request.body)
+        const payload = JSON.parse(serializedPayload)
+
+        expect(payload.batch[0]).toMatchObject({
+            event: "$ai_span",
+            properties: {
+                distinct_id: "user-1",
+                $ai_trace_id: "trace-1",
+                $ai_session_id: "thread-1",
+                $ai_span_name: "web_search",
+                $ai_latency: 0.85,
+                $ai_is_error: false
+            }
+        })
+        expect(serializedPayload).not.toContain("$ai_input_state")
+        expect(serializedPayload).not.toContain("$ai_output_state")
     })
 })

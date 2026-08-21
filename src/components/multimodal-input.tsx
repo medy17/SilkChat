@@ -70,7 +70,7 @@ import {
     type ImageDefaultResolution,
     MAX_DEFAULT_VARIANTS
 } from "@/lib/image-generation-defaults"
-import { useModelStore } from "@/lib/model-store"
+import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     getAllowedReasoningEffortsForModel,
     getReasoningEffortForPlan,
@@ -92,7 +92,7 @@ import { appendQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
-import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
+import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import {
     clearThreadDraft,
     getThreadDraftKey,
@@ -158,6 +158,23 @@ const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
 const DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS = 256
 const DEFAULT_MESSAGE_OVERHEAD_TOKENS = 4
 const COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER = 1.1
+
+const getAttachmentTelemetryCategory = (file: Pick<File, "name" | "type">) => {
+    const info = getFileTypeInfo(file.name, file.type)
+    if (info.isImage) return "image" as const
+    if (info.isPdf) return "pdf" as const
+    if (info.isDocument) return "document" as const
+    if (info.isCode) return "code" as const
+    if (info.isText) return "text" as const
+    return "other" as const
+}
+
+const getAttachmentSizeBucket = (size: number) => {
+    if (size < 100 * 1024) return "under_100_kb" as const
+    if (size < 1024 * 1024) return "100_kb_to_1_mb" as const
+    if (size < 5 * 1024 * 1024) return "1_mb_to_5_mb" as const
+    return "over_5_mb" as const
+}
 
 /**
  * Decide whether to surface the model-selector context hint for an approaching
@@ -348,7 +365,21 @@ export const ReasoningEffortSelector = ({
 
     return (
         <PromptInputAction tooltip="Select reasoning effort">
-            <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
+            <Select
+                value={reasoningEffort}
+                onValueChange={(effort) => {
+                    const selectedEffort = effort as ReasoningEffort
+                    if (selectedEffort !== reasoningEffort) {
+                        captureBrowserEvent(TELEMETRY_EVENTS.reasoningEffortManuallySelected, {
+                            model_id: selectedModel,
+                            previous_effort: reasoningEffort,
+                            selected_effort: selectedEffort,
+                            surface: "composer_desktop"
+                        })
+                    }
+                    setReasoningEffort(selectedEffort)
+                }}
+            >
                 <SelectTrigger
                     className={cn(
                         "!h-8 w-auto gap-0.5 px-1.5 font-normal text-xs transition-colors sm:text-sm",
@@ -609,7 +640,21 @@ function MobileOverflowMenu({
                                                         "cursor-not-allowed opacity-50 hover:bg-transparent"
                                                 )}
                                                 disabled={isEffortLocked}
-                                                onClick={() => setReasoningEffort(effort)}
+                                                onClick={() => {
+                                                    if (effort !== reasoningEffort) {
+                                                        captureBrowserEvent(
+                                                            TELEMETRY_EVENTS.reasoningEffortManuallySelected,
+                                                            {
+                                                                model_id:
+                                                                    selectedSharedModel?.id ?? null,
+                                                                previous_effort: reasoningEffort,
+                                                                selected_effort: effort,
+                                                                surface: "composer_mobile"
+                                                            }
+                                                        )
+                                                    }
+                                                    setReasoningEffort(effort)
+                                                }}
                                             >
                                                 <EffortIcon className="size-4 shrink-0" />
                                                 <span className="min-w-0 flex-1 truncate">
@@ -1000,6 +1045,16 @@ export function useComposerToolbarState() {
         }
         const nextEnabledTools = enabledTools.filter((tool) => !unavailableTools.has(tool))
         if (nextEnabledTools.length !== enabledTools.length) {
+            for (const tool of enabledTools) {
+                if (!nextEnabledTools.includes(tool)) {
+                    captureBrowserEvent(TELEMETRY_EVENTS.toolToggled, {
+                        tool_id: tool,
+                        enabled: false,
+                        surface: "automatic",
+                        model_id: selectedModel
+                    })
+                }
+            }
             setEnabledTools(nextEnabledTools)
         }
     }, [
@@ -1008,6 +1063,7 @@ export function useComposerToolbarState() {
         codeExecutionAvailable,
         mathematicalInstrumentsAvailable,
         enabledTools,
+        selectedModel,
         setEnabledTools
     ])
 
@@ -1041,10 +1097,17 @@ export function useComposerToolbarState() {
             return
         }
 
+        const enabled = !enabledTools.includes(tool)
+        captureBrowserEvent(TELEMETRY_EVENTS.toolToggled, {
+            tool_id: tool,
+            enabled,
+            surface: "mobile_overflow",
+            model_id: selectedModel
+        })
         setEnabledTools(
-            enabledTools.includes(tool)
-                ? enabledTools.filter((enabledTool) => enabledTool !== tool)
-                : [...enabledTools, tool]
+            enabled
+                ? [...enabledTools, tool]
+                : enabledTools.filter((enabledTool) => enabledTool !== tool)
         )
     }
 
@@ -1168,6 +1231,7 @@ export function ComposerDesktopActions({
                             onEnabledToolsChange={setEnabledTools}
                             modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
                             modelSupportsVision={state.modelSupportsVision}
+                            selectedModel={state.selectedModel}
                         />
                     </PromptInputAction>
 
@@ -1189,6 +1253,7 @@ export function ComposerMobileMenu({
     onAttachClick: () => void
 }) {
     const [open, setOpen] = useState(false)
+    const enabledTools = useModelStore((modelState) => modelState.enabledTools)
 
     if (state.isImageModel && !state.modelSupportsReasoningControl) {
         return null
@@ -1198,7 +1263,15 @@ export function ComposerMobileMenu({
         <div className="@3xl:hidden shrink-0">
             <MobileOverflowMenu
                 open={open}
-                onOpenChange={setOpen}
+                onOpenChange={(nextOpen) => {
+                    setOpen(nextOpen)
+                    if (nextOpen) {
+                        captureBrowserEvent(TELEMETRY_EVENTS.advancedOptionsOpened, {
+                            surface: "mobile_overflow",
+                            enabled_tool_ids: enabledTools
+                        })
+                    }
+                }}
                 selectedModel={state.selectedModel}
                 modelSupportsVision={state.modelSupportsVision}
                 modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
@@ -1422,8 +1495,13 @@ export const MultimodalInput = forwardRef<
         clearThreadDraft(draftScope)
         captureBrowserEvent(TELEMETRY_EVENTS.composerSubmitted, {
             model_id: selectedModel,
+            thread_id: threadId ?? null,
             attachment_count: uploadedFiles.length,
+            prompt_character_count: inputValue.trim().length,
+            prompt_estimated_tokens: estimateTokenCount(inputValue.trim()),
             enabled_tool_count: enabledTools.length,
+            enabled_tool_ids: enabledTools,
+            existing_message_count: messages.length,
             is_new_thread: !threadId,
             intent: activeIntent
         })
@@ -1635,6 +1713,13 @@ export const MultimodalInput = forwardRef<
 
                 if (validationError) {
                     syncErrors.push(validationError)
+                    captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingFailed, {
+                        category: getAttachmentTelemetryCategory(file),
+                        size_bucket: getAttachmentSizeBucket(file.size),
+                        duration_ms: 0,
+                        stage: "validation",
+                        error_type: "validation"
+                    })
                     continue
                 }
 
@@ -1655,6 +1740,7 @@ export const MultimodalInput = forwardRef<
 
             try {
                 for (const file of validFiles) {
+                    const processingStartedAt = Date.now()
                     if (!isDocumentExtension(file.name)) {
                         filesReadyForUpload.push(file)
                         continue
@@ -1675,6 +1761,12 @@ export const MultimodalInput = forwardRef<
                                 [inlineFile.key]: ingested.content!
                             }))
                             addUploadedFile(inlineFile)
+                            captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingCompleted, {
+                                category: getAttachmentTelemetryCategory(file),
+                                size_bucket: getAttachmentSizeBucket(file.size),
+                                duration_ms: Date.now() - processingStartedAt,
+                                stage: "inline_ingest"
+                            })
                             continue
                         }
 
@@ -1695,6 +1787,13 @@ export const MultimodalInput = forwardRef<
                         })
                         filesReadyForUpload.push(ingested.file)
                     } catch (error) {
+                        captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingFailed, {
+                            category: getAttachmentTelemetryCategory(file),
+                            size_bucket: getAttachmentSizeBucket(file.size),
+                            duration_ms: Date.now() - processingStartedAt,
+                            stage: "conversion",
+                            error_type: getErrorType(error)
+                        })
                         toast.error(
                             error instanceof Error
                                 ? error.message
@@ -1839,6 +1938,12 @@ export const MultimodalInput = forwardRef<
                           : { ...result, tileKind: "attachment" }
 
                     addUploadedFile(uploadedResult)
+                    captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingCompleted, {
+                        category: getAttachmentTelemetryCategory(localFile.file),
+                        size_bucket: getAttachmentSizeBucket(localFile.file.size),
+                        duration_ms: Date.now() - localFile.startedAt,
+                        stage: "upload"
+                    })
 
                     if (localFile.previewUrl) {
                         URL.revokeObjectURL(localFile.previewUrl)
@@ -1856,6 +1961,13 @@ export const MultimodalInput = forwardRef<
                     }
 
                     const errorMessage = error instanceof Error ? error.message : "Upload failed"
+                    captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingFailed, {
+                        category: getAttachmentTelemetryCategory(localFile.file),
+                        size_bucket: getAttachmentSizeBucket(localFile.file.size),
+                        duration_ms: Date.now() - localFile.startedAt,
+                        stage: "upload",
+                        error_type: getErrorType(error)
+                    })
                     toast.error(errorMessage)
 
                     setLocalUploadingFiles((prev) =>
@@ -2557,6 +2669,7 @@ export const MultimodalInput = forwardRef<
                                                     onModelChange={setSelectedModel}
                                                     onOpenChange={setIsModelSelectorOpen}
                                                     shortcutTarget="composer"
+                                                    telemetrySurface="composer"
                                                     requiresNativePdf={
                                                         requiresNativePdfForModelSelection
                                                     }

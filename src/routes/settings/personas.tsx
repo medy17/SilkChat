@@ -601,6 +601,7 @@ function PersonaEditorForm({
                                 defaultModelId: value
                             }))
                         }
+                        telemetrySurface="persona_settings"
                         className="h-10 w-full justify-between border bg-background px-3 text-sm hover:bg-background"
                         triggerWrapperClassName="w-full"
                         contentClassName="z-[80]"

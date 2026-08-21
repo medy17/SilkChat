@@ -22,6 +22,8 @@ import {
     type ImageDefaultResolution,
     MAX_DEFAULT_VARIANTS
 } from "@/lib/image-generation-defaults"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import type { AbilityId } from "@/lib/tool-abilities"
 import {
     DEFAULT_TOOL_CALL_LIMIT_PER_TURN,
@@ -48,6 +50,7 @@ type ToolSelectorPopoverProps = {
     onEnabledToolsChange: (tools: AbilityId[]) => void
     modelSupportsFunctionCalling: boolean
     modelSupportsVision: boolean
+    selectedModel: string | null
     className?: string
     tone?: "default" | "on-primary"
 }
@@ -457,6 +460,7 @@ export const ToolSelectorPopover = memo(
         onEnabledToolsChange,
         modelSupportsFunctionCalling,
         modelSupportsVision,
+        selectedModel,
         className,
         tone = "default"
     }: ToolSelectorPopoverProps) => {
@@ -529,6 +533,19 @@ export const ToolSelectorPopover = memo(
                 console.error(error)
             }
         }
+        const updateTool = (tool: AbilityId, enabled: boolean) => {
+            captureBrowserEvent(TELEMETRY_EVENTS.toolToggled, {
+                tool_id: tool,
+                enabled,
+                surface: "desktop_tools",
+                model_id: selectedModel
+            })
+            onEnabledToolsChange(
+                enabled
+                    ? Array.from(new Set([...enabledTools, tool]))
+                    : enabledTools.filter((enabledTool) => enabledTool !== tool)
+            )
+        }
         const webSearchButton = (
             <Button
                 type="button"
@@ -536,11 +553,7 @@ export const ToolSelectorPopover = memo(
                 disabled={webSearchDisabled}
                 onClick={() => {
                     if (!webSearchDisabled) {
-                        onEnabledToolsChange(
-                            webSearchEnabled
-                                ? enabledTools.filter((tool) => tool !== "web_search")
-                                : [...enabledTools, "web_search"]
-                        )
+                        updateTool("web_search", !webSearchEnabled)
                     }
                 }}
                 className={cn(
@@ -558,40 +571,26 @@ export const ToolSelectorPopover = memo(
 
         const handleWebSearchToggle = () => {
             if (webSearchDisabled) return
-
-            onEnabledToolsChange(
-                enabledTools.includes("web_search")
-                    ? enabledTools.filter((tool) => tool !== "web_search")
-                    : [...enabledTools, "web_search"]
-            )
+            updateTool("web_search", !enabledTools.includes("web_search"))
         }
 
         const handleCodeExecutionToggle = () => {
             if (!modelSupportsFunctionCalling || !codeExecutionAvailable) return
 
-            onEnabledToolsChange(
-                enabledTools.includes("code_execution")
-                    ? enabledTools.filter((tool) => tool !== "code_execution")
-                    : [...enabledTools, "code_execution"]
-            )
+            updateTool("code_execution", !enabledTools.includes("code_execution"))
         }
 
         const handleMemoryToggle = () => {
             if (!memoryAvailable) return
-            onEnabledToolsChange(
-                memoryEnabled
-                    ? enabledTools.filter((tool) => tool !== "supermemory")
-                    : [...enabledTools, "supermemory"]
-            )
+            updateTool("supermemory", !memoryEnabled)
         }
 
         const handleMathematicalInstrumentsToggle = () => {
             if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) return
 
-            onEnabledToolsChange(
-                enabledTools.includes("mathematical_instruments")
-                    ? enabledTools.filter((tool) => tool !== "mathematical_instruments")
-                    : [...enabledTools, "mathematical_instruments"]
+            updateTool(
+                "mathematical_instruments",
+                !enabledTools.includes("mathematical_instruments")
             )
         }
 
@@ -616,7 +615,18 @@ export const ToolSelectorPopover = memo(
         )
 
         return (
-            <ResponsivePopover open={open} onOpenChange={setOpen}>
+            <ResponsivePopover
+                open={open}
+                onOpenChange={(nextOpen) => {
+                    setOpen(nextOpen)
+                    if (nextOpen) {
+                        captureBrowserEvent(TELEMETRY_EVENTS.advancedOptionsOpened, {
+                            surface: "desktop_tools",
+                            enabled_tool_ids: enabledTools
+                        })
+                    }
+                }}
+            >
                 <ResponsivePopoverTrigger asChild>
                     <Button
                         type="button"

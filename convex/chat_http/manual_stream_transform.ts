@@ -64,6 +64,11 @@ export const manualStreamTransform = (
         onPartsChanged?: () => void
         onFirstVisible?: () => void
         onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
+        onToolResult?: (toolResult: {
+            toolCallId: string
+            toolName: string
+            succeeded: boolean
+        }) => void
     }
 ) => {
     let reasoningStartedAt = -1
@@ -449,6 +454,13 @@ export const manualStreamTransform = (
                         part.toolInvocation.result = chunk.output
                         notifyPartsChanged()
                     }
+                    if (resolvedToolName) {
+                        options?.onToolResult?.({
+                            toolCallId: chunk.toolCallId,
+                            toolName: resolvedToolName,
+                            succeeded: true
+                        })
+                    }
 
                     controller.enqueue({
                         type: "tool-output-available",
@@ -493,14 +505,23 @@ export const manualStreamTransform = (
                             part.type === "tool-invocation" &&
                             part.toolInvocation.toolCallId === chunk.toolCallId
                     )
+                    let resolvedToolName: string | undefined
                     if (found !== -1) {
                         const part = parts[found] as Extract<
                             StoredPart,
                             { type: "tool-invocation" }
                         >
+                        resolvedToolName = part.toolInvocation.toolName
                         part.toolInvocation.state = "result"
                         part.toolInvocation.result = createPersistedToolError(chunk.error)
                         notifyPartsChanged()
+                    }
+                    if (resolvedToolName) {
+                        options?.onToolResult?.({
+                            toolCallId: chunk.toolCallId,
+                            toolName: resolvedToolName,
+                            succeeded: false
+                        })
                     }
                     controller.enqueue({
                         type: "tool-output-error",
