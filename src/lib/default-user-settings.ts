@@ -7,6 +7,7 @@ export const DefaultSettings = (userId: string) => ({
     toolCallLimitPerTurn: 3,
     customThemes: [],
     invertSendNewlineBehavior: false,
+    telemetryEnabled: true,
     imageGenerationDefaults: undefined,
     generalProviders: {
         supermemory: undefined

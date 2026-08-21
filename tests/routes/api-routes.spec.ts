@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { fetchAuthQueryMock, fetchAuthMutationMock, getSessionMock, searchBraveImagesMock } =
     vi.hoisted(() => {
-        process.env.VITE_POSTHOG_HOST = "https://ph.example.com"
         return {
             fetchAuthQueryMock: vi.fn(),
             fetchAuthMutationMock: vi.fn(),
@@ -31,7 +30,6 @@ vi.mock("@/lib/brave-image-search", () => ({
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
 import { Route as DevCreditStateRoute } from "@/routes/api/dev/credit-state"
-import { Route as PosthogProxyRoute } from "@/routes/api/phr/$"
 import { Route as RecipeVisualsRoute } from "@/routes/api/recipe-visuals"
 
 type RouteHandlers = {
@@ -45,7 +43,6 @@ type RouteHandlers = {
 
 const creditSummaryHandlers = (CreditSummaryRoute as unknown as RouteHandlers).server.handlers
 const devCreditStateHandlers = (DevCreditStateRoute as unknown as RouteHandlers).server.handlers
-const posthogProxyHandlers = (PosthogProxyRoute as unknown as RouteHandlers).server.handlers
 const recipeVisualsHandlers = (RecipeVisualsRoute as unknown as RouteHandlers).server.handlers
 
 describe("API routes", () => {
@@ -263,46 +260,5 @@ describe("API routes", () => {
                 bypassToolCallLimits: true
             }
         })
-    })
-
-    it("proxies PostHog requests, strips host/content-length/content-encoding, and adds CORS headers", async () => {
-        const fetchMock = vi.fn().mockResolvedValue(
-            new Response(new Uint8Array([1, 2, 3]), {
-                status: 200,
-                headers: {
-                    "content-type": "application/json",
-                    "content-length": "999",
-                    "content-encoding": "gzip",
-                    "x-test": "ok"
-                }
-            })
-        )
-        vi.stubGlobal("fetch", fetchMock)
-
-        const response = await posthogProxyHandlers.GET!({
-            request: new Request("https://example.com/api/phr/capture?foo=bar", {
-                headers: {
-                    host: "example.com",
-                    origin: "https://app.example.com",
-                    authorization: "Bearer token"
-                }
-            })
-        })
-
-        expect(fetchMock).toHaveBeenCalledWith(
-            "https://ph.example.com/capture?foo=bar",
-            expect.objectContaining({
-                method: "GET",
-                headers: {
-                    origin: "https://app.example.com",
-                    authorization: "Bearer token"
-                }
-            })
-        )
-        expect(response.headers.get("content-length")).toBeNull()
-        expect(response.headers.get("content-encoding")).toBeNull()
-        expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com")
-        expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true")
-        expect(await response.arrayBuffer()).toBeInstanceOf(ArrayBuffer)
     })
 })

@@ -161,8 +161,21 @@ function PrivacyPolicyPage() {
                                 selections, and session activity.
                             </PolicyItem>
                             <PolicyItem>
-                                We currently use PostHog for analytics when enabled in the running
-                                environment.
+                                We use PostHog, when enabled, for product analytics, error tracking,
+                                performance diagnostics, session replay, backend logs, and AI
+                                request metrics such as model, latency, token usage, and cost.
+                            </PolicyItem>
+                            <PolicyItem>
+                                Our telemetry configurations exclude chat prompts, model responses,
+                                attachment contents, filenames, account email addresses, and
+                                provider credentials.
+                            </PolicyItem>
+                            <PolicyItem>
+                                You can disable telemetry in Settings under Privacy. This stops
+                                future product analytics, session replay, client error reports,
+                                backend activity events, and AI request traces for the account.
+                                Security, billing, and service reliability logs remain active
+                                because they are needed to operate and protect the Service.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -356,8 +369,9 @@ function PrivacyPolicyPage() {
                     <PolicySubsection title="4.5 Analytics, email, and payments">
                         <PolicyList>
                             <PolicyItem>
-                                <strong>PostHog</strong>: Used for product analytics when enabled.
-                                Privacy policy:{" "}
+                                <strong>PostHog</strong>: Used for product analytics, error
+                                tracking, session replay, logs, performance monitoring, and AI
+                                request metrics when enabled. Privacy policy:{" "}
                                 <ExternalLink href="https://posthog.com/privacy">
                                     posthog.com/privacy
                                 </ExternalLink>

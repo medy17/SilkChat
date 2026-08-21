@@ -91,6 +91,8 @@ import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
 import { appendQuotedSelection } from "@/lib/quote-selection"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
+import { captureBrowserEvent } from "@/lib/telemetry/browser"
+import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import {
     clearThreadDraft,
     getThreadDraftKey,
@@ -1418,6 +1420,13 @@ export const MultimodalInput = forwardRef<
         setInputValue("")
         setActiveIntent(null)
         clearThreadDraft(draftScope)
+        captureBrowserEvent(TELEMETRY_EVENTS.composerSubmitted, {
+            model_id: selectedModel,
+            attachment_count: uploadedFiles.length,
+            enabled_tool_count: enabledTools.length,
+            is_new_thread: !threadId,
+            intent: activeIntent
+        })
         onSubmit(inputValue, uploadedFiles)
     }
 

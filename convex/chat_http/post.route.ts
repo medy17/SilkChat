@@ -7,6 +7,7 @@ import {
     getBuiltInPersonaOpenings,
     getSyntheticPersonaOpening
 } from "@/lib/personas/builtins"
+import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import { resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import {
@@ -51,6 +52,11 @@ import {
     resolveReasoningEffortForModel
 } from "../lib/models/reasoning"
 import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
+import {
+    captureServerAiGeneration,
+    captureServerEvent,
+    captureServerException
+} from "../lib/posthog"
 import { getResumableStreamContext } from "../lib/resumable_stream_context"
 import {
     extractVisibleMessageText,
@@ -953,6 +959,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
         userId: user.id
     })
+    const telemetryEnabled = settings.telemetryEnabled !== false
     const toolAvailability = resolveToolAvailability(settings)
     const requestedEnabledTools = Array.from(new Set(body.enabledTools))
     const resolvedEnabledTools = enforceToolIdentityPolicy(
@@ -1696,290 +1703,409 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
     const stream = createUIMessageStream({
         execute: async ({ writer }) => {
-            await ctx.runMutation(internal.threads.updateThreadStreamingState, {
-                threadId: mutationResult.threadId,
-                isLive: true,
-                streamStartedAt: streamStartTime,
-                currentStreamId: streamId,
-                ...(body.clientId ? { currentStreamOwnerClientId: body.clientId } : {})
-            })
-
-            let nameGenerationPromise: Promise<string | ChatError> | undefined
-            if (!body.id) {
-                nameGenerationPromise = generateThreadName(
-                    ctx,
-                    mutationResult.threadId,
-                    mapped_messages,
-                    user.id,
-                    settings
-                )
-            }
-
-            writer.write({
-                type: "start",
-                messageId: mutationResult.assistantMessageId,
-                messageMetadata: {
+            try {
+                await ctx.runMutation(internal.threads.updateThreadStreamingState, {
                     threadId: mutationResult.threadId,
-                    streamId,
-                    modelId: body.model,
-                    modelName,
-                    displayProvider,
-                    runtimeProvider: modelData.runtimeProvider,
-                    creditProviderSource: modelData.providerSource,
-                    reasoningEffort: effectiveReasoningEffort,
-                    ...(contextRouting ? { contextRouting } : {})
+                    isLive: true,
+                    streamStartedAt: streamStartTime,
+                    currentStreamId: streamId,
+                    ...(body.clientId ? { currentStreamOwnerClientId: body.clientId } : {})
+                })
+
+                let nameGenerationPromise: Promise<string | ChatError> | undefined
+                if (!body.id) {
+                    nameGenerationPromise = generateThreadName(
+                        ctx,
+                        mutationResult.threadId,
+                        mapped_messages,
+                        user.id,
+                        settings
+                    )
                 }
-            })
 
-            const usesOpenRouter = modelData.runtimeProvider === "openrouter"
-            const paidTools = hasPaidCallableTools
-                ? await getToolkit(ctx, callableEnabledTools, settings, {
-                      consumeToolCall: async ({ toolName, toolCallId }) => {
-                          const fundingSource = getToolFundingSource(toolName)
-                          const toolIsDeploymentFunded = fundingSource === "deployment"
-
-                          return await ctx.runMutation(internal.credits.consumeReservedToolCall, {
-                              userId: user.id,
-                              threadId: mutationResult.threadId,
-                              reservationMessageKey: toolBudgetMessageKey,
-                              messageId: mutationResult.assistantMessageId,
-                              messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                              toolCallId,
-                              toolName,
-                              modelId: body.model,
-                              providerSource: fundingSource === "byok" ? "byok" : "internal",
-                              feature: "tool",
-                              counted: toolIsDeploymentFunded,
-                              ...(toolIsDeploymentFunded
-                                  ? { chargedMicrousd: getConfiguredToolUsageMicrousd(toolName) }
-                                  : {})
-                          })
-                      },
-                      settleToolCall: async ({ toolCallId, settledMicrousd, pricingSource }) => {
-                          return await ctx.runMutation(
-                              internal.credits.reconcileSettledToolUsageCost,
-                              {
-                                  userId: user.id,
-                                  messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                                  settledMicrousd,
-                                  pricingSource
-                              }
-                          )
-                      }
-                  })
-                : {}
-            const providerPaidTools =
-                displayProvider === "xai"
-                    ? withStrictNativeVisualizationTools(paidTools)
-                    : paidTools
-            const internalTools = getPrepareImageGenerationTool({
-                enabled: hasInternalImagePreparationTool,
-                references: imageReferences,
-                defaults: settings.imageGenerationDefaults,
-                imageModels: availableImageModels
-            }) as Record<string, Tool>
-            const availableImageSelectionSummary = hasInternalImagePreparationTool
-                ? formatImageModelCapabilitySummary(availableImageModels)
-                : "- None"
-            const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
-            const tools: Record<string, Tool> = {
-                ...blockedTools,
-                ...providerPaidTools,
-                ...internalTools
-            }
-            const result = streamText({
-                model: model,
-                maxOutputTokens: maxTokens,
-                stopWhen: isStepCount(100),
-                abortSignal: generationAbort.signal,
-                experimental_transform: smoothStream(),
-                tools: Object.keys(tools).length > 0 ? tools : undefined,
-                // Both system messages below are assembled server-side. The trailing
-                // current-turn context intentionally needs to remain interleaved after
-                // the persisted conversation.
-                allowSystemInMessages: true,
-                messages: [
-                    {
-                        role: "system",
-                        content: buildPrompt({
-                            enabledTools: callableEnabledTools,
-                            userSettings: settings,
-                            personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
-                            includeTemporalContext: false,
-                            imageGenerationTool: hasInternalImagePreparationTool
-                                ? {
-                                      enabled: true,
-                                      availableImageSelectionSummary
-                                  }
-                                : undefined
-                        })
-                    },
-                    ...mapped_messages,
-                    {
-                        role: "system",
-                        content: buildCurrentTurnContext(
-                            promptToolCallLimitPerTurn,
-                            hasInternalImagePreparationTool
-                                ? imageReferences.map(
-                                      (reference) => `${reference.id}: ${reference.label}`
-                                  )
-                                : undefined
-                        )
+                writer.write({
+                    type: "start",
+                    messageId: mutationResult.assistantMessageId,
+                    messageMetadata: {
+                        threadId: mutationResult.threadId,
+                        streamId,
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        creditProviderSource: modelData.providerSource,
+                        reasoningEffort: effectiveReasoningEffort,
+                        ...(contextRouting ? { contextRouting } : {})
                     }
-                ],
-                providerOptions: usesOpenRouter
-                    ? {
-                          openrouter: buildOpenRouterProviderOptions(
-                              modelData.modelId,
-                              effectiveReasoningEffort,
-                              supportsEffortControl,
-                              supportsReasoningToggle,
-                              supportsReasoning,
-                              String(mutationResult.threadId)
-                          )
-                      }
-                    : undefined
-            })
+                })
 
-            const transformedStream = result.stream.pipeThrough(
-                manualStreamTransform(
-                    parts,
-                    totalTokenUsage,
-                    uploadPromises,
-                    user.id,
-                    ctx,
-                    streamMetrics,
-                    {
-                        allowReasoning: effectiveReasoningEffort !== "off",
-                        onPartsChanged: scheduleLiveAssistantPersist,
-                        onFirstVisible: () => {
-                            shouldChargeModelReservation = true
+                const usesOpenRouter = modelData.runtimeProvider === "openrouter"
+                const paidTools = hasPaidCallableTools
+                    ? await getToolkit(ctx, callableEnabledTools, settings, {
+                          consumeToolCall: async ({ toolName, toolCallId }) => {
+                              const fundingSource = getToolFundingSource(toolName)
+                              const toolIsDeploymentFunded = fundingSource === "deployment"
+
+                              return await ctx.runMutation(
+                                  internal.credits.consumeReservedToolCall,
+                                  {
+                                      userId: user.id,
+                                      threadId: mutationResult.threadId,
+                                      reservationMessageKey: toolBudgetMessageKey,
+                                      messageId: mutationResult.assistantMessageId,
+                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                      toolCallId,
+                                      toolName,
+                                      modelId: body.model,
+                                      providerSource:
+                                          fundingSource === "byok" ? "byok" : "internal",
+                                      feature: "tool",
+                                      counted: toolIsDeploymentFunded,
+                                      ...(toolIsDeploymentFunded
+                                          ? {
+                                                chargedMicrousd:
+                                                    getConfiguredToolUsageMicrousd(toolName)
+                                            }
+                                          : {})
+                                  }
+                              )
+                          },
+                          settleToolCall: async ({
+                              toolCallId,
+                              settledMicrousd,
+                              pricingSource
+                          }) => {
+                              return await ctx.runMutation(
+                                  internal.credits.reconcileSettledToolUsageCost,
+                                  {
+                                      userId: user.id,
+                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                      settledMicrousd,
+                                      pricingSource
+                                  }
+                              )
+                          }
+                      })
+                    : {}
+                const providerPaidTools =
+                    displayProvider === "xai"
+                        ? withStrictNativeVisualizationTools(paidTools)
+                        : paidTools
+                const internalTools = getPrepareImageGenerationTool({
+                    enabled: hasInternalImagePreparationTool,
+                    references: imageReferences,
+                    defaults: settings.imageGenerationDefaults,
+                    imageModels: availableImageModels
+                }) as Record<string, Tool>
+                const availableImageSelectionSummary = hasInternalImagePreparationTool
+                    ? formatImageModelCapabilitySummary(availableImageModels)
+                    : "- None"
+                const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
+                const tools: Record<string, Tool> = {
+                    ...blockedTools,
+                    ...providerPaidTools,
+                    ...internalTools
+                }
+                if (telemetryEnabled) {
+                    await captureServerEvent({
+                        distinctId: user.id,
+                        name: TELEMETRY_EVENTS.chatGenerationStarted,
+                        properties: {
+                            request_id: streamId,
+                            thread_id: String(mutationResult.threadId),
+                            message_id: mutationResult.assistantMessageId,
+                            model_id: body.model,
+                            provider: modelData.runtimeProvider,
+                            enabled_tool_count: Object.keys(tools).length
+                        }
+                    })
+                }
+                const result = streamText({
+                    model: model,
+                    maxOutputTokens: maxTokens,
+                    stopWhen: isStepCount(100),
+                    abortSignal: generationAbort.signal,
+                    experimental_transform: smoothStream(),
+                    tools: Object.keys(tools).length > 0 ? tools : undefined,
+                    // Both system messages below are assembled server-side. The trailing
+                    // current-turn context intentionally needs to remain interleaved after
+                    // the persisted conversation.
+                    allowSystemInMessages: true,
+                    messages: [
+                        {
+                            role: "system",
+                            content: buildPrompt({
+                                enabledTools: callableEnabledTools,
+                                userSettings: settings,
+                                personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                                includeTemporalContext: false,
+                                imageGenerationTool: hasInternalImagePreparationTool
+                                    ? {
+                                          enabled: true,
+                                          availableImageSelectionSummary
+                                      }
+                                    : undefined
+                            })
+                        },
+                        ...mapped_messages,
+                        {
+                            role: "system",
+                            content: buildCurrentTurnContext(
+                                promptToolCallLimitPerTurn,
+                                hasInternalImagePreparationTool
+                                    ? imageReferences.map(
+                                          (reference) => `${reference.id}: ${reference.label}`
+                                      )
+                                    : undefined
+                            )
+                        }
+                    ],
+                    providerOptions: usesOpenRouter
+                        ? {
+                              openrouter: buildOpenRouterProviderOptions(
+                                  modelData.modelId,
+                                  effectiveReasoningEffort,
+                                  supportsEffortControl,
+                                  supportsReasoningToggle,
+                                  supportsReasoning,
+                                  String(mutationResult.threadId)
+                              )
+                          }
+                        : undefined
+                })
+
+                const transformedStream = result.stream.pipeThrough(
+                    manualStreamTransform(
+                        parts,
+                        totalTokenUsage,
+                        uploadPromises,
+                        user.id,
+                        ctx,
+                        streamMetrics,
+                        {
+                            allowReasoning: effectiveReasoningEffort !== "off",
+                            onPartsChanged: scheduleLiveAssistantPersist,
+                            onFirstVisible: () => {
+                                shouldChargeModelReservation = true
+                            }
+                        }
+                    )
+                )
+
+                await forwardStreamToWriter(transformedStream, writer)
+
+                await Promise.allSettled(uploadPromises)
+
+                const finishReason = await result.finishReason
+                const completedToolCallIds = new Set(
+                    parts.flatMap((part) =>
+                        part.type === "tool-invocation" && part.toolInvocation.state === "result"
+                            ? [part.toolInvocation.toolCallId]
+                            : []
+                    )
+                )
+
+                writer.write({
+                    type: "finish",
+                    finishReason,
+                    messageMetadata: {
+                        threadId: mutationResult.threadId,
+                        streamId,
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        creditProviderSource: modelData.providerSource,
+                        reasoningEffort: effectiveReasoningEffort,
+                        promptTokens: totalTokenUsage.promptTokens,
+                        completionTokens: totalTokenUsage.completionTokens,
+                        reasoningTokens: totalTokenUsage.reasoningTokens,
+                        totalTokens: totalTokenUsage.totalTokens,
+                        estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
+                        estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
+                        estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
+                        serverDurationMs: Date.now() - streamStartTime,
+                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextRouting ? { contextRouting } : {})
+                    }
+                })
+                console.log()
+
+                if (livePersistTimeout) {
+                    clearTimeout(livePersistTimeout)
+                    livePersistTimeout = null
+                }
+                await persistLiveAssistantMessage(true)
+
+                await ctx.runMutation(internal.messages.patchMessage, {
+                    threadId: mutationResult.threadId,
+                    messageId: mutationResult.assistantMessageId,
+                    parts:
+                        parts.length > 0
+                            ? parts
+                            : [
+                                  {
+                                      type: "error",
+                                      error: {
+                                          code: "no-response",
+                                          message:
+                                              "The model did not generate a response. Please try again."
+                                      }
+                                  }
+                              ],
+                    metadata: {
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        reasoningEffort: effectiveReasoningEffort,
+                        promptTokens: totalTokenUsage.promptTokens,
+                        completionTokens: totalTokenUsage.completionTokens,
+                        reasoningTokens: totalTokenUsage.reasoningTokens,
+                        totalTokens: totalTokenUsage.totalTokens,
+                        estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
+                        estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
+                        estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
+                        creditProviderSource: modelData.providerSource,
+                        creditBucket: "none",
+                        creditFeature: modelCreditCharge.feature,
+                        creditUnits: 0,
+                        creditCounted: modelCreditCharge.counted,
+                        serverDurationMs: Date.now() - streamStartTime,
+                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextRouting ? { contextRouting } : {})
+                    }
+                })
+
+                if (memoryEnabledForTurn && finishReason !== "error") {
+                    const conversationTurn = prepareSupermemoryConversationTurn({
+                        userParts: body.message.parts,
+                        assistantParts: parts
+                    })
+                    if (conversationTurn) {
+                        try {
+                            await ctx.scheduler.runAfter(
+                                0,
+                                internal.supermemory_node.ingestConversationTurn,
+                                {
+                                    userId: user.id,
+                                    threadId: mutationResult.threadId,
+                                    content: conversationTurn
+                                }
+                            )
+                        } catch (error) {
+                            console.error(
+                                "[cvx][chat][memory] Failed to schedule conversation ingestion:",
+                                error
+                            )
                         }
                     }
-                )
-            )
-
-            await forwardStreamToWriter(transformedStream, writer)
-
-            await Promise.allSettled(uploadPromises)
-
-            const finishReason = await result.finishReason
-
-            writer.write({
-                type: "finish",
-                finishReason,
-                messageMetadata: {
-                    threadId: mutationResult.threadId,
-                    streamId,
-                    modelId: body.model,
-                    modelName,
-                    displayProvider,
-                    runtimeProvider: modelData.runtimeProvider,
-                    creditProviderSource: modelData.providerSource,
-                    reasoningEffort: effectiveReasoningEffort,
-                    promptTokens: totalTokenUsage.promptTokens,
-                    completionTokens: totalTokenUsage.completionTokens,
-                    reasoningTokens: totalTokenUsage.reasoningTokens,
-                    totalTokens: totalTokenUsage.totalTokens,
-                    estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                    estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                    estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                    serverDurationMs: Date.now() - streamStartTime,
-                    timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                    ...(contextRouting ? { contextRouting } : {})
                 }
-            })
-            console.log()
 
-            if (livePersistTimeout) {
-                clearTimeout(livePersistTimeout)
-                livePersistTimeout = null
-            }
-            await persistLiveAssistantMessage(true)
+                await finalizeToolBudgetReservation()
+                await settleModelCreditReservation()
 
-            await ctx.runMutation(internal.messages.patchMessage, {
-                threadId: mutationResult.threadId,
-                messageId: mutationResult.assistantMessageId,
-                parts:
-                    parts.length > 0
-                        ? parts
-                        : [
-                              {
-                                  type: "error",
-                                  error: {
-                                      code: "no-response",
-                                      message:
-                                          "The model did not generate a response. Please try again."
-                                  }
-                              }
-                          ],
-                metadata: {
-                    modelId: body.model,
-                    modelName,
-                    displayProvider,
-                    runtimeProvider: modelData.runtimeProvider,
-                    reasoningEffort: effectiveReasoningEffort,
-                    promptTokens: totalTokenUsage.promptTokens,
-                    completionTokens: totalTokenUsage.completionTokens,
-                    reasoningTokens: totalTokenUsage.reasoningTokens,
-                    totalTokens: totalTokenUsage.totalTokens,
-                    estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                    estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                    estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                    creditProviderSource: modelData.providerSource,
-                    creditBucket: "none",
-                    creditFeature: modelCreditCharge.feature,
-                    creditUnits: 0,
-                    creditCounted: modelCreditCharge.counted,
-                    serverDurationMs: Date.now() - streamStartTime,
-                    timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                    ...(contextRouting ? { contextRouting } : {})
-                }
-            })
-
-            if (memoryEnabledForTurn && finishReason !== "error") {
-                const conversationTurn = prepareSupermemoryConversationTurn({
-                    userParts: body.message.parts,
-                    assistantParts: parts
-                })
-                if (conversationTurn) {
-                    try {
-                        await ctx.scheduler.runAfter(
-                            0,
-                            internal.supermemory_node.ingestConversationTurn,
-                            {
-                                userId: user.id,
-                                threadId: mutationResult.threadId,
-                                content: conversationTurn
+                if (telemetryEnabled) {
+                    const durationMs = Date.now() - streamStartTime
+                    await Promise.all([
+                        captureServerEvent({
+                            distinctId: user.id,
+                            name: TELEMETRY_EVENTS.chatGenerationCompleted,
+                            properties: {
+                                request_id: streamId,
+                                thread_id: String(mutationResult.threadId),
+                                message_id: mutationResult.assistantMessageId,
+                                model_id: body.model,
+                                provider: modelData.runtimeProvider,
+                                finish_reason: finishReason,
+                                duration_ms: durationMs,
+                                time_to_first_visible_ms: getTimeToFirstVisibleMs() ?? null,
+                                prompt_tokens: totalTokenUsage.promptTokens,
+                                completion_tokens: totalTokenUsage.completionTokens,
+                                reasoning_tokens: totalTokenUsage.reasoningTokens,
+                                tool_call_count: completedToolCallIds.size,
+                                estimated_cost_usd: totalTokenUsage.estimatedCostUsd ?? null
                             }
-                        )
+                        }),
+                        captureServerAiGeneration({
+                            distinctId: user.id,
+                            traceId: streamId,
+                            generationId: streamId,
+                            sessionId: String(mutationResult.threadId),
+                            model: body.model,
+                            provider: modelData.runtimeProvider,
+                            latencyMs: durationMs,
+                            inputTokens: totalTokenUsage.promptTokens,
+                            outputTokens: totalTokenUsage.completionTokens,
+                            totalCostUsd: totalTokenUsage.estimatedCostUsd,
+                            finishReason,
+                            functionName: "chat-generation"
+                        })
+                    ])
+                }
+
+                if (nameGenerationPromise) {
+                    try {
+                        await nameGenerationPromise
                     } catch (error) {
                         console.error(
-                            "[cvx][chat][memory] Failed to schedule conversation ingestion:",
+                            "[cvx][chat][thread-name] Failed to generate thread name:",
                             error
                         )
                     }
                 }
-            }
 
-            await finalizeToolBudgetReservation()
-            await settleModelCreditReservation()
-
-            if (nameGenerationPromise) {
-                try {
-                    await nameGenerationPromise
-                } catch (error) {
-                    console.error("[cvx][chat][thread-name] Failed to generate thread name:", error)
+                await ctx
+                    .runMutation(internal.threads.updateThreadStreamingState, {
+                        threadId: mutationResult.threadId,
+                        isLive: false,
+                        currentStreamId: undefined
+                    })
+                    .catch((err) => console.error("Failed to update thread state:", err))
+            } catch (error) {
+                if (telemetryEnabled) {
+                    await Promise.all([
+                        captureServerEvent({
+                            distinctId: user.id,
+                            name: TELEMETRY_EVENTS.chatGenerationFailed,
+                            properties: {
+                                request_id: streamId,
+                                thread_id: String(mutationResult.threadId),
+                                message_id: mutationResult.assistantMessageId,
+                                model_id: body.model,
+                                provider: modelData.runtimeProvider,
+                                duration_ms: Date.now() - streamStartTime,
+                                error_type: getErrorType(error)
+                            }
+                        }),
+                        captureServerException({
+                            distinctId: user.id,
+                            error,
+                            properties: {
+                                request_id: streamId,
+                                thread_id: String(mutationResult.threadId),
+                                message_id: mutationResult.assistantMessageId,
+                                model_id: body.model,
+                                provider: modelData.runtimeProvider,
+                                surface: "chat_stream"
+                            }
+                        }),
+                        captureServerAiGeneration({
+                            distinctId: user.id,
+                            traceId: streamId,
+                            generationId: streamId,
+                            sessionId: String(mutationResult.threadId),
+                            model: body.model,
+                            provider: modelData.runtimeProvider,
+                            latencyMs: Date.now() - streamStartTime,
+                            isError: true,
+                            errorType: getErrorType(error),
+                            functionName: "chat-generation"
+                        })
+                    ])
                 }
+                throw error
             }
-
-            await ctx
-                .runMutation(internal.threads.updateThreadStreamingState, {
-                    threadId: mutationResult.threadId,
-                    isLive: false,
-                    currentStreamId: undefined
-                })
-                .catch((err) => console.error("Failed to update thread state:", err))
         },
         onError: (error) => {
             console.error("[cvx][chat][stream] Fatal error:", error)

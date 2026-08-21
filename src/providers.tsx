@@ -1,10 +1,12 @@
 import { DevRuntime } from "@/components/dev/dev-runtime"
 import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
+import { TelemetryIdentity } from "@/components/telemetry-identity"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { authClient } from "@/lib/auth-client"
 import { useDevDisableAnimations } from "@/lib/dev-overrides"
 import { installStaleAssetRecovery } from "@/lib/stale-asset-recovery"
+import { sanitizePostHogEvent } from "@/lib/telemetry/sanitize"
 import { ConvexQueryClient } from "@convex-dev/react-query"
 import { AuthQueryProvider } from "@daveyplate/better-auth-tanstack"
 import { AuthUIProviderTanstack } from "@daveyplate/better-auth-ui/tanstack"
@@ -52,6 +54,7 @@ export function getConvexQueryClient() {
 export function Providers({ children }: { children: ReactNode }) {
     const router = useRouter()
     const posthogKey = optionalBrowserEnv("VITE_POSTHOG_KEY")
+    const posthogHost = optionalBrowserEnv("VITE_POSTHOG_HOST")
 
     const app = (
         <AuthQueryProvider>
@@ -62,6 +65,7 @@ export function Providers({ children }: { children: ReactNode }) {
                     replace={(href) => router.navigate({ href, replace: true })}
                     Link={({ href, ...props }) => <Link to={href} {...props} />}
                 >
+                    <TelemetryIdentity />
                     <StaleAssetRecovery />
 
                     <DevMotionConfig>{children}</DevMotionConfig>
@@ -78,12 +82,32 @@ export function Providers({ children }: { children: ReactNode }) {
         <ClientOnly>
             <ConvexQueryCacheProvider>
                 <QueryClientProvider client={queryClient}>
-                    {posthogKey ? (
+                    {posthogKey && posthogHost ? (
                         <PostHogProvider
                             apiKey={posthogKey}
                             options={{
-                                api_host: "/api/phr",
-                                capture_exceptions: true
+                                api_host: posthogHost,
+                                defaults: "2026-06-25",
+                                autocapture: false,
+                                capture_pageview: "history_change",
+                                capture_pageleave: true,
+                                capture_exceptions: true,
+                                capture_performance: true,
+                                person_profiles: "identified_only",
+                                respect_dnt: true,
+                                opt_out_capturing_by_default: true,
+                                opt_out_persistence_by_default: true,
+                                disable_capture_url_hashes: true,
+                                mask_all_text: true,
+                                mask_all_element_attributes: true,
+                                mask_personal_data_properties: true,
+                                custom_personal_data_properties: ["email", "token", "code"],
+                                session_recording: {
+                                    maskAllInputs: true,
+                                    maskTextSelector: "*",
+                                    recordCrossOriginIframes: false
+                                },
+                                before_send: sanitizePostHogEvent
                             }}
                         >
                             {app}

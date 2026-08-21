@@ -1,6 +1,7 @@
 import { createReadStream, statSync } from "node:fs"
 import http from "node:http"
 import path from "node:path"
+import posthog from "@posthog/rollup-plugin"
 import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 // vite.config.ts
@@ -24,6 +25,21 @@ const anydocWasmPath = path.resolve(
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "")
+    const posthogSourceMapPlugin =
+        env.POSTHOG_API_KEY?.trim() && env.POSTHOG_PROJECT_ID?.trim()
+            ? posthog({
+                  personalApiKey: env.POSTHOG_API_KEY.trim(),
+                  projectId: env.POSTHOG_PROJECT_ID.trim(),
+                  host: env.POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
+                  sourcemaps: {
+                      enabled: true,
+                      releaseName: "silkchat-web",
+                      releaseVersion:
+                          env.APP_RELEASE?.trim() || env.VERCEL_GIT_COMMIT_SHA?.trim() || "unknown",
+                      deleteAfterUpload: true
+                  }
+              })
+            : null
     const convexApiUrl = env.VITE_CONVEX_API_URL?.trim()
     const convexApiTarget = convexApiUrl ? new URL(convexApiUrl) : null
     const convexApiOrigin = convexApiTarget
@@ -151,6 +167,7 @@ export default defineConfig(({ mode }) => {
         plugins: [
             anydocWasmDevPlugin,
             localImageOptimizerPlugin,
+            posthogSourceMapPlugin,
             (process.env.ANALYZE && analyzer()) || null,
             {
                 name: "ssr-sandpack-stub",

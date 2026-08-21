@@ -7,6 +7,7 @@ import type { Infer } from "convex/values"
 import { internal } from "../_generated/api"
 import type { DataModel, Id } from "../_generated/dataModel"
 import { MODELS_SHARED, resolveModelReplacement } from "../lib/models"
+import { captureServerAiGeneration } from "../lib/posthog"
 import type { UserSettings } from "../schema"
 import type { UserRegistry } from "../settings"
 import { getModel } from "./get_model"
@@ -353,6 +354,9 @@ export const generateThreadName = async (
         return fallbackTitle
     }
 
+    const telemetryStartedAt = Date.now()
+    const generationId = crypto.randomUUID()
+
     try {
         const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
         if (modelData instanceof ChatError) {
@@ -395,6 +399,22 @@ Generate a title that accurately represents what this conversation is about base
             ]
         })
 
+        if (settings.telemetryEnabled !== false) {
+            await captureServerAiGeneration({
+                distinctId: userId,
+                traceId: generationId,
+                generationId,
+                sessionId: String(threadId),
+                model: titleModelId,
+                provider: modelData.runtimeProvider,
+                latencyMs: Date.now() - telemetryStartedAt,
+                inputTokens: result.usage?.inputTokens,
+                outputTokens: result.usage?.outputTokens,
+                finishReason: result.finishReason,
+                functionName: "thread-title-generation"
+            })
+        }
+
         const generatedTitle = normalizeTitle(result.text) || fallbackTitle
         await ctx.runMutation(internal.threads.updateThreadName, {
             threadId,
@@ -403,6 +423,20 @@ Generate a title that accurately represents what this conversation is about base
 
         return generatedTitle
     } catch (error) {
+        if (settings.telemetryEnabled !== false) {
+            await captureServerAiGeneration({
+                distinctId: userId,
+                traceId: generationId,
+                generationId,
+                sessionId: String(threadId),
+                model: titleModelId,
+                provider: "unknown",
+                latencyMs: Date.now() - telemetryStartedAt,
+                isError: true,
+                errorType: error instanceof Error ? error.name : "unknown",
+                functionName: "thread-title-generation"
+            })
+        }
         console.error("[cvx][chat][thread-name] Title generation failed, using fallback:", error)
         await ctx.runMutation(internal.threads.updateThreadName, {
             threadId,
@@ -426,6 +460,9 @@ export const generateShareQuestion = async (
 
     const titleModelId = await getAvailableTitleModelId(ctx, userId, settings.titleGenerationModel)
     if (!titleModelId) return fallbackQuestion
+
+    const telemetryStartedAt = Date.now()
+    const generationId = crypto.randomUUID()
 
     try {
         const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
@@ -464,8 +501,36 @@ Return only the question.`,
             ]
         })
 
+        if (settings.telemetryEnabled !== false) {
+            await captureServerAiGeneration({
+                distinctId: userId,
+                traceId: generationId,
+                generationId,
+                model: titleModelId,
+                provider: modelData.runtimeProvider,
+                latencyMs: Date.now() - telemetryStartedAt,
+                inputTokens: result.usage?.inputTokens,
+                outputTokens: result.usage?.outputTokens,
+                finishReason: result.finishReason,
+                functionName: "share-question-generation"
+            })
+        }
+
         return normalizeShareQuestion(result.text) || fallbackQuestion
     } catch (error) {
+        if (settings.telemetryEnabled !== false) {
+            await captureServerAiGeneration({
+                distinctId: userId,
+                traceId: generationId,
+                generationId,
+                model: titleModelId,
+                provider: "unknown",
+                latencyMs: Date.now() - telemetryStartedAt,
+                isError: true,
+                errorType: error instanceof Error ? error.name : "unknown",
+                functionName: "share-question-generation"
+            })
+        }
         console.error(
             "[cvx][chat][share-question] Question generation failed, using fallback:",
             error

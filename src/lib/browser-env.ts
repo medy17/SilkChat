@@ -6,6 +6,8 @@ type Env = {
     VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED?: string
     VITE_POSTHOG_KEY?: string
     VITE_POSTHOG_HOST?: string
+    VITE_POSTHOG_ENVIRONMENT?: string
+    VITE_APP_RELEASE?: string
     VITE_GOOGLE_ADS_ID?: string
     VITE_GOOGLE_SIGNUP_CONVERSION_LABEL?: string
     VITE_ENABLE_VOICE_INPUT?: string

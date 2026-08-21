@@ -20,6 +20,7 @@ import {
     CreditCard,
     PaintBucket,
     Paperclip,
+    ShieldCheck,
     SlidersHorizontal,
     User,
     Users
@@ -67,6 +68,11 @@ const settingsNavItems = [
         title: "Files",
         href: "/settings/files",
         icon: Paperclip
+    },
+    {
+        title: "Privacy",
+        href: "/settings/privacy",
+        icon: ShieldCheck
     },
     {
         title: "Usage",

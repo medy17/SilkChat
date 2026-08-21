@@ -155,6 +155,8 @@ The app runtime needs values used by Vite, server-side proxy routes, analytics, 
 - `VITE_CONVEX_SITE_URL`
 - `VITE_ENABLED_INTERNAL_PROVIDERS`
 - `VITE_ENABLE_VOICE_INPUT`
+- `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`, `VITE_POSTHOG_ENVIRONMENT`
+- `VITE_APP_RELEASE`
 
 ### Convex
 
@@ -163,9 +165,32 @@ Convex must receive backend secrets and configuration, including:
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - `VITE_BETTER_AUTH_URL`, `VITE_CONVEX_SITE_URL`, and optional `JWKS`
 - `OPENROUTER_API_KEY`, `ENCRYPTION_KEY`, `IDENTITY_FINGERPRINT_PEPPER`
+- `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`, `POSTHOG_ENVIRONMENT`, `APP_RELEASE`
 - fal, speech-to-text, search, R2, billing, and metering values
 
 Some public `VITE_*` values appear in both layers because Convex-hosted auth also needs to know its public app and site origins. A value configured only in Vercel is not automatically available to Convex.
+
+### PostHog telemetry
+
+PostHog is the only telemetry destination. The browser sends product events, web vitals,
+masked session replay, and exceptions. Convex sends authoritative product events and
+`$ai_generation` metrics without prompts, responses, tool arguments, or attachment data.
+
+PostHog starts opted out in the browser until the signed-in user's settings load. Users can disable
+optional telemetry under Settings > Privacy. The account preference also disables backend product
+events and AI traces. Essential security, billing, and service reliability logs are not controlled
+by this preference.
+
+Set `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`, `POSTHOG_ENVIRONMENT`, and `APP_RELEASE` in each
+Convex deployment. Add the matching `VITE_POSTHOG_*` and `VITE_APP_RELEASE` values to Vercel.
+
+Production source map uploads also require `POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` in the Vercel
+build environment. The API key needs write access to PostHog error tracking. The build skips source
+map upload when either value is missing.
+
+Convex platform logs do not use an application SDK. Configure a PostHog log stream for each Convex
+deployment in the Convex dashboard. Use the same project token and PostHog host as the application,
+and set the service name to identify the environment, for example `silkchat-convex-production`.
 
 ## Auth and Static JWKS
 

@@ -36,6 +36,7 @@ vi.mock("@/lib/default-user-settings", () => ({
         toolCallLimitPerTurn: 3,
         customThemes: [],
         invertSendNewlineBehavior: false,
+        telemetryEnabled: true,
         generalProviders: {
             supermemory: undefined,
             firecrawl: undefined,
@@ -592,6 +593,28 @@ describe("settings", () => {
             expect.objectContaining({
                 invertSendNewlineBehavior: true
             })
+        )
+    })
+
+    it("persists the account telemetry preference through partial settings updates", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            generalProviders: {},
+            telemetryEnabled: true
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            telemetryEnabled: false
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ telemetryEnabled: false })
         )
     })
 

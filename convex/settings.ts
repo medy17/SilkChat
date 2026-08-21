@@ -479,6 +479,7 @@ export const updateUserSettings = mutation({
         const newSettings: Infer<typeof UserSettings> = {
             ...normalizeSettingsCustomModels(args.baseSettings),
             customThemes,
+            telemetryEnabled: args.baseSettings.telemetryEnabled ?? settings.telemetryEnabled,
             coreAIProviders: {},
             customAIProviders: {},
             generalProviders: {
@@ -587,6 +588,7 @@ export const updateUserSettingsPartial = mutation({
         titleGenerationModel: v.optional(v.string()),
         toolCallLimitPerTurn: v.optional(v.number()),
         invertSendNewlineBehavior: v.optional(v.boolean()),
+        telemetryEnabled: v.optional(v.boolean()),
         imageGenerationDefaults: v.optional(ImageGenerationDefaults),
         customization: v.optional(
             v.object({
@@ -655,6 +657,9 @@ export const updateUserSettingsPartial = mutation({
         }
         if (args.invertSendNewlineBehavior !== undefined) {
             newSettings.invertSendNewlineBehavior = args.invertSendNewlineBehavior
+        }
+        if (args.telemetryEnabled !== undefined) {
+            newSettings.telemetryEnabled = args.telemetryEnabled
         }
         if (args.imageGenerationDefaults !== undefined) {
             // Merge so a partial update (e.g. only resolution) preserves the other field.

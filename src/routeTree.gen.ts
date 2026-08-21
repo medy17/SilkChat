@@ -44,6 +44,7 @@ import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsMemoryRouteImport } from './routes/settings/memory'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
 import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
+import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
@@ -51,7 +52,6 @@ import { Route as ChatSSharedThreadIdRouteImport } from './routes/_chat.s.$share
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDevCreditStateRouteImport } from './routes/api/dev/credit-state'
-import { Route as ApiPhrSplatRouteImport } from './routes/api/phr/$'
 import { Route as ChatFolderFolderIdThreadThreadIdRouteImport } from './routes/_chat.folder.$folderId.thread.$threadId'
 
 const SettingsRouteLazyRouteImport = createFileRoute('/settings')()
@@ -244,6 +244,11 @@ const SettingsPersonasRoute = SettingsPersonasRouteImport.update({
   path: '/personas',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -288,11 +293,6 @@ const ApiDevCreditStateRoute = ApiDevCreditStateRouteImport.update({
   path: '/api/dev/credit-state',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPhrSplatRoute = ApiPhrSplatRouteImport.update({
-  id: '/api/phr/$',
-  path: '/api/phr/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ChatFolderFolderIdThreadThreadIdRoute =
   ChatFolderFolderIdThreadThreadIdRouteImport.update({
     id: '/thread/$threadId',
@@ -334,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -342,7 +343,6 @@ export interface FileRoutesByFullPath {
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
-  '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/folder/$folderId/thread/$threadId': typeof ChatFolderFolderIdThreadThreadIdRoute
 }
@@ -379,6 +379,7 @@ export interface FileRoutesByTo {
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -388,7 +389,6 @@ export interface FileRoutesByTo {
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
-  '/api/phr/$': typeof ApiPhrSplatRoute
   '/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/folder/$folderId/thread/$threadId': typeof ChatFolderFolderIdThreadThreadIdRoute
 }
@@ -427,6 +427,7 @@ export interface FileRoutesById {
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/settings/personas': typeof SettingsPersonasRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/usage': typeof SettingsUsageRoute
@@ -436,7 +437,6 @@ export interface FileRoutesById {
   '/_chat/thread/$threadId': typeof ChatThreadThreadIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dev/credit-state': typeof ApiDevCreditStateRoute
-  '/api/phr/$': typeof ApiPhrSplatRoute
   '/_chat/folder/$folderId': typeof ChatFolderFolderIdLazyRouteWithChildren
   '/_chat/folder/$folderId/thread/$threadId': typeof ChatFolderFolderIdThreadThreadIdRoute
 }
@@ -476,6 +476,7 @@ export interface FileRouteTypes {
     | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
+    | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -484,7 +485,6 @@ export interface FileRouteTypes {
     | '/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-state'
-    | '/api/phr/$'
     | '/folder/$folderId'
     | '/folder/$folderId/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
@@ -521,6 +521,7 @@ export interface FileRouteTypes {
     | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
+    | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -530,7 +531,6 @@ export interface FileRouteTypes {
     | '/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-state'
-    | '/api/phr/$'
     | '/folder/$folderId'
     | '/folder/$folderId/thread/$threadId'
   id:
@@ -568,6 +568,7 @@ export interface FileRouteTypes {
     | '/settings/memory'
     | '/settings/models'
     | '/settings/personas'
+    | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/usage'
@@ -577,7 +578,6 @@ export interface FileRouteTypes {
     | '/_chat/thread/$threadId'
     | '/api/auth/$'
     | '/api/dev/credit-state'
-    | '/api/phr/$'
     | '/_chat/folder/$folderId'
     | '/_chat/folder/$folderId/thread/$threadId'
   fileRoutesById: FileRoutesById
@@ -606,7 +606,6 @@ export interface RootRouteChildren {
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDevCreditStateRoute: typeof ApiDevCreditStateRoute
-  ApiPhrSplatRoute: typeof ApiPhrSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -856,6 +855,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPersonasRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/privacy': {
+      id: '/settings/privacy'
+      path: '/privacy'
+      fullPath: '/settings/privacy'
+      preLoaderRoute: typeof SettingsPrivacyRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/profile': {
       id: '/settings/profile'
       path: '/profile'
@@ -910,13 +916,6 @@ declare module '@tanstack/react-router' {
       path: '/api/dev/credit-state'
       fullPath: '/api/dev/credit-state'
       preLoaderRoute: typeof ApiDevCreditStateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/phr/$': {
-      id: '/api/phr/$'
-      path: '/api/phr/$'
-      fullPath: '/api/phr/$'
-      preLoaderRoute: typeof ApiPhrSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat/folder/$folderId/thread/$threadId': {
@@ -975,6 +974,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsMemoryRoute: typeof SettingsMemoryRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
   SettingsPersonasRoute: typeof SettingsPersonasRoute
+  SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
@@ -993,6 +993,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsMemoryRoute: SettingsMemoryRoute,
   SettingsModelsRoute: SettingsModelsRoute,
   SettingsPersonasRoute: SettingsPersonasRoute,
+  SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,
   SettingsUsageRoute: SettingsUsageRoute,
@@ -1025,7 +1026,6 @@ const rootRouteChildren: RootRouteChildren = {
   PersonasStartLazyRoute: PersonasStartLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDevCreditStateRoute: ApiDevCreditStateRoute,
-  ApiPhrSplatRoute: ApiPhrSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -38,6 +38,7 @@ import {
     type LibrarySearchState,
     validateLibrarySearch
 } from "@/lib/library-search"
+import { captureBrowserException } from "@/lib/telemetry/browser"
 import {
     normalizeThemeStoreStateForDefault,
     shouldMigrateToDefaultTheme,
@@ -631,6 +632,14 @@ function RootSessionPendingState({ isExiting }: { isExiting: boolean }) {
 
 export const ChatErrorBoundary = ({ error, info, reset }: ErrorComponentProps) => {
     const isNotFound = error.message.includes("ArgumentValidationError")
+
+    useEffect(() => {
+        if (isNotFound) return
+        captureBrowserException(error, {
+            surface: "chat_route",
+            component_stack_available: Boolean(info?.componentStack)
+        })
+    }, [error, info?.componentStack, isNotFound])
 
     return (
         <div className="relative flex h-[calc(100dvh-var(--app-header-height))] flex-col items-center justify-center">

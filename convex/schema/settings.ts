@@ -81,6 +81,7 @@ export const NonSensitiveUserSettings = v.object({
     toolCallLimitPerTurn: v.optional(v.number()),
     customThemes: v.optional(v.array(v.string())),
     invertSendNewlineBehavior: v.optional(v.boolean()),
+    telemetryEnabled: v.optional(v.boolean()),
     customization: v.optional(UserCustomization),
     imageGenerationDefaults: v.optional(ImageGenerationDefaults),
     onboardingCompleted: v.optional(v.boolean())
