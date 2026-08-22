@@ -9,7 +9,8 @@ export function getHotkeyHelpLines(columns?: number): string[]
 export function formatServiceLogLine(
     service: string,
     line: string,
-    stream?: "stdout" | "stderr"
+    stream?: "stdout" | "stderr",
+    colour?: boolean
 ): string
 export function createLineCollector(onLine: (line: string) => void): {
     push(chunk: string | Uint8Array): void

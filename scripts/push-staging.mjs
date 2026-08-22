@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import dotenv from "dotenv"
@@ -25,16 +24,18 @@ if (!deployment?.trim()) {
     process.exit(1)
 }
 
-const child = spawn(
-    "bunx",
-    ["convex", "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
+const convexEnv = {
+    ...process.env,
+    CONVEX_DEPLOYMENT: deployment.trim()
+}
+
+const child = Bun.spawn(
+    ["bunx", "convex", "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
     {
-        stdio: "inherit",
-        shell: process.platform === "win32",
-        env: {
-            ...process.env,
-            CONVEX_DEPLOYMENT: deployment.trim()
-        }
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+        env: convexEnv
     }
 )
 
@@ -51,47 +52,36 @@ const restoreEnvLocal = () => {
     }
 }
 
-child.on("error", (error) => {
+let code
+try {
+    code = await child.exited
+} catch (error) {
     restoreEnvLocal()
     console.error(error)
     process.exit(1)
-})
+}
 
-child.on("exit", (code) => {
-    restoreEnvLocal()
-    if (code !== 0) {
-        process.exit(code ?? 1)
-        return
-    }
+restoreEnvLocal()
+if (code !== 0) process.exit(code)
 
-    console.log("[staging:push] Syncing OpenRouter model metadata...")
-    const syncChild = spawn(
+console.log("[staging:push] Syncing OpenRouter model metadata...")
+const syncChild = Bun.spawn(
+    [
         "bunx",
-        [
-            "convex",
-            "run",
-            "model_provider_metadata_node:syncOpenRouterModelMetadata",
-            "{}",
-            "--codegen",
-            "disable",
-            "--typecheck",
-            "disable"
-        ],
-        {
-            stdio: "inherit",
-            shell: process.platform === "win32",
-            env: {
-                ...process.env,
-                CONVEX_DEPLOYMENT: deployment.trim()
-            }
-        }
-    )
-
-    syncChild.on("error", (error) => {
-        console.error(error)
-        process.exit(1)
-    })
-    syncChild.on("exit", (syncCode) => {
-        process.exit(syncCode ?? 1)
-    })
-})
+        "convex",
+        "run",
+        "model_provider_metadata_node:syncOpenRouterModelMetadata",
+        "{}",
+        "--codegen",
+        "disable",
+        "--typecheck",
+        "disable"
+    ],
+    {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+        env: convexEnv
+    }
+)
+process.exitCode = await syncChild.exited

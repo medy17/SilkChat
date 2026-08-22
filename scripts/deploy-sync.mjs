@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process"
-
 const targets = {
     staging: {
         branch: "staging",
@@ -23,50 +21,30 @@ if (!target) {
     process.exit(1)
 }
 
-const run = (command, args, options = {}) =>
-    new Promise((resolve, reject) => {
-        const child = spawn(command, args, {
-            stdio: "inherit",
-            shell: process.platform === "win32",
-            ...options
-        })
-
-        child.on("error", reject)
-        child.on("exit", (code) => {
-            if (code === 0) {
-                resolve()
-                return
-            }
-
-            reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code}`))
-        })
+const run = async (command, args, options = {}) => {
+    const child = Bun.spawn([command, ...args], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+        ...options
     })
+    const code = await child.exited
+    if (code !== 0) {
+        throw new Error(`${command} ${args.join(" ")} failed with exit code ${code}`)
+    }
+}
 
-const getOutput = (command, args) =>
-    new Promise((resolve, reject) => {
-        const child = spawn(command, args, {
-            stdio: ["ignore", "pipe", "pipe"],
-            shell: process.platform === "win32"
-        })
-        let stdout = ""
-        let stderr = ""
-
-        child.stdout.on("data", (chunk) => {
-            stdout += chunk.toString()
-        })
-        child.stderr.on("data", (chunk) => {
-            stderr += chunk.toString()
-        })
-        child.on("error", reject)
-        child.on("exit", (code) => {
-            if (code === 0) {
-                resolve(stdout.trim())
-                return
-            }
-
-            reject(new Error(`${command} ${args.join(" ")} failed: ${stderr.trim()}`))
-        })
+const getOutput = (command, args) => {
+    const result = Bun.spawnSync([command, ...args], {
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe"
     })
+    if (result.exitCode !== 0) {
+        throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.toString().trim()}`)
+    }
+    return result.stdout.toString().trim()
+}
 
 const fail = (message) => {
     console.error(message)
@@ -87,8 +65,7 @@ if (status) {
 }
 
 console.log(`[deploy:sync] Verifying ${targetName} before deployment...`)
-await run("bun", ["run", "check-types"])
-await run("bun", ["run", "test"])
+await run("bun", ["run", "--parallel", "check-types", "test", "test:bun-local"])
 
 console.log(`[deploy:sync] Pushing Convex ${targetName} before frontend deployment...`)
 await run("bun", ["run", target.convexScript])

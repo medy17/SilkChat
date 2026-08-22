@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import dotenv from "dotenv"
@@ -24,27 +23,21 @@ if (!deployment?.trim()) {
     process.exit(1)
 }
 
-const run = (args) =>
-    new Promise((resolve, reject) => {
-        const child = spawn("bunx", args, {
-            stdio: "inherit",
-            shell: process.platform === "win32",
-            env: {
-                ...process.env,
-                CONVEX_DEPLOYMENT: deployment.trim()
-            }
-        })
-
-        child.on("error", reject)
-        child.on("exit", (code) => {
-            if (code === 0) {
-                resolve()
-                return
-            }
-
-            reject(new Error(`bunx ${args.join(" ")} failed with exit code ${code}`))
-        })
+const run = async (args) => {
+    const child = Bun.spawn(["bunx", ...args], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+        env: {
+            ...process.env,
+            CONVEX_DEPLOYMENT: deployment.trim()
+        }
     })
+    const code = await child.exited
+    if (code !== 0) {
+        throw new Error(`bunx ${args.join(" ")} failed with exit code ${code}`)
+    }
+}
 
 try {
     await run([

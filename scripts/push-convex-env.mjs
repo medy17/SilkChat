@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -60,7 +59,7 @@ if (!deployment?.trim()) {
     console.error(
         [
             "Missing Convex deployment target.",
-            "Usage: node scripts/push-convex-env.mjs <prod|staging|cloud-dev>",
+            "Usage: bun scripts/push-convex-env.mjs <prod|staging|cloud-dev>",
             "For staging, set STAGING_CONVEX_DEPLOYMENT in envs/.env.staging.",
             "For cloud-dev, set CLOUD_DEV_CONVEX_DEPLOYMENT in envs/.env.cloud-dev."
         ].join("\n")
@@ -71,9 +70,9 @@ if (!deployment?.trim()) {
 const targetEnvFile = targetEnvFileByTarget[target]
 const { mergedFile, tempDir } = writeMergedEnvFile(envFile, targetEnvFile)
 
-const child = spawn(
-    "bunx",
+const child = Bun.spawn(
     [
+        "bunx",
         "convex",
         "env",
         "set",
@@ -84,8 +83,9 @@ const child = spawn(
         "--force"
     ],
     {
-        stdio: "inherit",
-        shell: process.platform === "win32",
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
         env: {
             ...process.env,
             CONVEX_DEPLOYMENT: deployment.trim()
@@ -93,7 +93,9 @@ const child = spawn(
     }
 )
 
-child.on("exit", (code) => {
+const code = await child.exited
+try {
+    process.exitCode = code
+} finally {
     rmSync(tempDir, { recursive: true, force: true })
-    process.exit(code ?? 1)
-})
+}

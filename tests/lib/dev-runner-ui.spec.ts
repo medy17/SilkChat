@@ -1,4 +1,3 @@
-import { EventEmitter } from "node:events"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
     DEV_HOTKEYS,
@@ -63,16 +62,30 @@ describe("development runner controls", () => {
         expect(lines).toEqual(["first line", "second line", "third"])
     })
 
+    it("streams Bun subprocess byte chunks as terminal lines", () => {
+        const lines: string[] = []
+        const collector = createLineCollector((line) => lines.push(line))
+        const encoder = new TextEncoder()
+
+        collector.push(encoder.encode("frontend ready\noptim"))
+        expect(lines).toEqual(["frontend ready"])
+
+        collector.push(encoder.encode("iser ready\n"))
+        collector.flush()
+        expect(lines).toEqual(["frontend ready", "optimiser ready"])
+    })
+
     it("finishes shutdown after force-stopping an unresponsive child", async () => {
         vi.useFakeTimers()
-        const child = new EventEmitter() as EventEmitter & {
+        const child: {
             exitCode: number | null
-            signalCode: NodeJS.Signals | null
+            exited: Promise<number>
             kill: ReturnType<typeof vi.fn>
+        } = {
+            exitCode: null,
+            exited: new Promise<number>(() => {}),
+            kill: vi.fn()
         }
-        child.exitCode = null
-        child.signalCode = null
-        child.kill = vi.fn(() => true)
 
         const stopped = stopChild(child, 100)
         await vi.advanceTimersByTimeAsync(100)

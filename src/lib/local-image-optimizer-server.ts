@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import sharp from "sharp"
 import {
     LOCAL_IMAGE_OPTIMIZER_PURGE_PATH,
     LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX,
@@ -20,7 +19,7 @@ type LocalImageOptimizerConfig = {
 }
 
 const LONG_LIVED_CACHE_CONTROL = "public, max-age=31536000, immutable"
-const LOCAL_AVIF_ENCODER_SIGNATURE = "avif-b8-c444-q-e7"
+const LOCAL_AVIF_ENCODER_SIGNATURE = "bun-image-avif-v1"
 
 const formatToContentType = (format: OutputFormat) => {
     switch (format) {
@@ -65,7 +64,12 @@ const readCachedVariant = async ({
     baseHash: string
     preferredFormat: OutputFormat | null
 }) => {
-    const candidateFormats = preferredFormat ? [preferredFormat] : (["png", "jpeg"] as const)
+    const candidateFormats =
+        preferredFormat === "avif"
+            ? (["avif", "webp"] as const)
+            : preferredFormat
+              ? [preferredFormat]
+              : (["png", "jpeg"] as const)
 
     for (const candidateFormat of candidateFormats) {
         const filePath = buildCacheFilePath({
@@ -125,6 +129,23 @@ const buildCachedResponse = ({
 const buildErrorResponse = (status: number, message: string) =>
     Response.json({ error: message }, { status })
 
+const pngHasAlpha = (bytes: Uint8Array) =>
+    bytes.length > 25 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    (bytes[25] === 4 || bytes[25] === 6)
+
+const getPortableFallbackFormat = (
+    sourceFormat: string,
+    sourceBytes: Uint8Array
+): "png" | "jpeg" => {
+    if (sourceFormat === "jpeg") return "jpeg"
+    if (sourceFormat === "png" && !pngHasAlpha(sourceBytes)) return "jpeg"
+    return "png"
+}
+
 const purgeCache = async (cacheDir: string) => {
     let entries: string[]
     try {
@@ -163,40 +184,51 @@ const writeOptimizedImage = async ({
     quality: number
     format: OutputFormat
 }) => {
-    const transformer = sharp(sourceBytes, { failOn: "none" }).rotate().resize({
-        width,
-        fit: "inside",
-        withoutEnlargement: true
-    })
+    const image = new Bun.Image(sourceBytes)
+    const metadata = await image.metadata()
+    const transformer = image.resize(Math.min(width, metadata.width))
 
-    const outputBuffer =
-        format === "avif"
-            ? await transformer
-                  .avif({
-                      quality,
-                      effort: 7,
-                      chromaSubsampling: "4:4:4"
-                  })
-                  .toBuffer()
-            : format === "webp"
-              ? await transformer.webp({ quality }).toBuffer()
-              : format === "png"
-                ? await transformer.png().toBuffer()
-                : await transformer.jpeg({ quality }).toBuffer()
+    let outputFormat = format
+    let outputBytes: Uint8Array
+    try {
+        outputBytes =
+            format === "avif"
+                ? await transformer.avif({ quality }).bytes()
+                : format === "webp"
+                  ? await transformer.webp({ quality }).bytes()
+                  : format === "png"
+                    ? await transformer.png().bytes()
+                    : await transformer.jpeg({ quality }).bytes()
+    } catch (error) {
+        if (
+            format !== "avif" ||
+            !(error instanceof Error) ||
+            !("code" in error) ||
+            error.code !== "ERR_IMAGE_FORMAT_UNSUPPORTED"
+        ) {
+            throw error
+        }
+
+        outputFormat = "webp"
+        outputBytes = await new Bun.Image(sourceBytes)
+            .resize(Math.min(width, metadata.width))
+            .webp({ quality })
+            .bytes()
+    }
 
     await mkdir(cacheDir, { recursive: true })
 
     const filePath = buildCacheFilePath({
         cacheDir,
         baseHash,
-        format
+        format: outputFormat
     })
 
-    await writeFile(filePath, outputBuffer)
+    await writeFile(filePath, outputBytes)
 
     return {
-        bytes: new Uint8Array(outputBuffer),
-        format
+        bytes: outputBytes,
+        format: outputFormat
     }
 }
 
@@ -291,8 +323,9 @@ export const createLocalImageOptimizerHandler = ({
             }
 
             const sourceBytes = new Uint8Array(await upstreamResponse.arrayBuffer())
-            const metadata = await sharp(sourceBytes, { failOn: "none" }).metadata()
-            const outputFormat = preferredModernFormat ?? (metadata.hasAlpha ? "png" : "jpeg")
+            const metadata = await new Bun.Image(sourceBytes).metadata()
+            const outputFormat =
+                preferredModernFormat ?? getPortableFallbackFormat(metadata.format, sourceBytes)
             const optimizedImage = await writeOptimizedImage({
                 cacheDir,
                 baseHash: baseCacheHash,

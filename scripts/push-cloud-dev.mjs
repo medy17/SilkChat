@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import dotenv from "dotenv"
@@ -14,7 +13,6 @@ dotenv.config({
 
 const deployment = process.env.CLOUD_DEV_CONVEX_DEPLOYMENT
 const envLocalPath = path.resolve(process.cwd(), ".env.local")
-const convexCliPath = path.resolve(process.cwd(), "node_modules", "convex", "bin", "main.js")
 const hadRootEnvLocal = existsSync(envLocalPath)
 const originalEnvLocal = existsSync(envLocalPath) ? readFileSync(envLocalPath, "utf8") : null
 
@@ -29,11 +27,12 @@ if (!deployment?.trim()) {
     process.exit(1)
 }
 
-const child = spawn(
-    process.execPath,
-    [convexCliPath, "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
+const child = Bun.spawn(
+    ["bunx", "convex", "dev", "--once", "--codegen", "disable", "--typecheck", "disable"],
     {
-        stdio: "inherit",
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
         env: {
             ...process.env,
             CONVEX_DEPLOYMENT: deployment.trim()
@@ -42,15 +41,14 @@ const child = spawn(
 )
 
 const forwardSignal = (signal) => {
-    if (child.exitCode === null && child.signalCode === null) {
-        child.kill(signal)
-    }
+    if (child.exitCode === null) child.kill(signal)
 }
 
 process.on("SIGINT", () => forwardSignal("SIGINT"))
 process.on("SIGTERM", () => forwardSignal("SIGTERM"))
 
-child.on("exit", (code) => {
+const code = await child.exited
+try {
     if (originalEnvLocal !== null && existsSync(envLocalPath)) {
         const current = readFileSync(envLocalPath, "utf8")
         if (current !== originalEnvLocal) {
@@ -61,5 +59,8 @@ child.on("exit", (code) => {
         unlinkSync(envLocalPath)
         console.log("[cloud:dev:push] Removed .env.local created by Convex CLI.")
     }
-    process.exit(code ?? 1)
-})
+    process.exitCode = code
+} catch (error) {
+    console.error(error)
+    process.exitCode = 1
+}

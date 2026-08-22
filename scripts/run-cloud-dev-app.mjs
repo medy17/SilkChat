@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import dotenv from "dotenv"
+import { createColors } from "picocolors"
 import { addViteAllowedHost, getCloudDevTunnelConfig } from "./lib/cloud-dev-tunnel.mjs"
 
 export const CLOUD_DEV_FAL_R2_WORKER = "silkchat-fal-r2-ingest-cloud-dev"
@@ -38,7 +38,29 @@ export const getHotkeyHelpLines = (columns = 80) => {
     return lines
 }
 
-export const formatServiceLogLine = (service, line, stream = "stdout") => {
+const colourServiceTag = (service, level) => {
+    const colours = createColors(true)
+    const colourService =
+        {
+            frontend: colours.cyan,
+            optimiser: colours.magenta,
+            worker: colours.yellow,
+            tunnel: colours.green,
+            backend: colours.blue
+        }[service] ?? colours.white
+    const colourLevel =
+        level === "error"
+            ? colours.red
+            : level === "warn"
+              ? colours.yellow
+              : level === "debug"
+                ? colours.gray
+                : null
+
+    return `[${colourService(service)}${level && colourLevel ? `:${colourLevel(level)}` : ""}]`
+}
+
+export const formatServiceLogLine = (service, line, stream = "stdout", colour = false) => {
     let message = line.replace(/\r$/, "")
     let level = stream === "stderr" ? "error" : null
 
@@ -63,15 +85,17 @@ export const formatServiceLogLine = (service, line, stream = "stdout") => {
         .replace(/^\[cloud:dev:push\]\s*/, "")
 
     const levelSuffix = level ? `:${level}` : ""
-    return `[${service}${levelSuffix}]${message ? ` ${message}` : ""}`
+    const tag = `[${service}${levelSuffix}]`
+    return `${colour ? colourServiceTag(service, level) : tag}${message ? ` ${message}` : ""}`
 }
 
 export const createLineCollector = (onLine) => {
     let pending = ""
+    const decoder = new TextDecoder()
 
     return {
         push(chunk) {
-            pending += chunk.toString()
+            pending += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true })
             const lines = pending.split(/\r?\n/)
             pending = lines.pop() ?? ""
             for (const line of lines) {
@@ -79,6 +103,7 @@ export const createLineCollector = (onLine) => {
             }
         },
         flush() {
+            pending += decoder.decode()
             if (!pending) return
             onLine(pending)
             pending = ""
@@ -86,36 +111,22 @@ export const createLineCollector = (onLine) => {
     }
 }
 
-export const stopChild = (child, timeoutMs = 3000) =>
-    new Promise((resolve) => {
-        if (child.exitCode !== null || child.signalCode !== null) {
-            resolve()
-            return
-        }
+export const stopChild = async (child, timeoutMs = 3000) => {
+    if (child.exitCode !== null) return
 
-        let settled = false
-        const finish = () => {
-            if (settled) return
-            settled = true
-            clearTimeout(timeout)
-            child.removeListener("exit", finish)
-            child.removeListener("error", finish)
-            resolve()
-        }
-
-        child.once("exit", finish)
-        child.once("error", finish)
-        const timeout = setTimeout(() => {
-            if (child.exitCode === null && child.signalCode === null) {
-                child.kill("SIGKILL")
-            }
-            finish()
-        }, timeoutMs)
-
-        if (!child.kill("SIGTERM")) {
-            finish()
-        }
-    })
+    child.kill("SIGTERM")
+    let timeout
+    await Promise.race([
+        child.exited,
+        new Promise((resolve) => {
+            timeout = setTimeout(() => {
+                if (child.exitCode === null) child.kill("SIGKILL")
+                resolve()
+            }, timeoutMs)
+        })
+    ])
+    clearTimeout(timeout)
+}
 
 const getRequiredEnv = (name) => {
     const value = process.env[name]?.trim()
@@ -173,7 +184,6 @@ export const runCloudDevApp = () => {
     })
 
     const localImageOptimizerPort = process.env.LOCAL_IMAGE_OPTIMIZER_PORT || "43177"
-    const tsxCliPath = path.resolve(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs")
     const viteCliPath = path.resolve(process.cwd(), "node_modules", "vite", "bin", "vite.js")
     const backendSyncPath = path.resolve(process.cwd(), "scripts", "push-cloud-dev.mjs")
     const tunnelConfig = getCloudDevTunnelConfig(process.env)
@@ -208,16 +218,23 @@ export const runCloudDevApp = () => {
     let backendSyncRunning = false
 
     const writeServiceLine = (service, stream, line) => {
-        dock.log(formatServiceLogLine(service, line, stream))
+        dock.log(formatServiceLogLine(service, line, stream, interactive))
     }
 
     const attachOutput = (child, service) => {
         for (const stream of ["stdout", "stderr"]) {
             const output = child[stream]
-            if (!output) continue
+            if (!output || typeof output.getReader !== "function") continue
             const collector = createLineCollector((line) => writeServiceLine(service, stream, line))
-            output.on("data", (chunk) => collector.push(chunk))
-            output.on("end", () => collector.flush())
+            void (async () => {
+                const reader = output.getReader()
+                for (;;) {
+                    const { value, done } = await reader.read()
+                    if (done) break
+                    collector.push(value)
+                }
+                collector.flush()
+            })()
         }
     }
 
@@ -228,12 +245,12 @@ export const runCloudDevApp = () => {
             env: childBaseEnv
         },
         optimiser: {
-            command: process.execPath,
-            args: [tsxCliPath, "scripts/local-image-optimizer.ts"],
+            command: "bun",
+            args: ["scripts/local-image-optimizer.ts"],
             env: viteEnv
         },
         frontend: {
-            command: process.execPath,
+            command: "bun",
             args: [viteCliPath, "dev", "--port", "3000", ...process.argv.slice(2)],
             env: viteEnv
         },
@@ -261,32 +278,35 @@ export const runCloudDevApp = () => {
             return
         }
 
-        const child = spawn(definition.command, definition.args, {
-            stdio: ["ignore", "pipe", "pipe"],
-            env: definition.env
-        })
+        let child
+        try {
+            child = Bun.spawn([definition.command, ...definition.args], {
+                stdin: "ignore",
+                stdout: "pipe",
+                stderr: "pipe",
+                env: definition.env,
+                onExit(exitedChild, code, signalCode, error) {
+                    children.delete(exitedChild)
+                    if (services.get(service) !== exitedChild) return
+                    services.delete(service)
+                    if (shuttingDown) return
+                    if (error) {
+                        dock.log(`[runner:error] ${service} stopped: ${error.message}`)
+                        return
+                    }
+                    const prefix = code === 0 && !signalCode ? "[runner]" : "[runner:error]"
+                    dock.log(
+                        `${prefix} ${service} stopped${signalCode ? ` (${signalCode})` : code === 0 ? "" : ` with code ${code ?? 1}`}.`
+                    )
+                }
+            })
+        } catch (error) {
+            dock.log(`[runner:error] ${service} could not start: ${error.message}`)
+            return
+        }
         services.set(service, child)
         children.add(child)
         attachOutput(child, service)
-
-        child.once("error", (error) => {
-            if (services.get(service) === child) {
-                services.delete(service)
-            }
-            dock.log(`[runner:error] ${service} could not start: ${error.message}`)
-        })
-
-        child.once("exit", (code, signal) => {
-            children.delete(child)
-            if (services.get(service) !== child) return
-            services.delete(service)
-            if (!shuttingDown) {
-                const prefix = code === 0 && !signal ? "[runner]" : "[runner:error]"
-                dock.log(
-                    `${prefix} ${service} stopped${signal ? ` (${signal})` : code === 0 ? "" : ` with code ${code ?? 1}`}.`
-                )
-            }
-        })
 
         dock.log(`[runner] ${service} started.`)
     }
@@ -312,28 +332,36 @@ export const runCloudDevApp = () => {
         }
 
         backendSyncRunning = true
-        const child = spawn(process.execPath, [backendSyncPath], {
-            stdio: ["ignore", "pipe", "pipe"],
-            env: process.env
-        })
+        let child
+        try {
+            child = Bun.spawn(["bun", backendSyncPath], {
+                stdin: "ignore",
+                stdout: "pipe",
+                stderr: "pipe",
+                env: process.env,
+                onExit(exitedChild, code, _signalCode, error) {
+                    children.delete(exitedChild)
+                    backendSyncRunning = false
+                    if (shuttingDown) return
+                    if (error) {
+                        dock.log(`[runner:error] Backend sync failed: ${error.message}`)
+                        return
+                    }
+                    dock.log(
+                        code === 0
+                            ? "[runner] Backend sync complete."
+                            : `[runner:error] Backend sync exited with code ${code ?? 1}.`
+                    )
+                }
+            })
+        } catch (error) {
+            backendSyncRunning = false
+            dock.log(`[runner:error] Backend sync failed to start: ${error.message}`)
+            return
+        }
         children.add(child)
         attachOutput(child, "backend")
         dock.log("[runner] Syncing backend.")
-
-        child.once("error", (error) => {
-            dock.log(`[runner:error] Backend sync failed to start: ${error.message}`)
-        })
-        child.once("exit", (code) => {
-            children.delete(child)
-            backendSyncRunning = false
-            if (!shuttingDown) {
-                dock.log(
-                    code === 0
-                        ? "[runner] Backend sync complete."
-                        : `[runner:error] Backend sync exited with code ${code ?? 1}.`
-                )
-            }
-        })
     }
 
     const purgeOptimizerCache = async () => {

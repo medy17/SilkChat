@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process"
-
 const stagingDomains = (
     process.env.STAGING_VERCEL_DOMAINS || "silkchat-staging.xyz,img.silkchat-staging.xyz"
 )
@@ -7,37 +5,39 @@ const stagingDomains = (
     .map((domain) => domain.trim())
     .filter(Boolean)
 
-const run = (command, args, options = {}) =>
-    new Promise((resolve, reject) => {
-        const child = spawn(command, args, {
-            shell: process.platform === "win32",
-            ...options
-        })
-        let stdout = ""
-        let stderr = ""
+const collect = async (stream, output) => {
+    let collected = ""
+    const reader = stream.getReader()
+    const decoder = new TextDecoder()
+    for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value, { stream: true })
+        collected += text
+        output.write(text)
+    }
+    const remainder = decoder.decode()
+    collected += remainder
+    output.write(remainder)
+    return collected
+}
 
-        child.stdout?.on("data", (chunk) => {
-            const text = chunk.toString()
-            stdout += text
-            process.stdout.write(text)
-        })
-
-        child.stderr?.on("data", (chunk) => {
-            const text = chunk.toString()
-            stderr += text
-            process.stderr.write(text)
-        })
-
-        child.on("error", reject)
-        child.on("exit", (code) => {
-            if (code === 0) {
-                resolve({ stdout, stderr })
-                return
-            }
-
-            reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code}`))
-        })
+const run = async (command, args) => {
+    const child = Bun.spawn([command, ...args], {
+        stdin: "inherit",
+        stdout: "pipe",
+        stderr: "pipe"
     })
+    const [code, stdout, stderr] = await Promise.all([
+        child.exited,
+        collect(child.stdout, process.stdout),
+        collect(child.stderr, process.stderr)
+    ])
+    if (code !== 0) {
+        throw new Error(`${command} ${args.join(" ")} failed with exit code ${code}`)
+    }
+    return { stdout, stderr }
+}
 
 if (stagingDomains.length === 0) {
     console.error(
@@ -46,9 +46,7 @@ if (stagingDomains.length === 0) {
     process.exit(1)
 }
 
-const deployResult = await run("bunx", ["vercel", "deploy", "--target", "preview", "--yes"], {
-    stdio: ["inherit", "pipe", "pipe"]
-})
+const deployResult = await run("bunx", ["vercel", "deploy", "--target", "preview", "--yes"])
 
 const deploymentUrl = deployResult.stdout.match(/https:\/\/[^\s]+\.vercel\.app/)?.[0]
 
@@ -58,9 +56,7 @@ if (!deploymentUrl) {
 }
 
 for (const domain of stagingDomains) {
-    await run("bunx", ["vercel", "alias", "set", deploymentUrl, domain], {
-        stdio: ["inherit", "pipe", "pipe"]
-    })
+    await run("bunx", ["vercel", "alias", "set", deploymentUrl, domain])
 }
 
 console.log(`[staging:vercel:deploy] ${deploymentUrl} is aliased to ${stagingDomains.join(", ")}.`)

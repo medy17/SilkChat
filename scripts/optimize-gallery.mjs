@@ -2,11 +2,10 @@
 // For each source image in public/gallery it writes two files into public/gallery/opt:
 //   <base>.webp        grid thumbnail (<=700px wide)
 //   <base>-full.webp   lightbox image (longest edge <=1800px)
-// Re-run after adding new source images: `node scripts/optimize-gallery.mjs`
+// Re-run after adding new source images: `bun scripts/optimize-gallery.mjs`
 
 import { mkdir, readdir, stat } from "node:fs/promises"
 import path from "node:path"
-import sharp from "sharp"
 
 const sourceDir = path.resolve("public/gallery")
 const outDir = path.join(sourceDir, "opt")
@@ -21,15 +20,19 @@ for (const file of files) {
     const gridOut = path.join(outDir, `${base}.webp`)
     const fullOut = path.join(outDir, `${base}-full.webp`)
 
-    await sharp(input)
-        .resize({ width: 700, withoutEnlargement: true })
+    const metadata = await Bun.file(input).image().metadata()
+    await Bun.file(input)
+        .image()
+        .resize(Math.min(700, metadata.width))
         .webp({ quality: 78 })
-        .toFile(gridOut)
+        .write(gridOut)
 
-    await sharp(input)
-        .resize({ width: 1800, height: 1800, fit: "inside", withoutEnlargement: true })
+    const fullScale = Math.min(1, 1800 / Math.max(metadata.width, metadata.height))
+    await Bun.file(input)
+        .image()
+        .resize(Math.round(metadata.width * fullScale))
         .webp({ quality: 82 })
-        .toFile(fullOut)
+        .write(fullOut)
 
     const [{ size: gridSize }, { size: fullSize }] = await Promise.all([
         stat(gridOut),
