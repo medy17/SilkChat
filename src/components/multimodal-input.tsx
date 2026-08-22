@@ -365,74 +365,76 @@ export const ReasoningEffortSelector = ({
 
     return (
         <PromptInputAction tooltip="Select reasoning effort">
-            <Select
-                value={reasoningEffort}
-                onValueChange={(effort) => {
-                    const selectedEffort = effort as ReasoningEffort
-                    if (selectedEffort !== reasoningEffort) {
-                        captureBrowserEvent(TELEMETRY_EVENTS.reasoningEffortManuallySelected, {
-                            model_id: selectedModel,
-                            previous_effort: reasoningEffort,
-                            selected_effort: selectedEffort,
-                            surface: "composer_desktop"
-                        })
-                    }
-                    setReasoningEffort(selectedEffort)
-                }}
-            >
-                <SelectTrigger
-                    className={cn(
-                        "!h-8 w-auto gap-0.5 px-1.5 font-normal text-xs transition-colors sm:text-sm",
-                        tone === "on-primary"
-                            ? isReasoningOff
-                                ? "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                                : "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
-                            : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-accent"
-                    )}
+            <span className="inline-flex">
+                <Select
+                    value={reasoningEffort}
+                    onValueChange={(effort) => {
+                        const selectedEffort = effort as ReasoningEffort
+                        if (selectedEffort !== reasoningEffort) {
+                            captureBrowserEvent(TELEMETRY_EVENTS.reasoningEffortManuallySelected, {
+                                model_id: selectedModel,
+                                previous_effort: reasoningEffort,
+                                selected_effort: selectedEffort,
+                                surface: "composer_desktop"
+                            })
+                        }
+                        setReasoningEffort(selectedEffort)
+                    }}
                 >
-                    <div className="hidden items-center gap-1.5 sm:flex">
-                        <ReasoningIcon className="size-4" />
-                        <span>{reasoningLabel}</span>
-                    </div>
-                    <span className="flex items-center gap-1 sm:hidden">
-                        <ReasoningIcon className="size-4" />
-                    </span>
-                </SelectTrigger>
-                <SelectContent>
-                    {allowedEfforts.map((effort) => {
-                        const EffortIcon = getReasoningEffortIcon(effort, selectedSharedModel)
-                        const isEffortLocked =
-                            resolvedCreditPlan === "free" &&
-                            selectedSharedModel !== undefined &&
-                            getRequiredPlanToPickModel(selectedSharedModel, effort) === "pro"
-                        return (
-                            <SelectItem
-                                key={effort}
-                                value={effort}
-                                disabled={isEffortLocked}
-                                className="text-xs sm:text-sm"
-                            >
-                                <span className="flex w-full items-center justify-between gap-3">
-                                    <span className="flex items-center gap-2">
-                                        <EffortIcon className="size-4 shrink-0" />
-                                        <span>
-                                            {getReasoningEffortLabelForModel(
-                                                selectedSharedModel,
-                                                effort
-                                            )}
+                    <SelectTrigger
+                        className={cn(
+                            "!h-8 w-auto gap-0.5 px-1.5 font-normal text-xs transition-colors sm:text-sm",
+                            tone === "on-primary"
+                                ? isReasoningOff
+                                    ? "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                                    : "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
+                                : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-accent"
+                        )}
+                    >
+                        <div className="hidden items-center gap-1.5 sm:flex">
+                            <ReasoningIcon className="size-4" />
+                            <span>{reasoningLabel}</span>
+                        </div>
+                        <span className="flex items-center gap-1 sm:hidden">
+                            <ReasoningIcon className="size-4" />
+                        </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                        {allowedEfforts.map((effort) => {
+                            const EffortIcon = getReasoningEffortIcon(effort, selectedSharedModel)
+                            const isEffortLocked =
+                                resolvedCreditPlan === "free" &&
+                                selectedSharedModel !== undefined &&
+                                getRequiredPlanToPickModel(selectedSharedModel, effort) === "pro"
+                            return (
+                                <SelectItem
+                                    key={effort}
+                                    value={effort}
+                                    disabled={isEffortLocked}
+                                    className="text-xs sm:text-sm"
+                                >
+                                    <span className="flex w-full items-center justify-between gap-3">
+                                        <span className="flex items-center gap-2">
+                                            <EffortIcon className="size-4 shrink-0" />
+                                            <span>
+                                                {getReasoningEffortLabelForModel(
+                                                    selectedSharedModel,
+                                                    effort
+                                                )}
+                                            </span>
                                         </span>
+                                        {isEffortLocked && (
+                                            <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[0.625rem] text-primary uppercase">
+                                                Pro
+                                            </span>
+                                        )}
                                     </span>
-                                    {isEffortLocked && (
-                                        <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[0.625rem] text-primary uppercase">
-                                            Pro
-                                        </span>
-                                    )}
-                                </span>
-                            </SelectItem>
-                        )
-                    })}
-                </SelectContent>
-            </Select>
+                                </SelectItem>
+                            )
+                        })}
+                    </SelectContent>
+                </Select>
+            </span>
         </PromptInputAction>
     )
 }
@@ -1226,13 +1228,15 @@ export function ComposerDesktopActions({
                     </PromptInputAction>
 
                     <PromptInputAction tooltip="Tools">
-                        <ToolSelectorPopover
-                            enabledTools={enabledTools}
-                            onEnabledToolsChange={setEnabledTools}
-                            modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
-                            modelSupportsVision={state.modelSupportsVision}
-                            selectedModel={state.selectedModel}
-                        />
+                        <span className="inline-flex">
+                            <ToolSelectorPopover
+                                enabledTools={enabledTools}
+                                onEnabledToolsChange={setEnabledTools}
+                                modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
+                                modelSupportsVision={state.modelSupportsVision}
+                                selectedModel={state.selectedModel}
+                            />
+                        </span>
                     </PromptInputAction>
 
                     <ReasoningEffortSelector
@@ -2674,6 +2678,7 @@ export const MultimodalInput = forwardRef<
                                                     onOpenChange={setIsModelSelectorOpen}
                                                     shortcutTarget="composer"
                                                     telemetrySurface="composer"
+                                                    tooltip="Select model"
                                                     requiresNativePdf={
                                                         requiresNativePdfForModelSelection
                                                     }

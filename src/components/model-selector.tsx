@@ -1217,6 +1217,7 @@ export function ModelSelector({
     selectedModel,
     onModelChange,
     className,
+    tooltip,
     triggerWrapperClassName,
     contentClassName,
     preferShortName = true,
@@ -1233,6 +1234,7 @@ export function ModelSelector({
     selectedModel: string
     onModelChange: (modelId: string) => void
     className?: string
+    tooltip?: React.ReactNode
     triggerWrapperClassName?: string
     contentClassName?: string
     preferShortName?: boolean
@@ -1838,70 +1840,81 @@ export function ModelSelector({
             </div>
         )
 
+    const triggerButton = (
+        <Button
+            type="button"
+            variant="ghost"
+            aria-expanded={open}
+            onClick={() => {
+                if (isMobile) {
+                    setOpen(true)
+                }
+            }}
+            className={cn(
+                "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
+                className,
+                "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
+            )}
+        >
+            {selectedModelData && (
+                <div className="flex items-center gap-2">
+                    <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
+                    <span className="hidden md:hidden min-[390px]:block">
+                        {preferShortName
+                            ? (selectedModelData as SharedModel)?.shortName ||
+                              selectedModelData.name
+                            : selectedModelData.name}
+                    </span>
+                    <span className="hidden md:block">{selectedModelData.name}</span>
+                    {selectedSharedModel && <ModelCostIndicator model={selectedSharedModel} />}
+                    {showByokContextHint && byokContextHint && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span
+                                    className={cn(
+                                        "inline-flex text-muted-foreground",
+                                        tone === "on-primary" && "text-primary-foreground"
+                                    )}
+                                    aria-label={byokContextHint.ariaLabel}
+                                >
+                                    <Key className="size-3.5" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                        </Tooltip>
+                    )}
+                    {activeRuntimeProvider?.isByok && byokContextHint && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span
+                                    className={cn(
+                                        "inline-flex text-muted-foreground",
+                                        tone === "on-primary" && "text-primary-foreground"
+                                    )}
+                                    aria-label={byokContextHint.ariaLabel}
+                                >
+                                    <Key className="size-3.5" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
+            )}
+            <ChevronDown className="ml-auto h-4 w-4" />
+        </Button>
+    )
+
     const trigger = (
         <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
-            <Button
-                type="button"
-                variant="ghost"
-                aria-expanded={open}
-                onClick={() => {
-                    if (isMobile) {
-                        setOpen(true)
-                    }
-                }}
-                className={cn(
-                    "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
-                    className,
-                    "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
-                )}
-            >
-                {selectedModelData && (
-                    <div className="flex items-center gap-2">
-                        <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
-                        <span className="hidden md:hidden min-[390px]:block">
-                            {preferShortName
-                                ? (selectedModelData as SharedModel)?.shortName ||
-                                  selectedModelData.name
-                                : selectedModelData.name}
-                        </span>
-                        <span className="hidden md:block">{selectedModelData.name}</span>
-                        {selectedSharedModel && <ModelCostIndicator model={selectedSharedModel} />}
-                        {showByokContextHint && byokContextHint && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className={cn(
-                                            "inline-flex text-muted-foreground",
-                                            tone === "on-primary" && "text-primary-foreground"
-                                        )}
-                                        aria-label={byokContextHint.ariaLabel}
-                                    >
-                                        <Key className="size-3.5" />
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
-                            </Tooltip>
-                        )}
-                        {activeRuntimeProvider?.isByok && byokContextHint && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className={cn(
-                                            "inline-flex text-muted-foreground",
-                                            tone === "on-primary" && "text-primary-foreground"
-                                        )}
-                                        aria-label={byokContextHint.ariaLabel}
-                                    >
-                                        <Key className="size-3.5" />
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
-                            </Tooltip>
-                        )}
-                    </div>
-                )}
-                <ChevronDown className="ml-auto h-4 w-4" />
-            </Button>
+            {tooltip && !isMobile ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
+                    <TooltipContent side="top">{tooltip}</TooltipContent>
+                </Tooltip>
+            ) : (
+                triggerButton
+            )}
         </span>
     )
 

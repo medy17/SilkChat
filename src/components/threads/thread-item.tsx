@@ -7,11 +7,7 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger
 } from "@/components/ui/context-menu"
-import {
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebarActions
-} from "@/components/ui/sidebar"
+import { SidebarMenuButton, SidebarMenuItem, useSidebarActions } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -515,35 +511,49 @@ export const ThreadItem = memo(
                                         "pointer-events-auto translate-x-0 opacity-100"
                                 )}
                             >
-                                <button
-                                    type="button"
-                                    title={thread.pinned ? "Unpin thread" : "Pin thread"}
-                                    onClick={(event) => {
-                                        event.preventDefault()
-                                        event.stopPropagation()
-                                        void handleTogglePin()
-                                    }}
-                                    className="pointer-events-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
-                                >
-                                    <Pin
-                                        className={cn(
-                                            "h-3.5 w-3.5",
-                                            thread.pinned && "fill-current text-foreground"
-                                        )}
-                                    />
-                                </button>
-                                <button
-                                    type="button"
-                                    title="Delete thread"
-                                    onClick={(event) => {
-                                        event.preventDefault()
-                                        event.stopPropagation()
-                                        handleDelete()
-                                    }}
-                                    className="pointer-events-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                                >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            aria-label={
+                                                thread.pinned ? "Unpin thread" : "Pin thread"
+                                            }
+                                            onClick={(event) => {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                                void handleTogglePin()
+                                            }}
+                                            className="pointer-events-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
+                                        >
+                                            <Pin
+                                                className={cn(
+                                                    "h-3.5 w-3.5",
+                                                    thread.pinned && "fill-current text-foreground"
+                                                )}
+                                            />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        {thread.pinned ? "Unpin thread" : "Pin thread"}
+                                    </TooltipContent>
+                                </Tooltip>
+                                <Tooltip delayDuration={THREAD_HINT_DELAY_MS}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            aria-label="Delete thread"
+                                            onClick={(event) => {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                                handleDelete()
+                                            }}
+                                            className="pointer-events-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">Delete thread</TooltipContent>
+                                </Tooltip>
                             </div>
                         </div>
                     )}
