@@ -2330,7 +2330,8 @@ describe("chatPOST", () => {
                 models: {
                     "deepseek-v3.2": {
                         abilities: ["reasoning", "function_calling"],
-                        supportsDisablingReasoning: true
+                        supportsDisablingReasoning: true,
+                        openrouterProvider: "deepseek"
                     }
                 }
             }
@@ -2431,7 +2432,8 @@ describe("chatPOST", () => {
                 models: {
                     "grok-4.3": {
                         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
-                        supportsDisablingReasoning: true
+                        supportsDisablingReasoning: true,
+                        openrouterProvider: "x-ai"
                     }
                 }
             }
@@ -2470,7 +2472,7 @@ describe("chatPOST", () => {
                         extraBody: expect.objectContaining({
                             provider: expect.objectContaining({
                                 only: ["x-ai"],
-                                allow_fallbacks: true,
+                                allow_fallbacks: false,
                                 require_parameters: true
                             }),
                             include_reasoning: true

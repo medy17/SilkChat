@@ -175,6 +175,7 @@ const resolveModelCreditCharge = (modelType: string, providerSource: string) => 
 
 const buildOpenRouterProviderOptions = (
     modelId: string,
+    openrouterProvider: string | undefined,
     reasoningEffort: ReasoningEffort,
     supportsEffortControl = false,
     supportsReasoningToggle = false,
@@ -183,8 +184,6 @@ const buildOpenRouterProviderOptions = (
 ): OpenRouterProviderOptions => {
     const options: OpenRouterRequestProviderOptions = {}
     const isGoogleModel = modelId.startsWith("gemini-")
-    const isXaiPinnedReasoningModel = modelId === "grok-4.3"
-    const isDeepSeekModel = modelId.startsWith("deepseek-")
     const shouldForceReasoningForVariant =
         modelId.endsWith("-reasoning") || modelId.endsWith("-thinking")
     const isAlwaysOnReasoningModel = supportsReasoning && !supportsReasoningToggle
@@ -200,21 +199,10 @@ const buildOpenRouterProviderOptions = (
         ]
     }
 
-    const baseProviderConfig = isXaiPinnedReasoningModel
-        ? {
-              only: ["x-ai"],
-              allow_fallbacks: true,
-              require_parameters: true
-          }
-        : isDeepSeekModel
-          ? {
-                only: ["deepseek"],
-                allow_fallbacks: false,
-                require_parameters: true
-            }
-          : {
-                require_parameters: true
-            }
+    const baseProviderConfig = {
+        require_parameters: true,
+        ...(openrouterProvider ? { only: [openrouterProvider], allow_fallbacks: false } : {})
+    }
     const applySharedExtraBody = () => {
         if (!sessionId) return
         options.extraBody = {
@@ -1878,6 +1866,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         ? {
                               openrouter: buildOpenRouterProviderOptions(
                                   modelData.modelId,
+                                  selectedRegistryModel?.openrouterProvider,
                                   effectiveReasoningEffort,
                                   supportsEffortControl,
                                   supportsReasoningToggle,

@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
+import { ModelProviderMetadata } from "./schema/model_provider_metadata"
 
 export const getOpenRouterModelMetadataInternal = internalQuery({
     args: {
@@ -29,19 +30,7 @@ export const getOpenRouterModelMetadataInternal = internalQuery({
 
 export const upsertOpenRouterModelMetadataInternal = internalMutation({
     args: {
-        models: v.array(
-            v.object({
-                provider: v.literal("openrouter"),
-                providerModelId: v.string(),
-                contextLength: v.optional(v.number()),
-                maxCompletionTokens: v.optional(v.number()),
-                knowledgeCutoff: v.optional(v.string()),
-                inputUsdPer1MTokens: v.optional(v.number()),
-                outputUsdPer1MTokens: v.optional(v.number()),
-                fetchedAt: v.number(),
-                source: v.literal("openrouter")
-            })
-        )
+        models: v.array(ModelProviderMetadata)
     },
     handler: async (ctx, args) => {
         for (const model of args.models) {
@@ -53,7 +42,7 @@ export const upsertOpenRouterModelMetadataInternal = internalMutation({
                 .first()
 
             if (existing) {
-                await ctx.db.patch(existing._id, model)
+                await ctx.db.replace(existing._id, model)
             } else {
                 await ctx.db.insert("modelProviderMetadata", model)
             }

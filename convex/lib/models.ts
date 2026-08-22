@@ -15,6 +15,11 @@ import { XAI_MODELS } from "./models/xai"
 import { XIAOMI_MODELS } from "./models/xiaomi"
 import { ZAI_MODELS } from "./models/zai"
 
+export const getOpenRouterProviderModelId = (model: Pick<SharedModel, "adapters">) => {
+    const adapter = model.adapters.find((candidate) => candidate.startsWith("openrouter:"))
+    return adapter?.slice("openrouter:".length)
+}
+
 export const MODELS_SHARED: SharedModel[] = [
     ...OPENAI_MODELS,
     ...DEEPSEEK_MODELS,
@@ -53,6 +58,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.maxPerMessage,
         model.supportsReferenceImages,
         model.openrouterImageModalities,
+        model.openrouterProvider,
         model.supportedImageSizes,
         model.supportedImageResolutions,
         model.defaultImageQuality,

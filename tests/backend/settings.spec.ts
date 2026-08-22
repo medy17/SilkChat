@@ -79,6 +79,7 @@ vi.mock("../../convex/lib/models", () => ({
             maxPerMessage: 4,
             supportsReferenceImages: true,
             openrouterImageModalities: undefined,
+            openrouterProvider: "parasail",
             supportedImageSizes: ["1:1"],
             supportedImageResolutions: ["1K"]
         },
@@ -92,6 +93,10 @@ vi.mock("../../convex/lib/models", () => ({
         }
     ],
     SHARED_MODELS_VERSION: "test-version",
+    getOpenRouterProviderModelId: (model: { adapters: string[] }) =>
+        model.adapters
+            .find((adapter) => adapter.startsWith("openrouter:"))
+            ?.slice("openrouter:".length),
     isModelSunset: (model: { sunsetOn?: string }) =>
         Boolean(model.sunsetOn && model.sunsetOn <= "2026-04-20")
 }))
@@ -243,7 +248,8 @@ describe("settings", () => {
             maxTokens: 8192,
             inputUsdPer1MTokens: 1.25,
             outputUsdPer1MTokens: 10,
-            hostedContextLength: 48000
+            hostedContextLength: 48000,
+            openrouterProvider: "parasail"
         })
         expect(result.models["admin-text"]).toBeUndefined()
         expect(result.models["custom-model"]).toMatchObject({
@@ -254,8 +260,9 @@ describe("settings", () => {
         })
     })
 
-    it("keeps explicit shared-model metadata ahead of cached OpenRouter metadata", async () => {
+    it("only lets matching pinned-provider prices override explicit registry prices", async () => {
         process.env.OPENROUTER_API_KEY = "or-key"
+        const metadataState = { pricingProvider: undefined as string | undefined }
 
         const ctx = createCtx({
             userId: "user-1",
@@ -286,6 +293,7 @@ describe("settings", () => {
                             knowledgeCutoff: "2025-01-31",
                             inputUsdPer1MTokens: 0.5,
                             outputUsdPer1MTokens: 2,
+                            pricingProvider: metadataState.pricingProvider,
                             fetchedAt: 123,
                             source: "openrouter"
                         }
@@ -302,6 +310,14 @@ describe("settings", () => {
             maxTokens: 8192,
             inputUsdPer1MTokens: 1.25,
             outputUsdPer1MTokens: 10
+        })
+        metadataState.pricingProvider = "parasail"
+        const pinnedResult = await getUserRegistryInternalHandler.handler(ctx, {
+            userId: "user-1"
+        })
+        expect(pinnedResult.models["shared-text"]).toMatchObject({
+            inputUsdPer1MTokens: 0.5,
+            outputUsdPer1MTokens: 2
         })
     })
 

@@ -42,6 +42,7 @@ export const XAI_MODELS: SharedModel[] = [
         addedOn: "2026-04-30",
         releaseOrder: 20260430,
         adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.3"],
+        openrouterProvider: "x-ai",
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 1_000_000,
         customIcon: "xai"

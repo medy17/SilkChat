@@ -17,6 +17,7 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `id`: the app-facing model ID
 - `name` and optional `shortName`
 - `adapters`: provider identity and runtime targets like `i3-openai:gpt-4o`, `openai:gpt-4o`, `openrouter:openai/gpt-4o`, or `fal:fal-ai/...`
+- optional `openrouterProvider`: the OpenRouter inference provider slug to use for this model
 - `legacy`: keeps a callable model behind the legacy-model UI affordance
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
@@ -151,6 +152,7 @@ Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` 
 - user BYOK chat/text models use the user's OpenRouter key
 - OpenRouter attribution headers and app metadata are applied in `convex/lib/provider_factory.ts`
 - built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys
+- `openrouterProvider` pins a model to one OpenRouter inference provider and selects that endpoint's pricing during metadata synchronization
 
 ### Custom OpenAI-compatible providers
 

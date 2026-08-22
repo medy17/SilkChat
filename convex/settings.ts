@@ -3,7 +3,7 @@ import { ChatError } from "@/lib/errors"
 import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
 import { getBuiltInThemeUrl, normalizeThemeImportUrl } from "@/lib/theme-utils"
 import { type Infer, v } from "convex/values"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { resolveContextLimits } from "./lib/context_limits"
@@ -15,6 +15,7 @@ import {
     type RegistryKey,
     SHARED_MODELS_VERSION,
     type SharedModel,
+    getOpenRouterProviderModelId,
     isModelSunset
 } from "./lib/models"
 import { resolveToolAvailability } from "./lib/tools/availability"
@@ -155,20 +156,6 @@ const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey)
     return model.adapters.some((candidate) => candidate.startsWith("openrouter:"))
 }
 
-const getOpenRouterProviderModelId = (model: Pick<SharedModel, "adapters">) => {
-    const adapter = model.adapters.find((candidate) => candidate.startsWith("openrouter:"))
-    return adapter?.slice("openrouter:".length)
-}
-
-type OpenRouterMetadataRecord = {
-    contextLength?: number
-    maxCompletionTokens?: number
-    knowledgeCutoff?: string
-    inputUsdPer1MTokens?: number
-    outputUsdPer1MTokens?: number
-    fetchedAt?: number
-}
-
 const getOpenRouterMetadataByProviderModelId = async (
     ctx: QueryCtx,
     models: readonly Pick<SharedModel, "adapters">[]
@@ -189,7 +176,7 @@ const getOpenRouterMetadataByProviderModelId = async (
         })
     )
 
-    const metadataByProviderModelId: Record<string, OpenRouterMetadataRecord> = {}
+    const metadataByProviderModelId: Record<string, Doc<"modelProviderMetadata">> = {}
     for (const entry of metadataEntries) {
         if (!entry) continue
         const [providerModelId, metadata] = entry
@@ -208,23 +195,31 @@ const overlayOpenRouterMetadata = <
         | "knowledgeCutoff"
         | "inputUsdPer1MTokens"
         | "outputUsdPer1MTokens"
+        | "openrouterProvider"
     >
 >(
     model: TModel,
-    metadataByProviderModelId: Record<string, OpenRouterMetadataRecord>
+    metadataByProviderModelId: Record<string, Doc<"modelProviderMetadata">>
 ) => {
     const providerModelId = getOpenRouterProviderModelId(model)
     const metadata = providerModelId ? metadataByProviderModelId[providerModelId] : undefined
 
     if (!metadata) return model
 
+    const pinnedProvider = model.openrouterProvider
+    const hasPinnedPricing =
+        pinnedProvider !== undefined && metadata.pricingProvider === pinnedProvider
+    const [primaryPrices, fallbackPrices] = hasPinnedPricing ? [metadata, model] : [model, metadata]
+
     return {
         ...model,
         contextLength: model.contextLength ?? metadata.contextLength,
         maxTokens: model.maxTokens ?? metadata.maxCompletionTokens,
         knowledgeCutoff: model.knowledgeCutoff ?? metadata.knowledgeCutoff,
-        inputUsdPer1MTokens: model.inputUsdPer1MTokens ?? metadata.inputUsdPer1MTokens,
-        outputUsdPer1MTokens: model.outputUsdPer1MTokens ?? metadata.outputUsdPer1MTokens
+        inputUsdPer1MTokens:
+            primaryPrices.inputUsdPer1MTokens ?? fallbackPrices.inputUsdPer1MTokens,
+        outputUsdPer1MTokens:
+            primaryPrices.outputUsdPer1MTokens ?? fallbackPrices.outputUsdPer1MTokens
     }
 }
 
@@ -316,7 +311,7 @@ export const getDevModelContextLimits = query({
         if (!model) return null
 
         const providerModelId = getOpenRouterProviderModelId(model)
-        const metadataByProviderModelId: Record<string, OpenRouterMetadataRecord> = {}
+        const metadataByProviderModelId: Record<string, Doc<"modelProviderMetadata">> = {}
         if (providerModelId) {
             const metadata = await ctx.db
                 .query("modelProviderMetadata")
@@ -422,6 +417,7 @@ export const getUserRegistryInternal = internalQuery({
                 maxPerMessage: model.maxPerMessage,
                 supportsReferenceImages: model.supportsReferenceImages,
                 openrouterImageModalities: model.openrouterImageModalities,
+                openrouterProvider: model.openrouterProvider,
                 supportedImageSizes: model.supportedImageSizes,
                 supportedImageResolutions: model.supportedImageResolutions,
                 availableToPickFor: model.availableToPickFor,

@@ -117,6 +117,57 @@ describe("model_provider_metadata", () => {
         )
     })
 
+    it("replaces generic prices with the endpoint selected by the model registry", async () => {
+        fetchMock
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: [
+                        {
+                            id: "deepseek/deepseek-v4-pro-0813",
+                            pricing: {
+                                prompt: "0.0000001",
+                                completion: "0.0000002"
+                            }
+                        }
+                    ]
+                })
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        endpoints: [
+                            {
+                                tag: "deepseek/fp8",
+                                pricing: {
+                                    prompt: "0.00000066",
+                                    completion: "0.00000198"
+                                }
+                            }
+                        ]
+                    }
+                })
+            })
+
+        const ctx = {
+            runMutation: vi.fn().mockResolvedValue({ upserted: 1 })
+        }
+
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            2,
+            "https://openrouter.ai/api/v1/models/deepseek/deepseek-v4-pro-0813/endpoints",
+            expect.any(Object)
+        )
+        expect(ctx.runMutation.mock.calls[0][1].models[0]).toMatchObject({
+            inputUsdPer1MTokens: 0.66,
+            outputUsdPer1MTokens: 1.98,
+            pricingProvider: "deepseek"
+        })
+    })
+
     it("uses canonical OpenRouter slugs for versioned Anthropic and xAI models", () => {
         expect(
             ANTHROPIC_MODELS.find((model) => model.id === "claude-opus-4.8")?.adapters
@@ -132,7 +183,7 @@ describe("model_provider_metadata", () => {
         )
     })
 
-    it("upserts existing metadata rows and inserts new ones", async () => {
+    it("replaces existing metadata rows and inserts new ones", async () => {
         const existing = {
             _id: "row-1",
             provider: "openrouter",
@@ -150,7 +201,7 @@ describe("model_provider_metadata", () => {
                         return { first }
                     })
                 })),
-                patch: vi.fn(),
+                replace: vi.fn(),
                 insert: vi.fn()
             }
         }
@@ -174,7 +225,7 @@ describe("model_provider_metadata", () => {
 
         await upsertOpenRouterModelMetadataInternalHandler.handler(ctx, { models })
 
-        expect(ctx.db.patch).toHaveBeenCalledWith("row-1", models[0])
+        expect(ctx.db.replace).toHaveBeenCalledWith("row-1", models[0])
         expect(ctx.db.insert).toHaveBeenCalledWith("modelProviderMetadata", models[1])
     })
 })
