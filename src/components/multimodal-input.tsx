@@ -59,7 +59,7 @@ import {
     isDocumentExtension,
     isImageMimeType
 } from "@/lib/file_constants"
-import { getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
+import { getFileThumbnailSources, getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import {
     type WebTrendSuggestion,
     fetchWebTrendSuggestions,
@@ -1517,6 +1517,7 @@ export const MultimodalInput = forwardRef<
     const [webTrendsLoading, setWebTrendsLoading] = useState(false)
     const [webTrendsLoaded, setWebTrendsLoaded] = useState(false)
     const [hydratedDraftKey, setHydratedDraftKey] = useState<string>()
+    const [isClient, setIsClient] = useState(false)
     const isInputEmpty = !inputValue.trim()
     const intentGuideStage = resolveIntentGuideStage({
         activeIntent,
@@ -1598,6 +1599,8 @@ export const MultimodalInput = forwardRef<
     ])
 
     useEffect(() => {
+        if (!isClient) return
+
         const draft = loadThreadDraft(draftScope)
         const text = draft?.text ?? ""
         setActiveIntent(null)
@@ -1608,7 +1611,7 @@ export const MultimodalInput = forwardRef<
             (file) => file.source === "pasted-text"
         ).length
         setHydratedDraftKey(draftKey)
-    }, [draftKey, draftScope, setUploadedFiles])
+    }, [draftKey, draftScope, isClient, setUploadedFiles])
 
     useEffect(() => {
         if (hydratedDraftKey !== draftKey) return
@@ -2226,10 +2229,11 @@ export const MultimodalInput = forwardRef<
         const content = fileContents[uploadedFile.key]
         const fileType = uploadedFile.file?.type || uploadedFile.fileType
         const { isImage, isSvg } = getFileTypeInfo(uploadedFile.fileName, fileType)
+        const publicUrl = isImage ? getPublicR2AssetUrl(uploadedFile.key) : undefined
         const previewUrl = isImage
             ? isSvg
-                ? getPublicR2AssetUrl(uploadedFile.key)
-                : content
+                ? publicUrl
+                : (content ?? getFileThumbnailSources(uploadedFile.key).src)
             : undefined
 
         return (
@@ -2241,7 +2245,7 @@ export const MultimodalInput = forwardRef<
                     previewUrl={previewUrl}
                     onClick={() => {
                         setDialogFile({
-                            content: previewUrl ?? content,
+                            content: content ?? publicUrl,
                             fileName: uploadedFile.fileName,
                             fileType: uploadedFile.fileType
                         })
@@ -2318,7 +2322,6 @@ export const MultimodalInput = forwardRef<
         )
     }
 
-    const [isClient, setIsClient] = useState(false)
     const isNewChatComposer = !threadId && messages.length === 0
     const isCompactTouchComposer =
         isTouchDevice &&

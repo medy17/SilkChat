@@ -249,7 +249,19 @@ function PromptInputTextarea({
 
     useEffect(() => {
         if (disableAutosize || !textareaRef.current) return
-        resizeTextarea(textareaRef.current)
+
+        const textarea = textareaRef.current
+        let width = -1
+        resizeTextarea(textarea)
+        if (typeof ResizeObserver === "undefined") return
+
+        const observer = new ResizeObserver(() => {
+            if (textarea.clientWidth === width) return
+            width = textarea.clientWidth
+            resizeTextarea(textarea)
+        })
+        observer.observe(textarea)
+        return () => observer.disconnect()
     }, [disableAutosize, resizeTextarea, textareaRef])
 
     return (
