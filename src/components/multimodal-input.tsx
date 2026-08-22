@@ -2325,7 +2325,8 @@ export const MultimodalInput = forwardRef<
         !isNewChatComposer &&
         !isInputFocused &&
         !isModelSelectorOpen &&
-        extendedFiles.length === 0 &&
+        !inputValue.trim() &&
+        uploadedFiles.length === 0 &&
         localUploadingFiles.length === 0
 
     const loadWebTrends = useCallback(async () => {
