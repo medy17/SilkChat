@@ -2366,10 +2366,12 @@ describe("chatPOST", () => {
                         reasoning: {
                             enabled: true
                         },
-                        extraBody: expect.objectContaining({
-                            include_reasoning: true,
-                            session_id: "thread-1"
-                        })
+                        provider: {
+                            only: ["deepseek"],
+                            allow_fallbacks: false,
+                            require_parameters: true
+                        },
+                        session_id: "thread-1"
                     })
                 })
             })
@@ -2469,14 +2471,12 @@ describe("chatPOST", () => {
                             enabled: true,
                             effort: "high"
                         },
-                        extraBody: expect.objectContaining({
-                            provider: expect.objectContaining({
-                                only: ["x-ai"],
-                                allow_fallbacks: false,
-                                require_parameters: true
-                            }),
-                            include_reasoning: true
-                        })
+                        provider: {
+                            only: ["x-ai"],
+                            allow_fallbacks: false,
+                            require_parameters: true
+                        },
+                        session_id: "thread-1"
                     })
                 })
             })

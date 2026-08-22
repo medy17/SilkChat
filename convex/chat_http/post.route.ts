@@ -99,7 +99,12 @@ import {
 } from "./prompt"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
-    extraBody?: Record<string, unknown>
+    provider?: {
+        only?: string[]
+        allow_fallbacks?: boolean
+        require_parameters: boolean
+    }
+    session_id?: string
     plugins?: Array<{
         id: string
         pdf?: {
@@ -203,12 +208,9 @@ const buildOpenRouterProviderOptions = (
         require_parameters: true,
         ...(openrouterProvider ? { only: [openrouterProvider], allow_fallbacks: false } : {})
     }
-    const applySharedExtraBody = () => {
+    const applySessionId = () => {
         if (!sessionId) return
-        options.extraBody = {
-            ...options.extraBody,
-            session_id: sessionId
-        }
+        options.session_id = sessionId
     }
 
     if (reasoningEffort === "off" && !isAlwaysOnReasoningModel) {
@@ -217,14 +219,8 @@ const buildOpenRouterProviderOptions = (
             exclude: true,
             effort: "none"
         }
-        options.extraBody = {
-            provider: baseProviderConfig,
-            include_reasoning: false,
-            usage: {
-                include: true
-            }
-        }
-        applySharedExtraBody()
+        options.provider = baseProviderConfig
+        applySessionId()
         return options
     }
 
@@ -236,25 +232,14 @@ const buildOpenRouterProviderOptions = (
         options.reasoning = {
             enabled: true
         } as OpenRouterRequestProviderOptions["reasoning"]
-        options.extraBody = {
-            provider: baseProviderConfig,
-            include_reasoning: true,
-            usage: {
-                include: true
-            }
-        }
-        applySharedExtraBody()
+        options.provider = baseProviderConfig
+        applySessionId()
         return options
     }
 
     if (!supportsEffortControl && !shouldForceReasoningForVariant) {
-        options.extraBody = {
-            provider: baseProviderConfig,
-            usage: {
-                include: true
-            }
-        }
-        applySharedExtraBody()
+        options.provider = baseProviderConfig
+        applySessionId()
         return options
     }
 
@@ -262,14 +247,8 @@ const buildOpenRouterProviderOptions = (
         enabled: true,
         effort: reasoningEffort === "off" ? "medium" : reasoningEffort
     }
-    options.extraBody = {
-        provider: baseProviderConfig,
-        include_reasoning: true,
-        usage: {
-            include: true
-        }
-    }
-    applySharedExtraBody()
+    options.provider = baseProviderConfig
+    applySessionId()
 
     return options
 }
