@@ -19,6 +19,9 @@ import {
     applyPreparedMemoryChange
 } from "./lib/supermemory_memory_change"
 
+const CONVERSATION_ENTITY_CONTEXT =
+    "This container represents the human user speaking with an AI assistant. The human is the subject of memory; assistant messages are context."
+
 export const ingestConversationTurn = internalAction({
     args: {
         userId: v.string(),
@@ -37,6 +40,7 @@ export const ingestConversationTurn = internalAction({
                     containerTag: await getSupermemoryContainerTag(userId),
                     customId: await getSupermemoryConversationCustomId(userId, String(threadId)),
                     metadata: { type: "conversation", source: "silkchat" },
+                    entityContext: CONVERSATION_ENTITY_CONTEXT,
                     dreaming: "dynamic"
                 }
             })

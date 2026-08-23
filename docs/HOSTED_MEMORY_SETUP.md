@@ -23,6 +23,33 @@ References:
 - [Organization settings](https://supermemory.ai/docs/api-reference/settings/get-settings)
 - [V4 memory management](https://supermemory.ai/docs/api-reference/memories)
 
+## Organization context
+
+Enable Organization Context in the Supermemory dashboard and use this exact prompt:
+
+```text
+Personal assistant memory. Content is user-assistant chat.
+
+EXTRACT:
+- Identity: "user lives in Berlin"
+- Preferences: "user prefers concise answers"
+- Relationships: "Maya is the user's sister"
+- Projects and goals: "user plans to launch a budgeting app in June"
+- Decisions: "user chose PostgreSQL"
+- Constraints: "user cannot meet Fridays"
+- Updates: "user now prefers tea, not coffee"
+
+SKIP:
+- Assistant output such as recipes, instructions, code, research, summaries, translations, search results, or creative work
+- Preferences inferred from one request
+- One-off requests, temporary details, hypotheticals, or supplied material
+- Generic knowledge, duplicates, or unconfirmed facts
+- Facts replaced by explicit corrections
+```
+
+This organization-wide filter owns the extraction policy. The shorter `entityContext` sent with
+each conversation only identifies the human user as the subject of memory.
+
 ## Environment
 
 Configure these values in every Convex deployment:
@@ -47,7 +74,9 @@ production. Do not expose either value through a `VITE_` variable.
   that message's prompt and tool set and prevents that completed turn from being ingested.
 - Enabled turns retrieve the user's profile and query-relevant memories before generation. After a
   successful visible response, SilkChat incrementally ingests the user/assistant turn under a
-  stable, opaque per-thread `customId` with dynamic dreaming.
+  stable, opaque per-thread `customId` with dynamic dreaming. Each ingestion identifies the human
+  user as the subject of memory so assistant-authored answer material is treated as context rather
+  than a durable fact about the user.
 - Explicit add, update, and forget requests remain confirmation-card actions. A turn that creates
   one of these cards is not also ingested automatically, so confirmation cannot be bypassed.
 - `/settings/memory` lists, adds, edits, and forgets memories in the signed-in user's container.
