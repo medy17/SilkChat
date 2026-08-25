@@ -1,4 +1,4 @@
-import { optionalBrowserEnv } from "./browser-env"
+import { optionalBrowserEnv } from "./browser-env.ts"
 
 export const LOCAL_IMAGE_OPTIMIZER_ENV_KEY = "VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED"
 export const LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT = 43177

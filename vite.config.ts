@@ -14,12 +14,13 @@ import svgr from "vite-plugin-svgr"
 import {
     LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT,
     LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX
-} from "./src/lib/local-image-optimizer"
+} from "./src/lib/local-image-optimizer.ts"
 
-const sandpackSsrStub = path.resolve(__dirname, "./src/lib/sandpack-react-ssr-stub.tsx")
+const projectRoot = import.meta.dirname
+const sandpackSsrStub = path.resolve(projectRoot, "./src/lib/sandpack-react-ssr-stub.tsx")
 const anydocWasmDevRoute = "/vendor/anydoc/anydoc_wasm_bg.wasm"
 const anydocWasmPath = path.resolve(
-    __dirname,
+    projectRoot,
     "./node_modules/@firecrawl/anydoc-wasm/anydoc_wasm_bg.wasm"
 )
 
@@ -151,10 +152,10 @@ export default defineConfig(({ mode }) => {
     return {
         resolve: {
             alias: {
-                "@/convex": path.resolve(__dirname, "./convex"),
-                "@": path.resolve(__dirname, "./src"),
+                "@/convex": path.resolve(projectRoot, "./convex"),
+                "@": path.resolve(projectRoot, "./src"),
                 "@tanstack/react-start/server": path.resolve(
-                    __dirname,
+                    projectRoot,
                     "./src/lib/tanstack-react-start-server-shim.ts"
                 ),
                 "micromark-extension-math": "micromark-extension-llm-math"
