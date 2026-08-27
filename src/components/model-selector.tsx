@@ -4,6 +4,7 @@ import {
     DeepSeekIcon,
     FalAIIcon,
     GeminiIcon,
+    GrokIcon,
     GroqIcon,
     MetaIcon,
     MiniMaxIcon,
@@ -12,7 +13,6 @@ import {
     OpenRouterIcon,
     QwenIcon,
     StabilityIcon,
-    XAIIcon,
     XiaomiIcon,
     ZAIIcon
 } from "@/components/brand-icons"
@@ -139,7 +139,7 @@ export const getProviderIcon = (model: DisplayModel, isCustom: boolean) => {
                 return <GeminiIcon className="size-4" />
             case "i3-xai":
             case "xai":
-                return <XAIIcon className="size-4" />
+                return <GrokIcon className="size-4" />
             case "i3-groq":
             case "groq":
                 return <GroqIcon className="size-4" />
@@ -359,7 +359,7 @@ export const getProviderSectionIcon = (
         case "google":
             return <GeminiIcon className={className} />
         case "xai":
-            return <XAIIcon className={className} />
+            return <GrokIcon className={className} />
         case "groq":
             return <GroqIcon className={className} />
         case "fal":
@@ -399,16 +399,33 @@ const renderAbilityIcon = (ability: string, className: string) => {
     return <AbilityIcon className={className} />
 }
 
-const CapabilityPill = ({ ability }: { ability: string }) => (
-    <Tooltip>
-        <TooltipTrigger asChild>
-            <div className="flex size-7 items-center justify-center rounded-md border text-muted-foreground">
-                {renderAbilityIcon(ability, "size-4")}
-            </div>
-        </TooltipTrigger>
-        <TooltipContent>{getAbilityTooltip(ability)}</TooltipContent>
-    </Tooltip>
-)
+const FEATURE_COLORS: Record<string, string> = {
+    vision: "var(--chart-2, var(--primary))",
+    reasoning: "var(--chart-3, var(--primary))",
+    effort_control: "var(--chart-4, var(--primary))",
+    function_calling: "var(--chart-1, var(--primary))",
+    native_pdf: "var(--chart-5, var(--primary))",
+    image_generation: "var(--chart-2, var(--primary))",
+    web_search: "var(--chart-4, var(--primary))"
+}
+
+const CapabilityPill = ({ ability }: { ability: string }) => {
+    const featureColor = FEATURE_COLORS[ability] ?? "var(--primary)"
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <div
+                    className="flex size-7 items-center justify-center rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--feature-color)_28%,transparent)] bg-[color-mix(in_oklab,var(--feature-color)_12%,transparent)] text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))]"
+                    style={{ "--feature-color": featureColor } as React.CSSProperties}
+                >
+                    {renderAbilityIcon(ability, "size-4")}
+                </div>
+            </TooltipTrigger>
+            <TooltipContent>{getAbilityTooltip(ability)}</TooltipContent>
+        </Tooltip>
+    )
+}
 
 type BenchmarkState =
     | {
@@ -499,18 +516,34 @@ const ensureBenchmarkState = (modelId: string): Promise<BenchmarkState> => {
     return request
 }
 
-const getModelAbilities = (model: DisplayModel) =>
-    isImageGenerationCapableModel(model)
+const getAbilityDisplayRank = (ability: string) => {
+    switch (ability) {
+        case "vision":
+            return 0
+        case "reasoning":
+            return 1
+        case "function_calling":
+            return 2
+        case "native_pdf":
+            return 4
+        default:
+            return 3
+    }
+}
+
+const getModelAbilities = (model: DisplayModel) => {
+    const abilities = isImageGenerationCapableModel(model)
         ? ["image_generation", ...model.abilities]
         : model.abilities.filter((ability) => ability !== "effort_control")
 
-const FEATURE_COLORS: Record<string, string> = {
-    vision: "var(--chart-2)",
-    reasoning: "var(--chart-3)",
-    effort_control: "var(--chart-4)",
-    function_calling: "var(--chart-1)",
-    native_pdf: "var(--chart-5)",
-    image_generation: "var(--chart-2)"
+    return abilities
+        .map((ability, index) => ({ ability, index }))
+        .sort(
+            (left, right) =>
+                getAbilityDisplayRank(left.ability) - getAbilityDisplayRank(right.ability) ||
+                left.index - right.index
+        )
+        .map(({ ability }) => ability)
 }
 
 const FeatureBadge = ({ ability }: { ability: string }) => {
@@ -2089,19 +2122,6 @@ export function ModelSelector({
                         isMobile ? "bg-background" : "bg-popover"
                     )}
                 >
-                    {visibleSection && (
-                        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-                            <div>
-                                <h3 className="hidden font-medium text-sm md:block md:text-base">
-                                    {visibleSection.label}
-                                </h3>
-                                <p className="hidden text-muted-foreground text-xs md:block md:text-sm">
-                                    {visibleSection.models.length} available
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
                     {isMobile ? (
                         <div
                             className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"
