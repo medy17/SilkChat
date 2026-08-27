@@ -155,7 +155,7 @@ export const ThreadItem = memo(
                         <TooltipTrigger asChild>
                             <span
                                 aria-label={thread.title}
-                                className="-translate-y-1/2 absolute top-1/2 right-0 left-0 h-9"
+                                className="absolute top-1/2 right-0 left-0 h-9 -translate-y-1/2"
                             />
                         </TooltipTrigger>
                         <TooltipContent
@@ -425,6 +425,7 @@ export const ThreadItem = memo(
                     )}
                 >
                     <SidebarMenuButton
+                        asChild
                         className={cn(
                             "h-full min-w-0 flex-1 px-2 hover:bg-transparent",
                             isActive && "text-sidebar-accent-foreground"
