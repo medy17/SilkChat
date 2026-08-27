@@ -272,11 +272,10 @@ export function ImageGenerationSidebar({
         if (currentCreditAccess && currentCreditAccess.expiresAt > Date.now()) {
             const refreshTimeout = window.setTimeout(
                 () =>
-                    setCreditAccess((current) =>
-                        current?.userId === creditAccessUserId
-                            ? { ...current, expiresAt: 0 }
-                            : current
-                    ),
+                    setCreditAccess((current) => {
+                        if (!current || current.userId !== creditAccessUserId) return current
+                        return { ...current, expiresAt: 0 }
+                    }),
                 currentCreditAccess.expiresAt - Date.now()
             )
             return () => window.clearTimeout(refreshTimeout)

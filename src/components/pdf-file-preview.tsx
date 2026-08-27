@@ -1,9 +1,9 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react"
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist"
 import { useEffect, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
 import { Button } from "./ui/button"
 import { Loader } from "./ui/loader"
 
@@ -53,7 +53,6 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
     useEffect(() => {
         let cancelled = false
         let loadingTask: PDFDocumentLoadingTask | undefined
-        let loadedDocument: PDFDocumentProxy | undefined
 
         setIsLoading(true)
         setError(null)
@@ -64,17 +63,11 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
         void loadPdfJs()
             .then((pdfJs) => {
                 if (cancelled) return undefined
-                loadingTask = pdfJs.getDocument({
-                    url,
-                    // Attachments are untrusted. Keep PDF.js from generating/evaluating
-                    // JavaScript for PDF functions even when the browser permits it.
-                    isEvalSupported: false
-                })
+                loadingTask = pdfJs.getDocument({ url })
                 return loadingTask.promise
             })
             .then((pdf) => {
                 if (!pdf || cancelled) return
-                loadedDocument = pdf
                 setDocumentProxy(pdf)
             })
             .catch((loadError) => {
@@ -88,11 +81,7 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
 
         return () => {
             cancelled = true
-            if (loadingTask) {
-                void loadingTask.destroy()
-            } else if (loadedDocument) {
-                void loadedDocument.destroy()
-            }
+            if (loadingTask) void loadingTask.destroy()
         }
     }, [loadAttempt, url])
 
@@ -215,6 +204,7 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
                 ref={viewportRef}
                 className="relative min-h-0 flex-1 overflow-auto bg-muted/40 p-2"
                 aria-label={`PDF preview: ${filename}`}
+                role="region"
             >
                 {isLoading ? (
                     <div className="flex h-full items-center justify-center gap-2 text-muted-foreground text-sm">

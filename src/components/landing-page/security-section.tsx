@@ -1,8 +1,9 @@
 "use client"
 
-import { FileUp, Github, LockKeyhole, ShieldCheck } from "lucide-react"
+import { FileUp, LockKeyhole, ShieldCheck } from "lucide-react"
 import type { ComponentType } from "react"
 
+import { GithubIcon } from "@/components/brand-icons"
 import { SectionHead, Tile } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
 
@@ -54,7 +55,7 @@ export function SecuritySection() {
                     <div className="grid gap-4 sm:grid-cols-2">
                         {[
                             ["Encrypted keys", "Keys are stored securely.", LockKeyhole],
-                            ["Open source", "Audit the code and host it yourself.", Github],
+                            ["Open source", "Audit the code and host it yourself.", GithubIcon],
                             [
                                 "BYOK controls",
                                 "Use provider-level retention policies.",
@@ -85,7 +86,7 @@ export function SecuritySection() {
                             variant="outline"
                             className="h-11 rounded-[var(--radius-lg)] border bg-transparent [border-color:var(--landing-border)] [color:var(--landing-fg)] hover:[background:var(--landing-surface-strong)] hover:[color:var(--landing-fg)]"
                         >
-                            <Github className="mr-2 size-4" />
+                            <GithubIcon className="mr-2 size-4" />
                             View source code
                         </Button>
                     </a>

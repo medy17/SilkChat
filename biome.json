@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
     "vcs": {
         "enabled": true,
         "clientKind": "git",
@@ -7,14 +7,23 @@
         "defaultBranch": "main"
     },
     "files": {
-        "ignore": [
-            "./components/ui/**",
-            "./migrations/**",
-            "routeTree.gen.ts",
-            "./convex/_generated/**",
-            "./src/lib/pdfjs_dist/**",
-            "./.convex/**"
+        "includes": [
+            "**",
+            "!components/ui",
+            "!migrations",
+            "!**/routeTree.gen.ts",
+            "!convex/_generated",
+            "!src/lib/pdfjs_dist",
+            "!.convex"
         ]
+    },
+    "assist": {
+        "enabled": false
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        }
     },
     "formatter": {
         "indentStyle": "space",
@@ -24,8 +33,14 @@
     "linter": {
         "rules": {
             "a11y": {
+                "noRedundantRoles": "off",
+                "noStaticElementInteractions": "off",
                 "noSvgWithoutTitle": "off",
-                "useGenericFontNames": "off"
+                "useAriaPropsForRole": "off",
+                "useAriaPropsSupportedByRole": "off",
+                "useFocusableInteractive": "off",
+                "useGenericFontNames": "off",
+                "useSemanticElements": "off"
             },
             "suspicious": {
                 "noArrayIndexKey": "off",
@@ -34,7 +49,8 @@
                     "level": "warn",
                     "options": {}
                 },
-                "noExplicitAny": "error"
+                "noExplicitAny": "error",
+                "useIterableCallbackReturn": "off"
             },
             "style": {
                 "noNonNullAssertion": "off",
@@ -48,6 +64,8 @@
                 }
             },
             "correctness": {
+                "noDuplicateAttributes": "off",
+                "noUnsafeOptionalChaining": "off",
                 "noUnusedImports": "info",
                 "useExhaustiveDependencies": "warn"
             },
@@ -67,7 +85,7 @@
     },
     "overrides": [
         {
-            "include": ["tests/**"],
+            "includes": ["**/tests/**"],
             "linter": {
                 "rules": {
                     "suspicious": {

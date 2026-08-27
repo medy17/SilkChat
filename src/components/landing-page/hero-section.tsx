@@ -3,13 +3,14 @@
 import { useGSAP } from "@gsap/react"
 import { Link } from "@tanstack/react-router"
 import gsap from "gsap"
-import { ArrowRight, Github } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useRef } from "react"
 
 import {
     ClaudeIcon,
     DeepSeekIcon,
     GeminiIcon,
+    GithubIcon,
     OpenAIIcon,
     XAIIcon,
     ZAIIcon
@@ -179,7 +180,7 @@ export function HeroSection() {
                             variant="outline"
                             className="h-14 gap-2 px-8 font-semibold text-lg transition-all hover:scale-105 active:scale-95"
                         >
-                            <Github className="h-5 w-5" />
+                            <GithubIcon className="h-5 w-5" />
                             Star on GitHub
                         </Button>
                     </a>

@@ -1,4 +1,3 @@
-@plugin "tailwindcss-safe-area";
 @plugin "@tailwindcss/typography";
 
 @source "../node_modules/@daveyplate/better-auth-ui";

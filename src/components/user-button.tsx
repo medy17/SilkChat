@@ -1,5 +1,16 @@
 "use client"
 
+import { useRouter } from "@tanstack/react-router"
+import {
+    Loader2,
+    LogOutIcon,
+    ScrollText,
+    SettingsIcon,
+    Shield,
+    UserIcon,
+    Users
+} from "lucide-react"
+import { InstagramIcon } from "@/components/brand-icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,17 +24,6 @@ import {
 import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
 import { queryClient } from "@/providers"
-import { useRouter } from "@tanstack/react-router"
-import {
-    Instagram,
-    Loader2,
-    LogOutIcon,
-    ScrollText,
-    SettingsIcon,
-    Shield,
-    UserIcon,
-    Users
-} from "lucide-react"
 
 export function UserButton() {
     const { data: session, isPending } = useSession()
@@ -118,7 +118,7 @@ export function UserButton() {
                         target="_blank"
                         rel="noopener noreferrer"
                     >
-                        <Instagram className="h-4 w-4" />
+                        <InstagramIcon className="h-4 w-4" />
                         <span>Instagram</span>
                     </a>
                 </DropdownMenuItem>

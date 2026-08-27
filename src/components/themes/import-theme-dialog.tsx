@@ -95,7 +95,6 @@ export function ImportThemeDialog({
             Enter a theme URL from{" "}
             <a
                 href="https://tweakcn.com"
-                // biome-ignore lint/a11y/noBlankTarget: tweakcn.com is trusted
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-baseline gap-1 text-primary underline"

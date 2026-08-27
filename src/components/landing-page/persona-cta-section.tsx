@@ -1,7 +1,8 @@
 "use client"
 
-import { ArrowRight, Github } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
+import { GithubIcon } from "@/components/brand-icons"
 import { SignInButton } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
 import { PERSONA_ONBOARDING_PATH } from "@/lib/persona-onboarding"
@@ -31,7 +32,7 @@ export function PersonaCtaSection() {
                             variant="outline"
                             className="h-12 rounded-[var(--radius-lg)] border bg-transparent px-5 [border-color:var(--landing-border)] [color:var(--landing-fg)] hover:[background:var(--landing-surface-strong)] hover:[color:var(--landing-fg)]"
                         >
-                            <Github className="mr-2 size-4" />
+                            <GithubIcon className="mr-2 size-4" />
                             Star on GitHub
                         </Button>
                     </a>

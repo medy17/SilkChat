@@ -479,7 +479,7 @@ function AppearanceSettings() {
                     <div className="mb-8 flex items-center gap-3">
                         <div className="flex-1">
                             <div className="relative">
-                                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search themes..."
                                     className="bg-muted/20 pl-10 focus:bg-background"
@@ -676,7 +676,6 @@ function AppearanceSettings() {
                         Get more themes at
                         <a
                             href="https://tweakcn.com"
-                            // biome-ignore lint/a11y/noBlankTarget: tweakcn.com is trusted
                             target="_blank"
                             rel="noopener"
                             className="ml-1 inline-flex items-center font-medium text-primary hover:underline"

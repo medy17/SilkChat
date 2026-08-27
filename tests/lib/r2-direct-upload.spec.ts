@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest"
-
 import { S3Client } from "@aws-sdk/client-s3"
 import { R2 } from "@convex-dev/r2"
+import { describe, expect, it, vi } from "vitest"
 import {
     deletePendingMetadata,
     syncMetadata,
@@ -29,9 +28,11 @@ const createMetadataContext = (initial: MetadataRecord) => {
     const deleteMock = vi.fn(async () => {
         metadata = null
     })
-    const patchMock = vi.fn(async (_id: string, fields: Partial<MetadataRecord>) => {
-        if (metadata) metadata = { ...metadata, ...fields }
-    })
+    const patchMock = vi.fn(
+        async (_table: string, _id: string, fields: Partial<MetadataRecord>) => {
+            if (metadata) metadata = { ...metadata, ...fields }
+        }
+    )
 
     return {
         ctx: {
