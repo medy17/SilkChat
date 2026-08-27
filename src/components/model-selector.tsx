@@ -559,7 +559,7 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
 
     return (
         <div className="relative size-14 shrink-0 text-[var(--benchmark-color)]">
-            <svg className="-rotate-90 size-full" viewBox="0 0 64 64" aria-hidden="true">
+            <svg className="size-full -rotate-90" viewBox="0 0 64 64" aria-hidden="true">
                 <circle
                     cx="32"
                     cy="32"
@@ -641,11 +641,7 @@ const BenchmarkCard = ({ card }: { card: ModelBenchmarkPayload["cards"][number] 
     )
 }
 
-const BenchmarkSection = ({
-    benchmarkState
-}: {
-    benchmarkState?: BenchmarkState
-}) => {
+const BenchmarkSection = ({ benchmarkState }: { benchmarkState?: BenchmarkState }) => {
     if (!benchmarkState || benchmarkState.status === "loading") {
         return (
             <div className="grid max-w-96 grid-cols-2 gap-2">
@@ -1048,6 +1044,7 @@ const ModelCard = React.memo(function ModelCard({
     isNewRelease,
     badgeLabel,
     badgeVariant = "secondary",
+    showProviderIcon = false,
     mobile,
     telemetrySurface
 }: {
@@ -1064,6 +1061,7 @@ const ModelCard = React.memo(function ModelCard({
     isNewRelease: boolean
     badgeLabel?: string
     badgeVariant?: "secondary" | "warning"
+    showProviderIcon?: boolean
     mobile: boolean
     telemetrySurface: "composer" | "message_edit" | "persona_settings"
 }) {
@@ -1145,6 +1143,17 @@ const ModelCard = React.memo(function ModelCard({
                         <div className="flex items-start">
                             <div className="min-w-0 pr-10">
                                 <div className="flex items-center gap-2">
+                                    {showProviderIcon && (
+                                        <span
+                                            className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
+                                            aria-hidden="true"
+                                        >
+                                            {getProviderIcon(
+                                                model,
+                                                "isCustom" in model && model.isCustom
+                                            )}
+                                        </span>
+                                    )}
                                     <span className="truncate font-medium text-sm sm:text-base">
                                         {model.name}
                                     </span>
@@ -1162,17 +1171,32 @@ const ModelCard = React.memo(function ModelCard({
                                     {isNewRelease && <NewModelBadge />}
                                     {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
                                 </div>
-                                <p className="mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm">
+                                <p
+                                    className={cn(
+                                        "mt-1 line-clamp-2 text-muted-foreground text-xs sm:text-sm",
+                                        showProviderIcon && "pl-7"
+                                    )}
+                                >
                                     {getModelShortDescription(model)}
                                 </p>
                                 {disabled && disabledReason && (
-                                    <p className="mt-2 text-muted-foreground text-xs">
+                                    <p
+                                        className={cn(
+                                            "mt-2 text-muted-foreground text-xs",
+                                            showProviderIcon && "pl-7"
+                                        )}
+                                    >
                                         {disabledReason}
                                     </p>
                                 )}
                             </div>
                         </div>
-                        <div className="mt-2 flex min-h-7 items-center gap-3 pr-20">
+                        <div
+                            className={cn(
+                                "mt-2 flex min-h-7 items-center gap-3 pr-20",
+                                showProviderIcon && "pl-7"
+                            )}
+                        >
                             {modelAbilities.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                     {modelAbilities.slice(0, 4).map((ability) => (
@@ -1798,6 +1822,7 @@ export function ModelSelector({
                         isFavorite={favoriteModelIds.includes(model.id)}
                         onToggleFavorite={toggleFavorite}
                         isNewRelease={newModelIds.has(model.id)}
+                        showProviderIcon={visibleSection.id === FAVORITES_SECTION_ID}
                         mobile={isMobile}
                         telemetrySurface={telemetrySurface}
                         badgeLabel={
@@ -1934,9 +1959,9 @@ export function ModelSelector({
                 </div>
             )}
             {isMobile ? (
-                <div className="shrink-0 px-4 pt-3 pb-3">
+                <div className="shrink-0 bg-background px-4 pt-3 pb-3">
                     <div className="relative">
-                        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             value={searchValue}
                             onChange={(event) => setSearchValue(event.target.value)}
@@ -1946,7 +1971,7 @@ export function ModelSelector({
                     </div>
                 </div>
             ) : (
-                <div className="shrink-0 rounded-t-lg bg-muted/50 p-3 pb-2 md:rounded-none">
+                <div className="shrink-0 bg-popover p-3 pb-2">
                     <div className="mb-3 px-1">
                         <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
                         <p className="text-muted-foreground text-sm sm:hidden">
@@ -1954,7 +1979,7 @@ export function ModelSelector({
                         </p>
                     </div>
                     <div className="relative">
-                        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             value={searchValue}
                             onChange={(event) => setSearchValue(event.target.value)}
@@ -1965,9 +1990,9 @@ export function ModelSelector({
                 </div>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:max-h-[25rem] md:grid-cols-[5rem_minmax(0,1fr)]">
-                <div className="flex min-h-0 min-w-0 flex-col border-r bg-muted/50">
-                    <div className="-mr-[1px] relative min-h-0 flex-1 overflow-hidden">
+            <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:max-h-[25rem] md:grid-cols-[4rem_minmax(0,1fr)]">
+                <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
+                    <div className="relative min-h-0 flex-1 overflow-hidden">
                         {canScrollUp && (
                             <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
                                 <button
@@ -1984,7 +2009,12 @@ export function ModelSelector({
                             onScroll={handleLeftPanelScroll}
                             className="scrollbar-none relative h-full overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
-                            <div className="relative flex flex-col gap-1 py-2 pr-[1px] pl-2">
+                            <div
+                                className={cn(
+                                    "relative flex flex-col items-center gap-1",
+                                    isMobile ? "px-1 pt-3 pb-2" : "px-2 pt-3 pb-2"
+                                )}
+                            >
                                 {filteredSections.map((section) => {
                                     const isActive = section.id === visibleSection?.id
                                     const hasNewModels = newProviderSectionIds.has(section.id)
@@ -1995,24 +2025,21 @@ export function ModelSelector({
                                                     type="button"
                                                     onClick={() => setActiveProvider(section.id)}
                                                     className={cn(
-                                                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-l-xl border-y border-l px-2 py-3 text-left transition-colors",
+                                                        "relative flex size-11 min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border border-transparent p-0 text-left transition-colors",
                                                         isActive
                                                             ? cn(
-                                                                  "-mr-[1px] before:-z-10 before:-left-[1px] sticky top-0 bottom-0 z-20 border-border text-foreground ring-1 ring-border/50 ring-inset before:absolute before:inset-0 before:rounded-l-xl",
+                                                                  "text-foreground ring-1 ring-foreground/20 ring-inset",
                                                                   isMobile
-                                                                      ? "bg-background before:bg-background"
-                                                                      : "bg-popover before:bg-popover"
+                                                                      ? "bg-background"
+                                                                      : "bg-popover"
                                                               )
-                                                            : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/50"
+                                                            : "bg-transparent text-muted-foreground hover:bg-muted/50"
                                                     )}
                                                     aria-label={section.label}
                                                 >
                                                     <div
                                                         className={cn(
-                                                            "relative flex size-7 items-center justify-center rounded-md",
-                                                            isActive
-                                                                ? "bg-secondary/70"
-                                                                : "bg-transparent",
+                                                            "relative flex size-7 items-center justify-center rounded-[var(--radius-md)] bg-transparent",
                                                             hasNewModels && "overflow-hidden"
                                                         )}
                                                     >
@@ -2034,7 +2061,7 @@ export function ModelSelector({
                                                     </div>
                                                 </button>
                                             </TooltipTrigger>
-                                            <TooltipContent side="right">
+                                            <TooltipContent side="left">
                                                 {section.label}
                                             </TooltipContent>
                                         </Tooltip>
