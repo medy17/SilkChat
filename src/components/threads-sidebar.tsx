@@ -782,8 +782,6 @@ export function ThreadsSidebar() {
                         projects={resolvedProjects}
                         currentFolderId={params.folderId}
                         isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
-                        enableContextMenu={!isTouchDevice}
-                        enableLongPressSelection={isTouchDevice}
                         getFolderSelectionState={getFolderSelectionState}
                         onToggleFolderSelection={handleToggleFolderSelection}
                         onStartFolderSelection={handleStartFolderSelection}
@@ -804,8 +802,6 @@ export function ThreadsSidebar() {
                     currentFolderId={params.folderId}
                     isSelectionMode={isFolderSelectionMode || isDesktopSelectionPreview}
                     activeThreadId={params.threadId}
-                    enableContextMenu={!isTouchDevice}
-                    enableLongPressSelection={isTouchDevice}
                     nestedThreadSelectionMode={isThreadSelectionMode || isDesktopSelectionPreview}
                     selectedThreadIds={
                         isThreadSelectionMode || isDesktopSelectionPreview ? selectedThreadIds : []
@@ -836,8 +832,6 @@ export function ThreadsSidebar() {
                                 ? selectedThreadIds
                                 : []
                         }
-                        enableContextMenu={!isTouchDevice}
-                        enableLongPressSelection={isTouchDevice}
                         canBulkTogglePin={canBulkTogglePin}
                         areAllSelectedPinned={areAllSelectedPinned}
                         onOpenRenameDialog={handleOpenRenameDialog}
@@ -886,7 +880,7 @@ export function ThreadsSidebar() {
                                 ? "transition-none"
                                 : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                             isLibraryMode
-                                ? "-translate-x-4 pointer-events-none opacity-0"
+                                ? "pointer-events-none -translate-x-4 opacity-0"
                                 : "translate-x-0 opacity-100"
                         )}
                     >

@@ -27,7 +27,7 @@ import {
     Sparkles,
     Trash2
 } from "lucide-react"
-import { memo, useEffect, useRef, useState } from "react"
+import { memo, useState } from "react"
 import { toast } from "sonner"
 import { ShareButton } from "../share-button"
 import type { Thread } from "./types"
@@ -43,7 +43,6 @@ interface ThreadItemProps {
     isSelected?: boolean
     selectedThreadCount?: number
     enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
     onOpenRenameDialog?: (thread: Thread) => void
@@ -68,7 +67,6 @@ export const ThreadItem = memo(
         isSelected = false,
         selectedThreadCount = 0,
         enableContextMenu = true,
-        enableLongPressSelection = false,
         canBulkTogglePin = true,
         areAllSelectedPinned = false,
         onOpenRenameDialog,
@@ -86,9 +84,6 @@ export const ThreadItem = memo(
         const [showShareDialog, setShowShareDialog] = useState(false)
         const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
         const [isExporting, setIsExporting] = useState(false)
-        const longPressTimeoutRef = useRef<number | null>(null)
-        const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
-        const longPressTriggeredRef = useRef(false)
         // Hover-reveal pin/delete affordance is keyed on pointer precision, not
         // viewport width, so it stays available on a zoomed-in desktop (mouse).
         const isTouchDevice = useIsTouchDevice()
@@ -170,21 +165,6 @@ export const ThreadItem = memo(
             </span>
         )
 
-        const clearLongPressTimer = () => {
-            if (longPressTimeoutRef.current !== null) {
-                window.clearTimeout(longPressTimeoutRef.current)
-                longPressTimeoutRef.current = null
-            }
-        }
-
-        useEffect(() => {
-            return () => {
-                if (longPressTimeoutRef.current !== null) {
-                    window.clearTimeout(longPressTimeoutRef.current)
-                }
-            }
-        }, [])
-
         const handleTogglePin = async () => {
             const pinned = thread.pinned
             try {
@@ -243,51 +223,6 @@ export const ThreadItem = memo(
             }
         }
 
-        const handlePointerDown = (event: React.PointerEvent<HTMLAnchorElement>) => {
-            if (!enableLongPressSelection || isSelectionMode || event.pointerType !== "touch") {
-                return
-            }
-            longPressTriggeredRef.current = false
-            longPressStartPointRef.current = {
-                x: event.clientX,
-                y: event.clientY
-            }
-            clearLongPressTimer()
-            longPressTimeoutRef.current = window.setTimeout(() => {
-                longPressTriggeredRef.current = true
-                handleStartSelection()
-            }, 450)
-        }
-
-        const handlePointerUp = () => {
-            clearLongPressTimer()
-            longPressStartPointRef.current = null
-            if (longPressTriggeredRef.current) {
-                window.setTimeout(() => {
-                    longPressTriggeredRef.current = false
-                }, 0)
-            }
-        }
-
-        const handlePointerMove = (event: React.PointerEvent<HTMLAnchorElement>) => {
-            if (
-                event.pointerType !== "touch" ||
-                longPressTimeoutRef.current === null ||
-                !longPressStartPointRef.current
-            ) {
-                return
-            }
-
-            const deltaX = event.clientX - longPressStartPointRef.current.x
-            const deltaY = event.clientY - longPressStartPointRef.current.y
-            const movedDistance = Math.hypot(deltaX, deltaY)
-
-            if (movedDistance > 10) {
-                clearLongPressTimer()
-                longPressStartPointRef.current = null
-            }
-        }
-
         const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
             if (isSelectionMode) {
                 event.preventDefault()
@@ -295,12 +230,6 @@ export const ThreadItem = memo(
                 handleToggleSelection()
                 return
             }
-            if (longPressTriggeredRef.current) {
-                event.preventDefault()
-                event.stopPropagation()
-                return
-            }
-
             if (!isMobile) {
                 return
             }
@@ -320,15 +249,6 @@ export const ThreadItem = memo(
                     params: { threadId: thread._id }
                 })
             })
-        }
-
-        const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {
-            if (!enableLongPressSelection) {
-                return
-            }
-
-            event.preventDefault()
-            event.stopPropagation()
         }
 
         const contextMenuItems = (
@@ -462,22 +382,6 @@ export const ThreadItem = memo(
                                 preload={false}
                                 className="flex h-full w-full min-w-0 items-center"
                                 onClick={handleLinkClick}
-                                onContextMenu={handleContextMenu}
-                                onPointerDown={handlePointerDown}
-                                onPointerUp={handlePointerUp}
-                                onPointerLeave={handlePointerUp}
-                                onPointerCancel={handlePointerUp}
-                                onPointerMove={handlePointerMove}
-                                style={
-                                    enableLongPressSelection
-                                        ? {
-                                              WebkitTouchCallout: "none",
-                                              WebkitUserSelect: "none",
-                                              userSelect: "none",
-                                              touchAction: "manipulation"
-                                          }
-                                        : undefined
-                                }
                             >
                                 <div className="flex min-w-0 flex-1 items-center gap-2">
                                     {showBranchIcon ? (
@@ -601,7 +505,6 @@ export const ThreadItem = memo(
             prevProps.isSelected === nextProps.isSelected &&
             prevProps.selectedThreadCount === nextProps.selectedThreadCount &&
             prevProps.enableContextMenu === nextProps.enableContextMenu &&
-            prevProps.enableLongPressSelection === nextProps.enableLongPressSelection &&
             prevProps.canBulkTogglePin === nextProps.canBulkTogglePin &&
             prevProps.areAllSelectedPinned === nextProps.areAllSelectedPinned &&
             prevProps.onOpenRenameDialog === nextProps.onOpenRenameDialog &&

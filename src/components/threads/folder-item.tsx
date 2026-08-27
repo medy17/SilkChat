@@ -60,7 +60,7 @@ import {
     MoreHorizontal,
     Trash2
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ThreadItem } from "./thread-item"
 import type { SidebarProject, Thread } from "./types"
@@ -75,7 +75,6 @@ interface FolderItemProps {
     activeThreadId?: string
     selectionState?: FolderSelectionState
     enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
     nestedThreadSelectionMode?: boolean
     selectedThreadIds?: string[]
     canBulkTogglePin?: boolean
@@ -102,7 +101,6 @@ export function FolderItem({
     activeThreadId,
     selectionState = "none",
     enableContextMenu = true,
-    enableLongPressSelection = false,
     nestedThreadSelectionMode = false,
     selectedThreadIds = [],
     canBulkTogglePin = true,
@@ -138,10 +136,6 @@ export function FolderItem({
         const saved = localStorage.getItem(`folder-expanded:${project._id}`)
         return saved === null ? isCurrentFolder : saved === "true"
     })
-    const longPressTimeoutRef = useRef<number | null>(null)
-    const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null)
-    const longPressTriggeredRef = useRef(false)
-
     const colorClasses = getProjectColorClasses(project.color as ProjectColorId)
     const updateProjectMutation = useMutation(api.folders.updateProject)
     const deleteProjectMutation = useMutation(api.folders.deleteProject)
@@ -186,14 +180,6 @@ export function FolderItem({
         [projectThreadsResults]
     )
     const renderedProjectThreads = projectThreads.length > 0 ? projectThreads : staleProjectThreads
-
-    useEffect(() => {
-        return () => {
-            if (longPressTimeoutRef.current !== null) {
-                window.clearTimeout(longPressTimeoutRef.current)
-            }
-        }
-    }, [])
 
     useEffect(() => {
         if (!hasThreads) {
@@ -289,13 +275,6 @@ export function FolderItem({
         setShowEditDialog(true)
     }
 
-    const clearLongPressTimer = () => {
-        if (longPressTimeoutRef.current !== null) {
-            window.clearTimeout(longPressTimeoutRef.current)
-            longPressTimeoutRef.current = null
-        }
-    }
-
     const handleStartSelection = () => {
         if (!hasThreads) return
         void onStartSelection?.(project)
@@ -314,59 +293,7 @@ export function FolderItem({
         setIsExpanded((current) => !current)
     }
 
-    const handlePointerDown = (event: React.PointerEvent<HTMLAnchorElement>) => {
-        if (!enableLongPressSelection || isSelectionMode || event.pointerType !== "touch") {
-            return
-        }
-
-        longPressTriggeredRef.current = false
-        longPressStartPointRef.current = {
-            x: event.clientX,
-            y: event.clientY
-        }
-        clearLongPressTimer()
-        longPressTimeoutRef.current = window.setTimeout(() => {
-            longPressTriggeredRef.current = true
-            handleStartSelection()
-        }, 450)
-    }
-
-    const handlePointerUp = () => {
-        clearLongPressTimer()
-        longPressStartPointRef.current = null
-        if (longPressTriggeredRef.current) {
-            window.setTimeout(() => {
-                longPressTriggeredRef.current = false
-            }, 0)
-        }
-    }
-
-    const handlePointerMove = (event: React.PointerEvent<HTMLAnchorElement>) => {
-        if (
-            event.pointerType !== "touch" ||
-            longPressTimeoutRef.current === null ||
-            !longPressStartPointRef.current
-        ) {
-            return
-        }
-
-        const deltaX = event.clientX - longPressStartPointRef.current.x
-        const deltaY = event.clientY - longPressStartPointRef.current.y
-        const movedDistance = Math.hypot(deltaX, deltaY)
-
-        if (movedDistance > 10) {
-            clearLongPressTimer()
-            longPressStartPointRef.current = null
-        }
-    }
-
     const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-        if (longPressTriggeredRef.current) {
-            event.preventDefault()
-            event.stopPropagation()
-            return
-        }
-
         if (!isMobile) {
             return
         }
@@ -392,15 +319,6 @@ export function FolderItem({
 
         window.addEventListener("popstate", doNavigate, { once: true })
         fallbackTimeoutId = window.setTimeout(doNavigate, 150)
-    }
-
-    const handleContextMenu = (event: React.MouseEvent<HTMLAnchorElement>) => {
-        if (!enableLongPressSelection) {
-            return
-        }
-
-        event.preventDefault()
-        event.stopPropagation()
     }
 
     const folderMenuItems = (
@@ -495,22 +413,6 @@ export function FolderItem({
                             to="/folder/$folderId"
                             params={{ folderId: project._id }}
                             className="flex h-full w-full min-w-0 items-center gap-2"
-                            onContextMenu={handleContextMenu}
-                            onPointerDown={handlePointerDown}
-                            onPointerUp={handlePointerUp}
-                            onPointerLeave={handlePointerUp}
-                            onPointerCancel={handlePointerUp}
-                            onPointerMove={handlePointerMove}
-                            style={
-                                enableLongPressSelection
-                                    ? {
-                                          WebkitTouchCallout: "none",
-                                          WebkitUserSelect: "none",
-                                          userSelect: "none",
-                                          touchAction: "manipulation"
-                                      }
-                                    : undefined
-                            }
                         >
                             <div
                                 className={cn(
@@ -611,7 +513,6 @@ export function FolderItem({
                                         isSelected={selectedThreadIds.includes(thread._id)}
                                         selectedThreadCount={selectedThreadIds.length}
                                         enableContextMenu={enableContextMenu}
-                                        enableLongPressSelection={enableLongPressSelection}
                                         canBulkTogglePin={canBulkTogglePin}
                                         areAllSelectedPinned={areAllSelectedPinned}
                                         onOpenRenameDialog={onOpenRenameThreadDialog}

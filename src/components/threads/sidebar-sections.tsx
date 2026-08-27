@@ -82,7 +82,6 @@ function ThreadsGroup({
     selectedThreadIds,
     onExportSelected,
     enableContextMenu,
-    enableLongPressSelection,
     canBulkTogglePin,
     areAllSelectedPinned,
     onOpenRenameDialog,
@@ -105,7 +104,6 @@ function ThreadsGroup({
     selectedThreadIds: string[]
     onExportSelected?: () => Promise<void> | void
     enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
     onOpenRenameDialog?: (thread: Thread) => void
@@ -137,7 +135,6 @@ function ThreadsGroup({
                             isSelected={selectedThreadIds.includes(thread._id)}
                             selectedThreadCount={selectedThreadIds.length}
                             enableContextMenu={enableContextMenu}
-                            enableLongPressSelection={enableLongPressSelection}
                             canBulkTogglePin={canBulkTogglePin}
                             areAllSelectedPinned={areAllSelectedPinned}
                             onOpenRenameDialog={onOpenRenameDialog}
@@ -184,7 +181,6 @@ export type FolderGroupActions = {
     isSelectionMode?: boolean
     activeThreadId?: string
     enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
     nestedThreadSelectionMode?: boolean
     selectedThreadIds?: string[]
     canBulkTogglePin?: boolean
@@ -213,7 +209,6 @@ export function FoldersSection({
     isSelectionMode,
     activeThreadId,
     enableContextMenu,
-    enableLongPressSelection,
     nestedThreadSelectionMode,
     selectedThreadIds,
     canBulkTogglePin,
@@ -280,7 +275,6 @@ export function FoldersSection({
                                             project.threadCount
                                         )}
                                         enableContextMenu={enableContextMenu}
-                                        enableLongPressSelection={enableLongPressSelection}
                                         nestedThreadSelectionMode={nestedThreadSelectionMode}
                                         selectedThreadIds={selectedThreadIds}
                                         canBulkTogglePin={canBulkTogglePin}
@@ -312,7 +306,6 @@ export type ThreadGroupActions = {
     isSelectionMode?: boolean
     selectedThreadIds: string[]
     enableContextMenu?: boolean
-    enableLongPressSelection?: boolean
     canBulkTogglePin?: boolean
     areAllSelectedPinned?: boolean
     onOpenRenameDialog?: (thread: Thread) => void
