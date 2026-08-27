@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest"
+import { z } from "zod"
+import { codeExecutionInputSchema } from "../../convex/lib/tools/code_execution"
 import {
     buildCodeExecutionArtifactPublicUrl,
     detectCodeExecutionArtifactMediaType,
@@ -24,6 +26,26 @@ afterEach(() => {
 })
 
 describe("code execution helpers", () => {
+    it("keeps package validation out of the provider-facing JSON Schema", () => {
+        const dependencies = z.toJSONSchema(codeExecutionInputSchema).properties?.dependencies as {
+            items?: Record<string, unknown>
+        }
+
+        expect(dependencies.items).toEqual({
+            type: "string",
+            minLength: 1,
+            maxLength: 150
+        })
+        expect(() =>
+            codeExecutionInputSchema.parse({
+                purpose: "Checking package validation",
+                language: "javascript",
+                code: "console.log('ok')",
+                dependencies: ["@scope/package@^1.2.3", "malicious package"]
+            })
+        ).toThrow("Invalid package specifier")
+    })
+
     it("requires the complete server-side credential set", () => {
         process.env.VERCEL_TEAM_ID = "team-1"
         process.env.VERCEL_PROJECT_ID = "project-1"

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { UIToolInvocation } from "ai"
-import { useAction, useMutation } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import { Box, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -61,13 +61,25 @@ export const PersistentSandboxCard = memo(
         const deny = useMutation(api.persistent_sandboxes.denyPersistentSandboxRequest)
         const [isActing, setIsActing] = useState(false)
         const [now, setNow] = useState(Date.now())
-        const output =
+        const localOutput =
             toolInvocation.state === "output-available" &&
             typeof toolInvocation.output === "object" &&
             toolInvocation.output !== null &&
             (toolInvocation.output as PersistentSandboxOutput).kind === "persistent_sandbox_request"
                 ? (toolInvocation.output as PersistentSandboxOutput)
                 : undefined
+        const persistedOutput = useQuery(
+            api.messages.getPersistentSandboxCardResult,
+            localOutput?.cardId && threadId && messageId
+                ? {
+                      threadId: threadId as Id<"threads">,
+                      messageId,
+                      toolCallId: toolInvocation.toolCallId,
+                      cardId: localOutput.cardId
+                  }
+                : "skip"
+        ) as PersistentSandboxOutput | null | undefined
+        const output = persistedOutput ?? localOutput
 
         const rawStatus = output?.status ?? "pending_confirmation"
         const status =
@@ -99,7 +111,7 @@ export const PersistentSandboxCard = memo(
             status === "pending_confirmation" &&
             Boolean(output.cardId && threadId && messageId) &&
             !isActing
-        const remaining = formatRemaining(output.expiresAt, now)
+        const activeRemaining = formatRemaining(output.expiresAt, now)
 
         const handleConfirm = async () => {
             if (!output.cardId || !threadId || !messageId) return
@@ -169,8 +181,8 @@ export const PersistentSandboxCard = memo(
                         <p className="mt-1 text-muted-foreground text-sm">{output.purpose}</p>
                         <div className="mt-2 flex items-center gap-1.5 text-muted-foreground text-xs">
                             <Clock3 className="size-3.5" aria-hidden="true" />
-                            {status === "active" && remaining
-                                ? `${remaining} remaining`
+                            {status === "active" && activeRemaining
+                                ? `${activeRemaining} remaining`
                                 : `${output.ttlMinutes ?? 3} minute TTL`}
                         </div>
                         {output.error && (

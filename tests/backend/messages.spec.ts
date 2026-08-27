@@ -7,6 +7,7 @@ vi.mock("../../convex/_generated/server", () => ({
 }))
 
 import {
+    getPersistentSandboxCardResult,
     getPreparedImageGenerationCardResult,
     getPreparedMemoryChangeCardResult,
     patchMessage
@@ -76,6 +77,20 @@ const createCtx = ({ authorId = "user-1" }: { authorId?: string } = {}) => ({
 
 const memoryHandler = (
     getPreparedMemoryChangeCardResult as unknown as {
+        handler: (
+            ctx: ReturnType<typeof createCtx>,
+            args: {
+                threadId: string
+                messageId: string
+                toolCallId: string
+                cardId: string
+            }
+        ) => Promise<unknown>
+    }
+).handler
+
+const persistentSandboxHandler = (
+    getPersistentSandboxCardResult as unknown as {
         handler: (
             ctx: ReturnType<typeof createCtx>,
             args: {
@@ -249,6 +264,68 @@ describe("prepared memory change card query", () => {
                 messageId: "assistant-1",
                 toolCallId: "memory-tool-1",
                 cardId: "memory-card-1"
+            })
+        ).resolves.toBeNull()
+        expect(ctx.db.query).not.toHaveBeenCalled()
+    })
+})
+
+describe("persistent sandbox card query", () => {
+    const activeSandboxResult = {
+        success: true,
+        kind: "persistent_sandbox_request",
+        status: "active",
+        cardId: "sandbox-card-1",
+        sandboxId: "sandbox-1",
+        expiresAt: Date.now() + 30_000
+    }
+
+    const createSandboxCtx = ({ authorId = "user-1" }: { authorId?: string } = {}) => {
+        const ctx = createCtx({ authorId })
+        ctx.db.query.mockReturnValue({
+            withIndex: vi.fn().mockReturnValue({
+                collect: vi.fn().mockResolvedValue([
+                    {
+                        threadId: "thread-1",
+                        messageId: "assistant-1",
+                        parts: [
+                            {
+                                type: "tool-invocation",
+                                toolInvocation: {
+                                    toolName: "request_persistent_sandbox",
+                                    toolCallId: "sandbox-tool-1",
+                                    state: "result",
+                                    result: activeSandboxResult
+                                }
+                            }
+                        ]
+                    }
+                ])
+            })
+        })
+        return ctx
+    }
+
+    it("returns the persisted sandbox status for the thread owner", async () => {
+        await expect(
+            persistentSandboxHandler(createSandboxCtx(), {
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                toolCallId: "sandbox-tool-1",
+                cardId: "sandbox-card-1"
+            })
+        ).resolves.toEqual(activeSandboxResult)
+    })
+
+    it("does not expose a sandbox card from another user's thread", async () => {
+        const ctx = createSandboxCtx({ authorId: "user-2" })
+
+        await expect(
+            persistentSandboxHandler(ctx, {
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                toolCallId: "sandbox-tool-1",
+                cardId: "sandbox-card-1"
             })
         ).resolves.toBeNull()
         expect(ctx.db.query).not.toHaveBeenCalled()

@@ -7,13 +7,20 @@ import type { ToolAdapter } from "../toolkit"
 
 const DEFAULT_EXECUTION_TIMEOUT_MS = 20_000
 const MAX_EXECUTION_TIMEOUT_MS = 30_000
+const PACKAGE_SPECIFIER_PUNCTUATION = "@._+-/[],=<>!~^"
+
+const isAllowedPackageSpecifier = (value: string) =>
+    [...value].every(
+        (character) =>
+            /[a-zA-Z0-9]/.test(character) || PACKAGE_SPECIFIER_PUNCTUATION.includes(character)
+    )
 
 const packageSchema = z
     .string()
     .trim()
     .min(1)
     .max(150)
-    .regex(/^[a-zA-Z0-9@._+\-/[\],=<>!~^]+$/, "Invalid package specifier")
+    .refine(isAllowedPackageSpecifier, "Invalid package specifier")
     .refine((value) => !value.startsWith("-"), "Package specifier cannot be an option")
 
 export const codeExecutionInputSchema = z.object({

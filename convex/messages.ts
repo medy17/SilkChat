@@ -121,6 +121,41 @@ const findPreparedImageGenerationResult = (
 
 const MEMORY_CHANGE_TOOL_NAMES = new Set(["add_memory", "update_memory", "forget_memory"])
 
+const findPersistentSandboxCardResult = (
+    parts: Array<{ type: string; toolInvocation?: unknown }>,
+    toolCallId: string,
+    cardId: string
+) => {
+    for (const part of parts) {
+        if (part.type !== "tool-invocation") continue
+
+        const invocation = part.toolInvocation as
+            | {
+                  toolName?: unknown
+                  toolCallId?: unknown
+                  state?: unknown
+                  result?: unknown
+              }
+            | undefined
+        if (
+            invocation?.toolName !== "request_persistent_sandbox" ||
+            invocation.toolCallId !== toolCallId ||
+            invocation.state !== "result" ||
+            typeof invocation.result !== "object" ||
+            invocation.result === null
+        ) {
+            continue
+        }
+
+        const result = invocation.result as Record<string, unknown>
+        if (result.kind === "persistent_sandbox_request" && result.cardId === cardId) {
+            return result
+        }
+    }
+
+    return null
+}
+
 const findPreparedMemoryChangeResult = (
     parts: Array<{ type: string; toolInvocation?: unknown }>,
     toolCallId: string,
@@ -244,6 +279,31 @@ export const getPreparedMemoryChangeCardResult = query({
         if (!message) return null
 
         return findPreparedMemoryChangeResult(message.parts, toolCallId, cardId)
+    }
+})
+
+export const getPersistentSandboxCardResult = query({
+    args: {
+        threadId: v.id("threads"),
+        messageId: v.string(),
+        toolCallId: v.string(),
+        cardId: v.string()
+    },
+    handler: async ({ db, auth }, { threadId, messageId, toolCallId, cardId }) => {
+        const user = await getUserIdentity(auth, { allowAnons: false })
+        if ("error" in user) return null
+
+        const thread = await db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return null
+
+        const messages = await db
+            .query("messages")
+            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+            .collect()
+        const message = messages.find((candidate) => candidate.threadId === threadId)
+        if (!message) return null
+
+        return findPersistentSandboxCardResult(message.parts, toolCallId, cardId)
     }
 })
 
