@@ -4,6 +4,25 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const ZAI_MODELS: SharedModel[] = [
     {
+        id: "glm-5.3-flash",
+        name: "GLM 5.3 Flash",
+        addedOn: "2026-08-26",
+        shortName: "GLM 5.3 Flash",
+        shortDescription: "Efficient multimodal reasoning for coding and long-horizon agent work",
+        description:
+            "GLM 5.3 Flash is Z.ai's native multimodal model for efficient coding and long-horizon agent work. Its hybrid sparse and linear attention architecture preserves accurate long-context behavior while reducing compute overhead, making it a practical choice for visual coding, tool use, and sustained workflows.",
+        releaseOrder: 20260826,
+        adapters: openRouterTextAdapters("z-ai/glm-5.3-flash"),
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 1_310_720,
+        maxTokens: 131_072,
+        inputUsdPer1MTokens: 0.15,
+        outputUsdPer1MTokens: 0.5,
+        reasoningEfforts: ["low", "high"],
+        defaultReasoningEffort: "high",
+        developer: "Z.ai"
+    },
+    {
         id: "glm-5.3",
         name: "GLM 5.3",
         addedOn: "2026-08-18",
