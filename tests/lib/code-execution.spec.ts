@@ -10,6 +10,12 @@ import {
     resolveCodeSandbox,
     truncateCodeExecutionOutput
 } from "../../convex/lib/tools/code_execution_node"
+import {
+    defaultSandboxRuntimeVersion,
+    parseSandboxRuntime,
+    parseSandboxRuntimeVersion,
+    sandboxImageForRuntime
+} from "../../convex/lib/sandbox_runtime"
 
 afterEach(() => {
     Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
@@ -120,37 +126,51 @@ describe("code execution helpers", () => {
         ).toBeUndefined()
     })
 
-    it("forces compatible executions into an active persistent sandbox", () => {
+    it("routes Python execution into an active Python sandbox", () => {
         expect(
             resolveCodeSandbox({
                 requestedMode: "ephemeral",
-                runtime: "python3.13",
+                language: "python",
                 activeSandbox: {
                     status: "active",
-                    runtime: "python3.13",
-                    sandboxName: "persistent-1",
-                    expiresAt: 20_000
-                },
-                now: 10_000
-            })
-        ).toEqual({ mode: "persistent", sandboxName: "persistent-1" })
-    })
-
-    it("blocks an ephemeral runtime escape while a different persistent runtime is active", () => {
-        expect(
-            resolveCodeSandbox({
-                requestedMode: "ephemeral",
-                runtime: "node24",
-                activeSandbox: {
-                    status: "active",
-                    runtime: "python3.13",
+                    runtime: "python",
                     sandboxName: "persistent-1",
                     expiresAt: 20_000
                 },
                 now: 10_000
             })
         ).toEqual({
-            error: "The active persistent sandbox uses python3.13; node24 execution cannot use an ephemeral sandbox until the active sandbox is killed."
+            mode: "persistent",
+            runtime: "python",
+            sandboxName: "persistent-1"
         })
+    })
+
+    it("blocks an ephemeral runtime escape while a different persistent runtime is active", () => {
+        expect(
+            resolveCodeSandbox({
+                requestedMode: "ephemeral",
+                language: "javascript",
+                activeSandbox: {
+                    status: "active",
+                    runtime: "python",
+                    sandboxName: "persistent-1",
+                    expiresAt: 20_000
+                },
+                now: 10_000
+            })
+        ).toEqual({
+            error: "The active persistent sandbox uses python; node execution cannot use an ephemeral sandbox until the active sandbox is killed."
+        })
+    })
+
+    it("builds images from explicit runtime version locks", () => {
+        expect(defaultSandboxRuntimeVersion("node")).toBe("24")
+        expect(defaultSandboxRuntimeVersion("python")).toBe("3.14")
+        expect(sandboxImageForRuntime("node", "22")).toBe("vercel/sandbox/node:22")
+        expect(sandboxImageForRuntime("python", "3.14")).toBe("vercel/sandbox/python:3.14")
+        expect(parseSandboxRuntime("ruby")).toBeNull()
+        expect(parseSandboxRuntimeVersion("3.14")).toBe("3.14")
+        expect(parseSandboxRuntimeVersion("../../ubuntu")).toBeNull()
     })
 })

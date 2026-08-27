@@ -19,6 +19,11 @@ import {
     sandboxSessionNeedsStop
 } from "./lib/sandbox_billing"
 import { isMissingSandboxError } from "./lib/sandbox_errors"
+import {
+    parseSandboxRuntime,
+    parseSandboxRuntimeVersion,
+    sandboxImageForRuntime
+} from "./lib/sandbox_runtime"
 import { getVercelSandboxCredentials } from "./lib/tools/code_execution_node"
 
 const SNAPSHOT_EXPIRATION_MS = 24 * 60 * 60 * 1000
@@ -240,10 +245,14 @@ export const confirmPersistentSandboxRequest = action({
         try {
             const ttlMs = record.ttlMinutes * 60_000
             const expiresAt = Date.now() + ttlMs
+            const runtime = parseSandboxRuntime(record.runtime)
+            if (!runtime) throw new Error("Unsupported persistent sandbox runtime")
+            const runtimeVersion = parseSandboxRuntimeVersion(record.runtimeVersion)
+            if (!runtimeVersion) throw new Error("Unsupported persistent sandbox runtime version")
             sandbox = await Sandbox.create({
                 ...credentials,
                 name: record.sandboxName,
-                runtime: record.runtime,
+                image: sandboxImageForRuntime(runtime, runtimeVersion),
                 resources: { vcpus: 1 },
                 timeout: ttlMs,
                 persistent: true,

@@ -2,6 +2,7 @@ import { tool } from "ai"
 import { z } from "zod"
 import { internal } from "../../_generated/api"
 import { PERSISTENT_SANDBOX_CONFIRMATION_TTL_MS } from "../persistent_sandbox_policy"
+import { defaultSandboxRuntimeVersion } from "../sandbox_runtime"
 import type { ToolAdapter } from "../toolkit"
 
 const DEFAULT_EXECUTION_TIMEOUT_MS = 20_000
@@ -12,7 +13,7 @@ const packageSchema = z
     .trim()
     .min(1)
     .max(150)
-    .regex(/^[a-zA-Z0-9@._+\-/\[\],=<>!~^]+$/, "Invalid package specifier")
+    .regex(/^[a-zA-Z0-9@._+\-/[\],=<>!~^]+$/, "Invalid package specifier")
     .refine((value) => !value.startsWith("-"), "Package specifier cannot be an option")
 
 export const codeExecutionInputSchema = z.object({
@@ -75,7 +76,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                     .max(160)
                     .describe("A concise explanation of why filesystem persistence is required."),
                 runtime: z
-                    .enum(["node24", "python3.13"])
+                    .enum(["node", "python"])
                     .describe("Runtime required by the persistent workspace."),
                 ttlMinutes: z
                     .union([
@@ -100,6 +101,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                     }
                 }
                 const requestedAt = Date.now()
+                const runtimeVersion = defaultSandboxRuntimeVersion(runtime)
                 return {
                     success: true,
                     kind: "persistent_sandbox_request",
@@ -107,6 +109,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                     cardId: crypto.randomUUID(),
                     purpose: purpose.trim(),
                     runtime,
+                    runtimeVersion,
                     ttlMinutes,
                     requestedAt,
                     confirmationExpiresAt: requestedAt + PERSISTENT_SANDBOX_CONFIRMATION_TTL_MS
@@ -115,7 +118,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
         }),
         execute_code: tool({
             description: [
-                "Execute JavaScript (Node.js 24) or Python 3.13 in an isolated Linux sandbox with public internet access.",
+                "Execute JavaScript (Node.js 24) or Python 3.14 in an isolated Linux sandbox with public internet access.",
                 "This is the general-purpose executor. When execute_math is also available, prefer execute_math for mathematical, scientific, statistical, unit, data-analysis, and graph-algorithm work covered by its included libraries.",
                 "Standard libraries are available; declare third-party npm or PyPI packages in dependencies.",
                 "To give the user downloadable files, write them under the directory in SILKCHAT_ARTIFACT_DIR. Supported outputs include PDF, CSV/TSV, JSON/text/Markdown, XLSX/DOCX/PPTX, ZIP, SQLite, Parquet, PNG, JPEG, and WebP. Do not print binary data or base64.",

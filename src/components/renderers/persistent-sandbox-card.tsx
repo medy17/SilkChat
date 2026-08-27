@@ -27,7 +27,8 @@ type PersistentSandboxOutput = {
     cardId?: string
     sandboxId?: Id<"persistentSandboxes">
     purpose?: string
-    runtime?: "node24" | "python3.13"
+    runtime?: "node" | "python"
+    runtimeVersion?: string
     ttlMinutes?: number
     expiresAt?: number
     confirmationExpiresAt?: number
@@ -161,7 +162,8 @@ export const PersistentSandboxCard = memo(
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-medium text-sm">Persistent workspace</h3>
                             <span className="rounded-[var(--radius-sm)] bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
-                                {output.runtime === "python3.13" ? "Python 3.13" : "Node.js 24"}
+                                {output.runtime === "python" ? "Python" : "Node.js"}
+                                {output.runtimeVersion ? ` ${output.runtimeVersion}` : ""}
                             </span>
                         </div>
                         <p className="mt-1 text-muted-foreground text-sm">{output.purpose}</p>

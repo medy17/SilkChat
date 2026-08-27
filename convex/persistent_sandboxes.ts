@@ -14,6 +14,7 @@ import {
     MAX_PERSISTENT_SANDBOX_LIFETIME_MS,
     PERSISTENT_SANDBOX_CONFIRMATION_TTL_MS
 } from "./lib/persistent_sandbox_policy"
+import { parseSandboxRuntime, parseSandboxRuntimeVersion } from "./lib/sandbox_runtime"
 
 export const PERSISTENT_SANDBOX_TTL_MINUTES = [3, 5, 10, 15, 30] as const
 
@@ -59,13 +60,15 @@ const findRequestCard = async (
     const result = part.toolInvocation.result as Record<string, unknown>
     const ttlMinutes = Number(result.ttlMinutes)
     const purpose = typeof result.purpose === "string" ? result.purpose.trim() : ""
-    const runtime = result.runtime
+    const runtime = parseSandboxRuntime(result.runtime)
+    const runtimeVersion = parseSandboxRuntimeVersion(result.runtimeVersion)
     if (
         !PERSISTENT_SANDBOX_TTL_MINUTES.includes(
             ttlMinutes as (typeof PERSISTENT_SANDBOX_TTL_MINUTES)[number]
         ) ||
         !purpose ||
-        (runtime !== "node24" && runtime !== "python3.13")
+        !runtime ||
+        !runtimeVersion
     ) {
         return null
     }
@@ -83,7 +86,8 @@ const findRequestCard = async (
         result,
         ttlMinutes,
         purpose,
-        runtime: runtime as "node24" | "python3.13",
+        runtime,
+        runtimeVersion,
         confirmationExpiresAt
     }
 }
@@ -164,6 +168,7 @@ export const getMyActivePersistentSandbox = query({
             _id: record._id,
             status: record.status,
             runtime: record.runtime,
+            runtimeVersion: record.runtimeVersion,
             expiresAt: record.expiresAt,
             sessionState: record.sessionState
         }
@@ -279,6 +284,7 @@ export const claimPersistentSandboxRequest = internalMutation({
             purpose: card.purpose,
             ttlMinutes: card.ttlMinutes,
             runtime: card.runtime,
+            runtimeVersion: card.runtimeVersion,
             sandboxName: args.sandboxName,
             status: "provisioning",
             createdAt: now,
@@ -600,6 +606,7 @@ export const denyPersistentSandboxRequest = mutation({
             purpose: card.purpose,
             ttlMinutes: card.ttlMinutes,
             runtime: card.runtime,
+            runtimeVersion: card.runtimeVersion,
             status: "denied",
             createdAt: now,
             updatedAt: now,

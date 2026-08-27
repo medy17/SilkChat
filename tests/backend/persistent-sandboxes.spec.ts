@@ -75,7 +75,8 @@ const requestPart = (
             status: "pending_confirmation",
             cardId,
             purpose: "Run several related analyses",
-            runtime: "python3.13",
+            runtime: "python",
+            runtimeVersion: "3.14",
             ttlMinutes: 5,
             ...overrides
         }
@@ -179,6 +180,39 @@ describe("persistent sandbox lifecycle", () => {
         expect(second).toMatchObject({ ok: false, reason: "active_exists" })
         expect([...records.values()]).toHaveLength(1)
         expect([...records.values()][0]?.status).toBe("provisioning")
+    })
+
+    it("keeps the runtime and version approved on the request card", async () => {
+        const { ctx, records } = createCtx({ runtime: "node", runtimeVersion: "22" })
+
+        const result = await claimHandler.handler(ctx, {
+            userId: "user-1",
+            threadId: "thread-1",
+            messageId: "assistant-1",
+            toolCallId: "tool-1",
+            cardId: "card-1",
+            sandboxName: "sandbox-name-1"
+        })
+
+        expect(result.ok).toBe(true)
+        expect([...records.values()][0]?.runtime).toBe("node")
+        expect([...records.values()][0]?.runtimeVersion).toBe("22")
+    })
+
+    it("rejects a request card without a runtime version lock", async () => {
+        const { ctx, records } = createCtx({ runtimeVersion: undefined })
+
+        const result = await claimHandler.handler(ctx, {
+            userId: "user-1",
+            threadId: "thread-1",
+            messageId: "assistant-1",
+            toolCallId: "tool-1",
+            cardId: "card-1",
+            sandboxName: "sandbox-name-1"
+        })
+
+        expect(result).toEqual({ ok: false, reason: "invalid_card" })
+        expect(records.size).toBe(0)
     })
 
     it("rejects and marks stale approval cards as expired", async () => {

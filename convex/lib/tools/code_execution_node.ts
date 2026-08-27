@@ -16,6 +16,15 @@ import {
     sandboxSessionNeedsStop
 } from "../sandbox_billing"
 import {
+    type SandboxLanguage,
+    type SandboxRuntime,
+    defaultSandboxRuntimeVersion,
+    parseSandboxRuntime,
+    sandboxImageForRuntime,
+    sandboxLanguageForRuntime,
+    sandboxRuntimeForLanguage
+} from "../sandbox_runtime"
+import {
     CODE_EXECUTION_ARTIFACT_DIRECTORY_ENV,
     CODE_EXECUTION_ARTIFACT_STORAGE_ROOT,
     type CodeExecutionArtifact,
@@ -36,7 +45,7 @@ const SANDBOX_SESSION_TIMEOUT_MS = 140_000
 const MAX_OUTPUT_CHARS_PER_STREAM = 32_000
 const MAX_CODE_CHARS = 100_000
 const MAX_DEPENDENCIES = 10
-const PACKAGE_SPECIFIER = /^[a-zA-Z0-9@._+\-/\[\],=<>!~^]+$/
+const PACKAGE_SPECIFIER = /^[a-zA-Z0-9@._+\-/[\],=<>!~^]+$/
 const SANDBOX_ARTIFACT_ROOT = "/vercel/sandbox/.silkchat/artifacts"
 
 export const getVercelSandboxCredentials = () => {
@@ -262,22 +271,26 @@ const validateExecutionInput = (code: string, dependencies: string[]) => {
 
 type PersistentSandboxCandidate = {
     status: string
-    runtime: "node24" | "python3.13"
+    runtime: string
     sandboxName?: string
     expiresAt?: number
 }
 
 export const resolveCodeSandbox = ({
     requestedMode,
-    runtime,
+    language,
     activeSandbox,
     now
 }: {
     requestedMode: "ephemeral" | "persistent"
-    runtime: "node24" | "python3.13"
+    language: SandboxLanguage
     activeSandbox: PersistentSandboxCandidate | null
     now: number
-}): { mode: "ephemeral" } | { mode: "persistent"; sandboxName: string } | { error: string } => {
+}):
+    | { mode: "ephemeral"; runtime: SandboxRuntime }
+    | { mode: "persistent"; runtime: SandboxRuntime; sandboxName: string }
+    | { error: string } => {
+    const requestedRuntime = sandboxRuntimeForLanguage(language)
     const available =
         activeSandbox?.status === "active" &&
         Boolean(activeSandbox.sandboxName) &&
@@ -285,12 +298,22 @@ export const resolveCodeSandbox = ({
         activeSandbox.expiresAt > now
 
     if (available && activeSandbox) {
-        if (activeSandbox.runtime !== runtime) {
+        const activeRuntime = parseSandboxRuntime(activeSandbox.runtime)
+        if (!activeRuntime) {
             return {
-                error: `The active persistent sandbox uses ${activeSandbox.runtime}; ${runtime} execution cannot use an ephemeral sandbox until the active sandbox is killed.`
+                error: "The active persistent sandbox uses an unsupported runtime. Kill it before starting another execution."
             }
         }
-        return { mode: "persistent", sandboxName: activeSandbox.sandboxName as string }
+        if (sandboxLanguageForRuntime(activeRuntime) !== language) {
+            return {
+                error: `The active persistent sandbox uses ${activeSandbox.runtime}; ${requestedRuntime} execution cannot use an ephemeral sandbox until the active sandbox is killed.`
+            }
+        }
+        return {
+            mode: "persistent",
+            runtime: activeRuntime,
+            sandboxName: activeSandbox.sandboxName as string
+        }
     }
 
     if (requestedMode === "persistent") {
@@ -298,7 +321,7 @@ export const resolveCodeSandbox = ({
             error: "No active persistent sandbox is available. Ask the user to approve one first."
         }
     }
-    return { mode: "ephemeral" }
+    return { mode: "ephemeral", runtime: requestedRuntime }
 }
 
 export const executeCode = internalAction({
@@ -322,7 +345,6 @@ export const executeCode = internalAction({
             }
         }
 
-        const runtime = language === "javascript" ? "node24" : "python3.13"
         const extension = language === "javascript" ? "mjs" : "py"
         const executionId = crypto.randomUUID()
         const filename = `main-${executionId}.${extension}`
@@ -365,7 +387,7 @@ export const executeCode = internalAction({
             )
             const selection = resolveCodeSandbox({
                 requestedMode: sandboxMode,
-                runtime,
+                language,
                 activeSandbox,
                 now: Date.now()
             })
@@ -380,6 +402,7 @@ export const executeCode = internalAction({
                 }
             }
             effectiveSandboxMode = selection.mode
+            const runtime = selection.runtime
 
             if (selection.mode === "persistent") {
                 if (!activeSandbox) throw new Error("Persistent sandbox record disappeared")
@@ -412,7 +435,7 @@ export const executeCode = internalAction({
             } else {
                 sandbox = await Sandbox.create({
                     ...credentials,
-                    runtime,
+                    image: sandboxImageForRuntime(runtime, defaultSandboxRuntimeVersion(runtime)),
                     resources: { vcpus: 1 },
                     timeout: SANDBOX_SESSION_TIMEOUT_MS,
                     persistent: false,
