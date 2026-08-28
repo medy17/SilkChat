@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
     ResponsivePopover,
@@ -9,14 +9,19 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { api } from "@/convex/_generated/api"
+import { useSession } from "@/hooks/auth-hooks"
+import { buildLemonSqueezyCheckoutUrl } from "@/lib/billing"
+import { optionalBrowserEnv } from "@/lib/browser-env"
 import type {
     PrototypeCreditDevState,
     PrototypeCreditDevStatePayload,
     PrototypeCreditSummary
 } from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
-import { Clock, Crown, KeyRound, RefreshCw, Shield, Wallet } from "lucide-react"
-import { memo, useEffect, useMemo, useState } from "react"
+import { useConvexQuery } from "@convex-dev/react-query"
+import { Clock, Crown, RefreshCw, Shield, Wallet } from "lucide-react"
+import { memo, type ReactNode, useEffect, useMemo, useState } from "react"
 
 const formatUsageCountdown = (target: number | null, now: number) => {
     if (!target) return "Ready"
@@ -116,6 +121,8 @@ function PrototypeCreditsBody({
     onSetDevCreditState,
     onRefresh,
     isRefreshing,
+    planState,
+    showPlanHeader = true,
     className
 }: {
     summary: PrototypeCreditSummary | null
@@ -125,8 +132,33 @@ function PrototypeCreditsBody({
     onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
     isRefreshing: boolean
+    planState?: string[]
+    showPlanHeader?: boolean
     className?: string
 }) {
+    const session = useSession()
+    const checkoutUser = session.user
+    const checkoutBillingSummary = useConvexQuery(
+        api.billing.getMyBillingSummary,
+        summary?.plan === "free" && checkoutUser?.id ? {} : "skip"
+    )
+    const checkoutUrl = optionalBrowserEnv("VITE_LEMONSQUEEZY_PRO_CHECKOUT_URL")
+    const checkoutBillingUserId =
+        checkoutBillingSummary && !("error" in checkoutBillingSummary)
+            ? checkoutBillingSummary.userId
+            : null
+    const checkoutEmail = checkoutUser?.email
+    const checkoutName = checkoutUser?.name
+    const proCheckoutUrl = useMemo(() => {
+        if (!checkoutUrl || !checkoutBillingUserId) return null
+
+        return buildLemonSqueezyCheckoutUrl({
+            checkoutUrl,
+            userId: checkoutBillingUserId,
+            email: checkoutEmail,
+            name: checkoutName
+        })
+    }, [checkoutBillingUserId, checkoutEmail, checkoutName, checkoutUrl])
     const periodLabel = useMemo(() => {
         if (!summary) {
             return null
@@ -178,41 +210,40 @@ function PrototypeCreditsBody({
 
     return (
         <div className={cn("space-y-3 md:space-y-4", className)}>
-            <div className="flex items-start justify-between gap-3">
-                <div className="space-y-0.5 md:space-y-1">
-                    <div className="flex items-center gap-2">
-                        <PlanIcon className="h-4 w-4 shrink-0" />
-                        <span className="font-medium text-sm">
-                            {summary.plan === "pro" ? "Pro Plan" : "Free Plan"}
-                        </span>
+            {showPlanHeader ? (
+                <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5 md:space-y-1">
+                        <div className="flex items-center gap-2">
+                            <PlanIcon className="h-4 w-4 shrink-0" />
+                            <span className="font-medium text-sm">
+                                {summary.plan === "pro" ? "Pro Plan" : "Free Plan"}
+                            </span>
+                        </div>
                     </div>
-                    {periodLabel ? (
-                        <div className="text-muted-foreground text-xs">Resets on {periodLabel}</div>
-                    ) : null}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-[var(--radius-md)]"
+                        onClick={() => void handleRefresh()}
+                        disabled={shouldAnimateRefresh}
+                        title="Refresh usage"
+                    >
+                        <RefreshCw
+                            className={cn(
+                                "h-4 w-4",
+                                shouldAnimateRefresh && "animate-spin [animation-duration:800ms]"
+                            )}
+                        />
+                        <span className="sr-only">Refresh usage</span>
+                    </Button>
                 </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 rounded-[var(--radius-md)]"
-                    onClick={() => void handleRefresh()}
-                    disabled={shouldAnimateRefresh}
-                    title="Refresh usage"
-                >
-                    <RefreshCw
-                        className={cn(
-                            "h-4 w-4",
-                            shouldAnimateRefresh && "animate-spin [animation-duration:800ms]"
-                        )}
-                    />
-                    <span className="sr-only">Refresh usage</span>
-                </Button>
-            </div>
+            ) : null}
 
             <div className="space-y-2.5 md:space-y-3">
                 {(
                     [
-                        ["5h limit", usageMetering.fiveHour, usageMetering.fiveHour.recoversAt],
+                        ["Base", usageMetering.fiveHour, usageMetering.fiveHour.recoversAt],
                         ["Monthly", usageMetering.monthly, summary.periodEndsAt]
                     ] as const
                 ).map(([label, window, resetsAt]) => {
@@ -244,7 +275,7 @@ function PrototypeCreditsBody({
                     )
                 })}
             </div>
-
+            {/*
             <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground sm:text-xs">
                 <span>{summary.requestCounts.internal} internal</span>
                 <span className="inline-flex items-center gap-1">
@@ -252,6 +283,36 @@ function PrototypeCreditsBody({
                     {summary.requestCounts.byok} BYOK
                 </span>
             </div>
+            */}
+            {planState?.length || periodLabel ? (
+                <div className="space-y-1 text-muted-foreground text-xs">
+                    {planState?.map((row) => (
+                        <div key={row}>{row}</div>
+                    ))}
+                    {periodLabel && !planState?.length ? <div>Resets on {periodLabel}</div> : null}
+                </div>
+            ) : null}
+
+            {summary.plan === "free" ? (
+                <Button
+                    asChild={Boolean(proCheckoutUrl)}
+                    disabled={!proCheckoutUrl}
+                    size="sm"
+                    className="w-full"
+                >
+                    {proCheckoutUrl ? (
+                        <a href={proCheckoutUrl}>
+                            <Crown className="size-4" />
+                            Upgrade to Pro
+                        </a>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                            <Crown className="size-4" />
+                            Upgrade to Pro
+                        </span>
+                    )}
+                </Button>
+            ) : null}
 
             {shouldShowDevCreditPlanToggle && (
                 <PrototypeCreditDevLab
@@ -474,6 +535,10 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isUpdatingDevCreditState,
     onSetDevCreditState,
     onRefresh,
+    planState,
+    title = "Included usage",
+    headerAction,
+    showPlanHeader = true,
     className
 }: {
     summary: PrototypeCreditSummary | null
@@ -484,13 +549,22 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     isUpdatingDevCreditState: boolean
     onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
     onRefresh: () => Promise<void>
+    planState?: string[]
+    title?: ReactNode
+    headerAction?: ReactNode
+    showPlanHeader?: boolean
     className?: string
 }) {
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>Included usage</CardTitle>
-                <CardDescription>Track your five-hour and monthly included usage.</CardDescription>
+                <CardTitle className={headerAction ? "self-center" : undefined}>{title}</CardTitle>
+                {/* <CardDescription>Track your five-hour and monthly included usage.</CardDescription> */}
+                {headerAction ? (
+                    <CardAction className="row-span-1 row-start-1 self-center">
+                        {headerAction}
+                    </CardAction>
+                ) : null}
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -504,6 +578,8 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
                         onSetDevCreditState={onSetDevCreditState}
                         onRefresh={onRefresh}
                         isRefreshing={isRefreshing}
+                        planState={planState}
+                        showPlanHeader={showPlanHeader}
                     />
                 )}
             </CardContent>

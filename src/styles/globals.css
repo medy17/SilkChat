@@ -619,6 +619,17 @@ html {
     }
 }
 
+/* Suppress focus outline on Recharts charts for mouse clicks, keep for keyboard nav */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+    outline: none;
+}
+
+.recharts-wrapper:focus-visible,
+.recharts-wrapper *:focus-visible {
+    outline: revert;
+}
+
 /* Dev tools — only active when the dev dock sets these root markers. */
 [data-dev-no-animations],
 [data-dev-no-animations] *,

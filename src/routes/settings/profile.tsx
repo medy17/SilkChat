@@ -132,6 +132,14 @@ export function AccountSettingsContent() {
     const exportDialogResetTimerRef = useRef<number | null>(null)
     const [accountExportKey, setAccountExportKey] = useState<string | null>(null)
     const [accountExportKeyCopied, setAccountExportKeyCopied] = useState(false)
+    const [exportNow, setExportNow] = useState(() => Date.now())
+
+    useEffect(() => {
+        if (!latestAccountExport) return
+
+        const intervalId = window.setInterval(() => setExportNow(Date.now()), 60_000)
+        return () => window.clearInterval(intervalId)
+    }, [latestAccountExport])
     const showContextualDevTools = useShowContextualDevTools()
     const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
     const {
@@ -213,6 +221,10 @@ export function AccountSettingsContent() {
         acceptExportPasswordResponsibility &&
         Boolean(turnstileToken) &&
         !isExportingAccount
+    const isExportCooldownActive = Boolean(
+        latestAccountExport && latestAccountExport.nextRequestAt > exportNow
+    )
+    const shouldShowExportStatus = Boolean(latestAccountExport && isExportCooldownActive)
 
     const handleExportAccount = useCallback(async () => {
         if (!session?.user || !canRequestExport || !turnstileToken) return
@@ -403,7 +415,7 @@ export function AccountSettingsContent() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Profile Information</CardTitle>
-                        <CardDescription>Your personal account information</CardDescription>
+                        {/* <CardDescription>Your personal account information</CardDescription> */}
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="flex items-center space-x-4">
@@ -625,14 +637,14 @@ export function AccountSettingsContent() {
             </Card>
 
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col sm:grid sm:grid-cols-[1fr_auto] sm:grid-rows-[auto_auto]">
                     <CardTitle>Export your data</CardTitle>
                     <CardDescription className="max-w-2xl space-y-1">
                         <p>
                             We’ll email you a link to a password-protected ZIP. You can request one
                             export every 24 hours.
                         </p>
-                        {latestAccountExport && (
+                        {shouldShowExportStatus && latestAccountExport && (
                             <p className="text-xs">
                                 Your last export was{" "}
                                 {getExportStatusLabel(latestAccountExport.status)}. You can request
@@ -646,20 +658,17 @@ export function AccountSettingsContent() {
                             </p>
                         )}
                     </CardDescription>
-                    <CardAction className="self-center">
+                    <CardAction className="order-3 mt-3 w-full self-stretch justify-self-stretch sm:order-none sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-auto sm:self-center sm:justify-self-end">
                         <Button
                             type="button"
-                            variant="outline"
-                            className="w-full shrink-0 rounded-[var(--radius-md)] sm:w-auto"
+                            size="sm"
+                            className="w-full shrink-0 sm:w-auto"
                             onClick={() => setExportDialogOpen(true)}
                             disabled={
                                 isExportingAccount ||
                                 !session?.user ||
                                 accountExportAvailability?.configured !== true ||
-                                Boolean(
-                                    latestAccountExport &&
-                                        latestAccountExport.nextRequestAt > Date.now()
-                                )
+                                Boolean(isExportCooldownActive)
                             }
                         >
                             {isExportingAccount ? (

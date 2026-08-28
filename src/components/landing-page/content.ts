@@ -1,10 +1,19 @@
 import {
+    Activity,
+    Brain,
     BrainCircuit,
+    Bot,
     Code,
+    Crown,
     FileText,
     FileUp,
     Globe,
     Image as ImageIcon,
+    Key,
+    LayersPlus,
+    MessageSquare,
+    Plus,
+    Scroll,
     Sparkles,
     Users,
     VenetianMask
@@ -42,6 +51,19 @@ export type Testimonial = {
     quote: string
     name: string
     role: string
+}
+
+export type PricingOption = {
+    title: string
+    price: string
+    cadence: string
+    cta: string
+    featured: boolean
+    description: string
+    items: Array<{
+        label: string
+        Icon: LandingIcon
+    }>
 }
 
 export type GalleryImage = {
@@ -259,7 +281,7 @@ export const proofItems = [
     "Import chats from other platforms"
 ]
 
-export const pricingOptions = [
+export const pricingOptions: PricingOption[] = [
     {
         title: "Free",
         price: "$0",
@@ -268,25 +290,28 @@ export const pricingOptions = [
         featured: false,
         description: "Try the app with zero commitment.",
         items: [
-            "Included model usage",
-            "Chat, file uploads, and light reasoning",
-            "Personas",
-            "Upgrade when you need Pro models"
+            { label: "Small limits for basic usage ", Icon: Bot },
+            { label: "Chat, file uploads, and light reasoning", Icon: MessageSquare },
+            { label: "Personas", Icon: VenetianMask },
+            { label: "Upgrade for more Intelligent models", Icon: Crown }
         ]
     },
     {
         title: "Pro",
         price: "$8.99",
-        cadence: "p/mo",
+        cadence: "/month",
         cta: "Get Pro",
         featured: true,
-        description: "World-class model variety models with generous usage limits.",
+        description: "World-class model variety with generous usage limits.",
         items: [
-            "Everything in Free, plus:",
-            "Much larger usage quotas",
-            "Access Pro models like Opus 4.8 and GPT 5.6 Sol",
-            "Premium image generation experience in SilkScreen",
-            "Use BYOK for extra usage"
+            { label: "Everything in Free, plus:", Icon: Plus },
+            { label: "25x more usage limits", Icon: Activity },
+            { label: "40+ models including Opus and 5.6 Sol", Icon: Crown },
+            { label: "High Reasoning for more complex tasks", Icon: Brain },
+            { label: "Premium image generation in SilkScreen", Icon: ImageIcon },
+            { label: "Concurrent image generations", Icon: LayersPlus },
+            { label: "10x longer context for lengthy chats", Icon: Scroll },
+            { label: "Use BYOK for unlimited usage", Icon: Key }
         ]
     }
 ]

@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Crown, Wallet } from "lucide-react"
+import { Crown, Wallet } from "lucide-react"
 
 import { pricingOptions } from "@/components/landing-page/content"
 import { SectionHead, SignInButton, Tile } from "@/components/landing-page/shared"
@@ -50,13 +50,15 @@ export function PricingSection() {
                                     </div>
                                 </div>
                                 <ul className="mb-7 space-y-3">
-                                    {items.map((item) => (
+                                    {items.map(({ label, Icon }) => (
                                         <li
-                                            key={item}
+                                            key={label}
                                             className="flex items-center gap-3 text-sm [color:var(--landing-muted)]"
                                         >
-                                            <Check className="size-4 text-emerald-400" />
-                                            {item}
+                                            <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-md)] [background:var(--landing-surface-strong)] [color:var(--landing-fg)]">
+                                                <Icon className="size-4" />
+                                            </span>
+                                            {label}
                                         </li>
                                     ))}
                                 </ul>
