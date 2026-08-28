@@ -83,6 +83,17 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
+    it("normalizes standalone double-dollar equations into display fences", () => {
+        expect(
+            normalizeMarkdownMathDelimiters(
+                "Before\n\n$$ \\frac{x^{2}}{y^{3}} + \\sqrt{2} $$\n\nAfter"
+            )
+        ).toBe("Before\n\n$$\n\\frac{x^{2}}{y^{3}} + \\sqrt{2}\n$$\n\nAfter")
+        expect(normalizeMarkdownMathDelimiters("Keep $$x^2$$ inline here.")).toBe(
+            "Keep $$x^2$$ inline here."
+        )
+    })
+
     it("leaves incomplete single-dollar math delimiters untouched while streaming", () => {
         expect(normalizeMarkdownMathDelimiters("Where $L_{0} is still streaming")).toBe(
             "Where $L_{0} is still streaming"
@@ -90,6 +101,17 @@ describe("MemoizedMarkdown", () => {
         expect(normalizeMarkdownMathDelimiters("Before\n$\nL(t)=L_{0}e^{-kt}\nAfter")).toBe(
             "Before\n$\nL(t)=L_{0}e^{-kt}\nAfter"
         )
+    })
+
+    it("renders standalone double-dollar equations as display math", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "Before\n\n$$ \\frac{x^{2}}{y^{3}}+\\sqrt{2} $$\n\nAfter"
+            })
+        )
+
+        expect(container.querySelector(".katex-display")).toBeTruthy()
+        expect(container.querySelector(".math-inline")).toBeNull()
     })
 
     it("renders streamed text at the stream cadence without word reveal animations", () => {

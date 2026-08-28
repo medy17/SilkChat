@@ -9,6 +9,8 @@ import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
 const SINGLE_DOLLAR_BLOCK_PATTERN = /(^|\n)([ \t]*)\$[ \t]*\n([\s\S]*?)\n[ \t]*\$([ \t]*(?=\n|$))/g
 const SINGLE_DOLLAR_INLINE_PATTERN = /(^|[^$\\])\$([^$\n]+?)\$(?!\$)/g
+const STANDALONE_DOUBLE_DOLLAR_PATTERN =
+    /(^|\n)([ \t]*)\$\$[ \t]*([^\n]*?\S)[ \t]*\$\$[ \t]*(?=\n|$)/g
 
 const looksLikeMath = (value: string) => {
     const expression = value.trim()
@@ -28,6 +30,11 @@ const looksLikeMath = (value: string) => {
 
 export const normalizeMarkdownMathDelimiters = (content: string) =>
     content
+        .replace(
+            STANDALONE_DOUBLE_DOLLAR_PATTERN,
+            (_match, prefix: string, indent: string, expression: string) =>
+                `${prefix}${indent}$$\n${expression}\n${indent}$$`
+        )
         .replace(
             SINGLE_DOLLAR_BLOCK_PATTERN,
             (_match, prefix: string, indent: string, expression: string, suffix: string) =>

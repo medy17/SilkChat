@@ -160,6 +160,7 @@ export default defineConfig(({ mode }) => {
                 ),
                 "micromark-extension-math": "micromark-extension-llm-math"
             },
+            dedupe: ["katex"],
             tsconfigPaths: true
         },
         server: {
