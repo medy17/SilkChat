@@ -8,7 +8,7 @@ import {
     GroqIcon,
     MetaIcon,
     MiniMaxIcon,
-    MoonshotAIIcon,
+    MoonshotLogo,
     OpenAIIcon,
     OpenRouterIcon,
     QwenIcon,
@@ -101,7 +101,7 @@ const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
         case "Z.ai":
             return <ZAIIcon className={className} />
         case "Moonshot AI":
-            return <MoonshotAIIcon className={`${className} rounded-sm`} />
+            return <MoonshotLogo className={`${className} rounded-sm`} />
         case "DeepSeek":
             return <DeepSeekIcon className={`${className} rounded-sm`} />
         case "Qwen":
