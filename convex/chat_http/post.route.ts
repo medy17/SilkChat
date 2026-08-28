@@ -213,7 +213,7 @@ const buildOpenRouterProviderOptions = (
         options.session_id = sessionId
     }
 
-    if (reasoningEffort === "off" && !isAlwaysOnReasoningModel) {
+    if (reasoningEffort === "off" && supportsReasoningToggle) {
         options.reasoning = {
             enabled: false,
             exclude: true,
