@@ -53,13 +53,11 @@ type ToolSelectorPopoverProps = {
     selectedModel: string | null
     className?: string
     tone?: "default" | "on-primary"
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }
 
-function WebSearchInfoContent({
-    available
-}: {
-    available: boolean
-}) {
+function WebSearchInfoContent({ available }: { available: boolean }) {
     return (
         <div className="space-y-3 p-3 text-sm">
             <div>
@@ -81,13 +79,7 @@ function WebSearchInfoContent({
     )
 }
 
-function WebSearchInfoButton({
-    isMobile,
-    available
-}: {
-    isMobile: boolean
-    available: boolean
-}) {
+function WebSearchInfoButton({ isMobile, available }: { isMobile: boolean; available: boolean }) {
     const [open, setOpen] = useState(false)
     const trigger = (
         <button
@@ -380,13 +372,7 @@ function ToolCallLimitInfoButton({ isMobile }: { isMobile: boolean }) {
     )
 }
 
-function SilkScreenInfoButton({
-    isMobile,
-    available
-}: {
-    isMobile: boolean
-    available: boolean
-}) {
+function SilkScreenInfoButton({ isMobile, available }: { isMobile: boolean; available: boolean }) {
     const [open, setOpen] = useState(false)
     const content = (
         <div className="space-y-3 p-3 text-sm">
@@ -462,11 +448,18 @@ export const ToolSelectorPopover = memo(
         modelSupportsVision,
         selectedModel,
         className,
-        tone = "default"
+        tone = "default",
+        open: controlledOpen,
+        onOpenChange
     }: ToolSelectorPopoverProps) => {
         const session = useSession()
         const isMobile = useIsMobile()
-        const [open, setOpen] = useState(false)
+        const [internalOpen, setInternalOpen] = useState(false)
+        const open = controlledOpen ?? internalOpen
+        const setOpen = (nextOpen: boolean) => {
+            if (controlledOpen === undefined) setInternalOpen(nextOpen)
+            onOpenChange?.(nextOpen)
+        }
         const userSettings = useConvexQuery(
             api.settings.getUserSettings,
             session.user?.id ? {} : "skip"
@@ -641,7 +634,7 @@ export const ToolSelectorPopover = memo(
                     >
                         <Settings2 className="size-4" />
                         {activeCount > 0 && (
-                            <span className="-top-0.5 -right-1 absolute flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
+                            <span className="absolute -top-0.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
                                 {activeCount}
                             </span>
                         )}

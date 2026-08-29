@@ -21,20 +21,40 @@ export function PersonaAvatar({
     avatarKind,
     avatarValue,
     className,
-    rounded = "lg"
+    rounded = "xl"
 }: {
     name: string
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
     className?: string
-    rounded?: "lg" | "full"
+    rounded?: "xl" | "full" | "none"
 }) {
-    const roundedClassName = rounded === "full" ? "rounded-full" : "rounded-lg"
+    const roundedClassName =
+        rounded === "full"
+            ? "rounded-full"
+            : rounded === "none"
+              ? "rounded-none"
+              : "rounded-[var(--radius-xl)]"
 
     return (
-        <Avatar className={cn("size-7", roundedClassName, className)}>
-            <AvatarImage src={getPersonaAvatarSrc(avatarKind, avatarValue)} alt={name} />
-            <AvatarFallback className={cn(roundedClassName, "text-[0.625rem]")}>
+        <Avatar
+            className={cn(
+                "size-7 border border-foreground/10 bg-secondary shadow-inner",
+                roundedClassName,
+                className
+            )}
+        >
+            <AvatarImage
+                src={getPersonaAvatarSrc(avatarKind, avatarValue)}
+                alt={name}
+                className={cn(roundedClassName, "object-contain")}
+            />
+            <AvatarFallback
+                className={cn(
+                    roundedClassName,
+                    "border-0 bg-secondary text-[0.625rem] shadow-none"
+                )}
+            >
                 {getInitials(name)}
             </AvatarFallback>
         </Avatar>

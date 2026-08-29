@@ -1286,6 +1286,7 @@ export function ModelSelector({
     modal = true,
     requiresNativePdf = false,
     byokContextHint,
+    open: controlledOpen,
     onOpenChange,
     telemetrySurface
 }: {
@@ -1306,6 +1307,7 @@ export function ModelSelector({
         tooltip: string
         ariaLabel: string
     }
+    open?: boolean
     onOpenChange?: (open: boolean) => void
     telemetrySurface: "composer" | "message_edit" | "persona_settings"
 }) {
@@ -1322,7 +1324,8 @@ export function ModelSelector({
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
 
-    const [open, setOpenState] = React.useState(false)
+    const [internalOpen, setOpenState] = React.useState(false)
+    const open = controlledOpen ?? internalOpen
     const openRef = React.useRef(false)
     const selectorTelemetryRef = React.useRef({
         availableModelCount: 0,
@@ -1352,11 +1355,14 @@ export function ModelSelector({
                     result_count: metrics.resultCount
                 })
             }
-            setOpenState(nextOpen)
+            if (controlledOpen === undefined) setOpenState(nextOpen)
             onOpenChange?.(nextOpen)
         },
-        [isMobile, onOpenChange, telemetrySurface]
+        [controlledOpen, isMobile, onOpenChange, telemetrySurface]
     )
+    React.useEffect(() => {
+        openRef.current = open
+    }, [open])
     const [searchValue, setSearchValue] = React.useState("")
     const [expandedLegacySections, setExpandedLegacySections] = React.useState<
         Record<string, boolean>

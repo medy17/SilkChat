@@ -148,6 +148,7 @@ import {
 import { toast } from "sonner"
 
 type ExtendedUploadedFile = UploadedFileWithSource
+type ComposerOverlay = "model" | "persona" | "tools" | "reasoning" | "mobile-menu"
 
 const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
 const MAX_OUTPUT_CONTEXT_FRACTION = 0.25
@@ -319,11 +320,15 @@ const estimateUploadedFileTokens = (
 export const ReasoningEffortSelector = ({
     selectedModel,
     tone = "default",
-    creditPlan
+    creditPlan,
+    open,
+    onOpenChange
 }: {
     selectedModel: string | null
     tone?: "default" | "on-primary"
     creditPlan?: CreditPlan | null
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
     const { models: sharedModels } = useSharedModels()
@@ -367,6 +372,8 @@ export const ReasoningEffortSelector = ({
         <PromptInputAction tooltip="Select reasoning effort">
             <span className="inline-flex">
                 <Select
+                    open={open}
+                    onOpenChange={onOpenChange}
                     value={reasoningEffort}
                     onValueChange={(effort) => {
                         const selectedEffort = effort as ReasoningEffort
@@ -505,7 +512,7 @@ function MobileMenuIcon({
         <span className="relative flex size-4 shrink-0 items-center justify-center">
             {children}
             {slashed && (
-                <span className="-translate-y-1/2 pointer-events-none absolute top-1/2 h-px w-[1.15rem] rotate-[-42deg] bg-current" />
+                <span className="pointer-events-none absolute top-1/2 h-px w-[1.15rem] -translate-y-1/2 rotate-[-42deg] bg-current" />
             )}
         </span>
     )
@@ -1190,12 +1197,16 @@ export function ComposerDesktopActions({
     state,
     threadId,
     uploading,
-    onAttachClick
+    onAttachClick,
+    activeOverlay,
+    onOverlayOpenChange
 }: {
     state: ComposerToolbarState
     threadId?: string
     uploading: boolean
     onAttachClick: () => void
+    activeOverlay?: ComposerOverlay | null
+    onOverlayOpenChange?: (overlay: ComposerOverlay, open: boolean) => void
 }) {
     const { enabledTools, setEnabledTools } = useModelStore()
 
@@ -1222,7 +1233,7 @@ export function ComposerDesktopActions({
                             {uploading ? (
                                 <Loader2 className="size-4 animate-spin" />
                             ) : (
-                                <Paperclip className="-rotate-45 size-4 hover:text-primary" />
+                                <Paperclip className="size-4 -rotate-45 hover:text-primary" />
                             )}
                         </Button>
                     </PromptInputAction>
@@ -1235,6 +1246,12 @@ export function ComposerDesktopActions({
                                 modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
                                 modelSupportsVision={state.modelSupportsVision}
                                 selectedModel={state.selectedModel}
+                                open={onOverlayOpenChange ? activeOverlay === "tools" : undefined}
+                                onOpenChange={
+                                    onOverlayOpenChange
+                                        ? (open) => onOverlayOpenChange("tools", open)
+                                        : undefined
+                                }
                             />
                         </span>
                     </PromptInputAction>
@@ -1242,6 +1259,12 @@ export function ComposerDesktopActions({
                     <ReasoningEffortSelector
                         selectedModel={state.selectedModel}
                         creditPlan={state.creditPlan}
+                        open={onOverlayOpenChange ? activeOverlay === "reasoning" : undefined}
+                        onOpenChange={
+                            onOverlayOpenChange
+                                ? (open) => onOverlayOpenChange("reasoning", open)
+                                : undefined
+                        }
                     />
                 </>
             )}
@@ -1251,12 +1274,17 @@ export function ComposerDesktopActions({
 
 export function ComposerMobileMenu({
     state,
-    onAttachClick
+    onAttachClick,
+    open: controlledOpen,
+    onOpenChange
 }: {
     state: ComposerToolbarState
     onAttachClick: () => void
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }) {
-    const [open, setOpen] = useState(false)
+    const [internalOpen, setInternalOpen] = useState(false)
+    const open = controlledOpen ?? internalOpen
     const enabledTools = useModelStore((modelState) => modelState.enabledTools)
 
     if (state.isImageModel && !state.modelSupportsReasoningControl) {
@@ -1268,7 +1296,8 @@ export function ComposerMobileMenu({
             <MobileOverflowMenu
                 open={open}
                 onOpenChange={(nextOpen) => {
-                    setOpen(nextOpen)
+                    if (controlledOpen === undefined) setInternalOpen(nextOpen)
+                    onOpenChange?.(nextOpen)
                     if (nextOpen) {
                         captureBrowserEvent(TELEMETRY_EVENTS.advancedOptionsOpened, {
                             surface: "mobile_overflow",
@@ -1514,7 +1543,17 @@ export const MultimodalInput = forwardRef<
 
     const [inputValue, setInputValue] = useState("")
     const [isInputFocused, setIsInputFocused] = useState(false)
-    const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
+    const [activeComposerOverlay, setActiveComposerOverlay] = useState<ComposerOverlay | null>(null)
+    const handleComposerOverlayOpenChange = useCallback(
+        (overlay: ComposerOverlay, open: boolean) => {
+            setActiveComposerOverlay((currentOverlay) => {
+                if (open) return overlay
+                return currentOverlay === overlay ? null : currentOverlay
+            })
+        },
+        []
+    )
+    const isModelSelectorOpen = activeComposerOverlay === "model"
     const [activeIntent, setActiveIntent] = useState<ComposerIntentId | null>(null)
     const [attachingImageKey, setAttachingImageKey] = useState<string>()
     const [webTrends, setWebTrends] = useState<WebTrendSuggestion[]>([])
@@ -2215,7 +2254,7 @@ export const MultimodalInput = forwardRef<
                             size="icon"
                             onClick={() => handleRemoveUploadingFile(localFile)}
                             aria-label={actionLabel}
-                            className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                            className="absolute -top-2 -right-2 h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
                             style={{ borderRadius: "var(--radius-xl)" }}
                         >
                             <X className="size-4 md:size-3" />
@@ -2280,7 +2319,7 @@ export const MultimodalInput = forwardRef<
                                 handleRemoveFile(uploadedFile.key)
                             }}
                             aria-label="Remove attachment"
-                            className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                            className="absolute -top-2 -right-2 h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
                             style={{ borderRadius: "var(--radius-xl)" }}
                         >
                             <X className="size-4 md:size-3" />
@@ -2564,7 +2603,7 @@ export const MultimodalInput = forwardRef<
                                         {uploading ? (
                                             <Loader2 className="size-4 animate-spin" />
                                         ) : (
-                                            <Paperclip className="-rotate-45 size-4" />
+                                            <Paperclip className="size-4 -rotate-45" />
                                         )}
                                     </Button>
                                 </motion.div>
@@ -2675,7 +2714,13 @@ export const MultimodalInput = forwardRef<
                                                 <ModelSelector
                                                     selectedModel={selectedModel}
                                                     onModelChange={setSelectedModel}
-                                                    onOpenChange={setIsModelSelectorOpen}
+                                                    open={activeComposerOverlay === "model"}
+                                                    onOpenChange={(open) =>
+                                                        handleComposerOverlayOpenChange(
+                                                            "model",
+                                                            open
+                                                        )
+                                                    }
                                                     shortcutTarget="composer"
                                                     telemetrySurface="composer"
                                                     tooltip="Select model"
@@ -2688,19 +2733,31 @@ export const MultimodalInput = forwardRef<
                                                 />
                                             </motion.div>
                                         )}
-                                        <PersonaSelector threadId={threadId} />
+                                        <PersonaSelector
+                                            threadId={threadId}
+                                            open={activeComposerOverlay === "persona"}
+                                            onOpenChange={(open) =>
+                                                handleComposerOverlayOpenChange("persona", open)
+                                            }
+                                        />
 
                                         <ComposerDesktopActions
                                             state={composerToolbar}
                                             threadId={threadId}
                                             uploading={uploading}
                                             onAttachClick={() => uploadInputRef.current?.click()}
+                                            activeOverlay={activeComposerOverlay}
+                                            onOverlayOpenChange={handleComposerOverlayOpenChange}
                                         />
                                     </motion.div>
 
                                     <ComposerMobileMenu
                                         state={composerToolbar}
                                         onAttachClick={() => uploadInputRef.current?.click()}
+                                        open={activeComposerOverlay === "mobile-menu"}
+                                        onOpenChange={(open) =>
+                                            handleComposerOverlayOpenChange("mobile-menu", open)
+                                        }
                                     />
 
                                     {activePersistentSandbox && (
