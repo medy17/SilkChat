@@ -92,6 +92,7 @@ import {
     Trophy
 } from "lucide-react"
 import * as React from "react"
+import { LayoutGroup, motion } from "motion/react"
 import { toast } from "sonner"
 import "./model-selector.css"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
@@ -1680,6 +1681,7 @@ export function ModelSelector({
     ])
 
     const [activeProvider, setActiveProvider] = React.useState<string | null>(FAVORITES_SECTION_ID)
+    const providerRailLayoutGroupId = React.useId()
 
     React.useEffect(() => {
         if (!open) {
@@ -2042,65 +2044,81 @@ export function ModelSelector({
                             onScroll={handleLeftPanelScroll}
                             className="scrollbar-none relative h-full overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
-                            <div
-                                className={cn(
-                                    "relative flex flex-col items-center gap-1",
-                                    isMobile ? "px-1 pt-3 pb-2" : "px-2 pt-3 pb-2"
-                                )}
-                            >
-                                {filteredSections.map((section) => {
-                                    const isActive = section.id === visibleSection?.id
-                                    const hasNewModels = newProviderSectionIds.has(section.id)
-                                    return (
-                                        <Tooltip key={section.id}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveProvider(section.id)}
-                                                    className={cn(
-                                                        "relative flex size-11 min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border border-transparent p-0 text-left transition-colors",
-                                                        isActive
-                                                            ? cn(
-                                                                  "text-foreground ring-1 ring-foreground/20 ring-inset",
-                                                                  isMobile
-                                                                      ? "bg-background"
-                                                                      : "bg-popover"
-                                                              )
-                                                            : "bg-transparent text-muted-foreground hover:bg-muted/50"
-                                                    )}
-                                                    aria-label={section.label}
-                                                >
-                                                    <div
+                            <LayoutGroup id={providerRailLayoutGroupId}>
+                                <div
+                                    className={cn(
+                                        "relative flex flex-col items-center gap-1",
+                                        isMobile ? "px-1 pt-3 pb-2" : "px-2 pt-3 pb-2"
+                                    )}
+                                >
+                                    {filteredSections.map((section) => {
+                                        const isActive = section.id === visibleSection?.id
+                                        const hasNewModels = newProviderSectionIds.has(section.id)
+                                        return (
+                                            <Tooltip key={section.id}>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setActiveProvider(section.id)
+                                                        }
                                                         className={cn(
-                                                            "relative flex size-7 items-center justify-center rounded-[var(--radius-md)] bg-transparent",
-                                                            hasNewModels && "overflow-hidden"
+                                                            "relative isolate flex size-11 min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 text-left transition-colors",
+                                                            isActive
+                                                                ? "text-foreground"
+                                                                : "text-muted-foreground hover:bg-muted/50"
                                                         )}
+                                                        aria-label={section.label}
                                                     >
-                                                        <span
+                                                        {isActive && (
+                                                            <motion.span
+                                                                aria-hidden="true"
+                                                                data-slot="model-selector-provider-indicator"
+                                                                layoutId="model-selector-provider-indicator"
+                                                                className={cn(
+                                                                    "pointer-events-none absolute inset-0 -z-10 rounded-[inherit] ring-1 ring-foreground/20 ring-inset",
+                                                                    isMobile
+                                                                        ? "bg-background"
+                                                                        : "bg-popover"
+                                                                )}
+                                                                transition={{
+                                                                    duration: 0.25,
+                                                                    ease: [0.16, 1, 0.3, 1]
+                                                                }}
+                                                            />
+                                                        )}
+                                                        <div
                                                             className={cn(
-                                                                "relative z-10 flex items-center justify-center",
-                                                                hasNewModels &&
-                                                                    "new-model-provider-logo-glow"
+                                                                "relative flex size-7 items-center justify-center rounded-[var(--radius-md)] bg-transparent",
+                                                                hasNewModels && "overflow-hidden"
                                                             )}
                                                         >
-                                                            {section.icon}
-                                                        </span>
-                                                        {hasNewModels && (
-                                                            <>
-                                                                <Sparkle className="new-model-provider-twinkle absolute top-0.5 right-0.5 z-20 size-2.5" />
-                                                                <Sparkle className="new-model-provider-twinkle new-model-provider-twinkle-b absolute bottom-0.5 left-0.5 z-20 size-2" />
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left">
-                                                {section.label}
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )
-                                })}
-                            </div>
+                                                            <span
+                                                                className={cn(
+                                                                    "relative z-10 flex items-center justify-center",
+                                                                    hasNewModels &&
+                                                                        "new-model-provider-logo-glow"
+                                                                )}
+                                                            >
+                                                                {section.icon}
+                                                            </span>
+                                                            {hasNewModels && (
+                                                                <>
+                                                                    <Sparkle className="new-model-provider-twinkle absolute top-0.5 right-0.5 z-20 size-2.5" />
+                                                                    <Sparkle className="new-model-provider-twinkle new-model-provider-twinkle-b absolute bottom-0.5 left-0.5 z-20 size-2" />
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="left">
+                                                    {section.label}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )
+                                    })}
+                                </div>
+                            </LayoutGroup>
                         </div>
                         {canScrollDown && (
                             <div className="pointer-events-none absolute right-[1px] bottom-0 left-0 z-30 flex h-12 items-end justify-center bg-gradient-to-t from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
