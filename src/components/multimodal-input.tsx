@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
@@ -453,7 +454,7 @@ export interface MultimodalInputRef {
 }
 
 const mobileMenuRowClassName =
-    "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60"
+    "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60"
 
 type CreditPlan = "free" | "pro"
 
@@ -501,20 +502,99 @@ const usePrototypeCreditPlan = (enabled = true) => {
     return creditPlan
 }
 
-function MobileMenuIcon({
-    slashed = false,
-    children
+function MobileAvailabilityIndicator({
+    label,
+    description
 }: {
-    slashed?: boolean
-    children: React.ReactNode
+    label: string
+    description: string
 }) {
+    const isTouchDevice = useIsTouchDevice()
+    const indicator = (
+        <button
+            type="button"
+            aria-label={`Explain ${label} availability`}
+            className="flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-xl)] border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+            <X className="size-2.5" />
+        </button>
+    )
+
+    if (!isTouchDevice) {
+        return (
+            <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>{indicator}</TooltipTrigger>
+                <TooltipContent side="left" sideOffset={6}>
+                    {description}
+                </TooltipContent>
+            </Tooltip>
+        )
+    }
+
     return (
-        <span className="relative flex size-4 shrink-0 items-center justify-center">
-            {children}
-            {slashed && (
-                <span className="pointer-events-none absolute top-1/2 h-px w-[1.15rem] -translate-y-1/2 rotate-[-42deg] bg-current" />
-            )}
-        </span>
+        <Popover>
+            <PopoverTrigger asChild>{indicator}</PopoverTrigger>
+            <PopoverContent
+                align="center"
+                side="left"
+                sideOffset={6}
+                className="z-[60] w-56 p-2.5 text-muted-foreground text-xs"
+                style={{ borderRadius: "var(--radius-md)" }}
+            >
+                {description}
+            </PopoverContent>
+        </Popover>
+    )
+}
+
+function MobileToolRow({
+    label,
+    icon,
+    enabled,
+    available,
+    onClick
+}: {
+    label: string
+    icon: React.ReactNode
+    enabled: boolean
+    available: boolean
+    onClick: () => void
+}) {
+    const content = (
+        <>
+            <span
+                className={cn(
+                    "flex size-4 shrink-0 items-center justify-center",
+                    enabled && available ? "text-foreground" : "text-muted-foreground"
+                )}
+            >
+                {icon}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-foreground">{label}</span>
+        </>
+    )
+
+    if (!available) {
+        return (
+            <div className={cn(mobileMenuRowClassName, "cursor-default")}>
+                {content}
+                <MobileAvailabilityIndicator
+                    label={label}
+                    description={`${label} is unavailable with the selected model or current configuration.`}
+                />
+            </div>
+        )
+    }
+
+    return (
+        <div className={mobileMenuRowClassName}>
+            {content}
+            <Switch
+                checked={enabled}
+                aria-label={`${label}: ${enabled ? "On" : "Off"}`}
+                onCheckedChange={onClick}
+            />
+        </div>
     )
 }
 
@@ -610,8 +690,9 @@ function MobileOverflowMenu({
                                 onClick={() => setReasoningExpanded((expanded) => !expanded)}
                             >
                                 <ReasoningIcon className="size-4 shrink-0" />
-                                <span className="min-w-0 flex-1 truncate">
-                                    Reasoning: {reasoningLabel}
+                                <span className="min-w-0 flex-1 truncate">Reasoning</span>
+                                <span className="shrink-0 rounded-[var(--radius-md)] border border-border/60 bg-muted/50 px-1.5 py-1 text-xs">
+                                    {reasoningLabel}
                                 </span>
                                 {reasoningExpanded ? (
                                     <ChevronUp className="size-4 shrink-0" />
@@ -688,109 +769,6 @@ function MobileOverflowMenu({
                     {!isImageModel && (
                         <button
                             type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                (!modelSupportsFunctionCalling || !codeExecutionAvailable) &&
-                                    "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={!modelSupportsFunctionCalling || !codeExecutionAvailable}
-                            onClick={() => onToggleTool("code_execution")}
-                        >
-                            <MobileMenuIcon slashed={!codeExecutionEnabled}>
-                                <SquareTerminal className="size-4" />
-                            </MobileMenuIcon>
-                            <span className="min-w-0 flex-1 truncate">
-                                Code execution {codeExecutionEnabled ? "enabled" : "disabled"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                (!modelSupportsFunctionCalling || !memoryAvailable) &&
-                                    "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={!modelSupportsFunctionCalling || !memoryAvailable}
-                            onClick={() => onToggleTool("supermemory")}
-                        >
-                            <MobileMenuIcon slashed={!memoryEnabled}>
-                                <BrainCircuit className="size-4" />
-                            </MobileMenuIcon>
-                            <span className="min-w-0 flex-1 truncate">
-                                Memory {memoryEnabled ? "enabled" : "disabled"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                (!modelSupportsFunctionCalling ||
-                                    !mathematicalInstrumentsAvailable) &&
-                                    "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={
-                                !modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable
-                            }
-                            onClick={() => onToggleTool("mathematical_instruments")}
-                        >
-                            <MobileMenuIcon slashed={!mathematicalInstrumentsEnabled}>
-                                <Sigma className="size-4" />
-                            </MobileMenuIcon>
-                            <span className="min-w-0 flex-1 truncate">
-                                Math Kit {mathematicalInstrumentsEnabled ? "enabled" : "disabled"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                (!modelSupportsVision || !modelSupportsFunctionCalling) &&
-                                    "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={!modelSupportsVision || !modelSupportsFunctionCalling}
-                        >
-                            <ImageIcon className="size-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">
-                                SilkScreen{" "}
-                                {modelSupportsVision && modelSupportsFunctionCalling
-                                    ? "available"
-                                    : "unavailable"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
-                            className={cn(
-                                mobileMenuRowClassName,
-                                (!modelSupportsFunctionCalling || !webSearchAvailable) &&
-                                    "cursor-not-allowed opacity-50"
-                            )}
-                            disabled={!modelSupportsFunctionCalling || !webSearchAvailable}
-                            onClick={() => onToggleTool("web_search")}
-                        >
-                            <MobileMenuIcon slashed={!webSearchEnabled}>
-                                <Globe className="size-4" />
-                            </MobileMenuIcon>
-                            <span className="min-w-0 flex-1 truncate">
-                                Search {webSearchEnabled ? "enabled" : "disabled"}
-                            </span>
-                        </button>
-                    )}
-
-                    {!isImageModel && (
-                        <button
-                            type="button"
                             className={mobileMenuRowClassName}
                             onClick={() => {
                                 onOpenChange(false)
@@ -800,6 +778,77 @@ function MobileOverflowMenu({
                             <Paperclip className="size-4 shrink-0" />
                             <span className="min-w-0 flex-1 truncate">Attach</span>
                         </button>
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Code execution"
+                            icon={<SquareTerminal className="size-4" />}
+                            enabled={codeExecutionEnabled}
+                            available={modelSupportsFunctionCalling && codeExecutionAvailable}
+                            onClick={() => onToggleTool("code_execution")}
+                        />
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Memory"
+                            icon={<BrainCircuit className="size-4" />}
+                            enabled={memoryEnabled}
+                            available={modelSupportsFunctionCalling && memoryAvailable}
+                            onClick={() => onToggleTool("supermemory")}
+                        />
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Math Kit"
+                            icon={<Sigma className="size-4" />}
+                            enabled={mathematicalInstrumentsEnabled}
+                            available={
+                                modelSupportsFunctionCalling && mathematicalInstrumentsAvailable
+                            }
+                            onClick={() => onToggleTool("mathematical_instruments")}
+                        />
+                    )}
+
+                    {!isImageModel && (
+                        <div
+                            className={cn(
+                                mobileMenuRowClassName,
+                                (!modelSupportsVision || !modelSupportsFunctionCalling) &&
+                                    "cursor-not-allowed"
+                            )}
+                        >
+                            <ImageIcon
+                                className={cn(
+                                    "size-4 shrink-0",
+                                    !(modelSupportsVision && modelSupportsFunctionCalling) &&
+                                        "text-muted-foreground"
+                                )}
+                            />
+                            <span className="min-w-0 flex-1 truncate text-foreground">
+                                SilkScreen
+                            </span>
+                            {modelSupportsVision && modelSupportsFunctionCalling ? (
+                                <span className="shrink-0 text-muted-foreground text-xs">Auto</span>
+                            ) : (
+                                <MobileAvailabilityIndicator
+                                    label="SilkScreen"
+                                    description="SilkScreen requires a model with vision and tool support."
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Search"
+                            icon={<Globe className="size-4" />}
+                            enabled={webSearchEnabled}
+                            available={modelSupportsFunctionCalling && webSearchAvailable}
+                            onClick={() => onToggleTool("web_search")}
+                        />
                     )}
 
                     {!isImageModel && (
