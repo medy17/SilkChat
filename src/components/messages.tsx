@@ -1038,7 +1038,7 @@ const EditableMessage = memo(
                                                     onClick={handleToggleRemove}
                                                     aria-label={actionLabel}
                                                     className={cn(
-                                                        "-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 opacity-100 shadow-sm transition-opacity md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100",
+                                                        "absolute -top-2 -right-2 h-8 w-8 opacity-100 shadow-sm transition-opacity md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100",
                                                         isRemoved
                                                             ? "bg-background/80 text-foreground"
                                                             : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground"
@@ -1115,7 +1115,7 @@ const EditableMessage = memo(
                                                     size="icon"
                                                     onClick={() => removeAddedFile(file)}
                                                     aria-label="Remove attachment from message"
-                                                    className="-top-2 -right-2 md:-top-1 md:-right-1 absolute h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
+                                                    className="absolute -top-2 -right-2 h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
                                                     style={{ borderRadius: "var(--radius-xl)" }}
                                                 >
                                                     <X className="size-4 md:size-3" />
@@ -1376,6 +1376,32 @@ const MessageRowComponent = ({
     const actionsAnimationRef = useRef<Animation | null>(null)
     const prevIsEditingRef = useRef(isEditing)
 
+    const captureCurrentBubbleLayout = useCallback(() => {
+        const element = bubbleRef.current
+        if (!element) return
+
+        const rect = element.getBoundingClientRect()
+        const actionsRect = element
+            .querySelector<HTMLElement>("[data-message-actions]")
+            ?.getBoundingClientRect()
+
+        bubbleRectRef.current = { width: rect.width, height: rect.height }
+        actionsRectRef.current = actionsRect
+            ? { left: actionsRect.left, top: actionsRect.top }
+            : null
+    }, [])
+
+    const handleStartEdit = useCallback(
+        (selectedMessage: UIMessage) => {
+            // The credit summary request used to cause a post-mount rerender that
+            // refreshed these coordinates by accident. Capture them at the actual
+            // interaction boundary so the first edit is independent of fetch timing.
+            captureCurrentBubbleLayout()
+            onEdit?.(selectedMessage)
+        },
+        [captureCurrentBubbleLayout, onEdit]
+    )
+
     // FLIP the message bubble when entering/leaving edit mode. The outer element is
     // the same node across the toggle, so measuring before/after gives real pixel
     // sizes — which a CSS keyframe can't, since the resting bubble is content-sized
@@ -1606,7 +1632,7 @@ const MessageRowComponent = ({
                         role={message.role}
                         message={message}
                         onRetry={onRetry}
-                        onEdit={onEdit}
+                        onEdit={handleStartEdit}
                         editing={isEditing}
                         onCancelEdit={() => cancelEditRequestRef.current?.()}
                         requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}

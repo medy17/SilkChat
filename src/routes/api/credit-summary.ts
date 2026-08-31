@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/credit-summary")({
     server: {
         handlers: {
             GET: async () => {
-                const summary = await authServer.fetchAuthQuery(api.credits.getMyCreditSummary)
+                const summary = await authServer.fetchAuthQuery(api.credits.getMyCreditPlanSummary)
 
                 if (!summary) {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })

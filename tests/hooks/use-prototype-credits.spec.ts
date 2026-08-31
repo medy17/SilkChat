@@ -3,9 +3,14 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { useDiskCachedQueryMock, toastErrorMock } = vi.hoisted(() => ({
+const { useCreditAccessMock, useDiskCachedQueryMock, toastErrorMock } = vi.hoisted(() => ({
+    useCreditAccessMock: vi.fn(),
     useDiskCachedQueryMock: vi.fn(),
     toastErrorMock: vi.fn()
+}))
+
+vi.mock("@/components/credits/credit-access-runtime", () => ({
+    useCreditAccess: useCreditAccessMock
 }))
 
 vi.mock("@/lib/convex-cached-query", () => ({
@@ -20,18 +25,10 @@ vi.mock("sonner", () => ({
 
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 
-const freshPlan = {
-    enabled: true,
-    plan: "free" as const,
-    usageMetering: {
-        fiveHourLimitUsd: 1,
-        monthlyLimitUsd: 10
-    }
-}
-
 const proPlan = {
     enabled: true,
     plan: "pro" as const,
+    isStaff: false,
     usageMetering: {
         fiveHourLimitUsd: 2,
         monthlyLimitUsd: 20
@@ -89,13 +86,14 @@ const cachedSummary = {
 describe("usePrototypeCredits", () => {
     beforeEach(() => {
         localStorage.clear()
+        useCreditAccessMock.mockReset()
         useDiskCachedQueryMock.mockReset()
         toastErrorMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         vi.stubGlobal("fetch", vi.fn())
     })
 
-    it("hydrates from the cached summary immediately while keeping fresh plan data off the network", () => {
+    it("hydrates from the cached summary while shared access is loading", () => {
         localStorage.setItem(
             "hosted-usage-summary:v2:user-1",
             JSON.stringify({
@@ -103,12 +101,10 @@ describe("usePrototypeCredits", () => {
                 savedAt: Date.now()
             })
         )
-        localStorage.setItem(
-            "hosted-usage-plan:v2:user-1",
-            JSON.stringify({
-                value: freshPlan,
-                savedAt: Date.now()
-            })
+        useCreditAccessMock.mockImplementation(
+            (
+                selector: (state: { summary: typeof proPlan | null; isLoading: boolean }) => unknown
+            ) => selector({ summary: null, isLoading: true })
         )
         useDiskCachedQueryMock.mockReturnValue(null)
 
@@ -123,19 +119,13 @@ describe("usePrototypeCredits", () => {
         expect(global.fetch).not.toHaveBeenCalled()
     })
 
-    it("revalidates stale plan data and recomputes the merged summary with the latest usage", async () => {
-        localStorage.setItem(
-            "hosted-usage-plan:v2:user-1",
-            JSON.stringify({
-                value: freshPlan,
-                savedAt: Date.now() - 10 * 60 * 1000
-            })
+    it("combines shared plan access with the latest usage without an HTTP request", async () => {
+        useCreditAccessMock.mockImplementation(
+            (
+                selector: (state: { summary: typeof proPlan | null; isLoading: boolean }) => unknown
+            ) => selector({ summary: proPlan, isLoading: false })
         )
         useDiskCachedQueryMock.mockReturnValue(usageSummary)
-        vi.mocked(global.fetch).mockResolvedValue({
-            ok: true,
-            json: async () => proPlan
-        } as Response)
 
         const { result } = renderHook(() =>
             usePrototypeCredits({
@@ -143,12 +133,6 @@ describe("usePrototypeCredits", () => {
                 isAuthLoading: false
             })
         )
-
-        await waitFor(() => {
-            expect(global.fetch).toHaveBeenCalledWith("/api/credit-summary", {
-                cache: "no-store"
-            })
-        })
 
         await waitFor(() => {
             expect(result.current.summary).toEqual({
@@ -181,5 +165,6 @@ describe("usePrototypeCredits", () => {
         expect(
             JSON.parse(localStorage.getItem("hosted-usage-summary:v2:user-1") || "null").value
         ).toEqual(result.current.summary)
+        expect(global.fetch).not.toHaveBeenCalled()
     })
 })

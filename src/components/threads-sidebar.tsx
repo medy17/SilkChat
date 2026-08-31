@@ -914,10 +914,7 @@ export function ThreadsSidebar() {
                                     : "translate-x-4 opacity-0"
                             )}
                         >
-                            <ImageGenerationSidebar
-                                disabled={isLibraryArchiveView}
-                                shouldLoadCreditPlan={isLibraryMode}
-                            />
+                            <ImageGenerationSidebar disabled={isLibraryArchiveView} />
                         </div>
                     </div>
                 </div>

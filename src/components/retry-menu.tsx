@@ -1,5 +1,6 @@
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
@@ -110,11 +111,7 @@ const getProviderSectionLabel = (
     }
 }
 
-function RetryMenuDisabledReason({
-    reason
-}: {
-    reason: string
-}) {
+function RetryMenuDisabledReason({ reason }: { reason: string }) {
     const isMobile = useIsMobile()
     const [open, setOpen] = React.useState(false)
 
@@ -201,47 +198,11 @@ export function RetryMenu({
     const [expandedProviders, setExpandedProviders] = React.useState<Record<string, boolean>>({})
 
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
-    const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
+    const creditPlan = useCreditAccess((state) => state.plan)
 
     const { availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
-
-    React.useEffect(() => {
-        if (!session.user?.id || auth.isLoading) {
-            setCreditPlan(null)
-            return
-        }
-
-        let cancelled = false
-
-        const loadCreditPlan = async () => {
-            try {
-                const response = await fetch("/api/credit-summary", {
-                    credentials: "include"
-                })
-
-                if (!response.ok) {
-                    throw new Error("Failed to load credit summary")
-                }
-
-                const data = (await response.json()) as { plan?: "free" | "pro" }
-                if (!cancelled) {
-                    setCreditPlan(data.plan === "pro" ? "pro" : "free")
-                }
-            } catch {
-                if (!cancelled) {
-                    setCreditPlan("free")
-                }
-            }
-        }
-
-        void loadCreditPlan()
-
-        return () => {
-            cancelled = true
-        }
-    }, [auth.isLoading, session.user?.id])
 
     const getDefaultRetryEffort = React.useCallback(
         (

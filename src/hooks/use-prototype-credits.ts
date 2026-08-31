@@ -1,20 +1,18 @@
 import { api } from "@/convex/_generated/api"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import {
     type PrototypeCreditDevState,
     type PrototypeCreditDevStatePayload,
-    type PrototypeCreditPlanSummary,
     type PrototypeCreditSummary,
     type PrototypeCreditUsageSummary,
     buildPrototypeCreditSummary,
-    isPrototypeCreditCacheStale,
     readCachedPrototypeCreditValue,
     writeCachedPrototypeCreditValue
 } from "@/lib/prototype-credits"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-const PLAN_CACHE_MAX_AGE_MS = 5 * 60 * 1000
 const MIN_REFRESH_VISIBLE_MS = 700
 
 type UsePrototypeCreditsOptions = {
@@ -31,27 +29,20 @@ export function usePrototypeCredits({
     const summaryCacheKey = userId
         ? `hosted-usage-summary:v2:${userId}`
         : "hosted-usage-summary:v2:guest"
-    const planCacheKey = userId ? `hosted-usage-plan:v2:${userId}` : "hosted-usage-plan:v2:guest"
+    const prototypeCreditPlanSummary = useCreditAccess((state) => state.summary)
+    const isCreditAccessLoading = useCreditAccess((state) => state.isLoading)
 
     const cachedSummary = useMemo(
         () => readCachedPrototypeCreditValue<PrototypeCreditSummary>(summaryCacheKey),
         [summaryCacheKey]
     )
-    const cachedPlan = useMemo(
-        () => readCachedPrototypeCreditValue<PrototypeCreditPlanSummary>(planCacheKey),
-        [planCacheKey]
-    )
 
     const [isUpdatingDevCreditState, setIsUpdatingDevCreditState] = useState(false)
     const [isRefreshingPlan, setIsRefreshingPlan] = useState(false)
     const [devCreditState, setDevCreditState] = useState<PrototypeCreditDevState | null>(null)
-    const [prototypeCreditPlanSummary, setPrototypeCreditPlanSummary] =
-        useState<PrototypeCreditPlanSummary | null>(cachedPlan?.value ?? null)
-    const [lastPlanFetchAt, setLastPlanFetchAt] = useState(cachedPlan?.savedAt ?? 0)
     const [hydratedSummary, setHydratedSummary] = useState<PrototypeCreditSummary | null>(
         cachedSummary?.value ?? null
     )
-    const inFlightPlanRefreshRef = useRef<Promise<void> | null>(null)
 
     const usageSummary = useDiskCachedQuery(
         api.credits.getMyCreditUsageSummary,
@@ -85,91 +76,14 @@ export function usePrototypeCredits({
     }, [computedSummary, summaryCacheKey])
 
     useEffect(() => {
-        setPrototypeCreditPlanSummary(cachedPlan?.value ?? null)
-        setLastPlanFetchAt(cachedPlan?.savedAt ?? 0)
-    }, [cachedPlan])
-
-    useEffect(() => {
         setHydratedSummary(cachedSummary?.value ?? null)
     }, [cachedSummary])
 
     useEffect(() => {
         if (!userId) {
-            setPrototypeCreditPlanSummary(null)
             setHydratedSummary(null)
-            setLastPlanFetchAt(0)
         }
     }, [userId])
-
-    const refreshPlanSummary = useCallback(
-        async ({ force = false }: { force?: boolean } = {}) => {
-            if (!userId || isAuthLoading) {
-                return
-            }
-
-            if (
-                !force &&
-                prototypeCreditPlanSummary &&
-                !isPrototypeCreditCacheStale(lastPlanFetchAt, PLAN_CACHE_MAX_AGE_MS)
-            ) {
-                return
-            }
-
-            if (inFlightPlanRefreshRef.current) {
-                return inFlightPlanRefreshRef.current
-            }
-
-            const request = (async () => {
-                const refreshStartedAt = Date.now()
-                try {
-                    setIsRefreshingPlan(true)
-                    const response = await fetch("/api/credit-summary", {
-                        cache: "no-store"
-                    })
-                    if (!response.ok) {
-                        throw new Error(`Failed to load credit summary (${response.status})`)
-                    }
-
-                    const summary = (await response.json()) as PrototypeCreditPlanSummary
-                    setPrototypeCreditPlanSummary(summary)
-                    setLastPlanFetchAt(Date.now())
-                    writeCachedPrototypeCreditValue(planCacheKey, summary)
-                } catch (error) {
-                    console.error("Failed to load prototype credit summary:", error)
-                } finally {
-                    const elapsed = Date.now() - refreshStartedAt
-                    if (elapsed < MIN_REFRESH_VISIBLE_MS) {
-                        await new Promise((resolve) =>
-                            window.setTimeout(resolve, MIN_REFRESH_VISIBLE_MS - elapsed)
-                        )
-                    }
-                    setIsRefreshingPlan(false)
-                    inFlightPlanRefreshRef.current = null
-                }
-            })()
-
-            inFlightPlanRefreshRef.current = request
-            return request
-        },
-        [isAuthLoading, lastPlanFetchAt, planCacheKey, prototypeCreditPlanSummary, userId]
-    )
-
-    useEffect(() => {
-        void refreshPlanSummary()
-    }, [refreshPlanSummary])
-
-    useEffect(() => {
-        if (!userId || isAuthLoading) {
-            return
-        }
-
-        const handleFocus = () => {
-            void refreshPlanSummary()
-        }
-
-        window.addEventListener("focus", handleFocus)
-        return () => window.removeEventListener("focus", handleFocus)
-    }, [isAuthLoading, refreshPlanSummary, userId])
 
     const refreshDevCreditState = useCallback(async () => {
         if (!userId || isAuthLoading || !enableDevCreditState || !import.meta.env.DEV) {
@@ -216,7 +130,6 @@ export function usePrototypeCredits({
 
                 const state = (await response.json()) as PrototypeCreditDevState
                 setDevCreditState(state)
-                await refreshPlanSummary({ force: true })
                 await refreshDevCreditState()
             } catch (error) {
                 console.error("Failed to update dev credit state:", error)
@@ -225,23 +138,35 @@ export function usePrototypeCredits({
                 setIsUpdatingDevCreditState(false)
             }
         },
-        [
-            enableDevCreditState,
-            isUpdatingDevCreditState,
-            refreshDevCreditState,
-            refreshPlanSummary,
-            userId
-        ]
+        [enableDevCreditState, isUpdatingDevCreditState, refreshDevCreditState, userId]
     )
+
+    const refreshCredits = useCallback(async () => {
+        if (!userId || isAuthLoading) {
+            return
+        }
+
+        const refreshStartedAt = Date.now()
+        try {
+            setIsRefreshingPlan(true)
+            await refreshDevCreditState()
+        } finally {
+            const elapsed = Date.now() - refreshStartedAt
+            if (elapsed < MIN_REFRESH_VISIBLE_MS) {
+                await new Promise((resolve) =>
+                    window.setTimeout(resolve, MIN_REFRESH_VISIBLE_MS - elapsed)
+                )
+            }
+            setIsRefreshingPlan(false)
+        }
+    }, [isAuthLoading, refreshDevCreditState, userId])
 
     return {
         summary: computedSummary ?? hydratedSummary,
-        isLoading: !computedSummary && !hydratedSummary && Boolean(userId),
+        isLoading:
+            isCreditAccessLoading || (!computedSummary && !hydratedSummary && Boolean(userId)),
         isRefreshing: isRefreshingPlan,
-        refreshCredits: async () => {
-            await refreshPlanSummary({ force: true })
-            await refreshDevCreditState()
-        },
+        refreshCredits,
         devCreditState,
         isUpdatingDevCreditState,
         setDevCreditState: handleSetDevCreditState

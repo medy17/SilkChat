@@ -1,5 +1,6 @@
 import { DevRuntime } from "@/components/dev/dev-runtime"
 import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
+import { CreditAccessRuntime } from "@/components/credits/credit-access-runtime"
 import { TelemetryIdentity } from "@/components/telemetry-identity"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
@@ -66,6 +67,7 @@ export function Providers({ children }: { children: ReactNode }) {
                     Link={({ href, ...props }) => <Link to={href} {...props} />}
                 >
                     <TelemetryIdentity />
+                    <CreditAccessRuntime />
                     <StaleAssetRecovery />
 
                     <DevMotionConfig>{children}</DevMotionConfig>

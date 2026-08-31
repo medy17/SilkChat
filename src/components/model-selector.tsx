@@ -17,6 +17,7 @@ import {
     ZAIIcon
 } from "@/components/brand-icons"
 import { ModelCostIndicator } from "@/components/model-cost-indicator"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
@@ -1372,7 +1373,7 @@ export function ModelSelector({
     const [desktopPopoverWidth, setDesktopPopoverWidth] = React.useState<number | null>(null)
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
-    const [creditPlan, setCreditPlan] = React.useState<"free" | "pro" | null>(null)
+    const creditPlan = useCreditAccess((state) => state.plan)
     const [favoriteModelIds, setFavoriteModelIds] = React.useState<string[]>(() => [
         ...DEFAULT_FAVORITE_MODEL_IDS
     ])
@@ -1492,42 +1493,6 @@ export function ModelSelector({
         },
         [favoritesStorageKey]
     )
-
-    React.useEffect(() => {
-        if (!session.user?.id || auth.isLoading) {
-            setCreditPlan(null)
-            return
-        }
-
-        let cancelled = false
-
-        const loadCreditPlan = async () => {
-            try {
-                const response = await fetch("/api/credit-summary", {
-                    credentials: "include"
-                })
-
-                if (!response.ok) {
-                    throw new Error("Failed to load credit summary")
-                }
-
-                const data = (await response.json()) as { plan?: "free" | "pro" }
-                if (!cancelled) {
-                    setCreditPlan(data.plan === "pro" ? "pro" : "free")
-                }
-            } catch {
-                if (!cancelled) {
-                    setCreditPlan("free")
-                }
-            }
-        }
-
-        void loadCreditPlan()
-
-        return () => {
-            cancelled = true
-        }
-    }, [auth.isLoading, session.user?.id])
 
     const providerSections = React.useMemo<ProviderSection[]>(() => {
         const textModels = availableModels.filter(

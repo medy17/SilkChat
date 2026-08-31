@@ -1,4 +1,5 @@
 import { ImageCostEstimateIndicator } from "@/components/image-cost-indicator"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
@@ -147,13 +148,7 @@ const resolveImageAssetUrl = (value: string) => {
     return getPublicR2AssetUrl(value)
 }
 
-function RevealBlock({
-    show,
-    children
-}: {
-    show: boolean
-    children: ReactNode
-}) {
+function RevealBlock({ show, children }: { show: boolean; children: ReactNode }) {
     return (
         <div
             className={
@@ -433,7 +428,8 @@ export const ImageGenerationToolRenderer = memo(
             api.images.listGeneratedImagesByIds,
             !readOnly && generatedImageIds.length > 0 ? { ids: generatedImageIds } : "skip"
         ) as Doc<"generatedImages">[] | undefined
-        const creditSummary = useQuery(api.credits.getMyCreditSummary, readOnly ? "skip" : {})
+        const creditSummary = useCreditAccess((state) => state.summary)
+        const isCreditAccessLoading = useCreditAccess((state) => state.isLoading)
         // Accumulate images so a transient `undefined` (which the query returns while it
         // re-subscribes as new variant ids stream in) doesn't drop the currently-viewed
         // image, which would otherwise flash a reload and unmount the open details modal.
@@ -583,9 +579,13 @@ export const ImageGenerationToolRenderer = memo(
                 messageId &&
                 !isConfirming
             const needsPlanUpgrade =
-                output.estimatedCredits?.requiredPlan === "pro" && creditSummary?.plan === "free"
+                !readOnly &&
+                output.estimatedCredits?.requiredPlan === "pro" &&
+                creditSummary?.plan === "free"
             const isPlanLoading =
-                output.estimatedCredits?.requiredPlan === "pro" && creditSummary === undefined
+                !readOnly &&
+                output.estimatedCredits?.requiredPlan === "pro" &&
+                isCreditAccessLoading
             const handleConfirm = async () => {
                 if (!output.cardId || !threadId || !messageId) return
                 setIsConfirming(true)
@@ -820,7 +820,7 @@ export const ImageGenerationToolRenderer = memo(
                                         <TooltipTrigger asChild>
                                             <button
                                                 type="button"
-                                                className="-translate-y-1/2 absolute top-1/2 left-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                className="absolute top-1/2 left-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
                                                 aria-disabled={visibleSlotIndex <= 0}
                                                 onClick={(event) => {
                                                     event.stopPropagation()
@@ -852,7 +852,7 @@ export const ImageGenerationToolRenderer = memo(
                                         <TooltipTrigger asChild>
                                             <button
                                                 type="button"
-                                                className="-translate-y-1/2 absolute top-1/2 right-2 z-10 size-8 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                className="absolute top-1/2 right-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
                                                 aria-disabled={visibleSlotIndex >= totalSlots - 1}
                                                 onClick={(event) => {
                                                     event.stopPropagation()

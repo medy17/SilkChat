@@ -622,7 +622,7 @@ export const getUserCreditStateInternal = internalQuery({
     }
 })
 
-export const getMyCreditSummary = query({
+export const getMyCreditPlanSummary = query({
     args: {},
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
@@ -636,44 +636,15 @@ export const getMyCreditSummary = query({
         ])
         const resolvedAccount = getResolvedCreditAccount(account)
         const resolvedAccess = getResolvedUserAccess(access)
-        const period = await getUserCreditPeriod(ctx, user.id, account)
-        const events = await ctx.db
-            .query("prototypeCreditEvents")
-            .withIndex("byUserPeriod", (q) =>
-                q.eq("userId", user.id).eq("periodKey", period.periodKey)
-            )
-            .collect()
-        const internalRequestCount = events.filter((event) => event.counted).length
-        const byokRequestCount = events.filter((event) => !event.counted).length
         const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
 
         return {
             enabled: resolvedAccount.enabled,
             plan: resolvedAccount.plan,
             isStaff: resolvedAccess.isStaff,
-            periodKey: period.periodKey,
-            periodStartsAt: period.startsAt,
-            periodEndsAt: period.endsAt,
-            // Temporary response-shape compatibility for clients that were already open
-            // when discrete Basic/Pro accounting was removed. These values are inert.
-            basic: {
-                limit: 0,
-                used: 0,
-                remaining: 0
-            },
-            pro: {
-                limit: 0,
-                used: 0,
-                remaining: 0
-            },
             usageMetering: {
                 fiveHourLimitUsd: microusdToUsd(usageLimits.fiveHourMicrousd),
                 monthlyLimitUsd: microusdToUsd(usageLimits.monthlyMicrousd)
-            },
-            requestCounts: {
-                internal: internalRequestCount,
-                byok: byokRequestCount,
-                total: events.length
             }
         }
     }

@@ -1,4 +1,5 @@
 import { AttachmentTile } from "@/components/attachment-tile"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { IntentGuide } from "@/components/intent-guide"
 import { ModelSelector } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
@@ -333,8 +334,8 @@ export const ReasoningEffortSelector = ({
 }) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
     const { models: sharedModels } = useSharedModels()
-    const loadedCreditPlan = usePrototypeCreditPlan(creditPlan === undefined)
-    const resolvedCreditPlan = creditPlan === undefined ? loadedCreditPlan : creditPlan
+    const sharedCreditPlan = useCreditAccess((state) => state.plan)
+    const resolvedCreditPlan = creditPlan === undefined ? sharedCreditPlan : creditPlan
 
     const selectedSharedModel = useMemo(
         () => sharedModels.find((model) => model.id === selectedModel),
@@ -457,50 +458,6 @@ const mobileMenuRowClassName =
     "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60"
 
 type CreditPlan = "free" | "pro"
-
-const usePrototypeCreditPlan = (enabled = true) => {
-    const session = useSession()
-    const auth = useConvexAuth()
-    const [creditPlan, setCreditPlan] = useState<CreditPlan | null>(null)
-
-    useEffect(() => {
-        if (!enabled || !session.user?.id || auth.isLoading) {
-            setCreditPlan(null)
-            return
-        }
-
-        let cancelled = false
-
-        const loadCreditPlan = async () => {
-            try {
-                const response = await fetch("/api/credit-summary", {
-                    credentials: "include"
-                })
-
-                if (!response.ok) {
-                    throw new Error("Failed to load credit summary")
-                }
-
-                const data = (await response.json()) as { plan?: CreditPlan }
-                if (!cancelled) {
-                    setCreditPlan(data.plan === "pro" ? "pro" : "free")
-                }
-            } catch {
-                if (!cancelled) {
-                    setCreditPlan("free")
-                }
-            }
-        }
-
-        void loadCreditPlan()
-
-        return () => {
-            cancelled = true
-        }
-    }, [auth.isLoading, enabled, session.user?.id])
-
-    return creditPlan
-}
 
 function MobileAvailabilityIndicator({
     label,
@@ -1017,7 +974,7 @@ export function useComposerToolbarState() {
     const session = useSession()
     const auth = useConvexAuth()
     const { models: sharedModels } = useSharedModels()
-    const creditPlan = usePrototypeCreditPlan()
+    const creditPlan = useCreditAccess((state) => state.plan)
     const { selectedModel, enabledTools, setEnabledTools, reasoningEffort, setReasoningEffort } =
         useModelStore()
 

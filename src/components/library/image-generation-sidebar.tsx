@@ -1,4 +1,5 @@
 import { ImageCostIndicator } from "@/components/image-cost-indicator"
+import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
@@ -9,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
-import { useSession, useToken } from "@/hooks/auth-hooks"
+import { useToken } from "@/hooks/auth-hooks"
 import {
     notifyModelReplacement,
     resolveAvailableModelReplacement
@@ -143,16 +144,6 @@ class ReferencePreparationError extends Error {}
 
 const REFERENCE_INPUT_LIMIT_LABEL = formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxFileSize)
 const REFERENCE_PREPARATION_ERROR = `Reference could not be optimized to ${DEFAULT_UPLOAD_POLICY.maxImageDimension}px and under ${formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxImageFileSize)}.`
-const CREDIT_ACCESS_CACHE_MAX_AGE_MS = 5 * 60 * 1000
-const CREDIT_ACCESS_RETRY_MS = 30 * 1000
-
-type ImageGenerationCreditAccess = {
-    userId: string
-    plan: "free" | "pro"
-    isStaff: boolean
-    expiresAt: number
-}
-
 const getReferenceInputError = (file: File) =>
     file.size > DEFAULT_UPLOAD_POLICY.maxFileSize
         ? `References must be <${REFERENCE_INPUT_LIMIT_LABEL}.`
@@ -166,16 +157,10 @@ const getFileSha256 = async (file: File) => {
         .join("")
 }
 
-export function ImageGenerationSidebar({
-    disabled = false,
-    shouldLoadCreditPlan = true
-}: {
-    disabled?: boolean
-    shouldLoadCreditPlan?: boolean
-}) {
+export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolean }) {
     const { token } = useToken()
-    const { data: session } = useSession()
-    const creditAccessUserId = session?.user?.id ?? null
+    const creditPlan = useCreditAccess((state) => state.plan)
+    const isStaff = useCreditAccess((state) => state.isStaff)
     const isTouchDevice = useIsTouchDevice()
     const { models } = useSharedModels()
     const imageModels = useMemo<SharedModel[]>(
@@ -241,10 +226,6 @@ export function ImageGenerationSidebar({
     const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
-    const [creditAccess, setCreditAccess] = useState<ImageGenerationCreditAccess | null>(null)
-    const currentCreditAccess = creditAccess?.userId === creditAccessUserId ? creditAccess : null
-    const creditPlan = currentCreditAccess?.plan ?? null
-    const isStaff = currentCreditAccess?.isStaff ?? false
     const canSelectGptImage2Quality = isDevMode || isStaff
     const [expandedLegacyModels, setExpandedLegacyModels] = useState(false)
     const [promptHeight, setPromptHeight] = useState<number | null>(null)
@@ -263,65 +244,6 @@ export function ImageGenerationSidebar({
     const referenceFilesRef = useRef(referenceFiles)
     const seenLegacyMigrationKeysRef = useRef<Set<string>>(new Set())
     const sessionRevealedLegacyModelIdsRef = useRef<Set<string>>(new Set())
-
-    useEffect(() => {
-        if (!shouldLoadCreditPlan || !creditAccessUserId) {
-            return
-        }
-
-        if (currentCreditAccess && currentCreditAccess.expiresAt > Date.now()) {
-            const refreshTimeout = window.setTimeout(
-                () =>
-                    setCreditAccess((current) => {
-                        if (!current || current.userId !== creditAccessUserId) return current
-                        return { ...current, expiresAt: 0 }
-                    }),
-                currentCreditAccess.expiresAt - Date.now()
-            )
-            return () => window.clearTimeout(refreshTimeout)
-        }
-
-        let cancelled = false
-
-        const loadCreditAccess = async () => {
-            try {
-                const response = await fetch("/api/credit-summary", {
-                    credentials: "include"
-                })
-                if (!response.ok) {
-                    throw new Error("Failed to load credit summary")
-                }
-
-                const data = (await response.json()) as {
-                    plan?: "free" | "pro"
-                    isStaff?: boolean
-                }
-                if (!cancelled) {
-                    setCreditAccess({
-                        userId: creditAccessUserId,
-                        plan: data.plan === "pro" ? "pro" : "free",
-                        isStaff: data.isStaff === true,
-                        expiresAt: Date.now() + CREDIT_ACCESS_CACHE_MAX_AGE_MS
-                    })
-                }
-            } catch {
-                if (!cancelled) {
-                    setCreditAccess({
-                        userId: creditAccessUserId,
-                        plan: "free",
-                        isStaff: false,
-                        expiresAt: Date.now() + CREDIT_ACCESS_RETRY_MS
-                    })
-                }
-            }
-        }
-
-        void loadCreditAccess()
-
-        return () => {
-            cancelled = true
-        }
-    }, [creditAccessUserId, currentCreditAccess, shouldLoadCreditPlan])
 
     useEffect(() => {
         if (!isResizingPrompt) return
