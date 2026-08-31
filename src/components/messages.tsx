@@ -1372,6 +1372,8 @@ const MessageRowComponent = ({
     const cancelEditRequestRef = useRef<(() => void) | null>(null)
     const bubbleRef = useRef<HTMLDivElement>(null)
     const bubbleRectRef = useRef<{ width: number; height: number } | null>(null)
+    const actionsRectRef = useRef<{ left: number; top: number } | null>(null)
+    const actionsAnimationRef = useRef<Animation | null>(null)
     const prevIsEditingRef = useRef(isEditing)
 
     // FLIP the message bubble when entering/leaving edit mode. The outer element is
@@ -1388,12 +1390,18 @@ const MessageRowComponent = ({
         if (!element) return
 
         const rect = element.getBoundingClientRect()
+        const actionsElement = element.querySelector<HTMLElement>("[data-message-actions]")
+        const actionsRect = actionsElement?.getBoundingClientRect()
         const nextWidth = rect.width
         const nextHeight = rect.height
         const editingChanged = prevIsEditingRef.current !== isEditing
         const prevRect = bubbleRectRef.current
+        const prevActionsRect = actionsRectRef.current
 
         bubbleRectRef.current = { width: nextWidth, height: nextHeight }
+        actionsRectRef.current = actionsRect
+            ? { left: actionsRect.left, top: actionsRect.top }
+            : null
         prevIsEditingRef.current = isEditing
 
         if (!editingChanged || prevRect === null) {
@@ -1408,6 +1416,11 @@ const MessageRowComponent = ({
 
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
             return
+        }
+
+        const animationOptions = {
+            duration: 300,
+            easing: "cubic-bezier(0.16, 1, 0.3, 1)"
         }
 
         element.animate(
@@ -1425,8 +1438,40 @@ const MessageRowComponent = ({
                     overflow: "hidden"
                 }
             ],
-            { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+            animationOptions
         )
+
+        if (actionsElement && actionsRect && prevActionsRect) {
+            actionsAnimationRef.current?.cancel()
+
+            Object.assign(actionsElement.style, {
+                position: "fixed",
+                top: `${actionsRect.top}px`,
+                right: "auto",
+                left: `${actionsRect.left}px`,
+                marginTop: "0"
+            })
+
+            const actionsAnimation = actionsElement.animate(
+                [
+                    {
+                        transform: `translate(${prevActionsRect.left - actionsRect.left}px, ${prevActionsRect.top - actionsRect.top}px)`
+                    },
+                    { transform: "translate(0, 0)" }
+                ],
+                animationOptions
+            )
+            actionsAnimationRef.current = actionsAnimation
+
+            void actionsAnimation.finished
+                .then(() => {
+                    if (actionsAnimationRef.current !== actionsAnimation) return
+
+                    actionsAnimationRef.current = null
+                    actionsElement.removeAttribute("style")
+                })
+                .catch(() => undefined)
+        }
     })
 
     return (
@@ -1448,25 +1493,13 @@ const MessageRowComponent = ({
                 )}
             >
                 {isEditing ? (
-                    <>
-                        <EditableMessage
-                            message={message}
-                            onSave={onSaveEdit}
-                            onCancel={onCancelEdit}
-                            cancelRequestRef={cancelEditRequestRef}
-                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
-                        />
-                        <ChatActions
-                            role={message.role}
-                            message={message}
-                            onRetry={onRetry}
-                            onEdit={onEdit}
-                            editing
-                            onCancelEdit={() => cancelEditRequestRef.current?.()}
-                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
-                            copyOnly={copyOnlyActions}
-                        />
-                    </>
+                    <EditableMessage
+                        message={message}
+                        onSave={onSaveEdit}
+                        onCancel={onCancelEdit}
+                        cancelRequestRef={cancelEditRequestRef}
+                        requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                    />
                 ) : (
                     <>
                         <div className="max-w-full overflow-hidden">
@@ -1565,32 +1598,30 @@ const MessageRowComponent = ({
                                 />
                             </div>
                         ) : null}
-
-                        {!hasActiveTarget && message.role === "user" ? (
-                            <ChatActions
-                                role={message.role}
-                                message={message}
-                                onRetry={onRetry}
-                                onEdit={onEdit}
-                                requiresNativePdfForModelSelection={
-                                    requiresNativePdfForModelSelection
-                                }
-                                copyOnly={copyOnlyActions}
-                            />
-                        ) : !hasActiveTarget &&
-                          message.role === "assistant" &&
-                          !isStreamingMessage ? (
-                            <ChatActions
-                                role={message.role}
-                                message={message}
-                                onRetry={undefined}
-                                onBranch={onBranch}
-                                onEdit={undefined}
-                                copyOnly={copyOnlyActions}
-                            />
-                        ) : null}
                     </>
                 )}
+
+                {message.role === "user" && (!hasActiveTarget || isEditing) ? (
+                    <ChatActions
+                        role={message.role}
+                        message={message}
+                        onRetry={onRetry}
+                        onEdit={onEdit}
+                        editing={isEditing}
+                        onCancelEdit={() => cancelEditRequestRef.current?.()}
+                        requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                        copyOnly={copyOnlyActions}
+                    />
+                ) : !hasActiveTarget && message.role === "assistant" && !isStreamingMessage ? (
+                    <ChatActions
+                        role={message.role}
+                        message={message}
+                        onRetry={undefined}
+                        onBranch={onBranch}
+                        onEdit={undefined}
+                        copyOnly={copyOnlyActions}
+                    />
+                ) : null}
             </div>
         </div>
     )

@@ -381,6 +381,7 @@ export const ChatActions = memo(
 
         return (
             <div
+                data-message-actions
                 className={cn(
                     "absolute flex items-center gap-1 transition-opacity",
                     editing
