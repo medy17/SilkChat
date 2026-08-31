@@ -10,6 +10,7 @@ export const LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX = "/_silkchat/image"
 // Dev-only cache purge endpoint, served under the route prefix so the same dev proxy
 // forwarding reaches it. Handled specially by the optimizer server (DELETE = clear cache).
 export const LOCAL_IMAGE_OPTIMIZER_PURGE_PATH = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/__cache`
+export const LOCAL_IMAGE_OPTIMIZER_HEALTH_PATH = `${LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX}/__health`
 
 const MAX_IMAGE_WIDTH = 4096
 const MIN_IMAGE_QUALITY = 1

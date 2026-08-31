@@ -5,7 +5,8 @@ import {
     formatServiceLogLine,
     getHotkeyAction,
     getHotkeyHelpLines,
-    stopChild
+    stopChild,
+    waitForHttpReady
 } from "../../scripts/run-cloud-dev-app.mjs"
 
 describe("development runner controls", () => {
@@ -93,5 +94,19 @@ describe("development runner controls", () => {
 
         expect(child.kill).toHaveBeenNthCalledWith(1, "SIGTERM")
         expect(child.kill).toHaveBeenNthCalledWith(2, "SIGKILL")
+    })
+
+    it("waits through a transient connection failure until a service is ready", async () => {
+        const fetchMock = vi
+            .fn()
+            .mockRejectedValueOnce(new Error("connection refused"))
+            .mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+        await waitForHttpReady("http://127.0.0.1:43177/health", {
+            intervalMs: 0,
+            fetchImpl: fetchMock
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 })

@@ -278,6 +278,27 @@ describeWithBun("local-image-optimizer-server", () => {
         expect(await purgedAgain.json()).toEqual({ ok: true, removed: 0 })
     })
 
+    it("reports readiness without touching the cache or an upstream source", async () => {
+        const cacheDir = await mkdtemp(path.join(os.tmpdir(), "local-image-optimizer-"))
+        tempDirs.push(cacheDir)
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+
+        const handleRequest = createLocalImageOptimizerHandler({
+            cacheDir,
+            convexApiUrl: "http://127.0.0.1:3210/http",
+            publicAssetBaseUrl: "https://r2.silkchat.dev"
+        })
+
+        const response = await handleRequest(
+            new Request("http://localhost:3000/_silkchat/image/__health")
+        )
+
+        expect(response.status).toBe(200)
+        expect(await response.json()).toEqual({ ok: true })
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+
     it("rejects malformed transform options", async () => {
         const cacheDir = await mkdtemp(path.join(os.tmpdir(), "local-image-optimizer-"))
         tempDirs.push(cacheDir)

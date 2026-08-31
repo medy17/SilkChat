@@ -1,5 +1,4 @@
 import { createReadStream, statSync } from "node:fs"
-import http from "node:http"
 import path from "node:path"
 import posthog from "@posthog/rollup-plugin"
 import babel from "@rolldown/plugin-babel"
@@ -92,32 +91,69 @@ export default defineConfig(({ mode }) => {
                         return
                     }
 
-                    const proxyReq = http.request(
-                        {
-                            host: "127.0.0.1",
-                            port: Number(localImageOptimizerPort),
-                            method: req.method,
-                            path: req.url,
-                            headers: req.headers
-                        },
-                        (proxyRes) => {
-                            res.statusCode = proxyRes.statusCode ?? 502
-                            for (const [header, value] of Object.entries(proxyRes.headers)) {
-                                if (value !== undefined) {
-                                    res.setHeader(header, value)
-                                }
-                            }
-                            proxyRes.pipe(res)
+                    const headers = new Headers()
+                    for (const [name, value] of Object.entries(req.headers)) {
+                        if (
+                            value === undefined ||
+                            ["connection", "content-length", "host", "transfer-encoding"].includes(
+                                name.toLowerCase()
+                            )
+                        ) {
+                            continue
                         }
-                    )
 
-                    proxyReq.on("error", () => {
-                        res.statusCode = 502
-                        res.setHeader("content-type", "application/json")
-                        res.end(JSON.stringify({ error: "Local image optimizer unavailable" }))
+                        if (Array.isArray(value)) {
+                            for (const item of value) headers.append(name, item)
+                        } else {
+                            headers.set(name, value)
+                        }
+                    }
+
+                    void (async () => {
+                        let lastError: unknown
+
+                        // Optimizer routes are idempotent GET and DELETE requests, so one retry
+                        // can absorb a transient connection reset during local process startup.
+                        for (let attempt = 0; attempt < 2; attempt += 1) {
+                            try {
+                                const response = await fetch(
+                                    `http://127.0.0.1:${localImageOptimizerPort}${req.url}`,
+                                    {
+                                        method: req.method ?? "GET",
+                                        headers
+                                    }
+                                )
+                                const body = Buffer.from(await response.arrayBuffer())
+                                if (res.destroyed || res.writableEnded) return
+
+                                res.statusCode = response.status
+                                response.headers.forEach((value, name) =>
+                                    res.setHeader(name, value)
+                                )
+                                res.end(body)
+                                return
+                            } catch (error) {
+                                lastError = error
+                            }
+                        }
+
+                        server.config.logger.warn(
+                            `[local-image-optimizer-proxy] ${req.method ?? "GET"} ${req.url} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+                        )
+                        if (!res.destroyed && !res.writableEnded) {
+                            res.statusCode = 502
+                            res.setHeader("content-type", "application/json")
+                            res.end(JSON.stringify({ error: "Local image optimizer unavailable" }))
+                        }
+                    })().catch((error) => {
+                        if (!res.destroyed && !res.writableEnded) {
+                            server.config.logger.warn(
+                                `[local-image-optimizer-proxy] ${req.method ?? "GET"} ${req.url} failed: ${error instanceof Error ? error.message : String(error)}`
+                            )
+                            res.statusCode = 502
+                            res.end()
+                        }
                     })
-
-                    req.pipe(proxyReq)
                 })
             }
         } satisfies PluginOption)

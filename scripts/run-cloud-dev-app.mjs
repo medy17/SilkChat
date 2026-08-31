@@ -2,6 +2,7 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import dotenv from "dotenv"
 import { createColors } from "picocolors"
+import { LOCAL_IMAGE_OPTIMIZER_HEALTH_PATH } from "../src/lib/local-image-optimizer.ts"
 import { addViteAllowedHost, getCloudDevTunnelConfig } from "./lib/cloud-dev-tunnel.mjs"
 
 export const CLOUD_DEV_FAL_R2_WORKER = "silkchat-fal-r2-ingest-cloud-dev"
@@ -36,6 +37,30 @@ export const getHotkeyHelpLines = (columns = 80) => {
     }
 
     return lines
+}
+
+export const waitForHttpReady = async (
+    url,
+    { timeoutMs = 10_000, intervalMs = 50, fetchImpl = fetch } = {}
+) => {
+    const deadline = performance.now() + timeoutMs
+    let lastError
+
+    while (performance.now() < deadline) {
+        try {
+            const response = await fetchImpl(url)
+            if (response.ok) return
+            lastError = new Error(`readiness endpoint returned ${response.status}`)
+        } catch (error) {
+            lastError = error
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+
+    throw new Error(
+        `Timed out waiting for ${url}${lastError instanceof Error ? `: ${lastError.message}` : ""}`
+    )
 }
 
 const colourServiceTag = (service, level) => {
@@ -408,8 +433,19 @@ export const runCloudDevApp = () => {
     process.on("SIGTERM", () => shutdown(0))
 
     for (const service of Object.keys(serviceDefinitions)) {
-        startService(service)
+        if (service !== "frontend") startService(service)
     }
+
+    void (async () => {
+        const optimizerHealthUrl = `http://127.0.0.1:${localImageOptimizerPort}${LOCAL_IMAGE_OPTIMIZER_HEALTH_PATH}`
+        try {
+            await waitForHttpReady(optimizerHealthUrl)
+            dock.log("[runner] optimiser ready.")
+        } catch (error) {
+            dock.log(`[runner:error] ${error.message}`)
+        }
+        startService("frontend")
+    })()
 
     if (tunnelConfig) {
         dock.log(`[runner] Public URL: ${tunnelConfig.publicUrl}`)

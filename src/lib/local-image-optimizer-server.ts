@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import {
+    LOCAL_IMAGE_OPTIMIZER_HEALTH_PATH,
     LOCAL_IMAGE_OPTIMIZER_PURGE_PATH,
     LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX,
     extractLocalImageOptimizerRequestParts,
@@ -241,6 +242,12 @@ export const createLocalImageOptimizerHandler = ({
 
     return async (request: Request) => {
         const requestUrl = new URL(request.url)
+
+        if (requestUrl.pathname === LOCAL_IMAGE_OPTIMIZER_HEALTH_PATH) {
+            return request.method === "GET"
+                ? Response.json({ ok: true })
+                : buildErrorResponse(405, "Method not allowed")
+        }
 
         if (requestUrl.pathname === LOCAL_IMAGE_OPTIMIZER_PURGE_PATH) {
             if (request.method !== "DELETE") {

@@ -17,3 +17,11 @@ export function createLineCollector(onLine: (line: string) => void): {
     flush(): void
 }
 export function stopChild(child: unknown, timeoutMs?: number): Promise<void>
+export function waitForHttpReady(
+    url: string,
+    options?: {
+        timeoutMs?: number
+        intervalMs?: number
+        fetchImpl?: typeof fetch
+    }
+): Promise<void>
