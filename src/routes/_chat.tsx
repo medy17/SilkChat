@@ -29,6 +29,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
+import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import {
     isRestorableChatPath,
     peekLastChatRoute,
@@ -234,7 +235,13 @@ function ChatSkeletonBlock({ className }: { className: string }) {
     )
 }
 
-function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
+function ChatInitialSkeleton({
+    isExiting,
+    areHeaderActionsVisible
+}: {
+    isExiting: boolean
+    areHeaderActionsVisible: boolean
+}) {
     return (
         <motion.div
             initial={false}
@@ -257,13 +264,17 @@ function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
                 className="absolute top-2 right-2 flex h-12 items-center gap-2 rounded-[var(--radius-xl)] bg-background px-2"
             >
                 <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
-                <ChatSkeletonBlock className="hidden h-8 w-20 rounded-[var(--radius-md)] sm:block" />
-                <ChatSkeletonBlock className="hidden size-8 rounded-[var(--radius-md)] sm:block" />
+                {areHeaderActionsVisible ? (
+                    <>
+                        <ChatSkeletonBlock className="hidden h-8 w-20 rounded-[var(--radius-md)] sm:block" />
+                        <ChatSkeletonBlock className="hidden size-8 rounded-[var(--radius-md)] sm:block" />
+                    </>
+                ) : null}
                 <div className="h-4 w-px bg-border" />
                 <ChatSkeletonBlock className="size-8 rounded-[var(--radius-xl)]" />
             </div>
 
-            <div className="relative flex h-full items-center justify-center overflow-y-auto px-4 py-16">
+            <div className="relative flex h-[calc(100dvh-var(--app-header-height))] items-center justify-center overflow-y-auto px-4 py-16">
                 <div
                     aria-hidden="true"
                     className="flex w-full max-w-2xl flex-col items-center gap-5 [@media(min-height:820px)]:gap-7"
@@ -275,7 +286,6 @@ function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
 
                     <div className="flex w-full flex-col items-center gap-2 [@media(max-height:480px)]:hidden">
                         <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
-                        <ChatSkeletonBlock className="h-4 w-36 rounded-[var(--radius-md)]" />
                     </div>
 
                     <div className="w-full px-1">
@@ -294,7 +304,7 @@ function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
                         </div>
 
                         <div className="mt-3 flex flex-col gap-1 px-2">
-                            {["w-36", "w-44", "w-40", "w-32"].map((width, index) => (
+                            {["w-36", "w-44", "w-40", "w-32"].map((width) => (
                                 <div
                                     key={width}
                                     className="flex h-9 items-center gap-3 rounded-[var(--radius-md)] px-3"
@@ -303,9 +313,6 @@ function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
                                     <ChatSkeletonBlock
                                         className={`${width} h-3 rounded-[var(--radius-sm)]`}
                                     />
-                                    {index === 0 ? (
-                                        <ChatSkeletonBlock className="ml-auto hidden h-3 w-16 rounded-[var(--radius-sm)] sm:block" />
-                                    ) : null}
                                 </div>
                             ))}
                         </div>
@@ -321,6 +328,9 @@ function ChatLayout() {
     const params = useParams({ strict: false })
     const location = useLocation()
     const isMobile = useIsMobile()
+    const areHeaderActionsVisible = useHeaderActionsStore((state) =>
+        isMobile ? !state.isMobileCollapsed : !state.isDesktopCollapsed
+    )
 
     const isRoot = location.pathname === "/"
     const [shouldRunInitialRootAuthGate] = useState(isRoot)
@@ -744,6 +754,7 @@ function ChatLayout() {
                                 <ChatInitialSkeleton
                                     key="initial-chat-skeleton"
                                     isExiting={isInitialChatSkeletonExiting}
+                                    areHeaderActionsVisible={areHeaderActionsVisible}
                                 />
                             ) : null}
                         </AnimatePresence>
