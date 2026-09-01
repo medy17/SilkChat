@@ -279,23 +279,47 @@ Use Canvas only for highly complex technical explanations or an explicit diagram
 - \`html\`/\`react\`: interactive web content, UI, visualizations, or custom layouts. Prefer React unless HTML is explicitly requested. Return all code in one block and, for updates, the complete implementation. HTML supports CSS/JS. React must default-export a component, use Tailwind without arbitrary classes, and explicitly import built-in hooks from \`react\`. Use native \`render_chart\` rather than Canvas for charts. Image sources must be \`https://www.claudeusercontent.com/api/placeholder/{width}/{height}\`; never invent URLs.`
     )
 
-    // Add personalization if user customization exists
-    if (userSettings?.customization) {
+    // Add personalization if user customization or response-style preferences exist
+    if (userSettings?.customization || userSettings?.responseStyle) {
         const customization = userSettings.customization
         const personalizationParts: string[] = []
 
-        if (customization.name) {
+        if (customization?.name) {
             personalizationParts.push(`- Address the user as "${customization.name}"`)
         }
 
-        if (customization.aiPersonality) {
+        if (customization?.aiPersonality) {
             personalizationParts.push(`- Personality traits: ${customization.aiPersonality}`)
         }
 
-        if (customization.additionalContext) {
+        if (customization?.additionalContext) {
             personalizationParts.push(
                 `- Additional context about the user: ${customization.additionalContext}`
             )
+        }
+
+        const responseStyleInstructions = {
+            warmth: {
+                less: "Use a somewhat more neutral and professionally reserved tone than you otherwise would.",
+                more: "Use a somewhat warmer, friendlier, and more personable tone than you otherwise would."
+            },
+            enthusiasm: {
+                less: "Show somewhat less enthusiasm and use a more measured, understated tone than you otherwise would.",
+                more: "Show somewhat more enthusiasm and energy than you otherwise would."
+            },
+            structure: {
+                less: "Prefer flowing prose and use headings and lists somewhat less often than you otherwise would.",
+                more: "Use headings and lists somewhat more often when they improve clarity."
+            },
+            emoji: {
+                less: "Use emojis somewhat less often than you otherwise would.",
+                more: "Use emojis somewhat more often than you otherwise would."
+            }
+        } as const
+
+        for (const field of ["warmth", "enthusiasm", "structure", "emoji"] as const) {
+            const level = userSettings.responseStyle?.[field]
+            if (level) personalizationParts.push(`- ${responseStyleInstructions[field][level]}`)
         }
 
         if (personalizationParts.length > 0) {

@@ -109,6 +109,44 @@ describe("buildPrompt", () => {
         expect(prompt).toContain("- Additional context about the user: I write TypeScript.")
     })
 
+    it("adds only non-default response-style preferences", () => {
+        const prompt = buildPrompt({
+            enabledTools: [],
+            userSettings: {
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                titleGenerationModel: "gemini-3.1-flash-lite",
+                generalProviders: {},
+                responseStyle: {
+                    warmth: "more",
+                    enthusiasm: "less",
+                    structure: "more"
+                }
+            }
+        })
+
+        expect(prompt).toContain("## User Personalization")
+        expect(prompt).toContain(
+            "Use a somewhat warmer, friendlier, and more personable tone than you otherwise would."
+        )
+        expect(prompt).toContain(
+            "Show somewhat less enthusiasm and use a more measured, understated tone than you otherwise would."
+        )
+        expect(prompt).toContain(
+            "Use headings and lists somewhat more often when they improve clarity."
+        )
+        expect(prompt).not.toContain("Use emojis somewhat")
+    })
+
+    it("does not add response-style instructions when all preferences are default", () => {
+        const prompt = buildPrompt({ enabledTools: [] })
+
+        expect(prompt).not.toContain("## User Personalization")
+        expect(prompt).not.toContain("than you otherwise would")
+    })
+
     it("keeps the per-turn tool budget out of the stable prompt", () => {
         const prompt = buildPrompt({
             enabledTools: ["web_search", "supermemory"]

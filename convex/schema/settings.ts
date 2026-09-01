@@ -31,6 +31,15 @@ export const UserCustomization = v.object({
     additionalContext: v.optional(v.string())
 })
 
+export const ResponseStyleLevel = v.union(v.literal("less"), v.literal("more"))
+
+export const ResponseStyle = v.object({
+    warmth: v.optional(ResponseStyleLevel),
+    enthusiasm: v.optional(ResponseStyleLevel),
+    structure: v.optional(ResponseStyleLevel),
+    emoji: v.optional(ResponseStyleLevel)
+})
+
 export const ImageResolutionSchema = v.union(v.literal("1K"), v.literal("2K"), v.literal("4K"))
 
 // Per-user defaults for the SilkScreen image tool. These are soft preferences: they
@@ -83,6 +92,7 @@ export const NonSensitiveUserSettings = v.object({
     invertSendNewlineBehavior: v.optional(v.boolean()),
     telemetryEnabled: v.optional(v.boolean()),
     customization: v.optional(UserCustomization),
+    responseStyle: v.optional(ResponseStyle),
     imageGenerationDefaults: v.optional(ImageGenerationDefaults),
     onboardingCompleted: v.optional(v.boolean())
 })

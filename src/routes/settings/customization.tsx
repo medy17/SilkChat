@@ -1,4 +1,3 @@
-import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,11 +9,120 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { stopHaptics } from "@/lib/haptics"
 import { useHapticsSettingsStore } from "@/lib/haptics-settings-store"
+import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { Loader2, Save } from "lucide-react"
+import { CheckCircle, Loader2, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+
+type ResponseStyleLevel = "less" | "default" | "more"
+type ResponseStyleField = "warmth" | "enthusiasm" | "structure" | "emoji"
+type ResponseStyleSelection = Record<ResponseStyleField, ResponseStyleLevel>
+
+const RESPONSE_STYLE_LEVELS = ["less", "default", "more"] as const
+const RESPONSE_STYLE_DEFAULTS: ResponseStyleSelection = {
+    warmth: "default",
+    enthusiasm: "default",
+    structure: "default",
+    emoji: "default"
+}
+
+const RESPONSE_STYLE_PREFERENCES = [
+    {
+        field: "warmth",
+        label: "Warmth",
+        previews: {
+            less: "Here is the answer.",
+            default: "Sure — I can help with that.",
+            more: "Absolutely — I’d love to help you with that."
+        }
+    },
+    {
+        field: "enthusiasm",
+        label: "Enthusiasm",
+        previews: {
+            less: "That approach should work.",
+            default: "That sounds like a solid approach.",
+            more: "That’s a fantastic idea — I’m excited to see it come together!"
+        }
+    },
+    {
+        field: "structure",
+        label: "Headers & lists"
+    },
+    {
+        field: "emoji",
+        label: "Emojis"
+    }
+] as const
+
+function ResponseStylePreview({
+    field,
+    level
+}: {
+    field: ResponseStyleField
+    level: ResponseStyleLevel
+}) {
+    if (field === "structure") {
+        if (level === "less") {
+            return (
+                <div className="flex min-h-12 flex-col justify-center gap-1.5" aria-hidden="true">
+                    <div className="h-1.5 w-full rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                    <div className="h-1.5 w-5/6 rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                    <div className="h-1.5 w-full rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                    <div className="h-1.5 w-2/3 rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                </div>
+            )
+        }
+
+        if (level === "default") {
+            return (
+                <div className="flex min-h-12 flex-col justify-center gap-1.5" aria-hidden="true">
+                    <div className="mb-0.5 h-2 w-1/3 rounded-[var(--radius-sm)] bg-foreground/55" />
+                    <div className="h-1.5 w-full rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                    <div className="h-1.5 w-4/5 rounded-[var(--radius-sm)] bg-muted-foreground/35" />
+                </div>
+            )
+        }
+
+        return (
+            <div className="flex min-h-12 flex-col justify-center gap-1.5" aria-hidden="true">
+                <div className="mb-0.5 h-2 w-1/3 rounded-[var(--radius-sm)] bg-foreground/55" />
+                {["w-3/4", "w-1/2", "w-2/3"].map((width) => (
+                    <div key={width} className="flex items-center gap-2">
+                        <div className="size-1.5 shrink-0 rounded-full bg-muted-foreground/60" />
+                        <div
+                            className={cn(
+                                "h-1.5 rounded-[var(--radius-sm)] bg-muted-foreground/35",
+                                width
+                            )}
+                        />
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    if (field === "emoji") {
+        const previews = {
+            less: "—",
+            default: "🙂",
+            more: "🙂 ✨ 🎉"
+        } as const
+
+        return (
+            <div className="flex min-h-10 items-center text-base" aria-hidden="true">
+                {previews[level]}
+            </div>
+        )
+    }
+
+    const preference = RESPONSE_STYLE_PREFERENCES.find((item) => item.field === field)
+    const preview = preference && "previews" in preference ? preference.previews[level] : ""
+
+    return <p className="min-h-10 text-muted-foreground text-xs leading-5">{preview}</p>
+}
 
 export const Route = createFileRoute("/settings/customization")({
     component: LegacyCustomizationRedirect
@@ -46,10 +154,24 @@ export function BehaviorSettingsContent() {
 
     const [isSaving, setIsSaving] = useState(false)
     const [isUpdatingComposerBehavior, setIsUpdatingComposerBehavior] = useState(false)
+    const [responseStyle, setResponseStyle] =
+        useState<ResponseStyleSelection>(RESPONSE_STYLE_DEFAULTS)
 
     const nameRef = useRef<HTMLInputElement>(null)
     const personalityRef = useRef<HTMLTextAreaElement>(null)
     const contextRef = useRef<HTMLTextAreaElement>(null)
+    const isResponseStyleDirtyRef = useRef(false)
+
+    useEffect(() => {
+        if (!userSettings || isResponseStyleDirtyRef.current) return
+
+        setResponseStyle({
+            warmth: userSettings.responseStyle?.warmth ?? "default",
+            enthusiasm: userSettings.responseStyle?.enthusiasm ?? "default",
+            structure: userSettings.responseStyle?.structure ?? "default",
+            emoji: userSettings.responseStyle?.emoji ?? "default"
+        })
+    }, [userSettings])
 
     const handleSave = async () => {
         if (!session.user?.id) return
@@ -61,8 +183,17 @@ export function BehaviorSettingsContent() {
                     name: nameRef.current?.value.trim() || null,
                     aiPersonality: personalityRef.current?.value.trim() || null,
                     additionalContext: contextRef.current?.value.trim() || null
+                },
+                responseStyle: {
+                    warmth: responseStyle.warmth === "default" ? null : responseStyle.warmth,
+                    enthusiasm:
+                        responseStyle.enthusiasm === "default" ? null : responseStyle.enthusiasm,
+                    structure:
+                        responseStyle.structure === "default" ? null : responseStyle.structure,
+                    emoji: responseStyle.emoji === "default" ? null : responseStyle.emoji
                 }
             })
+            isResponseStyleDirtyRef.current = false
             toast.success("Customization settings saved")
         } catch (error) {
             console.error("Failed to save customization:", error)
@@ -169,6 +300,74 @@ export function BehaviorSettingsContent() {
                         </p> */}
                     </div>
 
+                    <div className="space-y-6 pt-2">
+                        <div>
+                            <h3 className="font-semibold text-foreground">Response Style</h3>
+                            <p className="mt-1 text-muted-foreground text-sm">
+                                Fine-tune how the assistant communicates with you.
+                            </p>
+                        </div>
+
+                        {RESPONSE_STYLE_PREFERENCES.map((preference) => (
+                            <div key={preference.field} className="space-y-3">
+                                <h4 className="font-medium text-foreground text-sm">
+                                    {preference.label}
+                                </h4>
+
+                                <div
+                                    className="grid max-w-3xl grid-cols-3 gap-2 sm:gap-3"
+                                    role="radiogroup"
+                                    aria-label={preference.label}
+                                >
+                                    {RESPONSE_STYLE_LEVELS.map((level) => {
+                                        const isSelected = responseStyle[preference.field] === level
+
+                                        return (
+                                            <label
+                                                key={level}
+                                                className={cn(
+                                                    "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-muted/20 p-3 transition-all duration-200 hover:bg-muted/40 sm:p-4 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
+                                                    isSelected
+                                                        ? "bg-primary/5 ring-1 ring-primary/20"
+                                                        : "hover:ring-1 hover:ring-border"
+                                                )}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name={`response-style-${preference.field}`}
+                                                    value={level}
+                                                    checked={isSelected}
+                                                    onChange={() => {
+                                                        isResponseStyleDirtyRef.current = true
+                                                        setResponseStyle((current) => ({
+                                                            ...current,
+                                                            [preference.field]: level
+                                                        }))
+                                                    }}
+                                                    className="sr-only"
+                                                />
+                                                <div className="flex min-w-0 flex-col gap-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="truncate font-medium text-foreground text-sm capitalize">
+                                                            {level}
+                                                        </span>
+                                                        {isSelected && (
+                                                            <CheckCircle className="ml-auto size-4 shrink-0 text-primary" />
+                                                        )}
+                                                    </div>
+                                                    <ResponseStylePreview
+                                                        field={preference.field}
+                                                        level={level}
+                                                    />
+                                                </div>
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
                     {!isTouchDevice ? (
                         <div className="space-y-4">
                             <div>
@@ -260,16 +459,5 @@ export function BehaviorSettingsContent() {
                 </div>
             </div>
         </div>
-    )
-}
-
-function BehaviorSettingsPage() {
-    return (
-        <SettingsLayout
-            title="Behavior"
-            description="Control composer behavior, assistant defaults, and saved context."
-        >
-            <BehaviorSettingsContent />
-        </SettingsLayout>
     )
 }

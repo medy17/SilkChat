@@ -108,6 +108,7 @@ vi.mock("../../convex/schema", () => ({
 vi.mock("../../convex/schema/settings", () => ({
     ImageGenerationDefaults: {},
     NonSensitiveUserSettings: {},
+    ResponseStyleLevel: {},
     StoredModelAbilitySchema: {}
 }))
 
@@ -672,6 +673,39 @@ describe("settings", () => {
                 customization: {
                     name: "Ahmed",
                     additionalContext: "I write TypeScript"
+                }
+            })
+        )
+    })
+
+    it("removes default response-style fields while preserving other preferences", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "shared-text",
+            generalProviders: {},
+            responseStyle: {
+                warmth: "more",
+                enthusiasm: "less"
+            }
+        })
+
+        await updateUserSettingsPartialHandler.handler(ctx, {
+            responseStyle: {
+                warmth: null,
+                structure: "more"
+            }
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({
+                responseStyle: {
+                    enthusiasm: "less",
+                    structure: "more"
                 }
             })
         )

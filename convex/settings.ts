@@ -23,6 +23,7 @@ import type { UserSettings } from "./schema"
 import {
     ImageGenerationDefaults,
     NonSensitiveUserSettings,
+    ResponseStyleLevel,
     StoredModelAbilitySchema
 } from "./schema/settings"
 
@@ -593,6 +594,14 @@ export const updateUserSettingsPartial = mutation({
                 additionalContext: v.optional(v.union(v.string(), v.null()))
             })
         ),
+        responseStyle: v.optional(
+            v.object({
+                warmth: v.optional(v.union(ResponseStyleLevel, v.null())),
+                enthusiasm: v.optional(v.union(ResponseStyleLevel, v.null())),
+                structure: v.optional(v.union(ResponseStyleLevel, v.null())),
+                emoji: v.optional(v.union(ResponseStyleLevel, v.null()))
+            })
+        ),
 
         // Provider updates (only pass what's changing)
         coreProviderUpdates: v.optional(v.record(v.string(), CoreProviderUpdate)),
@@ -678,6 +687,21 @@ export const updateUserSettingsPartial = mutation({
 
             newSettings.customization =
                 Object.keys(customization).length > 0 ? customization : undefined
+        }
+        if (args.responseStyle !== undefined) {
+            const responseStyle = { ...newSettings.responseStyle }
+
+            for (const field of ["warmth", "enthusiasm", "structure", "emoji"] as const) {
+                const value = args.responseStyle[field]
+                if (value === null) {
+                    delete responseStyle[field]
+                } else if (value !== undefined) {
+                    responseStyle[field] = value
+                }
+            }
+
+            newSettings.responseStyle =
+                Object.keys(responseStyle).length > 0 ? responseStyle : undefined
         }
 
         // Update core AI providers

@@ -13,5 +13,6 @@ export const DefaultSettings = (userId: string) => ({
         supermemory: undefined
     },
     customization: undefined,
+    responseStyle: undefined,
     onboardingCompleted: false
 })
