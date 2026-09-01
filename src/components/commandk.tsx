@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/command"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { matchesSearchChatsShortcut } from "@/lib/keyboard-shortcuts"
 
 interface Thread {
@@ -37,6 +38,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
     const { data: session } = useSession()
     const router = useRouter()
     const commandRef = useRef<HTMLDivElement>(null)
+    const isTouchDevice = useIsTouchDevice()
 
     const isControlled = controlledOpen !== undefined
     const open = isControlled ? controlledOpen : internalOpen
@@ -146,6 +148,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
         <CommandDialog open={open} onOpenChange={setOpen} className="top-[30%] translate-y-0">
             <Command ref={commandRef} shouldFilter={false} disablePointerSelection value={"-"}>
                 <CommandInput
+                    autoFocus={!isTouchDevice}
                     placeholder="Search chats or press Enter to start a new chat..."
                     value={query}
                     onValueChange={setQuery}

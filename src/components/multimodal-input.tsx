@@ -1568,6 +1568,14 @@ export const MultimodalInput = forwardRef<
     const [hydratedDraftKey, setHydratedDraftKey] = useState<string>()
     const [isClient, setIsClient] = useState(false)
     const isInputEmpty = !inputValue.trim()
+    const activeComposerKey = isActive ? draftKey : null
+
+    useEffect(() => {
+        if (!isClient || !activeComposerKey || isTouchDevice) return
+
+        promptInputRef.current?.focus()
+    }, [activeComposerKey, isClient, isTouchDevice])
+
     const intentGuideStage = resolveIntentGuideStage({
         activeIntent,
         draft: inputValue,
