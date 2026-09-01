@@ -19,6 +19,7 @@ import {
     formatFooterTTFT,
     formatFooterTokenBreakdown,
     formatFooterTokenTotal,
+    getMessageFooterBrandProvider,
     isMessageFooterMetadataReady,
     mergeMessageFooterMetadata
 } from "@/lib/message-footer-stats"
@@ -195,7 +196,7 @@ export const ChatActions = memo(
         )
 
         const ProviderIcon = useMemo(() => {
-            switch (footerStats?.displayProvider ?? footerStats?.runtimeProvider) {
+            switch (getMessageFooterBrandProvider(footerStats)) {
                 case "openai":
                     return OpenAIIcon
                 case "anthropic":
@@ -213,7 +214,7 @@ export const ChatActions = memo(
                 default:
                     return undefined
             }
-        }, [footerStats?.displayProvider, footerStats?.runtimeProvider])
+        }, [footerStats])
 
         const reasoningLabel = useMemo(
             () => formatFooterReasoningEffort(footerStats?.reasoningEffort),

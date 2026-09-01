@@ -1,5 +1,6 @@
 import {
     deriveMessageFooterStats,
+    getMessageFooterBrandProvider,
     isMessageFooterMetadataReady,
     mergeMessageFooterMetadata
 } from "@/lib/message-footer-stats"
@@ -42,6 +43,28 @@ describe("deriveMessageFooterStats", () => {
             tokensPerSecond: undefined,
             timeToFirstVisibleMs: undefined
         })
+    })
+})
+
+describe("getMessageFooterBrandProvider", () => {
+    it("does not assign a vendor brand to custom-provider responses", () => {
+        expect(
+            getMessageFooterBrandProvider({
+                creditProviderSource: "custom",
+                displayProvider: "xai",
+                runtimeProvider: "custom"
+            })
+        ).toBeUndefined()
+    })
+
+    it("keeps the model brand for hosted and core BYOK responses", () => {
+        expect(
+            getMessageFooterBrandProvider({
+                creditProviderSource: "internal",
+                displayProvider: "anthropic",
+                runtimeProvider: "openrouter"
+            })
+        ).toBe("anthropic")
     })
 })
 

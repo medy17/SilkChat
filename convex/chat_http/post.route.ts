@@ -136,11 +136,12 @@ const resolveDisplayProvider = (
     modelId: string,
     runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown"
 ) => {
+    if (runtimeProvider === "custom" || runtimeProvider === "unknown") {
+        return undefined
+    }
+
     const sharedModel = MODELS_SHARED.find((candidate) => candidate.id === modelId)
     if (!sharedModel) {
-        if (runtimeProvider === "custom" || runtimeProvider === "unknown") {
-            return undefined
-        }
         return normalizeDisplayProvider(runtimeProvider)
     }
 
@@ -164,10 +165,6 @@ const resolveDisplayProvider = (
         }
 
         return normalizeDisplayProvider(providerId)
-    }
-
-    if (runtimeProvider === "custom" || runtimeProvider === "unknown") {
-        return undefined
     }
 
     return normalizeDisplayProvider(runtimeProvider)

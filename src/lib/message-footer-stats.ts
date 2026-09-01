@@ -158,6 +158,16 @@ export const deriveMessageFooterStats = (metadata?: AssistantMessageMetadata) =>
     }
 }
 
+export const getMessageFooterBrandProvider = (
+    metadata?: Pick<
+        AssistantMessageMetadata,
+        "creditProviderSource" | "displayProvider" | "runtimeProvider"
+    > | null
+) => {
+    if (!metadata || metadata.creditProviderSource === "custom") return undefined
+    return metadata.displayProvider ?? metadata.runtimeProvider
+}
+
 export const formatFooterTokenTotal = (value: number | undefined) =>
     value !== undefined ? `${formatNumber(value)} tokens` : undefined
 
