@@ -2,8 +2,8 @@ import type { RegistryKey, SharedModel } from "./types"
 
 const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
     // Anthropic uses hyphenated version numbers while OpenRouter's canonical
-    // slugs use a decimal point for Claude 4.x releases.
-    const openRouterModelId = modelId.replace(/-(4)-(\d)$/, "-$1.$2")
+    // slugs use a decimal point for versioned Claude releases.
+    const openRouterModelId = modelId.replace(/-(\d)-(\d)$/, "-$1.$2")
 
     return [
         `i3-anthropic:${modelId}`,
@@ -13,6 +13,31 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
 }
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
+    {
+        id: "claude-fable-5.1",
+        name: "Claude Fable 5.1",
+        addedOn: "2026-09-01",
+        shortName: "Fable 5.1",
+        shortDescription:
+            "Anthropic's latest Mythos class model for unattended codebase work, scientific research, and polished documents, spreadsheets, and slides",
+        description:
+            "Claude Fable 5.1 is Anthropic's true frontier level Mythos model. It resists shortcuts, traces failures to root causes, writes tests, visually checks its work, and recovers from failed tool steps—suited to unattended codebase changes, scientific research, documents, spreadsheets, and slide decks. No task is too complex for Fable 5.1",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm"
+        },
+        releaseOrder: 20260901,
+        adapters: anthropicTextAdapters("claude-fable-5-1"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        knowledgeCutoff: "2026-06-30",
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        inputUsdPer1MTokens: 10,
+        outputUsdPer1MTokens: 50,
+        supportsDisablingReasoning: false,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "high"
+    },
     {
         id: "claude-opus-5",
         name: "Claude Opus 5",
@@ -39,9 +64,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         addedOn: "2026-06-09",
         shortName: "Fable 5",
         shortDescription:
-            "Mythos-class Claude model for long-running autonomous coding and knowledge work",
+            "Previous Mythos-class Claude for days-long coding and knowledge work with verification and self-correction",
         description:
-            "Anthropic's Mythos-class model for autonomous knowledge work and coding. Designed for long-running, complex, asynchronous tasks that benefit from strong verification and self-correction loops.",
+            "Claude Fable 5 introduced Anthropic's fifth model generation as the first generally available Mythos-class release. It was designed for days-long, complex, asynchronous coding and knowledge work, sustaining ambiguous tasks through tool use, verification, and self-correction loops. Its broader cyber and biology safeguards can refuse innocuous requests.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm"
@@ -50,8 +75,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-fable-5"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
-        supportsDisablingReasoning: true,
-        requiredRole: "admin"
+        supportsDisablingReasoning: true
     },
     {
         id: "claude-sonnet-5",
