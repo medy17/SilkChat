@@ -470,8 +470,8 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 initial={false}
                 className={
                     isEmpty
-                        ? "absolute inset-0 z-[10] flex flex-col items-center gap-4 overflow-y-auto overscroll-contain px-4 py-3 [justify-content:safe_center] sm:gap-6 [@media(min-height:820px)]:gap-8"
-                        : "md:-bottom-10 pointer-events-none absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6"
+                        ? "scrollbar-hide absolute inset-0 z-[10] flex flex-col items-center gap-4 overflow-y-auto overscroll-contain px-4 py-3 [justify-content:safe_center] sm:gap-6 [@media(min-height:820px)]:gap-8"
+                        : "pointer-events-none absolute inset-x-0 z-[10] flex flex-col items-center justify-center pb-6 md:-bottom-10"
                 }
                 style={
                     isEmpty
