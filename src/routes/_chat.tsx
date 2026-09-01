@@ -12,6 +12,7 @@ import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
 import { LandingPage } from "@/components/landing-page"
+import { LogoSymbol } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
@@ -22,6 +23,7 @@ import {
 } from "@/components/splash-screen"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -53,6 +55,8 @@ export const Route = createFileRoute("/_chat")({
 
 const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
 const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
+const INITIAL_CHAT_SKELETON_HOLD_MS = 450
+const INITIAL_CHAT_SKELETON_EXIT_MS = 250
 const CHAT_TRANSITION_MIN_SPINNER_MS = 500
 const CHAT_TRANSITION_SWAP_DELAY_MS = 180
 // On mobile the sidebar sheet is still animating out (300ms) when a thread is picked.
@@ -219,6 +223,99 @@ function PersistentChatView({
     }
 }
 
+function ChatSkeletonBlock({ className }: { className: string }) {
+    return (
+        <Skeleton
+            className={cn(
+                "animate-[shimmer_1.15s_infinite_linear] bg-[linear-gradient(to_right,var(--muted)_25%,var(--accent)_50%,var(--muted)_75%)] bg-size-[200%_100%]",
+                className
+            )}
+        />
+    )
+}
+
+function ChatInitialSkeleton({ isExiting }: { isExiting: boolean }) {
+    return (
+        <motion.div
+            initial={false}
+            animate={{ opacity: isExiting ? 0 : 1 }}
+            transition={{
+                duration: INITIAL_CHAT_SKELETON_EXIT_MS / 1000,
+                ease: [0.16, 1, 0.3, 1]
+            }}
+            aria-busy="true"
+            aria-label="Loading chat"
+            className="pointer-events-none absolute inset-0 isolate z-[60] overflow-hidden bg-background"
+            style={{
+                backgroundImage: "url(/noise.png)",
+                backgroundRepeat: "repeat",
+                backgroundSize: "auto"
+            }}
+        >
+            <div
+                aria-hidden="true"
+                className="absolute top-2 right-2 flex h-12 items-center gap-2 rounded-[var(--radius-xl)] bg-background px-2"
+            >
+                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                <ChatSkeletonBlock className="hidden h-8 w-20 rounded-[var(--radius-md)] sm:block" />
+                <ChatSkeletonBlock className="hidden size-8 rounded-[var(--radius-md)] sm:block" />
+                <div className="h-4 w-px bg-border" />
+                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-xl)]" />
+            </div>
+
+            <div className="relative flex h-full items-center justify-center overflow-y-auto px-4 py-16">
+                <div
+                    aria-hidden="true"
+                    className="flex w-full max-w-2xl flex-col items-center gap-5 [@media(min-height:820px)]:gap-7"
+                >
+                    <div className="relative size-24 sm:size-28 [@media(max-height:620px)]:size-14 [@media(min-height:820px)]:size-32">
+                        <ChatSkeletonBlock className="absolute inset-0 rounded-[var(--radius-xl)]" />
+                        <LogoSymbol className="absolute inset-1/4 size-1/2 text-muted-foreground/25" />
+                    </div>
+
+                    <div className="flex w-full flex-col items-center gap-2 [@media(max-height:480px)]:hidden">
+                        <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
+                        <ChatSkeletonBlock className="h-4 w-36 rounded-[var(--radius-md)]" />
+                    </div>
+
+                    <div className="w-full px-1">
+                        <div className="rounded-[var(--radius-lg)] border border-border/70 bg-composer p-3">
+                            <div className="flex h-12 items-center px-1">
+                                <ChatSkeletonBlock className="h-4 w-40 rounded-[var(--radius-md)]" />
+                            </div>
+                            <div className="flex h-10 items-center gap-2 pt-2">
+                                <ChatSkeletonBlock className="h-8 w-28 rounded-[var(--radius-md)]" />
+                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                                <ChatSkeletonBlock className="hidden size-8 rounded-[var(--radius-md)] sm:block" />
+                                <div className="flex-1" />
+                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-1 px-2">
+                            {["w-36", "w-44", "w-40", "w-32"].map((width, index) => (
+                                <div
+                                    key={width}
+                                    className="flex h-9 items-center gap-3 rounded-[var(--radius-md)] px-3"
+                                >
+                                    <ChatSkeletonBlock className="size-4 rounded-[var(--radius-sm)]" />
+                                    <ChatSkeletonBlock
+                                        className={`${width} h-3 rounded-[var(--radius-sm)]`}
+                                    />
+                                    {index === 0 ? (
+                                        <ChatSkeletonBlock className="ml-auto hidden h-3 w-16 rounded-[var(--radius-sm)] sm:block" />
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    )
+}
+
 function ChatLayout() {
     const { data: session, isPending } = useSession()
     const params = useParams({ strict: false })
@@ -230,11 +327,18 @@ function ChatLayout() {
     const [hasRootLoadingDelayElapsed, setHasRootLoadingDelayElapsed] = useState(!isRoot)
     const [hasCompletedInitialRootAuthGate, setHasCompletedInitialRootAuthGate] = useState(!isRoot)
     const [isRootLoaderExiting, setIsRootLoaderExiting] = useState(false)
+    const [isInitialChatSkeletonExiting, setIsInitialChatSkeletonExiting] = useState(false)
+    const [hasCompletedInitialChatSkeleton, setHasCompletedInitialChatSkeleton] = useState(!isRoot)
     const shouldShowInitialRootAuthGate =
         shouldRunInitialRootAuthGate && !hasCompletedInitialRootAuthGate
     const showRootSessionPendingState =
         isRoot && (shouldShowInitialRootAuthGate || (!shouldRunInitialRootAuthGate && isPending))
     const showLandingPage = isRoot && !showRootSessionPendingState && !session?.user
+    const showInitialChatSkeleton =
+        isRoot &&
+        hasCompletedInitialRootAuthGate &&
+        Boolean(session?.user) &&
+        !hasCompletedInitialChatSkeleton
 
     const threadId = params.threadId
     const isLibraryRoute = location.pathname.startsWith("/library")
@@ -294,6 +398,22 @@ function ChatLayout() {
 
         return () => window.clearTimeout(timeoutId)
     }, [shouldRunInitialRootAuthGate])
+
+    useEffect(() => {
+        if (!showInitialChatSkeleton) return
+
+        const exitTimeoutId = window.setTimeout(() => {
+            setIsInitialChatSkeletonExiting(true)
+        }, INITIAL_CHAT_SKELETON_HOLD_MS)
+        const completeTimeoutId = window.setTimeout(() => {
+            setHasCompletedInitialChatSkeleton(true)
+        }, INITIAL_CHAT_SKELETON_HOLD_MS + INITIAL_CHAT_SKELETON_EXIT_MS)
+
+        return () => {
+            window.clearTimeout(exitTimeoutId)
+            window.clearTimeout(completeTimeoutId)
+        }
+    }, [showInitialChatSkeleton])
 
     useEffect(() => {
         if (!shouldRunInitialRootAuthGate) return
@@ -619,6 +739,14 @@ function ChatLayout() {
                             </AnimatePresence>
                             {!isLibraryRoute ? <MobileBranchGenerationOverlay /> : null}
                         </div>
+                        <AnimatePresence>
+                            {showInitialChatSkeleton ? (
+                                <ChatInitialSkeleton
+                                    key="initial-chat-skeleton"
+                                    isExiting={isInitialChatSkeletonExiting}
+                                />
+                            ) : null}
+                        </AnimatePresence>
                     </div>
                 </SidebarInset>
             </SidebarProvider>
