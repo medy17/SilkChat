@@ -22,13 +22,34 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-3.8-flash",
+        name: "Gemini 3.8 Flash",
+        addedOn: "2026-09-02",
+        shortName: "3.8 Flash",
+        shortDescription:
+            "Responsive multimodal workhorse for coding and specialized multi-step reasoning",
+        description:
+            "Google's responsive multimodal workhorse for software engineering, tool use, and specialized multi-step reasoning. It handles million-token contexts across text, images, audio, video, and files, with configurable thinking for complex workflows that still benefit from Flash-tier latency.",
+        developer: "Google",
+        releaseOrder: 20260902,
+        adapters: googleTextAdapters("gemini-3.8-flash"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 0.75,
+        outputUsdPer1MTokens: 3.75,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium",
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
+    },
+    {
         id: "gemini-3.7-flash",
         name: "Gemini 3.7 Flash",
         addedOn: "2026-08-13",
         shortName: "3.7 Flash",
-        shortDescription: "Responsive multimodal model for coding and multi-step reasoning",
+        shortDescription: "Previous Flash checkpoint for responsive multimodal coding and tool use",
         description:
-            "Google's fast multimodal model for coding, tool use, and complex multi-step reasoning. It pairs responsive generation with reliable problem solving across text, images, audio, video, and files.",
+            "Gemini 3.7 Flash is Google's previous Flash checkpoint for responsive coding, tool use, and complex multi-step reasoning. It handles text, images, audio, video, and files with configurable thinking, making it a capable option for multimodal work where quick generation matters.",
         developer: "Google",
         releaseOrder: 20260813,
         adapters: googleTextAdapters("gemini-3.7-flash"),
