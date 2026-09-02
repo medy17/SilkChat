@@ -1,5 +1,13 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogTitle
+} from "@/components/ui/dialog"
 import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
@@ -9,143 +17,245 @@ import {
     SandpackProvider,
     useSandpack
 } from "@codesandbox/sandpack-react"
-import { memo, useEffect, useRef, useState } from "react"
+import { Maximize2, Minus, Plus, ScanSearch, X } from "lucide-react"
+import { memo, useEffect, useState } from "react"
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
 import { Streamdown } from "streamdown"
 import type { ArtifactLanguage } from "./artifact-preview-shared"
+import { prepareMermaidSvg } from "./mermaid-export"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
 interface ArtifactPreviewProps {
     code: string
     language: ArtifactLanguage
     className?: string
+    onMermaidSvgChange?: (svg: string | null) => void
 }
 
-const MermaidRenderer = memo(({ code }: { code: string }) => {
-    const containerRef = useRef<HTMLDivElement>(null)
-    const [error, setError] = useState<string | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const { themeState } = useThemeStore()
-    const isDark = useResolvedThemeMode(themeState.currentMode) === "dark"
-    const [mermaidHTML, setMermaidHTML] = useState<string | null>(null)
+const mermaidCanvasSurfaceClassName =
+    "relative w-full overflow-hidden bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] bg-background [background-size:24px_24px]"
 
-    useEffect(() => {
-        ;(async () => {
-            try {
-                // Avoid Vite's dev prebundle for the package root. That optimized path
-                // can emit a broken `require_dist()` call for Mermaid's sanitize-url helper.
-                const mermaidModule = await import("mermaid/dist/mermaid.core.mjs")
-                const mermaid = mermaidModule.default ?? mermaidModule
+const mermaidInlineCanvasClassName =
+    "relative h-[min(48rem,calc(100dvh-8rem))] min-h-64 w-full overflow-hidden bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] bg-background [background-size:24px_24px]"
 
-                // Hardcoded colors based on globals.css
-                const lightTheme = {
-                    primary: "#10b981", // Green equivalent of oklch(0.5234 0.1347 144.1672)
-                    primaryText: "#1f2937", // Dark gray for text on light backgrounds
-                    background: "#fefefe", // Near white equivalent of oklch(0.9711 0.0074 80.7211)
-                    foreground: "#1f2937", // Dark gray equivalent of oklch(0.3 0.0358 30.2042)
-                    border: "#e5e7eb", // Light gray equivalent of oklch(0.8805 0.0208 74.6428)
-                    muted: "#f3f4f6", // Light gray equivalent of oklch(0.937 0.0142 74.4218)
-                    secondary: "#f0fdf4" // Very light green equivalent of oklch(0.9571 0.021 147.636)
-                }
-
-                const darkTheme = {
-                    primary: "#10b981", // Green equivalent of oklch(0.4365 0.1044 156.7556)
-                    primaryText: "#ecfdf5", // Light green equivalent of oklch(0.9213 0.0135 167.1556)
-                    background: "#000000", // Black
-                    foreground: "#f9fafb", // Near white equivalent of oklch(0.9288 0.0126 255.5078)
-                    border: "#374151", // Dark gray equivalent of oklch(0.2264 0 0)
-                    muted: "#1f2937", // Dark gray equivalent of oklch(0.2393 0 0)
-                    secondary: "#111827" // Very dark gray equivalent of oklch(0.2603 0 0)
-                }
-
-                const colors = isDark ? darkTheme : lightTheme
-
-                mermaid.initialize({
-                    startOnLoad: false,
-                    theme: "base",
-                    themeVariables: {
-                        primaryColor: colors.primary,
-                        primaryTextColor: colors.primaryText,
-                        primaryBorderColor: colors.border,
-                        lineColor: colors.border,
-                        secondaryColor: colors.secondary,
-                        tertiaryColor: colors.muted,
-                        background: colors.background,
-                        mainBkg: colors.background,
-                        secondBkg: colors.muted,
-                        tertiaryBkg: colors.muted,
-                        // Text colors
-                        textColor: colors.foreground,
-                        mainContrastColor: colors.foreground,
-                        darkTextColor: colors.foreground,
-                        altBackground: colors.muted,
-                        // Node colors
-                        nodeBkg: colors.primary,
-                        nodeTextColor: colors.primaryText,
-                        // Edge colors
-                        edgeLabelBackground: colors.background,
-                        // Class diagram colors
-                        classText: colors.foreground
-                    }
-                })
-                const { svg } = await mermaid.render(
-                    `mermaid-${Date.now()}-${isDark ? "dark" : "light"}`,
-                    code
-                )
-                setMermaidHTML(svg)
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to render diagram")
-            } finally {
-                setIsLoading(false)
-            }
-        })()
-    }, [code, isDark])
-
-    if (error) {
-        return (
-            <div className="flex items-center justify-center p-8 text-destructive">
-                <div className="text-center">
-                    <p className="font-medium">Failed to render diagram</p>
-                    <p className="text-muted-foreground text-sm">{error}</p>
-                </div>
-            </div>
-        )
-    }
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <div className="h-8 w-8 animate-spin rounded-full border-primary border-b-2" />
-            </div>
-        )
-    }
+const MermaidCanvas = ({
+    svg,
+    expanded = false,
+    onExpand
+}: {
+    svg: string
+    expanded?: boolean
+    onExpand?: () => void
+}) => {
+    const [zoomPercent, setZoomPercent] = useState(100)
 
     return (
-        <div className="[&>.react-transform-wrapper]:!w-full w-full">
+        <div
+            className={cn(
+                mermaidCanvasSurfaceClassName,
+                expanded ? "h-full min-h-0" : "h-[min(48rem,calc(100dvh-8rem))] min-h-64"
+            )}
+        >
             <TransformWrapper
                 initialScale={1}
-                minScale={0.5}
-                maxScale={3}
+                minScale={0.2}
+                maxScale={12}
+                centerOnInit
+                centerZoomedOut
+                smooth={false}
                 doubleClick={{ disabled: false, mode: "reset" }}
                 wheel={{ step: 0.1 }}
                 panning={{ velocityDisabled: true }}
                 limitToBounds={false}
+                onTransform={(_, state) => setZoomPercent(Math.round(state.scale * 100))}
             >
-                <TransformComponent
-                    wrapperClass="flex items-center justify-center bg-background p-4 h-96 overflow-hidden"
-                    contentClass="max-w-full"
-                >
-                    <div
-                        ref={containerRef}
-                        className="max-w-full"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation>
-                        dangerouslySetInnerHTML={{ __html: mermaidHTML ?? "" }}
-                    />
-                </TransformComponent>
+                {({ zoomIn, zoomOut, resetTransform }) => (
+                    <>
+                        <TransformComponent
+                            wrapperClass="!h-full !w-full overflow-hidden"
+                            contentClass="!h-full !w-full"
+                        >
+                            <div
+                                className="h-full w-full select-none [&>svg]:h-full [&>svg]:w-full"
+                                dangerouslySetInnerHTML={{ __html: svg }}
+                            />
+                        </TransformComponent>
+
+                        <div className="absolute right-3 bottom-3 z-10 flex items-center overflow-hidden rounded-[var(--radius-md)] border border-border bg-background/90 shadow-sm backdrop-blur">
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 rounded-none"
+                                aria-label="Zoom out Mermaid diagram"
+                                onClick={() => zoomOut()}
+                            >
+                                <Minus className="size-4" />
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 min-w-16 rounded-none border-border border-x px-2 font-mono text-xs tabular-nums"
+                                aria-label="Fit Mermaid diagram to view"
+                                onClick={() => resetTransform(200)}
+                            >
+                                <ScanSearch className="size-3.5" />
+                                {zoomPercent}%
+                            </Button>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 rounded-none"
+                                aria-label="Zoom in Mermaid diagram"
+                                onClick={() => zoomIn()}
+                            >
+                                <Plus className="size-4" />
+                            </Button>
+                            {onExpand && (
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="size-8 rounded-none border-border border-l"
+                                    aria-label="Open Mermaid diagram in fullscreen"
+                                    onClick={onExpand}
+                                >
+                                    <Maximize2 className="size-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </>
+                )}
             </TransformWrapper>
         </div>
     )
-})
+}
+
+const MermaidRenderer = memo(
+    ({ code, onSvgChange }: { code: string; onSvgChange?: (svg: string | null) => void }) => {
+        const [error, setError] = useState<string | null>(null)
+        const [isLoading, setIsLoading] = useState(true)
+        const { themeState } = useThemeStore()
+        const isDark = useResolvedThemeMode(themeState.currentMode) === "dark"
+        const [mermaidHTML, setMermaidHTML] = useState<string | null>(null)
+        const [fullscreenOpen, setFullscreenOpen] = useState(false)
+
+        useEffect(() => {
+            onSvgChange?.(null)
+            setError(null)
+            setIsLoading(true)
+            ;(async () => {
+                try {
+                    // Avoid Vite's dev prebundle for the package root. That optimized path
+                    // can emit a broken `require_dist()` call for Mermaid's sanitize-url helper.
+                    const mermaidModule = await import("mermaid/dist/mermaid.core.mjs")
+                    const mermaid = mermaidModule.default ?? mermaidModule
+
+                    mermaid.initialize({
+                        startOnLoad: false,
+                        securityLevel: "strict",
+                        suppressErrorRendering: true,
+                        htmlLabels: false,
+                        flowchart: { htmlLabels: false },
+                        theme: isDark ? "dark" : "default"
+                    })
+                    const { svg } = await mermaid.render(
+                        `mermaid-${Date.now()}-${isDark ? "dark" : "light"}`,
+                        code
+                    )
+                    const preparedSvg = prepareMermaidSvg(svg)
+                    setMermaidHTML(preparedSvg)
+                    onSvgChange?.(preparedSvg)
+                } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to render diagram")
+                } finally {
+                    setIsLoading(false)
+                }
+            })()
+        }, [code, isDark, onSvgChange])
+
+        if (error) {
+            return (
+                <div
+                    className={cn(
+                        mermaidInlineCanvasClassName,
+                        "flex items-center justify-center p-8 text-destructive"
+                    )}
+                >
+                    <div className="text-center">
+                        <p className="font-medium">Failed to render diagram</p>
+                        <p className="text-muted-foreground text-sm">{error}</p>
+                    </div>
+                </div>
+            )
+        }
+
+        if (isLoading) {
+            return (
+                <div
+                    className={cn(
+                        mermaidInlineCanvasClassName,
+                        "flex items-center justify-center p-8"
+                    )}
+                >
+                    <div className="h-8 w-8 animate-spin rounded-full border-primary border-b-2" />
+                </div>
+            )
+        }
+
+        return (
+            <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
+                {fullscreenOpen ? (
+                    <div className={mermaidInlineCanvasClassName} aria-hidden="true" />
+                ) : (
+                    <MermaidCanvas
+                        svg={mermaidHTML ?? ""}
+                        onExpand={() => setFullscreenOpen(true)}
+                    />
+                )}
+
+                <DialogContent
+                    showCloseButton={false}
+                    overlayClassName="backdrop-blur-md data-[state=open]:animate-none data-[state=closed]:animate-none"
+                    className="flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-card p-0 text-card-foreground data-[state=closed]:animate-none data-[state=open]:animate-none"
+                    style={{
+                        width: "92vw",
+                        height: "85vh",
+                        maxWidth: "80rem",
+                        maxHeight: "56rem"
+                    }}
+                >
+                    <div className="flex h-14 shrink-0 items-center gap-3 border-border border-b px-4">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-sm">Mermaid diagram</h3>
+                            <p className="text-muted-foreground text-xs">Pan and zoom to explore</p>
+                        </div>
+                        <DialogClose asChild>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 rounded-[var(--radius-sm)]"
+                                aria-label="Close fullscreen Mermaid diagram"
+                            >
+                                <X className="size-4" />
+                            </Button>
+                        </DialogClose>
+                    </div>
+                    <DialogTitle className="sr-only">Mermaid diagram</DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Fullscreen interactive Mermaid diagram with pan and zoom controls.
+                    </DialogDescription>
+                    <div className="relative min-h-0 flex-1 overflow-hidden">
+                        <MermaidCanvas svg={mermaidHTML ?? ""} expanded />
+                    </div>
+                </DialogContent>
+            </Dialog>
+        )
+    }
+)
 
 MermaidRenderer.displayName = "MermaidRenderer"
 
@@ -312,30 +422,32 @@ const MarkdownRenderer = memo(({ code }: { code: string }) => {
 
 MarkdownRenderer.displayName = "MarkdownRenderer"
 
-export const ArtifactPreview = memo(({ code, language, className }: ArtifactPreviewProps) => {
-    const renderPreview = () => {
-        switch (language) {
-            case "mermaid":
-                return <MermaidRenderer code={code} />
-            case "html":
-                return <HTMLRenderer code={code} />
-            case "react":
-            case "jsx":
-            case "tsx":
-                return <ReactRenderer code={code} />
-            case "markdown":
-            case "md":
-                return <MarkdownRenderer code={code} />
-            default:
-                return (
-                    <div className="p-4 text-center text-muted-foreground">
-                        Preview not available for {language}
-                    </div>
-                )
+export const ArtifactPreview = memo(
+    ({ code, language, className, onMermaidSvgChange }: ArtifactPreviewProps) => {
+        const renderPreview = () => {
+            switch (language) {
+                case "mermaid":
+                    return <MermaidRenderer code={code} onSvgChange={onMermaidSvgChange} />
+                case "html":
+                    return <HTMLRenderer code={code} />
+                case "react":
+                case "jsx":
+                case "tsx":
+                    return <ReactRenderer code={code} />
+                case "markdown":
+                case "md":
+                    return <MarkdownRenderer code={code} />
+                default:
+                    return (
+                        <div className="p-4 text-center text-muted-foreground">
+                            Preview not available for {language}
+                        </div>
+                    )
+            }
         }
-    }
 
-    return <div className={cn("min-h-[12.5rem] bg-card", className)}>{renderPreview()}</div>
-})
+        return <div className={cn("min-h-[12.5rem] bg-card", className)}>{renderPreview()}</div>
+    }
+)
 
 ArtifactPreview.displayName = "ArtifactPreview"

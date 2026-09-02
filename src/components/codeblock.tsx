@@ -1,12 +1,38 @@
 import { Button } from "@/components/ui/button"
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger
+} from "@/components/ui/context-menu"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/utils"
-import { AlignLeft, CheckIcon, ChevronDown, ChevronUp, CopyIcon, WrapText } from "lucide-react"
-import { Suspense, lazy, memo, useMemo, useState } from "react"
-import { CodeBlock as StreamdownCodeBlock } from "streamdown"
+import {
+    AlignLeft,
+    CheckIcon,
+    ChevronDown,
+    ChevronUp,
+    Code,
+    CopyIcon,
+    Download,
+    FileCode2,
+    FileImage,
+    Image,
+    WrapText
+} from "lucide-react"
+import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
+import { CodeBlock as StreamdownCodeBlock, useIsCodeFenceIncomplete } from "streamdown"
 import { type ArtifactLanguage, isArtifactSupported } from "./artifact-preview-shared"
+import { downloadBlob, mermaidSvgBlob, mermaidSvgToPng } from "./mermaid-export"
 
 const ArtifactPreview = lazy(async () => {
     const mod = await import("./artifact-preview")
@@ -14,6 +40,113 @@ const ArtifactPreview = lazy(async () => {
 })
 
 const isStringChild = (value: React.ReactNode): value is string => typeof value === "string"
+
+const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => {
+    const copyImage = async () => {
+        if (!svg) return
+        try {
+            await navigator.clipboard.write([
+                new ClipboardItem({ "image/png": mermaidSvgToPng(svg) })
+            ])
+            toast.success("Copied Mermaid diagram")
+        } catch {
+            toast.error("Failed to copy Mermaid diagram")
+        }
+    }
+
+    const copyCode = async () => {
+        try {
+            await navigator.clipboard.writeText(code.trim())
+            toast.success("Copied Mermaid code")
+        } catch {
+            toast.error("Failed to copy Mermaid code")
+        }
+    }
+
+    const download = async (format: "mmd" | "svg" | "png") => {
+        try {
+            if (format === "mmd") {
+                downloadBlob(new Blob([code], { type: "text/plain;charset=utf-8" }), "diagram.mmd")
+            } else if (format === "svg" && svg) {
+                downloadBlob(mermaidSvgBlob(svg), "diagram.svg")
+            } else if (format === "png" && svg) {
+                downloadBlob(await mermaidSvgToPng(svg), "diagram.png")
+            }
+        } catch {
+            toast.error(`Failed to download Mermaid ${format.toUpperCase()}`)
+        }
+    }
+
+    return (
+        <>
+            <DropdownMenu>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                aria-label="Download Mermaid diagram"
+                                className="size-7 rounded-[var(--radius-md)] text-muted-foreground hover:text-foreground"
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                            >
+                                <Download className="size-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Download Mermaid diagram</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => void download("mmd")}>
+                        <FileCode2 className="size-4" />
+                        Mermaid code (.mmd)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={!svg} onSelect={() => void download("svg")}>
+                        <Image className="size-4" />
+                        SVG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={!svg} onSelect={() => void download("png")}>
+                        <FileImage className="size-4" />
+                        PNG
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <ContextMenu>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <ContextMenuTrigger asChild>
+                            <Button
+                                aria-label="Copy Mermaid diagram as an image"
+                                className="size-7 rounded-[var(--radius-md)] text-muted-foreground hover:text-foreground"
+                                disabled={!svg}
+                                onClick={() => void copyImage()}
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                            >
+                                <CopyIcon className="size-4" />
+                            </Button>
+                        </ContextMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        Copy image. Right-click or hold for more options.
+                    </TooltipContent>
+                </Tooltip>
+                <ContextMenuContent>
+                    <ContextMenuItem disabled={!svg} onSelect={() => void copyImage()}>
+                        <Image className="size-4" />
+                        Copy image
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => void copyCode()}>
+                        <Code className="size-4" />
+                        Copy code
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            </ContextMenu>
+        </>
+    )
+}
 
 export const Codeblock = memo(
     ({
@@ -54,7 +187,23 @@ export const Codeblock = memo(
         const [didRecentlyCopied, setDidRecentlyCopied] = useState(false)
         const [expanded, setExpanded] = useState(defaultProps?.expand ?? false)
         const [wrapped, setWrapped] = useState(defaultProps?.wrap ?? false)
-        const [activeTab, setActiveTab] = useState<"code" | "preview">("code")
+        const isCodeFenceIncomplete = useIsCodeFenceIncomplete()
+        const canPreviewMermaid = !isCodeFenceIncomplete
+        const [activeTab, setActiveTab] = useState<"code" | "preview">(() =>
+            language === "mermaid" && canPreviewMermaid ? "preview" : "code"
+        )
+        const wasCodeFenceIncomplete = useRef(isCodeFenceIncomplete)
+        const [mermaidSvg, setMermaidSvg] = useState<string | null>(null)
+
+        useEffect(() => {
+            const mermaidFenceJustClosed =
+                language === "mermaid" && wasCodeFenceIncomplete.current && !isCodeFenceIncomplete
+
+            if (language === "mermaid" && !canPreviewMermaid) setActiveTab("code")
+            else if (mermaidFenceJustClosed) setActiveTab("preview")
+
+            wasCodeFenceIncomplete.current = isCodeFenceIncomplete
+        }, [canPreviewMermaid, isCodeFenceIncomplete, language])
 
         const codeString = useMemo(() => {
             return [...(Array.isArray(children) ? children : [children])]
@@ -106,11 +255,16 @@ export const Codeblock = memo(
                                 <TabsTrigger
                                     value="preview"
                                     className="h-6 px-2 text-xs shadow-none"
+                                    disabled={language === "mermaid" && !canPreviewMermaid}
                                 >
                                     Preview
                                 </TabsTrigger>
                             </TabsList>
                             <div className="flex-grow" />
+
+                            {language === "mermaid" && activeTab === "preview" && (
+                                <MermaidActions code={codeString} svg={mermaidSvg} />
+                            )}
 
                             {lineNumber >= 16 && !disable?.expand && activeTab === "code" && (
                                 <Tooltip>
@@ -154,33 +308,34 @@ export const Codeblock = memo(
                                     </TooltipContent>
                                 </Tooltip>
                             )}
-                            {!disable?.copy && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-[1.5rem] w-[1.5rem] text-muted-foreground"
-                                            onClick={() => {
-                                                copyToClipboard(codeString)
-                                                setDidRecentlyCopied(true)
-                                                setTimeout(() => {
-                                                    setDidRecentlyCopied(false)
-                                                }, 1000)
-                                            }}
-                                        >
-                                            {didRecentlyCopied ? (
-                                                <CheckIcon className="size-4" />
-                                            ) : (
-                                                <CopyIcon className="size-4" />
-                                            )}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {didRecentlyCopied ? "Copied!" : "Copy code"}
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
+                            {!disable?.copy &&
+                                !(language === "mermaid" && activeTab === "preview") && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-[1.5rem] w-[1.5rem] text-muted-foreground"
+                                                onClick={() => {
+                                                    copyToClipboard(codeString)
+                                                    setDidRecentlyCopied(true)
+                                                    setTimeout(() => {
+                                                        setDidRecentlyCopied(false)
+                                                    }, 1000)
+                                                }}
+                                            >
+                                                {didRecentlyCopied ? (
+                                                    <CheckIcon className="size-4" />
+                                                ) : (
+                                                    <CopyIcon className="size-4" />
+                                                )}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {didRecentlyCopied ? "Copied!" : "Copy code"}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
                         </div>
 
                         <TabsContent value="code" className="mt-0">
@@ -225,6 +380,7 @@ export const Codeblock = memo(
                                     <ArtifactPreview
                                         code={codeString}
                                         language={language as ArtifactLanguage}
+                                        onMermaidSvgChange={setMermaidSvg}
                                     />
                                 </Suspense>
                             )}
