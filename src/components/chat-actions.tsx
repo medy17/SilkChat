@@ -156,6 +156,7 @@ export const ChatActions = memo(
         onEdit,
         editing = false,
         onCancelEdit,
+        requiresVisionForModelSelection = false,
         requiresNativePdfForModelSelection = false,
         copyOnly = false
     }: {
@@ -166,6 +167,7 @@ export const ChatActions = memo(
         onEdit?: (message: UIMessage) => void
         editing?: boolean
         onCancelEdit?: () => void
+        requiresVisionForModelSelection?: boolean
         requiresNativePdfForModelSelection?: boolean
         copyOnly?: boolean
     }) => {
@@ -405,6 +407,7 @@ export const ChatActions = memo(
                     onRetry && (
                         <RetryMenu
                             onRetry={(configOverride) => onRetry(message, configOverride)}
+                            requiresVision={requiresVisionForModelSelection}
                             requiresNativePdf={requiresNativePdfForModelSelection}
                         />
                     )

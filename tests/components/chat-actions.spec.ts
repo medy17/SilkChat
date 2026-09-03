@@ -231,18 +231,20 @@ describe("ChatActions", () => {
         expect(screen.getByText("916 tokens (757 in, 159 out)")).toBeTruthy()
     })
 
-    it("passes native pdf gating through to the retry menu", () => {
+    it("passes attachment modality gating through to the retry menu", () => {
         render(
             React.createElement(ChatActions, {
                 role: "user",
                 message: createAssistantMessage(),
                 onRetry: vi.fn(),
+                requiresVisionForModelSelection: true,
                 requiresNativePdfForModelSelection: true
             })
         )
 
         expect(retryMenuMock).toHaveBeenCalledWith(
             expect.objectContaining({
+                requiresVision: true,
                 requiresNativePdf: true
             })
         )

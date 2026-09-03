@@ -4,7 +4,9 @@ import {
     getAttachmentValidationError,
     hasPdfAttachmentInMessages,
     hasPdfAttachmentInUploadedFiles,
-    modelSupportsNativePdf
+    hasVisionImageAttachmentInMessages,
+    modelSupportsNativePdf,
+    modelSupportsVision
 } from "@/lib/attachment-support"
 import { MAX_ATTACHMENTS_PER_THREAD, MAX_FILE_SIZE, isSupportedFile } from "@/lib/file_constants"
 
@@ -148,8 +150,29 @@ describe("getAttachmentValidationError", () => {
         ).toBe(true)
     })
 
+    it("detects vision images already present in thread messages", () => {
+        expect(
+            hasVisionImageAttachmentInMessages([
+                {
+                    parts: [
+                        {
+                            type: "file",
+                            url: "https://convex.example/r2?key=attachments%2Fuser-1%2Fdiagram.png",
+                            mediaType: "image/png"
+                        }
+                    ]
+                }
+            ])
+        ).toBe(true)
+    })
+
     it("checks models for native pdf support", () => {
         expect(modelSupportsNativePdf({ abilities: ["vision", "native_pdf"] })).toBe(true)
         expect(modelSupportsNativePdf({ abilities: ["vision"] })).toBe(false)
+    })
+
+    it("checks models for vision support", () => {
+        expect(modelSupportsVision({ abilities: ["vision", "native_pdf"] })).toBe(true)
+        expect(modelSupportsVision({ abilities: ["native_pdf"] })).toBe(false)
     })
 })

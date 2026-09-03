@@ -4,11 +4,13 @@ import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
-import { modelSupportsNativePdf } from "@/lib/attachment-support"
+import { modelSupportsNativePdf, modelSupportsVision } from "@/lib/attachment-support"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
+    getAbilityIcon,
+    getAbilityLabel,
     getAllowedReasoningEffortsForModel,
     getProviderDisplayName,
     getReasoningEffortForPlan,
@@ -22,9 +24,10 @@ import {
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { Archive, CircleHelp, Crown, RotateCcw } from "lucide-react"
+import { Archive, ChevronRight, Crown, RotateCcw } from "lucide-react"
 import * as React from "react"
 import { getProviderSectionIcon } from "./model-selector"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import {
@@ -38,11 +41,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger
 } from "./ui/dropdown-menu"
-import {
-    ResponsivePopover,
-    ResponsivePopoverContent,
-    ResponsivePopoverTrigger
-} from "./ui/responsive-popover"
+import { ResponsivePopover, ResponsivePopoverContent } from "./ui/responsive-popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
@@ -111,54 +110,20 @@ const getProviderSectionLabel = (
     }
 }
 
-function RetryMenuDisabledReason({ reason }: { reason: string }) {
-    const isMobile = useIsMobile()
-    const [open, setOpen] = React.useState(false)
-
-    const trigger = (
-        <button
-            type="button"
-            aria-label={reason}
-            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/50 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onPointerDown={(event) => {
-                event.stopPropagation()
-            }}
-            onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                if (isMobile) {
-                    setOpen(true)
-                }
-            }}
-        >
-            <CircleHelp className="size-3" />
-        </button>
-    )
-
-    if (isMobile) {
-        return (
-            <ResponsivePopover open={open} onOpenChange={setOpen} nested>
-                <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
-                <ResponsivePopoverContent
-                    className="z-[91] mx-auto w-[min(22rem,calc(100vw-2rem))] rounded-[var(--radius-lg)]"
-                    overlayClassName="z-[90]"
-                    title="Why this model is unavailable"
-                >
-                    <p className="px-4 pb-4 text-muted-foreground text-sm">{reason}</p>
-                </ResponsivePopoverContent>
-            </ResponsivePopover>
-        )
-    }
-
+function RetryMenuDisabledReasonTooltip({
+    reason,
+    children
+}: {
+    reason: string
+    children: React.ReactElement
+}) {
     return (
         <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipTrigger asChild>{children}</TooltipTrigger>
             <TooltipContent className="z-[71] max-w-[min(22rem,calc(100vw-2rem))]">
                 <div className="space-y-1.5 p-1">
-                    <p className="font-medium text-foreground leading-none">
-                        Why this model is unavailable
-                    </p>
-                    <p className="text-muted-foreground">{reason}</p>
+                    <p className="font-medium leading-none">Why this model is unavailable</p>
+                    <p className="text-primary-foreground/80">{reason}</p>
                 </div>
             </TooltipContent>
         </Tooltip>
@@ -174,17 +139,160 @@ const AdminOnlyModelBadge = () => (
     </Badge>
 )
 
+const MODEL_ABILITY_COLORS: Record<string, string> = {
+    vision: "var(--chart-2, var(--primary))",
+    reasoning: "var(--chart-3, var(--primary))",
+    function_calling: "var(--chart-1, var(--primary))",
+    native_pdf: "var(--chart-5, var(--primary))",
+    pdf: "var(--chart-5, var(--primary))"
+}
+
+const getModelAbilityDisplayRank = (ability: string) => {
+    switch (ability) {
+        case "vision":
+            return 0
+        case "reasoning":
+            return 1
+        case "function_calling":
+            return 2
+        case "native_pdf":
+        case "pdf":
+            return 4
+        default:
+            return 3
+    }
+}
+
+const RetryModelAbilityIcons = ({ model }: { model: DisplayModel }) => {
+    const abilities = model.abilities
+        .map((ability, index) => ({ ability, index }))
+        .filter(({ ability }) => ability !== "effort_control")
+        .sort(
+            (left, right) =>
+                getModelAbilityDisplayRank(left.ability) -
+                    getModelAbilityDisplayRank(right.ability) || left.index - right.index
+        )
+        .slice(0, 4)
+        .map(({ ability }) => ability)
+
+    if (abilities.length === 0) {
+        return null
+    }
+
+    return (
+        <span className="flex shrink-0 items-center justify-end gap-2">
+            {abilities.map((ability) => {
+                const AbilityIcon = getAbilityIcon(ability)
+                const label = getAbilityLabel(ability)
+                const featureColor = MODEL_ABILITY_COLORS[ability] ?? "var(--primary)"
+
+                return (
+                    <Tooltip key={ability} delayDuration={150}>
+                        <TooltipTrigger asChild>
+                            <span
+                                className="relative flex size-6 items-center justify-center overflow-hidden rounded-[var(--radius-md)] text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))]"
+                                style={{ "--feature-color": featureColor } as React.CSSProperties}
+                                aria-label={label}
+                            >
+                                <span className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
+                                <AbilityIcon className="relative size-4 text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))]" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="z-[71]">
+                            {label}
+                        </TooltipContent>
+                    </Tooltip>
+                )
+            })}
+        </span>
+    )
+}
+
+const RetrySubmenuContent = ({
+    alignToMobileViewport = false,
+    className,
+    ...props
+}: React.ComponentProps<typeof DropdownMenuSubContent> & {
+    alignToMobileViewport?: boolean
+}) => {
+    const alignMobileContent = React.useCallback(
+        (element: HTMLDivElement | null) => {
+            if (!alignToMobileViewport || !element || window.innerWidth >= 640) {
+                return
+            }
+
+            const alignContent = () => {
+                if (!element.isConnected) return
+
+                element.style.translate = "none"
+                const viewportLeft = window.visualViewport?.offsetLeft ?? 0
+                const contentLeft = element.getBoundingClientRect().left
+                element.style.translate = `${viewportLeft + 8 - contentLeft}px 0`
+            }
+
+            alignContent()
+            requestAnimationFrame(alignContent)
+        },
+        [alignToMobileViewport]
+    )
+
+    return (
+        <DropdownMenuSubContent
+            ref={alignMobileContent}
+            avoidCollisions
+            collisionPadding={20}
+            className={cn(
+                "max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto",
+                className
+            )}
+            {...props}
+        />
+    )
+}
+
+const RetryModelRowContent = ({
+    model,
+    isModelLocked
+}: {
+    model: DisplayModel
+    isModelLocked: boolean
+}) => (
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-4 p-3">
+        <span className="min-w-0 flex-1 font-medium text-muted-foreground">
+            <span className="w-fit whitespace-nowrap max-sm:whitespace-normal max-sm:break-words">
+                {model.name}
+            </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+            <RetryModelAbilityIcons model={model} />
+            {isModelLocked && (
+                <Badge
+                    variant="secondary"
+                    className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
+                >
+                    Pro
+                </Badge>
+            )}
+            {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
+        </span>
+    </div>
+)
+
 export function RetryMenu({
     onRetry,
+    requiresVision = false,
     requiresNativePdf = false,
     triggerLabel
 }: {
     onRetry: (configOverride?: AssistantConfigOverride) => void
+    requiresVision?: boolean
     requiresNativePdf?: boolean
     triggerLabel?: string
 }) {
     const auth = useConvexAuth()
     const session = useSession()
+    const isMobile = useIsMobile()
+    const [mobileDisabledReason, setMobileDisabledReason] = React.useState<string | null>(null)
     const userSettings = useDiskCachedQuery(
         api.settings.getUserSettings,
         {
@@ -195,8 +303,6 @@ export function RetryMenu({
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
 
-    const [expandedProviders, setExpandedProviders] = React.useState<Record<string, boolean>>({})
-
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const creditPlan = useCreditAccess((state) => state.plan)
 
@@ -205,11 +311,7 @@ export function RetryMenu({
     )
 
     const getDefaultRetryEffort = React.useCallback(
-        (
-            model: DisplayModel,
-            sharedModel: SharedModel | null,
-            allowedEfforts: ReasoningEffort[]
-        ) => {
+        (sharedModel: SharedModel | null, allowedEfforts: ReasoningEffort[]) => {
             if (allowedEfforts.length === 0) {
                 return undefined
             }
@@ -278,9 +380,13 @@ export function RetryMenu({
     }, [availableModels, currentProviders])
 
     const getDisabledReason = React.useCallback(
-        (isModelLocked: boolean, isNativePdfBlocked: boolean) => {
+        (isModelLocked: boolean, isVisionBlocked: boolean, isNativePdfBlocked: boolean) => {
             if (isNativePdfBlocked) {
                 return "This thread requires native PDF support."
+            }
+
+            if (isVisionBlocked) {
+                return "This thread requires vision support."
             }
 
             if (isModelLocked) {
@@ -310,13 +416,7 @@ export function RetryMenu({
     )
 
     return (
-        <DropdownMenu
-            onOpenChange={(open) => {
-                if (!open) {
-                    setTimeout(() => setExpandedProviders({}), 300)
-                }
-            }}
-        >
+        <DropdownMenu>
             {triggerLabel ? (
                 trigger
             ) : (
@@ -328,330 +428,316 @@ export function RetryMenu({
                 </Tooltip>
             )}
 
-            <DropdownMenuContent align="end" className="w-[12.5rem]">
-                <DropdownMenuItem onClick={() => onRetry()} className="cursor-pointer gap-2">
-                    <RotateCcw className="h-4 w-4" />
+            <DropdownMenuContent
+                align="end"
+                collisionPadding={20}
+                className="relative mb-2 w-fit max-w-[calc(100vw-2rem)] rounded-[var(--radius-lg)] border-none"
+            >
+                <DropdownMenuItem onClick={() => onRetry()} className="cursor-pointer px-3 py-2">
+                    <RotateCcw className="mr-2 size-4" />
                     <span>Retry same</span>
                 </DropdownMenuItem>
 
-                <div className="flex items-center gap-2 px-2 py-1.5">
-                    <div className="h-[0.0625rem] flex-1 bg-border" />
-                    <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                        or switch model
+                <DropdownMenuSeparator className="mx-2 my-5 opacity-50" />
+                <div className="absolute z-10 -mt-8 flex w-full items-center justify-center">
+                    <span className="bg-popover px-2 text-muted-foreground/80 text-sm">
+                        OR SWITCH MODEL
                     </span>
-                    <div className="h-[0.0625rem] flex-1 bg-border" />
                 </div>
 
                 {providerSections.map((section) => {
-                    const isExpanded = expandedProviders[section.id]
+                    const currentModels = section.models.filter(
+                        (model) => !("legacy" in model && model.legacy)
+                    )
+                    const legacyModels = section.models.filter(
+                        (model) => "legacy" in model && model.legacy
+                    )
+                    const visibleModels =
+                        currentModels.length > 0 ? currentModels : legacyModels.slice(0, 5)
+                    const hiddenLegacyModels =
+                        currentModels.length > 0 ? legacyModels : legacyModels.slice(5)
 
-                    let currentModels = section.models.filter((m) => !("legacy" in m && m.legacy))
-                    if (currentModels.length === 0) {
-                        currentModels = section.models.slice(0, 5)
+                    const renderModel = (model: DisplayModel) => {
+                        const sharedModel =
+                            "isCustom" in model && model.isCustom ? null : (model as SharedModel)
+                        const allowedEfforts = getAllowedReasoningEffortsForModel(sharedModel)
+                        const defaultRetryEffort = getDefaultRetryEffort(
+                            sharedModel,
+                            allowedEfforts
+                        )
+                        const isModelLocked =
+                            creditPlan === "free" &&
+                            (allowedEfforts.length > 0
+                                ? defaultRetryEffort === null
+                                : getRequiredPlanToPickModel(model, "off") === "pro")
+                        const isNativePdfBlocked =
+                            requiresNativePdf && !modelSupportsNativePdf(model)
+                        const isVisionBlocked = requiresVision && !modelSupportsVision(model)
+                        const disabledReason = getDisabledReason(
+                            isModelLocked,
+                            isVisionBlocked,
+                            isNativePdfBlocked
+                        )
+                        const isModelDisabled =
+                            isModelLocked || isVisionBlocked || isNativePdfBlocked
+
+                        const handleSelect = (effort?: ReasoningEffort) => {
+                            if (isModelDisabled) return
+
+                            onRetry({
+                                modelIdOverride: model.id,
+                                ...(effort ? { reasoningEffortOverride: effort } : {})
+                            })
+                        }
+
+                        const rowContent = (
+                            <RetryModelRowContent model={model} isModelLocked={isModelLocked} />
+                        )
+
+                        if (isModelDisabled) {
+                            const disabledRow = (
+                                <DropdownMenuItem
+                                    key={model.id}
+                                    aria-label={`${model.name} unavailable: ${disabledReason}`}
+                                    onSelect={(event) => {
+                                        event.preventDefault()
+                                        if (isMobile && disabledReason) {
+                                            setMobileDisabledReason(disabledReason)
+                                        }
+                                    }}
+                                    className="cursor-not-allowed gap-0 p-0 opacity-50 hover:bg-transparent max-sm:cursor-pointer"
+                                >
+                                    {rowContent}
+                                    <span
+                                        aria-hidden="true"
+                                        className="flex w-10 shrink-0 items-center justify-center"
+                                    >
+                                        <ChevronRight className="invisible size-4" />
+                                    </span>
+                                </DropdownMenuItem>
+                            )
+
+                            if (isMobile || !disabledReason) {
+                                return disabledRow
+                            }
+
+                            return (
+                                <RetryMenuDisabledReasonTooltip
+                                    key={model.id}
+                                    reason={disabledReason}
+                                >
+                                    {disabledRow}
+                                </RetryMenuDisabledReasonTooltip>
+                            )
+                        }
+
+                        if (allowedEfforts.length === 0) {
+                            return (
+                                <DropdownMenuItem
+                                    key={model.id}
+                                    onSelect={(event) => {
+                                        if (isModelDisabled) {
+                                            event.preventDefault()
+                                            return
+                                        }
+                                        handleSelect()
+                                    }}
+                                    className={cn(
+                                        "group flex items-stretch gap-0 p-0",
+                                        isModelDisabled &&
+                                            "cursor-not-allowed opacity-50 hover:bg-transparent"
+                                    )}
+                                >
+                                    {rowContent}
+                                    <span
+                                        aria-hidden="true"
+                                        className="flex w-10 shrink-0 items-center justify-center"
+                                    >
+                                        <ChevronRight className="invisible size-4" />
+                                    </span>
+                                </DropdownMenuItem>
+                            )
+                        }
+
+                        return (
+                            <div key={model.id} className="flex w-full items-stretch">
+                                <DropdownMenuItem
+                                    onSelect={(event) => {
+                                        if (isModelDisabled || defaultRetryEffort === null) {
+                                            event.preventDefault()
+                                            return
+                                        }
+                                        handleSelect(defaultRetryEffort ?? undefined)
+                                    }}
+                                    className={cn(
+                                        "group min-w-0 flex-1 p-0",
+                                        isModelDisabled &&
+                                            "cursor-not-allowed opacity-50 hover:bg-transparent"
+                                    )}
+                                >
+                                    {rowContent}
+                                </DropdownMenuItem>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger
+                                        disabled={isModelDisabled}
+                                        className={cn(
+                                            "w-10 shrink-0 self-stretch px-3 py-0 [&>svg]:m-0",
+                                            isModelDisabled && "cursor-not-allowed opacity-50"
+                                        )}
+                                    >
+                                        <span className="sr-only">Reasoning options</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent
+                                            sideOffset={8}
+                                            collisionPadding={16}
+                                            className="max-sm:!ml-0 w-fit min-w-[10.5rem] max-w-[12rem] rounded-[var(--radius-lg)] max-sm:w-[min(12rem,calc(100dvw-2rem))] max-sm:min-w-0"
+                                        >
+                                            {(() => {
+                                                const effortItems = allowedEfforts.map((effort) => {
+                                                    const requiredPlan =
+                                                        sharedModel !== null
+                                                            ? getRequiredPlanToPickModel(
+                                                                  sharedModel,
+                                                                  effort
+                                                              )
+                                                            : null
+                                                    return {
+                                                        effort,
+                                                        isEffortLocked:
+                                                            creditPlan === "free" &&
+                                                            requiredPlan === "pro",
+                                                        requiredPlan
+                                                    }
+                                                })
+                                                const firstProIndex = effortItems.findIndex(
+                                                    ({ requiredPlan }) => requiredPlan === "pro"
+                                                )
+                                                const shouldShowProDivider =
+                                                    effortItems.length >= 3 && firstProIndex > 0
+
+                                                return effortItems.map(
+                                                    ({ effort, isEffortLocked }, index) => {
+                                                        const EffortIcon = getReasoningEffortIcon(
+                                                            effort,
+                                                            sharedModel
+                                                        )
+
+                                                        return (
+                                                            <React.Fragment key={effort}>
+                                                                {shouldShowProDivider &&
+                                                                    firstProIndex === index && (
+                                                                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
+                                                                            <div className="h-px flex-1 bg-border" />
+                                                                            <span className="flex items-center gap-1 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                                                                                <Crown className="size-3 shrink-0" />
+                                                                                <span>Pro</span>
+                                                                            </span>
+                                                                            <div className="h-px flex-1 bg-border" />
+                                                                        </div>
+                                                                    )}
+                                                                <DropdownMenuItem
+                                                                    disabled={isEffortLocked}
+                                                                    onClick={() =>
+                                                                        handleSelect(effort)
+                                                                    }
+                                                                    className="cursor-pointer gap-2"
+                                                                >
+                                                                    <EffortIcon className="size-4 shrink-0" />
+                                                                    <span className="flex-1">
+                                                                        {getReasoningEffortLabelForModel(
+                                                                            sharedModel,
+                                                                            effort
+                                                                        )}
+                                                                    </span>
+                                                                    {effort ===
+                                                                        defaultRetryEffort && (
+                                                                        <span className="ml-1.5 text-muted-foreground/80 text-xs">
+                                                                            (default)
+                                                                        </span>
+                                                                    )}
+                                                                    {isEffortLocked && (
+                                                                        <Badge
+                                                                            variant="secondary"
+                                                                            className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
+                                                                        >
+                                                                            Pro
+                                                                        </Badge>
+                                                                    )}
+                                                                </DropdownMenuItem>
+                                                            </React.Fragment>
+                                                        )
+                                                    }
+                                                )
+                                            })()}
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                            </div>
+                        )
                     }
-
-                    const visibleModels = isExpanded ? section.models : currentModels
-                    const hasMore = section.models.length > currentModels.length
 
                     return (
                         <DropdownMenuSub key={section.id}>
-                            <DropdownMenuSubTrigger className="cursor-pointer gap-2.5 pr-2">
-                                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border bg-secondary/50">
-                                    {getProviderSectionIcon(section.id, section.models, "size-3.5")}
+                            <DropdownMenuSubTrigger className="cursor-pointer px-3 py-2">
+                                <div className="flex items-center gap-4 pr-8">
+                                    <span className="flex size-4 shrink-0 items-center justify-center">
+                                        {getProviderSectionIcon(
+                                            section.id,
+                                            section.models,
+                                            "size-4"
+                                        )}
+                                    </span>
+                                    <span>{section.label}</span>
                                 </div>
-                                <span className="flex-1 truncate">{section.label}</span>
                             </DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
-                                <DropdownMenuSubContent
-                                    className="w-fit min-w-[7rem] max-w-[15rem]"
+                                <RetrySubmenuContent
+                                    alignToMobileViewport
                                     sideOffset={8}
-                                    collisionPadding={16}
+                                    className="mb-2 w-max max-w-[calc(100vw-2rem)] rounded-[var(--radius-lg)] max-sm:mx-2 max-sm:w-[min(22rem,calc(100dvw-2rem))] max-sm:max-w-[calc(100dvw-2rem)]"
                                 >
-                                    {visibleModels.map((model) => {
-                                        const sharedModel =
-                                            "isCustom" in model && model.isCustom
-                                                ? null
-                                                : (model as SharedModel)
-                                        const allowedEfforts =
-                                            getAllowedReasoningEffortsForModel(sharedModel)
-                                        const defaultRetryEffort = getDefaultRetryEffort(
-                                            model,
-                                            sharedModel,
-                                            allowedEfforts
-                                        )
-                                        const isModelLocked =
-                                            creditPlan === "free" &&
-                                            (allowedEfforts.length > 0
-                                                ? defaultRetryEffort === null
-                                                : getRequiredPlanToPickModel(model, "off") ===
-                                                  "pro")
-                                        const isNativePdfBlocked =
-                                            requiresNativePdf && !modelSupportsNativePdf(model)
-                                        const disabledReason = getDisabledReason(
-                                            isModelLocked,
-                                            isNativePdfBlocked
-                                        )
-
-                                        const handleSelect = (effort?: ReasoningEffort) => {
-                                            if (isModelLocked || isNativePdfBlocked) {
-                                                return
-                                            }
-                                            onRetry({
-                                                modelIdOverride: model.id,
-                                                ...(effort
-                                                    ? { reasoningEffortOverride: effort }
-                                                    : {})
-                                            })
-                                        }
-
-                                        if (allowedEfforts.length > 0) {
-                                            return (
-                                                <div
-                                                    key={model.id}
-                                                    className="flex items-center gap-0.5"
-                                                >
-                                                    <DropdownMenuItem
-                                                        onSelect={(event) => {
-                                                            if (
-                                                                isModelLocked ||
-                                                                isNativePdfBlocked
-                                                            ) {
-                                                                event.preventDefault()
-                                                                return
-                                                            }
-
-                                                            if (defaultRetryEffort !== null) {
-                                                                handleSelect(
-                                                                    defaultRetryEffort ?? undefined
-                                                                )
-                                                            }
-                                                        }}
-                                                        className={cn(
-                                                            "flex-1 pr-2",
-                                                            (isModelLocked || isNativePdfBlocked) &&
-                                                                "cursor-not-allowed opacity-50"
-                                                        )}
-                                                    >
-                                                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                            <span className="truncate font-medium text-sm">
-                                                                {model.name}
-                                                            </span>
-                                                            {isModelLocked && (
-                                                                <Badge
-                                                                    variant="secondary"
-                                                                    className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
-                                                                >
-                                                                    Pro
-                                                                </Badge>
-                                                            )}
-                                                            {isAdminOnlyModel(model) && (
-                                                                <AdminOnlyModelBadge />
-                                                            )}
-                                                            {disabledReason && (
-                                                                <RetryMenuDisabledReason
-                                                                    reason={disabledReason}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger
-                                                            disabled={
-                                                                isModelLocked || isNativePdfBlocked
-                                                            }
-                                                            className={cn(
-                                                                "h-9 cursor-pointer px-2",
-                                                                (isModelLocked ||
-                                                                    isNativePdfBlocked) &&
-                                                                    "text-muted-foreground/40"
-                                                            )}
-                                                        >
-                                                            <span className="sr-only">
-                                                                Reasoning Options
-                                                            </span>
-                                                        </DropdownMenuSubTrigger>
-                                                        <DropdownMenuPortal>
-                                                            <DropdownMenuSubContent
-                                                                className="w-fit min-w-[10.5rem] max-w-[12rem]"
-                                                                sideOffset={8}
-                                                                collisionPadding={16}
-                                                            >
-                                                                {(() => {
-                                                                    const effortItems =
-                                                                        allowedEfforts.map(
-                                                                            (effort) => {
-                                                                                const requiredPlan =
-                                                                                    sharedModel !==
-                                                                                    null
-                                                                                        ? getRequiredPlanToPickModel(
-                                                                                              sharedModel,
-                                                                                              effort
-                                                                                          )
-                                                                                        : null
-
-                                                                                return {
-                                                                                    effort,
-                                                                                    requiredPlan,
-                                                                                    isEffortLocked:
-                                                                                        creditPlan ===
-                                                                                            "free" &&
-                                                                                        requiredPlan ===
-                                                                                            "pro"
-                                                                                }
-                                                                            }
-                                                                        )
-                                                                    const firstProIndex =
-                                                                        effortItems.findIndex(
-                                                                            ({ requiredPlan }) =>
-                                                                                requiredPlan ===
-                                                                                "pro"
-                                                                        )
-                                                                    const shouldShowProDivider =
-                                                                        effortItems.length >= 3 &&
-                                                                        firstProIndex > 0
-
-                                                                    return effortItems.map(
-                                                                        (
-                                                                            {
-                                                                                effort,
-                                                                                isEffortLocked
-                                                                            },
-                                                                            index
-                                                                        ) => {
-                                                                            const EffortIcon =
-                                                                                getReasoningEffortIcon(
-                                                                                    effort,
-                                                                                    sharedModel
-                                                                                )
-
-                                                                            return (
-                                                                                <React.Fragment
-                                                                                    key={effort}
-                                                                                >
-                                                                                    {shouldShowProDivider &&
-                                                                                        firstProIndex ===
-                                                                                            index && (
-                                                                                            <div className="flex items-center gap-2 px-2 py-1.5">
-                                                                                                <div className="h-[0.0625rem] flex-1 bg-border" />
-                                                                                                <span className="flex items-center gap-1 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                                                                                                    <Crown className="size-3 shrink-0" />
-                                                                                                    <span>
-                                                                                                        Pro
-                                                                                                    </span>
-                                                                                                </span>
-                                                                                                <div className="h-[0.0625rem] flex-1 bg-border" />
-                                                                                            </div>
-                                                                                        )}
-                                                                                    <DropdownMenuItem
-                                                                                        disabled={
-                                                                                            isEffortLocked
-                                                                                        }
-                                                                                        onClick={() =>
-                                                                                            handleSelect(
-                                                                                                effort
-                                                                                            )
-                                                                                        }
-                                                                                        className="cursor-pointer"
-                                                                                    >
-                                                                                        <span className="flex min-w-0 flex-1 items-center gap-2">
-                                                                                            <EffortIcon className="size-4 shrink-0" />
-                                                                                            <span className="truncate">
-                                                                                                {getReasoningEffortLabelForModel(
-                                                                                                    sharedModel,
-                                                                                                    effort
-                                                                                                )}
-                                                                                            </span>
-                                                                                            {isEffortLocked && (
-                                                                                                <Badge
-                                                                                                    variant="secondary"
-                                                                                                    className="border border-border/70 text-[0.625rem] uppercase tracking-wide"
-                                                                                                >
-                                                                                                    Pro
-                                                                                                </Badge>
-                                                                                            )}
-                                                                                        </span>
-                                                                                    </DropdownMenuItem>
-                                                                                </React.Fragment>
-                                                                            )
-                                                                        }
-                                                                    )
-                                                                })()}
-                                                            </DropdownMenuSubContent>
-                                                        </DropdownMenuPortal>
-                                                    </DropdownMenuSub>
-                                                </div>
-                                            )
-                                        }
-
-                                        return (
-                                            <DropdownMenuItem
-                                                key={model.id}
-                                                onSelect={(event) => {
-                                                    if (isModelLocked || isNativePdfBlocked) {
-                                                        event.preventDefault()
-                                                        return
-                                                    }
-
-                                                    handleSelect()
-                                                }}
-                                                className={cn(
-                                                    (isModelLocked || isNativePdfBlocked) &&
-                                                        "cursor-not-allowed opacity-50"
-                                                )}
-                                            >
-                                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                    <span className="truncate font-medium text-sm">
-                                                        {model.name}
+                                    {visibleModels.map(renderModel)}
+                                    {hiddenLegacyModels.length > 0 && (
+                                        <Accordion type="single" collapsible className="w-full">
+                                            <AccordionItem value="legacy" className="border-none">
+                                                <AccordionTrigger className="px-3 py-2 text-muted-foreground hover:no-underline data-[state=open]:hidden">
+                                                    <span className="flex items-center gap-4">
+                                                        <Archive className="size-4" />
+                                                        <span>Show legacy models</span>
                                                     </span>
-                                                    {isModelLocked && (
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="ml-auto border border-border/70 text-[0.625rem] uppercase tracking-wide"
-                                                        >
-                                                            Pro
-                                                        </Badge>
-                                                    )}
-                                                    {isAdminOnlyModel(model) && (
-                                                        <AdminOnlyModelBadge />
-                                                    )}
-                                                    {disabledReason && (
-                                                        <div className="ml-auto">
-                                                            <RetryMenuDisabledReason
-                                                                reason={disabledReason}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </DropdownMenuItem>
-                                        )
-                                    })}
-
-                                    {hasMore && !isExpanded && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                className="cursor-pointer justify-center text-muted-foreground hover:text-foreground"
-                                                onClick={(e) => {
-                                                    e.preventDefault()
-                                                    setExpandedProviders((prev) => ({
-                                                        ...prev,
-                                                        [section.id]: true
-                                                    }))
-                                                }}
-                                            >
-                                                <Archive className="size-3.5" />
-                                                <span className="font-medium text-xs">
-                                                    Show legacy models
-                                                </span>
-                                            </DropdownMenuItem>
-                                        </>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="px-0 pb-0">
+                                                    {hiddenLegacyModels.map(renderModel)}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
                                     )}
-                                </DropdownMenuSubContent>
+                                </RetrySubmenuContent>
                             </DropdownMenuPortal>
                         </DropdownMenuSub>
                     )
                 })}
             </DropdownMenuContent>
+            {isMobile && (
+                <ResponsivePopover
+                    open={mobileDisabledReason !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setMobileDisabledReason(null)
+                    }}
+                    nested
+                >
+                    <ResponsivePopoverContent
+                        className="z-[91] mx-auto w-[min(22rem,calc(100dvw-2rem))] rounded-[var(--radius-lg)] border border-border bg-popover text-popover-foreground"
+                        overlayClassName="z-[90]"
+                        title="Why this model is unavailable"
+                    >
+                        <p className="px-4 pb-4 text-muted-foreground text-sm">
+                            {mobileDisabledReason}
+                        </p>
+                    </ResponsivePopoverContent>
+                </ResponsivePopover>
+            )}
         </DropdownMenu>
     )
 }

@@ -59,6 +59,13 @@ const isPdfAttachment = (attachment: StoredAttachmentLike) =>
     getFileTypeInfo(getAttachmentName(attachment), attachment.fileType ?? attachment.mediaType)
         .isPdf === true
 
+const isVisionImageAttachment = (attachment: StoredAttachmentLike) =>
+    getFileTypeInfo(getAttachmentName(attachment), attachment.fileType ?? attachment.mediaType)
+        .isVisionImage === true
+
+export const modelSupportsVision = (model: { abilities: readonly string[] }) =>
+    model.abilities.includes("vision")
+
 export const modelSupportsNativePdf = (model: { abilities: readonly string[] }) =>
     model.abilities.includes("native_pdf")
 
@@ -71,6 +78,19 @@ export const hasPdfAttachmentInMessages = (messages: readonly MessageWithParts[]
             (part) =>
                 part.type === "file" &&
                 isPdfAttachment({
+                    filename: part.filename,
+                    mediaType: part.mediaType,
+                    url: part.url
+                })
+        )
+    )
+
+export const hasVisionImageAttachmentInMessages = (messages: readonly MessageWithParts[]) =>
+    messages.some((message) =>
+        message.parts?.some(
+            (part) =>
+                part.type === "file" &&
+                isVisionImageAttachment({
                     filename: part.filename,
                     mediaType: part.mediaType,
                     url: part.url

@@ -9,7 +9,11 @@ import {
     finalizeIngestedUpload,
     ingestChatAttachment
 } from "@/lib/attachment-ingest"
-import { getAttachmentValidationError, hasPdfAttachmentInMessages } from "@/lib/attachment-support"
+import {
+    getAttachmentValidationError,
+    hasPdfAttachmentInMessages,
+    hasVisionImageAttachmentInMessages
+} from "@/lib/attachment-support"
 import {
     getAttachmentTileKind,
     getAttachmentTileMediaType,
@@ -1258,6 +1262,7 @@ type MessageRowProps = {
     ) => void
     onCancelEdit: () => void
     onFilePreview: (part: PreviewFile) => void
+    requiresVisionForModelSelection: boolean
     requiresNativePdfForModelSelection: boolean
     threadId?: string
     sharedThreadId?: string
@@ -1278,6 +1283,7 @@ const MessageRowComponent = ({
     onSaveEdit,
     onCancelEdit,
     onFilePreview,
+    requiresVisionForModelSelection,
     requiresNativePdfForModelSelection,
     threadId,
     sharedThreadId,
@@ -1553,6 +1559,7 @@ const MessageRowComponent = ({
                                         attempts={toolFailureAttempts}
                                         retryMessage={retryMessage}
                                         onRetry={onRetry}
+                                        requiresVision={requiresVisionForModelSelection}
                                         requiresNativePdf={requiresNativePdfForModelSelection}
                                     />
                                 ) : activity.type === "code-execution" ? (
@@ -1635,6 +1642,7 @@ const MessageRowComponent = ({
                         onEdit={handleStartEdit}
                         editing={isEditing}
                         onCancelEdit={() => cancelEditRequestRef.current?.()}
+                        requiresVisionForModelSelection={requiresVisionForModelSelection}
                         requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
                         copyOnly={copyOnlyActions}
                     />
@@ -1670,6 +1678,7 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.onSaveEdit === nextProps.onSaveEdit &&
     previousProps.onCancelEdit === nextProps.onCancelEdit &&
     previousProps.onFilePreview === nextProps.onFilePreview &&
+    previousProps.requiresVisionForModelSelection === nextProps.requiresVisionForModelSelection &&
     previousProps.requiresNativePdfForModelSelection ===
         nextProps.requiresNativePdfForModelSelection &&
     previousProps.sharedThreadId === nextProps.sharedThreadId &&
@@ -1807,6 +1816,10 @@ export const Messages = forwardRef<
         })
         const threadHasPdfAttachments = useMemo(
             () => hasPdfAttachmentInMessages(messages),
+            [messages]
+        )
+        const threadHasVisionImageAttachments = useMemo(
+            () => hasVisionImageAttachmentInMessages(messages),
             [messages]
         )
 
@@ -2163,6 +2176,7 @@ export const Messages = forwardRef<
                 onSaveEdit={handleSaveEdit}
                 onCancelEdit={handleCancelEdit}
                 onFilePreview={handleFilePreview}
+                requiresVisionForModelSelection={threadHasVisionImageAttachments}
                 requiresNativePdfForModelSelection={threadHasPdfAttachments}
                 threadId={threadId}
                 sharedThreadId={sharedThreadId}

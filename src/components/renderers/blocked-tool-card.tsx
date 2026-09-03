@@ -95,11 +95,13 @@ export const BlockedToolCard = memo(
         attempts,
         retryMessage,
         onRetry,
+        requiresVision = false,
         requiresNativePdf = false
     }: {
         attempts: ToolFailureAttempt[]
         retryMessage?: UIMessage
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
+        requiresVision?: boolean
         requiresNativePdf?: boolean
     }) => {
         const navigate = useNavigate()
@@ -242,6 +244,7 @@ export const BlockedToolCard = memo(
                                     onRetry={(configOverride) =>
                                         onRetry(retryMessage, configOverride)
                                     }
+                                    requiresVision={requiresVision}
                                     requiresNativePdf={requiresNativePdf}
                                     triggerLabel="Retry or switch model"
                                 />
