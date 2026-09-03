@@ -161,6 +161,7 @@ const DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS = 128_000
 const DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS = 256
 const DEFAULT_MESSAGE_OVERHEAD_TOKENS = 4
 const COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER = 1.1
+const COMPOSER_ACTION_TOOLTIP_DELAY_MS = 1_000
 
 const getAttachmentTelemetryCategory = (file: Pick<File, "name" | "type">) => {
     const info = getFileTypeInfo(file.name, file.type)
@@ -324,13 +325,15 @@ export const ReasoningEffortSelector = ({
     tone = "default",
     creditPlan,
     open,
-    onOpenChange
+    onOpenChange,
+    suppressTooltip = false
 }: {
     selectedModel: string | null
     tone?: "default" | "on-primary"
     creditPlan?: CreditPlan | null
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    suppressTooltip?: boolean
 }) => {
     const { reasoningEffort, setReasoningEffort } = useModelStore()
     const { models: sharedModels } = useSharedModels()
@@ -371,7 +374,12 @@ export const ReasoningEffortSelector = ({
     if (!modelSupportsReasoningControl) return null
 
     return (
-        <PromptInputAction tooltip="Select reasoning effort">
+        <PromptInputAction
+            tooltip="Select reasoning effort"
+            side="right"
+            delayDuration={COMPOSER_ACTION_TOOLTIP_DELAY_MS}
+            open={suppressTooltip ? false : undefined}
+        >
             <span className="inline-flex">
                 <Select
                     open={open}
@@ -1215,6 +1223,7 @@ export function ComposerDesktopActions({
     onOverlayOpenChange?: (overlay: ComposerOverlay, open: boolean) => void
 }) {
     const { enabledTools, setEnabledTools } = useModelStore()
+    const suppressTooltips = activeOverlay !== null
 
     return (
         <motion.div
@@ -1227,7 +1236,11 @@ export function ComposerDesktopActions({
         >
             {state.isImageModel ? null : (
                 <>
-                    <PromptInputAction tooltip="Attach files">
+                    <PromptInputAction
+                        tooltip="Attach files"
+                        delayDuration={COMPOSER_ACTION_TOOLTIP_DELAY_MS}
+                        open={suppressTooltips ? false : undefined}
+                    >
                         <Button
                             type="button"
                             variant="ghost"
@@ -1244,7 +1257,11 @@ export function ComposerDesktopActions({
                         </Button>
                     </PromptInputAction>
 
-                    <PromptInputAction tooltip="Tools">
+                    <PromptInputAction
+                        tooltip="Tools"
+                        delayDuration={COMPOSER_ACTION_TOOLTIP_DELAY_MS}
+                        open={suppressTooltips ? false : undefined}
+                    >
                         <span className="inline-flex">
                             <ToolSelectorPopover
                                 enabledTools={enabledTools}
@@ -1271,6 +1288,7 @@ export function ComposerDesktopActions({
                                 ? (open) => onOverlayOpenChange("reasoning", open)
                                 : undefined
                         }
+                        suppressTooltip={suppressTooltips}
                     />
                 </>
             )}
@@ -2738,6 +2756,7 @@ export const MultimodalInput = forwardRef<
                                                     shortcutTarget="composer"
                                                     telemetrySurface="composer"
                                                     tooltip="Select model"
+                                                    suppressTooltip={activeComposerOverlay !== null}
                                                     requiresNativePdf={
                                                         requiresNativePdfForModelSelection
                                                     }

@@ -1277,6 +1277,7 @@ export function ModelSelector({
     onModelChange,
     className,
     tooltip,
+    suppressTooltip = false,
     triggerWrapperClassName,
     contentClassName,
     preferShortName = true,
@@ -1295,6 +1296,7 @@ export function ModelSelector({
     onModelChange: (modelId: string) => void
     className?: string
     tooltip?: React.ReactNode
+    suppressTooltip?: boolean
     triggerWrapperClassName?: string
     contentClassName?: string
     preferShortName?: boolean
@@ -1939,7 +1941,7 @@ export function ModelSelector({
     const trigger = (
         <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
             {tooltip && !isMobile ? (
-                <Tooltip>
+                <Tooltip open={suppressTooltip ? false : undefined} delayDuration={1_000}>
                     <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
                     <TooltipContent side="top">{tooltip}</TooltipContent>
                 </Tooltip>
