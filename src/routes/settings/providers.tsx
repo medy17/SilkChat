@@ -197,13 +197,6 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                                     {selectedAuthConfig.description}
                                                 </p>
                                             )}
-                                            {provider.id === "google" && (
-                                                <p className="text-muted-foreground text-xs">
-                                                    Voice transcription uses Chirp 3 and requires
-                                                    Vertex AI mode. AI Studio keys do not power
-                                                    voice input.
-                                                </p>
-                                            )}
                                         </div>
                                     )}
 
@@ -240,6 +233,10 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                                 Priority always uses your OpenRouter key. Fallback
                                                 uses it only when your included usage runs out or
                                                 hosted context limits are exceeded.
+                                            </p>
+                                            <p className="text-muted-foreground text-xs">
+                                                Voice transcription also uses this key when it is
+                                                enabled, then falls back to the hosted key.
                                             </p>
                                         </div>
                                     )}

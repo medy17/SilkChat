@@ -407,6 +407,7 @@ export const getUserRegistryInternal = internalQuery({
                 adapters: available_adapters,
                 abilities: model.abilities,
                 mode: model.mode,
+                transcription: model.transcription,
                 contextLength: model.contextLength,
                 maxTokens: model.maxTokens,
                 inputUsdPer1MTokens: model.inputUsdPer1MTokens,

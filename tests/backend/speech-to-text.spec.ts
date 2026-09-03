@@ -1,19 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const {
-    getUserIdentityMock,
-    decryptKeyMock,
-    getGoogleAccessTokenMock,
-    getGoogleAuthModeMock,
-    getGoogleVertexConfigMock,
-    hasInternalGoogleVertexConfigMock
-} = vi.hoisted(() => ({
+const { getUserIdentityMock, decryptKeyMock } = vi.hoisted(() => ({
     getUserIdentityMock: vi.fn(),
-    decryptKeyMock: vi.fn(),
-    getGoogleAccessTokenMock: vi.fn(),
-    getGoogleAuthModeMock: vi.fn(),
-    getGoogleVertexConfigMock: vi.fn(),
-    hasInternalGoogleVertexConfigMock: vi.fn()
+    decryptKeyMock: vi.fn()
 }))
 
 vi.mock("../../convex/_generated/server", () => ({
@@ -40,16 +29,6 @@ vi.mock("../../convex/lib/encryption", () => ({
     decryptKey: decryptKeyMock
 }))
 
-vi.mock("../../convex/lib/google_auth", () => ({
-    getGoogleAccessToken: getGoogleAccessTokenMock
-}))
-
-vi.mock("../../convex/lib/google_provider", () => ({
-    getGoogleAuthMode: getGoogleAuthModeMock,
-    getGoogleVertexConfig: getGoogleVertexConfigMock,
-    hasInternalGoogleVertexConfig: hasInternalGoogleVertexConfigMock
-}))
-
 import { transcribeAudio } from "../../convex/speech_to_text"
 
 const transcribeAudioHandler = transcribeAudio as unknown as (
@@ -65,18 +44,12 @@ type SpeechCtx = Parameters<typeof transcribeAudioHandler>[0]
 const createCtx = (settings?: Record<string, unknown>) =>
     ({
         auth: {},
-        runQuery: vi.fn().mockResolvedValue(
-            settings ?? {
-                coreAIProviders: {}
-            }
-        )
+        runQuery: vi.fn().mockResolvedValue(settings ?? { coreAIProviders: {} })
     }) as SpeechCtx
 
 const createAudioRequest = (audio?: Blob) => {
     const formData = new FormData()
-    if (audio) {
-        formData.append("audio", audio, "audio.webm")
-    }
+    if (audio) formData.append("audio", audio, "audio.webm")
 
     return new Request("https://example.com/transcribe", {
         method: "POST",
@@ -84,37 +57,15 @@ const createAudioRequest = (audio?: Blob) => {
     })
 }
 
-const createOversizedAudioRequest = (size: number, type = "audio/webm") =>
-    ({
-        formData: async () => {
-            return {
-                get: (key: string) =>
-                    key === "audio"
-                        ? ({
-                              size,
-                              type,
-                              arrayBuffer: async () => new ArrayBuffer(0)
-                          } as Blob)
-                        : null
-            } as FormData
-        }
-    }) as Request
-
 describe("transcribeAudio", () => {
     beforeEach(() => {
         getUserIdentityMock.mockReset()
         decryptKeyMock.mockReset()
-        getGoogleAccessTokenMock.mockReset()
-        getGoogleAuthModeMock.mockReset()
-        getGoogleVertexConfigMock.mockReset()
-        hasInternalGoogleVertexConfigMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         vi.spyOn(console, "warn").mockImplementation(() => {})
         vi.spyOn(console, "log").mockImplementation(() => {})
         vi.unstubAllGlobals()
-        Reflect.deleteProperty(process.env, "STT_PROVIDER")
-        Reflect.deleteProperty(process.env, "GROQ_API_KEY")
-        Reflect.deleteProperty(process.env, "GOOGLE_SPEECH_LOCATION")
+        Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
     })
 
     it("returns 401 for unauthorized users", async () => {
@@ -126,34 +77,10 @@ describe("transcribeAudio", () => {
         await expect(response.json()).resolves.toEqual({ error: "Unauthorized" })
     })
 
-    it("returns 500 when google speech configuration is unavailable", async () => {
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        hasInternalGoogleVertexConfigMock.mockReturnValue(false)
-
-        const response = await transcribeAudioHandler(
-            createCtx({
-                coreAIProviders: {}
-            }),
-            createAudioRequest(new Blob(["abc"], { type: "audio/webm" }))
-        )
-
-        expect(response.status).toBe(500)
-        await expect(response.json()).resolves.toEqual({
-            error: "Voice input service not configured. Configure Google in Vertex AI mode in AI Options or set internal GOOGLE_VERTEX_* credentials."
-        })
-    })
-
-    it("rejects missing audio files and oversized uploads", async () => {
+    it("rejects missing audio files and oversized uploads before calling the provider", async () => {
         getUserIdentityMock.mockResolvedValue({ id: "user-1" })
-        hasInternalGoogleVertexConfigMock.mockReturnValue(true)
-        getGoogleVertexConfigMock.mockReturnValue({
-            project: "proj-1",
-            location: "us-central1",
-            credentials: {
-                client_email: "svc@example.com",
-                private_key: "private-key"
-            }
-        })
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
 
         const missingResponse = await transcribeAudioHandler(createCtx(), createAudioRequest())
         expect(missingResponse.status).toBe(400)
@@ -161,96 +88,120 @@ describe("transcribeAudio", () => {
             error: "No audio file provided"
         })
 
+        const oversizedAudio = new Blob([new Uint8Array(25 * 1024 * 1024 + 1)], {
+            type: "audio/webm"
+        })
         const largeResponse = await transcribeAudioHandler(
             createCtx(),
-            createOversizedAudioRequest(25 * 1024 * 1024 + 1)
+            createAudioRequest(oversizedAudio)
         )
         expect(largeResponse.status).toBe(400)
         await expect(largeResponse.json()).resolves.toEqual({
             error: "Audio file too large (max 25MB)"
         })
+
+        const unsupportedResponse = await transcribeAudioHandler(
+            createCtx(),
+            createAudioRequest(new Blob(["abc"], { type: "audio/webm" }))
+        )
+        expect(unsupportedResponse.status).toBe(400)
+        await expect(unsupportedResponse.json()).resolves.toEqual({
+            error: "Unsupported transcription audio format. Please record again."
+        })
+        expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it("uses google transcription with internal vertex credentials and returns joined transcripts", async () => {
+    it("returns a configuration error when no OpenRouter key is available", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        hasInternalGoogleVertexConfigMock.mockReturnValue(true)
-        getGoogleVertexConfigMock.mockReturnValue({
-            project: "proj-1",
-            location: "us-central1",
-            credentials: {
-                client_email: "svc@example.com",
-                private_key: "private-key"
-            }
-        })
-        getGoogleAccessTokenMock.mockResolvedValue("access-token")
-        const fetchMock = vi.fn().mockResolvedValue(
-            new Response(
-                JSON.stringify({
-                    results: [
-                        { alternatives: [{ transcript: "hello" }] },
-                        { alternatives: [{ transcript: "world" }] }
-                    ]
-                }),
-                { status: 200 }
-            )
+
+        const response = await transcribeAudioHandler(
+            createCtx(),
+            createAudioRequest(new Blob(["abc"], { type: "audio/wav" }))
         )
+
+        expect(response.status).toBe(500)
+        await expect(response.json()).resolves.toEqual({
+            error: "Voice input service not configured. Configure OpenRouter in AI Options or set OPENROUTER_API_KEY in Convex."
+        })
+    })
+
+    it("uses OpenRouter BYOK before the internal key and returns the transcript", async () => {
+        process.env.OPENROUTER_API_KEY = "internal-key"
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        decryptKeyMock.mockResolvedValueOnce("user-key")
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(JSON.stringify({ text: "  hello world  " }), { status: 200 })
+            )
         vi.stubGlobal("fetch", fetchMock)
 
         const response = await transcribeAudioHandler(
             createCtx({
-                coreAIProviders: {}
+                coreAIProviders: {
+                    openrouter: { enabled: true, encryptedKey: "encrypted-key" }
+                }
             }),
-            createAudioRequest(new Blob(["abc"], { type: "audio/webm" }))
+            createAudioRequest(new Blob(["abc"], { type: "audio/wav" }))
         )
 
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        expect(fetchMock).toHaveBeenCalledWith(
-            "https://us-speech.googleapis.com/v2/projects/proj-1/locations/us/recognizers/_:recognize",
-            expect.objectContaining({
-                method: "POST",
-                headers: expect.objectContaining({
-                    Authorization: "Bearer access-token",
-                    "Content-Type": "application/json"
-                })
-            })
-        )
         expect(response.status).toBe(200)
-        await expect(response.json()).resolves.toEqual({
-            text: "hello world"
+        await expect(response.json()).resolves.toEqual({ text: "hello world" })
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+        expect(url).toBe("https://openrouter.ai/api/v1/audio/transcriptions")
+        expect(init.method).toBe("POST")
+        expect(init.headers).toMatchObject({
+            Authorization: "Bearer user-key",
+            "HTTP-Referer": "https://silkchat.dev",
+            "X-OpenRouter-Title": "SilkChat",
+            "X-OpenRouter-Categories": "general-chat"
         })
+        const providerForm = init.body as FormData
+        expect(providerForm.get("model")).toBe("microsoft/mai-transcribe-2")
+        expect(providerForm.get("file")).toBeInstanceOf(Blob)
     })
 
-    it("maps groq authentication and rate-limit failures to the expected responses", async () => {
-        process.env.STT_PROVIDER = "groq"
-        process.env.GROQ_API_KEY = "gsk_live"
-        getUserIdentityMock.mockResolvedValue({ id: "user-1" })
-
-        const unauthorizedFetch = vi
+    it("falls back to the internal OpenRouter key", async () => {
+        process.env.OPENROUTER_API_KEY = "internal-key"
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        const fetchMock = vi
             .fn()
-            .mockResolvedValueOnce(new Response("bad key", { status: 401 }))
-            .mockResolvedValueOnce(new Response("slow down", { status: 429 }))
-        vi.stubGlobal("fetch", unauthorizedFetch)
+            .mockResolvedValue(new Response(JSON.stringify({ text: "hello" }), { status: 200 }))
+        vi.stubGlobal("fetch", fetchMock)
 
-        const unauthorizedResponse = await transcribeAudioHandler(
-            createCtx({
-                coreAIProviders: {}
-            }),
-            createAudioRequest(new Blob(["abc"], { type: "audio/webm" }))
+        await transcribeAudioHandler(
+            createCtx(),
+            createAudioRequest(new Blob(["abc"], { type: "audio/ogg" }))
         )
-        expect(unauthorizedResponse.status).toBe(500)
-        await expect(unauthorizedResponse.json()).resolves.toEqual({
-            error: "Invalid Groq credentials. Please check your Groq configuration."
-        })
 
-        const rateLimitResponse = await transcribeAudioHandler(
-            createCtx({
-                coreAIProviders: {}
-            }),
-            createAudioRequest(new Blob(["abc"], { type: "audio/webm" }))
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://openrouter.ai/api/v1/audio/transcriptions",
+            expect.objectContaining({
+                headers: expect.objectContaining({ Authorization: "Bearer internal-key" })
+            })
         )
-        expect(rateLimitResponse.status).toBe(429)
-        await expect(rateLimitResponse.json()).resolves.toEqual({
-            error: "Rate limit exceeded. Please try again later."
-        })
+    })
+
+    it.each([
+        [401, 500, "Invalid OpenRouter credentials. Please check your configuration."],
+        [402, 402, "OpenRouter credits are required to use voice input."],
+        [429, 429, "Rate limit exceeded. Please try again later."]
+    ])("maps OpenRouter %i errors", async (providerStatus, expectedStatus, expectedError) => {
+        process.env.OPENROUTER_API_KEY = "internal-key"
+        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(new Response("provider error", { status: providerStatus }))
+        )
+
+        const response = await transcribeAudioHandler(
+            createCtx(),
+            createAudioRequest(new Blob(["abc"], { type: "audio/wav" }))
+        )
+
+        expect(response.status).toBe(expectedStatus)
+        await expect(response.json()).resolves.toEqual({ error: expectedError })
     })
 })

@@ -101,7 +101,7 @@ Push them with the matching `env:convex:*:push` script. Environment files contai
 
 Hosted built-in chat models use OpenRouter. Convex must have `OPENROUTER_API_KEY`, and the browser must expose the desired groups through `VITE_ENABLED_INTERNAL_PROVIDERS`.
 
-User BYOK chat is OpenRouter-based. Image generation uses native fal queue/webhook APIs, while speech-to-text can use Google or Groq. Provider identity metadata supports grouping and stored preferences independently of runtime routing.
+User BYOK chat is OpenRouter-based. Image generation uses native fal queue/webhook APIs, while speech-to-text uses OpenRouter's dedicated transcription API. Provider identity metadata supports grouping and stored preferences independently of runtime routing.
 
 ## Documentation
 

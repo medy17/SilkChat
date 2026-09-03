@@ -61,6 +61,15 @@ class FakeAudioContext {
         return this.source as unknown as MediaStreamAudioSourceNode
     }
 
+    decodeAudioData() {
+        return Promise.resolve({
+            length: 8,
+            numberOfChannels: 1,
+            sampleRate: 8_000,
+            getChannelData: () => new Float32Array([0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25])
+        } as unknown as AudioBuffer)
+    }
+
     close() {
         this.state = "closed"
         return Promise.resolve()
@@ -70,7 +79,6 @@ class FakeAudioContext {
         this.state = "running"
         return Promise.resolve()
     }
-
 }
 
 type RecorderMode = "success" | "permission-error"
@@ -267,6 +275,10 @@ describe("useVoiceRecorder", () => {
             },
             body: expect.any(FormData)
         })
+        const formData = fetchMock.mock.calls[0]?.[1]?.body as FormData
+        const audioFile = formData.get("audio") as Blob & { name?: string }
+        expect(audioFile.type).toBe("audio/wav")
+        expect(audioFile.name).toBe("audio.wav")
         expect(result.current.state.isRecording).toBe(false)
         expect(result.current.state.isTranscribing).toBe(false)
         expect(result.current.state.recordingDuration).toBe(0)
@@ -275,7 +287,9 @@ describe("useVoiceRecorder", () => {
 
     it("freezes the recording timer while transcription is pending", async () => {
         installRecorderEnvironment()
-        let resolveFetch: ((response: { ok: boolean; json: () => Promise<{ text: string }> }) => void) | undefined
+        let resolveFetch:
+            | ((response: { ok: boolean; json: () => Promise<{ text: string }> }) => void)
+            | undefined
         vi.stubGlobal(
             "fetch",
             vi.fn(
@@ -402,7 +416,7 @@ describe("useVoiceRecorder", () => {
         )
     })
 
-    it("keeps iOS Safari recordings compressed for upload", async () => {
+    it("normalizes an iOS Safari recording to one provider-compatible WAV", async () => {
         setNavigatorIdentity({
             userAgent:
                 "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
@@ -443,8 +457,8 @@ describe("useVoiceRecorder", () => {
         const formData = fetchMock.mock.calls[0]?.[1]?.body as FormData
         const audioFile = formData.get("audio") as Blob & { name?: string }
 
-        expect(audioFile.type).toBe("audio/mp4")
-        expect(audioFile.name).toBe("audio.mp4")
+        expect(audioFile.type).toBe("audio/wav")
+        expect(audioFile.name).toBe("audio.wav")
         expect(onTranscript).toHaveBeenCalledWith("compressed transcript")
     })
 })

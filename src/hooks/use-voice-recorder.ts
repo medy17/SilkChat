@@ -1,6 +1,10 @@
+import { COMPOSER_TRANSCRIPTION_MODEL } from "@/convex/lib/models/microsoft"
+import { getTranscriptionAudioFormat } from "@/convex/lib/models/transcription"
+import type { TranscriptionConfig } from "@/convex/lib/models/types"
 import { useToken } from "@/hooks/auth-hooks"
 import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
+import { prepareAudioForTranscription } from "@/lib/audio-transcription"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -17,6 +21,7 @@ export interface VoiceRecorderState {
 }
 
 const TRANSCRIPTION_AUDIO_BITRATE = 32_000
+const TRANSCRIPTION_CONFIG: TranscriptionConfig = COMPOSER_TRANSCRIPTION_MODEL.transcription
 
 const getAudioFilename = (mimeType: string) => {
     if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "audio.mp4"
@@ -72,19 +77,28 @@ const isMediaRecorderUsable = (): boolean => {
 
 // Get the best supported MIME type for the current browser
 const getBestSupportedMimeType = (): string => {
+    const config = TRANSCRIPTION_CONFIG
     const types = [
+        "audio/wav",
         "audio/webm;codecs=opus",
         "audio/webm",
         "audio/ogg;codecs=opus",
+        "audio/mpeg",
         "audio/mp4",
         "audio/m4a",
-        "audio/aac",
-        ""
+        "audio/aac"
     ]
+    const orderedTypes = [...types].sort((left, right) => {
+        const getPriority = (mimeType: string) => {
+            const format = getTranscriptionAudioFormat(mimeType)
+            if (format === config.preferredFormat) return 0
+            if (format && config.acceptedFormats.includes(format)) return 1
+            return 2
+        }
+        return getPriority(left) - getPriority(right)
+    })
 
-    for (const type of types) {
-        if (type === "") return ""
-
+    for (const type of orderedTypes) {
         try {
             if (MediaRecorder.isTypeSupported?.(type)) {
                 return type
@@ -419,8 +433,17 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                     audioBlob.type
                 )
 
+                if (!audioContextRef.current) {
+                    throw new Error("Audio processing is unavailable. Please try recording again.")
+                }
+
+                const uploadBlob = await prepareAudioForTranscription(
+                    audioBlob,
+                    audioContextRef.current,
+                    TRANSCRIPTION_CONFIG
+                )
                 const formData = new FormData()
-                formData.append("audio", audioBlob, getAudioFilename(audioBlob.type))
+                formData.append("audio", uploadBlob, getAudioFilename(uploadBlob.type))
 
                 const jwt = await resolveJwtToken(tokenRef.current)
                 if (!jwt) {

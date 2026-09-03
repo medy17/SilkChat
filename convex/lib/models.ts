@@ -6,6 +6,7 @@ import { DEEPSEEK_MODELS } from "./models/deepseek"
 import { FAL_IMAGE_MODELS } from "./models/fal"
 import { GOOGLE_MODELS } from "./models/google"
 import { META_MODELS } from "./models/meta"
+import { MICROSOFT_MODELS } from "./models/microsoft"
 import { MINIMAX_MODELS } from "./models/minimax"
 import { MOONSHOT_MODELS } from "./models/moonshot"
 import { OPENAI_MODELS } from "./models/openai"
@@ -31,6 +32,7 @@ export const MODELS_SHARED: SharedModel[] = [
     ...ANTHROPIC_MODELS,
     ...GOOGLE_MODELS,
     ...META_MODELS,
+    ...MICROSOFT_MODELS,
     ...XAI_MODELS,
     ...FAL_IMAGE_MODELS
 ] as const
@@ -50,6 +52,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.adapters,
         model.abilities,
         model.mode,
+        model.transcription,
         model.contextLength,
         model.maxTokens,
         model.inputUsdPer1MTokens,

@@ -23,6 +23,7 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
 - `abilities`: feature flags used by the runtime and UI
 - optional `mode`: `text`, `image`, or `speech-to-text`
+- speech-to-text models declare `transcription.preferredFormat` and `transcription.acceptedFormats`; browser normalization and backend validation must consume this shared capability instead of embedding provider formats in either layer
 - optional `supportedImageSizes`
 - optional `customIcon`
 
@@ -83,9 +84,8 @@ Family conventions:
 
 - `i3-openai:*`, `i3-anthropic:*`, `i3-google:*`, etc.: internal provider identity aliases used for metadata and grouping. Hosted execution resolves through the matching `openrouter:*` adapter.
 - `openai:*`, `anthropic:*`, `google:*`, `xai:*`, etc.: user-provider identities used by settings and provider affordances. Built-in chat execution uses OpenRouter.
-- `openrouter:*`: built-in chat/text runtime routing. Production chat uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
+- `openrouter:*`: built-in chat/text runtime routing and dedicated speech-to-text routing. Production chat uses OpenRouter for hosted models and OpenRouter BYOK for user-provided keys.
 - `fal:*`: library image generation through `convex/lib/models/fal` and the fal client.
-- `groq:*`: Groq identity used by speech-to-text and provider metadata.
 
 Built-in chat/text execution is routed through `openrouter:*` adapters. Keep provider-specific adapter aliases only when they are needed for provider identity, grouping, settings, or stored preferences.
 
@@ -162,9 +162,9 @@ User-defined custom providers resolve from stored provider settings. They are Op
 
 Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` adapters consumed by the library generator and chat image tool.
 
-### Groq speech-to-text
+### OpenRouter speech-to-text
 
-Groq remains supported for speech-to-text paths. Do not add Groq chat adapters unless the production provider policy changes.
+Speech-to-text uses OpenRouter's dedicated transcription API and the same OpenRouter credential precedence as hosted chat. Speech models retain `mode: "speech-to-text"` so chat and persona selectors can exclude them.
 
 ## Reasoning Control Rules
 

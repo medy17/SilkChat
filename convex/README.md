@@ -85,7 +85,7 @@ Hosted chat models are controlled in two places:
 
 That means OpenRouter can be configured in Convex and still stay hidden in the UI if the Vite env does not include it.
 
-`OPENROUTER_API_KEY` is required for hosted built-in chat models. Built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys. Image generation uses fal, and speech-to-text uses Groq or Google according to voice-input configuration.
+`OPENROUTER_API_KEY` is required for hosted built-in chat models and speech-to-text. Built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys. Image generation uses fal.
 
 ## Where To Read More
 

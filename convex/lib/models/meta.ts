@@ -113,14 +113,5 @@ export const META_MODELS: SharedModel[] = [
         adapters: groqTextAdapters("llama-3.1-8b-instant"),
         abilities: [],
         customIcon: "meta"
-    },
-    {
-        id: "whisper-large-v3-turbo",
-        name: "Whisper Large v3 Turbo",
-        addedOn: "2024-10-01",
-        releaseOrder: 20240301,
-        adapters: ["groq:whisper-large-v3-turbo"],
-        abilities: [],
-        mode: "speech-to-text"
     }
 ]

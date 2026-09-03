@@ -1,21 +1,10 @@
-# Voice Input Setup Guide
+# Voice Input Setup
 
-## Overview
+SilkChat voice input records microphone audio in the browser, sends the completed recording to Convex, and transcribes it through OpenRouter. Only the returned text is inserted into the composer; the audio is not stored as a chat attachment.
 
-Voice input provides:
-- 🎤 Mic button appears when input is empty (replaces send button)
-- 🌊 Real-time waveform visualization during recording
-- ⏱️ Recording timer display
-- 🛑 Stop button positioned in bottom right
-- 🔄 Transcribing state with loading indicator
-- 📝 Automatic text insertion into prompt box
-- 🔐 Secure backend API with user authentication
+## Configuration
 
-## Required Configuration
-
-### 1. Enable the browser control
-
-Set this in the app/Vercel environment:
+Enable the browser control in the app or Vercel environment:
 
 ```bash
 VITE_ENABLE_VOICE_INPUT=true
@@ -23,181 +12,53 @@ VITE_ENABLE_VOICE_INPUT=true
 
 The microphone control is hidden unless this value is exactly `true`.
 
-### 2. Choose the speech-to-text provider
+Configure an OpenRouter key in Convex:
 
-Voice input is controlled by the Convex env var `STT_PROVIDER`.
+```bash
+bunx convex env set OPENROUTER_API_KEY your-openrouter-api-key
+```
 
-Supported values:
+Voice input uses the shared `mai-transcribe-2` model entry and its `openrouter:microsoft/mai-transcribe-2` adapter through OpenRouter's dedicated `/api/v1/audio/transcriptions` endpoint. A user's enabled OpenRouter BYOK key takes precedence over the internal key. The same model entry declares the preferred and accepted transcription formats used by both browser normalization and backend validation.
 
-1. `google`
-2. `groq`
+## User Flow
 
-If unset, the app defaults to `google`.
+1. Open a chat with an empty composer.
+2. Select the microphone button.
+3. Speak, then select stop.
+4. The completed recording is uploaded for transcription.
+5. The returned text is inserted into the composer for review before sending.
 
-### 3. Google setup
+## Browser and Audio Support
 
-When `STT_PROVIDER=google`, voice input uses Google Cloud Speech-to-Text V2 with `chirp_3`. It uses auto language detection by default, so you do not need to force Kiswahili or another locale.
+- Microphone access requires user permission.
+- HTTPS is required outside localhost, especially on iOS Safari.
+- Recording requires the MediaRecorder and Web Audio APIs.
+- The recorder prefers Ogg/Opus, then WebM/Opus, WebM, MP4, M4A, AAC, or the browser default.
+- Ogg, WAV, MP3, and FLAC pass through unchanged. WebM and M4A recordings are normalized once in the browser to mono 16 kHz PCM WAV because MAI-Transcribe 2's current Azure endpoint rejects those containers.
+- Each upload is limited to 25 MB.
+- Each recording requests a fresh microphone stream and releases it after transcription.
 
-You have two supported Google configuration paths:
+OpenRouter documents WAV, MP3, FLAC, M4A, Ogg, WebM, and AAC as common transcription formats. Exact support can vary by the upstream provider behind a model.
 
-1. **Preferred: configure Google BYOK in the app**
-   - Open `Settings -> Providers`
-   - Enable `Google`
-   - Choose `Vertex AI`
-   - Paste a Google Cloud service account JSON key with access to Speech-to-Text V2
+## Batch and Live Transcription
 
-2. **Or configure internal Convex environment variables**
+The current integration is batch transcription. MediaRecorder emits local chunks while recording, but they remain in browser memory until stop; Convex then forwards one complete multipart audio file to OpenRouter and returns one JSON response.
 
-   **For Development / Production:**
-   ```bash
-   bunx convex env set STT_PROVIDER google
-   bunx convex env set GOOGLE_VERTEX_CREDENTIALS_JSON '{"type":"service_account",...}'
-   bunx convex env set GOOGLE_SPEECH_LOCATION us
-   ```
-
-   **Or via Convex Dashboard:**
-   - Go to your [Convex Dashboard](https://dashboard.convex.dev/)
-   - Navigate to your project's Deployment Settings
-   - Add `GOOGLE_VERTEX_CREDENTIALS_JSON`
-   - Optionally add `GOOGLE_SPEECH_LOCATION` (`us` by default)
-
-`GOOGLE_SPEECH_LOCATION` is intentionally separate from `GOOGLE_VERTEX_LOCATION`. Speech-to-Text V2 uses speech regions such as `us` or `eu`, while Vertex model inference often uses locations like `us-central1`.
-
-### 4. Groq setup
-
-When `STT_PROVIDER=groq`, voice input uses Groq `whisper-large-v3-turbo`.
-
-You can configure Groq either way:
-
-1. **Preferred: configure Groq BYOK in the app**
-   - Open `Settings -> Providers`
-   - Enable `Groq`
-   - Paste your Groq API key
-
-2. **Or configure internal Convex environment variables**
-
-   ```bash
-   bunx convex env set STT_PROVIDER groq
-   bunx convex env set GROQ_API_KEY your-groq-api-key
-   ```
-
-## Testing the Feature
-
-1. Open the running development app.
-2. Test the voice input:
-   - Open the chat interface
-   - Make sure the input field is empty
-   - You should see a mic icon instead of the send button
-   - Click the mic icon to start recording
-   - Speak clearly for a few seconds
-   - Click the stop button to end recording
-   - The transcribed text should appear in the input field
-
-## Browser Requirements
-
-- **Microphone permissions**: Users will be prompted to allow microphone access
-- **HTTPS required**: Voice input only works on HTTPS (or localhost for development) - **critical for iOS Safari**
-- **Modern browser**: Supports MediaRecorder API and Web Audio API
-- **iOS Support**: Compatible with iOS Safari 14.3+ (iPad/iPhone) - must open directly in Safari browser, not PWA/home screen app
-
-## Supported Audio Formats
-
-The implementation automatically detects and uses the best supported format:
-
-**iOS Safari (preferred formats):**
-1. `audio/mp4`
-2. `audio/aac`
-3. `audio/m4a`
-
-**Other browsers:**
-1. `audio/webm;codecs=opus` (preferred)
-2. `audio/webm`
-3. `audio/ogg;codecs=opus`
-4. Browser default (fallback)
-
-## File Size Limits
-
-- Recordings use a speech-optimized target bitrate of **32kbps** and remain in the browser's compressed MP4/AAC, WebM/Opus, or Ogg/Opus format.
-- Maximum upload size: **25MB**.
-- In Groq mode, the upload size is the practical recording limit. At the target bitrate, 25MB contains roughly 100 minutes of audio before container overhead.
-- Google mode uses synchronous Speech-to-Text recognition and is limited to audio shorter than 60 seconds, regardless of compression. Longer Google transcripts require a Cloud Storage-backed asynchronous batch integration.
+OpenRouter's dedicated speech-to-text API does not currently document a realtime WebSocket protocol, incremental audio input, or streamed transcript deltas. Sending short recordings repeatedly could approximate live captions, but it would require overlap, ordering, retry, and transcript-deduplication logic and would not be true streaming.
 
 ## Troubleshooting
 
-### Common Issues:
+- **No microphone button:** Confirm `VITE_ENABLE_VOICE_INPUT=true` in the frontend environment.
+- **Unauthorized:** The user must be signed in and the browser must be able to resolve a current JWT.
+- **Service not configured:** Configure `OPENROUTER_API_KEY` in Convex or enable a user OpenRouter key in Settings → Providers.
+- **No speech detected:** Check microphone permissions and input level, then record again.
+- **Timeouts on long recordings:** Split the recording. OpenRouter warns that upstream transcription providers can time out after roughly 60 seconds of processing.
+- **iOS Safari:** Use a current Safari version over HTTPS and open the site directly rather than from an older home-screen PWA context.
 
-1. **"Your browser doesn't support audio recording"**
-   - Update to a modern browser (Chrome, Firefox, Safari, Edge)
-   - Ensure you're on HTTPS (not HTTP)
+## Implementation
 
-2. **"No speech detected"**
-   - Check microphone permissions
-   - Ensure microphone is working
-   - Speak closer to the microphone
-   - Try speaking louder and more clearly
-
-3. **"Transcription service error"**
-   - Check `STT_PROVIDER` and confirm the intended provider is configured
-   - For Google: verify Google provider is configured in `Vertex AI` mode, not `AI Studio`
-   - For Google: check `GOOGLE_VERTEX_CREDENTIALS_JSON` is valid if using internal credentials
-   - For Google: ensure the Google Cloud project has Speech-to-Text V2 enabled
-   - For Groq: verify `GROQ_API_KEY` is configured or Groq BYOK is enabled
-   - Check network connectivity
-
-4. **"Unauthorized" error**
-   - User must be logged in to use voice input
-   - Check authentication status
-
-5. **iOS Safari specific issues**
-   - **"Not supported" error**: Update to iOS 14.3+ and use Safari directly (not PWA/home screen app)
-   - **Silent recordings after first use**: Refresh the page - iOS Safari requires fresh audio streams
-   - **Fails after switching apps**: This is a known iOS Safari bug - refresh the page to recover
-   - **Red recording bar**: Normal behavior - it clears when recording stops
-   - **Home screen PWA**: Launch from Safari directly, not from home screen shortcut
-
-### Debug Steps:
-
-1. **Check environment variable:**
-   ```bash
-   bunx convex env list
-   ```
-
-2. **Check browser console** for any error messages
-
-3. **Test microphone** in other applications
-
-4. **Verify Google Cloud setup**
-   - If using Google: confirm Speech-to-Text V2 is enabled for the project
-   - If using Google: confirm the service account can access Speech-to-Text
-   - If using Google: confirm `GOOGLE_SPEECH_LOCATION` is set to a valid speech region if you changed it from the default
-   - If using Groq: confirm the Groq key has credits and speech-to-text access
-
-## API Usage & Costs
-
-- **Google mode**: Speech-to-Text V2 `chirp_3` with auto language detection
-- **Groq mode**: `whisper-large-v3-turbo`
-- **Costs**:
-  - Google: [Speech-to-Text pricing](https://cloud.google.com/speech-to-text/pricing)
-  - Groq: [Groq pricing](https://console.groq.com/docs/models)
-
-## Implementation Details
-
-### Backend Components:
-- `convex/speech_to_text.ts` - HTTP action for transcription
-- `convex/http.ts` - Route configuration with CORS
-
-### Frontend Components:
-- `src/hooks/use-voice-recorder.ts` - Recording logic and state management
-- `src/components/voice-recorder.tsx` - UI component with waveform visualization
-- `src/components/multimodal-input.tsx` - Integration with chat input
-
-The implementation follows security best practices with proper authentication, error handling, and user feedback.
-
-## iOS Safari Compatibility
-
-Voice recording uses browser MediaRecorder with an analyser graph for waveform display:
-
-- **Recording source**: MediaRecorder receives the microphone stream directly
-- **Visualization**: Web Audio analyser data drives the waveform
-- **Cleanup**: recorder, stream tracks, animation frames, and audio context are released after each recording
-- **Stream management**: each recording requests a fresh microphone stream
+- `src/hooks/use-voice-recorder.ts`: microphone capture, visualization, and upload
+- `src/components/voice-recorder.tsx`: recording and transcription status UI
+- `src/components/multimodal-input.tsx`: composer integration
+- `convex/http.ts`: authenticated CORS route registration
+- `convex/speech_to_text.ts`: validation, OpenRouter credential resolution, and transcription

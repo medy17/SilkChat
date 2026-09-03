@@ -32,14 +32,11 @@ These belong in Convex, not Vercel:
 ```bash
 OPENROUTER_API_KEY=
 
-# speech-to-text only
-GROQ_API_KEY=
-
 # library image generation only
 FAL_KEY=
 ```
 
-`OPENROUTER_API_KEY` is required for hosted built-in chat models. Built-in chat does not read `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Google model keys, `XAI_API_KEY`, or `AI_GATEWAY_API_KEY`. Image generation uses fal. Speech-to-text uses Google or Groq according to configuration.
+`OPENROUTER_API_KEY` is required for hosted built-in chat models and speech-to-text. Built-in chat does not read `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Google model keys, `XAI_API_KEY`, or `AI_GATEWAY_API_KEY`. Image generation uses fal.
 
 ## How Provider Resolution Works
 

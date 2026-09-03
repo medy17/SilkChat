@@ -40,6 +40,12 @@ export type AllAspects = (BaseAspects | `${BaseAspects}-hd`) & {}
 export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
 export type ImageQuality = ("low" | "medium" | "high" | "auto") & {}
+export type TranscriptionAudioFormat = "wav" | "mp3" | "ogg" | "flac" | "webm" | "m4a" | "aac"
+
+export type TranscriptionConfig = {
+    preferredFormat: TranscriptionAudioFormat
+    acceptedFormats: TranscriptionAudioFormat[]
+}
 
 export type ImagePricing = {
     source: "fal"
@@ -114,6 +120,7 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     adapters: RegistryKey[]
     abilities: Abilities
     mode?: "text" | "image" | "speech-to-text"
+    transcription?: TranscriptionConfig
     contextLength?: number
     maxTokens?: number
     inputUsdPer1MTokens?: number
