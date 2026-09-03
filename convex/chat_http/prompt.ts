@@ -323,10 +323,14 @@ Use Canvas only for highly complex technical explanations or an explicit diagram
             emoji: {
                 less: "Use emojis somewhat less often than you otherwise would.",
                 more: "Use emojis somewhat more often than you otherwise would."
+            },
+            profanity: {
+                less: "Avoid unnecessary profanity and use clean language.",
+                more: "Use profanity freely."
             }
         } as const
 
-        for (const field of ["warmth", "enthusiasm", "structure", "emoji"] as const) {
+        for (const field of ["warmth", "enthusiasm", "structure", "emoji", "profanity"] as const) {
             const level = userSettings.responseStyle?.[field]
             if (level) personalizationParts.push(`- ${responseStyleInstructions[field][level]}`)
         }

@@ -599,7 +599,8 @@ export const updateUserSettingsPartial = mutation({
                 warmth: v.optional(v.union(ResponseStyleLevel, v.null())),
                 enthusiasm: v.optional(v.union(ResponseStyleLevel, v.null())),
                 structure: v.optional(v.union(ResponseStyleLevel, v.null())),
-                emoji: v.optional(v.union(ResponseStyleLevel, v.null()))
+                emoji: v.optional(v.union(ResponseStyleLevel, v.null())),
+                profanity: v.optional(v.union(ResponseStyleLevel, v.null()))
             })
         ),
 
@@ -691,7 +692,13 @@ export const updateUserSettingsPartial = mutation({
         if (args.responseStyle !== undefined) {
             const responseStyle = { ...newSettings.responseStyle }
 
-            for (const field of ["warmth", "enthusiasm", "structure", "emoji"] as const) {
+            for (const field of [
+                "warmth",
+                "enthusiasm",
+                "structure",
+                "emoji",
+                "profanity"
+            ] as const) {
                 const value = args.responseStyle[field]
                 if (value === null) {
                     delete responseStyle[field]

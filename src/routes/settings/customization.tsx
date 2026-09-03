@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 type ResponseStyleLevel = "less" | "default" | "more"
-type ResponseStyleField = "warmth" | "enthusiasm" | "structure" | "emoji"
+type ResponseStyleField = "warmth" | "enthusiasm" | "structure" | "emoji" | "profanity"
 type ResponseStyleSelection = Record<ResponseStyleField, ResponseStyleLevel>
 
 const RESPONSE_STYLE_LEVELS = ["less", "default", "more"] as const
@@ -25,7 +25,8 @@ const RESPONSE_STYLE_DEFAULTS: ResponseStyleSelection = {
     warmth: "default",
     enthusiasm: "default",
     structure: "default",
-    emoji: "default"
+    emoji: "default",
+    profanity: "default"
 }
 
 const RESPONSE_STYLE_PREFERENCES = [
@@ -45,6 +46,15 @@ const RESPONSE_STYLE_PREFERENCES = [
             less: "That approach should work.",
             default: "That sounds like a solid approach.",
             more: "That’s a fantastic idea — I’m excited to see it come together!"
+        }
+    },
+    {
+        field: "profanity",
+        label: "Profanity",
+        previews: {
+            less: "That’s really frustrating.",
+            default: "That’s seriously frustrating.",
+            more: "That’s pretty f**king frustrating."
         }
     },
     {
@@ -169,7 +179,8 @@ export function BehaviorSettingsContent() {
             warmth: userSettings.responseStyle?.warmth ?? "default",
             enthusiasm: userSettings.responseStyle?.enthusiasm ?? "default",
             structure: userSettings.responseStyle?.structure ?? "default",
-            emoji: userSettings.responseStyle?.emoji ?? "default"
+            emoji: userSettings.responseStyle?.emoji ?? "default",
+            profanity: userSettings.responseStyle?.profanity ?? "default"
         })
     }, [userSettings])
 
@@ -190,7 +201,9 @@ export function BehaviorSettingsContent() {
                         responseStyle.enthusiasm === "default" ? null : responseStyle.enthusiasm,
                     structure:
                         responseStyle.structure === "default" ? null : responseStyle.structure,
-                    emoji: responseStyle.emoji === "default" ? null : responseStyle.emoji
+                    emoji: responseStyle.emoji === "default" ? null : responseStyle.emoji,
+                    profanity:
+                        responseStyle.profanity === "default" ? null : responseStyle.profanity
                 }
             })
             isResponseStyleDirtyRef.current = false

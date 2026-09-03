@@ -37,7 +37,8 @@ export const ResponseStyle = v.object({
     warmth: v.optional(ResponseStyleLevel),
     enthusiasm: v.optional(ResponseStyleLevel),
     structure: v.optional(ResponseStyleLevel),
-    emoji: v.optional(ResponseStyleLevel)
+    emoji: v.optional(ResponseStyleLevel),
+    profanity: v.optional(ResponseStyleLevel)
 })
 
 export const ImageResolutionSchema = v.union(v.literal("1K"), v.literal("2K"), v.literal("4K"))

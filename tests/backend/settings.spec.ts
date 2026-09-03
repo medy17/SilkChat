@@ -689,7 +689,8 @@ describe("settings", () => {
             generalProviders: {},
             responseStyle: {
                 warmth: "more",
-                enthusiasm: "less"
+                enthusiasm: "less",
+                profanity: "more"
             }
         })
 
@@ -705,7 +706,8 @@ describe("settings", () => {
             expect.objectContaining({
                 responseStyle: {
                     enthusiasm: "less",
-                    structure: "more"
+                    structure: "more",
+                    profanity: "more"
                 }
             })
         )
