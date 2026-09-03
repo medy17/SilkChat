@@ -10,18 +10,40 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const META_MODELS: SharedModel[] = [
     {
+        id: "muse-spark-1.3",
+        name: "Muse Spark 1.3",
+        addedOn: "2026-09-03",
+        shortName: "Muse Spark 1.3",
+        shortDescription:
+            "Latest Muse checkpoint for concise long-running work, conflicting inputs, and clarification-aware execution",
+        description:
+            "Muse Spark 1.3 is Meta's latest multimodal reasoning checkpoint for long-running coding and multi-agent workflows. It is designed to retain information across extended tasks, reconcile conflicting inputs, and pause for clarification or confirmation when requirements are uncertain.",
+        releaseOrder: 20260902,
+        adapters: openRouterTextAdapters("meta/muse-spark-1.3"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 943_718,
+        inputUsdPer1MTokens: 1.25,
+        outputUsdPer1MTokens: 4.25,
+        reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "medium",
+        developer: "Meta",
+        customIcon: "meta"
+    },
+    {
         id: "muse-spark-1.2",
         name: "Muse Spark 1.2",
         addedOn: "2026-08-05",
         shortName: "Muse Spark 1.2",
         shortDescription:
-            "Multimodal reasoning model for complex agents, visual coding, and computer interaction",
+            "Previous Muse checkpoint for planning, delegation, and parallel coding work",
         description:
-            "Muse Spark 1.2 is Meta's multimodal reasoning model for complex agents. It combines a million-token context with text, image, video, audio, and PDF understanding, tool use, structured output, and fine-grained effort control for visual coding, computer interaction, and involved multi-step work.",
+            "Muse Spark 1.2 is Meta's previous multimodal reasoning checkpoint, centered on agent orchestration. It can plan and delegate as a lead agent or execute in parallel as a subagent, with particular strength in multi-file refactors, extended debugging, and whole-repository generation.",
         releaseOrder: 20260805,
         adapters: openRouterTextAdapters("meta/muse-spark-1.2"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
+        maxTokens: 943_718,
         inputUsdPer1MTokens: 1.25,
         outputUsdPer1MTokens: 4.25,
         reasoningEfforts: ["minimal", "low", "medium", "high"],
