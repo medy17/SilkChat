@@ -11,6 +11,7 @@ import {
     PromptInputTextarea
 } from "@/components/prompt-kit/prompt-input"
 import { ToolSelectorPopover } from "@/components/tool-selector-popover"
+import { TabularFilePreview } from "@/components/tabular-file-preview"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -95,6 +96,12 @@ import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
+import {
+    TEXT_PREVIEW_MAX_CHARS,
+    TEXT_PREVIEW_MAX_LINES,
+    isTabularTextFile,
+    truncateTextPreview
+} from "@/lib/tabular-file-preview"
 import {
     clearThreadDraft,
     getThreadDraftKey,
@@ -292,8 +299,7 @@ const estimateUiMessageTokens = (message: UIMessage) =>
 
 const estimateUploadedFileTokens = (
     file: UploadedFile,
-    content: string | undefined,
-    contentAvailable: boolean,
+    cachedContentTokens: number | undefined,
     imageDimensions: ImageDimensions | undefined,
     modelId: string | null
 ) => {
@@ -309,8 +315,8 @@ const estimateUploadedFileTokens = (
         return baseTokens + estimateImageInputTokens(imageDimensions, modelId ?? undefined)
     }
 
-    if (contentAvailable) {
-        return baseTokens + estimateTokenCount(content ?? "")
+    if (cachedContentTokens !== undefined) {
+        return baseTokens + cachedContentTokens
     }
 
     if (fileTypeInfo.isText) {
@@ -1429,6 +1435,7 @@ export const MultimodalInput = forwardRef<
     const draftKey = getThreadDraftKey(draftScope)
 
     const [fileContents, setFileContents] = useState<Record<string, string>>({})
+    const [fileTokenCounts, setFileTokenCounts] = useState<Record<string, number>>({})
     const [fileImageDimensions, setFileImageDimensions] = useState<Record<string, ImageDimensions>>(
         {}
     )
@@ -1437,9 +1444,10 @@ export const MultimodalInput = forwardRef<
     const attachmentsBusy =
         localUploadingFiles.some((file) => file.status !== "error") || documentConversionBatches > 0
     const [dialogFile, setDialogFile] = useState<{
-        content: string
+        content?: string
         fileName: string
         fileType: string
+        url: string
     } | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
     const [extendedFiles, setExtendedFiles] = useState<ExtendedUploadedFile[]>([])
@@ -1618,13 +1626,11 @@ export const MultimodalInput = forwardRef<
         const { hostedInputLimit, modelInputLimit } =
             resolveComposerContextLimits(selectedSharedModel)
         const attachmentTokens = uploadedFiles.reduce((total, file) => {
-            const hasCachedContent = Object.hasOwn(fileContents, file.key)
             return (
                 total +
                 estimateUploadedFileTokens(
                     file,
-                    fileContents[file.key],
-                    hasCachedContent,
+                    fileTokenCounts[file.key],
                     fileImageDimensions[file.key],
                     selectedModel
                 )
@@ -1662,7 +1668,7 @@ export const MultimodalInput = forwardRef<
 
         return null
     }, [
-        fileContents,
+        fileTokenCounts,
         fileImageDimensions,
         inputValue,
         isImageModel,
@@ -1838,6 +1844,10 @@ export const MultimodalInput = forwardRef<
                                 ...current,
                                 [inlineFile.key]: ingested.content!
                             }))
+                            setFileTokenCounts((current) => ({
+                                ...current,
+                                [inlineFile.key]: estimateTokenCount(ingested.content!)
+                            }))
                             addUploadedFile(inlineFile)
                             captureBrowserEvent(TELEMETRY_EVENTS.attachmentProcessingCompleted, {
                                 category: getAttachmentTelemetryCategory(file),
@@ -1956,6 +1966,12 @@ export const MultimodalInput = forwardRef<
                             ...prev,
                             [result.key]: content
                         }))
+                        if (!isImageMimeType(result.file.type)) {
+                            setFileTokenCounts((prev) => ({
+                                ...prev,
+                                [result.key]: estimateTokenCount(content)
+                            }))
+                        }
                         if (isImageMimeType(result.file.type)) {
                             const image = new Image()
                             image.src = content
@@ -2113,6 +2129,11 @@ export const MultimodalInput = forwardRef<
             const newContents = { ...prev }
             delete newContents[key]
             return newContents
+        })
+        setFileTokenCounts((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
         })
         setFileImageDimensions((prev) => {
             const next = { ...prev }
@@ -2304,7 +2325,8 @@ export const MultimodalInput = forwardRef<
         const content = fileContents[uploadedFile.key]
         const fileType = uploadedFile.file?.type || uploadedFile.fileType
         const { isImage, isSvg } = getFileTypeInfo(uploadedFile.fileName, fileType)
-        const publicUrl = isImage ? getPublicR2AssetUrl(uploadedFile.key) : undefined
+        const assetUrl = uploadedFile.inlineDataUrl ?? getPublicR2AssetUrl(uploadedFile.key)
+        const publicUrl = isImage ? assetUrl : undefined
         const previewUrl = isImage
             ? isSvg
                 ? publicUrl
@@ -2320,9 +2342,10 @@ export const MultimodalInput = forwardRef<
                     previewUrl={previewUrl}
                     onClick={() => {
                         setDialogFile({
-                            content: content ?? publicUrl,
+                            content,
                             fileName: uploadedFile.fileName,
-                            fileType: uploadedFile.fileType
+                            fileType: uploadedFile.fileType,
+                            url: assetUrl
                         })
                         setDialogOpen(true)
                     }}
@@ -2371,19 +2394,48 @@ export const MultimodalInput = forwardRef<
         const fileTypeInfo = getFileTypeInfo(dialogFile.fileName, dialogFile.fileType)
         const isImage = fileTypeInfo.isImage
         const isText = fileTypeInfo.isText
+        const isTabular = isTabularTextFile(dialogFile.fileName, dialogFile.fileType)
+        const textPreview =
+            isText && dialogFile.content !== undefined
+                ? truncateTextPreview(dialogFile.content)
+                : undefined
 
         return (
             <div className="max-h-[70dvh] w-full overflow-auto">
                 {isImage ? (
                     <img
-                        src={dialogFile.content}
+                        src={dialogFile.content ?? dialogFile.url}
                         alt={dialogFile.fileName}
                         className="h-auto w-full rounded object-contain"
                     />
+                ) : isTabular ? (
+                    <TabularFilePreview
+                        url={dialogFile.url}
+                        content={dialogFile.content}
+                        filename={dialogFile.fileName}
+                        mediaType={dialogFile.fileType}
+                    />
                 ) : isText ? (
-                    <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-muted p-4 text-sm">
-                        {dialogFile.content}
-                    </pre>
+                    textPreview ? (
+                        <div className="space-y-2">
+                            {textPreview.truncated && (
+                                <p className="text-muted-foreground text-xs">
+                                    Preview limited to {TEXT_PREVIEW_MAX_LINES} lines or{" "}
+                                    {TEXT_PREVIEW_MAX_CHARS.toLocaleString()} characters. Download
+                                    the file for the complete content.
+                                </p>
+                            )}
+                            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[var(--radius-md)] bg-muted p-4 text-sm">
+                                {textPreview.content}
+                            </pre>
+                        </div>
+                    ) : (
+                        <iframe
+                            src={dialogFile.url}
+                            className="h-[69dvh] w-full rounded-[var(--radius-md)] border-0"
+                            title={dialogFile.fileName}
+                        />
+                    )
                 ) : (
                     <div className="flex items-center justify-center p-8 text-muted-foreground">
                         <div className="text-center">

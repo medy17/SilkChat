@@ -14,10 +14,12 @@ type PreviewState =
 
 export const TabularFilePreview = ({
     url,
+    content,
     filename,
     mediaType
 }: {
-    url: string
+    url?: string
+    content?: string
     filename: string
     mediaType?: string
 }) => {
@@ -29,10 +31,17 @@ export const TabularFilePreview = ({
 
         void (async () => {
             try {
-                const response = await fetch(url, { signal: controller.signal })
-                if (!response.ok) throw new Error(`Preview request failed (${response.status})`)
+                let source = content
+                if (source === undefined) {
+                    if (!url) throw new Error("Preview source is unavailable")
+                    const response = await fetch(url, { signal: controller.signal })
+                    if (!response.ok) {
+                        throw new Error(`Preview request failed (${response.status})`)
+                    }
+                    source = await response.text()
+                }
                 const parsed = parseDelimitedTextPreview(
-                    await response.text(),
+                    source,
                     getTabularDelimiter(filename, mediaType)
                 )
                 setState({ status: "ready", ...parsed })
@@ -46,7 +55,7 @@ export const TabularFilePreview = ({
         })()
 
         return () => controller.abort()
-    }, [filename, mediaType, url])
+    }, [content, filename, mediaType, url])
 
     if (state.status === "loading") {
         return (
@@ -79,6 +88,13 @@ export const TabularFilePreview = ({
 
     return (
         <div className="space-y-2">
+            {state.truncated && (
+                <p className="text-muted-foreground text-xs">
+                    Preview limited to {TABULAR_PREVIEW_MAX_ROWS} rows and{" "}
+                    {TABULAR_PREVIEW_MAX_COLUMNS} columns. Download the file for the complete
+                    dataset.
+                </p>
+            )}
             <div className="max-h-[69dvh] overflow-auto rounded-[var(--radius-md)] border">
                 <table className="w-max min-w-full border-collapse text-left text-sm">
                     <thead className="sticky top-0 z-10 bg-background shadow-sm">
@@ -113,13 +129,6 @@ export const TabularFilePreview = ({
                     </tbody>
                 </table>
             </div>
-            {state.truncated && (
-                <p className="text-muted-foreground text-xs">
-                    Preview limited to {TABULAR_PREVIEW_MAX_ROWS} rows and{" "}
-                    {TABULAR_PREVIEW_MAX_COLUMNS} columns. Download the file for the complete
-                    dataset.
-                </p>
-            )}
         </div>
     )
 }

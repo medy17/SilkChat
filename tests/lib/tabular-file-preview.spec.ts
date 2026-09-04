@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+    TABULAR_PREVIEW_MAX_ROWS,
     getTabularDelimiter,
     isTabularTextFile,
-    parseDelimitedTextPreview
+    parseDelimitedTextPreview,
+    truncateTextPreview
 } from "../../src/lib/tabular-file-preview"
 
 describe("tabular file preview", () => {
@@ -42,6 +44,34 @@ describe("tabular file preview", () => {
                 ["a", "b"],
                 ["123", "2"]
             ],
+            truncated: true
+        })
+    })
+
+    it("stops parsing after the default preview row limit", () => {
+        const input = Array.from(
+            { length: TABULAR_PREVIEW_MAX_ROWS + 50 },
+            (_, index) => `${index},value-${index}`
+        ).join("\n")
+
+        const preview = parseDelimitedTextPreview(input, ",")
+
+        expect(preview.rows).toHaveLength(TABULAR_PREVIEW_MAX_ROWS)
+        expect(preview.rows.at(-1)).toEqual(["199", "value-199"])
+        expect(preview.truncated).toBe(true)
+    })
+
+    it("only truncates plain text after its preview limits", () => {
+        expect(truncateTextPreview("one\ntwo", { maxLines: 2, maxChars: 100 })).toEqual({
+            content: "one\ntwo",
+            truncated: false
+        })
+        expect(truncateTextPreview("one\ntwo\nthree", { maxLines: 2, maxChars: 100 })).toEqual({
+            content: "one\ntwo",
+            truncated: true
+        })
+        expect(truncateTextPreview("abcdefghij", { maxLines: 20, maxChars: 5 })).toEqual({
+            content: "abcde",
             truncated: true
         })
     })

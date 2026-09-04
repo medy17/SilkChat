@@ -1,10 +1,37 @@
 export const TABULAR_PREVIEW_MAX_ROWS = 200
 export const TABULAR_PREVIEW_MAX_COLUMNS = 50
 export const TABULAR_PREVIEW_MAX_CELL_CHARS = 2_000
+export const TEXT_PREVIEW_MAX_LINES = 200
+export const TEXT_PREVIEW_MAX_CHARS = 100_000
 
 export type TabularPreview = {
     rows: string[][]
     truncated: boolean
+}
+
+export const truncateTextPreview = (
+    input: string,
+    options?: { maxLines?: number; maxChars?: number }
+) => {
+    const maxLines = options?.maxLines ?? TEXT_PREVIEW_MAX_LINES
+    const maxChars = options?.maxChars ?? TEXT_PREVIEW_MAX_CHARS
+    const scanLimit = Math.min(input.length, maxChars)
+    let end = scanLimit
+    let lineCount = 1
+
+    for (let index = 0; index < scanLimit; index += 1) {
+        if (input[index] !== "\n") continue
+        lineCount += 1
+        if (lineCount > maxLines) {
+            end = index
+            break
+        }
+    }
+
+    return {
+        content: input.slice(0, end),
+        truncated: end < input.length
+    }
 }
 
 export const isTabularTextFile = (filename: string, mediaType?: string) => {
