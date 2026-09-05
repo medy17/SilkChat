@@ -21,11 +21,24 @@ const FREE_WITHOUT_REASONING_ACCESS = {
 
 export const OPENAI_MODELS: SharedModel[] = [
     {
+        id: "gpt-6-astra",
+        name: "GPT 6 Astra",
+        addedOn: "2026-09-05",
+        shortName: "6 Astra",
+        shortDescription: "OpenAI's flagship for true next generation coding, and multimodal work",
+        description:
+            "GPT 6 Astra is OpenAI's true next-generation flagship model for complex work spanning analysis, software engineering, scientific research, and document creation. It handles text, images, and PDFs, with adjustable reasoning and tool calling for tasks that require many steps. It's OpenAI's largest model by parameter count since GPT-4.5.",
+        developer: "OpenAI",
+        releaseOrder: 20261027,
+        adapters: openAiTextAdapters("gpt-6-astra"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+    },
+    {
         id: "gpt-5.6-sol",
         name: "GPT 5.6 Sol",
         addedOn: "2026-07-09",
         shortName: "5.6 Sol",
-        shortDescription: "Flagship GPT-5.6 model for complex reasoning, coding, and agents",
+        shortDescription: "Flagship GPT-5.6 series model for complex reasoning, coding, and agents",
         description:
             "GPT 5.6 Sol is the flagship GPT-5.6 model, built for complex reasoning, coding, multimodal input, tool use, and long-horizon agentic workflows.",
         developer: "OpenAI",
@@ -83,7 +96,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         shortName: "5.5",
         shortDescription: "Premium OpenAI model for high-quality chat, multimodal input, and tools",
         description:
-            "GPT 5.5 is a premium OpenAI model for high-quality chat, multimodal input, and tool use. It remains capable and token-efficient, with GPT 5.6 Sol now occupying the flagship tier.",
+            "GPT 5.5 is a previous-generation OpenAI model for high-quality chat, multimodal input, and tool use. It remains a capable, token-efficient option for everyday work.",
         developer: "OpenAI",
         artificialAnalysis: {
             type: "llm",
@@ -156,7 +169,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5.3",
         name: "GPT 5.3",
         shortName: "5.3",
-        shortDescription: "Smooth conversational GPT tuned for useful answers without the verbal speed bumps",
+        shortDescription:
+            "Smooth conversational GPT tuned for useful answers without the verbal speed bumps",
         description:
             "GPT 5.3 is an everyday conversational model tuned for better judgment, richer web-grounded answers, and a more natural flow. It spends less time hedging at the doorway and more time helping, making it a polished choice for chat, search, and practical multimodal work.",
         releaseOrder: 20261019,
@@ -172,7 +186,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5.2",
         name: "GPT 5.2",
         shortName: "5.2",
-        shortDescription: "Professional-grade reasoner for polished artifacts and long-running agents",
+        shortDescription:
+            "Professional-grade reasoner for polished artifacts and long-running agents",
         description:
             "GPT 5.2 is built for work with a finish line: complex code, long documents, spreadsheets, presentations, and agents that must carry a project end to end. It combines strong long-context reasoning, vision, and tool calling with a knack for producing deliverables that look ready for the meeting.",
         releaseOrder: 20261018,
@@ -204,7 +219,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5",
         name: "GPT 5",
         shortName: "5",
-        shortDescription: "OpenAI's original unified reasoner for coding, tools, and serious general work",
+        shortDescription:
+            "OpenAI's original unified reasoner for coding, tools, and serious general work",
         description:
             "GPT 5 brought OpenAI's fast responses and deeper reasoning into one versatile model family. It is a confident generalist for coding, multimodal analysis, and tool-rich workflows, with controls that let the task—not the model picker—decide how much thought to spend.",
         releaseOrder: 20261014,
@@ -234,7 +250,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-5-nano",
         name: "GPT 5 nano",
         shortName: "5-nano",
-        shortDescription: "Tiny GPT-5 built to classify, extract, and respond before the kettle boils",
+        shortDescription:
+            "Tiny GPT-5 built to classify, extract, and respond before the kettle boils",
         description:
             "GPT 5 nano is the smallest and fastest GPT-5 variant, made for high-volume work where latency and cost dominate the brief. Give it classification, extraction, routing, concise summaries, or lightweight tool calls and let the larger models keep sleeping.",
         releaseOrder: 20261012,
@@ -289,7 +306,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-4.1",
         name: "GPT 4.1",
         shortName: "4.1",
-        shortDescription: "Long-context coding specialist that follows the brief down to the semicolon",
+        shortDescription:
+            "Long-context coding specialist that follows the brief down to the semicolon",
         description:
             "GPT 4.1 is a practical developer model with major gains in coding, instruction-following, and million-token context. It is at home inside large repositories and document piles, reliably finding the relevant detail without getting distracted by all the furniture around it.",
         releaseOrder: 20261008,
@@ -302,7 +320,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-4.1-mini",
         name: "GPT 4.1 mini",
         shortName: "4.1-mini",
-        shortDescription: "Quick million-token generalist with near-flagship intelligence and much lighter luggage",
+        shortDescription:
+            "Quick million-token generalist with near-flagship intelligence and much lighter luggage",
         description:
             "GPT 4.1 mini is the family's sweet spot: strong coding, vision, and instruction-following with lower latency and cost than the flagship. Its million-token context makes it unusually capable of reading the whole project before offering to rearrange it.",
         releaseOrder: 20261007,
@@ -330,7 +349,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-4.5-preview",
         name: "GPT 4.5 Preview",
         shortName: "4.5 Preview",
-        shortDescription: "Thoughtful, creative conversationalist with unusually good taste and emotional antennae",
+        shortDescription:
+            "Thoughtful, creative conversationalist with unusually good taste and emotional antennae",
         description:
             "GPT 4.5 Preview is a large, general-purpose model prized less for step-by-step reasoning than for broad knowledge, natural conversation, creative instinct, and social nuance. It is the model you invite when the work needs judgment and voice, not just an answer key.",
         releaseOrder: 20261005,
@@ -357,7 +377,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "o3-mini",
         name: "o3 mini",
         shortName: "o3-mini",
-        shortDescription: "Lean STEM reasoning for code, calculations, and technical questions on repeat",
+        shortDescription:
+            "Lean STEM reasoning for code, calculations, and technical questions on repeat",
         description:
             "o3-mini is a cost-efficient reasoning model focused on coding, math, and science. Adjustable effort lets it move quickly through routine technical work or pause for a more careful derivation when the equations start looking unfriendly.",
         releaseOrder: 20261003,
@@ -384,7 +405,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         id: "gpt-4o-mini",
         name: "GPT 4o mini",
         shortName: "4o-mini",
-        shortDescription: "Affordable multimodal intelligence for busy apps and everyday conversations",
+        shortDescription:
+            "Affordable multimodal intelligence for busy apps and everyday conversations",
         description:
             "GPT 4o mini made multimodal intelligence cheap enough to use everywhere. It is a nimble choice for support, extraction, translation, lightweight vision, and high-volume chat—less grand piano, more excellent pocket keyboard.",
         releaseOrder: 20261002,
