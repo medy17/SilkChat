@@ -1235,7 +1235,7 @@ function PersonasSettings() {
                         <div>
                             <h3 className="font-semibold text-foreground">Your Personas</h3>
                             <p className="mt-1 text-muted-foreground text-sm">
-                                Create, clone, and edit your own personas and experts.
+                                Create, duplicate, and edit your own personas and experts.
                             </p>
                         </div>
                         <Button onClick={openCreatePersona}>
@@ -1256,27 +1256,37 @@ function PersonasSettings() {
                     ) : (
                         <div className="space-y-3">
                             {userPersonas.map((persona) => (
-                                <Card key={persona._id} className="p-4">
+                                <Card
+                                    key={persona._id}
+                                    className="min-w-0 gap-4 rounded-[var(--radius-xl)] p-4 shadow-none"
+                                >
                                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                        <div className="flex min-w-0 items-center gap-3">
+                                        <div className="flex min-w-0 flex-1 items-start gap-3">
                                             <PersonaAvatar
                                                 name={persona.name}
                                                 avatarKind={persona.avatarKey ? "r2" : undefined}
                                                 avatarValue={persona.avatarKey}
+                                                className="size-10 shrink-0 [&_[data-slot=avatar-fallback]]:text-sm"
                                             />
                                             <div className="min-w-0">
-                                                <p className="truncate font-medium">
+                                                <h4 className="font-medium [overflow-wrap:anywhere]">
                                                     {persona.name}
-                                                </p>
-                                                <p className="truncate text-muted-foreground text-sm">
+                                                </h4>
+                                                <p className="mt-1 text-muted-foreground text-sm leading-relaxed [overflow-wrap:anywhere]">
                                                     {persona.description}
                                                 </p>
                                                 <div className="mt-2 flex flex-wrap gap-2">
-                                                    <Badge variant="secondary">
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="max-w-full whitespace-normal rounded-[var(--radius-md)] text-left [overflow-wrap:anywhere]"
+                                                    >
                                                         {resolveModelName(persona.defaultModelId)}
                                                     </Badge>
                                                     {persona.knowledgeDocs.length > 0 && (
-                                                        <Badge variant="outline">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="rounded-[var(--radius-md)]"
+                                                        >
                                                             {persona.knowledgeDocs.length} doc
                                                             {persona.knowledgeDocs.length === 1
                                                                 ? ""
@@ -1286,22 +1296,26 @@ function PersonasSettings() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex shrink-0 items-center gap-2 self-end md:self-center">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
+                                                className="h-9 rounded-[var(--radius-md)]"
+                                                aria-label={`Edit ${persona.name}`}
                                                 onClick={() => openEditPersona(persona)}
                                             >
                                                 <Pencil className="h-4 w-4" />
                                                 Edit
                                             </Button>
                                             <Button
-                                                variant="outline"
+                                                variant="ghost"
                                                 size="sm"
+                                                className="h-9 rounded-[var(--radius-md)]"
+                                                aria-label={`Duplicate ${persona.name}`}
                                                 onClick={() => openDuplicatePersona(persona)}
                                             >
                                                 <Copy className="h-4 w-4" />
-                                                Clone
+                                                Duplicate
                                             </Button>
                                         </div>
                                     </div>
@@ -1315,31 +1329,42 @@ function PersonasSettings() {
                     <div>
                         <h3 className="font-semibold text-foreground">Built-in Personas</h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            Some of our own we thought you'd like to converse with.
+                            Ready-to-use personas available in the chat persona selector.
                         </p>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2">
                         {builtIns.map((persona) => (
-                            <Card key={persona.id} className="space-y-4 p-4">
+                            <Card
+                                key={persona.id}
+                                className="min-w-0 gap-3 rounded-[var(--radius-xl)] p-4 shadow-none"
+                            >
                                 <div className="flex items-center gap-3">
                                     <PersonaAvatar
                                         name={persona.name}
                                         avatarKind={persona.avatarKind}
                                         avatarValue={persona.avatarValue}
+                                        className="size-10 shrink-0 [&_[data-slot=avatar-fallback]]:text-sm"
                                     />
-                                    <div className="min-w-0">
-                                        <p className="truncate font-medium">{persona.name}</p>
-                                        <p className="text-muted-foreground text-sm">
-                                            {persona.description}
-                                        </p>
-                                    </div>
+                                    <h4 className="min-w-0 font-medium [overflow-wrap:anywhere]">
+                                        {persona.name}
+                                    </h4>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="secondary">
+                                <p className="text-muted-foreground text-sm leading-relaxed [overflow-wrap:anywhere]">
+                                    {persona.description}
+                                </p>
+                                <div className="mt-auto flex flex-wrap items-start gap-2 pt-1">
+                                    <Badge
+                                        variant="secondary"
+                                        className="max-w-full whitespace-normal rounded-[var(--radius-md)] text-left [overflow-wrap:anywhere]"
+                                    >
                                         {resolveModelName(persona.defaultModelId)}
                                     </Badge>
                                     {persona.docNames.map((docName) => (
-                                        <Badge key={docName} variant="outline">
+                                        <Badge
+                                            key={docName}
+                                            variant="outline"
+                                            className="max-w-full whitespace-normal rounded-[var(--radius-md)] text-left [overflow-wrap:anywhere]"
+                                        >
                                             {docName}
                                         </Badge>
                                     ))}
