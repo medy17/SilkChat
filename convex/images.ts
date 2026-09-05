@@ -4,7 +4,6 @@ import {
     filterAndSortGeneratedImages,
     getGeneratedImageFilterOptionsFromCounts,
     getGeneratedImageOrientation,
-    hasActiveGeneratedImageFilters,
     matchesGeneratedImageFilters,
     normalizeGeneratedImageAspectRatio
 } from "@/lib/generated-image-filters"
@@ -63,21 +62,6 @@ const isImageVisibleInView = (
 
     return image.isArchived !== true
 }
-
-const getCursorOffset = (cursor: string | null) => {
-    const offset = Number(cursor || "0")
-    return Number.isFinite(offset) && offset >= 0 ? Math.floor(offset) : 0
-}
-
-const shouldUseLatestGeneratedImagesPath = ({
-    effectiveQuery,
-    normalizedSortBy,
-    filters
-}: {
-    effectiveQuery?: string
-    normalizedSortBy: "relevance" | "newest" | "oldest"
-    filters?: GeneratedImageFilters
-}) => !effectiveQuery && normalizedSortBy === "newest" && !hasActiveGeneratedImageFilters(filters)
 
 const createEmptyFacetCounts = (): GeneratedImageFilterOptionCounts => ({
     modelIds: {},
@@ -218,46 +202,6 @@ const rebuildGeneratedImageFacets = async (ctx: MutationCtx, userId: string) => 
     return snapshot
 }
 
-const paginateLatestVisibleGeneratedImages = async (
-    ctx: QueryCtx,
-    {
-        userId,
-        paginationOpts,
-        view
-    }: {
-        userId: string
-        paginationOpts: {
-            numItems: number
-            cursor: string | null
-        }
-        view?: "active" | "archived"
-    }
-) => {
-    const startIndex = getCursorOffset(paginationOpts.cursor)
-    const endIndex = startIndex + paginationOpts.numItems
-    const result = await ctx.db
-        .query("generatedImages")
-        .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", userId))
-        .filter((q) =>
-            view === "archived"
-                ? q.eq(q.field("isArchived"), true)
-                : q.neq(q.field("isArchived"), true)
-        )
-        .order("desc")
-        .paginate({
-            numItems: endIndex,
-            cursor: null
-        })
-
-    const page = result.page.slice(startIndex, endIndex)
-
-    return {
-        page,
-        isDone: result.isDone,
-        continueCursor: result.isDone ? "" : String(startIndex + page.length)
-    }
-}
-
 export const insertGeneratedImage = internalMutation({
     args: {
         userId: v.string(),
@@ -375,75 +319,49 @@ export const paginateGeneratedImages = query({
             trimmedQuery && trimmedQuery.length >= MIN_GENERATED_IMAGE_SEARCH_QUERY_LENGTH
                 ? trimmedQuery
                 : undefined
-        const normalizedSortBy =
-            sortBy === "relevance" && !effectiveQuery ? "newest" : (sortBy ?? "newest")
-        const chronologicalSortBy = normalizedSortBy === "relevance" ? "newest" : normalizedSortBy
-
-        if (
-            shouldUseLatestGeneratedImagesPath({
-                effectiveQuery,
-                normalizedSortBy,
-                filters: filters as GeneratedImageFilters | undefined
-            })
-        ) {
-            return await paginateLatestVisibleGeneratedImages(ctx, {
-                userId: user.id,
-                paginationOpts: {
-                    numItems: paginationOpts.numItems,
-                    cursor: paginationOpts.cursor
-                },
-                view
-            })
-        }
-
-        const filteredImages = effectiveQuery
-            ? await ctx.db
+        // Preserve Convex's opaque cursor and split metadata. Never convert a
+        // requested page into a growing read from the start of the index.
+        const imagesQuery = effectiveQuery
+            ? ctx.db
                   .query("generatedImages")
                   .withSearchIndex("search_text", (q) =>
                       q.search("searchText", effectiveQuery).eq("userId", user.id)
                   )
-                  .collect()
-                  .then((images) => {
-                      const matchedImages = images.filter(
-                          (image) =>
-                              isImageVisibleInView(image, view) &&
-                              matchesGeneratedImageFilters(
-                                  image,
-                                  filters as GeneratedImageFilters | undefined
-                              )
-                      )
-
-                      if (normalizedSortBy === "relevance") {
-                          return matchedImages
-                      }
-
-                      return filterAndSortGeneratedImages(matchedImages, {
-                          sortBy: chronologicalSortBy
-                      })
-                  })
-            : await ctx.db
-                  .query("generatedImages")
-                  .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
-                  .collect()
-                  .then((images) =>
-                      filterAndSortGeneratedImages(
-                          images.filter((image) => isImageVisibleInView(image, view)),
-                          {
-                              filters: filters as GeneratedImageFilters | undefined,
-                              sortBy: chronologicalSortBy
-                          }
-                      )
-                  )
-
-        const startIndex = getCursorOffset(paginationOpts.cursor)
-        const page = filteredImages.slice(startIndex, startIndex + paginationOpts.numItems)
-        const nextOffset = startIndex + page.length
-        const isDone = nextOffset >= filteredImages.length
-
+            : view === "archived"
+              ? ctx.db
+                    .query("generatedImages")
+                    .withIndex("byUserIdAndIsArchivedAndCreatedAt", (q) =>
+                        q.eq("userId", user.id).eq("isArchived", true)
+                    )
+                    .order(sortBy === "oldest" ? "asc" : "desc")
+              : ctx.db
+                    .query("generatedImages")
+                    .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
+                    .order(sortBy === "oldest" ? "asc" : "desc")
+        // Missing and false both mean active. Keep their shared chronological
+        // order rather than separating them into distinct archive-index ranges.
+        const visibleQuery =
+            effectiveQuery || view === "archived"
+                ? imagesQuery
+                : imagesQuery.filter((q) => q.neq(q.field("isArchived"), true))
+        const result = await visibleQuery.paginate({
+            ...paginationOpts,
+            numItems: Math.max(1, Math.min(50, Math.floor(paginationOpts.numItems))),
+            maximumRowsRead: 512,
+            maximumBytesRead: 2 * 1024 * 1024
+        })
+        // Computed and multi-select filters apply to this bounded page only.
+        // An empty page is not necessarily exhaustion.
         return {
-            page,
-            isDone,
-            continueCursor: isDone ? "" : String(nextOffset)
+            ...result,
+            page: result.page.filter(
+                (image) =>
+                    isImageVisibleInView(image, view) &&
+                    matchesGeneratedImageFilters(
+                        image,
+                        filters as GeneratedImageFilters | undefined
+                    )
+            )
         }
     }
 })

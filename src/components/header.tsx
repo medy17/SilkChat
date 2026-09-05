@@ -117,7 +117,10 @@ export function Header() {
             )}
             <header className="pointer-events-none absolute top-0 z-50 w-full">
                 <div className="flex w-full items-center justify-end p-2">
-                    <div className="pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm">
+                    <div
+                        data-app-header-controls
+                        className="pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm"
+                    >
                         {showDesktopLibraryControls && (
                             <>
                                 <Tabs
@@ -165,7 +168,7 @@ export function Header() {
                                 "flex items-center gap-2 overflow-hidden transition-all duration-300 ease-out",
                                 areHeaderActionsVisible
                                     ? "max-w-72 opacity-100"
-                                    : "-mr-2 invisible max-w-0 opacity-0"
+                                    : "invisible -mr-2 max-w-0 opacity-0"
                             )}
                             aria-hidden={!areHeaderActionsVisible}
                         >

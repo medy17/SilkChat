@@ -37,167 +37,140 @@ const paginateGeneratedImagesHandler = paginateGeneratedImages as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
-const createCtx = ({
-    indexPaginateResults = [],
-    indexCollectResult = [],
-    searchCollectResult = []
-}: {
-    indexPaginateResults?: Array<{
-        page: Array<Record<string, any>>
-        continueCursor: string
-        isDone: boolean
-    }>
-    indexCollectResult?: Array<Record<string, any>>
-    searchCollectResult?: Array<Record<string, any>>
-}) => {
-    const paginateMock = vi
-        .fn()
-        .mockImplementation(async () => indexPaginateResults.shift() ?? emptyPaginationResult)
-    const indexCollectMock = vi.fn().mockResolvedValue(indexCollectResult)
-    const searchCollectMock = vi.fn().mockResolvedValue(searchCollectResult)
-    const filterMock = vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-            paginate: paginateMock
-        })
-    })
+const emptyPaginationResult = { page: [], continueCursor: "", isDone: true }
 
-    return {
-        auth: {},
-        db: {
-            query: vi.fn().mockReturnValue({
-                withIndex: vi.fn().mockReturnValue({
-                    filter: filterMock,
-                    order: vi.fn().mockReturnValue({
-                        paginate: paginateMock
-                    }),
-                    collect: indexCollectMock
-                }),
-                withSearchIndex: vi.fn().mockReturnValue({
-                    collect: searchCollectMock
-                })
-            })
-        },
-        filterMock,
-        paginateMock,
-        indexCollectMock,
-        searchCollectMock
+const createCtx = (result: Record<string, unknown> = emptyPaginationResult) => {
+    const paginate = vi.fn().mockResolvedValue(result)
+    const chain: any = {
+        withIndex: vi.fn(() => chain),
+        withSearchIndex: vi.fn(() => chain),
+        order: vi.fn(() => chain),
+        filter: vi.fn(() => chain),
+        paginate
     }
+    return { auth: {}, db: { query: () => chain }, chain, paginate }
 }
 
-const emptyPaginationResult = {
-    page: [],
-    continueCursor: "",
-    isDone: true
-}
+const run = (ctx: ReturnType<typeof createCtx>, args: Record<string, unknown> = {}) =>
+    paginateGeneratedImagesHandler.handler(ctx, {
+        paginationOpts: { numItems: 20, cursor: null },
+        view: "active",
+        ...args
+    })
 
 describe("paginateGeneratedImages", () => {
-    beforeEach(() => {
-        getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" })
-    })
+    beforeEach(() => getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" }))
 
-    it("uses incremental pagination for the default newest library path", async () => {
-        const ctx = createCtx({
-            indexPaginateResults: [
-                {
-                    page: [
-                        { _id: "active-1", createdAt: 30 },
-                        { _id: "active-2", createdAt: 10 }
-                    ],
-                    continueCursor: "cursor-1",
-                    isDone: false
-                }
-            ]
-        })
-
-        const result = await paginateGeneratedImagesHandler.handler(ctx, {
-            paginationOpts: { numItems: 2, cursor: null },
-            query: "",
-            sortBy: "newest",
-            filters: undefined,
-            view: "active"
-        })
-
-        expect(ctx.paginateMock).toHaveBeenCalledTimes(1)
-        expect(ctx.filterMock).toHaveBeenCalledTimes(1)
-        expect(ctx.paginateMock).toHaveBeenCalledWith({
-            numItems: 2,
-            cursor: null
-        })
-        expect(ctx.indexCollectMock).not.toHaveBeenCalled()
-        expect(result).toEqual({
-            page: [
-                { _id: "active-1", createdAt: 30 },
-                { _id: "active-2", createdAt: 10 }
-            ],
+    it("continues from an opaque cursor with a bounded read and preserves split metadata", async () => {
+        const page = {
+            page: [{ _id: "image" }],
+            continueCursor: "opaque-next",
             isDone: false,
-            continueCursor: "2"
+            splitCursor: "split",
+            pageStatus: "SplitRecommended"
+        }
+        const ctx = createCtx(page)
+        expect(
+            await run(ctx, {
+                paginationOpts: { numItems: 20, cursor: "opaque-start", endCursor: "opaque-end" }
+            })
+        ).toEqual(page)
+        expect(ctx.paginate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cursor: "opaque-start",
+                endCursor: "opaque-end",
+                numItems: 20,
+                maximumRowsRead: 512,
+                maximumBytesRead: 2097152
+            })
+        )
+    })
+
+    it("keeps continuation available when a filtered page has no matches", async () => {
+        const ctx = createCtx({
+            page: [{ modelId: "other" }],
+            continueCursor: "next",
+            isDone: false
+        })
+        expect(await run(ctx, { filters: { modelIds: ["flux"] } })).toEqual({
+            page: [],
+            continueCursor: "next",
+            isDone: false
         })
     })
 
-    it("requests enough rows to reach later default pages", async () => {
+    it("paginates search in relevance order and applies computed filters only to the returned page", async () => {
         const ctx = createCtx({
-            indexPaginateResults: [
-                {
-                    page: [
-                        { _id: "image-1", createdAt: 50 },
-                        { _id: "image-2", createdAt: 40 },
-                        { _id: "image-3", createdAt: 30 },
-                        { _id: "image-4", createdAt: 20 }
-                    ],
-                    continueCursor: "",
-                    isDone: true
-                }
-            ]
-        })
-
-        const result = await paginateGeneratedImagesHandler.handler(ctx, {
-            paginationOpts: { numItems: 2, cursor: "2" },
-            query: "",
-            sortBy: "newest",
-            filters: undefined,
-            view: "active"
-        })
-
-        expect(ctx.paginateMock).toHaveBeenCalledWith({
-            numItems: 4,
-            cursor: null
-        })
-        expect(result).toEqual({
             page: [
-                { _id: "image-3", createdAt: 30 },
-                { _id: "image-4", createdAt: 20 }
+                { _id: "portrait", aspectRatio: "2:3" },
+                { _id: "landscape", aspectRatio: "3:2" }
             ],
-            isDone: true,
-            continueCursor: ""
+            continueCursor: "search-next",
+            isDone: false
         })
+        expect(
+            await run(ctx, {
+                query: "portrait",
+                sortBy: "oldest",
+                filters: { orientations: ["portrait"] }
+            })
+        ).toEqual({
+            page: [{ _id: "portrait", aspectRatio: "2:3" }],
+            continueCursor: "search-next",
+            isDone: false
+        })
+        expect(ctx.chain.order).not.toHaveBeenCalled()
     })
 
-    it("keeps the full-collection path for non-default sorts", async () => {
+    it("uses chronological ordering without collecting the full library", async () => {
+        const ctx = createCtx()
+        await run(ctx, { sortBy: "oldest" })
+        expect(ctx.chain.order).toHaveBeenCalledWith("asc")
+        expect(ctx.paginate).toHaveBeenCalledTimes(1)
+    })
+
+    it.each(["newest", "oldest"])(
+        "restricts archived %s pagination to the user's archived index range",
+        async (sortBy) => {
+            const ctx = createCtx()
+            await run(ctx, { view: "archived", sortBy })
+            const [index, range] = ctx.chain.withIndex.mock.calls[0]
+            const eq = vi.fn().mockReturnThis()
+            range({ eq })
+            expect(index).toBe("byUserIdAndIsArchivedAndCreatedAt")
+            expect(eq.mock.calls).toEqual([
+                ["userId", "user-1"],
+                ["isArchived", true]
+            ])
+            expect(ctx.chain.filter).not.toHaveBeenCalled()
+            expect(ctx.chain.order).toHaveBeenCalledWith(sortBy === "oldest" ? "asc" : "desc")
+        }
+    )
+
+    it("keeps missing and false archive flags active in their original chronological order", async () => {
         const ctx = createCtx({
-            indexCollectResult: [
-                { _id: "newest", createdAt: 30 },
-                { _id: "oldest", createdAt: 10 },
-                { _id: "middle", createdAt: 20 }
-            ]
-        })
-
-        const result = await paginateGeneratedImagesHandler.handler(ctx, {
-            paginationOpts: { numItems: 2, cursor: null },
-            query: "",
-            sortBy: "oldest",
-            filters: undefined,
-            view: "active"
-        })
-
-        expect(ctx.indexCollectMock).toHaveBeenCalledTimes(1)
-        expect(ctx.paginateMock).not.toHaveBeenCalled()
-        expect(result).toEqual({
             page: [
-                { _id: "oldest", createdAt: 10 },
-                { _id: "middle", createdAt: 20 }
+                { _id: "missing-new", createdAt: 4 },
+                { _id: "false", isArchived: false, createdAt: 3 },
+                { _id: "archived", isArchived: true, createdAt: 2 },
+                { _id: "missing-old", createdAt: 1 }
             ],
-            isDone: false,
-            continueCursor: "2"
+            continueCursor: "",
+            isDone: true
         })
+        const result = await run(ctx)
+        expect(result.page.map((image: { _id: string }) => image._id)).toEqual([
+            "missing-new",
+            "false",
+            "missing-old"
+        ])
+        expect(ctx.chain.withIndex.mock.calls[0][0]).toBe("byUserIdAndCreatedAt")
+    })
+
+    it("returns an exhausted empty page without reading data for an unauthenticated user", async () => {
+        getUserIdentityMock.mockResolvedValue({ error: "unauthorized" })
+        const ctx = createCtx()
+        expect(await run(ctx)).toEqual(emptyPaginationResult)
+        expect(ctx.paginate).not.toHaveBeenCalled()
     })
 })

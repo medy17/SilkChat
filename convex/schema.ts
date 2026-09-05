@@ -253,6 +253,7 @@ export default defineSchema({
     generatedImages: defineTable(GeneratedImage)
         .index("byUserId", ["userId"])
         .index("byUserIdAndCreatedAt", ["userId", "createdAt"])
+        .index("byUserIdAndIsArchivedAndCreatedAt", ["userId", "isArchived", "createdAt"])
         .index("byGenerationJobIdAndStorageKey", ["generationJobId", "storageKey"])
         .searchIndex("search_text", {
             searchField: "searchText",

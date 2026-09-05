@@ -1,3 +1,8 @@
+import {
+    getLibraryPageCursor,
+    rememberLibraryPageCursor,
+    type LibraryCursorHistory
+} from "@/lib/library-pagination"
 import { useGenerationStore } from "@/components/library/generation-store"
 import { ImageComparisonModal } from "@/components/library/image-comparison-modal"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
@@ -39,14 +44,6 @@ import {
 } from "@/components/ui/drawer"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Input } from "@/components/ui/input"
-import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious
-} from "@/components/ui/pagination"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     Select,
@@ -79,7 +76,6 @@ import {
     getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
-import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import { ImageMetadataProvider, useImageMetadata } from "@/lib/image-metadata-context"
 import {
     DEFAULT_LIBRARY_FILTERS,
@@ -101,6 +97,8 @@ import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react
 import { useAction, useMutation, useQuery } from "convex/react"
 import {
     Archive,
+    ArrowLeft,
+    ArrowRight,
     Check,
     CheckSquare2,
     Clipboard,
@@ -226,11 +224,12 @@ const getLibraryViewLabel = (view: LibraryViewMode) => (view === "archived" ? "A
 const getSortOptions = (
     includeRelevance: boolean
 ): Array<{ value: ImageSortOption; label: string }> =>
-    [
-        includeRelevance ? { value: "relevance" as const, label: "Best match" } : null,
-        { value: "newest" as const, label: "Newest first" },
-        { value: "oldest" as const, label: "Oldest first" }
-    ].filter((option): option is { value: ImageSortOption; label: string } => option !== null)
+    includeRelevance
+        ? [{ value: "relevance", label: "Best match" }]
+        : [
+              { value: "newest", label: "Newest first" },
+              { value: "oldest", label: "Oldest first" }
+          ]
 
 const LIBRARY_SEARCH_DEBOUNCE_MS = 400
 const LIBRARY_BACKSPACE_DEBOUNCE_MS = 700
@@ -344,8 +343,8 @@ const DesktopCheckboxFilter = ({
     onToggleValue: (value: string) => void
     onClear: () => void
 }) => (
-    <AccordionItem value={value} className="relative">
-        <AccordionTrigger className="pr-20 hover:no-underline [&>svg]:absolute [&>svg]:top-4 [&>svg]:right-0">
+    <AccordionItem value={value} className="relative border-border/60">
+        <AccordionTrigger className="pr-20 text-sm hover:text-foreground hover:no-underline [&>svg]:absolute [&>svg]:top-4 [&>svg]:right-0">
             <span className="flex items-center gap-2">
                 <span>{title}</span>
                 {selectedValues.length > 0 && (
@@ -368,19 +367,19 @@ const DesktopCheckboxFilter = ({
         )}
         <AccordionContent>
             {options.length > 0 ? (
-                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid max-h-64 gap-1 overflow-y-auto pr-1">
                     {options.map((option) => (
                         <label
                             key={option.value}
                             htmlFor={`desktop-${value}-${option.value}`}
-                            className="flex min-h-9 items-center gap-3 text-sm"
+                            className="flex min-h-10 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 text-sm transition-colors hover:bg-muted/60 has-[[data-state=checked]]:bg-muted/60"
                         >
                             <Checkbox
                                 id={`desktop-${value}-${option.value}`}
                                 checked={selectedValues.includes(option.value)}
                                 onCheckedChange={() => onToggleValue(option.value)}
                             />
-                            <span>{option.label}</span>
+                            <span className="min-w-0 break-words">{option.label}</span>
                         </label>
                     ))}
                 </div>
@@ -392,13 +391,8 @@ const DesktopCheckboxFilter = ({
 )
 
 const GalleryImageSkeleton = memo(() => (
-    <div className="relative h-full w-full overflow-hidden rounded-lg bg-muted/40">
-        <div className="absolute inset-0 bg-gradient-to-br from-muted/90 via-muted/70 to-accent/50" />
-        <div className="absolute inset-0 backdrop-blur-[1px]" />
-        <div className="absolute inset-x-0 bottom-0 space-y-2 p-3">
-            <Skeleton className="h-3 w-4/5 bg-background/70" />
-            <Skeleton className="h-3 w-3/5 bg-background/55" />
-        </div>
+    <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40">
+        <Skeleton className="absolute inset-0 h-full w-full rounded-[var(--radius-xl)] bg-muted/60" />
     </div>
 ))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
@@ -445,7 +439,7 @@ const PendingImageItem = memo(
 
         return (
             <div
-                className="group relative overflow-hidden rounded-lg bg-background"
+                className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-muted/40"
                 style={{ aspectRatio: cssAspectRatio }}
             >
                 <ImageSkeleton
@@ -455,7 +449,7 @@ const PendingImageItem = memo(
                     gap={4}
                     loadingDuration={99999}
                     autoLoop={false}
-                    className="h-full w-full rounded-lg border-0 bg-transparent"
+                    className="h-full w-full rounded-[var(--radius-xl)] border-0 bg-transparent"
                 />
                 {isStoringFailed && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 p-3 text-center backdrop-blur-sm">
@@ -817,7 +811,7 @@ const GeneratedImageItem = memo(
         if (isError || hasInvalidStoredImage) {
             return (
                 <div
-                    className="group relative overflow-hidden rounded-lg bg-muted/50"
+                    className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-muted/50"
                     style={{ aspectRatio: cssAspectRatio }}
                 >
                     <div className="flex h-full items-center justify-center">
@@ -837,14 +831,14 @@ const GeneratedImageItem = memo(
                 <ContextMenuTrigger asChild>
                     <div
                         className={cn(
-                            "group relative w-full overflow-hidden rounded-lg bg-background transition-all",
+                            "group relative w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40 ring-1 ring-border/40 transition-[box-shadow] duration-200",
                             isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}
                     >
                         <button
                             type="button"
-                            className="absolute inset-0 z-20 appearance-none rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className="absolute inset-0 z-20 appearance-none rounded-[var(--radius-xl)] text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                             onClick={handleClick}
                         >
                             <span className="sr-only">
@@ -875,8 +869,8 @@ const GeneratedImageItem = memo(
                         )}
                         <div
                             className={cn(
-                                "absolute inset-0 overflow-hidden transition-transform duration-[1600ms] ease-out will-change-transform",
-                                loadState === "ready" && "group-hover:scale-[1.02]",
+                                "absolute inset-0 overflow-hidden transition-transform duration-500 ease-out motion-reduce:transition-none",
+                                loadState === "ready" && "motion-safe:group-hover:scale-[1.025]",
                                 loadState !== "ready" && "scale-100"
                             )}
                         >
@@ -961,7 +955,7 @@ const GeneratedImageItem = memo(
                                 variant="secondary"
                                 size="icon"
                                 className={cn(
-                                    "absolute top-2 right-2 z-30 h-8 w-8 border border-white/15 bg-background/80 text-foreground shadow-lg backdrop-blur-md transition-all hover:bg-background",
+                                    "absolute top-2 right-2 z-30 h-8 w-8 rounded-[var(--radius-md)] border border-border/60 bg-background/90 text-foreground backdrop-blur-md transition-opacity hover:bg-background",
                                     isImageHidden
                                         ? "opacity-100"
                                         : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
@@ -1124,31 +1118,77 @@ function LibraryRouteComponent() {
 export function LibraryView({
     search,
     deferHeavyContent = false
-}: { search: LibrarySearchState; deferHeavyContent?: boolean }) {
+}: {
+    search: LibrarySearchState
+    deferHeavyContent?: boolean
+}) {
     const navigate = useNavigate({ from: "/library" })
     const session = useSession()
     const isMobile = useIsMobile()
     const { state: sidebarState } = useSidebar()
-    const isDesktopHeaderActionsCollapsed = useHeaderActionsStore(
-        (state) => state.isDesktopCollapsed
-    )
-    const shouldReserveDesktopHeaderRow =
-        sidebarState === "expanded" && !isDesktopHeaderActionsCollapsed
     const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
+    const libraryHeaderRef = useRef<HTMLDivElement>(null)
+    const lastHeaderScrollTopRef = useRef(0)
+    const [isLibraryHeaderHidden, setIsLibraryHeaderHidden] = useState(false)
+    const [toolbarClearance, setToolbarClearance] = useState({ top: 64, left: 0, right: 0 })
+
+    useEffect(() => {
+        const gallery = galleryRef.current
+        const controls = document.querySelector<HTMLElement>("[data-app-header-controls]")
+        if (!gallery || !controls) return
+
+        const updateClearance = () => {
+            const width = gallery.clientWidth
+            if (!width) return
+            const right = controls.getBoundingClientRect().width + 16
+            const left = sidebarState === "collapsed" ? 88 : 0
+            // Keep a usable search field and compact buttons beside the app
+            // controls; use a separate row when the sidebar leaves less room.
+            const sharesRow = !isMobile && width - left - right - 48 >= 384
+            const next = sharesRow ? { top: 16, left, right } : { top: 64, left: 0, right: 0 }
+            setToolbarClearance((previous) =>
+                previous.top === next.top &&
+                previous.left === next.left &&
+                previous.right === next.right
+                    ? previous
+                    : next
+            )
+        }
+        updateClearance()
+        const observer = new ResizeObserver(updateClearance)
+        observer.observe(gallery)
+        observer.observe(controls)
+        return () => observer.disconnect()
+    }, [isMobile, sidebarState, session.user?.id])
     const previousDraftQueryRef = useRef(search.query)
     const previousDraftQueryChangeAtRef = useRef<number | null>(null)
     const searchQuery = search.query
     const hasSearchQuery = searchQuery.length > 0
-    const sortBy = search.sort
+    const sortBy = hasSearchQuery ? "relevance" : search.sort
     const view = search.view
     const isArchivedView = view === "archived"
     const sortOptions = useMemo(() => getSortOptions(hasSearchQuery), [hasSearchQuery])
     const pageNumber = search.page
     const pageSize = search.pageSize
-    const currentCursor = pageNumber > 1 ? String((pageNumber - 1) * pageSize) : null
     const filters = getLibraryFiltersFromSearch(search)
+    const cursorScope = JSON.stringify([
+        session.user?.id,
+        pageSize,
+        searchQuery,
+        sortBy,
+        view,
+        search.modelIds,
+        search.resolutions,
+        search.aspectRatios,
+        search.orientations
+    ])
+    const [cursorHistory, setCursorHistory] = useState<LibraryCursorHistory>(() => ({
+        scope: cursorScope,
+        pages: { 1: null }
+    }))
+    const currentCursor = getLibraryPageCursor(cursorHistory, cursorScope, pageNumber)
     const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
     const [isDesktopFiltersOpen, setIsDesktopFiltersOpen] = useState(false)
     const [draftQuery, setDraftQuery] = useState(searchQuery)
@@ -1157,7 +1197,10 @@ export function LibraryView({
     const [draftFilters, setDraftFilters] = useState<LibraryFiltersState>(() =>
         cloneLibraryFilters(filters)
     )
-    const [pendingPageNumber, setPendingPageNumber] = useState<number | null>(null)
+    const [pendingPageNumber, setPendingPageNumber] = useState<{
+        scope: string
+        page: number
+    } | null>(null)
     const activeFilters = useMemo(() => toGeneratedImageFilters(filters), [filters])
     const hasActiveFilters = useMemo(
         () => hasActiveGeneratedImageFilters(activeFilters),
@@ -1184,7 +1227,7 @@ export function LibraryView({
         [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
     const libraryPageCacheKey = libraryCacheScope
-        ? `library-page:${libraryCacheScope}`
+        ? `library-cursor-page:v2:${libraryCacheScope}:${currentCursor}`
         : "library-page:guest"
     const nextPageNumber = pageNumber + 1
     const nextLibraryCacheScope = useMemo(
@@ -1202,16 +1245,13 @@ export function LibraryView({
                 : null,
         [filters, nextPageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
-    const nextLibraryPageCacheKey = nextLibraryCacheScope
-        ? `library-page:${nextLibraryCacheScope}`
-        : "library-page:guest"
     const imagePage = useDiskCachedQuery(
         api.images.paginateGeneratedImages,
         {
             key: libraryPageCacheKey,
             default: undefined
         },
-        session.user?.id
+        session.user?.id && currentCursor !== undefined
             ? {
                   paginationOpts: { numItems: pageSize, cursor: currentCursor },
                   query: searchQuery,
@@ -1222,6 +1262,9 @@ export function LibraryView({
             : "skip"
     )
     const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
+    const nextLibraryPageCacheKey = nextLibraryCacheScope
+        ? `library-cursor-page:v2:${nextLibraryCacheScope}:${resolvedImagePage?.continueCursor}`
+        : "library-page:guest"
     const nextImagePage = useDiskCachedQuery(
         api.images.paginateGeneratedImages,
         {
@@ -1230,7 +1273,7 @@ export function LibraryView({
         },
         session.user?.id && resolvedImagePage && !resolvedImagePage.isDone
             ? {
-                  paginationOpts: { numItems: pageSize, cursor: String(pageNumber * pageSize) },
+                  paginationOpts: { numItems: pageSize, cursor: resolvedImagePage.continueCursor },
                   query: searchQuery,
                   sortBy,
                   filters: activeFilters,
@@ -1470,22 +1513,10 @@ export function LibraryView({
         [resolvedFilterOptions?.orientations]
     )
     const libraryTitle = getLibraryViewLabel(view)
-    const librarySummaryParts = [
-        hasSearchQuery
-            ? "Search results"
-            : isArchivedView
-              ? "Archived image generations"
-              : "Recent image generations",
-        ...(hasActiveFilters
-            ? [`${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active`]
-            : []),
-        ...(displayedPendingGenerations.length > 0 && !hasActiveFilters && !isArchivedView
-            ? [`${displayedPendingGenerations.length} pending`]
-            : [])
-    ]
     const canGoPrevious = pageNumber > 1
     const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone : false
-    const isNextPagePending = pendingPageNumber === nextPageNumber
+    const isNextPagePending =
+        pendingPageNumber?.scope === cursorScope && pendingPageNumber.page === nextPageNumber
     const showPendingGenerations =
         !isArchivedView && pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
     const scrollResetKey = JSON.stringify(search)
@@ -1585,31 +1616,29 @@ export function LibraryView({
 
     const handleNextPage = useCallback(() => {
         if (!resolvedImagePage || resolvedImagePage.isDone || isNextPagePending) return
-
-        if (!prefetchedNextImagePage) {
-            setPendingPageNumber(nextPageNumber)
-            return
-        }
-
-        navigate({
-            search: (prev) => ({
-                ...prev,
-                page: nextPageNumber
-            })
-        })
-    }, [isNextPagePending, navigate, nextPageNumber, prefetchedNextImagePage, resolvedImagePage])
+        setPendingPageNumber({ scope: cursorScope, page: nextPageNumber })
+    }, [resolvedImagePage, isNextPagePending, nextPageNumber, cursorScope])
 
     useEffect(() => {
-        if (!isNextPagePending || !prefetchedNextImagePage) return
-
+        if (!isNextPagePending || !prefetchedNextImagePage || !resolvedImagePage) return
+        setCursorHistory((history) =>
+            rememberLibraryPageCursor(
+                history,
+                cursorScope,
+                nextPageNumber,
+                resolvedImagePage.continueCursor
+            )
+        )
         setPendingPageNumber(null)
-        navigate({
-            search: (prev) => ({
-                ...prev,
-                page: nextPageNumber
-            })
-        })
-    }, [isNextPagePending, navigate, nextPageNumber, prefetchedNextImagePage])
+        navigate({ search: (prev) => ({ ...prev, page: nextPageNumber }) })
+    }, [
+        isNextPagePending,
+        navigate,
+        nextPageNumber,
+        prefetchedNextImagePage,
+        resolvedImagePage,
+        cursorScope
+    ])
 
     useEffect(() => {
         void libraryPageCacheKey
@@ -1617,33 +1646,20 @@ export function LibraryView({
     }, [libraryPageCacheKey])
 
     const handlePreviousPage = useCallback(() => {
-        navigate({
-            search: (prev) => {
-                if (prev.page <= 1) return prev
-
-                return {
-                    ...prev,
-                    page: prev.page - 1
-                }
-            }
-        })
+        navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })
     }, [navigate])
 
     useEffect(() => {
-        if (!resolvedImagePage || pageNumber <= 1) return
-        if (resolvedImagePage.page.length > 0 || !resolvedImagePage.isDone) return
-
-        navigate({
-            replace: true,
-            search: (prev) => ({
-                ...prev,
-                page: Math.max(1, prev.page - 1)
-            })
-        })
-    }, [navigate, pageNumber, resolvedImagePage])
+        // Numeric page links and reloads have no cursor history. Restart instead
+        // of scanning the database to reconstruct an offset.
+        if (currentCursor !== undefined) return
+        navigate({ replace: true, search: (prev) => ({ ...prev, page: 1 }) })
+    }, [currentCursor, navigate])
 
     useEffect(() => {
         void scrollResetKey
+        setIsLibraryHeaderHidden(false)
+        lastHeaderScrollTopRef.current = 0
         galleryRef.current?.scrollTo({ top: 0, behavior: "smooth" })
         setSelectedImageIds(new Set())
         setIsSelectionMode(false)
@@ -1925,7 +1941,7 @@ export function LibraryView({
 
     const desktopFilterControls = (
         <>
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
                 <div className="flex flex-col gap-3">
                     <label className="font-medium text-sm" htmlFor="desktop-library-sort">
                         Sort by
@@ -1980,7 +1996,7 @@ export function LibraryView({
                     Reset all
                 </Button>
             </div>
-            <Accordion type="single" collapsible className="mt-4">
+            <Accordion type="multiple" className="mt-4 grid items-start gap-x-8 md:grid-cols-2">
                 <DesktopCheckboxFilter
                     value="models"
                     title="Model"
@@ -2051,44 +2067,48 @@ export function LibraryView({
                     selectedImage ? "lg:blur-sm" : ""
                 )}
                 ref={galleryRef}
+                onScroll={(event) => {
+                    const container = event.currentTarget
+                    const top = Math.max(
+                        0,
+                        Math.min(
+                            container.scrollTop,
+                            container.scrollHeight - container.clientHeight
+                        )
+                    )
+                    const delta = top - lastHeaderScrollTopRef.current
+                    if (top <= 80) {
+                        setIsLibraryHeaderHidden(false)
+                        lastHeaderScrollTopRef.current = top
+                        return
+                    }
+                    if (Math.abs(delta) < 8) return
+                    lastHeaderScrollTopRef.current = top
+                    const isHeaderFocused = libraryHeaderRef.current?.contains(
+                        document.activeElement
+                    )
+                    setIsLibraryHeaderHidden(delta > 0 && !isHeaderFocused)
+                }}
                 layoutScroll
             >
                 <div
+                    ref={libraryHeaderRef}
+                    onFocusCapture={() => setIsLibraryHeaderHidden(false)}
+                    style={{ paddingTop: toolbarClearance.top }}
                     className={cn(
-                        "relative z-40 flex shrink-0 flex-col bg-background/95 backdrop-blur-xl transition-[padding] duration-300 ease-out",
+                        "sticky top-0 z-40 flex shrink-0 flex-col bg-background/95 backdrop-blur-xl transition-[padding,translate] duration-300 ease-out motion-reduce:transition-none",
+                        isLibraryHeaderHidden && !isDesktopFiltersOpen && !isFiltersDrawerOpen
+                            ? "-translate-y-full"
+                            : "translate-y-0",
                         isMobile
-                            ? "gap-3 px-3 pt-14 pb-3"
-                            : cn(
-                                  "px-6 pb-4",
-                                  shouldReserveDesktopHeaderRow ? "pt-16 xl:pt-4" : "pt-4",
-                                  isDesktopFiltersOpen ? "relative" : "sticky top-0"
-                              )
+                            ? "gap-3 px-3 pb-3"
+                            : cn("px-6 pb-4", isDesktopFiltersOpen && "relative")
                     )}
                 >
-                    {!isMobile && (
-                        <div className="mb-3 min-w-0">
-                            <h1 className="whitespace-nowrap font-bold text-3xl leading-none">
-                                {libraryTitle}
-                            </h1>
-                            <p className="mt-2 truncate text-muted-foreground text-sm">
-                                {librarySummaryParts.join(" · ")}
-                            </p>
-                        </div>
-                    )}
+                    <h1 className="sr-only">{libraryTitle}</h1>
 
                     {isMobile && (
                         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                            <div className="flex items-end gap-6">
-                                <div>
-                                    <h1 className="whitespace-nowrap font-bold text-3xl leading-none">
-                                        {libraryTitle}
-                                    </h1>
-                                    <p className="mt-2 text-muted-foreground text-sm">
-                                        {librarySummaryParts.join(" · ")}
-                                    </p>
-                                </div>
-                            </div>
-
                             <div className="flex items-center gap-2">
                                 <Tabs
                                     value={view}
@@ -2124,15 +2144,21 @@ export function LibraryView({
                         </div>
                     )}
 
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="relative w-full min-w-0 flex-1 md:max-w-2xl">
-                            <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                    <div
+                        className="@container/library-toolbar flex min-w-0 items-center gap-2"
+                        style={{
+                            marginLeft: toolbarClearance.left,
+                            marginRight: toolbarClearance.right
+                        }}
+                    >
+                        <div className="relative min-w-0 flex-1">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 type="search"
                                 value={draftQuery}
                                 onChange={(event) => setDraftQuery(event.target.value)}
-                                placeholder="Search prompts, styles, subjects, or metadata"
-                                className="h-10 pr-9 pl-9"
+                                placeholder="Search images"
+                                className="h-10 rounded-[var(--radius-lg)] border-border/60 bg-muted/35 pr-10 pl-9 shadow-none transition-colors placeholder:text-muted-foreground focus-visible:bg-background"
                                 aria-label="Search library"
                             />
                             {draftQuery.length > 0 && (
@@ -2140,7 +2166,8 @@ export function LibraryView({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 text-muted-foreground hover:bg-transparent"
+                                    aria-label="Clear search"
+                                    className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
                                     onClick={() => setDraftQuery("")}
                                 >
                                     <X className="h-4 w-4" />
@@ -2159,13 +2186,13 @@ export function LibraryView({
                                             ? "secondary"
                                             : "outline"
                                     }
-                                    className="h-10 w-full gap-2 md:w-auto"
+                                    className="h-11 shrink-0 gap-2 rounded-[var(--radius-lg)] border-border/60 px-3 shadow-none"
                                     onClick={handleOpenFiltersDrawer}
                                 >
                                     <Filter className="h-4 w-4" />
                                     <span>Filters</span>
                                     {activeFilterCount > 0 && (
-                                        <span className="ml-1 rounded-md bg-primary/20 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
+                                        <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-primary text-xs leading-none">
                                             {activeFilterCount}
                                         </span>
                                     )}
@@ -2184,12 +2211,14 @@ export function LibraryView({
                                         ) : (
                                             <Eye className="h-4 w-4" />
                                         )}
-                                        <span className="hidden lg:inline">Private Viewing</span>
+                                        <span className="@xl/library-toolbar:inline hidden">
+                                            Private Viewing
+                                        </span>
                                     </Button>
                                     <Button
                                         type="button"
                                         variant={hasCustomizedFilters ? "secondary" : "outline"}
-                                        className="h-10 gap-2"
+                                        className="h-10 gap-2 rounded-[var(--radius-lg)] border-border/60 px-3 shadow-none"
                                         onClick={handleDesktopFiltersToggle}
                                         aria-expanded={isDesktopFiltersOpen}
                                         aria-controls="desktop-library-filters"
@@ -2218,9 +2247,9 @@ export function LibraryView({
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                             >
-                                <div className="pt-4">
+                                <div className="mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-muted/20 p-4 lg:p-5">
                                     {desktopFilterControls}
-                                    <div className="mt-5 flex justify-end gap-2">
+                                    <div className="mt-4 flex justify-end gap-2 border-border/60 border-t pt-4">
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -2294,7 +2323,7 @@ export function LibraryView({
                 {/* Scrollable Gallery Area */}
                 <div
                     className={cn(
-                        "px-3 pt-1 pb-3 sm:px-4 sm:pt-2 sm:pb-4 lg:px-6 lg:pb-6",
+                        "@container px-3 pt-2 pb-5 sm:px-6 sm:pt-3 sm:pb-6",
                         isSelectionMode && "pb-28 sm:pb-28 lg:pb-28"
                     )}
                 >
@@ -2309,6 +2338,8 @@ export function LibraryView({
                             </div>
                         </output>
                     ) : images.length === 0 &&
+                      resolvedImagePage.isDone &&
+                      pageNumber === 1 &&
                       (!showPendingGenerations || displayedPendingGenerations.length === 0) ? (
                         <div className="py-24 text-center">
                             <ImageIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
@@ -2337,11 +2368,18 @@ export function LibraryView({
                         </div>
                     ) : (
                         <>
+                            {images.length === 0 && (
+                                <p className="py-12 text-center text-muted-foreground">
+                                    {resolvedImagePage.isDone
+                                        ? "No more matching images. Use Previous to return."
+                                        : "No matches on this page. Use Next to continue searching."}
+                                </p>
+                            )}
                             <ImageMetadataProvider
                                 key={libraryPageCacheKey}
                                 storageKeys={images.map((img) => img.storageKey)}
                             >
-                                <div className="columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 xl:columns-5">
+                                <div className="@2xl:columns-3 @4xl:columns-4 @6xl:columns-5 columns-2 gap-3 sm:gap-4">
                                     <AnimatePresence>
                                         {showPendingGenerations &&
                                             displayedPendingGenerations.map((pending) => (
@@ -2445,73 +2483,48 @@ export function LibraryView({
                             </ImageMetadataProvider>
 
                             {(canGoPrevious || canGoNext) && (
-                                <div className="mt-8 border-t pt-4">
-                                    <Pagination>
-                                        <PaginationContent>
-                                            <PaginationItem>
-                                                <PaginationPrevious
-                                                    href="#library-pagination"
-                                                    className={
-                                                        !canGoPrevious
-                                                            ? "pointer-events-none opacity-50"
-                                                            : undefined
-                                                    }
-                                                    onClick={(event) => {
-                                                        event.preventDefault()
-                                                        handlePreviousPage()
-                                                    }}
-                                                />
-                                            </PaginationItem>
-                                            <PaginationItem>
-                                                <PaginationLink
-                                                    href="#library-pagination"
-                                                    isActive
-                                                    size="default"
-                                                    className="min-w-10"
-                                                    onClick={(event) => event.preventDefault()}
-                                                >
-                                                    {pageNumber}
-                                                </PaginationLink>
-                                            </PaginationItem>
-                                            <PaginationItem>
-                                                {isNextPagePending ? (
-                                                    <PaginationLink
-                                                        href="#library-pagination"
-                                                        aria-label="Loading next page"
-                                                        aria-busy="true"
-                                                        size="default"
-                                                        className="pointer-events-none gap-1 px-2.5 opacity-70 sm:pr-2.5"
-                                                        onClick={(event) => event.preventDefault()}
-                                                    >
-                                                        <span className="hidden sm:block">
-                                                            Loading
-                                                        </span>
-                                                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                                                    </PaginationLink>
-                                                ) : (
-                                                    <PaginationNext
-                                                        href="#library-pagination"
-                                                        className={
-                                                            !canGoNext
-                                                                ? "pointer-events-none opacity-50"
-                                                                : undefined
-                                                        }
-                                                        onClick={(event) => {
-                                                            event.preventDefault()
-                                                            handleNextPage()
-                                                        }}
-                                                    />
-                                                )}
-                                            </PaginationItem>
-                                        </PaginationContent>
-                                    </Pagination>
-                                    <p
-                                        id="library-pagination"
-                                        className="mt-2 text-center text-muted-foreground text-xs"
+                                <nav
+                                    id="library-pagination"
+                                    aria-label="Image library pagination"
+                                    className="mt-6 flex items-center justify-center gap-3 border-border/60 border-t pt-4 pb-2"
+                                >
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        disabled={!canGoPrevious}
+                                        onClick={handlePreviousPage}
+                                        className="h-11 gap-2 rounded-[var(--radius-md)] px-3 text-muted-foreground hover:text-foreground disabled:opacity-30"
                                     >
-                                        Showing up to {pageSize} completed images per page
-                                    </p>
-                                </div>
+                                        <ArrowLeft className="size-4" />
+                                        Previous
+                                    </Button>
+                                    <Input
+                                        type="text"
+                                        value={pageNumber}
+                                        readOnly
+                                        aria-label="Current page"
+                                        aria-current="page"
+                                        className="h-10 w-14 rounded-[var(--radius-md)] border-border/60 bg-transparent px-1 text-center font-medium text-foreground tabular-nums shadow-none"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        disabled={!canGoNext || isNextPagePending}
+                                        aria-label={
+                                            isNextPagePending ? "Loading next page" : "Next page"
+                                        }
+                                        aria-busy={isNextPagePending}
+                                        onClick={handleNextPage}
+                                        className="h-11 gap-2 rounded-[var(--radius-md)] px-3 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    >
+                                        Next
+                                        {isNextPagePending ? (
+                                            <LoaderCircle className="size-4 animate-spin" />
+                                        ) : (
+                                            <ArrowRight className="size-4" />
+                                        )}
+                                    </Button>
+                                </nav>
                             )}
                         </>
                     )}
