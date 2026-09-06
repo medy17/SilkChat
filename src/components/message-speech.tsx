@@ -60,7 +60,10 @@ export function MessageSpeech({ message, threadId }: { message: UIMessage; threa
                             else void startSpeech(message.id, threadId, text)
                         }}
                     >
-                        <Icon className={busy ? "size-3.5 animate-spin" : "size-3.5"} />
+                        <Icon
+                            size={Icon === Volume2 ? 16 : 14}
+                            className={busy ? "animate-spin" : undefined}
+                        />
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{error ?? label}</TooltipContent>
