@@ -1,4 +1,5 @@
 import { DevRuntime } from "@/components/dev/dev-runtime"
+import { SpeechPlaybackRuntime } from "@/components/message-speech"
 import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
 import { CreditAccessRuntime } from "@/components/credits/credit-access-runtime"
 import { TelemetryIdentity } from "@/components/telemetry-identity"
@@ -67,6 +68,7 @@ export function Providers({ children }: { children: ReactNode }) {
                     Link={({ href, ...props }) => <Link to={href} {...props} />}
                 >
                     <TelemetryIdentity />
+                    <SpeechPlaybackRuntime />
                     <CreditAccessRuntime />
                     <StaleAssetRecovery />
 

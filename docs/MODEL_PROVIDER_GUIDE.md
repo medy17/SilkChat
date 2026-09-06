@@ -22,8 +22,9 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
 - `abilities`: feature flags used by the runtime and UI
-- optional `mode`: `text`, `image`, or `speech-to-text`
+- optional `mode`: `text`, `image`, `speech-to-text`, or `text-to-speech`
 - speech-to-text models declare `transcription.preferredFormat` and `transcription.acceptedFormats`; browser normalization and backend validation must consume this shared capability instead of embedding provider formats in either layer
+- text-to-speech models declare `speech.voice`, `speech.preferredFormat`, `speech.pcm`, and `speech.maxInputCharacters`, and `speech.inputUsdPer1MCharacters`. The managed read-aloud model is `MESSAGE_SPEECH_MODEL` in the Microsoft registry. Keep speech models out of chat, retry, and persona model pickers.
 - optional `supportedImageSizes`
 - optional `customIcon`
 
@@ -165,6 +166,16 @@ Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` 
 ### OpenRouter speech-to-text
 
 Speech-to-text uses OpenRouter's dedicated transcription API and the same OpenRouter credential precedence as hosted chat. Speech models retain `mode: "speech-to-text"` so chat and persona selectors can exclude them.
+
+### OpenRouter text-to-speech
+
+Assistant read-aloud uses the existing R2 ingest worker's `/speech` endpoint and OpenRouter's `/audio/speech`. Convex only authorizes the message, prepares spoken text, signs a single-use playback ticket, and synchronizes completed R2 metadata. The worker obtains the app's OpenRouter credentials through a signed server-to-server callback using the existing ingest secret. Credentials never reach the browser. New recordings reserve and settle hosted usage through the existing credit system under the `speech` feature. Cached playback is free, including the Worker’s R2 fallback when Convex metadata is missing. Failures before synthesis release the reservation; failures or cancellations after a provider accepts input settle the submitted characters or UTF-8 bytes. Each generation lease has an independent billing key, with idempotent settlement and a one-shot timeout to release abandoned reservations. BYOK is not used.
+
+The browser schedules incoming PCM immediately. The worker saves WAV audio directly to R2 with multipart uploads under `generations/{userId}/{fingerprint}-speech.wav`, holding at most two upload parts in memory. Completed recordings replay directly from signed R2 URLs. The fingerprint includes the user, thread, message, spoken text, and speech configuration. Incomplete uploads are aborted. Finished assets follow existing generated-file management and account deletion. No asset cleanup cron or Convex audio proxy is involved.
+
+`convex/lib/speech_config.ts` derives model capabilities from the Microsoft registry. Provider requests are split at text boundaries according to the configured model's input size. There is no app audio-size or total-text-length cap. A 15-minute generation timeout bounds abandoned work, and a recoverable lease in the existing rate-limit table prevents simultaneous generations for one user. Speech pricing declares either `inputUsdPer1MCharacters` or `inputUsdPer1MUtf8Bytes`; Fish uses UTF-8 bytes. `speech.auditionVoices` stores the managed developer shortlist. An omitted `speech.voice` requests the provider default. Flux, Fish S2.1 Pro, Orpheus, and Grok Voice are registered audition candidates; MAI + Harper remains active. Candidate PCM settings come from provider documentation and still need an OpenRouter playback audition before activation. Orpheus reserves at the catalog rate of $15/M characters; its DeepInfra route may be cheaper.
+
+Character pricing lives in the Microsoft registry and is excluded from the audio fingerprint, so pricing changes preserve cached recordings. Bump the speech configuration version when changing extraction rules that should invalidate previous audio.
 
 ## Reasoning Control Rules
 

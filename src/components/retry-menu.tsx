@@ -331,7 +331,10 @@ export function RetryMenu({
 
     const providerSections = React.useMemo(() => {
         const textModels = availableModels.filter(
-            (model) => !isImageGenerationCapableModel(model) && model.mode !== "speech-to-text"
+            (model) =>
+                !isImageGenerationCapableModel(model) &&
+                model.mode !== "speech-to-text" &&
+                model.mode !== "text-to-speech"
         )
         const grouped = textModels.reduce<Record<string, DisplayModel[]>>((acc, model) => {
             const sectionId = getModelSectionId(model)

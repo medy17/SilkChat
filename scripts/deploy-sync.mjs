@@ -2,12 +2,14 @@ const targets = {
     staging: {
         branch: "staging",
         convexScript: "staging:push",
+        workerScript: "fal:r2:worker:deploy:staging",
         gitRemote: "origin",
         gitBranch: "staging"
     },
     prod: {
         branch: "main",
         convexScript: "prod:push",
+        workerScript: "fal:r2:worker:deploy:production",
         gitRemote: "origin",
         gitBranch: "main"
     }
@@ -65,7 +67,17 @@ if (status) {
 }
 
 console.log(`[deploy:sync] Verifying ${targetName} before deployment...`)
-await run("bun", ["run", "--parallel", "check-types", "test", "test:bun-local"])
+await run("bun", [
+    "run",
+    "--parallel",
+    "check-types",
+    "fal:r2:worker:typecheck",
+    "test",
+    "test:bun-local"
+])
+
+console.log(`[deploy:sync] Deploying the fal R2 Worker for ${targetName}...`)
+await run("bun", ["run", target.workerScript])
 
 console.log(`[deploy:sync] Pushing Convex ${targetName} before frontend deployment...`)
 await run("bun", ["run", target.convexScript])

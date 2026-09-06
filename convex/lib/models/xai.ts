@@ -1,6 +1,26 @@
 import type { SharedModel } from "./types"
 
+// Audition candidate. MESSAGE_SPEECH_MODEL in microsoft.ts remains active.
+export const GROK_SPEECH_MODEL = {
+    id: "grok-voice-tts-1.0",
+    name: "Grok Voice TTS 1.0",
+    addedOn: "2026-09-06",
+    adapters: ["openrouter:x-ai/grok-voice-tts-1.0"],
+    abilities: [],
+    mode: "text-to-speech",
+    speech: {
+        inputUsdPer1MCharacters: 15,
+        voice: "eve",
+        auditionVoices: ["eve"],
+        preferredFormat: "pcm",
+        pcm: { sampleRate: 24000, channels: 1, bitsPerSample: 16 },
+        maxInputCharacters: 1800
+    },
+    developer: "xAI"
+} satisfies SharedModel
+
 export const XAI_MODELS: SharedModel[] = [
+    GROK_SPEECH_MODEL,
     {
         id: "grok-4.6",
         name: "Grok 4.6",

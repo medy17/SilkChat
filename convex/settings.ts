@@ -150,7 +150,7 @@ const hasInternalOpenRouterForModel = (model: SharedModel, adapter: RegistryKey)
         return false
     }
 
-    if (model.mode === "speech-to-text") {
+    if (model.mode === "speech-to-text" || model.mode === "text-to-speech") {
         return false
     }
 
@@ -408,6 +408,7 @@ export const getUserRegistryInternal = internalQuery({
                 abilities: model.abilities,
                 mode: model.mode,
                 transcription: model.transcription,
+                speech: model.speech,
                 contextLength: model.contextLength,
                 maxTokens: model.maxTokens,
                 inputUsdPer1MTokens: model.inputUsdPer1MTokens,

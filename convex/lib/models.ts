@@ -2,6 +2,9 @@ export * from "./models/types"
 export * from "./models/lifecycle"
 
 import { ANTHROPIC_MODELS } from "./models/anthropic"
+import { CANOPYLABS_MODELS } from "./models/canopylabs"
+import { DEEPGRAM_MODELS } from "./models/deepgram"
+import { FISH_AUDIO_MODELS } from "./models/fish_audio"
 import { DEEPSEEK_MODELS } from "./models/deepseek"
 import { FAL_IMAGE_MODELS } from "./models/fal"
 import { GOOGLE_MODELS } from "./models/google"
@@ -33,6 +36,9 @@ export const MODELS_SHARED: SharedModel[] = [
     ...GOOGLE_MODELS,
     ...META_MODELS,
     ...MICROSOFT_MODELS,
+    ...CANOPYLABS_MODELS,
+    ...DEEPGRAM_MODELS,
+    ...FISH_AUDIO_MODELS,
     ...XAI_MODELS,
     ...FAL_IMAGE_MODELS
 ] as const
@@ -53,6 +59,7 @@ export const SHARED_MODELS_VERSION = JSON.stringify(
         model.abilities,
         model.mode,
         model.transcription,
+        model.speech,
         model.contextLength,
         model.maxTokens,
         model.inputUsdPer1MTokens,

@@ -1,3 +1,4 @@
+import { PrototypeCreditFeature } from "./credits"
 import { v } from "convex/values"
 
 export const PrototypeCreditReservation = v.object({
@@ -13,7 +14,7 @@ export const PrototypeCreditReservation = v.object({
         v.literal("custom"),
         v.literal("unknown")
     ),
-    feature: v.union(v.literal("chat"), v.literal("image"), v.literal("tool")),
+    feature: PrototypeCreditFeature,
     bucket: v.union(v.literal("basic"), v.literal("pro"), v.literal("none")),
     units: v.number(),
     counted: v.boolean(),

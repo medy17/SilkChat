@@ -42,6 +42,8 @@ export const getModel = async (
 
     const model = registry.models[modelId]
     if (!model) return new ChatError("bad_model:api")
+    if (model.mode === "text-to-speech")
+        return new ChatError("bad_model:api", "Speech models cannot generate chat responses")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
 
     const hasInternalOpenRouter = Boolean(getInternalOpenRouterApiKey())

@@ -5,6 +5,8 @@ import {
     parseFalR2IngestEnvelope,
     verifyFalR2IngestBody
 } from "../../../convex/lib/fal_r2_ingest"
+import { handleSpeechRequest } from "./speech"
+import type { ExecutionContext } from "@cloudflare/workers-types"
 
 export type FalR2WorkerEnv = Omit<
     Env,
@@ -193,4 +195,10 @@ export const handleIngestRequest = async (request: Request, env: FalR2WorkerEnv)
     }
 }
 
-export default { fetch: handleIngestRequest }
+export default {
+    fetch(request: Request, env: FalR2WorkerEnv, ctx: ExecutionContext) {
+        return new URL(request.url).pathname === "/speech"
+            ? handleSpeechRequest(request, env, ctx)
+            : handleIngestRequest(request, env)
+    }
+}

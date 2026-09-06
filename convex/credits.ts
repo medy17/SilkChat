@@ -1,3 +1,4 @@
+import { PrototypeCreditFeature } from "./schema/credits"
 import { v } from "convex/values"
 import {
     type MutationCtx,
@@ -991,7 +992,7 @@ export const reserveCreditForMessage = internalMutation({
             v.literal("custom"),
             v.literal("unknown")
         ),
-        feature: v.union(v.literal("chat"), v.literal("image"), v.literal("tool")),
+        feature: PrototypeCreditFeature,
         counted: v.boolean(),
         reservedMicrousd: v.optional(v.number()),
         pricingSource: v.optional(
@@ -1356,7 +1357,7 @@ export const consumeReservedToolCall = internalMutation({
             v.literal("custom"),
             v.literal("unknown")
         ),
-        feature: v.union(v.literal("chat"), v.literal("image"), v.literal("tool")),
+        feature: PrototypeCreditFeature,
         counted: v.boolean(),
         chargedMicrousd: v.optional(v.number())
     },

@@ -47,6 +47,21 @@ export type TranscriptionConfig = {
     acceptedFormats: TranscriptionAudioFormat[]
 }
 
+export type SpeechAudioFormat = "pcm" | "mp3"
+export type SpeechPricing =
+    | { inputUsdPer1MCharacters: number; inputUsdPer1MUtf8Bytes?: never }
+    | { inputUsdPer1MUtf8Bytes: number; inputUsdPer1MCharacters?: never }
+
+export type SpeechConfig = SpeechPricing & {
+    // Omit to use the provider default when there is no fixed voice catalog.
+    voice?: string
+    // Managed shortlist for developer auditions, not a user preference.
+    auditionVoices?: string[]
+    preferredFormat: SpeechAudioFormat
+    pcm: { sampleRate: number; channels: 1; bitsPerSample: 16 }
+    maxInputCharacters: number
+}
+
 export type ImagePricing = {
     source: "fal"
     kind: "fixed" | "output_megapixel"
@@ -119,8 +134,9 @@ export type SharedModel<Abilities extends ModelAbility[] = ModelAbility[]> = {
     releaseOrder?: number
     adapters: RegistryKey[]
     abilities: Abilities
-    mode?: "text" | "image" | "speech-to-text"
+    mode?: "text" | "image" | "speech-to-text" | "text-to-speech"
     transcription?: TranscriptionConfig
+    speech?: SpeechConfig
     contextLength?: number
     maxTokens?: number
     inputUsdPer1MTokens?: number

@@ -929,7 +929,10 @@ function PersonasSettings() {
     const personaModels = useMemo(
         () =>
             availableModels.filter(
-                (model) => !isImageGenerationCapableModel(model) && model.mode !== "speech-to-text"
+                (model) =>
+                    !isImageGenerationCapableModel(model) &&
+                    model.mode !== "speech-to-text" &&
+                    model.mode !== "text-to-speech"
             ),
         [availableModels]
     )

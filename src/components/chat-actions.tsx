@@ -52,6 +52,8 @@ import {
     useState
 } from "react"
 import { RetryMenu } from "./retry-menu"
+import { MessageSpeech } from "./message-speech"
+import { useSpeechPlayer } from "@/lib/speech-player"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
@@ -151,6 +153,7 @@ export const ChatActions = memo(
     ({
         role,
         message,
+        threadId,
         onRetry,
         onBranch,
         onEdit,
@@ -162,6 +165,7 @@ export const ChatActions = memo(
     }: {
         role: UIMessage["role"]
         message: UIMessage
+        threadId?: string
         onRetry?: (message: UIMessage, configOverride?: AssistantConfigOverride) => void
         onBranch?: (message: UIMessage) => void
         onEdit?: (message: UIMessage) => void
@@ -172,6 +176,9 @@ export const ChatActions = memo(
         copyOnly?: boolean
     }) => {
         const [copied, setCopied] = useState(false)
+        const speechActive = useSpeechPlayer(
+            (state) => state.messageId === message.id && state.status !== "idle"
+        )
         const footerMode = useMessageFooterStore((state) => state.footerMode)
         const cachedMetadata = useMessageFooterStore((state) =>
             message.role === "assistant" ? state.footerMetadataByMessageId[message.id] : undefined
@@ -387,12 +394,15 @@ export const ChatActions = memo(
                 data-message-actions
                 className={cn(
                     "absolute flex items-center gap-1 transition-opacity",
-                    editing
+                    editing || speechActive
                         ? "z-10 opacity-100"
                         : "opacity-100 md:opacity-0 md:group-focus:visible md:group-focus:z-10 md:group-focus:opacity-100 md:group-hover:visible md:group-hover:z-10 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
                     role === "user" ? "right-0 mt-4" : "left-0 mt-3"
                 )}
             >
+                {role === "assistant" && !copyOnly && threadId && (
+                    <MessageSpeech message={message} threadId={threadId} />
+                )}
                 {!copyOnly && editing ? (
                     <Button
                         variant="ghost"

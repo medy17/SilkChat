@@ -335,9 +335,8 @@ const buildFallbackModelDescription = (model: DisplayModel) => {
         return "Image generation"
     }
 
-    if (model.mode === "speech-to-text") {
-        return "Speech to text"
-    }
+    if (model.mode === "speech-to-text") return "Speech to text"
+    if (model.mode === "text-to-speech") return "Text to speech"
 
     const abilityLabels = model.abilities
         .filter((ability) => ability !== "effort_control")

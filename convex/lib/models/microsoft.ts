@@ -16,4 +16,23 @@ export const COMPOSER_TRANSCRIPTION_MODEL = {
     developer: "Microsoft"
 } satisfies SharedModel
 
-export const MICROSOFT_MODELS: SharedModel[] = [COMPOSER_TRANSCRIPTION_MODEL]
+export const MESSAGE_SPEECH_MODEL = {
+    id: "mai-voice-2",
+    name: "MAI-Voice-2",
+    addedOn: "2026-09-06",
+    releaseOrder: 20260906,
+    adapters: ["openrouter:microsoft/mai-voice-2"],
+    abilities: [],
+    mode: "text-to-speech",
+    speech: {
+        inputUsdPer1MCharacters: 22,
+        voice: "en-US-Harper:MAI-Voice-2",
+        preferredFormat: "pcm",
+        // Verified through OpenRouter on 2026-09-06: signed 16-bit mono PCM at 24 kHz.
+        pcm: { sampleRate: 24000, channels: 1, bitsPerSample: 16 },
+        maxInputCharacters: 1800
+    },
+    developer: "Microsoft"
+} satisfies SharedModel
+
+export const MICROSOFT_MODELS: SharedModel[] = [COMPOSER_TRANSCRIPTION_MODEL, MESSAGE_SPEECH_MODEL]

@@ -148,6 +148,14 @@ import type * as streams from "../streams.js";
 import type * as supermemory_node from "../supermemory_node.js";
 import type * as threads from "../threads.js";
 
+import type * as lib_models_microsoft from "../lib/models/microsoft.js";
+
+import type * as lib_speech_config from "../lib/speech_config.js";
+
+import type * as speech_audio from "../speech_audio.js";
+
+import type * as text_to_speech from "../text_to_speech.js";
+
 import type {
   ApiFromModules,
   FilterApi,
@@ -155,6 +163,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "text_to_speech": typeof text_to_speech;
+  "speech_audio": typeof speech_audio;
+  "lib/speech_config": typeof lib_speech_config;
+  "lib/models/microsoft": typeof lib_models_microsoft;
   account_activity: typeof account_activity;
   account_activity_node: typeof account_activity_node;
   account_deletion: typeof account_deletion;

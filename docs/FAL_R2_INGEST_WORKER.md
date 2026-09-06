@@ -1,11 +1,12 @@
 # fal to R2 ingestion Worker
 
-The optional Worker keeps generated image bytes out of Convex. Convex sends a signed request
-containing the fal URLs and deterministic R2 keys; the Worker streams each URL into the bound bucket
-and returns `204 No Content`. Convex then records the existing image metadata and finishes the job.
+The Worker keeps generated image and read-aloud bytes out of Convex. Convex sends signed requests,
+and the Worker streams each asset into the bound bucket. Convex records the resulting metadata after
+storage completes.
 
-If the Worker is disabled or the request fails, the webhook uses the existing Convex
-download-and-upload path. There are no Queues, callbacks, or Worker-owned job state.
+Image ingestion falls back to the existing Convex download-and-upload path when the Worker is
+disabled or its request fails. Read aloud requires the Worker and uses signed callbacks to exchange
+configuration and finalize metadata. The Worker owns no durable job state.
 
 ## Configure an environment
 
@@ -22,13 +23,14 @@ bunx wrangler secret put FAL_R2_INGEST_SECRET --config workers/fal-r2-ingest/wra
 bunx wrangler secret put FAL_R2_INGEST_SECRET --config workers/fal-r2-ingest/wrangler.jsonc --env production
 ```
 
-Deploy the selected Worker:
+Deploy the cloud-development Worker manually when its code changes:
 
 ```powershell
 bun run fal:r2:worker:deploy:cloud-dev
-bun run fal:r2:worker:deploy:staging
-bun run fal:r2:worker:deploy:production
 ```
+
+`bun run staging:deploy` and `bun run prod:deploy` deploy their matching Worker before Convex and
+the frontend. This makes new Worker routes available before Convex starts issuing requests to them.
 
 Append `/ingest` to the deployed Worker URL and set the matching Convex environment:
 

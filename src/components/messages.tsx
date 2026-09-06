@@ -1651,6 +1651,7 @@ const MessageRowComponent = ({
                         role={message.role}
                         message={message}
                         onRetry={undefined}
+                        threadId={threadId}
                         onBranch={onBranch}
                         onEdit={undefined}
                         copyOnly={copyOnlyActions}

@@ -11,6 +11,7 @@ import { lemonSqueezyWebhook } from "./lemon_squeezy_http"
 import { UPLOAD_POLICY_HEADER } from "./lib/file_constants"
 import { getPrivateBlur } from "./private_blur"
 import { transcribeAudio } from "./speech_to_text"
+import { speakMessage, speechWorkerCallback } from "./text_to_speech"
 
 const normalizeOrigin = (value?: string) => {
     if (!value) return undefined
@@ -31,6 +32,9 @@ const cors = corsRouter(http, {
     exposedHeaders: [UPLOAD_POLICY_HEADER],
     allowCredentials: true
 })
+
+cors.route({ path: "/speech", method: "POST", handler: speakMessage })
+http.route({ path: "/speech/worker", method: "POST", handler: speechWorkerCallback })
 
 http.route({
     path: "/webhooks/lemon-squeezy",

@@ -16,7 +16,8 @@ export const PrototypeCreditProviderSource = v.union(
 export const PrototypeCreditFeature = v.union(
     v.literal("chat"),
     v.literal("image"),
-    v.literal("tool")
+    v.literal("tool"),
+    v.literal("speech")
 )
 
 export const PrototypeCreditAccount = v.object({
