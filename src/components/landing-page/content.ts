@@ -1,8 +1,10 @@
 import {
     Activity,
+    ArrowLeftRight,
     Brain,
     BrainCircuit,
     Bot,
+    Bug,
     Code,
     Crown,
     FileText,
@@ -11,6 +13,8 @@ import {
     Image as ImageIcon,
     Key,
     LayersPlus,
+    LayoutTemplate,
+    ListTree,
     MessageSquare,
     Plus,
     Scroll,
@@ -44,7 +48,7 @@ export type Feature = {
 }
 
 export type UseCase = Feature & {
-    checks: string[]
+    items: Array<{ label: string; Icon: LandingIcon }>
 }
 
 export type Testimonial = {
@@ -199,12 +203,12 @@ export const galleryImages: GalleryImage[] = [
 ]
 
 export const providers: Provider[] = [
-    { name: "OpenAI", command: "GPT-5.5", Icon: OpenAIIcon },
-    { name: "Claude", command: "Sonnet 5", Icon: ClaudeIcon },
-    { name: "Gemini", command: "3.1 Pro", Icon: GeminiIcon },
-    { name: "xAI", command: "Grok 4.3", Icon: XAIIcon },
-    { name: "DeepSeek", command: "V4 Pro", Icon: DeepSeekIcon },
-    { name: "Z.ai", command: "GLM 5.2", Icon: ZAIIcon }
+    { name: "OpenAI", command: "GPT 6 Astra", Icon: OpenAIIcon },
+    { name: "Claude", command: "Fable 5.1", Icon: ClaudeIcon },
+    { name: "Gemini", command: "3.8 Flash", Icon: GeminiIcon },
+    { name: "xAI", command: "Grok 4.6", Icon: XAIIcon },
+    { name: "DeepSeek", command: "V4 Pro 0813", Icon: DeepSeekIcon },
+    { name: "Z.ai", command: "GLM 5.3", Icon: ZAIIcon }
 ]
 
 export const features: Feature[] = [
@@ -250,35 +254,51 @@ export const useCases: UseCase[] = [
         description:
             "Compare answers across models and preview UI components directly in the chat.",
         Icon: Code,
-        checks: ["Code refactoring", "Live UI previews", "Complex debugging"]
+        items: [
+            { label: "Code refactoring", Icon: Code },
+            { label: "Live UI previews", Icon: LayoutTemplate },
+            { label: "Complex debugging", Icon: Bug }
+        ]
     },
     {
         title: "Creators",
         description:
             "Brainstorm with sharp models and generate high-quality images from the same workspace.",
         Icon: Sparkles,
-        checks: ["High-res image generation", "Ideation and outlining", "Creative feedback"]
+        items: [
+            { label: "4K image generation", Icon: ImageIcon },
+            { label: "Ideation and outlining", Icon: ListTree },
+            { label: "Creative feedback", Icon: MessageSquare }
+        ]
     },
     {
         title: "Researchers",
         description:
             "Use web search and file uploads to ground questions in sources and dense documents.",
         Icon: FileText,
-        checks: ["Live web grounding", "Document analysis", "Source summarization"]
+        items: [
+            { label: "Live web grounding", Icon: Globe },
+            { label: "Document analysis", Icon: FileText },
+            { label: "Source summarization", Icon: Scroll }
+        ]
     },
     {
         title: "Roleplayers",
         description:
             "Build custom personas with deep backstories, consistent voices, and flexible model choices.",
         Icon: VenetianMask,
-        checks: ["Deep character prompts", "Consistent persona voice", "Unfiltered model choices"]
+        items: [
+            { label: "Deep character prompts", Icon: VenetianMask },
+            { label: "Consistent persona voice", Icon: MessageSquare },
+            { label: "Unfiltered model choices", Icon: ArrowLeftRight }
+        ]
     }
 ]
 
 export const proofItems = [
-    "Use included usage or bring your own keys",
-    "Switch models mid-thread",
-    "Import chats from other platforms"
+    { label: "Use included usage or bring your own keys", Icon: Key },
+    { label: "Switch models mid-thread", Icon: ArrowLeftRight },
+    { label: "Import chats from other platforms", Icon: FileUp }
 ]
 
 export const pricingOptions: PricingOption[] = [

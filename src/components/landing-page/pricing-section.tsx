@@ -9,21 +9,26 @@ export function PricingSection() {
     return (
         <section id="pricing" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead centered title="Simple pricing for serious model access.">
+                <SectionHead centered title="Simple Pricing. Serious AI Access.">
                     Start free. Upgrade Anytime.
                 </SectionHead>
 
-                <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
+                <div className="mx-auto grid max-w-4xl gap-x-4 gap-y-8 md:grid-cols-2">
                     {pricingOptions.map(
                         ({ title, price, cadence, cta, featured, description, items }) => (
                             <Tile
                                 key={title}
                                 className={
                                     featured
-                                        ? "p-7 [background:var(--landing-surface-strong)] [border-color:var(--landing-border-strong)]"
+                                        ? "relative overflow-visible p-7 ring-1 [--tw-ring-color:var(--landing-fg)] [background:var(--landing-surface-strong)] [border-color:var(--landing-fg)]"
                                         : "p-7"
                                 }
                             >
+                                {featured && (
+                                    <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-xl)] px-4 py-1 font-semibold text-xs [background:var(--landing-fg)] [color:var(--landing-bg)]">
+                                        Popular
+                                    </span>
+                                )}
                                 <div className="mb-6 flex items-start justify-between gap-6">
                                     <div>
                                         <h3 className="font-medium text-2xl [color:var(--landing-fg)]">

@@ -91,12 +91,14 @@ export function SignInButton({
 
 export function SectionHead({
     eyebrow,
+    caption,
     title,
     children,
     centered = false,
     className
 }: {
     eyebrow?: string
+    caption?: string
     title: ReactNode
     children?: ReactNode
     centered?: boolean
@@ -127,6 +129,9 @@ export function SectionHead({
                 >
                     {children}
                 </p>
+            ) : null}
+            {caption ? (
+                <p className="mt-5 text-sm [color:var(--landing-muted)]">{caption}</p>
             ) : null}
         </div>
     )

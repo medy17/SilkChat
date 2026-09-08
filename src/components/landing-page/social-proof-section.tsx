@@ -23,7 +23,7 @@ export function SocialProofSection() {
             </style>
 
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead title="Loved by people building with SilkChat.">
+                <SectionHead title="Loved by Builders">
                     Don't just take our word for it. Real workflows are moving into SilkChat because
                     it keeps models, search, images, artifacts, and keys under one roof.
                 </SectionHead>

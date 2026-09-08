@@ -7,7 +7,7 @@ export function FeaturesSection() {
     return (
         <section id="features" className="border-t py-24 [border-color:var(--landing-border)]">
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead title="Everything you need in one chat workspace.">
+                <SectionHead title="Everything you need in one chat">
                     Built for power users and teams who want the best model for every task, with
                     search, image generation, imports, artifacts, and personas built in.
                 </SectionHead>

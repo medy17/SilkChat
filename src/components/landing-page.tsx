@@ -63,7 +63,7 @@ export function LandingPage() {
             </style>
             <div
                 ref={containerRef}
-                className="landing-page-root landing-page-scroll-root scrollbar-hide h-screen overflow-y-auto overflow-x-hidden bg-background text-foreground [-ms-overflow-style:none] [scrollbar-color:transparent_transparent] [scrollbar-width:none] selection:bg-primary selection:text-primary-foreground [&::-webkit-resizer]:hidden [&::-webkit-scrollbar-corner]:hidden [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden"
+                className="landing-page-root landing-page-scroll-root scrollbar-hide relative h-screen overflow-y-auto overflow-x-hidden bg-background text-foreground [-ms-overflow-style:none] [scrollbar-color:transparent_transparent] [scrollbar-width:none] selection:bg-primary selection:text-primary-foreground [&::-webkit-resizer]:hidden [&::-webkit-scrollbar-corner]:hidden [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden"
             >
                 <div
                     aria-hidden="true"
@@ -84,7 +84,7 @@ export function LandingPage() {
                     <FeaturesSection />
                     <ArtifactsSection />
                     <ImageGallerySection />
-                    <UseCasesSection />
+                    <UseCasesSection containerRef={containerRef} />
                     <SocialProofSection />
                     <PricingSection />
                     <SecuritySection />
