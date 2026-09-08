@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
-import type { SharedModel } from "@/convex/lib/models"
+import type { ImageQuality, SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
 import { useToken } from "@/hooks/auth-hooks"
 import {
@@ -192,6 +192,20 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const aspectRatioOverride = useDevOverridesStore((state) => state.aspectRatioOverride)
     const disableImageCompression = useDevOverridesStore((state) => state.disableImageCompression)
     const gptImage2Quality = useDevOverridesStore((state) => state.gptImage2Quality)
+    const imageQualityOverrides = useDevOverridesStore((state) => state.imageQualityOverrides)
+    const setImageQualityOverride = useDevOverridesStore((state) => state.setImageQualityOverride)
+    const getImageQualityOverride = (
+        model: SharedModel | undefined
+    ): Exclude<ImageQuality, "auto"> | undefined => {
+        if (!model?.supportedImageQualities?.length) return undefined
+        const quality =
+            model.id === "gpt-5.4-image-2"
+                ? gptImage2Quality
+                : (imageQualityOverrides[model.id] ?? model.defaultImageQuality)
+        return quality && quality !== "auto" && model.supportedImageQualities.includes(quality)
+            ? quality
+            : undefined
+    }
     const setImageVariantMax = useDevOverridesStore((state) => state.setImageVariantMax)
     const setImageReferenceMax = useDevOverridesStore((state) => state.setImageReferenceMax)
     const setImageRunTotalMax = useDevOverridesStore((state) => state.setImageRunTotalMax)
@@ -226,7 +240,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
-    const canSelectGptImage2Quality = isDevMode || isStaff
+    const canSelectImageQuality = isDevMode || isStaff
     const [expandedLegacyModels, setExpandedLegacyModels] = useState(false)
     const [promptHeight, setPromptHeight] = useState<number | null>(null)
     const [isResizingPrompt, setIsResizingPrompt] = useState(false)
@@ -957,8 +971,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 clientRequestId: id,
                                 aspectRatio: effectiveAspectRatio,
                                 referenceImageIds: uploadedReferenceKeys,
-                                ...(canSelectGptImage2Quality && modelId === "gpt-5.4-image-2"
-                                    ? { quality: gptImage2Quality }
+                                ...(canSelectImageQuality && model?.supportedImageQualities?.length
+                                    ? { quality: getImageQualityOverride(model) }
                                     : {}),
                                 ...(supportsResolution ? { resolution } : {})
                             })
@@ -1267,9 +1281,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             aspectRatio={effectiveAspectRatio}
                                                             resolution={resolution}
                                                             quality={
-                                                                canSelectGptImage2Quality &&
-                                                                model.id === "gpt-5.4-image-2"
-                                                                    ? gptImage2Quality
+                                                                canSelectImageQuality &&
+                                                                model.supportedImageQualities
+                                                                    ?.length
+                                                                    ? getImageQualityOverride(model)
                                                                     : undefined
                                                             }
                                                             variants={modelCount}
@@ -1311,7 +1326,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
                                             {isSelected && (
                                                 <div className="mt-2 space-y-1">
-                                                    <div className="flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
                                                         <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                             Variants
                                                         </span>
@@ -1352,45 +1367,60 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    {canSelectGptImage2Quality &&
-                                                        model.id === "gpt-5.4-image-2" && (
-                                                            <div className="flex items-center justify-between rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                    {canSelectImageQuality &&
+                                                        Boolean(
+                                                            model.supportedImageQualities?.length
+                                                        ) && (
+                                                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
                                                                 <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                                     Quality
                                                                 </span>
                                                                 <Tabs
-                                                                    value={gptImage2Quality}
+                                                                    value={getImageQualityOverride(
+                                                                        model
+                                                                    )}
                                                                     onValueChange={(value) => {
+                                                                        const quality =
+                                                                            model.supportedImageQualities?.find(
+                                                                                (quality) =>
+                                                                                    quality ===
+                                                                                    value
+                                                                            )
+                                                                        if (!quality) return
                                                                         if (
-                                                                            value === "low" ||
-                                                                            value === "medium" ||
-                                                                            value === "high"
+                                                                            model.id ===
+                                                                                "gpt-5.4-image-2" &&
+                                                                            (quality === "low" ||
+                                                                                quality ===
+                                                                                    "medium" ||
+                                                                                quality === "high")
                                                                         ) {
                                                                             setGptImage2Quality(
-                                                                                value
+                                                                                quality
+                                                                            )
+                                                                        } else {
+                                                                            setImageQualityOverride(
+                                                                                model.id,
+                                                                                quality
                                                                             )
                                                                         }
                                                                     }}
                                                                 >
                                                                     <TabsList
                                                                         className="h-7"
-                                                                        aria-label="GPT Image 2 quality"
+                                                                        aria-label={`${model.name} quality`}
                                                                     >
-                                                                        {(
-                                                                            [
-                                                                                "low",
-                                                                                "medium",
-                                                                                "high"
-                                                                            ] as const
-                                                                        ).map((quality) => (
-                                                                            <TabsTrigger
-                                                                                key={quality}
-                                                                                value={quality}
-                                                                                className="px-2 text-[0.625rem] capitalize"
-                                                                            >
-                                                                                {quality}
-                                                                            </TabsTrigger>
-                                                                        ))}
+                                                                        {model.supportedImageQualities?.map(
+                                                                            (quality) => (
+                                                                                <TabsTrigger
+                                                                                    key={quality}
+                                                                                    value={quality}
+                                                                                    className="px-2 text-[0.625rem] capitalize"
+                                                                                >
+                                                                                    {quality}
+                                                                                </TabsTrigger>
+                                                                            )
+                                                                        )}
                                                                     </TabsList>
                                                                 </Tabs>
                                                             </div>

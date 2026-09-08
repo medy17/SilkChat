@@ -1,5 +1,5 @@
 import { estimateImageCost, getImageCostLevel } from "@/convex/lib/image_generation/cost"
-import type { SharedModel } from "@/convex/lib/models"
+import { MODELS_SHARED, type SharedModel } from "@/convex/lib/models"
 import { describe, expect, it } from "vitest"
 
 const imageModel = (
@@ -129,5 +129,37 @@ describe("image cost estimates", () => {
 
     it("does not label models whose pricing is unavailable", () => {
         expect(estimateImageCost({ model: imageModel() })).toBeNull()
+    })
+})
+
+describe("GPT Image 2.5 output estimates", () => {
+    it.each([
+        ["low", "1:1", "1K", 0.0059],
+        ["medium", "1:1", "1K", 0.0132],
+        ["high", "1:1", "1K", 0.0527],
+        ["xhigh", "1:1", "1K", 0.0937],
+        ["max", "1:1", "1K", 0.2108],
+        ["medium", "16:9", "2K", 0.0111],
+        ["medium", "9:16", "2K", 0.0111],
+        ["high", "1:1", "2K", 0.1071],
+        ["max", "16:9", "4K", 0.4003]
+    ] as const)(
+        "estimates %s at %s %s with provider rounding",
+        (quality, aspectRatio, resolution, expected) => {
+            for (const id of ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]) {
+                const model = MODELS_SHARED.find((model) => model.id === id)!
+                expect(
+                    estimateImageCost({ model, quality, aspectRatio, resolution })?.totalUsd
+                ).toBeCloseTo(expected, 8)
+            }
+        }
+    )
+
+    it("defaults to high and reserves references for each variant", () => {
+        const model = MODELS_SHARED.find((model) => model.id === "gpt-image-2.5-flare")!
+        expect(estimateImageCost({ model, referenceCount: 2, variants: 3 })?.totalUsd).toBeCloseTo(
+            0.0687 * 3,
+            8
+        )
     })
 })

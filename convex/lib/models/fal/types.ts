@@ -1,4 +1,4 @@
-import type { ImageResolution, ImageSize } from "../types"
+import type { ImageQuality, ImageResolution, ImageSize } from "../types"
 
 export type FalSafetyMode = {
     enableSafetyChecker?: boolean
@@ -36,7 +36,7 @@ export type FalImageRequest = {
     imageResolution?: ImageResolution
     referenceImages: FalReferenceImage[]
     maxAssets?: number
-    quality?: "low" | "medium" | "high"
+    quality?: Exclude<ImageQuality, "auto">
 }
 
 export type FalGeneratedImage = {

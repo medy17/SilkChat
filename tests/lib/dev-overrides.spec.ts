@@ -26,6 +26,19 @@ describe("dev overrides store", () => {
         expect(state.modelContextLimitOverride).toBeNull()
     })
 
+    it("keeps new image model qualities independent and clears them on reset", () => {
+        const store = useDevOverridesStore.getState()
+        store.setImageQualityOverride("gpt-image-2.5-flare", "xhigh")
+        store.setImageQualityOverride("gpt-image-2.5-sunburst", "max")
+        expect(useDevOverridesStore.getState().imageQualityOverrides).toEqual({
+            "gpt-image-2.5-flare": "xhigh",
+            "gpt-image-2.5-sunburst": "max"
+        })
+        expect(useDevOverridesStore.getState().gptImage2Quality).toBe("medium")
+        store.resetOverrides()
+        expect(useDevOverridesStore.getState().imageQualityOverrides).toEqual({})
+    })
+
     it("resetOverrides restores defaults after changes", () => {
         const store = useDevOverridesStore.getState()
         store.setDisableAnimations(true)

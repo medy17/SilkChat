@@ -4,6 +4,7 @@ import type { ImageSize } from "../../convex/lib/models"
 import {
     buildFalImageInput,
     getFalImageDescriptor,
+    getFalEndpointForRequest,
     isFalImageSizeSupported
 } from "../../convex/lib/models/fal"
 
@@ -321,3 +322,27 @@ describe("fal image model payloads", () => {
         ).toThrow("Invalid fal image size")
     })
 })
+
+it.each(["flare", "sunburst"])(
+    "routes GPT Image 2.5 %s generation and edits with high as default",
+    (variant) => {
+        const model = descriptor(`gpt-image-2.5-${variant}`)
+        expect(getFalEndpointForRequest(model, 0)).toBe(
+            `openai/gpt-image-2.5/${variant}/text-to-image`
+        )
+        expect(getFalEndpointForRequest(model, 1)).toBe(`openai/gpt-image-2.5/${variant}/edit`)
+        const request = { prompt: "A portrait", imageSize: "1:1" as const, referenceImages: [] }
+        expect(buildFalImageInput(model, request).quality).toBe("high")
+        expect(buildFalImageInput(model, { ...request, quality: "max" }).quality).toBe("max")
+        const edit = buildFalImageInput(model, {
+            ...request,
+            referenceImages: [{ key: "reference", url: "https://example.com/reference.png" }]
+        })
+        expect(edit).toMatchObject({
+            image_size: "auto",
+            image_urls: ["https://example.com/reference.png"],
+            quality: "high"
+        })
+        expect(edit).not.toHaveProperty("enable_safety_checker")
+    }
+)

@@ -85,7 +85,7 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
         clientRequestId?: string
         aspectRatio?: string
         resolution?: string
-        quality?: "low" | "medium" | "high"
+        quality?: "low" | "medium" | "high" | "xhigh" | "max"
         referenceImageIds?: string[]
     }
 ) => Promise<string[]>
@@ -236,6 +236,68 @@ describe("images_node", () => {
             falRequestId: "fal-request-1",
             falGatewayRequestId: "fal-gateway-request-1"
         })
+    })
+
+    it.each([
+        ["flare", true, "xhigh", "xhigh", 93_700],
+        ["sunburst", true, "max", "max", 210_800],
+        ["flare", false, "max", "high", 52_700],
+        ["sunburst", false, "low", "high", 52_700]
+    ] as const)(
+        "gates %s quality overrides for staff=%s",
+        async (variant, isStaff, requested, expected, reservedMicrousd) => {
+            const ctx = createCtx()
+            ctx.runQuery.mockImplementation(async (name: string) =>
+                name === "getUserCreditStateInternal" ? { isStaff } : null
+            )
+            await generateStandaloneImageHandler(ctx, {
+                prompt: "A test image",
+                modelId: `gpt-image-2.5-${variant}`,
+                quality: requested
+            })
+            expect(falQueueSubmitMock).toHaveBeenCalledWith(
+                `openai/gpt-image-2.5/${variant}/text-to-image`,
+                expect.objectContaining({ input: expect.objectContaining({ quality: expected }) })
+            )
+            expect(ctx.runMutation).toHaveBeenCalledWith(
+                "reserveCreditForMessage",
+                expect.objectContaining({ reservedMicrousd })
+            )
+        }
+    )
+
+    it("allows the dev credit lab to use max without staff access", async () => {
+        vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "1")
+        const ctx = createCtx()
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "A test image",
+            modelId: "gpt-image-2.5-flare",
+            quality: "max"
+        })
+        expect(falQueueSubmitMock).toHaveBeenCalledWith(
+            "openai/gpt-image-2.5/flare/text-to-image",
+            expect.objectContaining({
+                input: expect.objectContaining({ quality: "max" })
+            })
+        )
+    })
+
+    it("ignores unsupported quality levels even for staff", async () => {
+        const ctx = createCtx()
+        ctx.runQuery.mockImplementation(async (name: string) =>
+            name === "getUserCreditStateInternal" ? { isStaff: true } : null
+        )
+        await generateStandaloneImageHandler(ctx, {
+            prompt: "A test image",
+            modelId: "gpt-5.4-image-2",
+            quality: "max"
+        })
+        expect(falQueueSubmitMock).toHaveBeenCalledWith(
+            "openai/gpt-image-2",
+            expect.objectContaining({
+                input: expect.objectContaining({ quality: "medium" })
+            })
+        )
     })
 
     it("allows staff to override GPT Image 2 quality", async () => {

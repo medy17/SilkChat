@@ -77,6 +77,28 @@ export const estimateImageCost = ({
     let usdPerImage: number | undefined
     if (pricing.kind === "fixed") {
         usdPerImage = getFixedUsdPerImage(model, aspectRatio, resolution, normalizedQuality)
+    } else if (pricing.kind === "gpt_image_2_5") {
+        const descriptor = getFalImageDescriptor(model.id)
+        const dimensions = descriptor
+            ? getFalOutputImageDimensions(descriptor, aspectRatio, resolution)
+            : undefined
+        if (!dimensions) return null
+        // OpenAI's September 2026 output calculator. Auto uses the model's high default
+        // as a reservation estimate. Inputs and auto-sized edits reconcile through fal.
+        // https://developers.openai.com/api/docs/guides/image-generation#cost-and-latency
+        const gridSide = { low: 16, medium: 24, high: 48, xhigh: 64, max: 96, auto: 48 }[
+            normalizedQuality
+        ]
+        const { width, height } = dimensions
+        const shortSide = gridSide / (Math.max(width, height) / Math.min(width, height))
+        const floor = Math.floor(shortSide)
+        // The provider calculator rounds exact halves to the nearest even integer.
+        const roundedShortSide =
+            shortSide - floor === 0.5 ? floor + (floor % 2) : Math.round(shortSide)
+        const outputTokens = Math.ceil(
+            (gridSide * roundedShortSide * (2_000_000 + width * height)) / 4_000_000
+        )
+        usdPerImage = (outputTokens * 30) / 1_000_000
     } else if (pricing.usdPerOutputMegapixel !== undefined) {
         let megapixels = getOutputMegapixels(model, aspectRatio, resolution)
         megapixels = Math.max(megapixels, pricing.minimumBillableOutputMegapixels ?? 0)

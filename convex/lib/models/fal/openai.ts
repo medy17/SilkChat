@@ -13,6 +13,33 @@ const GPT_IMAGE_2_SIZES = [
 ] satisfies SharedModel["supportedImageSizes"]
 
 export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
+    ...(["flare", "sunburst"] as const).map(
+        (variant): SharedModel => ({
+            id: `gpt-image-2.5-${variant}`,
+            name: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+            shortName: `Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+            addedOn: "2026-09-08",
+            releaseOrder: variant === "flare" ? 20261101 : 20261102,
+            adapters: falImageAdapters(`openai/gpt-image-2.5/${variant}/text-to-image`),
+            abilities: [],
+            mode: "image",
+            maxPerMessage: 10,
+            supportsReferenceImages: true,
+            maxReferenceImages: 16,
+            customIcon: "openai",
+            supportedImageSizes: [...GPT_IMAGE_2_SIZES],
+            supportedImageResolutions: ["1K", "2K", "4K"],
+            supportedImageQualities: ["low", "medium", "high", "xhigh", "max"],
+            defaultImageQuality: "high",
+            imagePricing: {
+                source: "fal",
+                kind: "gpt_image_2_5",
+                // Reference allowance for reservations; fal billing events settle actual input usage.
+                usdPerReferenceImage: 0.008,
+                roundRequestUsdUpTo: 0.0001
+            }
+        })
+    ),
     {
         id: "gpt-5.4-image-2",
         name: "GPT Image 2",
@@ -27,6 +54,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         customIcon: "openai",
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
+        supportedImageQualities: ["low", "medium", "high"],
         defaultImageQuality: "medium",
         imagePricing: {
             source: "fal",
@@ -109,6 +137,18 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
 ]
 
 export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
+    ...(["flare", "sunburst"] as const).map(
+        (variant): FalImageDescriptor => ({
+            appModelId: `gpt-image-2.5-${variant}`,
+            endpoint: `openai/gpt-image-2.5/${variant}/text-to-image`,
+            editEndpoint: `openai/gpt-image-2.5/${variant}/edit`,
+            supportsReferences: true,
+            imageSizeMode: "standard",
+            usesQuality: true,
+            defaultQuality: "high",
+            safety: {}
+        })
+    ),
     {
         appModelId: "gpt-5.4-image-2",
         endpoint: "openai/gpt-image-2",

@@ -39,7 +39,7 @@ export type BaseResolution = `${number}x${number}`
 export type AllAspects = (BaseAspects | `${BaseAspects}-hd`) & {}
 export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
-export type ImageQuality = ("low" | "medium" | "high" | "auto") & {}
+export type ImageQuality = ("low" | "medium" | "high" | "xhigh" | "max" | "auto") & {}
 export type TranscriptionAudioFormat = "wav" | "mp3" | "ogg" | "flac" | "webm" | "m4a" | "aac"
 
 export type TranscriptionConfig = {
@@ -64,7 +64,7 @@ export type SpeechConfig = SpeechPricing & {
 
 export type ImagePricing = {
     source: "fal"
-    kind: "fixed" | "output_megapixel"
+    kind: "fixed" | "output_megapixel" | "gpt_image_2_5"
     usdPerImage?: number
     usdPerImageByResolution?: Partial<Record<ImageResolution, number>>
     usdPerImageByQualityAndResolution?: Partial<
@@ -146,6 +146,7 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     openrouterProvider?: string
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
+    supportedImageQualities?: Exclude<ImageQuality, "auto">[]
     defaultImageQuality?: ImageQuality
     imagePricing?: ImagePricing
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"

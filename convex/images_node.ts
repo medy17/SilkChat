@@ -19,7 +19,7 @@ import {
     resolveGeneratedImageReferenceSource,
     validatePreparedImageRequest
 } from "./lib/image_generation/shared"
-import { MODELS_SHARED } from "./lib/models"
+import { type ImageQuality, MODELS_SHARED } from "./lib/models"
 import {
     buildFalImageInput,
     getFalEndpointForRequest,
@@ -367,7 +367,7 @@ const submitImageGenerationJob = async (
         sourceCardId?: string
         creditEventKey?: string
         reservedMicrousd?: number
-        quality?: "low" | "medium" | "high"
+        quality?: Exclude<ImageQuality, "auto">
     }
 ) => {
     const referenceSources = references ?? []
@@ -505,7 +505,15 @@ export const generateStandaloneImage = action({
         clientRequestId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
-        quality: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+        quality: v.optional(
+            v.union(
+                v.literal("low"),
+                v.literal("medium"),
+                v.literal("high"),
+                v.literal("xhigh"),
+                v.literal("max")
+            )
+        ),
         referenceImageIds: v.optional(v.array(v.string()))
     },
     handler: async (ctx, args) => {
@@ -513,14 +521,15 @@ export const generateStandaloneImage = action({
         if ("error" in user) throw new Error("unauthorized:chat")
         await assertAccountNotDeletingForAction(ctx, user.id)
 
-        const isGptImage2QualityRequest =
-            args.modelId === "gpt-5.4-image-2" && args.quality !== undefined
-        const access = isGptImage2QualityRequest
+        const model = MODELS_SHARED.find((model) => model.id === args.modelId)
+        const isSupportedQualityRequest =
+            args.quality !== undefined && model?.supportedImageQualities?.includes(args.quality)
+        const access = isSupportedQualityRequest
             ? await ctx.runQuery(internal.credits.getUserCreditStateInternal, {
                   userId: user.id
               })
             : null
-        const canOverrideGptImage2Quality =
+        const canOverrideImageQuality =
             process.env.DEV_CREDIT_LAB_ENABLED === "1" || access?.isStaff === true
 
         const jobId = await submitImageGenerationJob(ctx, {
@@ -530,7 +539,8 @@ export const generateStandaloneImage = action({
             clientRequestId: args.clientRequestId,
             aspectRatio: args.aspectRatio,
             resolution: args.resolution,
-            quality: canOverrideGptImage2Quality ? args.quality : undefined,
+            quality:
+                isSupportedQualityRequest && canOverrideImageQuality ? args.quality : undefined,
             references: toReferenceSources(args.referenceImageIds)
         })
 
