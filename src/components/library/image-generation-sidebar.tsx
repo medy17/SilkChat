@@ -191,17 +191,13 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const imageRunTotalMaxOverride = useDevOverridesStore((state) => state.imageRunTotalMax)
     const aspectRatioOverride = useDevOverridesStore((state) => state.aspectRatioOverride)
     const disableImageCompression = useDevOverridesStore((state) => state.disableImageCompression)
-    const gptImage2Quality = useDevOverridesStore((state) => state.gptImage2Quality)
     const imageQualityOverrides = useDevOverridesStore((state) => state.imageQualityOverrides)
     const setImageQualityOverride = useDevOverridesStore((state) => state.setImageQualityOverride)
     const getImageQualityOverride = (
         model: SharedModel | undefined
     ): Exclude<ImageQuality, "auto"> | undefined => {
         if (!model?.supportedImageQualities?.length) return undefined
-        const quality =
-            model.id === "gpt-5.4-image-2"
-                ? gptImage2Quality
-                : (imageQualityOverrides[model.id] ?? model.defaultImageQuality)
+        const quality = imageQualityOverrides[model.id] ?? model.defaultImageQuality
         return quality && quality !== "auto" && model.supportedImageQualities.includes(quality)
             ? quality
             : undefined
@@ -213,7 +209,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const setDisableImageCompression = useDevOverridesStore(
         (state) => state.setDisableImageCompression
     )
-    const setGptImage2Quality = useDevOverridesStore((state) => state.setGptImage2Quality)
+    const resetImageQualityOverrides = useDevOverridesStore(
+        (state) => state.resetImageQualityOverrides
+    )
 
     const resolveVariantMax = (model: SharedModel) =>
         resolveDevCapOverride(
@@ -1387,23 +1385,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                                     value
                                                                             )
                                                                         if (!quality) return
-                                                                        if (
-                                                                            model.id ===
-                                                                                "gpt-5.4-image-2" &&
-                                                                            (quality === "low" ||
-                                                                                quality ===
-                                                                                    "medium" ||
-                                                                                quality === "high")
-                                                                        ) {
-                                                                            setGptImage2Quality(
-                                                                                quality
-                                                                            )
-                                                                        } else {
-                                                                            setImageQualityOverride(
-                                                                                model.id,
-                                                                                quality
-                                                                            )
-                                                                        }
+                                                                        setImageQualityOverride(
+                                                                            model.id,
+                                                                            quality
+                                                                        )
                                                                     }}
                                                                 >
                                                                     <TabsList
@@ -1625,7 +1610,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         setImageReferenceMax(null)
                                         setAspectRatioOverride(null)
                                         setDisableImageCompression(false)
-                                        setGptImage2Quality("low")
+                                        resetImageQualityOverrides()
                                     }}
                                 >
                                     Reset

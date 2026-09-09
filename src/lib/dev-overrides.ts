@@ -4,8 +4,6 @@ import { persist } from "zustand/middleware"
 
 import { canUseDevTools, useDevToolsStore } from "@/lib/dev-tools"
 
-export type GptImage2Quality = "low" | "medium" | "high"
-
 /**
  * Dev override switches. These intentionally live in their own persisted store so the
  * plain dev-tools store (mode + dock visibility) stays cheap to read everywhere, while
@@ -25,7 +23,6 @@ export type DevOverridesState = {
     aspectRatioOverride: string | null
     disableImageCompression: boolean
     imageQualityOverrides: Partial<Record<string, Exclude<ImageQuality, "auto">>>
-    gptImage2Quality: GptImage2Quality
     // Chat hosted/model context-limit overrides (Wave 3). null = use the real limits.
     hostedContextLimitOverride: number | null
     modelContextLimitOverride: number | null
@@ -37,8 +34,8 @@ export type DevOverridesState = {
     setImageRunTotalMax: (value: number | null) => void
     setAspectRatioOverride: (value: string | null) => void
     setDisableImageCompression: (value: boolean) => void
+    resetImageQualityOverrides: () => void
     setImageQualityOverride: (modelId: string, value: Exclude<ImageQuality, "auto">) => void
-    setGptImage2Quality: (value: GptImage2Quality) => void
     setHostedContextLimitOverride: (value: number | null) => void
     setModelContextLimitOverride: (value: number | null) => void
     resetOverrides: () => void
@@ -56,7 +53,6 @@ const OVERRIDE_DEFAULTS = {
     aspectRatioOverride: null,
     disableImageCompression: false,
     imageQualityOverrides: {},
-    gptImage2Quality: "medium",
     hostedContextLimitOverride: null,
     modelContextLimitOverride: null
 } satisfies Omit<
@@ -70,7 +66,7 @@ const OVERRIDE_DEFAULTS = {
     | "setAspectRatioOverride"
     | "setDisableImageCompression"
     | "setImageQualityOverride"
-    | "setGptImage2Quality"
+    | "resetImageQualityOverrides"
     | "setHostedContextLimitOverride"
     | "setModelContextLimitOverride"
     | "resetOverrides"
@@ -89,11 +85,11 @@ export const useDevOverridesStore = create<DevOverridesState>()(
             setAspectRatioOverride: (aspectRatioOverride) => set({ aspectRatioOverride }),
             setDisableImageCompression: (disableImageCompression) =>
                 set({ disableImageCompression }),
+            resetImageQualityOverrides: () => set({ imageQualityOverrides: {} }),
             setImageQualityOverride: (modelId, quality) =>
                 set((state) => ({
                     imageQualityOverrides: { ...state.imageQualityOverrides, [modelId]: quality }
                 })),
-            setGptImage2Quality: (gptImage2Quality) => set({ gptImage2Quality }),
             setHostedContextLimitOverride: (hostedContextLimitOverride) =>
                 set({ hostedContextLimitOverride }),
             setModelContextLimitOverride: (modelContextLimitOverride) =>
