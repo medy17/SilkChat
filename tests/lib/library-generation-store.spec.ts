@@ -6,6 +6,7 @@ import {
     clearFalImageMigrationStorageOnce,
     useGenerationStore
 } from "@/components/library/generation-store"
+import { getLibraryBatchColor } from "@/lib/library-batch"
 import { beforeEach, describe, expect, it } from "vitest"
 
 describe("library-generation-store", () => {
@@ -13,6 +14,7 @@ describe("library-generation-store", () => {
         localStorage.removeItem(LIBRARY_GENERATION_STORE_KEY)
         localStorage.removeItem(FAL_IMAGE_MIGRATION_STORAGE_RESET_KEY)
         useGenerationStore.setState({
+            lastBatchId: undefined,
             pendingGenerations: [],
             completedGenerationCount: 0,
             prompt: "",
@@ -21,6 +23,22 @@ describe("library-generation-store", () => {
             aspectRatio: "1:1",
             resolution: "1K"
         })
+    })
+
+    it("keeps batch colours stable after reload and cycles colours without reusing IDs", async () => {
+        const first = useGenerationStore.getState().startBatch()
+        const firstColor = getLibraryBatchColor(first)
+        expect(firstColor).toBeDefined()
+        await useGenerationStore.persist.rehydrate()
+        expect(useGenerationStore.getState().lastBatchId).toBe(first)
+        const next = useGenerationStore.getState().startBatch()
+        expect(getLibraryBatchColor(next)).not.toBe(firstColor)
+        const ids = [first, next]
+        for (let i = 0; i < 5; i++) ids.push(useGenerationStore.getState().startBatch())
+        expect(new Set(ids).size).toBe(7)
+        expect(getLibraryBatchColor(ids[6])).toBe(firstColor)
+        expect(getLibraryBatchColor(first)).toBe(firstColor)
+        expect(getLibraryBatchColor(undefined)).toBeUndefined()
     })
 
     it("persists library generation preferences", () => {

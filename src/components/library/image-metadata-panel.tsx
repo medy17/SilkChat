@@ -1,3 +1,4 @@
+import { useShowContextualDevTools } from "@/lib/dev-tools"
 import type { Doc } from "@/convex/_generated/dataModel"
 import {
     getFileThumbnailSources,
@@ -71,6 +72,7 @@ export function ImageMetadataPanel({
     className?: string
     style?: CSSProperties
 }) {
+    const isDevMode = useShowContextualDevTools()
     const formattedDate = new Date(image.createdAt).toLocaleDateString()
     const resolutionLabel = image.resolution || "1K"
 
@@ -116,6 +118,14 @@ export function ImageMetadataPanel({
                         <p className="text-sm">{formattedDate}</p>
                     </div>
                 </div>
+                {isDevMode && image.batchId && (
+                    <div className="mt-5 border-border/60 border-t pt-5">
+                        <h4 className="mb-1 font-medium text-sm">Batch ID</h4>
+                        <p className="select-text break-all font-mono text-muted-foreground text-xs">
+                            {image.batchId}
+                        </p>
+                    </div>
+                )}
                 <ReferenceImageThumbnails
                     referenceImageKeys={image.referenceImageKeys}
                     className="mt-6"

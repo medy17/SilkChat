@@ -948,6 +948,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             return
         }
 
+        const batchId = useGenerationStore.getState().startBatch()
         setGenerationMode("real")
         try {
             const uploadedReferenceKeys = await uploadReferenceKeys()
@@ -967,6 +968,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 prompt: normalizedPrompt,
                                 modelId,
                                 clientRequestId: id,
+                                batchId,
                                 aspectRatio: effectiveAspectRatio,
                                 referenceImageIds: uploadedReferenceKeys,
                                 ...(canSelectImageQuality && model?.supportedImageQualities?.length
@@ -1013,6 +1015,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             return
         }
 
+        const batchId = useGenerationStore.getState().startBatch()
         setGenerationMode("fake")
         try {
             const uploadedReferenceKeys = await uploadReferenceKeys()
@@ -1027,10 +1030,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
                         return Array.from({ length: count }, (_, index) => async () => {
                             const id = Math.random().toString(36).substring(2, 11)
-                            addPendingGeneration({ id, aspectRatio: effectiveAspectRatio })
+                            addPendingGeneration({ id, batchId, aspectRatio: effectiveAspectRatio })
 
                             try {
                                 await generateFakeImage({
+                                    batchId,
                                     prompt: normalizedPrompt,
                                     modelId,
                                     aspectRatio: effectiveAspectRatio,

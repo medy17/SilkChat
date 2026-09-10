@@ -10,6 +10,7 @@ export const GeneratedImage = {
     resolution: v.optional(v.string()), // If applicable
     referenceImageKeys: v.optional(v.array(v.string())),
     generationJobId: v.optional(v.id("imageGenerationJobs")),
+    batchId: v.optional(v.string()),
     falRequestId: v.optional(v.string()),
     isArchived: v.optional(v.boolean()),
     createdAt: v.number(), // timestamp

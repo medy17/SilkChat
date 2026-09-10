@@ -212,6 +212,7 @@ export const insertGeneratedImage = internalMutation({
         resolution: v.optional(v.string()),
         referenceImageKeys: v.optional(v.array(v.string())),
         generationJobId: v.optional(v.id("imageGenerationJobs")),
+        batchId: v.optional(v.string()),
         falRequestId: v.optional(v.string()),
         createdAt: v.optional(v.number())
     },

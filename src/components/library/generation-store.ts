@@ -1,8 +1,10 @@
+import { createLibraryBatchId } from "@/lib/library-batch"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 export interface PendingGeneration {
     id: string
+    batchId?: string
     aspectRatio: string
 }
 
@@ -36,6 +38,8 @@ if (typeof window !== "undefined") {
 }
 
 interface GenerationStore {
+    lastBatchId?: string
+    startBatch: () => string
     pendingGenerations: PendingGeneration[]
     completedGenerationCount: number
     prompt: string
@@ -58,7 +62,12 @@ interface GenerationStore {
 
 export const useGenerationStore = create<GenerationStore>()(
     persist(
-        (set) => ({
+        (set, get) => ({
+            startBatch: () => {
+                const batchId = createLibraryBatchId(get().lastBatchId)
+                set({ lastBatchId: batchId })
+                return batchId
+            },
             pendingGenerations: [],
             completedGenerationCount: 0,
             prompt: "",
@@ -97,6 +106,7 @@ export const useGenerationStore = create<GenerationStore>()(
         {
             name: LIBRARY_GENERATION_STORE_KEY,
             partialize: (state) => ({
+                lastBatchId: state.lastBatchId,
                 prompt: state.prompt,
                 selectedModelIds: state.selectedModelIds,
                 selectedModelCounts: state.selectedModelCounts,

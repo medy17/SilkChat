@@ -31,6 +31,7 @@ const claimImageGenerationJobForWebhookHandler = claimImageGenerationJobForWebho
 ) => Promise<{ claimed: boolean; status: string; jobId?: string }>
 
 type RetryJob = {
+    batchId?: string
     _id: string
     userId: string
     status: string
@@ -145,12 +146,13 @@ describe("image_generation_jobs", () => {
             status: "storing_failed",
             falRequestId: "fal-request-1",
             assetUrls: [{ url: "https://v3b.fal.media/files/b/image.png" }],
+            batchId: "2:batch-test",
             assetFetchAttempts: 1
         })
 
         await expect(
             claimImageGenerationJobAssetRetryHandler(ctx, { jobId: "job-1", userId: "user-1" })
-        ).resolves.toMatchObject({ claimed: true })
+        ).resolves.toMatchObject({ claimed: true, batchId: "2:batch-test" })
         expect(ctx.db.patch).toHaveBeenCalledWith("job-1", {
             status: "processing",
             assetFetchAttempts: 2,

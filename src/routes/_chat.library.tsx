@@ -55,6 +55,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MasonryBatchOutlines } from "@/components/library/masonry-batch-outlines"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -830,7 +831,8 @@ const GeneratedImageItem = memo(
                 <ContextMenuTrigger asChild>
                     <div
                         className={cn(
-                            "group relative w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40 ring-1 ring-border/40 transition-[box-shadow] duration-200",
+                            "group relative w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40 transition-[box-shadow] duration-200",
+                            !image.batchId && "ring-1 ring-border/40",
                             isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}
@@ -1301,7 +1303,7 @@ export function LibraryView({
     const displayedPendingGenerations = useMemo(() => {
         const pendingById = new Map<
             string,
-            { id: string; jobId?: string; aspectRatio: string; status?: string }
+            { id: string; jobId?: string; batchId?: string; aspectRatio: string; status?: string }
         >()
 
         for (const pending of pendingGenerations) {
@@ -1313,6 +1315,7 @@ export function LibraryView({
             pendingById.set(id, {
                 id,
                 jobId: job._id,
+                batchId: job.batchId,
                 aspectRatio: job.aspectRatio,
                 status: job.status
             })
@@ -2364,107 +2367,131 @@ export function LibraryView({
                                 key={libraryPageCacheKey}
                                 storageKeys={images.map((img) => img.storageKey)}
                             >
-                                <div className="@2xl:columns-3 @4xl:columns-4 @6xl:columns-5 columns-2 gap-3 sm:gap-4">
-                                    <AnimatePresence>
-                                        {showPendingGenerations &&
-                                            displayedPendingGenerations.map((pending) => (
-                                                <motion.div
-                                                    key={pending.id}
-                                                    layout
-                                                    initial={{ opacity: 0, scale: 0.95 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{
-                                                        opacity: 0,
-                                                        scale: 0.9,
-                                                        filter: "blur(8px)"
-                                                    }}
-                                                    transition={{
-                                                        duration: 0.3,
-                                                        ease: [0.16, 1, 0.3, 1]
-                                                    }}
-                                                    className="mb-3 break-inside-avoid sm:mb-4"
-                                                >
-                                                    <PendingImageItem
-                                                        aspectRatio={pending.aspectRatio}
-                                                        status={pending.status}
-                                                        isRetrying={retryingAssetJobIds.has(
-                                                            pending.jobId ?? pending.id
-                                                        )}
-                                                        onRetry={() =>
-                                                            handleRetryImageAsset(
+                                <MasonryBatchOutlines
+                                    activeBatchIds={
+                                        new Set(
+                                            showPendingGenerations
+                                                ? displayedPendingGenerations
+                                                      .filter(
+                                                          (pending) =>
+                                                              pending.batchId &&
+                                                              pending.status !== "storing_failed"
+                                                      )
+                                                      .map((pending) => pending.batchId!)
+                                                : []
+                                        )
+                                    }
+                                >
+                                    <div className="@2xl:columns-3 @4xl:columns-4 @6xl:columns-5 columns-2 gap-3 sm:gap-4">
+                                        <AnimatePresence>
+                                            {showPendingGenerations &&
+                                                displayedPendingGenerations.map((pending) => (
+                                                    <motion.div
+                                                        key={pending.id}
+                                                        data-batch-tile=""
+                                                        data-batch-id={pending.batchId}
+                                                        layout
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{
+                                                            opacity: 0,
+                                                            scale: 0.9,
+                                                            filter: "blur(8px)"
+                                                        }}
+                                                        transition={{
+                                                            duration: 0.3,
+                                                            ease: [0.16, 1, 0.3, 1]
+                                                        }}
+                                                        className="mb-3 break-inside-avoid sm:mb-4"
+                                                    >
+                                                        <PendingImageItem
+                                                            aspectRatio={pending.aspectRatio}
+                                                            status={pending.status}
+                                                            isRetrying={retryingAssetJobIds.has(
                                                                 pending.jobId ?? pending.id
-                                                            )
-                                                        }
-                                                    />
-                                                </motion.div>
-                                            ))}
-                                        {images.map((image) => {
-                                            const isImageHidden = getIsImageHidden({
-                                                privateViewingEnabled,
-                                                override: imageOverrides[image._id]
-                                            })
+                                                            )}
+                                                            onRetry={() =>
+                                                                handleRetryImageAsset(
+                                                                    pending.jobId ?? pending.id
+                                                                )
+                                                            }
+                                                        />
+                                                    </motion.div>
+                                                ))}
+                                            {images.map((image) => {
+                                                const isImageHidden = getIsImageHidden({
+                                                    privateViewingEnabled,
+                                                    override: imageOverrides[image._id]
+                                                })
 
-                                            return (
-                                                <motion.div
-                                                    key={image._id}
-                                                    layout
-                                                    initial={{ opacity: 0, scale: 0.95 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{
-                                                        opacity: 0,
-                                                        scale: 0.9,
-                                                        filter: "blur(8px)"
-                                                    }}
-                                                    transition={{
-                                                        duration: 0.3,
-                                                        ease: [0.16, 1, 0.3, 1]
-                                                    }}
-                                                    className="mb-3 break-inside-avoid sm:mb-4"
-                                                >
-                                                    <GeneratedImageItem
-                                                        image={image}
-                                                        placeholder={
-                                                            animatedImageIds.includes(image._id)
-                                                                ? "tiles"
-                                                                : "skeleton"
-                                                        }
-                                                        onClick={() => setSelectedImage(image)}
-                                                        onImageSettled={() =>
-                                                            handleImageSettled(image._id)
-                                                        }
-                                                        isSelected={selectedImageIds.has(image._id)}
-                                                        isSelectionMode={isSelectionMode}
-                                                        onToggleSelection={() =>
-                                                            handleToggleSelection(image._id)
-                                                        }
-                                                        onStartSelection={() =>
-                                                            handleStartSelection(image._id)
-                                                        }
-                                                        onDelete={() =>
-                                                            handleDeleteImage(image._id)
-                                                        }
-                                                        isArchivedView={isArchivedView}
-                                                        onArchive={() =>
-                                                            handleArchiveImage(image._id)
-                                                        }
-                                                        onRestore={() =>
-                                                            handleRestoreImage(image._id)
-                                                        }
-                                                        onBulkArchive={handleBulkArchive}
-                                                        onBulkRestore={handleBulkRestore}
-                                                        onCompareSelected={handleCompareSelected}
-                                                        selectedCount={selectedImageIds.size}
-                                                        onBulkDelete={handleRequestBulkDelete}
-                                                        isImageHidden={isImageHidden}
-                                                        onToggleImageHidden={() =>
-                                                            toggleImageVisibility(image._id)
-                                                        }
-                                                    />
-                                                </motion.div>
-                                            )
-                                        })}
-                                    </AnimatePresence>
-                                </div>
+                                                return (
+                                                    <motion.div
+                                                        key={image._id}
+                                                        data-batch-tile=""
+                                                        data-batch-id={image.batchId}
+                                                        layout
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{
+                                                            opacity: 0,
+                                                            scale: 0.9,
+                                                            filter: "blur(8px)"
+                                                        }}
+                                                        transition={{
+                                                            duration: 0.3,
+                                                            ease: [0.16, 1, 0.3, 1]
+                                                        }}
+                                                        className="mb-3 break-inside-avoid sm:mb-4"
+                                                    >
+                                                        <GeneratedImageItem
+                                                            image={image}
+                                                            placeholder={
+                                                                animatedImageIds.includes(image._id)
+                                                                    ? "tiles"
+                                                                    : "skeleton"
+                                                            }
+                                                            onClick={() => setSelectedImage(image)}
+                                                            onImageSettled={() =>
+                                                                handleImageSettled(image._id)
+                                                            }
+                                                            isSelected={selectedImageIds.has(
+                                                                image._id
+                                                            )}
+                                                            isSelectionMode={isSelectionMode}
+                                                            onToggleSelection={() =>
+                                                                handleToggleSelection(image._id)
+                                                            }
+                                                            onStartSelection={() =>
+                                                                handleStartSelection(image._id)
+                                                            }
+                                                            onDelete={() =>
+                                                                handleDeleteImage(image._id)
+                                                            }
+                                                            isArchivedView={isArchivedView}
+                                                            onArchive={() =>
+                                                                handleArchiveImage(image._id)
+                                                            }
+                                                            onRestore={() =>
+                                                                handleRestoreImage(image._id)
+                                                            }
+                                                            onBulkArchive={handleBulkArchive}
+                                                            onBulkRestore={handleBulkRestore}
+                                                            onCompareSelected={
+                                                                handleCompareSelected
+                                                            }
+                                                            selectedCount={selectedImageIds.size}
+                                                            onBulkDelete={handleRequestBulkDelete}
+                                                            isImageHidden={isImageHidden}
+                                                            onToggleImageHidden={() =>
+                                                                toggleImageVisibility(image._id)
+                                                            }
+                                                        />
+                                                    </motion.div>
+                                                )
+                                            })}
+                                        </AnimatePresence>
+                                    </div>
+                                </MasonryBatchOutlines>
                             </ImageMetadataProvider>
 
                             {(canGoPrevious || canGoNext) && (

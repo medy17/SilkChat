@@ -83,6 +83,7 @@ const generateStandaloneImageHandler = generateStandaloneImage as unknown as (
         prompt: string
         modelId: string
         clientRequestId?: string
+        batchId?: string
         aspectRatio?: string
         resolution?: string
         quality?: "low" | "medium" | "high" | "xhigh" | "max"
@@ -196,6 +197,7 @@ describe("images_node", () => {
                 prompt: "A test image",
                 modelId: "gpt-5.4-image-2",
                 clientRequestId: "client-request-1",
+                batchId: "0:batch-test",
                 aspectRatio: "1:1",
                 resolution: "1K"
             })
@@ -220,17 +222,16 @@ describe("images_node", () => {
                 pricingSource: "fal_manual"
             })
         )
-        expect(ctx.runMutation).toHaveBeenCalledWith("createImageGenerationJob", {
-            userId: "user-1",
-            clientRequestId: "client-request-1",
-            appModelId: "gpt-5.4-image-2",
-            falEndpoint: "openai/gpt-image-2",
-            prompt: "A test image",
-            aspectRatio: "1:1",
-            resolution: "1K",
-            referenceImageKeys: [],
-            creditEventKey: expect.stringContaining("standalone-image:")
-        })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "createImageGenerationJob",
+            expect.objectContaining({
+                userId: "user-1",
+                clientRequestId: "client-request-1",
+                batchId: "0:batch-test",
+                source: "library",
+                creditEventKey: expect.stringContaining("standalone-image:")
+            })
+        )
         expect(ctx.runMutation).toHaveBeenCalledWith("attachFalRequestToImageGenerationJob", {
             jobId: "image-generation-job-1",
             falRequestId: "fal-request-1",

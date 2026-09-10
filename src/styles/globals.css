@@ -10,6 +10,12 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+    --library-batch-1: oklch(0.55 0.15 255);
+    --library-batch-2: oklch(0.55 0.15 75);
+    --library-batch-3: oklch(0.55 0.15 165);
+    --library-batch-4: oklch(0.55 0.15 320);
+    --library-batch-5: oklch(0.55 0.15 210);
+    --library-batch-6: oklch(0.55 0.15 30);
     --app-root-font-size: 16px;
     --app-header-height: 4rem;
     --chat-empty-offset: 0.5rem;
@@ -83,6 +89,12 @@ html {
 }
 
 .dark {
+    --library-batch-1: oklch(0.78 0.15 255);
+    --library-batch-2: oklch(0.78 0.15 75);
+    --library-batch-3: oklch(0.78 0.15 165);
+    --library-batch-4: oklch(0.78 0.15 320);
+    --library-batch-5: oklch(0.78 0.15 210);
+    --library-batch-6: oklch(0.78 0.15 30);
     --selection-background: color-mix(
         in oklab,
         var(--foreground) 28%,

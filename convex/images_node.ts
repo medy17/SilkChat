@@ -341,6 +341,7 @@ const submitImageGenerationJob = async (
         prompt,
         modelId,
         clientRequestId,
+        batchId,
         aspectRatio,
         resolution,
         references,
@@ -357,6 +358,7 @@ const submitImageGenerationJob = async (
         prompt: string
         modelId: string
         clientRequestId?: string
+        batchId?: string
         aspectRatio?: string
         resolution?: string
         references?: ImageReferenceSource[]
@@ -434,6 +436,7 @@ const submitImageGenerationJob = async (
             {
                 userId,
                 clientRequestId,
+                batchId,
                 ...(source ? { source } : {}),
                 ...(sourceThreadId ? { sourceThreadId } : {}),
                 ...(sourceMessageId ? { sourceMessageId } : {}),
@@ -503,6 +506,7 @@ export const generateStandaloneImage = action({
         prompt: v.string(),
         modelId: v.string(),
         clientRequestId: v.optional(v.string()),
+        batchId: v.optional(v.string()),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
         quality: v.optional(
@@ -537,6 +541,8 @@ export const generateStandaloneImage = action({
             prompt: args.prompt,
             modelId: args.modelId,
             clientRequestId: args.clientRequestId,
+            batchId: args.batchId,
+            source: "library",
             aspectRatio: args.aspectRatio,
             resolution: args.resolution,
             quality:
@@ -757,6 +763,7 @@ export const generateFakeStandaloneImage = action({
         modelId: v.string(),
         aspectRatio: v.optional(v.string()),
         resolution: v.optional(v.string()),
+        batchId: v.optional(v.string()),
         variantIndex: v.optional(v.number()),
         referenceImageIds: v.optional(v.array(v.string())),
         responseTimeSeconds: v.optional(v.number())
@@ -806,7 +813,8 @@ export const generateFakeStandaloneImage = action({
                 modelId: args.modelId,
                 aspectRatio,
                 resolution: args.resolution,
-                referenceImageKeys: args.referenceImageIds
+                referenceImageKeys: args.referenceImageIds,
+                batchId: args.batchId
             }
         )
 

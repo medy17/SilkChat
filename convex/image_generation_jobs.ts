@@ -77,6 +77,7 @@ export const createImageGenerationJob = internalMutation({
     args: {
         userId: v.string(),
         clientRequestId: v.optional(v.string()),
+        batchId: v.optional(v.string()),
         source: v.optional(v.union(v.literal("library"), v.literal("chat"))),
         sourceThreadId: v.optional(v.id("threads")),
         sourceMessageId: v.optional(v.string()),
@@ -315,6 +316,7 @@ export const claimImageGenerationJobAssetRetry = internalMutation({
             sourceToolCallId: job.sourceToolCallId,
             sourceCardId: job.sourceCardId,
             clientRequestId: job.clientRequestId,
+            batchId: job.batchId,
             assetUrls: job.assetUrls ?? []
         }
     }

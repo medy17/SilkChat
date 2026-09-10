@@ -1,0 +1,113 @@
+@property --library-batch-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 35deg;
+}
+
+.library-batch-frame {
+    --library-batch-inner-gutter: var(--spacing);
+    --library-batch-outer-gutter: calc(var(--spacing) * 2);
+    --library-batch-border-width: 2px;
+    --library-batch-label-height: calc(var(--spacing) * 5);
+    --library-batch-card-gap: calc(
+        var(--library-batch-inner-gutter) *
+        2 +
+        var(--library-batch-outer-gutter) +
+        var(--library-batch-border-width) *
+        2
+    );
+    /* Reserve the same breathing room along the outside of the gallery. */
+    padding: calc(var(--library-batch-inner-gutter) + var(--library-batch-border-width));
+    padding-top: calc(
+        var(--library-batch-inner-gutter) +
+        var(--library-batch-border-width) +
+        var(--library-batch-label-height)
+    );
+}
+
+.library-batch-frame > :first-child {
+    column-gap: var(--library-batch-card-gap);
+}
+
+.library-batch-frame [data-batch-tile] {
+    margin-bottom: calc(var(--library-batch-card-gap) + var(--library-batch-label-height));
+}
+
+.library-batch-label {
+    height: var(--library-batch-label-height);
+    transform: translate(-50%, calc(-100% + 1px));
+    border-color: color-mix(in oklab, var(--batch-colour) 35%, var(--border));
+}
+
+.library-batch-light-base {
+    stroke: var(--batch-colour);
+    opacity: 0.24;
+    transition: opacity 240ms ease;
+}
+
+.library-batch-light-gradient {
+    width: 100%;
+    height: 100%;
+    background: conic-gradient(
+        from var(--library-batch-angle),
+        transparent 0deg,
+        transparent 205deg,
+        color-mix(in oklab, var(--batch-colour) 35%, transparent) 265deg,
+        var(--batch-colour) 305deg,
+        color-mix(in oklab, var(--batch-colour) 35%, var(--foreground)) 335deg,
+        var(--batch-colour) 348deg,
+        transparent 360deg
+    );
+}
+
+.library-batch-light-edge {
+    opacity: 0.14;
+    transition: opacity 240ms ease;
+}
+
+.library-batch-light-halo {
+    opacity: 0.06;
+    transition: opacity 240ms ease;
+}
+
+.library-batch-light[data-state="active"] .library-batch-light-gradient,
+.library-batch-light[data-state="hovered"] .library-batch-light-gradient {
+    animation: library-batch-orbit 6s linear infinite;
+}
+
+.library-batch-light[data-state="settling"] .library-batch-light-gradient {
+    animation: library-batch-orbit 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.library-batch-light:not([data-state="idle"]) .library-batch-light-base {
+    opacity: 0.34;
+}
+
+.library-batch-light:not([data-state="idle"]) .library-batch-light-edge {
+    opacity: 0.24;
+}
+
+.library-batch-light:not([data-state="idle"]) .library-batch-light-halo {
+    opacity: 0.12;
+}
+
+@keyframes library-batch-orbit {
+    from {
+        --library-batch-angle: 35deg;
+    }
+    to {
+        --library-batch-angle: 395deg;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .library-batch-light[data-state] .library-batch-light-gradient {
+        animation: none;
+    }
+
+    .library-batch-light-base,
+    .library-batch-light-edge,
+    .library-batch-light-halo {
+        transition: none;
+    }
+}

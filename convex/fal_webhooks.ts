@@ -417,6 +417,7 @@ export const falImageWebhook = httpAction(async (ctx, request) => {
                         aspectRatio: job.aspectRatio,
                         resolution: job.resolution,
                         referenceImageKeys: job.referenceImageKeys,
+                        batchId: job.batchId,
                         generationJobId: job._id,
                         falRequestId
                     }
