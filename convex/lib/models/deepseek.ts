@@ -4,6 +4,28 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const DEEPSEEK_MODELS: SharedModel[] = [
     {
+        id: "deepseek-v4.1-flash",
+        name: "DeepSeek V4.1 Flash",
+        addedOn: "2026-09-10",
+        shortName: "V4.1 Flash",
+        shortDescription:
+            "DeepSeek's sparse Causal Encoder-Decoder model with vision and optional reasoning",
+        description:
+            "DeepSeek V4.1 Flash introduces DeepSeek's Causal Encoder-Decoder architecture in a sparse mixture-of-experts model. It accepts text and images within a million-token context, with tool calling and optional reasoning for working through large documents and visual inputs.",
+        releaseOrder: 20260910,
+        adapters: openRouterTextAdapters("deepseek/deepseek-v4.1-flash"),
+        openrouterProvider: "deepseek",
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 384_000,
+        inputUsdPer1MTokens: 0.15,
+        outputUsdPer1MTokens: 0.6,
+        supportsDisablingReasoning: true,
+        reasoningEfforts: ["off", "low", "high"],
+        defaultReasoningEffort: "high",
+        developer: "DeepSeek"
+    },
+    {
         id: "deepseek-v4-pro-0813",
         name: "DeepSeek V4 Pro 0813",
         addedOn: "2026-08-12",

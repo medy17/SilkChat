@@ -4,6 +4,26 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const QWEN_MODELS: SharedModel[] = [
     {
+        id: "qwen3.8-max-0902",
+        name: "Qwen3.8 Max 0902",
+        addedOn: "2026-09-10",
+        shortName: "Qwen3.8 Max",
+        shortDescription:
+            "Qwen's multimodal Max checkpoint post-trained for software projects, tool orchestration, and chart reasoning",
+        description:
+            "Qwen3.8 Max 0902 is Alibaba's 2.4-trillion-parameter mixture-of-experts checkpoint, post-trained for multi-step software projects and tool orchestration. Its million-token context and image understanding support chart reasoning and document parsing, with always-on reasoning and configurable effort.",
+        releaseOrder: 20260903,
+        adapters: openRouterTextAdapters("qwen/qwen3.8-max-0902"),
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 1_000_000,
+        maxTokens: 131_072,
+        inputUsdPer1MTokens: 2,
+        outputUsdPer1MTokens: 6,
+        reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "high",
+        developer: "Qwen"
+    },
+    {
         id: "qwen3.8-2.4t-a95b",
         name: "Qwen3.8 2.4T A95B",
         addedOn: "2026-08-12",
