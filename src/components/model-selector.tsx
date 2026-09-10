@@ -533,7 +533,7 @@ const ModelDetailPanel = ({
     const headerIcon = getProviderSectionIcon(getModelSectionId(model), [model], "size-12")
 
     return (
-        <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="flex h-full min-h-0 flex-col">
             {isMobile ? (
                 <DrawerHeader className="shrink-0 pb-0 text-left">
                     <div className="flex items-stretch gap-4">
@@ -741,7 +741,7 @@ const ModelInfoFlyout = ({
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] h-[75dvh] min-h-0 w-full max-w-full overflow-hidden bg-background p-0"
+                    className="z-[91] h-[75dvh] min-h-0 w-full max-w-full overflow-hidden p-0"
                     overlayClassName="z-[90]"
                     showCloseButton={false}
                 >
@@ -1561,7 +1561,7 @@ export function ModelSelector({
                 }
             }}
             className={cn(
-                "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
+                "h-8 bg-[var(--glass-control)] font-normal text-xs hover:bg-[var(--glass-control-hover)] sm:text-sm md:rounded-md",
                 className,
                 "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
             )}
@@ -1644,7 +1644,7 @@ export function ModelSelector({
                 </div>
             )}
             {isMobile ? (
-                <div className="shrink-0 bg-background px-4 pt-3 pb-3">
+                <div className="shrink-0 px-4 pt-3 pb-3">
                     <div className="relative">
                         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -1656,7 +1656,7 @@ export function ModelSelector({
                     </div>
                 </div>
             ) : (
-                <div className="shrink-0 bg-popover p-3 pb-2">
+                <div className="shrink-0 p-3 pb-2">
                     <div className="mb-3 px-1">
                         <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
                         <p className="text-muted-foreground text-sm sm:hidden">
@@ -1784,12 +1784,7 @@ export function ModelSelector({
                     </div>
                 </div>
 
-                <div
-                    className={cn(
-                        "flex min-h-0 flex-col p-3",
-                        isMobile ? "bg-background" : "bg-popover"
-                    )}
-                >
+                <div className="flex min-h-0 flex-col p-3">
                     {isMobile ? (
                         <div
                             className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"
@@ -1812,7 +1807,7 @@ export function ModelSelector({
                 <Drawer open={open} onOpenChange={setOpen} nested modal={modal}>
                     <DrawerContent
                         className={cn(
-                            "z-[81] flex h-[85dvh] max-h-[85dvh] flex-col gap-0 overflow-hidden bg-background p-0",
+                            "z-[81] flex h-[85dvh] max-h-[85dvh] flex-col gap-0 overflow-hidden p-0",
                             contentClassName
                         )}
                         overlayClassName="z-[80]"

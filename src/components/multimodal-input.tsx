@@ -411,7 +411,7 @@ export const ReasoningEffortSelector = ({
                                 ? isReasoningOff
                                     ? "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
                                     : "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
-                                : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-accent"
+                                : "border-0 bg-[var(--glass-control)] hover:bg-[var(--glass-control-hover)] hover:bg-accent"
                         )}
                     >
                         <div className="hidden items-center gap-1.5 sm:flex">
@@ -640,7 +640,7 @@ function MobileOverflowMenu({
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 rounded-md bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                    className="size-8 rounded-md bg-[var(--glass-control)] text-foreground hover:bg-[var(--glass-control-hover)]"
                 >
                     <MoreHorizontal className="size-4" />
                 </Button>
@@ -649,7 +649,7 @@ function MobileOverflowMenu({
                 align="end"
                 side="top"
                 sideOffset={8}
-                className="max-h-[min(var(--radix-popover-content-available-height),calc(100dvh-1rem))] w-[min(16rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border/70 bg-popover p-1.5 shadow-lg"
+                className="max-h-[min(var(--radix-popover-content-available-height),calc(100dvh-1rem))] w-[min(16rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain p-1.5"
                 style={{ borderRadius: "var(--radius-lg)" }}
             >
                 <div className="space-y-1">
@@ -1244,7 +1244,7 @@ export function ComposerDesktopActions({
                             variant="ghost"
                             onClick={onAttachClick}
                             disabled={uploading}
-                            className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                            className="flex size-8 cursor-pointer items-center justify-center gap-1 bg-[var(--glass-control)] text-foreground hover:bg-[var(--glass-control-hover)]"
                             style={{ borderRadius: "var(--radius-md)" }}
                         >
                             {uploading ? (
@@ -2673,7 +2673,7 @@ export const MultimodalInput = forwardRef<
                                         aria-label="Attach files"
                                         onClick={() => uploadInputRef.current?.click()}
                                         disabled={uploading}
-                                        className="size-11 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                        className="size-11 bg-[var(--glass-control)] text-foreground hover:bg-[var(--glass-control-hover)]"
                                         style={{ borderRadius: "var(--radius-md)" }}
                                     >
                                         {uploading ? (

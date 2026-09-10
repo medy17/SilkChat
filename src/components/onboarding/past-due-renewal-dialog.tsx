@@ -18,6 +18,7 @@ export function PastDueRenewalDialog({ isOpen, renewalUrl, onDismiss }: PastDueR
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onDismiss()}>
             <DialogContent
+                surface="solid"
                 className="w-[95vw] max-w-2xl border-0 bg-transparent p-0 shadow-none sm:w-full"
                 showCloseButton={false}
             >
@@ -27,7 +28,7 @@ export function PastDueRenewalDialog({ isOpen, renewalUrl, onDismiss }: PastDueR
                             <CardContent className="flex flex-col items-center px-4 py-6 text-center sm:px-6 sm:py-8">
                                 <div className="relative mb-5 grid h-24 w-24 place-items-center rounded-full border-2 border-primary/20">
                                     <Logo />
-                                    <div className="-right-2 -bottom-2 absolute grid size-9 place-items-center rounded-lg border-2 border-card bg-destructive text-destructive-foreground shadow-sm">
+                                    <div className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-lg border-2 border-card bg-destructive text-destructive-foreground shadow-sm">
                                         <CreditCard className="size-4" />
                                     </div>
                                 </div>

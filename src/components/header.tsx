@@ -119,7 +119,7 @@ export function Header() {
                 <div className="flex w-full items-center justify-end p-2">
                     <div
                         data-app-header-controls
-                        className="pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm"
+                        className="pointer-events-auto flex items-center gap-2 p-2"
                     >
                         {showDesktopLibraryControls && (
                             <>

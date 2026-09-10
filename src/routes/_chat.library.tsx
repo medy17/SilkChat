@@ -2524,7 +2524,7 @@ export function LibraryView({
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 16, scale: 0.97 }}
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border border-border/70 bg-background/90 p-1.5 shadow-2xl backdrop-blur-xl sm:gap-1.5"
+                            className="glass-popover fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border p-1.5 sm:gap-1.5"
                             style={{ borderRadius: "var(--radius-xl)" }}
                         >
                             <Button

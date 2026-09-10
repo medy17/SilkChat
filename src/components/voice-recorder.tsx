@@ -62,7 +62,7 @@ export const VoiceRecorder = memo(({ state, onStop, className }: VoiceRecorderPr
     return (
         <div
             className={cn(
-                "relative flex items-center justify-between gap-3 border border-input bg-background/80 p-2 shadow-xs backdrop-blur-lg dark:border-transparent dark:bg-sidebar",
+                "glass-composer relative flex items-center justify-between gap-3 border p-2",
                 className
             )}
             style={{ borderRadius: "var(--radius-lg)" }}

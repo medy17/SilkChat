@@ -913,7 +913,7 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                             value={mode}
                             onValueChange={(value) => setMode(value as ComparisonMode)}
                         >
-                            <TabsList className="h-11 rounded-[var(--radius-lg)] border border-border/60 bg-background/90 p-1 shadow-lg backdrop-blur-md">
+                            <TabsList className="glass-popover h-11 rounded-[var(--radius-lg)] border bg-[var(--glass-fill)] p-1">
                                 <TabsTrigger
                                     value="side-by-side"
                                     className="h-9 rounded-[var(--radius-md)] px-3 sm:px-5"
@@ -933,8 +933,8 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                         </Tabs>
                         <div className="flex items-center gap-1">
                             <Button
-                                variant={showDetails ? "secondary" : "outline"}
-                                className="hidden h-11 rounded-[var(--radius-lg)] border-border/60 bg-background/90 px-3 shadow-lg backdrop-blur-md lg:inline-flex"
+                                variant={showDetails ? "secondary" : "glass"}
+                                className="hidden h-11 rounded-[var(--radius-lg)] px-3 lg:inline-flex"
                                 size="sm"
                                 aria-expanded={showDetails}
                                 aria-controls="comparison-details"
@@ -1049,7 +1049,7 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                     <motion.div
                         initial={{ opacity: 0, y: reducedMotion ? 0 : 14 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex shrink-0 items-center gap-1 self-center rounded-[var(--radius-xl)] border border-border/60 bg-background/90 p-1.5 shadow-xl backdrop-blur-xl lg:absolute lg:top-3 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-[var(--radius-lg)] lg:border-transparent lg:bg-transparent lg:p-1 lg:shadow-none"
+                        className="glass-popover flex shrink-0 items-center gap-1 self-center rounded-[var(--radius-xl)] border p-1.5 lg:absolute lg:top-3 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-[var(--radius-lg)] lg:border-transparent lg:bg-transparent lg:p-1 lg:shadow-none lg:backdrop-filter-none"
                     >
                         <Tooltip>
                             <TooltipTrigger asChild>

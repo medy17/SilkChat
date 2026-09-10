@@ -427,6 +427,7 @@ export function OnboardingDialog({ isOpen, onComplete }: OnboardingDialogProps) 
     return (
         <Dialog open={isOpen} onOpenChange={() => {}}>
             <DialogContent
+                surface="solid"
                 className="w-[95vw] max-w-2xl border-0 bg-transparent p-0 shadow-none sm:w-full"
                 showCloseButton={false}
             >

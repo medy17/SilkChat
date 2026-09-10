@@ -632,6 +632,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         return (
             <Dialog open={isOpen} onOpenChange={(open) => !open && closeMobileDetailsOrViewer()}>
                 <DialogContent
+                    surface="solid"
                     showCloseButton={false}
                     overlayClassName="bg-black/92 backdrop-blur-md"
                     className="pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
@@ -896,6 +897,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
+                surface="solid"
                 showCloseButton={false}
                 overlayClassName="backdrop-blur-md"
                 className="w-fit max-w-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"

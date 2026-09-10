@@ -597,6 +597,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
         return (
             <Dialog open={isOpen} onOpenChange={(open) => !open && closeMobileDetailsOrViewer()}>
                 <DialogContent
+                    surface="solid"
                     showCloseButton={false}
                     overlayClassName="bg-black/92 backdrop-blur-md"
                     className="pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
@@ -783,6 +784,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
+                surface="solid"
                 showCloseButton={false}
                 overlayClassName="backdrop-blur-md"
                 className="w-fit max-w-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
@@ -804,7 +806,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="-left-[4.5rem] -translate-y-1/2 absolute top-1/2 z-20 h-11 w-11 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onPrevious}
                                 disabled={!canNavigatePrevious}
                             >
@@ -815,7 +817,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="-right-[4.5rem] -translate-y-1/2 absolute top-1/2 z-20 h-11 w-11 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onNext}
                                 disabled={!canNavigateNext}
                             >
@@ -828,7 +830,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="-top-14 lg:-right-[4.5rem] absolute right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-accent lg:top-0"
+                        className="absolute -top-14 right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-accent lg:top-0 lg:-right-[4.5rem]"
                         onClick={onClose}
                     >
                         <span className="sr-only">Close</span>

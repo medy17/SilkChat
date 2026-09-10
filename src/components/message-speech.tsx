@@ -52,7 +52,7 @@ export function MessageSpeech({ message, threadId }: { message: UIMessage; threa
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-[var(--radius-md)] border bg-background/80 text-foreground shadow-sm backdrop-blur-sm"
+                        className="glass-surface h-7 w-7 rounded-[var(--radius-md)] border text-foreground"
                         aria-label={label}
                         disabled={busy}
                         onClick={() => {
@@ -72,7 +72,7 @@ export function MessageSpeech({ message, threadId }: { message: UIMessage; threa
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-[var(--radius-md)] border bg-background/80 text-foreground shadow-sm backdrop-blur-sm"
+                    className="glass-surface h-7 w-7 rounded-[var(--radius-md)] border text-foreground"
                     aria-label="Stop reading"
                     title="Stop reading"
                     onClick={stopSpeech}

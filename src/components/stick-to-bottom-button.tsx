@@ -24,8 +24,8 @@ export const StickToBottomButton = ({
                     <Button
                         onClick={() => scrollToBottom()}
                         size="sm"
-                        variant="outline"
-                        className="rounded-full border bg-background/80 backdrop-blur-xl transition-all duration-200 hover:bg-background/90"
+                        variant="glass"
+                        className="rounded-[var(--radius-xl)] border transition-colors duration-200 hover:bg-accent"
                     >
                         <span className="inline-block">Scroll to bottom</span>
                         <ChevronDown className="mt-0.5 h-4 w-4" />

@@ -2,6 +2,7 @@
 @import "tailwindcss-safe-area";
 @import "tw-animate-css";
 @import "./custom.css";
+@import "./glass.css";
 
 @source "../../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/@streamdown/code/dist/*.js";

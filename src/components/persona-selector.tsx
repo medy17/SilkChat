@@ -342,7 +342,7 @@ function PersonaDetailPanel({ persona, modelName }: { persona: PersonaOption; mo
     )
 
     return (
-        <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="flex h-full min-h-0 flex-col">
             {isMobile ? (
                 <DrawerHeader className="shrink-0 pb-0 text-left">{portraitHeader}</DrawerHeader>
             ) : (
@@ -495,7 +495,7 @@ function PersonaInfoFlyout({ persona, modelName }: { persona: PersonaOption; mod
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] h-[75dvh] min-h-0 w-full max-w-full overflow-hidden bg-background p-0"
+                    className="z-[91] h-[75dvh] min-h-0 w-full max-w-full overflow-hidden p-0"
                     overlayClassName="z-[90]"
                     showCloseButton={false}
                 >
@@ -654,7 +654,7 @@ function PersonaPicker({
                 {trigger}
                 <Drawer open={open} onOpenChange={onOpenChange} nested>
                     <DrawerContent
-                        className="z-[81] flex h-[85dvh] max-h-[85dvh] flex-col gap-0 overflow-hidden bg-background p-0"
+                        className="z-[81] flex h-[85dvh] max-h-[85dvh] flex-col gap-0 overflow-hidden p-0"
                         overlayClassName="z-[80]"
                     >
                         <DrawerTitle className="sr-only">Choose a persona</DrawerTitle>
@@ -674,7 +674,7 @@ function PersonaPicker({
                 sideOffset={6}
                 alignOffset={desktopAlignOffset}
                 collisionPadding={8}
-                className="z-[80] flex h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-border/70 bg-popover p-0 shadow-lg"
+                className="z-[80] flex h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] p-0"
                 style={{
                     ...(desktopPopoverWidth
                         ? {
@@ -1148,7 +1148,7 @@ export function PersonaSelector({
                                 <span ref={pickerTriggerRef} className="inline-flex">
                                     <button
                                         type="button"
-                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
+                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-[var(--glass-control)] px-1.5 @3xl:text-sm text-xs transition-colors hover:bg-[var(--glass-control-hover)] min-[390px]:gap-2 min-[390px]:px-2"
                                         aria-label="Select persona"
                                         title="Select persona"
                                         onClick={() => {
@@ -1175,8 +1175,8 @@ export function PersonaSelector({
                                 </span>
                             }
                         >
-                            <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-popover">
-                                <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-popover sm:p-3 sm:pb-2">
+                            <div className="flex min-h-0 flex-1 flex-col">
+                                <div className="shrink-0 px-4 pt-3 pb-3 sm:p-3 sm:pb-2">
                                     <div className="flex items-center gap-2">
                                         <div className="relative min-w-0 flex-1">
                                             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1266,12 +1266,7 @@ export function PersonaSelector({
                                         </LayoutGroup>
                                     </div>
 
-                                    <div
-                                        className={cn(
-                                            "flex min-h-0 flex-col p-3",
-                                            isMobile ? "bg-background" : "bg-popover"
-                                        )}
-                                    >
+                                    <div className="flex min-h-0 flex-col p-3">
                                         {isMobile ? (
                                             <div
                                                 className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"

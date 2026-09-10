@@ -1,0 +1,119 @@
+/* One material, with elevation determined by the surface's role. Colors and
+ * shadows derive from the active theme, including imported themes. */
+:root {
+    --glass-opacity: 0.8;
+    --glass-menu-opacity: 0.86;
+    --glass-blur: 12px;
+    --glass-saturation: 1.14;
+    --glass-edge: color-mix(in oklab, var(--foreground) 10%, transparent);
+    --glass-highlight: color-mix(in oklab, var(--background) 55%, transparent);
+    --glass-shadow-surface: var(--shadow-sm);
+    --glass-shadow-popover: var(--shadow-lg);
+    --glass-shadow-dialog: var(--shadow-2xl);
+    --glass-scrim-opacity: 60%;
+    --glass-control: color-mix(in oklab, var(--secondary) 70%, transparent);
+    --glass-control-hover: color-mix(in oklab, var(--secondary) 85%, transparent);
+}
+
+.dark {
+    --glass-blur: 16px;
+    --glass-saturation: 1.08;
+    --glass-highlight: color-mix(in oklab, var(--foreground) 4%, transparent);
+    --glass-scrim-opacity: 64%;
+}
+
+@layer components {
+    .glass-surface,
+    .glass-popover,
+    .glass-dialog,
+    .glass-composer {
+        border-color: var(--glass-edge);
+        background: var(--glass-fill);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+        box-shadow:
+            inset 0 1px var(--glass-highlight),
+            var(--glass-elevation);
+    }
+
+    .glass-surface {
+        --glass-base: var(--background);
+        --glass-fill: color-mix(
+            in oklab,
+            var(--glass-base) calc(var(--glass-opacity) * 100%),
+            transparent
+        );
+        --glass-elevation: var(--glass-shadow-surface);
+    }
+
+    .glass-popover {
+        --glass-base: var(--popover);
+        --glass-fill: color-mix(
+            in oklab,
+            var(--glass-base) calc(var(--glass-menu-opacity) * 100%),
+            transparent
+        );
+        --glass-elevation: var(--glass-shadow-popover);
+    }
+
+    .glass-dialog {
+        --glass-base: var(--background);
+        --glass-fill: color-mix(
+            in oklab,
+            var(--glass-base) calc(var(--glass-menu-opacity) * 100%),
+            transparent
+        );
+        --glass-elevation: var(--glass-shadow-dialog);
+    }
+
+    .glass-composer {
+        --glass-base: var(--composer);
+        /* Older browsers retain the supplied composer color. Relative color
+         * caps alpha instead of multiplying an already translucent theme color. */
+        --glass-fill: var(--composer);
+        --glass-elevation: var(--glass-shadow-surface);
+        /* Keep the composer's edge quiet, including its recording state. */
+        border-color: transparent;
+        box-shadow: var(--glass-elevation);
+    }
+
+    @supports (color: oklch(from red l c h / min(alpha, 0.8))) {
+        .glass-composer {
+            --glass-fill: oklch(from var(--composer) l c h / min(alpha, var(--glass-opacity)));
+        }
+    }
+
+    .glass-scrim {
+        background: color-mix(in oklab, var(--background) var(--glass-scrim-opacity), transparent);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .glass-surface,
+        .glass-popover,
+        .glass-dialog,
+        .glass-composer {
+            background:
+                linear-gradient(var(--glass-base), var(--glass-base)), var(--background) !important;
+        }
+    }
+}
+
+/* Honor the preference even when a caller supplies a translucent utility. */
+@media (prefers-reduced-transparency: reduce) {
+    .glass-surface,
+    .glass-popover,
+    .glass-dialog,
+    .glass-composer {
+        background:
+            linear-gradient(var(--glass-base), var(--glass-base)), var(--background) !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .glass-scrim {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+}

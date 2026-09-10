@@ -38,13 +38,7 @@ const GALLERY_IMAGES = [
 
 const capabilityIcons = [Brain, Eye, Code2, FileText]
 
-function SlideHeading({
-    title,
-    description
-}: {
-    title: string
-    description: React.ReactNode
-}) {
+function SlideHeading({ title, description }: { title: string; description: React.ReactNode }) {
     return (
         <div className="space-y-3 text-left">
             <DialogTitle className="font-semibold text-foreground text-xl tracking-tight">
@@ -361,6 +355,7 @@ export function ProWelcomeDialog({ isOpen, onDismiss }: ProWelcomeDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onDismiss()}>
             <DialogContent
+                surface="solid"
                 className="w-[95vw] max-w-2xl border-0 bg-transparent p-0 shadow-none sm:w-full"
                 showCloseButton={false}
             >

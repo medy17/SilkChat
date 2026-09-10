@@ -299,7 +299,7 @@ export function RetryMenu({
                 className={
                     triggerLabel
                         ? "text-foreground"
-                        : "h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                        : "glass-surface h-7 w-7 border text-foreground hover:bg-accent hover:text-primary"
                 }
             >
                 <RotateCcw className={triggerLabel ? "size-4" : "h-3.5 w-3.5"} />

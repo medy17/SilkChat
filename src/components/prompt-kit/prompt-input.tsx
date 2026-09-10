@@ -183,7 +183,7 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
                     <div
                         data-slot="prompt-input-root"
                         className={cn(
-                            "rounded-[var(--radius-lg)] border border-input bg-composer p-3 shadow-xs backdrop-blur-lg dark:border-transparent",
+                            "glass-composer rounded-[var(--radius-lg)] border p-3",
                             className
                         )}
                     >

@@ -480,7 +480,7 @@ export const ToolSelectorPopover = memo(
             }
 
             if (!isActive) {
-                return "bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
+                return "bg-[var(--glass-control)] hover:bg-[var(--glass-control-hover)]"
             }
 
             return ""
