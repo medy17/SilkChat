@@ -16,6 +16,8 @@ import type { ActionCtx } from "./_generated/server"
 import { r2 } from "./attachments"
 import { compressImageBytesToWebpLimit } from "./lib/image_compression_node"
 import { ensureAttachmentFilename } from "./lib/thread_import_core"
+import { readResponseBytesWithinLimit } from "./lib/pdf_validation_node"
+import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 
 const sanitizeKeySegment = (name: string) =>
     name
@@ -123,18 +125,27 @@ export const mirrorRemoteAttachment = async ({
     url: string
     filename: string
 }) => {
-    const response = await fetch(url)
+    if (isImportedPdf({ filename, url })) throw new Error(PDF_IMPORT_ERROR)
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
     if (!response.ok) {
         throw new Error(`Failed to download attachment (${response.status})`)
     }
 
-    const responseBytes = new Uint8Array(await response.arrayBuffer())
     const responseMimeType = response.headers.get("content-type") || undefined
+    if (isImportedPdf({ filename, url, mimeType: responseMimeType })) {
+        await response.body?.cancel()
+        throw new Error(PDF_IMPORT_ERROR)
+    }
     const resolvedFileName = ensureAttachmentFilename({
         fileNameHint: filename,
         url,
         mimeType: responseMimeType
     })
+    const fileTypeInfo = getFileTypeInfo(resolvedFileName, responseMimeType)
+    const responseBytes = await readResponseBytesWithinLimit(
+        response,
+        fileTypeInfo.isVisionImage ? MAX_COMPRESSIBLE_IMAGE_SIZE : MAX_FILE_SIZE
+    )
     const prepared = await prepareImportedAttachmentForUpload({
         bytes: responseBytes,
         fileName: resolvedFileName,

@@ -235,6 +235,14 @@ export default defineSchema({
             filterFields: ["authorId"]
         }),
 
+    pdfValidations: defineTable({
+        storageKey: v.string(),
+        objectVersion: v.string(),
+        pageCount: v.optional(v.number()),
+        error: v.optional(v.string()),
+        checkedAt: v.number()
+    }).index("byStorageKey", ["storageKey"]),
+
     importJobs: defineTable(ImportJob)
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"])
         .index("byAuthorStatusUpdatedAt", ["authorId", "status", "updatedAt"])

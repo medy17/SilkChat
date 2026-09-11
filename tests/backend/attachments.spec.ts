@@ -143,6 +143,7 @@ describe("attachments", () => {
             maxFileSize: 15 * 1024 * 1024,
             maxImageFileSize: 5 * 1024 * 1024,
             maxImageDimension: 2048,
+            maxPdfPages: 30,
             maxAttachmentsPerThread: 100
         })
     })

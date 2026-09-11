@@ -106,6 +106,7 @@ export const dbMessagesToCore = async (
         referenceLongTextAttachments?: boolean
         maxInlineTextAttachmentTokens?: number
         attachmentReferer?: string
+        validatePdf?: (storageKey: string, filename: string) => Promise<unknown>
     }
 ): Promise<CoreMessage[]> => {
     const mapped_messages: CoreMessage[] = []
@@ -211,6 +212,10 @@ export const dbMessagesToCore = async (
                             failedFileFetch("text", filename)
                         }
                     } else if (fileTypeInfo.isPdf && supportsNativePdf(modelAbilities)) {
+                        if (!options?.validatePdf)
+                            throw new Error("PDF validation is required before model use")
+                        // External references cannot reuse an immutable object's validation.
+                        await options.validatePdf(proxiedKey ?? p.data, filename)
                         mapped_content.push({
                             type: "file",
                             mediaType: "application/pdf",

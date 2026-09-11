@@ -25,6 +25,7 @@ import { generateShareQuestion, generateThreadName } from "./chat_http/generate_
 import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { dbMessagesToCore } from "./lib/db_to_core_messages"
+import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
 import { HTTPAIMessage, ImportedMessageMetadata, type Message } from "./schema/message"
@@ -157,6 +158,20 @@ const performThreadImport = async (
     }
 ) => {
     const sanitizedMessages = messages.filter((message) => message.parts.length > 0)
+    if (
+        sanitizedMessages.some((message) =>
+            message.parts.some(
+                (part) =>
+                    part.type === "file" &&
+                    isImportedPdf({
+                        filename: part.filename,
+                        mimeType: part.mimeType,
+                        url: part.data
+                    })
+            )
+        )
+    )
+        return { error: PDF_IMPORT_ERROR } as const
     if (sanitizedMessages.length === 0) {
         return { error: "No importable messages found" } as const
     }

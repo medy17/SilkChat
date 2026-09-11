@@ -2,6 +2,6 @@
     "$schema": "./node_modules/convex/schemas/convex.schema.json",
     "node": {
         "nodeVersion": "22",
-        "externalPackages": ["sharp", "@vercel/sandbox"]
+        "externalPackages": ["sharp", "@vercel/sandbox", "@hyzyla/pdfium"]
     }
 }

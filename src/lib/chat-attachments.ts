@@ -11,6 +11,7 @@ import {
     isTextMimeType
 } from "@/lib/file_constants"
 import type { UploadedFile } from "./chat-store"
+import { assertPdfPageLimit } from "./pdf"
 
 export interface UploadedFileWithSource extends UploadedFile {
     file?: File
@@ -149,6 +150,14 @@ export const prepareChatAttachmentForUpload = async (
     if (fileToUpload.size > policy.maxFileSize) {
         throw new Error(
             `${fileToUpload.name}: File size exceeds ${formatFileSizeLimit(policy.maxFileSize)} limit`
+        )
+    }
+
+    if (fileTypeInfo.isPdf) {
+        // Older cached/server policies may predate the PDF page limit.
+        await assertPdfPageLimit(
+            fileToUpload,
+            policy.maxPdfPages ?? DEFAULT_UPLOAD_POLICY.maxPdfPages
         )
     }
 

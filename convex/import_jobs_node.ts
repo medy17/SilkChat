@@ -2,6 +2,7 @@
 
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
 import { getFileTypeInfo } from "@/lib/file_constants"
+import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import type { Doc, Id } from "./_generated/dataModel"
@@ -291,6 +292,11 @@ export const processImportJobThread = internalAction({
 
         try {
             let failedAttachmentCount = 0
+            if (
+                importJobThread.messages.some((message) => message.attachments.some(isImportedPdf))
+            ) {
+                throw new Error(PDF_IMPORT_ERROR)
+            }
             let importedAttachmentCount = 0
             let remainingAttachmentSlots =
                 job.attachmentMode === "mirror"
@@ -357,7 +363,9 @@ export const processImportJobThread = internalAction({
                             })
                             importedAttachmentCount += 1
                             remainingAttachmentSlots -= 1
-                        } catch {
+                        } catch (error) {
+                            if (error instanceof Error && error.message === PDF_IMPORT_ERROR)
+                                throw error
                             failedAttachmentCount += 1
                         }
                     }

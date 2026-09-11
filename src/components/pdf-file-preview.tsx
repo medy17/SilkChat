@@ -3,27 +3,10 @@
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react"
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist"
 import { useEffect, useRef, useState } from "react"
+import { loadPdfJs } from "@/lib/pdf"
 import { cn } from "@/lib/utils"
 import { Button } from "./ui/button"
 import { Loader } from "./ui/loader"
-
-let pdfJsPromise: Promise<typeof import("pdfjs-dist")> | undefined
-
-const loadPdfJs = () => {
-    pdfJsPromise ??= Promise.all([
-        import("pdfjs-dist"),
-        import("pdfjs-dist/build/pdf.worker.min.mjs?url")
-    ])
-        .then(([pdfJs, workerModule]) => {
-            pdfJs.GlobalWorkerOptions.workerSrc = workerModule.default
-            return pdfJs
-        })
-        .catch((error) => {
-            pdfJsPromise = undefined
-            throw error
-        })
-    return pdfJsPromise
-}
 
 export function PdfFilePreview({ url, filename }: { url: string; filename: string }) {
     const viewportRef = useRef<HTMLDivElement>(null)

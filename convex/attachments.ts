@@ -162,10 +162,8 @@ export const uploadFile = httpAction(async (ctx, request) => {
 
         const fileTypeInfo = getFileTypeInfo(fileName, file.type)
 
-        // Get arrayBuffer once for validation (for text files and PDFs)
+        // Read once for text validation and storage
         const fileBuffer = await file.arrayBuffer()
-        // const bufferCopy = new ArrayBuffer(fileBuffer.byteLength)
-        // new Uint8Array(bufferCopy).set(new Uint8Array(fileBuffer))
 
         // For text files, validate token count
         if (fileTypeInfo.isText && (!fileTypeInfo.isImage || fileTypeInfo.isSvg)) {
@@ -196,48 +194,6 @@ export const uploadFile = httpAction(async (ctx, request) => {
                     }
                 )
             }
-        } else if (fileTypeInfo.isPdf) {
-            // Some issue with the convex runtime. Might come back to this later but...
-            // try {
-            //     // Check page count
-            //     console.log("Estimating PDF...")
-            //     const { pageCount, tokenCount } = await estimatePdf(fileBuffer)
-            //     console.log("PDF estimated", pageCount, tokenCount)
-            //     if (pageCount > MAX_PDF_PAGES) {
-            //         return new Response(
-            //             JSON.stringify({
-            //                 error: `PDF "${fileName}" exceeds ${MAX_PDF_PAGES} page limit (current: ${pageCount} pages)`
-            //             }),
-            //             {
-            //                 status: 400,
-            //                 headers: { "Content-Type": "application/json" }
-            //             }
-            //         )
-            //     }
-            //     // Check token count
-            //     if (tokenCount > MAX_PDF_TOKENS) {
-            //         return new Response(
-            //             JSON.stringify({
-            //                 error: `PDF "${fileName}" exceeds ${MAX_PDF_TOKENS.toLocaleString()} token limit (estimated: ${tokenCount.toLocaleString()} tokens)`
-            //             }),
-            //             {
-            //                 status: 400,
-            //                 headers: { "Content-Type": "application/json" }
-            //             }
-            //         )
-            //     }
-            // } catch (error) {
-            //     console.error("Error validating PDF file:", error)
-            //     return new Response(
-            //         JSON.stringify({
-            //             error: `Error validating PDF content: ${fileName}`
-            //         }),
-            //         {
-            //             status: 400,
-            //             headers: { "Content-Type": "application/json" }
-            //         }
-            //     )
-            // }
         }
 
         // Generate unique key for the file

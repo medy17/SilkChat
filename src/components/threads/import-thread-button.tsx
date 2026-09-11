@@ -42,6 +42,7 @@ import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { uploadFileDirect } from "@/lib/direct-upload"
 import { MAX_ATTACHMENTS_PER_THREAD, getFileTypeInfo } from "@/lib/file_constants"
+import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import type { ParsedThreadImportDocument } from "@/lib/thread-import"
 import {
     fetchRemoteAttachmentAsFile,
@@ -270,13 +271,7 @@ const createTaskRunner = (concurrency: number): TaskRunner => {
     }
 }
 
-const uploadAttachment = async ({
-    file,
-    jwt
-}: {
-    file: File
-    jwt: string
-}) => {
+const uploadAttachment = async ({ file, jwt }: { file: File; jwt: string }) => {
     return uploadFileDirect({
         file,
         jwt,
@@ -779,6 +774,11 @@ export function ImportThreadDialog({
             throw new Error("Missing parsed conversation data")
         }
 
+        // Check the source before skip mode removes its attachment references.
+        if (item.parsed.messages.some((message) => message.attachments.some(isImportedPdf))) {
+            throw new Error(PDF_IMPORT_ERROR)
+        }
+
         let importedAttachmentCount = 0
         let failedAttachmentCount = 0
         let remainingAttachmentSlots = shouldMirrorAttachments
@@ -1217,6 +1217,12 @@ export function ImportThreadDialog({
                                                 </div>
                                             </AccordionTrigger>
                                             <AccordionContent className="pt-1">
+                                                <p className="mb-3 text-muted-foreground text-sm">
+                                                    Conversations with PDF attachments cannot be
+                                                    imported. Remove PDFs from the export first,
+                                                    then upload PDFs of up to 30 pages after
+                                                    importing.
+                                                </p>
                                                 <RadioGroup
                                                     value={attachmentImportMode}
                                                     onValueChange={(value) =>

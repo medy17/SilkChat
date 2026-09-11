@@ -141,6 +141,7 @@ export const MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION = 32_000
 // limit remains the effective ceiling for ordinary text files.
 export const MAX_TOKENS_PER_FILE = 8_000_000
 export const MAX_ATTACHMENTS_PER_THREAD = 100
+export const MAX_PDF_PAGES = 30
 export const formatFileSizeLimit = (bytes: number) => `${bytes / 1024 / 1024}MB`
 
 // Used by non-composer ingestion paths that perform their own guarded image processing.
@@ -159,6 +160,7 @@ export type UploadPolicy = {
     maxImageFileSize: number
     maxImageDimension: number
     maxTokensPerFile: number
+    maxPdfPages: number
     maxAttachmentsPerThread: number
     supportedRasterImageExtensions: readonly string[]
     supportedVectorImageExtensions: readonly string[]
@@ -179,6 +181,7 @@ export const DEFAULT_UPLOAD_POLICY = {
     maxImageFileSize: MAX_IMAGE_FILE_SIZE,
     maxImageDimension: MAX_CHAT_IMAGE_DIMENSION,
     maxTokensPerFile: MAX_TOKENS_PER_FILE,
+    maxPdfPages: MAX_PDF_PAGES,
     maxAttachmentsPerThread: MAX_ATTACHMENTS_PER_THREAD,
     supportedRasterImageExtensions: SUPPORTED_RASTER_IMAGE_EXTENSIONS,
     supportedVectorImageExtensions: SUPPORTED_VECTOR_IMAGE_EXTENSIONS,
@@ -219,10 +222,6 @@ export const getUploadPolicyVersion = (policy: UploadPolicy = DEFAULT_UPLOAD_POL
 }
 
 export const DEFAULT_UPLOAD_POLICY_VERSION = getUploadPolicyVersion(DEFAULT_UPLOAD_POLICY)
-
-// PDF-specific limits
-export const MAX_PDF_PAGES = 100
-export const MAX_PDF_TOKENS = 32000 // 32k tokens
 
 // File type validation functions
 export const isImageExtension = (filename: string) => {

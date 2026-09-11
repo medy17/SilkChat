@@ -1,4 +1,5 @@
 import { httpAction } from "./_generated/server"
+import { internal } from "./_generated/api"
 import { r2 } from "./attachments"
 import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
 import {
@@ -241,6 +242,13 @@ export const completeDirectUpload = httpAction(async (ctx, request) => {
         const metadata = await r2.getMetadata(ctx, key)
         if (!metadata || metadata.authorId !== user.id || metadata.uploadStatus !== "ready") {
             return jsonResponse({ error: "Upload could not be finalized" }, 400)
+        }
+
+        if (getFileTypeInfo(key, metadata.contentType).isPdf) {
+            await ctx.runAction(internal.pdf_validation_node.validateStored, {
+                storageKey: key,
+                fileName: key.split("/").pop() ?? "attachment.pdf"
+            })
         }
 
         return jsonResponse(

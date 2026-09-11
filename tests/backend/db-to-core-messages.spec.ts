@@ -19,6 +19,34 @@ vi.mock("../../convex/_generated/api", () => ({
 import { dbMessagesToCore, normalizeAttachmentReferer } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
+    it("never emits a native PDF without successful server validation", async () => {
+        const messages = [
+            {
+                role: "user",
+                parts: [
+                    {
+                        type: "file",
+                        filename: "report.pdf",
+                        mimeType: "application/pdf",
+                        data: "attachments/user/report.pdf"
+                    }
+                ]
+            }
+        ] as never
+        await expect(
+            dbMessagesToCore(messages, ["native_pdf"], {
+                publicAssetBaseUrl: "https://r2.example.com"
+            })
+        ).rejects.toThrow("PDF validation is required")
+        await expect(
+            dbMessagesToCore(messages, ["native_pdf"], {
+                publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => {
+                    throw new Error("PDF has 253 pages")
+                }
+            })
+        ).rejects.toThrow("PDF has 253 pages")
+    })
     afterEach(() => {
         vi.unstubAllGlobals()
     })
@@ -86,7 +114,8 @@ describe("dbMessagesToCore", () => {
             ] as never,
             ["native_pdf"] as never,
             {
-                publicAssetBaseUrl: "https://r2.example.com"
+                publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1
             }
         )
 
@@ -131,6 +160,7 @@ describe("dbMessagesToCore", () => {
             [],
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 referenceLongTextAttachments: true,
                 attachmentReferer: "https://silkchat-staging.xyz/thread/thread-1"
             }
@@ -190,6 +220,7 @@ describe("dbMessagesToCore", () => {
             [],
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 referenceLongTextAttachments: true
             }
         )
@@ -224,6 +255,7 @@ describe("dbMessagesToCore", () => {
             [],
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 referenceLongTextAttachments: false,
                 maxInlineTextAttachmentTokens: 32_000
             }
@@ -256,6 +288,7 @@ describe("dbMessagesToCore", () => {
             [],
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 referenceLongTextAttachments: false,
                 maxInlineTextAttachmentTokens: 32_000
             }
@@ -286,7 +319,7 @@ describe("dbMessagesToCore", () => {
                 }
             ] as never,
             [],
-            { publicAssetBaseUrl: "https://r2.example.com" }
+            { publicAssetBaseUrl: "https://r2.example.com", validatePdf: async () => 1 }
         )
 
         const context = (result[0].content[0] as { text: string }).text
@@ -312,7 +345,8 @@ describe("dbMessagesToCore", () => {
             ] as never,
             ["native_pdf"] as never,
             {
-                publicAssetBaseUrl: "https://r2.example.com"
+                publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1
             }
         )
 
@@ -400,6 +434,7 @@ describe("dbMessagesToCore", () => {
             ["vision"] as never,
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 resolveGeneratedImageContextUrl
             }
         )
@@ -507,6 +542,7 @@ describe("dbMessagesToCore", () => {
             ["vision"] as never,
             {
                 publicAssetBaseUrl: "https://r2.example.com",
+                validatePdf: async () => 1,
                 resolveGeneratedImageContextUrl
             }
         )

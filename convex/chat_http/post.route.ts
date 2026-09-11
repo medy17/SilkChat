@@ -1035,6 +1035,26 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }
         )
 
+    const pdfChecks = new Map<string, Promise<number>>()
+    const validatePdf = (key: string, filename: string) => {
+        let check = pdfChecks.get(key)
+        if (!check) {
+            check = ctx
+                .runAction(internal.pdf_validation_node.validateStored, {
+                    storageKey: key,
+                    fileName: filename
+                })
+                .catch((error) => {
+                    throw new ChatError(
+                        "bad_request:chat",
+                        error instanceof Error ? error.message : "PDF validation failed"
+                    )
+                })
+            pdfChecks.set(key, check)
+        }
+        return check
+    }
+
     let contextViolation = immediateContextViolation
     let contextViolationReason: "message" | "thread" | undefined =
         immediateContextViolation?.limitType === "hosted" ? "message" : undefined
@@ -1069,7 +1089,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     referenceLongTextAttachments: canReferenceLongTextAttachments,
                     maxInlineTextAttachmentTokens:
                         MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
-                    attachmentReferer
+                    attachmentReferer,
+                    validatePdf
                 }
             )
             const promptMessages: ModelMessage[] = [
@@ -1103,6 +1124,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     : undefined
         } catch (error) {
             console.error("[cvx][chat] Failed to estimate request context", error)
+            if (error instanceof ChatError) return error.toResponse()
             return new ChatError("bad_request:chat").toResponse()
         }
     }
@@ -1456,7 +1478,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     referenceLongTextAttachments: canReferenceLongTextAttachments,
                     maxInlineTextAttachmentTokens:
                         MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
-                    attachmentReferer
+                    attachmentReferer,
+                    validatePdf
                 }
             )
 
@@ -1468,6 +1491,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }
         } catch (error) {
             console.error("[cvx][chat] Failed to prepare stream context", error)
+            if (error instanceof ChatError) return error
             return new ChatError("bad_request:chat")
         }
     })()
