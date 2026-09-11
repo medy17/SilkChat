@@ -1,3 +1,4 @@
+import { useImportJobs } from "@/components/app-boot-provider"
 import { CommandK } from "@/components/commandk"
 import {
     openDevOnboarding,
@@ -21,6 +22,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useFunction } from "@/hooks/use-function"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useSidebarVisible } from "@/hooks/use-sidebar-visible"
 import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
@@ -183,6 +185,7 @@ export function ThreadsSidebar() {
     const isLibraryArchiveView = librarySearch?.view === "archived"
     const params = useParams({ strict: false }) as { threadId?: string; folderId?: string }
     const isMobile = useIsMobile()
+    const sidebarVisible = useSidebarVisible()
     // Gate touch-vs-mouse interactions (context menu, long-press, Alt preview) on
     // actual pointer capability, not viewport width. Browser zoom shrinks the CSS
     // width below the mobile breakpoint, which must not disable mouse interactions.
@@ -200,10 +203,7 @@ export function ThreadsSidebar() {
         void flushPendingDraftAttachments()
     }, [auth.isLoading, flushPendingDraftAttachments, session?.user?.id])
 
-    const importJobs = useQuery(
-        api.import_jobs.listImportJobs,
-        session?.user?.id && !auth.isLoading ? { limit: 6 } : "skip"
-    )
+    const importJobs = useImportJobs()
     const activeThread = useQuery(
         api.threads.getThread,
         params.threadId && session?.user?.id && !auth.isLoading
@@ -220,7 +220,7 @@ export function ThreadsSidebar() {
             key: "threads",
             maxItems: 50
         },
-        session?.user?.id && !auth.isLoading
+        sidebarVisible && session?.user?.id && !auth.isLoading
             ? {
                   includeInFolder: false
               }
@@ -247,7 +247,7 @@ export function ThreadsSidebar() {
     const isLoading = auth.isLoading && allThreads.length === 0 && resolvedProjects.length === 0
 
     const sentinelRef = useInfiniteScroll({
-        hasMore: status === "CanLoadMore",
+        hasMore: sidebarVisible && status === "CanLoadMore",
         isLoading: status === "LoadingMore",
         onLoadMore: () => loadMore(25),
         rootMargin: "200px",

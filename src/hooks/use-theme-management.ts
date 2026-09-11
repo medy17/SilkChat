@@ -1,3 +1,4 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
@@ -19,7 +20,6 @@ import {
     isMissingImportedThemeSelection
 } from "@/lib/theme-utils"
 import { toggleThemeMode } from "@/lib/toggle-theme-mode"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { useMutation } from "convex/react"
 import isEqual from "fast-deep-equal"
@@ -39,10 +39,7 @@ export function useThemeManagement() {
     const resolvedMode = useResolvedThemeMode(themeState.currentMode)
 
     // Fetch user settings to retrieve custom theme URLs
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
+    const userSettings = useLiveUserSettings()
 
     const addTheme = useMutation(api.settings.addUserTheme)
     const deleteTheme = useMutation(api.settings.deleteUserTheme)

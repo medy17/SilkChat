@@ -22,7 +22,7 @@ type CachedItem<
         : never
     : T & ExtraProps
 
-export const useDiskCachedQuery = <
+export const useDiskCachedQueryState = <
     Query extends FunctionReference<"query">,
     ExtraProps extends Record<string, unknown>,
     T = ReturnType<typeof useQuery<Query>>,
@@ -34,11 +34,16 @@ export const useDiskCachedQuery = <
         maxItems?: number
         default: ReturnType<typeof useQuery<Query>>
         forceCache?: boolean
+        acceptResult?: (value: unknown) => boolean
     },
     ...args: OptionalRestArgsOrSkip<Query>
 ) => {
     const isClient = typeof window !== "undefined"
-    const result = useQuery(query, ...args)
+    const queriedResult = useQuery(query, ...args)
+    const result =
+        cacheOptions.acceptResult && !cacheOptions.acceptResult(queriedResult)
+            ? undefined
+            : queriedResult
     const storageKey = `CVX_DISK_CACHE:${cacheOptions.key}`
     const defaultValueRef = useRef(cacheOptions.default)
     defaultValueRef.current = cacheOptions.default
@@ -90,8 +95,25 @@ export const useDiskCachedQuery = <
         }
     }, [result, cacheOptions.maxItems, storageKey])
 
-    return output
+    return { value: output, live: result }
 }
+
+// Boot consumers also need freshness before running onboarding or privacy effects.
+export const useDiskCachedQuery = <
+    Query extends FunctionReference<"query">,
+    ExtraProps extends Record<string, unknown>,
+    T = ReturnType<typeof useQuery<Query>>,
+    IsArray extends boolean = IsArrayType<T>
+>(
+    query: Query,
+    cacheOptions: {
+        key: string
+        maxItems?: number
+        default: ReturnType<typeof useQuery<Query>>
+        forceCache?: boolean
+    },
+    ...args: OptionalRestArgsOrSkip<Query>
+) => useDiskCachedQueryState<Query, ExtraProps, T, IsArray>(query, cacheOptions, ...args).value
 
 export const useDiskCachedPaginatedQuery = <
     ExtraProps extends Record<string, unknown>,
@@ -104,36 +126,48 @@ export const useDiskCachedPaginatedQuery = <
 ) => {
     const { results, status, loadMore } = usePaginatedQuery(query, args, options)
     const [acceptEmptyResults, setAcceptEmptyResults] = useState(false)
+    const skipped = args === "skip"
+    type Items = ((typeof results)[number] & ExtraProps)[]
+    const [lastSnapshot, setLastSnapshot] = useState<{ key: string; items: Items } | null>(null)
 
     const disk_cache: ((typeof results)[number] & ExtraProps)[] = useMemo(() => {
         if (typeof window === "undefined") return []
         const cache = localStorage.getItem(`CVX_DISK_CACHE:${cacheOptions.key}`)
         return cache ? JSON.parse(cache) : []
     }, [cacheOptions.key])
+    const cachedResults = lastSnapshot?.key === cacheOptions.key ? lastSnapshot.items : disk_cache
 
     // Debounce logic for "Exhausted" state with empty results
     useEffect(() => {
-        if (status === "Exhausted" && results.length === 0 && disk_cache.length > 0) {
+        if (skipped || status === "LoadingFirstPage" || results.length > 0) {
+            setAcceptEmptyResults(false)
+            return
+        }
+        if (status === "Exhausted" && results.length === 0 && cachedResults.length > 0) {
             // Wait 500ms before accepting empty results as truth
             const timer = setTimeout(() => {
                 setAcceptEmptyResults(true)
             }, 500)
             return () => clearTimeout(timer)
         }
-        if (results.length > 0) {
-            // Reset if we get actual results
-            setAcceptEmptyResults(false)
-        }
-    }, [status, results.length, disk_cache.length])
+    }, [skipped, status, results.length, cachedResults.length, cacheOptions.key])
 
     const output: ((typeof results)[number] & ExtraProps)[] =
+        skipped ||
         status === "LoadingFirstPage" ||
-        (results.length === 0 && disk_cache.length > 0 && !acceptEmptyResults)
-            ? disk_cache
+        (results.length === 0 && cachedResults.length > 0 && !acceptEmptyResults)
+            ? cachedResults
             : results
 
     useEffect(() => {
-        if (!results || status === "LoadingFirstPage") return
+        // A skipped query reports empty results; that is not an empty server list.
+        if (skipped || status === "LoadingFirstPage") return
+        if (results.length === 0 && cachedResults.length > 0 && !acceptEmptyResults) return
+        setLastSnapshot((previous) =>
+            previous?.key === cacheOptions.key && previous.items === results
+                ? previous
+                : { key: cacheOptions.key, items: results as Items }
+        )
         if (cacheOptions.maxItems && Array.isArray(results)) {
             localStorage.setItem(
                 `CVX_DISK_CACHE:${cacheOptions.key}`,
@@ -142,9 +176,23 @@ export const useDiskCachedPaginatedQuery = <
         } else {
             localStorage.setItem(`CVX_DISK_CACHE:${cacheOptions.key}`, JSON.stringify(results))
         }
-    }, [results, status, cacheOptions.key, cacheOptions.maxItems])
+    }, [
+        skipped,
+        results,
+        status,
+        cacheOptions.key,
+        cacheOptions.maxItems,
+        cachedResults.length,
+        acceptEmptyResults
+    ])
 
-    return { results: output, loadMore, status }
+    return {
+        results: output,
+        loadMore: (numItems: number) => {
+            if (!skipped) loadMore(numItems)
+        },
+        status
+    }
 }
 
 export const clearDiskCache = () => {

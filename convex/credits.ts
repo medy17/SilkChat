@@ -1,3 +1,6 @@
+import { getImportJobList } from "./import_jobs"
+import { getActiveSandboxSummary } from "./persistent_sandboxes"
+import { getBillingSummary } from "./billing"
 import { PrototypeCreditFeature } from "./schema/credits"
 import { v } from "convex/values"
 import {
@@ -625,31 +628,46 @@ export const getUserCreditStateInternal = internalQuery({
     }
 })
 
+export const getCreditPlanSummary = async (ctx: QueryCtx, userId: string) => {
+    const [account, access] = await Promise.all([
+        getCreditAccount(ctx, userId),
+        getUserAccess(ctx, userId)
+    ])
+    const resolvedAccount = getResolvedCreditAccount(account)
+    const resolvedAccess = getResolvedUserAccess(access)
+    const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
+
+    return {
+        enabled: resolvedAccount.enabled,
+        plan: resolvedAccount.plan,
+        isStaff: resolvedAccess.isStaff,
+        usageMetering: {
+            fiveHourLimitUsd: microusdToUsd(usageLimits.fiveHourMicrousd),
+            monthlyLimitUsd: microusdToUsd(usageLimits.monthlyMicrousd)
+        }
+    }
+}
+
 export const getMyCreditPlanSummary = query({
     args: {},
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) {
-            return null
-        }
+        return "error" in user ? null : getCreditPlanSummary(ctx, user.id)
+    }
+})
 
-        const [account, access] = await Promise.all([
-            getCreditAccount(ctx, user.id),
-            getUserAccess(ctx, user.id)
+export const getMyAccountStatus = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) return null
+        const plan = await getCreditPlanSummary(ctx, user.id)
+        const [billing, importJobs, activeSandbox] = await Promise.all([
+            getBillingSummary(ctx, user.id, plan.plan),
+            getImportJobList(ctx, user.id),
+            getActiveSandboxSummary(ctx, user.id)
         ])
-        const resolvedAccount = getResolvedCreditAccount(account)
-        const resolvedAccess = getResolvedUserAccess(access)
-        const usageLimits = getConfiguredHostedUsageLimits(resolvedAccount.plan)
-
-        return {
-            enabled: resolvedAccount.enabled,
-            plan: resolvedAccount.plan,
-            isStaff: resolvedAccess.isStaff,
-            usageMetering: {
-                fiveHourLimitUsd: microusdToUsd(usageLimits.fiveHourMicrousd),
-                monthlyLimitUsd: microusdToUsd(usageLimits.monthlyMicrousd)
-            }
-        }
+        return { userId: user.id, plan, billing, importJobs, activeSandbox }
     }
 })
 

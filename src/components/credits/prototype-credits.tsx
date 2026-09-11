@@ -1,3 +1,4 @@
+import { useBillingSummary } from "@/components/app-boot-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -9,7 +10,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { buildLemonSqueezyCheckoutUrl } from "@/lib/billing"
@@ -20,7 +20,6 @@ import type {
     PrototypeCreditSummary
 } from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { Clock, Crown, RefreshCw, Shield, Wallet } from "lucide-react"
 import { memo, type ReactNode, useEffect, useMemo, useState } from "react"
 
@@ -139,10 +138,7 @@ function PrototypeCreditsBody({
 }) {
     const session = useSession()
     const checkoutUser = session.user
-    const checkoutBillingSummary = useConvexQuery(
-        api.billing.getMyBillingSummary,
-        summary?.plan === "free" && checkoutUser?.id ? {} : "skip"
-    )
+    const checkoutBillingSummary = useBillingSummary()
     const checkoutUrl = optionalBrowserEnv("VITE_LEMONSQUEEZY_PRO_CHECKOUT_URL")
     const checkoutBillingUserId =
         checkoutBillingSummary && !("error" in checkoutBillingSummary)

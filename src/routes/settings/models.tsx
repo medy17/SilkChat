@@ -1,3 +1,4 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
     AlertDialog,
@@ -40,7 +41,6 @@ import {
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { Box, Check, Image, Plus, SquarePen, Trash2, X } from "lucide-react"
@@ -261,10 +261,7 @@ function LegacyModelsRedirect() {
 
 export function ModelsSettingsContent() {
     const session = useSession()
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
+    const userSettings = useLiveUserSettings()
     const updateSettings = useMutation(api.settings.updateUserSettingsPartial)
 
     const [loading, setLoading] = useState(false)

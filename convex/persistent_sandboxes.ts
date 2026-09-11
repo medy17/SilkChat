@@ -157,21 +157,24 @@ const getLatestActiveSandbox = async (ctx: Pick<QueryCtx, "db">, userId: string)
     return records.find((record) => ACTIVE_STATUSES.has(record.status))
 }
 
+export const getActiveSandboxSummary = async (ctx: QueryCtx, userId: string) => {
+    const record = await getLatestActiveSandbox(ctx, userId)
+    if (!record) return null
+    return {
+        _id: record._id,
+        status: record.status,
+        runtime: record.runtime,
+        runtimeVersion: record.runtimeVersion,
+        expiresAt: record.expiresAt,
+        sessionState: record.sessionState
+    }
+}
+
 export const getMyActivePersistentSandbox = query({
     args: {},
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) return null
-        const record = await getLatestActiveSandbox(ctx, user.id)
-        if (!record) return null
-        return {
-            _id: record._id,
-            status: record.status,
-            runtime: record.runtime,
-            runtimeVersion: record.runtimeVersion,
-            expiresAt: record.expiresAt,
-            sessionState: record.sessionState
-        }
+        return "error" in user ? null : getActiveSandboxSummary(ctx, user.id)
     }
 })
 

@@ -1,9 +1,8 @@
-import { api } from "@/convex/_generated/api"
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { useSession } from "@/hooks/auth-hooks"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import { isBrowserTelemetryConfigured } from "@/lib/telemetry/browser"
 import { getTelemetryEnvironment } from "@/lib/telemetry/events"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { usePostHog } from "posthog-js/react"
 import { useEffect, useRef } from "react"
 
@@ -13,7 +12,7 @@ export function TelemetryIdentity() {
     const identifiedUserId = useRef<string | null>(null)
     const telemetryActive = useRef(false)
     const userId = session?.user?.id
-    const userSettings = useConvexQuery(api.settings.getUserSettings, userId ? {} : "skip")
+    const userSettings = useLiveUserSettings()
 
     useEffect(() => {
         if (!isBrowserTelemetryConfigured()) return

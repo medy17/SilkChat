@@ -1,3 +1,4 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,7 @@ import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { stopHaptics } from "@/lib/haptics"
 import { useHapticsSettingsStore } from "@/lib/haptics-settings-store"
 import { cn } from "@/lib/utils"
-import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
+import { useConvexMutation } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { CheckCircle, Loader2, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -156,10 +157,7 @@ export function BehaviorSettingsContent() {
     const isTouchDevice = useIsTouchDevice()
     const hapticsEnabled = useHapticsSettingsStore((state) => state.enabled)
     const setHapticsEnabled = useHapticsSettingsStore((state) => state.setEnabled)
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
+    const userSettings = useLiveUserSettings()
     const updateSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
 
     const [isSaving, setIsSaving] = useState(false)

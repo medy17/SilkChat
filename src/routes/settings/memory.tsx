@@ -1,3 +1,4 @@
+import { useToolAvailability } from "@/components/app-boot-provider"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
     AlertDialog,
@@ -33,7 +34,7 @@ import type { SupermemoryMemoryEntry } from "@/convex/lib/supermemory_api"
 import { useSession } from "@/hooks/auth-hooks"
 import { filterCurrentMemories } from "@/lib/memory"
 import { createFileRoute } from "@tanstack/react-router"
-import { useAction, useQuery } from "convex/react"
+import { useAction } from "convex/react"
 import { BrainCircuit, Pencil, Plus, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -56,7 +57,7 @@ export const Route = createFileRoute("/settings/memory")({
 
 function MemorySettingsPage() {
     const session = useSession()
-    const availability = useQuery(api.settings.getToolAvailability, session.user?.id ? {} : "skip")
+    const availability = useToolAvailability()
     const listMemories = useAction(api.supermemory_node.listMemories)
     const createMemory = useAction(api.supermemory_node.createMemory)
     const updateMemory = useAction(api.supermemory_node.updateMemory)

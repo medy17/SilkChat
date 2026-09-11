@@ -1,4 +1,4 @@
-import { api } from "@/convex/_generated/api"
+import { useAccountStatus } from "@/components/app-boot-provider"
 import { useSession } from "@/hooks/auth-hooks"
 import {
     type PrototypeCreditPlanSummary,
@@ -6,7 +6,6 @@ import {
     writeCachedPrototypeCreditValue
 } from "@/lib/prototype-credits"
 import { useConvexAuth } from "@convex-dev/react-query"
-import { useQuery } from "convex-helpers/react/cache"
 import { useEffect, useMemo } from "react"
 import { create } from "zustand"
 
@@ -35,12 +34,14 @@ export function CreditAccessRuntime() {
         () => readCachedPrototypeCreditValue<PrototypeCreditPlanSummary>(cacheKey),
         [cacheKey]
     )
-    const liveSummary = useQuery(
-        api.credits.getMyCreditPlanSummary,
-        userId && !auth.isLoading ? {} : "skip"
-    )
+    const { value: accountStatus, live: liveAccountStatus } = useAccountStatus()
+    const liveSummary =
+        liveAccountStatus === undefined ? undefined : (liveAccountStatus?.plan ?? null)
     const summary =
-        liveSummary === undefined ? (cachedSummary?.value ?? null) : (liveSummary ?? null)
+        liveSummary === undefined
+            ? (accountStatus?.plan ?? cachedSummary?.value ?? null)
+            : liveSummary
+
     const isLoading = Boolean(userId) && (auth.isLoading || liveSummary === undefined) && !summary
 
     useEffect(() => {

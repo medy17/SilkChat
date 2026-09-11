@@ -1,3 +1,5 @@
+import { useActiveSandbox } from "@/components/app-boot-provider"
+import { useToolAvailability } from "@/components/app-boot-provider"
 import { AttachmentTile } from "@/components/attachment-tile"
 import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { IntentGuide } from "@/components/intent-guide"
@@ -53,7 +55,6 @@ import {
     resolveIntentGuideStage
 } from "@/lib/composer-intents"
 import { isComposerPasteTarget } from "@/lib/composer-paste"
-import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import {
     estimateTokenCount,
@@ -120,7 +121,7 @@ import { type ImageDimensions, estimateImageInputTokens } from "@/lib/vision-tok
 import type { useChat } from "@ai-sdk/react"
 import { useConvexMutation } from "@convex-dev/react-query"
 import type { UIMessage } from "ai"
-import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { useAction, useConvexAuth, useMutation, usePaginatedQuery } from "convex/react"
 import {
     ArrowUp,
     BrainCircuit,
@@ -997,15 +998,7 @@ export function useComposerToolbarState() {
     )
 
     const userSettings = useCurrentUserSettings(session.user?.id, auth.isLoading)
-    const toolAvailability = useDiskCachedQuery(
-        api.settings.getToolAvailability,
-        {
-            key: "tool-availability",
-            default: null,
-            forceCache: true
-        },
-        session.user?.id && !auth.isLoading ? {} : "skip"
-    )
+    const toolAvailability = useToolAvailability()
     const updateUserSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
     const resolvedUserSettings =
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "CACHE") : userSettings
@@ -1384,10 +1377,7 @@ export const MultimodalInput = forwardRef<
     const auth = useConvexAuth()
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
     const killPersistentSandbox = useAction(api.persistent_sandboxes_node.killMyPersistentSandbox)
-    const activePersistentSandbox = useQuery(
-        api.persistent_sandboxes.getMyActivePersistentSandbox,
-        session.user?.id && !auth.isLoading ? {} : "skip"
-    )
+    const activePersistentSandbox = useActiveSandbox()
     const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
     const isTouchDevice = useIsTouchDevice()
     const composerToolbar = useComposerToolbarState()

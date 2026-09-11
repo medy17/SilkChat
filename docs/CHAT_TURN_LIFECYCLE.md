@@ -63,7 +63,51 @@ pages. The header uses the same controlled open state for its desktop popover an
 mobile drawer; usage subscribes only while open, and collapsing header controls
 closes it. Settings pages remain subscribed while mounted. All three use ordinary
 subscriptions, retaining only an account-scoped display cache after closing or
-navigation. The separate plan/access subscription remains active for feature gates.
+navigation. The shared account-status subscription remains active for feature gates.
+
+Sidebar thread pagination subscribes only while the desktop sidebar or mobile
+drawer is open, including expanded project folders. Initial subscription waits for
+the mobile breakpoint to resolve. Closing suspends pagination but preserves the
+latest in-memory list and disk cache; reopening displays cached rows while the
+server refreshes. A skipped query never clears the cache. Current-chat shortcuts,
+project metadata, import notifications, and pending selection actions keep their
+existing subscriptions.
+
+## App boot subscriptions
+
+`AppBootProvider` owns two subscriptions after the app session and Convex authentication
+agree. A loaded app session alone must not subscribe through a still-unauthenticated
+socket. Consumers select
+results through shared hooks rather than subscribing to the former individual
+queries:
+
+- `settings:getAppConfiguration`: public user settings, onboarding status, tool
+  availability, versioned upload policy, model catalog, persona picker options, and
+  dev-only model context limits. Reads settings once and reuses the enriched catalog
+  for all dev model limits instead of querying whenever the selected model changes.
+- `credits:getMyAccountStatus`: credit plan/access and billing summary. Reads the
+  credit account once, user access, and that user's billing subscriptions, recent import
+  jobs, and active sandbox summary. Import and sandbox updates refresh this smaller
+  runtime payload without rereading the model catalog. Usage
+  events and reservations are not part of its read dependencies.
+
+This replaces eleven distinct frontend queries with two subscriptions. The original public
+endpoints remain compatible for existing clients and server callers. Both boot
+queries use plain shared helpers, not nested query calls. Chat readiness and all
+server-side admission checks remain separate.
+
+The existing disk-cache hook exposes both cached display values and fresh query
+results. Boot caches are account-scoped, and responses belonging to another user
+are rejected before rendering or persistence. Cached settings and plan data can
+render immediately; onboarding, telemetry, billing dialogs, and editable settings
+wait for fresh results. Upload-policy mismatch invalidates the combined configuration
+cache. The shared provider remains mounted through route and viewport changes.
+
+Project lists stay separate: their per-folder aggregate-count calls would otherwise
+repeat on unrelated configuration or runtime updates. Usage and thread pagination
+also keep their own subscriptions. The persona picker retains its opening-animation
+update pause through a local snapshot, without another subscription. Auth HTTP
+coalescing and dev credit-state requests are unchanged.
 
 ## Attachment admission
 

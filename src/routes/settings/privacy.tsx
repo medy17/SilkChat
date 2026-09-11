@@ -1,10 +1,11 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
-import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
+import { useConvexMutation } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { usePostHog } from "posthog-js/react"
@@ -20,7 +21,7 @@ function PrivacySettingsRoute() {
     const posthog = usePostHog()
     const [isUpdating, setIsUpdating] = useState(false)
     const userId = session?.user?.id
-    const userSettings = useConvexQuery(api.settings.getUserSettings, userId ? {} : "skip")
+    const userSettings = useLiveUserSettings()
     const updateSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
 
     const handleTelemetryToggle = async (enabled: boolean) => {

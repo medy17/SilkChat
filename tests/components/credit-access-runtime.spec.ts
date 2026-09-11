@@ -4,9 +4,9 @@ import { render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { useConvexAuthMock, useQueryMock, useSessionMock } = vi.hoisted(() => ({
+const { useConvexAuthMock, useAccountStatusMock, useSessionMock } = vi.hoisted(() => ({
     useConvexAuthMock: vi.fn(),
-    useQueryMock: vi.fn(),
+    useAccountStatusMock: vi.fn(),
     useSessionMock: vi.fn()
 }))
 
@@ -18,8 +18,8 @@ vi.mock("@convex-dev/react-query", () => ({
     useConvexAuth: useConvexAuthMock
 }))
 
-vi.mock("convex-helpers/react/cache", () => ({
-    useQuery: useQueryMock
+vi.mock("@/components/app-boot-provider", () => ({
+    useAccountStatus: useAccountStatusMock
 }))
 
 import { CreditAccessRuntime, useCreditAccess } from "@/components/credits/credit-access-runtime"
@@ -42,7 +42,7 @@ function CreditConsumer({ label }: { label: string }) {
 describe("CreditAccessRuntime", () => {
     beforeEach(() => {
         localStorage.clear()
-        useQueryMock.mockReset()
+        useAccountStatusMock.mockReset()
         useSessionMock.mockReturnValue({ data: { user: { id: "user-1" } } })
         useConvexAuthMock.mockReturnValue({ isLoading: false })
         useCreditAccess.setState({
@@ -53,8 +53,11 @@ describe("CreditAccessRuntime", () => {
         })
     })
 
-    it("owns one query while sharing credit access with many consumers", async () => {
-        useQueryMock.mockReturnValue(planSummary)
+    it("shares the boot account status with many consumers", async () => {
+        useAccountStatusMock.mockReturnValue({
+            value: { plan: planSummary },
+            live: { plan: planSummary }
+        })
 
         render(
             React.createElement(
@@ -70,7 +73,6 @@ describe("CreditAccessRuntime", () => {
         expect(await screen.findByText("first:pro:true")).toBeTruthy()
         expect(screen.getByText("second:pro:true")).toBeTruthy()
         expect(screen.getByText("third:pro:true")).toBeTruthy()
-        expect(useQueryMock).toHaveBeenCalledTimes(1)
 
         await waitFor(() => {
             expect(
@@ -82,7 +84,10 @@ describe("CreditAccessRuntime", () => {
     it("does not remount sibling UI when credit access hydrates", async () => {
         let liveSummary: typeof planSummary | undefined
         let footerMountCount = 0
-        useQueryMock.mockImplementation(() => liveSummary)
+        useAccountStatusMock.mockImplementation(() => ({
+            value: liveSummary ? { plan: liveSummary } : null,
+            live: liveSummary ? { plan: liveSummary } : undefined
+        }))
 
         function FooterProbe() {
             React.useEffect(() => {

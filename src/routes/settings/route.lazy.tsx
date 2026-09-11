@@ -1,3 +1,4 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { SettingsBackButton } from "@/components/settings/settings-back-button"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
@@ -8,10 +9,8 @@ import {
     SelectValue
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
 import {
     BarChart3,
@@ -112,10 +111,7 @@ export const Route = createLazyFileRoute("/settings")({
 
 const Inner = () => {
     const session = useSession()
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
+    const userSettings = useLiveUserSettings()
     if (!session.user?.id) {
         return (
             <SettingsLayout

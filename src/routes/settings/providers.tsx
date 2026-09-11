@@ -1,3 +1,4 @@
+import { useLiveUserSettings } from "@/components/app-boot-provider"
 import { Logo } from "@/components/logo"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
@@ -33,7 +34,6 @@ import {
     shouldShowCoreInferenceProvider,
     useAvailableModels
 } from "@/lib/models-providers-shared"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import {
@@ -658,10 +658,7 @@ function LegacyProvidersRedirect() {
 
 export function ProvidersSettingsContent() {
     const session = useSession()
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
+    const userSettings = useLiveUserSettings()
     const updateSettings = useMutation(api.settings.updateUserSettingsPartial)
 
     const [loading, setLoading] = useState(false)

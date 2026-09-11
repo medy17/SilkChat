@@ -1,3 +1,5 @@
+import { useDevModelLimits } from "@/components/app-boot-provider"
+import { usePersonaPickerOptions } from "@/components/app-boot-provider"
 import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import { api } from "@/convex/_generated/api"
@@ -241,14 +243,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     }, [])
 
     const isEmpty = displayMessages.length === 0 && !threadId
-    const personaOptions = useDiskCachedQuery(
-        api.personas.listPersonaPickerOptions,
-        {
-            key: "persona-picker-options",
-            default: { builtIns: [], userPersonas: [] }
-        },
-        session?.user?.id ? {} : "skip"
-    )
+    const personaOptions = usePersonaPickerOptions()
 
     const userName =
         session?.user?.name ?? (isPending ? localStorage.getItem("DISK_CACHE:user-name") : null)
@@ -341,10 +336,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         api.threads.getThread,
         devEnabled && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
     )
-    const devModelLimits = useConvexQuery(
-        api.settings.getDevModelContextLimits,
-        devEnabled && selectedModel ? { modelId: selectedModel } : "skip"
-    )
+    const devModelLimits = useDevModelLimits(selectedModel, devEnabled)
     const personaDiagnostics = useMemo<ThreadPersonaInfo>(() => {
         const options =
             "error" in personaOptions

@@ -1,6 +1,7 @@
 "use client"
 
-import { api } from "@/convex/_generated/api"
+import { useBillingSummary } from "@/components/app-boot-provider"
+
 import { useSession } from "@/hooks/auth-hooks"
 import { useOnboarding } from "@/hooks/use-onboarding"
 import { optionalBrowserEnv } from "@/lib/browser-env"
@@ -10,7 +11,6 @@ import {
     shouldShowPastDueRenewalNudge
 } from "@/lib/past-due-renewal"
 import { dismissProWelcome, shouldShowProWelcome } from "@/lib/pro-welcome"
-import { useQuery } from "convex/react"
 import { useEffect, useState } from "react"
 import {
     DEV_OPEN_ONBOARDING_EVENT,
@@ -28,10 +28,7 @@ interface OnboardingProviderProps {
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
     const { data: session } = useSession()
     const { shouldShowOnboarding, isLoading, completeOnboarding } = useOnboarding()
-    const billingSummary = useQuery(
-        api.billing.getMyBillingSummary,
-        session?.user?.id ? {} : "skip"
-    )
+    const billingSummary = useBillingSummary()
     const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false)
     const [isDevDialogOpen, setIsDevDialogOpen] = useState(false)
     const [isRenewalDialogOpen, setIsRenewalDialogOpen] = useState(false)

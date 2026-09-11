@@ -1,3 +1,4 @@
+import { usePersonaPickerOptions } from "@/components/app-boot-provider"
 import { MemoizedMarkdown } from "@/components/memoized-markdown"
 import { getProviderIcon } from "@/components/model-selector"
 import { PersonaAvatar, getPersonaAvatarSrc } from "@/components/persona-avatar"
@@ -23,7 +24,6 @@ import {
     resolveAvailableModelReplacement
 } from "@/hooks/use-model-lifecycle-migration"
 import { useChatStore } from "@/lib/chat-store"
-import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { getFavoriteToggleAction } from "@/lib/model-favorites"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels } from "@/lib/models-providers-shared"
@@ -752,15 +752,7 @@ export function PersonaSelector({
         return () => window.clearTimeout(timeoutId)
     }, [isPickerOpen])
 
-    const pickerOptions = useDiskCachedQuery(
-        api.personas.listPersonaPickerOptions,
-        {
-            key: "persona-picker-options",
-            default: { builtIns: [], userPersonas: [] },
-            forceCache: true
-        },
-        session.user?.id && !auth.isLoading && canRevalidatePickerOptions ? {} : "skip"
-    )
+    const pickerOptions = usePersonaPickerOptions(canRevalidatePickerOptions)
     const userSettings = useCurrentUserSettings(session.user?.id, auth.isLoading)
     const resolvedPickerOptions = "error" in pickerOptions ? null : pickerOptions
     const { availableModels } = useAvailableModels(

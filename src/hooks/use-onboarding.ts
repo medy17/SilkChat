@@ -1,10 +1,11 @@
+import { useAppConfiguration } from "@/components/app-boot-provider"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
 
 export function useOnboarding() {
     const { data: session } = useSession()
-    const onboardingStatus = useQuery(api.settings.getOnboardingStatus)
+    const onboardingStatus = useAppConfiguration().live?.onboarding
     const completeOnboardingMutation = useMutation(api.settings.completeOnboarding)
 
     // Only show onboarding if user is logged in and the server says to show it

@@ -39,6 +39,7 @@ import {
     useSidebarActions
 } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
+import { useSidebarVisible } from "@/hooks/use-sidebar-visible"
 import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
@@ -118,6 +119,7 @@ export function FolderItem({
     onOpenBulkMoveDialog,
     onOpenBulkDeleteDialog
 }: FolderItemProps) {
+    const sidebarVisible = useSidebarVisible()
     const [showEditDialog, setShowEditDialog] = useState(false)
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -158,7 +160,7 @@ export function FolderItem({
             key: `threads-folder-sidebar-${project._id}`,
             maxItems: 25
         },
-        isExpanded && hasThreads
+        sidebarVisible && isExpanded && hasThreads
             ? {
                   projectId: project._id
               }

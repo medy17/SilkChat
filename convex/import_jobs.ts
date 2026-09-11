@@ -5,6 +5,7 @@ import { internal } from "./_generated/api"
 import type { Doc } from "./_generated/dataModel"
 import {
     type MutationCtx,
+    type QueryCtx,
     internalMutation,
     internalQuery,
     mutation,
@@ -225,24 +226,19 @@ export const startImportJob = mutation({
     }
 })
 
+export const getImportJobList = async (ctx: QueryCtx, userId: string, limit = 6) => {
+    return await ctx.db
+        .query("importJobs")
+        .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", userId))
+        .order("desc")
+        .take(Math.min(limit ?? 6, 20))
+}
+
 export const listImportJobs = query({
-    args: {
-        limit: v.optional(v.number())
-    },
+    args: { limit: v.optional(v.number()) },
     handler: async (ctx, { limit }) => {
-        const user = await getUserIdentity(ctx.auth, {
-            allowAnons: false
-        })
-
-        if ("error" in user) {
-            return []
-        }
-
-        return await ctx.db
-            .query("importJobs")
-            .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", user.id))
-            .order("desc")
-            .take(Math.min(limit ?? 6, 20))
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        return "error" in user ? [] : getImportJobList(ctx, user.id, limit)
     }
 })
 

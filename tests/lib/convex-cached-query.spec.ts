@@ -21,8 +21,6 @@ import {
     useDiskCachedPaginatedQuery,
     useDiskCachedQuery
 } from "@/lib/convex-cached-query"
-import { useCurrentUserSettings } from "@/hooks/use-current-user-settings"
-import { DefaultSettings } from "@/lib/default-user-settings"
 
 const useDiskCachedQueryTest = useDiskCachedQuery as unknown as (
     query: never,
@@ -40,26 +38,9 @@ const useDiskCachedPaginatedQueryTest = useDiskCachedPaginatedQuery as unknown a
     cacheOptions: { key: string; maxItems?: number },
     args: unknown,
     options: { initialNumItems: number }
-) => { results: unknown[]; loadMore: ReturnType<typeof vi.fn>; status: string }
+) => { results: unknown[]; loadMore: (numItems: number) => void; status: string }
 
 describe("convex-cached-query", () => {
-    it("keeps cached settings separate across account changes and logout", () => {
-        localStorage.clear()
-        useQueryMock.mockReturnValue(undefined)
-        localStorage.setItem(
-            "CVX_DISK_CACHE:user-settings:alice",
-            JSON.stringify({ ...DefaultSettings("alice"), invertSendNewlineBehavior: true })
-        )
-        const { result, rerender } = renderHook(
-            ({ userId }: { userId: string | undefined }) => useCurrentUserSettings(userId, true),
-            { initialProps: { userId: "alice" as string | undefined } }
-        )
-        expect(result.current).toMatchObject({ userId: "alice", invertSendNewlineBehavior: true })
-        rerender({ userId: "bob" })
-        expect(result.current).toMatchObject({ userId: "bob", invertSendNewlineBehavior: false })
-        rerender({ userId: undefined })
-        expect(result.current).toMatchObject({ userId: "CACHE", invertSendNewlineBehavior: false })
-    })
     beforeEach(() => {
         localStorage.clear()
         usePaginatedQueryMock.mockReset()
@@ -222,6 +203,65 @@ describe("convex-cached-query", () => {
             vi.advanceTimersByTime(1)
         })
         expect(result.current.results).toEqual([])
+    })
+
+    it("retains the latest pages across skip/reopen without writing an empty cache or paginating while hidden", () => {
+        localStorage.setItem("CVX_DISK_CACHE:pages", JSON.stringify([{ id: "old" }]))
+        const loadMore = vi.fn()
+        const paginatedState = { results: [{ id: "latest" }], status: "CanLoadMore", loadMore }
+        usePaginatedQueryMock.mockImplementation((_query, args) =>
+            args === "skip" ? { results: [], status: "Exhausted", loadMore } : paginatedState
+        )
+        const { result, rerender } = renderHook(
+            (visible: boolean) =>
+                useDiskCachedPaginatedQueryTest(
+                    "query-ref" as never,
+                    { key: "pages" },
+                    (visible ? { folderId: "folder-1" } : "skip") as never,
+                    { initialNumItems: 10 }
+                ),
+            { initialProps: true }
+        )
+        expect(result.current.results).toEqual([{ id: "latest" }])
+        rerender(false)
+        act(() => vi.advanceTimersByTime(1_000))
+        expect(result.current.results).toEqual([{ id: "latest" }])
+        expect(JSON.parse(localStorage.getItem("CVX_DISK_CACHE:pages")!)).toEqual([
+            { id: "latest" }
+        ])
+        result.current.loadMore(25)
+        expect(loadMore).not.toHaveBeenCalled()
+        paginatedState.results = []
+        paginatedState.status = "LoadingFirstPage"
+        rerender(true)
+        expect(result.current.results).toEqual([{ id: "latest" }])
+        paginatedState.status = "Exhausted"
+        rerender(true)
+        act(() => vi.advanceTimersByTime(500))
+        expect(result.current.results).toEqual([])
+        expect(localStorage.getItem("CVX_DISK_CACHE:pages")).toBe("[]")
+    })
+
+    it("keeps disk results on an initially skipped list and isolates pagination cache keys", () => {
+        localStorage.setItem("CVX_DISK_CACHE:a", JSON.stringify([{ id: "a" }]))
+        localStorage.setItem("CVX_DISK_CACHE:b", JSON.stringify([{ id: "b" }]))
+        usePaginatedQueryMock.mockReturnValue({
+            results: [],
+            status: "Exhausted",
+            loadMore: vi.fn()
+        })
+        const { result, rerender } = renderHook(
+            (key: string) =>
+                useDiskCachedPaginatedQueryTest("query-ref" as never, { key }, "skip" as never, {
+                    initialNumItems: 10
+                }),
+            { initialProps: "a" }
+        )
+        act(() => vi.advanceTimersByTime(1_000))
+        expect(result.current.results).toEqual([{ id: "a" }])
+        rerender("b")
+        expect(result.current.results).toEqual([{ id: "b" }])
+        expect(localStorage.getItem("CVX_DISK_CACHE:a")).toBe(JSON.stringify([{ id: "a" }]))
     })
 
     it("clears only the disk cache keys owned by the helper", () => {

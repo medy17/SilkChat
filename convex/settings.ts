@@ -1,4 +1,6 @@
+import { getPersonaPickerOptions } from "./lib/persona_picker"
 import { DefaultSettings } from "@/lib/default-user-settings"
+import { DEFAULT_UPLOAD_POLICY, DEFAULT_UPLOAD_POLICY_VERSION } from "@/lib/file_constants"
 import { ChatError } from "@/lib/errors"
 import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
 import { getBuiltInThemeUrl, normalizeThemeImportUrl } from "@/lib/theme-utils"
@@ -276,33 +278,79 @@ export const getToolAvailability = query({
     }
 })
 
-export const getSharedModels = query({
+// Public boot data uses the same settings projection as getUserSettings, never
+// the decrypted provider registry used by server-side chat readiness.
+export const getAppConfiguration = query({
     args: {},
     handler: async (ctx) => {
-        const hasAdminModelAccess = await resolveCurrentUserAdminModelAccess(ctx)
-        const sharedModels = getSharedModelsForUser(hasAdminModelAccess)
-        const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
-            ctx,
-            sharedModels
-        )
-        const metadataVersion = Math.max(
-            0,
-            ...Object.values(metadataByProviderModelId).map((metadata) => metadata.fetchedAt ?? 0)
-        )
-
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        const userId = "error" in user ? null : user.id
+        const [settings, sharedModels, personas] = await Promise.all([
+            userId ? getSettings(ctx, userId) : null,
+            getSharedModelCatalog(ctx, userId ? await userHasAdminModelAccess(ctx, userId) : false),
+            getPersonaPickerOptions(ctx, userId)
+        ])
+        const devModelLimits =
+            process.env.DEV_CREDIT_LAB_ENABLED === "1"
+                ? Object.fromEntries(
+                      sharedModels.models.map((model) => [model.id, projectDevModelLimits(model)])
+                  )
+                : null
         return {
-            version: `${SHARED_MODELS_VERSION}:${metadataVersion}`,
-            models: sharedModels.map((model) =>
-                overlayOpenRouterMetadata(model, metadataByProviderModelId)
-            )
+            userId,
+            settings,
+            sharedModels,
+            personas,
+            devModelLimits,
+            onboarding: settings ? { shouldShowOnboarding: !settings.onboardingCompleted } : null,
+            toolAvailability: settings ? resolveToolAvailability(settings) : null,
+            uploadPolicy: { ...DEFAULT_UPLOAD_POLICY, version: DEFAULT_UPLOAD_POLICY_VERSION }
         }
     }
+})
+
+const getSharedModelCatalog = async (ctx: QueryCtx, hasAdminModelAccess: boolean) => {
+    const sharedModels = getSharedModelsForUser(hasAdminModelAccess)
+    const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
+        ctx,
+        sharedModels
+    )
+    const metadataVersion = Math.max(
+        0,
+        ...Object.values(metadataByProviderModelId).map((metadata) => metadata.fetchedAt ?? 0)
+    )
+
+    return {
+        version: `${SHARED_MODELS_VERSION}:${metadataVersion}`,
+        models: sharedModels.map((model) =>
+            overlayOpenRouterMetadata(model, metadataByProviderModelId)
+        )
+    }
+}
+
+export const getSharedModels = query({
+    args: {},
+    handler: async (ctx) =>
+        getSharedModelCatalog(ctx, await resolveCurrentUserAdminModelAccess(ctx))
 })
 
 /**
  * Dev-only: the resolved context limits for a model, computed with OpenRouter pricing metadata.
  * Returns null in production — gated by the same flag as the dev credit lab.
  */
+const projectDevModelLimits = (model: SharedModel) => {
+    const limits = resolveContextLimits(model)
+    return {
+        contextLength: model.contextLength ?? null,
+        maxTokens: model.maxTokens ?? null,
+        inputUsdPer1MTokens: model.inputUsdPer1MTokens ?? null,
+        hostedContextLength: model.hostedContextLength ?? null,
+        resolvedHostedInputLimit: limits.hostedInputLimit,
+        resolvedModelInputLimit: limits.modelInputLimit,
+        hasPricing: typeof model.inputUsdPer1MTokens === "number"
+    }
+}
+
 export const getDevModelContextLimits = query({
     args: { modelId: v.string() },
     handler: async (ctx, { modelId }) => {
@@ -324,18 +372,7 @@ export const getDevModelContextLimits = query({
         }
 
         const enriched = overlayOpenRouterMetadata(model, metadataByProviderModelId)
-        const limits = resolveContextLimits(enriched)
-        return {
-            // The enriched policy fields, so the client can re-run resolveContextLimits with a
-            // dev OTF override layered on top.
-            contextLength: enriched.contextLength ?? null,
-            maxTokens: enriched.maxTokens ?? null,
-            inputUsdPer1MTokens: enriched.inputUsdPer1MTokens ?? null,
-            hostedContextLength: model.hostedContextLength ?? null,
-            resolvedHostedInputLimit: limits.hostedInputLimit,
-            resolvedModelInputLimit: limits.modelInputLimit,
-            hasPricing: typeof enriched.inputUsdPer1MTokens === "number"
-        }
+        return projectDevModelLimits(enriched)
     }
 })
 

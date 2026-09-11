@@ -1,3 +1,4 @@
+import { useToolAvailability, useLiveUserSettings } from "@/components/app-boot-provider"
 import { Button } from "@/components/ui/button"
 import {
     Command,
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/responsive-popover"
 import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
-import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
     IMAGE_RESOLUTION_OPTIONS,
@@ -32,7 +32,7 @@ import {
     clampToolCallLimitPerTurn
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
-import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
+import { useConvexMutation } from "@convex-dev/react-query"
 import {
     BrainCircuit,
     CircleHelp,
@@ -452,7 +452,6 @@ export const ToolSelectorPopover = memo(
         open: controlledOpen,
         onOpenChange
     }: ToolSelectorPopoverProps) => {
-        const session = useSession()
         const isMobile = useIsMobile()
         const [internalOpen, setInternalOpen] = useState(false)
         const open = controlledOpen ?? internalOpen
@@ -460,15 +459,9 @@ export const ToolSelectorPopover = memo(
             if (controlledOpen === undefined) setInternalOpen(nextOpen)
             onOpenChange?.(nextOpen)
         }
-        const userSettings = useConvexQuery(
-            api.settings.getUserSettings,
-            session.user?.id ? {} : "skip"
-        )
+        const userSettings = useLiveUserSettings()
         const updateSettings = useConvexMutation(api.settings.updateUserSettingsPartial)
-        const toolAvailability = useConvexQuery(
-            api.settings.getToolAvailability,
-            session.user?.id ? {} : "skip"
-        )
+        const toolAvailability = useToolAvailability()
 
         const activeVariant = tone === "on-primary" ? "ghost" : "default"
 

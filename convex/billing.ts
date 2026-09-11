@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { type MutationCtx, internalMutation, query } from "./_generated/server"
+import { type MutationCtx, type QueryCtx, internalMutation, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
 import {
     getEffectiveBillingPlan,
@@ -36,42 +36,47 @@ const getSuppressionBySubscriptionId = async (ctx: MutationCtx, subscriptionId: 
         .first()
 }
 
+export const getBillingSummary = async (
+    ctx: QueryCtx,
+    userId: string,
+    knownPlan?: "free" | "pro"
+) => {
+    const [account, subscriptions] = await Promise.all([
+        knownPlan === undefined
+            ? ctx.db
+                  .query("prototypeCreditAccounts")
+                  .withIndex("byUser", (q) => q.eq("userId", userId))
+                  .first()
+            : null,
+        ctx.db
+            .query("lemonSqueezySubscriptions")
+            .withIndex("byUser", (q) => q.eq("userId", userId))
+            .collect()
+    ])
+    const subscription = selectEffectiveSubscription(subscriptions)
+    return {
+        userId,
+        plan: knownPlan ?? account?.plan ?? "free",
+        subscription: subscription
+            ? {
+                  status: subscription.status,
+                  renewsAt: subscription.renewsAt,
+                  endsAt: subscription.endsAt,
+                  trialEndsAt: subscription.trialEndsAt,
+                  lemonSqueezySubscriptionId: subscription.lemonSqueezySubscriptionId,
+                  lemonSqueezyCustomerId: subscription.lemonSqueezyCustomerId,
+                  createdAt: subscription.createdAt,
+                  updatedAt: subscription.updatedAt
+              }
+            : null
+    }
+}
+
 export const getMyBillingSummary = query({
     args: {},
     handler: async (ctx) => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) {
-            return null
-        }
-
-        const [account, subscriptions] = await Promise.all([
-            ctx.db
-                .query("prototypeCreditAccounts")
-                .withIndex("byUser", (q) => q.eq("userId", user.id))
-                .first(),
-            ctx.db
-                .query("lemonSqueezySubscriptions")
-                .withIndex("byUser", (q) => q.eq("userId", user.id))
-                .collect()
-        ])
-        const subscription = selectEffectiveSubscription(subscriptions)
-
-        return {
-            userId: user.id,
-            plan: account?.plan ?? "free",
-            subscription: subscription
-                ? {
-                      status: subscription.status,
-                      renewsAt: subscription.renewsAt,
-                      endsAt: subscription.endsAt,
-                      trialEndsAt: subscription.trialEndsAt,
-                      lemonSqueezySubscriptionId: subscription.lemonSqueezySubscriptionId,
-                      lemonSqueezyCustomerId: subscription.lemonSqueezyCustomerId,
-                      createdAt: subscription.createdAt,
-                      updatedAt: subscription.updatedAt
-                  }
-                : null
-        }
+        return "error" in user ? null : getBillingSummary(ctx, user.id)
     }
 })
 

@@ -1,14 +1,13 @@
+import { useBillingSummary } from "@/components/app-boot-provider"
 import { PrototypeCreditsCard } from "@/components/credits/prototype-credits"
 import { pricingOptions } from "@/components/landing-page/content"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
-import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { buildLemonSqueezyCheckoutUrl } from "@/lib/billing"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Crown, ExternalLink, Wallet } from "lucide-react"
 import { useMemo } from "react"
@@ -74,7 +73,7 @@ const getSubscriptionTimelineRows = ({
 function BillingSettingsRoute() {
     const session = useSession()
     const user = session.user
-    const billingSummary = useConvexQuery(api.billing.getMyBillingSummary, user?.id ? {} : "skip")
+    const billingSummary = useBillingSummary()
     const {
         summary: creditSummary,
         isLoading: isCreditSummaryLoading,

@@ -1,3 +1,4 @@
+import { AppBootProvider } from "@/components/app-boot-provider"
 import { DevRuntime } from "@/components/dev/dev-runtime"
 import { SpeechPlaybackRuntime } from "@/components/message-speech"
 import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
@@ -60,25 +61,27 @@ export function Providers({ children }: { children: ReactNode }) {
 
     const app = (
         <AuthQueryProvider>
-            <ThemeProvider>
-                <AuthUIProviderTanstack
-                    authClient={authClient}
-                    navigate={(href) => router.navigate({ href })}
-                    replace={(href) => router.navigate({ href, replace: true })}
-                    Link={({ href, ...props }) => <Link to={href} {...props} />}
-                >
-                    <TelemetryIdentity />
-                    <SpeechPlaybackRuntime />
-                    <CreditAccessRuntime />
-                    <StaleAssetRecovery />
+            <AppBootProvider>
+                <ThemeProvider>
+                    <AuthUIProviderTanstack
+                        authClient={authClient}
+                        navigate={(href) => router.navigate({ href })}
+                        replace={(href) => router.navigate({ href, replace: true })}
+                        Link={({ href, ...props }) => <Link to={href} {...props} />}
+                    >
+                        <TelemetryIdentity />
+                        <SpeechPlaybackRuntime />
+                        <CreditAccessRuntime />
+                        <StaleAssetRecovery />
 
-                    <DevMotionConfig>{children}</DevMotionConfig>
+                        <DevMotionConfig>{children}</DevMotionConfig>
 
-                    <DevRuntime />
-                    <DevUtilityDock />
-                    <Toaster />
-                </AuthUIProviderTanstack>
-            </ThemeProvider>
+                        <DevRuntime />
+                        <DevUtilityDock />
+                        <Toaster />
+                    </AuthUIProviderTanstack>
+                </ThemeProvider>
+            </AppBootProvider>
         </AuthQueryProvider>
     )
 
