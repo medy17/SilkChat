@@ -94,6 +94,11 @@ const extractProxyKeyFromUrl = (value: string) => {
     }
 }
 
+const attachmentFilename = (part: { data: string; filename?: string }) => {
+    const extracted = part.data.startsWith("attachments/") ? (part.data.split("/").pop() ?? "") : ""
+    return part.filename || (extracted.length > 51 ? extracted.slice(51) : extracted)
+}
+
 export const dbMessagesToCore = async (
     messages: Infer<typeof Message>[],
     modelAbilities: ModelAbility[],
@@ -107,8 +112,29 @@ export const dbMessagesToCore = async (
         maxInlineTextAttachmentTokens?: number
         attachmentReferer?: string
         validatePdf?: (storageKey: string, filename: string) => Promise<unknown>
+        validatePdfs?: (files: Array<{ storageKey: string; fileName: string }>) => Promise<void>
     }
 ): Promise<CoreMessage[]> => {
+    if (supportsNativePdf(modelAbilities) && options?.validatePdfs) {
+        const files = new Map<string, { storageKey: string; fileName: string }>()
+        for (const message of messages) {
+            if (message.role !== "user") continue
+            for (const part of message.parts) {
+                if (part.type !== "file") continue
+                const fileName = attachmentFilename(part)
+                const info = getFileTypeInfo(fileName, part.mimeType)
+                if (
+                    !info.isPdf ||
+                    (info.isVisionImage && !info.isSvg) ||
+                    (info.isText && !info.isImage)
+                )
+                    continue
+                const storageKey = extractProxyKeyFromUrl(part.data) ?? part.data
+                files.set(storageKey, { storageKey, fileName })
+            }
+        }
+        if (files.size) await options.validatePdfs([...files.values()])
+    }
     const mapped_messages: CoreMessage[] = []
     const maxInlineTextAttachmentTokens =
         options?.maxInlineTextAttachmentTokens ??
@@ -130,12 +156,7 @@ export const dbMessagesToCore = async (
                     mapped_content.push({ type: "text", text: p.text })
                 }
                 if (p.type === "file") {
-                    const _extract = p.data.startsWith("attachments/")
-                        ? (p.data.split("/").pop() ?? "")
-                        : ""
-                    const extractedFileName = _extract.length > 51 ? _extract.slice(51) : _extract
-
-                    const filename = p.filename || extractedFileName
+                    const filename = attachmentFilename(p)
                     const fileTypeInfo = getFileTypeInfo(filename, p.mimeType)
                     const proxiedKey = isExternalFileReference(p.data)
                         ? extractProxyKeyFromUrl(p.data)
@@ -212,10 +233,11 @@ export const dbMessagesToCore = async (
                             failedFileFetch("text", filename)
                         }
                     } else if (fileTypeInfo.isPdf && supportsNativePdf(modelAbilities)) {
-                        if (!options?.validatePdf)
+                        if (!options?.validatePdf && !options?.validatePdfs)
                             throw new Error("PDF validation is required before model use")
                         // External references cannot reuse an immutable object's validation.
-                        await options.validatePdf(proxiedKey ?? p.data, filename)
+                        if (!options.validatePdfs)
+                            await options.validatePdf!(proxiedKey ?? p.data, filename)
                         mapped_content.push({
                             type: "file",
                             mediaType: "application/pdf",

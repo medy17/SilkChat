@@ -19,6 +19,41 @@ vi.mock("../../convex/_generated/api", () => ({
 import { dbMessagesToCore, normalizeAttachmentReferer } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
+    it("requires successful batch admission for every distinct PDF before emitting model input", async () => {
+        const file = {
+            type: "file",
+            filename: "report.pdf",
+            mimeType: "application/pdf",
+            data: "attachments/user/report.pdf"
+        }
+        const messages = [
+            {
+                role: "user",
+                parts: [
+                    file,
+                    { ...file, data: "https://site.test/r2?key=attachments%2Fuser%2Freport.pdf" }
+                ]
+            }
+        ] as never
+        const validatePdfs = vi.fn(
+            async (files: Array<{ storageKey: string; fileName: string }>): Promise<void> => {
+                expect(files).toEqual([{ storageKey: file.data, fileName: file.filename }])
+                throw new Error("Too many pages")
+            }
+        )
+        await expect(
+            dbMessagesToCore(messages, ["native_pdf"], {
+                publicAssetBaseUrl: "https://r2.test",
+                validatePdfs
+            })
+        ).rejects.toThrow("Too many pages")
+        validatePdfs.mockResolvedValueOnce(undefined)
+        const result = await dbMessagesToCore(messages, ["native_pdf"], {
+            publicAssetBaseUrl: "https://r2.test",
+            validatePdfs
+        })
+        expect(result[0].content).toHaveLength(2)
+    })
     it("never emits a native PDF without successful server validation", async () => {
         const messages = [
             {

@@ -15,10 +15,10 @@ import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useQuery as useLiveQuery } from "convex/react"
 import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 type BackendMessagePart =
     | { type: "text"; text: string }
@@ -274,6 +274,9 @@ export function useChatIntegration<IsShared extends boolean>({
     // of another client's stream. Lets the sender count as "local" without
     // depending on the thread subscription having caught up.
     const streamOriginRef = useRef<"send" | "resume" | null>(null)
+    // Pending admission ends when the first stream metadata arrives. Keep the
+    // history subscription off until the direct response itself ends.
+    const [directSendActive, setDirectSendActive] = useState(false)
     const { rerenderTrigger, shouldUpdateQuery, setShouldUpdateQuery, triggerRerender } =
         useChatStore()
     const pendingBranchHydration = useChatStore((state) => state.pendingBranchHydration)
@@ -302,10 +305,11 @@ export function useChatIntegration<IsShared extends boolean>({
         token
     }
 
-    // For regular threads, use getThreadMessages
-    const threadMessages = useConvexQuery(
+    // Release the underlying subscription when the direct sender skips it.
+    // The general query cache retains idle subscriptions for five minutes.
+    const threadMessages = useLiveQuery(
         api.threads.getThreadMessages,
-        !isShared && threadId && !auth.isLoading && !hasPendingLocalStream
+        !isShared && threadId && !auth.isLoading && !hasPendingLocalStream && !directSendActive
             ? { threadId: threadId as Id<"threads"> }
             : "skip"
     )
@@ -374,6 +378,7 @@ export function useChatIntegration<IsShared extends boolean>({
                       const proposedNewAssistantId = nanoid()
                       seededNextId.current = proposedNewAssistantId
                       streamOriginRef.current = "send"
+                      setDirectSendActive(true)
                       completedLocalMessageRef.current = null
 
                       const message = messages[messages.length - 1]
@@ -437,6 +442,7 @@ export function useChatIntegration<IsShared extends boolean>({
               }),
         messages: initialMessages,
         onFinish: ({ message, isError }) => {
+            setDirectSendActive(false)
             completedLocalMessageRef.current = isError ? null : getCompletedLocalMessage(message)
             const currentThreadId = latestRequestContextRef.current.threadId
             if (currentThreadId) {
@@ -448,6 +454,7 @@ export function useChatIntegration<IsShared extends boolean>({
             }
         },
         onError: () => {
+            setDirectSendActive(false)
             completedLocalMessageRef.current = null
             const currentThreadId = latestRequestContextRef.current.threadId
             if (currentThreadId) {
@@ -524,6 +531,7 @@ export function useChatIntegration<IsShared extends boolean>({
         if (adoptedThreadCreatedByCurrentSend) return
 
         streamOriginRef.current = null
+        setDirectSendActive(false)
         completedLocalMessageRef.current = null
     }, [threadId])
 

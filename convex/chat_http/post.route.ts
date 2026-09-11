@@ -21,11 +21,11 @@ import {
     streamText
 } from "ai"
 import type { Infer } from "convex/values"
+import type { FunctionReturnType } from "convex/server"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { type ActionCtx, httpAction } from "../_generated/server"
 import { r2 } from "../attachments"
-import { getAccountDeletionBlockerForAction } from "../lib/account_deletion_gate"
 import {
     type ContextLimitViolation,
     type SuggestedModel,
@@ -798,8 +798,17 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: true })
     if ("error" in user) return new ChatError("unauthorized:chat").toResponse()
 
-    const deletionBlocker = await getAccountDeletionBlockerForAction(ctx, user.id)
-    if (deletionBlocker) {
+    let readiness: FunctionReturnType<typeof internal.chat_readiness.get>
+    try {
+        readiness = await ctx.runQuery(internal.chat_readiness.get, {
+            userId: user.id,
+            threadId: body.id as Id<"threads"> | undefined
+        })
+    } catch (error) {
+        console.error("[cvx][chat] Failed to read turn readiness", error)
+        return new ChatError("bad_request:chat").toResponse()
+    }
+    if (readiness.blocked) {
         return new ChatError(
             "forbidden:chat",
             "Account deletion is in progress. New messages are disabled for this account."
@@ -818,7 +827,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
     }
 
     const initialModelData = await getModel(ctx, body.model, {
-        reasoningEffort: body.reasoningEffort
+        reasoningEffort: body.reasoningEffort,
+        registry: readiness.registry
     })
     if (initialModelData instanceof ChatError) return initialModelData.toResponse()
     let modelData = initialModelData
@@ -921,9 +931,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             messageKey: modelCreditMessageKey
         })
 
-    const settings = await ctx.runQuery(internal.settings.getUserSettingsInternal, {
-        userId: user.id
-    })
+    const settings = readiness.registry.settings
     const telemetryEnabled = settings.telemetryEnabled !== false
     const telemetryTargetMode = body.targetMode ?? "normal"
     const toolAvailability = resolveToolAvailability(settings)
@@ -992,11 +1000,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const hasInternalImagePreparationTool =
         modelData.abilities.includes("function_calling") && modelData.abilities.includes("vision")
     const availableImageModels = hasInternalImagePreparationTool
-        ? getSelectableImageModels(
-              await ctx.runQuery(internal.credits.getUserCreditPlanInternal, {
-                  userId: user.id
-              })
-          )
+        ? getSelectableImageModels(readiness.plan)
         : []
     const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
     const retryToolCallLimitFloor =
@@ -1025,34 +1029,54 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const reservedToolMicrousd = hasPaidCallableTools
         ? effectiveToolCallLimitPerTurn * Math.max(0, ...deploymentFundedToolRates)
         : 0
-    const resolveGeneratedImageContext = (storageKey: string) =>
-        ctx.runAction(
-            internal.lib.image_generation.context_images_node.resolveGeneratedImageContext,
-            {
-                userId: user.id,
-                storageKey,
-                publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
-            }
-        )
-
-    const pdfChecks = new Map<string, Promise<number>>()
-    const validatePdf = (key: string, filename: string) => {
-        let check = pdfChecks.get(key)
+    const imageChecks = new Map<string, Promise<{ url: string; mediaType?: string }>>()
+    const resolveGeneratedImageContext = (storageKey: string) => {
+        let check = imageChecks.get(storageKey)
         if (!check) {
             check = ctx
-                .runAction(internal.pdf_validation_node.validateStored, {
-                    storageKey: key,
-                    fileName: filename
-                })
+                .runAction(
+                    internal.lib.image_generation.context_images_node.resolveGeneratedImageContext,
+                    {
+                        userId: user.id,
+                        storageKey,
+                        publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL
+                    }
+                )
                 .catch((error) => {
-                    throw new ChatError(
-                        "bad_request:chat",
-                        error instanceof Error ? error.message : "PDF validation failed"
-                    )
+                    imageChecks.delete(storageKey)
+                    throw error
                 })
-            pdfChecks.set(key, check)
+            imageChecks.set(storageKey, check)
         }
         return check
+    }
+
+    const checkedPdfs = new Set<string>()
+    const validatePdfs = async (files: Array<{ storageKey: string; fileName: string }>) => {
+        const pending = files.filter((file) => !checkedPdfs.has(file.storageKey))
+        try {
+            for (let offset = 0; offset < pending.length; offset += 100) {
+                const batch = pending.slice(offset, offset + 100)
+                const cached = await ctx.runQuery(internal.pdf_validations.checkMany, {
+                    files: batch
+                })
+                for (const [index, result] of cached.entries()) {
+                    if (result.error) throw new Error(result.error)
+                    if (result.pageCount === undefined) {
+                        await ctx.runAction(
+                            internal.pdf_validation_node.validateStored,
+                            batch[index]
+                        )
+                    }
+                    checkedPdfs.add(result.storageKey)
+                }
+            }
+        } catch (error) {
+            throw new ChatError(
+                "bad_request:chat",
+                error instanceof Error ? error.message : "PDF validation failed"
+            )
+        }
     }
 
     let contextViolation = immediateContextViolation
@@ -1060,18 +1084,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         immediateContextViolation?.limitType === "hosted" ? "message" : undefined
     if (!contextViolation || contextViolation.limitType === "hosted") {
         try {
-            const persistedPersonaSnapshot =
-                personaSnapshot ??
-                (body.id
-                    ? await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
-                          threadId: body.id as Id<"threads">
-                      })
-                    : null)
-            const existingMessages = body.id
-                ? await ctx.runQuery(internal.messages.getMessagesByThreadId, {
-                      threadId: body.id as Id<"threads">
-                  })
-                : []
+            const persistedPersonaSnapshot = personaSnapshot ?? readiness.context?.personaSnapshot
+            const existingMessages = readiness.context?.messages ?? []
             const prospectiveMessages = buildProspectiveMessages({
                 existingMessages,
                 threadId: body.id,
@@ -1090,7 +1104,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     maxInlineTextAttachmentTokens:
                         MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
                     attachmentReferer,
-                    validatePdf
+                    validatePdfs
                 }
             )
             const promptMessages: ModelMessage[] = [
@@ -1455,20 +1469,14 @@ export const chatPOST = httpAction(async (ctx, req) => {
         toolBudgetReservation?.bypassed === true ? undefined : effectiveToolCallLimitPerTurn
     const streamSetup = await (async () => {
         try {
-            const persistedPersonaSnapshot =
-                personaSnapshot ??
-                (await ctx.runQuery(internal.personas.getThreadPersonaSnapshotInternal, {
-                    threadId: mutationResult.threadId
-                }))
-            const dbMessages = await ctx.runQuery(internal.messages.getMessagesByThreadId, {
+            const committedContext = await ctx.runQuery(internal.chat_readiness.getThreadContext, {
+                userId: user.id,
                 threadId: mutationResult.threadId
             })
+            const persistedPersonaSnapshot = personaSnapshot ?? committedContext.personaSnapshot
+            const dbMessages = committedContext.messages
             const normalizedDbMessages = Array.isArray(dbMessages) ? dbMessages : []
             const imageReferences = buildPreparedImageReferences(normalizedDbMessages)
-            const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
-                threadId: mutationResult.threadId,
-                ...(body.clientId ? { ownerClientId: body.clientId } : {})
-            })
             const mapped_messages = await dbMessagesToCore(
                 normalizedDbMessages,
                 modelData.abilities,
@@ -1479,9 +1487,16 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     maxInlineTextAttachmentTokens:
                         MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
                     attachmentReferer,
-                    validatePdf
+                    validatePdfs
                 }
             )
+
+            const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
+                threadId: mutationResult.threadId,
+                userId: user.id,
+                assistantMessageConvexId: mutationResult.assistantMessageConvexId,
+                ...(body.clientId ? { ownerClientId: body.clientId } : {})
+            })
 
             return {
                 persistedPersonaSnapshot,
@@ -1626,7 +1641,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         if (parts.length === 0) return
 
         const now = Date.now()
-        const throttleMs = 250
+        const throttleMs = 1_000
         const remainingThrottleMs = throttleMs - (now - lastLivePersistAt)
 
         if (!force && remainingThrottleMs > 0) {
@@ -1654,6 +1669,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         livePersistInFlight = ctx
             .runMutation(internal.messages.patchMessage, {
                 threadId: mutationResult.threadId,
+                expectedStreamId: streamId,
+                expectedMessageId: mutationResult.assistantMessageConvexId,
                 messageId: mutationResult.assistantMessageId,
                 parts: partsSnapshot,
                 metadata: {
@@ -1705,6 +1722,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             try {
                 await ctx.runMutation(internal.threads.updateThreadStreamingState, {
                     threadId: mutationResult.threadId,
+                    expectedStreamId: streamId,
                     isLive: true,
                     streamStartedAt: streamStartTime,
                     currentStreamId: streamId,
@@ -1966,8 +1984,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
                 await persistLiveAssistantMessage(true)
 
-                await ctx.runMutation(internal.messages.patchMessage, {
+                await ctx.runMutation(internal.messages.finalizeStream, {
                     threadId: mutationResult.threadId,
+                    expectedStreamId: streamId,
+                    expectedMessageId: mutationResult.assistantMessageConvexId,
                     messageId: mutationResult.assistantMessageId,
                     parts:
                         parts.length > 0
@@ -2103,14 +2123,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         )
                     }
                 }
-
-                await ctx
-                    .runMutation(internal.threads.updateThreadStreamingState, {
-                        threadId: mutationResult.threadId,
-                        isLive: false,
-                        currentStreamId: undefined
-                    })
-                    .catch((err) => console.error("Failed to update thread state:", err))
             } catch (error) {
                 if (telemetryEnabled) {
                     await Promise.all([
@@ -2181,6 +2193,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             // Mark thread as not live on error
             ctx.runMutation(internal.threads.updateThreadStreamingState, {
                 threadId: mutationResult.threadId,
+                expectedStreamId: streamId,
                 isLive: false
             }).catch((err) => console.error("Failed to update thread state:", err))
             return "Stream error occurred"

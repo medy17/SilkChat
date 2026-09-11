@@ -114,6 +114,7 @@ describe("chatDELETE", () => {
         expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
             threadId: "thread-1",
             isLive: false,
+            expectedStreamId: "stream-1",
             currentStreamId: undefined
         })
     })
@@ -135,6 +136,7 @@ describe("chatDELETE", () => {
         expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
             threadId: "thread-1",
             isLive: false,
+            expectedStreamId: "stream-1",
             currentStreamId: undefined
         })
     })

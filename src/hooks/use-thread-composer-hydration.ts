@@ -3,8 +3,7 @@ import type { Id } from "@/convex/_generated/dataModel"
 import type { SharedModel } from "@/convex/lib/models"
 import { getLatestAssistantConfig, resolveAssistantConfigOverride } from "@/lib/assistant-config"
 import type { ReasoningEffort } from "@/lib/model-store"
-import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useQuery as useConvexQuery } from "convex/react"
 import { useEffect, useState } from "react"
 
 export const useThreadComposerHydration = ({
@@ -28,6 +27,7 @@ export const useThreadComposerHydration = ({
 }) => {
     const auth = useConvexAuth()
     const [hydratedThreadId, setHydratedThreadId] = useState<string | undefined>(undefined)
+    // Release this history subscription immediately after composer hydration.
     const threadMessages = useConvexQuery(
         api.threads.getThreadMessages,
         threadId && !auth.isLoading && hydratedThreadId !== threadId

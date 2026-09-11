@@ -591,13 +591,15 @@ export const getUserCreditAccountInternal = internalQuery({
     }
 })
 
+export const getUserCreditPlan = async (ctx: QueryCtx, userId: string) =>
+    getResolvedCreditPlan(await getCreditAccount(ctx, userId))
+
 export const getUserCreditPlanInternal = internalQuery({
     args: {
         userId: v.string()
     },
     handler: async (ctx, { userId }) => {
-        const account = await getCreditAccount(ctx, userId)
-        return getResolvedCreditPlan(account)
+        return getUserCreditPlan(ctx, userId)
     }
 })
 

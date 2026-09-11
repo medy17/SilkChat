@@ -53,6 +53,7 @@ export const chatDELETE = httpAction(async (ctx, req) => {
     await ctx.runMutation(internal.threads.updateThreadStreamingState, {
         threadId: threadId as Id<"threads">,
         isLive: false,
+        expectedStreamId: chat.currentStreamId as Id<"streams">,
         currentStreamId: undefined
     })
 

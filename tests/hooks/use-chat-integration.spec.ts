@@ -14,6 +14,7 @@ const {
     useChatMock,
     useConvexAuthMock,
     useConvexQueryMock,
+    useLiveQueryMock,
     useTokenMock
 } = vi.hoisted(() => ({
     backendToUiMessagesMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
     useChatMock: vi.fn(),
     useConvexAuthMock: vi.fn(),
     useConvexQueryMock: vi.fn(),
+    useLiveQueryMock: vi.fn(),
     useTokenMock: vi.fn()
 }))
 
@@ -32,10 +34,7 @@ type TransportConfig = {
         body: Record<string, unknown>
         messages: Array<Record<string, unknown>>
     }) => Promise<unknown>
-    prepareReconnectToStreamRequest: (request: {
-        api: string
-        id: string
-    }) => Promise<unknown>
+    prepareReconnectToStreamRequest: (request: { api: string; id: string }) => Promise<unknown>
 }
 type UseChatOptions = {
     id?: string
@@ -113,7 +112,8 @@ vi.mock("convex-helpers/react/cache", () => ({
 }))
 
 vi.mock("convex/react", () => ({
-    useConvexAuth: useConvexAuthMock
+    useConvexAuth: useConvexAuthMock,
+    useQuery: useLiveQueryMock
 }))
 
 vi.mock("nanoid", () => ({
@@ -176,6 +176,8 @@ describe("useChatIntegration", () => {
         useChatMock.mockReset()
         useConvexAuthMock.mockReset()
         useConvexQueryMock.mockReset()
+        useLiveQueryMock.mockReset()
+        useLiveQueryMock.mockImplementation((...args) => useConvexQueryMock(...args))
         useTokenMock.mockReset()
         vi.spyOn(console, "log").mockImplementation(() => {})
 
@@ -188,6 +190,62 @@ describe("useChatIntegration", () => {
             latestAutoResumeProps = props
         })
     })
+
+    it.each(["thread-1", undefined])(
+        "keeps history released after stream attachment and restores it on completion/error (initial thread: %s)",
+        async (initialThreadId) => {
+            const messages: ChatMessage[] = []
+            useChatMock.mockImplementation((options: UseChatOptions) => {
+                latestUseChatOptions = options
+                return { status: "ready", messages, setMessages: vi.fn(), resumeStream: vi.fn() }
+            })
+            const { rerender } = renderHook(
+                ({ threadId }: { threadId: string | undefined }) =>
+                    useChatIntegration({ threadId }),
+                {
+                    initialProps: { threadId: initialThreadId }
+                }
+            )
+            const send = () =>
+                transportConfigs.at(-1)!.prepareSendMessagesRequest({
+                    body: {},
+                    messages: [
+                        { id: "question", role: "user", parts: [{ type: "text", text: "Hello" }] }
+                    ]
+                })
+
+            await act(async () => {
+                await send()
+            })
+            // The first metadata adopts a new thread and clears pending admission.
+            // Neither transition means that the direct response has completed.
+            rerender({ threadId: "thread-1" })
+            act(() => useChatStore.getState().setPendingStream("thread-1", false))
+            expect(useLiveQueryMock).toHaveBeenLastCalledWith("getThreadMessages", "skip")
+            act(() =>
+                latestUseChatOptions?.onFinish?.({
+                    message: { id: "answer", role: "assistant", parts: [] },
+                    messages: [],
+                    isAbort: false,
+                    isDisconnect: false,
+                    isError: false
+                })
+            )
+            expect(useLiveQueryMock).toHaveBeenLastCalledWith("getThreadMessages", {
+                threadId: "thread-1"
+            })
+
+            await act(async () => {
+                await send()
+            })
+            act(() => useChatStore.getState().setPendingStream("thread-1", false))
+            expect(useLiveQueryMock).toHaveBeenLastCalledWith("getThreadMessages", "skip")
+            act(() => latestUseChatOptions?.onError?.(new Error("Disconnected")))
+            expect(useLiveQueryMock).toHaveBeenLastCalledWith("getThreadMessages", {
+                threadId: "thread-1"
+            })
+        }
+    )
 
     it("skips private thread Convex queries while auth is still loading", () => {
         useConvexAuthMock.mockReturnValue({ isLoading: true, isAuthenticated: false })

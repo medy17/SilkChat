@@ -179,6 +179,7 @@
         "@types/react-dom": "^19.2.5",
         "@types/three": "^0.185.4",
         "@vitejs/plugin-react": "^6.1.0",
+        "convex-test": "^0.0.57",
         "esbuild": "^0.28.2",
         "husky": "^9.1.7",
         "jsdom": "^30.0.1",

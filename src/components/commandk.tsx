@@ -54,7 +54,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
 
     const searchResults = useConvexQuery(
         api.threads.searchUserThreads,
-        session?.user?.id
+        open && session?.user?.id
             ? {
                   query: debouncedQuery,
                   paginationOpts: { numItems: 10, cursor: null }

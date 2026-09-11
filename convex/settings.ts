@@ -339,88 +339,87 @@ export const getDevModelContextLimits = query({
     }
 })
 
-export const getUserRegistryInternal = internalQuery({
-    args: {
-        userId: v.string()
-    },
-    handler: async (ctx, args): Promise<UserRegistry> => {
-        const settings = await getSettings(ctx, args.userId)
-        const hasAdminModelAccess = await userHasAdminModelAccess(ctx, args.userId)
-        const sharedModelsForUser = getSharedModelsForUser(hasAdminModelAccess).filter(
-            (model) => !isModelSunset(model)
-        )
-        const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
-            ctx,
-            sharedModelsForUser
-        )
+export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<UserRegistry> => {
+    const settings = await getSettings(ctx, userId)
+    const hasAdminModelAccess = await userHasAdminModelAccess(ctx, userId)
+    const sharedModelsForUser = getSharedModelsForUser(hasAdminModelAccess).filter(
+        (model) => !isModelSunset(model)
+    )
+    const metadataByProviderModelId = await getOpenRouterMetadataByProviderModelId(
+        ctx,
+        sharedModelsForUser
+    )
 
-        const providers: Record<
-            string,
-            {
-                key: string
-                endpoint?: string
-                apiMode?: "chat" | "responses"
-                name?: string
-                usageMode?: CoreProviderUsageMode
-                authMode?: "ai-studio" | "vertex"
-            }
-        > = {}
-        for (const [providerId, provider] of Object.entries(settings.coreAIProviders)) {
-            if (!provider.enabled) continue
-            providers[providerId] = {
-                key: await decryptKey(provider.encryptedKey),
-                name: providerId,
-                usageMode: provider.usageMode ?? "fallback",
-                authMode: provider.authMode
-            }
+    const providers: Record<
+        string,
+        {
+            key: string
+            endpoint?: string
+            apiMode?: "chat" | "responses"
+            name?: string
+            usageMode?: CoreProviderUsageMode
+            authMode?: "ai-studio" | "vertex"
         }
-
-        for (const [providerId, provider] of Object.entries(settings.customAIProviders)) {
-            if (!provider.enabled) continue
-            providers[providerId] = {
-                key: await decryptKey(provider.encryptedKey),
-                endpoint: provider.endpoint,
-                apiMode:
-                    provider.apiMode ?? settings.customAIProviders[providerId]?.apiMode ?? "chat",
-                name: provider.name
-            }
+    > = {}
+    for (const [providerId, provider] of Object.entries(settings.coreAIProviders)) {
+        if (!provider.enabled) continue
+        providers[providerId] = {
+            key: await decryptKey(provider.encryptedKey),
+            name: providerId,
+            usageMode: provider.usageMode ?? "fallback",
+            authMode: provider.authMode
         }
-
-        const models: Record<string, SharedModel & { customProviderId?: string }> = {}
-        for (const rawModel of sharedModelsForUser) {
-            const model = overlayOpenRouterMetadata(rawModel, metadataByProviderModelId)
-
-            const available_adapters: RegistryKey[] = []
-            for (const adapter of model.adapters) {
-                const provider = adapter.split(":")[0]
-                if (
-                    provider in providers ||
-                    (provider === "openrouter" && hasInternalOpenRouterForModel(model, adapter)) ||
-                    (provider.startsWith("i3-") && hasInternalOpenRouterForModel(model, adapter))
-                ) {
-                    available_adapters.push(adapter)
-                }
-            }
-            models[model.id] = { ...model, adapters: available_adapters }
-        }
-
-        for (const [modelId, model] of Object.entries(settings.customModels)) {
-            if (!model.enabled) continue
-            models[modelId] = {
-                id: model.modelId,
-                name: model.name ?? model.modelId,
-                adapters: [`${model.providerId}:${model.modelId}`],
-                abilities: normalizeModelAbilities(
-                    model.abilities as Parameters<typeof normalizeModelAbilities>[0]
-                ),
-                contextLength: model.contextLength,
-                maxTokens: model.maxTokens,
-                customProviderId: model.providerId
-            }
-        }
-
-        return { providers, models, settings }
     }
+
+    for (const [providerId, provider] of Object.entries(settings.customAIProviders)) {
+        if (!provider.enabled) continue
+        providers[providerId] = {
+            key: await decryptKey(provider.encryptedKey),
+            endpoint: provider.endpoint,
+            apiMode: provider.apiMode ?? settings.customAIProviders[providerId]?.apiMode ?? "chat",
+            name: provider.name
+        }
+    }
+
+    const models: Record<string, SharedModel & { customProviderId?: string }> = {}
+    for (const rawModel of sharedModelsForUser) {
+        const model = overlayOpenRouterMetadata(rawModel, metadataByProviderModelId)
+
+        const available_adapters: RegistryKey[] = []
+        for (const adapter of model.adapters) {
+            const provider = adapter.split(":")[0]
+            if (
+                provider in providers ||
+                (provider === "openrouter" && hasInternalOpenRouterForModel(model, adapter)) ||
+                (provider.startsWith("i3-") && hasInternalOpenRouterForModel(model, adapter))
+            ) {
+                available_adapters.push(adapter)
+            }
+        }
+        models[model.id] = { ...model, adapters: available_adapters }
+    }
+
+    for (const [modelId, model] of Object.entries(settings.customModels)) {
+        if (!model.enabled) continue
+        models[modelId] = {
+            id: model.modelId,
+            name: model.name ?? model.modelId,
+            adapters: [`${model.providerId}:${model.modelId}`],
+            abilities: normalizeModelAbilities(
+                model.abilities as Parameters<typeof normalizeModelAbilities>[0]
+            ),
+            contextLength: model.contextLength,
+            maxTokens: model.maxTokens,
+            customProviderId: model.providerId
+        }
+    }
+
+    return { providers, models, settings }
+}
+
+export const getUserRegistryInternal = internalQuery({
+    args: { userId: v.string() },
+    handler: (ctx, { userId }) => getUserRegistry(ctx, userId)
 })
 
 export const updateUserSettings = mutation({

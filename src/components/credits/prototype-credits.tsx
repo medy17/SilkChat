@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { buildLemonSqueezyCheckoutUrl } from "@/lib/billing"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import type {
@@ -463,33 +464,41 @@ function DevAccessSwitch({
 }
 
 export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView({
-    summary,
-    isLoading,
-    isRefreshing,
-    shouldShowDevCreditPlanToggle,
-    devCreditState,
-    isUpdatingDevCreditState,
-    onSetDevCreditState,
-    onRefresh
+    userId,
+    isAuthLoading,
+    enabled,
+    shouldShowDevCreditPlanToggle
 }: {
-    summary: PrototypeCreditSummary | null
-    isLoading: boolean
-    isRefreshing: boolean
+    userId: string
+    isAuthLoading: boolean
+    enabled: boolean
     shouldShowDevCreditPlanToggle: boolean
-    devCreditState: PrototypeCreditDevState | null
-    isUpdatingDevCreditState: boolean
-    onSetDevCreditState: (payload: PrototypeCreditDevStatePayload) => Promise<void>
-    onRefresh: () => Promise<void>
 }) {
+    const [open, setOpen] = useState(false)
+    const visible = enabled && open
+    const {
+        summary,
+        isLoading,
+        isRefreshing,
+        devCreditState,
+        isUpdatingDevCreditState,
+        setDevCreditState: onSetDevCreditState,
+        refreshCredits: onRefresh
+    } = usePrototypeCredits({
+        userId,
+        isAuthLoading,
+        enabled: visible,
+        enableDevCreditState: shouldShowDevCreditPlanToggle
+    })
+
+    // Collapsing header controls also closes a portalled desktop popover/mobile
+    // drawer. Expanding the controls must not silently reopen the subscription.
+    useEffect(() => {
+        if (!enabled) setOpen(false)
+    }, [enabled])
+
     return (
-        <ResponsivePopover
-            modal={false}
-            onOpenChange={(open) => {
-                if (open) {
-                    void onRefresh()
-                }
-            }}
-        >
+        <ResponsivePopover modal={false} open={visible} onOpenChange={setOpen}>
             <ResponsivePopoverTrigger asChild>
                 <Button
                     variant="ghost"

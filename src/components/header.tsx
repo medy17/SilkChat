@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSession } from "@/hooks/auth-hooks"
-import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
 import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import { isNewChatPath } from "@/lib/last-chat-route"
@@ -30,19 +29,6 @@ export function Header() {
     const navigate = useNavigate()
     const showContextualDevTools = useShowContextualDevTools()
     const shouldShowDevCreditPlanToggle = showContextualDevTools && Boolean(session?.user?.id)
-    const {
-        summary: prototypeCreditSummary,
-        isLoading: isCreditsLoading,
-        isRefreshing: isRefreshingCredits,
-        devCreditState,
-        isUpdatingDevCreditState,
-        refreshCredits,
-        setDevCreditState
-    } = usePrototypeCredits({
-        userId: session?.user?.id,
-        isAuthLoading: isSessionPending,
-        enableDevCreditState: shouldShowDevCreditPlanToggle
-    })
 
     const showTrigger = isMobile ? !openMobile : true
     const isSidebarCollapsed = isMobile ? !openMobile : sidebarState === "collapsed"
@@ -174,14 +160,10 @@ export function Header() {
                         >
                             {session?.user?.id && (
                                 <PrototypeCreditsQuickView
-                                    summary={prototypeCreditSummary}
-                                    isLoading={isCreditsLoading}
-                                    isRefreshing={isRefreshingCredits}
+                                    userId={session.user.id}
+                                    isAuthLoading={isSessionPending}
+                                    enabled={areHeaderActionsVisible}
                                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}
-                                    devCreditState={devCreditState}
-                                    isUpdatingDevCreditState={isUpdatingDevCreditState}
-                                    onSetDevCreditState={setDevCreditState}
-                                    onRefresh={refreshCredits}
                                 />
                             )}
                             {!isMobile && <SidebarShortcutsHelper />}

@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api"
 import { useCreditAccess } from "@/components/credits/credit-access-runtime"
-import { useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { useQuery } from "convex/react"
 import {
     type PrototypeCreditDevState,
     type PrototypeCreditDevStatePayload,
@@ -19,12 +19,14 @@ type UsePrototypeCreditsOptions = {
     userId: string | undefined
     isAuthLoading: boolean
     enableDevCreditState?: boolean
+    enabled?: boolean
 }
 
 export function usePrototypeCredits({
     userId,
     isAuthLoading,
-    enableDevCreditState = false
+    enableDevCreditState = false,
+    enabled = true
 }: UsePrototypeCreditsOptions) {
     const summaryCacheKey = userId
         ? `hosted-usage-summary:v2:${userId}`
@@ -44,13 +46,11 @@ export function usePrototypeCredits({
         cachedSummary?.value ?? null
     )
 
-    const usageSummary = useDiskCachedQuery(
+    // Ordinary subscriptions release on skip/unmount. Retain the account-scoped
+    // summary below for display, without keeping a five-minute live cache entry.
+    const usageSummary = useQuery(
         api.credits.getMyCreditUsageSummary,
-        {
-            key: userId ? `hosted-usage:v2:${userId}` : "hosted-usage:v2:guest",
-            default: null
-        },
-        userId && !isAuthLoading ? {} : "skip"
+        enabled && userId && !isAuthLoading ? {} : "skip"
     )
 
     const resolvedUsageSummary =
@@ -86,7 +86,7 @@ export function usePrototypeCredits({
     }, [userId])
 
     const refreshDevCreditState = useCallback(async () => {
-        if (!userId || isAuthLoading || !enableDevCreditState || !import.meta.env.DEV) {
+        if (!enabled || !userId || isAuthLoading || !enableDevCreditState || !import.meta.env.DEV) {
             setDevCreditState(null)
             return
         }
@@ -102,7 +102,7 @@ export function usePrototypeCredits({
         } catch (error) {
             console.error("Failed to load dev credit state:", error)
         }
-    }, [enableDevCreditState, isAuthLoading, userId])
+    }, [enabled, enableDevCreditState, isAuthLoading, userId])
 
     useEffect(() => {
         void refreshDevCreditState()

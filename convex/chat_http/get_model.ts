@@ -29,14 +29,17 @@ export const getModel = async (
         internalOnly?: boolean
         openRouterByokOnly?: boolean
         reasoningEffort?: ReasoningEffort
+        registry?: UserRegistry
     }
 ) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })
     if ("error" in user) throw new ChatError("unauthorized:chat")
 
-    const registry: UserRegistry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
-        userId: user.id
-    })
+    const registry: UserRegistry =
+        options?.registry ??
+        (await ctx.runQuery(internal.settings.getUserRegistryInternal, {
+            userId: user.id
+        }))
 
     if (!(modelId in registry.models)) return new ChatError("bad_model:api")
 

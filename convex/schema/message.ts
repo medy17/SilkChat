@@ -79,6 +79,7 @@ export const AIMessage = v.object({
 })
 
 export const Message = v.object({
+    generationStreamId: v.optional(v.id("streams")),
     threadId: v.id("threads"),
     messageId: v.string(),
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),

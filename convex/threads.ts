@@ -298,6 +298,14 @@ export const createThreadOrInsertMessages = internalMutation({
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
+        await assertAccountNotDeleting(ctx, authorId)
+        if (threadId) {
+            const ownedThread = await ctx.db.get(threadId as Id<"threads">)
+            if (!ownedThread) return undefined
+            if (ownedThread.authorId !== authorId) {
+                throw new Error("Thread unavailable")
+            }
+        }
         if (openingMessage && openingMessage.role !== "assistant") {
             return new ChatError("bad_request:chat")
         }
@@ -767,16 +775,33 @@ export const updateThreadStreamingState = internalMutation({
         isLive: v.boolean(),
         streamStartedAt: v.optional(v.number()),
         currentStreamId: v.optional(v.string()),
-        currentStreamOwnerClientId: v.optional(v.string())
+        currentStreamOwnerClientId: v.optional(v.string()),
+        expectedStreamId: v.optional(v.id("streams"))
     },
     handler: async (
         { db },
-        { threadId, isLive, streamStartedAt, currentStreamId, currentStreamOwnerClientId }
+        {
+            threadId,
+            isLive,
+            streamStartedAt,
+            currentStreamId,
+            currentStreamOwnerClientId,
+            expectedStreamId
+        }
     ) => {
         const thread = await db.get(threadId)
         if (!thread) {
             console.error("[cvx][updateThreadStreamingState] Thread not found", threadId)
             return
+        }
+        if (
+            expectedStreamId &&
+            (thread.lastStreamId ?? thread.currentStreamId) !== expectedStreamId
+        )
+            return
+        if (isLive && expectedStreamId) {
+            const stream = await db.get(expectedStreamId)
+            if (!stream || stream.finalizedAt !== undefined) return
         }
 
         await db.patch(threadId, {

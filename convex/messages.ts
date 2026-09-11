@@ -1,6 +1,6 @@
-import { v } from "convex/values"
+import { v, type Infer } from "convex/values"
 import type { Id } from "./_generated/dataModel"
-import { internalMutation, internalQuery, query } from "./_generated/server"
+import { type MutationCtx, internalMutation, internalQuery, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
 import { MessageMetadata } from "./schema/message"
 import { MessagePart } from "./schema/parts"
@@ -612,49 +612,107 @@ export const cancelPreparedMemoryChangeCard = internalMutation({
     }
 })
 
-export const patchMessage = internalMutation({
-    args: {
-        threadId: v.id("threads"),
-        messageId: v.string(),
-        parts: v.array(MessagePart),
-        metadata: v.optional(MessageMetadata)
-    },
-    handler: async ({ db }, { threadId, messageId, parts, metadata }) => {
-        const msgs = await db
-            .query("messages")
-            .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
-            .collect()
-        const msg = msgs.find((candidate) => candidate.threadId === threadId)
-        if (!msg) return
+const patchMessageArgs = {
+    expectedStreamId: v.optional(v.id("streams")),
+    expectedMessageId: v.optional(v.id("messages")),
+    threadId: v.id("threads"),
+    messageId: v.string(),
+    parts: v.array(MessagePart),
+    metadata: v.optional(MessageMetadata)
+}
 
-        await db.patch(msg._id as Id<"messages">, {
-            parts,
-            metadata: {
-                ...msg.metadata,
-                ...metadata
-            },
-            updatedAt: Date.now()
-        })
+export const patchMessageData = async (
+    { db }: MutationCtx,
+    {
+        threadId,
+        messageId,
+        parts,
+        metadata,
+        expectedStreamId,
+        expectedMessageId
+    }: Infer<typeof patchMessageValidator>,
+    { touchThread = true }: { touchThread?: boolean } = {}
+) => {
+    if (expectedStreamId) {
+        const stream = await db.get(expectedStreamId)
+        if (!stream || stream.threadId !== threadId || stream.finalizedAt !== undefined) return null
+    }
+    const msgs = expectedMessageId
+        ? [await db.get(expectedMessageId)]
+        : await db
+              .query("messages")
+              .withIndex("byMessageId", (q) => q.eq("messageId", messageId))
+              .collect()
+    const msg = msgs.find(
+        (candidate) => candidate?.threadId === threadId && candidate.messageId === messageId
+    )
+    if (!msg) return
+    if (expectedMessageId && msg._id !== expectedMessageId) return null
+    if (expectedStreamId && msg.generationStreamId !== expectedStreamId) return null
 
+    await db.patch(msg._id as Id<"messages">, {
+        parts,
+        metadata: {
+            ...msg.metadata,
+            ...metadata
+        },
+        updatedAt: Date.now()
+    })
+
+    // Partial stream snapshots must not invalidate the sidebar, search, and
+    // thread-status subscriptions. Admission and finalization touch the thread.
+    if (touchThread) {
         await db.patch(threadId, {
             updatedAt: Date.now()
         })
+    }
 
-        // Create usage event for analytics
-        if (metadata?.modelId) {
-            const thread = await db.get(threadId)
-            if (thread) {
-                await db.insert("usageEvents", {
-                    userId: thread.authorId,
-                    modelId: metadata.modelId,
-                    p: metadata.promptTokens ?? 0,
-                    c: metadata.completionTokens ?? 0,
-                    r: metadata.reasoningTokens ?? 0,
-                    daysSinceEpoch: Math.floor(Date.now() / (24 * 60 * 60 * 1000))
-                })
-            }
+    // Create usage event for analytics
+    if (metadata?.modelId) {
+        const thread = await db.get(threadId)
+        if (thread) {
+            await db.insert("usageEvents", {
+                userId: thread.authorId,
+                modelId: metadata.modelId,
+                p: metadata.promptTokens ?? 0,
+                c: metadata.completionTokens ?? 0,
+                r: metadata.reasoningTokens ?? 0,
+                daysSinceEpoch: Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+            })
         }
+    }
 
-        return { success: true, _id: msg._id }
+    return { success: true, _id: msg._id }
+}
+
+const patchMessageValidator = v.object(patchMessageArgs)
+
+export const patchMessage = internalMutation({
+    args: patchMessageArgs,
+    handler: (ctx, args) => patchMessageData(ctx, args, { touchThread: !args.expectedStreamId })
+})
+
+// Persist the terminal snapshot and publish completion in one transaction.
+// Billing remains independent so a billing failure cannot roll back the answer.
+export const finalizeStream = internalMutation({
+    args: {
+        ...patchMessageArgs,
+        expectedStreamId: v.id("streams"),
+        expectedMessageId: v.id("messages")
+    },
+    handler: async (ctx, args) => {
+        const stream = await ctx.db.get(args.expectedStreamId)
+        if (!stream || stream.threadId !== args.threadId || stream.finalizedAt !== undefined) return
+        await patchMessageData(ctx, args)
+        await ctx.db.patch(stream._id, { finalizedAt: Date.now() })
+        const thread = await ctx.db.get(args.threadId)
+        if (thread?.lastStreamId === args.expectedStreamId) {
+            await ctx.db.patch(thread._id, {
+                isLive: false,
+                currentStreamId: undefined,
+                currentStreamOwnerClientId: undefined,
+                streamStartedAt: undefined
+            })
+        }
     }
 })

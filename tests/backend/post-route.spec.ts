@@ -73,6 +73,7 @@ vi.mock("../../convex/_generated/server", () => ({
 
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
+        chat_readiness: { get: "getReadiness", getThreadContext: "getThreadContext" },
         account_deletion: {
             getAccountDeletionBlockerInternal: "getAccountDeletionBlockerInternal"
         },
@@ -87,7 +88,8 @@ vi.mock("../../convex/_generated/api", () => ({
         },
         messages: {
             getMessagesByThreadId: "getMessagesByThreadId",
-            patchMessage: "patchMessage"
+            patchMessage: "patchMessage",
+            finalizeStream: "finalizeStream"
         },
         settings: {
             getUserSettingsInternal: "getUserSettingsInternal"
@@ -314,11 +316,44 @@ const createAbortableRequest = (body: unknown, signal: AbortSignal) =>
         signal
     })
 
+// Adapt scenario data to the consolidated query; real queries have database tests.
+const withReadinessQueries =
+    (fixture: (name: string) => Promise<unknown>) =>
+    async (name: string, args?: { threadId?: string }) => {
+        const contextFixture = async (key: string) => {
+            try {
+                return await fixture(key)
+            } catch (error) {
+                if (error instanceof Error && error.message.startsWith("Unexpected query:"))
+                    return null
+                throw error
+            }
+        }
+        if (name === "getReadiness")
+            return {
+                blocked: false,
+                registry: { settings: (await fixture("getUserSettingsInternal")) ?? {} },
+                plan: "free",
+                context: args?.threadId
+                    ? {
+                          messages: (await contextFixture("getMessagesByThreadId")) ?? [],
+                          personaSnapshot: await contextFixture("getThreadPersonaSnapshotInternal")
+                      }
+                    : null
+            }
+        if (name === "getThreadContext")
+            return {
+                messages: (await fixture("getMessagesByThreadId")) ?? [],
+                personaSnapshot: await fixture("getThreadPersonaSnapshotInternal")
+            }
+        return fixture(name)
+    }
+
 const createCtx = () =>
     ({
         auth: {},
         runMutation: vi.fn(),
-        runQuery: vi.fn().mockResolvedValue(null)
+        runQuery: vi.fn(withReadinessQueries(async () => null))
     }) as ChatPostCtx
 
 describe("chatPOST", () => {
@@ -599,20 +634,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -672,20 +709,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -760,26 +799,29 @@ describe("chatPOST", () => {
                         assistantMessageId: "assistant-1",
                         assistantMessageConvexId: 42
                     }
+                case "finalizeStream":
                 case "patchMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -847,6 +889,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "releaseReservedCreditForMessage":
                     return null
@@ -854,24 +897,26 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return []
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return []
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         const registry = {
@@ -976,6 +1021,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "releaseReservedCreditForMessage":
                     return null
@@ -983,24 +1029,26 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
@@ -1085,26 +1133,29 @@ describe("chatPOST", () => {
                         assistantMessageId: "assistant-1",
                         assistantMessageConvexId: 42
                     }
+                case "finalizeStream":
                 case "patchMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -1168,22 +1219,24 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -1245,20 +1298,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -1322,20 +1377,22 @@ describe("chatPOST", () => {
                 }
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const response = await chatPOSTHandler(
             ctx,
@@ -1392,6 +1449,7 @@ describe("chatPOST", () => {
                         committed: true
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "finalizeToolCallBudget":
                     return null
@@ -1399,24 +1457,26 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         const runtimeModel = { provider: "runtime-openai", modelType: "text" }
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
@@ -1563,6 +1623,7 @@ describe("chatPOST", () => {
         )
 
         expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
+            expectedStreamId: "stream-1",
             threadId: "thread-1",
             isLive: true,
             streamStartedAt: expect.any(Number),
@@ -1570,10 +1631,14 @@ describe("chatPOST", () => {
             currentStreamOwnerClientId: "client-1"
         })
         expect(ctx.runMutation).toHaveBeenCalledWith("appendStreamId", {
+            userId: "user-1",
+            assistantMessageConvexId: 42,
             threadId: "thread-1",
             ownerClientId: "client-1"
         })
-        expect(ctx.runMutation).toHaveBeenCalledWith("patchMessage", {
+        expect(ctx.runMutation).toHaveBeenCalledWith("finalizeStream", {
+            expectedStreamId: "stream-1",
+            expectedMessageId: 42,
             threadId: "thread-1",
             messageId: "assistant-1",
             parts: [
@@ -1639,11 +1704,13 @@ describe("chatPOST", () => {
             userId: "user-1",
             messageKey: "assistant-1:tool-budget"
         })
-        expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
-            threadId: "thread-1",
-            isLive: false,
-            currentStreamId: undefined
-        })
+        expect(ctx.runMutation).toHaveBeenCalledWith(
+            "finalizeStream",
+            expect.objectContaining({
+                threadId: "thread-1",
+                expectedStreamId: "stream-1"
+            })
+        )
     })
 
     it("commits retry charges against the persisted assistant id while keeping the attempt-scoped message key", async () => {
@@ -1670,30 +1737,33 @@ describe("chatPOST", () => {
                         committed: true
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                     return null
                 default:
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
@@ -1841,24 +1911,26 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {
-                        userId: "user-1",
-                        searchProvider: "firecrawl",
-                        searchIncludeSourcesByDefault: false,
-                        toolCallLimitPerTurn: 3,
-                        generalProviders: {}
-                    }
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {
+                            userId: "user-1",
+                            searchProvider: "firecrawl",
+                            searchIncludeSourcesByDefault: false,
+                            toolCallLimitPerTurn: 3,
+                            generalProviders: {}
+                        }
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
         getModelMock.mockResolvedValueOnce({
@@ -1942,126 +2014,177 @@ describe("chatPOST", () => {
         })
     })
 
-    it("persists partial assistant parts before the final stream patch", async () => {
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "createThreadOrInsertMessages":
-                    return {
-                        threadId: "thread-1",
-                        assistantMessageId: "assistant-1",
-                        assistantMessageConvexId: 42
+    it("coalesces live saves for one second and flushes completion immediately", async () => {
+        vi.useFakeTimers()
+        try {
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
+                switch (name) {
+                    case "createThreadOrInsertMessages":
+                        return {
+                            threadId: "thread-1",
+                            assistantMessageId: "assistant-1",
+                            assistantMessageConvexId: 42
+                        }
+                    case "appendStreamId":
+                        return "stream-1"
+                    case "reserveCreditForMessage":
+                        return {
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
+                        }
+                    case "updateThreadStreamingState":
+                    case "finalizeStream":
+                    case "patchMessage":
+                    case "reserveToolCallBudget":
+                    case "finalizeToolCallBudget":
+                    case "releaseReservedCreditForMessage":
+                        return null
+                    default:
+                        throw new Error(`Unexpected mutation: ${name}`)
+                }
+            })
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getMessagesByThreadId":
+                            return [{ _id: "db-message-1" }]
+                        case "getUserSettingsInternal":
+                            return {}
+                        case "getThreadPersonaSnapshotInternal":
+                            return null
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
                     }
-                case "appendStreamId":
-                    return "stream-1"
-                case "reserveCreditForMessage":
-                    return {
-                        allowed: true,
-                        bypassed: false,
-                        existing: false,
-                        committed: false
-                    }
-                case "updateThreadStreamingState":
-                case "patchMessage":
-                case "reserveToolCallBudget":
-                case "finalizeToolCallBudget":
-                case "releaseReservedCreditForMessage":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
-            }
-        })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+                })
+            )
 
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
-        getModelMock.mockResolvedValueOnce({
-            model: { modelType: "text" },
-            modelId: "gpt-5.4-mini",
-            modelName: "GPT 5.4 Mini",
-            runtimeProvider: "openai",
-            providerSource: "internal",
-            abilities: [],
-            registry: {
-                models: {
-                    "shared-text": {
-                        abilities: []
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+            getModelMock.mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelId: "gpt-5.4-mini",
+                modelName: "GPT 5.4 Mini",
+                runtimeProvider: "openai",
+                providerSource: "internal",
+                abilities: [],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: []
+                        }
                     }
                 }
-            }
-        })
-
-        streamTextMock.mockReturnValueOnce({
-            stream: createObjectStream([
-                { type: "text-start", id: "text-1" },
-                { type: "text-delta", id: "text-1", text: "Hello" },
-                { type: "text-end", id: "text-1" }
-            ]),
-            finishReason: Promise.resolve("stop")
-        })
-
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: []
             })
-        )
 
-        expect(response.status).toBe(200)
-        await response.text()
-
-        const patchCalls = ctx.runMutation.mock.calls.filter(([name]) => name === "patchMessage")
-        const patchPayloads = patchCalls.map(([, payload]) => payload)
-        const livePatch = patchPayloads.find(
-            (payload) =>
-                !("modelId" in ((payload as { metadata?: Record<string, unknown> }).metadata ?? {}))
-        )
-        const finalPatch = patchPayloads.find(
-            (payload) =>
-                "modelId" in ((payload as { metadata?: Record<string, unknown> }).metadata ?? {})
-        )
-
-        expect(patchCalls).toHaveLength(2)
-        expect(livePatch).toEqual({
-            threadId: "thread-1",
-            messageId: "assistant-1",
-            parts: [
-                {
-                    type: "text",
-                    text: "Hello"
-                }
-            ],
-            metadata: expect.objectContaining({
-                serverDurationMs: expect.any(Number)
+            streamTextMock.mockReturnValueOnce({
+                stream: new ReadableStream({
+                    start(controller) {
+                        controller.enqueue({ type: "text-start", id: "text-1" })
+                        controller.enqueue({ type: "text-delta", id: "text-1", text: "Hello" })
+                        setTimeout(
+                            () =>
+                                controller.enqueue({
+                                    type: "text-delta",
+                                    id: "text-1",
+                                    text: " more"
+                                }),
+                            300
+                        )
+                        setTimeout(
+                            () =>
+                                controller.enqueue({
+                                    type: "text-delta",
+                                    id: "text-1",
+                                    text: " text"
+                                }),
+                            600
+                        )
+                        setTimeout(() => {
+                            controller.enqueue({ type: "text-end", id: "text-1" })
+                            controller.close()
+                        }, 900)
+                    }
+                }),
+                finishReason: Promise.resolve("stop")
             })
-        })
-        expect((finalPatch as { threadId?: string } | undefined)?.threadId).toBe("thread-1")
-        expect((finalPatch as { messageId?: string } | undefined)?.messageId).toBe("assistant-1")
-        expect(
-            (finalPatch as { parts?: Array<{ type?: string; text?: string }> } | undefined)?.parts
-        ).toContainEqual({
-            type: "text",
-            text: "Hello"
-        })
-        expect(
-            (finalPatch as { metadata?: { modelId?: string } } | undefined)?.metadata?.modelId
-        ).toBe("shared-text")
+
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: []
+                })
+            )
+
+            expect(response.status).toBe(200)
+            const responseBody = response.text()
+            await vi.advanceTimersByTimeAsync(850)
+            expect(
+                ctx.runMutation.mock.calls.filter(([name]) => name === "patchMessage")
+            ).toHaveLength(1)
+            expect(ctx.runMutation.mock.calls.some(([name]) => name === "finalizeStream")).toBe(
+                false
+            )
+            await vi.advanceTimersByTimeAsync(50)
+            await responseBody
+
+            const patchCalls = ctx.runMutation.mock.calls.filter(
+                ([name]) => name === "patchMessage" || name === "finalizeStream"
+            )
+            const patchPayloads = patchCalls.map(([, payload]) => payload)
+            const livePatch = patchPayloads.find(
+                (payload) =>
+                    !(
+                        "modelId" in
+                        ((payload as { metadata?: Record<string, unknown> }).metadata ?? {})
+                    )
+            )
+            const finalPatch = patchPayloads.find(
+                (payload) =>
+                    "modelId" in
+                    ((payload as { metadata?: Record<string, unknown> }).metadata ?? {})
+            )
+
+            expect(patchCalls).toHaveLength(3)
+            expect(livePatch).toEqual({
+                expectedStreamId: "stream-1",
+                expectedMessageId: 42,
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                parts: [
+                    {
+                        type: "text",
+                        text: "Hello"
+                    }
+                ],
+                metadata: expect.objectContaining({
+                    serverDurationMs: expect.any(Number)
+                })
+            })
+            expect((finalPatch as { threadId?: string } | undefined)?.threadId).toBe("thread-1")
+            expect((finalPatch as { messageId?: string } | undefined)?.messageId).toBe(
+                "assistant-1"
+            )
+            expect(
+                (finalPatch as { parts?: Array<{ type?: string; text?: string }> } | undefined)
+                    ?.parts
+            ).toContainEqual({
+                type: "text",
+                text: "Hello"
+            })
+            expect(
+                (finalPatch as { metadata?: { modelId?: string } } | undefined)?.metadata?.modelId
+            ).toBe("shared-text")
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it("keeps the provider stream alive when the incoming request aborts", async () => {
@@ -2084,6 +2207,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "reserveToolCallBudget":
                 case "finalizeToolCallBudget":
@@ -2093,18 +2217,20 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({
@@ -2204,18 +2330,20 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({
@@ -2296,6 +2424,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "reserveToolCallBudget":
                 case "finalizeToolCallBudget":
@@ -2305,18 +2434,20 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({
@@ -2398,6 +2529,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "reserveToolCallBudget":
                 case "finalizeToolCallBudget":
@@ -2407,20 +2539,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getUserCreditPlanInternal":
-                    return "pro"
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getUserCreditPlanInternal":
+                        return "pro"
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({
@@ -2503,6 +2637,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "reserveToolCallBudget":
                 case "finalizeToolCallBudget":
@@ -2512,20 +2647,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getUserCreditPlanInternal":
-                    return "pro"
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getUserCreditPlanInternal":
+                        return "pro"
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({
@@ -2653,6 +2790,7 @@ describe("chatPOST", () => {
                         committed: false
                     }
                 case "updateThreadStreamingState":
+                case "finalizeStream":
                 case "patchMessage":
                 case "reserveToolCallBudget":
                 case "finalizeToolCallBudget":
@@ -2662,20 +2800,22 @@ describe("chatPOST", () => {
                     throw new Error(`Unexpected mutation: ${name}`)
             }
         })
-        ctx.runQuery.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "getMessagesByThreadId":
-                    return [{ _id: "db-message-1" }]
-                case "getUserSettingsInternal":
-                    return {}
-                case "getUserCreditPlanInternal":
-                    return "pro"
-                case "getThreadPersonaSnapshotInternal":
-                    return null
-                default:
-                    throw new Error(`Unexpected query: ${name}`)
-            }
-        })
+        ctx.runQuery.mockImplementation(
+            withReadinessQueries(async (name: string) => {
+                switch (name) {
+                    case "getMessagesByThreadId":
+                        return [{ _id: "db-message-1" }]
+                    case "getUserSettingsInternal":
+                        return {}
+                    case "getUserCreditPlanInternal":
+                        return "pro"
+                    case "getThreadPersonaSnapshotInternal":
+                        return null
+                    default:
+                        throw new Error(`Unexpected query: ${name}`)
+                }
+            })
+        )
 
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
         getModelMock.mockResolvedValueOnce({

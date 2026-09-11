@@ -3,9 +3,9 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { useCreditAccessMock, useDiskCachedQueryMock, toastErrorMock } = vi.hoisted(() => ({
+const { useCreditAccessMock, useQueryMock, toastErrorMock } = vi.hoisted(() => ({
     useCreditAccessMock: vi.fn(),
-    useDiskCachedQueryMock: vi.fn(),
+    useQueryMock: vi.fn(),
     toastErrorMock: vi.fn()
 }))
 
@@ -13,8 +13,8 @@ vi.mock("@/components/credits/credit-access-runtime", () => ({
     useCreditAccess: useCreditAccessMock
 }))
 
-vi.mock("@/lib/convex-cached-query", () => ({
-    useDiskCachedQuery: useDiskCachedQueryMock
+vi.mock("convex/react", () => ({
+    useQuery: useQueryMock
 }))
 
 vi.mock("sonner", () => ({
@@ -87,7 +87,7 @@ describe("usePrototypeCredits", () => {
     beforeEach(() => {
         localStorage.clear()
         useCreditAccessMock.mockReset()
-        useDiskCachedQueryMock.mockReset()
+        useQueryMock.mockReset()
         toastErrorMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         vi.stubGlobal("fetch", vi.fn())
@@ -106,7 +106,7 @@ describe("usePrototypeCredits", () => {
                 selector: (state: { summary: typeof proPlan | null; isLoading: boolean }) => unknown
             ) => selector({ summary: null, isLoading: true })
         )
-        useDiskCachedQueryMock.mockReturnValue(null)
+        useQueryMock.mockReturnValue(null)
 
         const { result } = renderHook(() =>
             usePrototypeCredits({
@@ -119,13 +119,62 @@ describe("usePrototypeCredits", () => {
         expect(global.fetch).not.toHaveBeenCalled()
     })
 
+    it("subscribes only while enabled and reopens with cached usage until fresh usage arrives", () => {
+        useCreditAccessMock.mockImplementation((selector) =>
+            selector({ summary: proPlan, isLoading: false })
+        )
+        let currentUsage: typeof usageSummary | undefined = usageSummary
+        useQueryMock.mockImplementation((_query, args) =>
+            args === "skip" ? undefined : currentUsage
+        )
+        const { result, rerender } = renderHook(
+            ({ enabled }) =>
+                usePrototypeCredits({
+                    userId: "user-1",
+                    isAuthLoading: false,
+                    enabled
+                }),
+            { initialProps: { enabled: false } }
+        )
+        expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), "skip")
+        expect(result.current.summary).toBeNull()
+
+        rerender({ enabled: true })
+        expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), {})
+        expect(result.current.summary?.requestCounts.total).toBe(15)
+        rerender({ enabled: false })
+        expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), "skip")
+        currentUsage = undefined
+        rerender({ enabled: true })
+        expect(result.current.summary?.requestCounts.total).toBe(15)
+        currentUsage = { ...usageSummary, requestCounts: { internal: 11, byok: 5, total: 16 } }
+        rerender({ enabled: true })
+        expect(result.current.summary?.requestCounts.total).toBe(16)
+    })
+
+    it("does not fetch dev usage while its consumer is hidden", () => {
+        useCreditAccessMock.mockImplementation((selector) =>
+            selector({ summary: proPlan, isLoading: false })
+        )
+        renderHook(() =>
+            usePrototypeCredits({
+                userId: "user-1",
+                isAuthLoading: false,
+                enabled: false,
+                enableDevCreditState: true
+            })
+        )
+        expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), "skip")
+        expect(global.fetch).not.toHaveBeenCalled()
+    })
+
     it("combines shared plan access with the latest usage without an HTTP request", async () => {
         useCreditAccessMock.mockImplementation(
             (
                 selector: (state: { summary: typeof proPlan | null; isLoading: boolean }) => unknown
             ) => selector({ summary: proPlan, isLoading: false })
         )
-        useDiskCachedQueryMock.mockReturnValue(usageSummary)
+        useQueryMock.mockReturnValue(usageSummary)
 
         const { result } = renderHook(() =>
             usePrototypeCredits({
