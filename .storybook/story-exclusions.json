@@ -1,0 +1,9 @@
+{
+    "credits/credit-access-runtime": "Nonvisual credit-access lifecycle; credit UI has separate stories.",
+    "dev/dev-runtime": "Nonvisual development runtime loader; dev-utility-dock has a story.",
+    "onboarding/onboarding-provider": "Automatic onboarding lifecycle; each dialog has a separate story.",
+    "telemetry-identity": "Nonvisual analytics identity side effect; telemetry is disabled in Storybook.",
+    "theme-font-styles": "Injects font styles rather than a standalone UI.",
+    "theme-provider": "Theme context; the workshop provides theme state and a theme toolbar.",
+    "theme-script": "Pre-hydration theme script with no standalone UI."
+}

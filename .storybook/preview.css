@@ -1,0 +1,26 @@
+/* Storybook's unlayered styles override the app's layered body styles.
+   Paint the entire iframe, including padded/fullscreen layouts and portal roots,
+   with the same tokens as the app rather than Storybook's background palette. */
+html,
+body,
+.sb-show-main,
+.sbdocs-wrapper,
+.sbdocs-preview,
+.docs-story {
+    /* biome-ignore lint/complexity/noImportantStyles: Keep Storybook's generated canvas backgrounds from overriding the app theme. */
+    background-color: var(--background) !important;
+    color: var(--foreground);
+}
+
+html,
+body {
+    min-height: 100%;
+}
+
+html.dark {
+    color-scheme: dark;
+}
+
+html:not(.dark) {
+    color-scheme: light;
+}

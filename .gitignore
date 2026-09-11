@@ -12,6 +12,7 @@ node_modules
 .nitro
 .vercel
 dist
+storybook-static/
 convex/_generated/
 app.config.timestamp_*
 

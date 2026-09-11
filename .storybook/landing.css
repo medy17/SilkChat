@@ -1,0 +1,14 @@
+/* Mirrors the page shell in LandingPage and PersonaLandingPage for isolated sections. */
+.landing-page-root {
+    --landing-bg: var(--background);
+    --landing-fg: var(--foreground);
+    --landing-muted: color-mix(in oklab, var(--foreground) 68%, transparent);
+    --landing-muted-soft: color-mix(in oklab, var(--foreground) 54%, transparent);
+    --landing-muted-faint: color-mix(in oklab, var(--foreground) 40%, transparent);
+    --landing-border: color-mix(in oklab, var(--foreground) 12%, transparent);
+    --landing-border-strong: color-mix(in oklab, var(--foreground) 18%, transparent);
+    --landing-surface: color-mix(in oklab, var(--foreground) 2%, var(--background));
+    --landing-surface-strong: color-mix(in oklab, var(--foreground) 4%, var(--background));
+    --landing-surface-stronger: color-mix(in oklab, var(--foreground) 7%, var(--background));
+    --landing-surface-contrast: color-mix(in oklab, var(--foreground) 10%, var(--background));
+}

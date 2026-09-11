@@ -62,14 +62,13 @@ export const SignupMessagePrompt = () => {
                 initial={{ opacity: 0, y: 0 }}
                 animate={{ opacity: mode === "dark" ? 0.2 : 0.4, y: 0 }}
                 transition={{ delay: 0.6, duration: 0.4, ease: "easeOut" }}
-                className="md:-top-10 pointer-events-none fixed inset-x-0 top-0 z-1 mx-auto w-full max-w-none opacity-40 md:absolute md:h-[50rem] md:w-[50rem] md:max-w-[90vw] dark:opacity-20"
+                className="pointer-events-none fixed inset-x-0 top-0 z-1 mx-auto w-full max-w-none opacity-40 md:absolute md:-top-10 md:h-[50rem] md:w-[50rem] md:max-w-[90vw] dark:opacity-20"
                 style={{
                     mask: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 30%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 80%)",
                     WebkitMask:
                         "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 30%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 80%)"
                 }}
             >
-                {/* @ts-expect-error - TODO: fix this */}
                 <Forest className="h-auto w-full md:h-full" />
             </motion.div>
         </motion.div>
