@@ -382,13 +382,14 @@ describe("images_node", () => {
         await generateStandaloneImageHandler(ctx, {
             prompt: "Edit this",
             modelId: "gpt-5.4-image-2",
-            aspectRatio: "1:1",
+            aspectRatio: "3:4",
+            resolution: "4K",
             referenceImageIds: ["references/user-1/ref.png"]
         })
 
         expect(falQueueSubmitMock).toHaveBeenCalledWith("openai/gpt-image-2/edit", {
             input: expect.objectContaining({
-                image_size: "auto",
+                image_size: { width: 2448, height: 3264 },
                 image_urls: ["https://cdn.example.com/references%2Fuser-1%2Fref.png"]
             }),
             webhookUrl: "https://silkchat.convex.site/webhooks/fal?jobId=image-generation-job-1"
@@ -399,6 +400,8 @@ describe("images_node", () => {
             expect.objectContaining({
                 appModelId: "gpt-5.4-image-2",
                 falEndpoint: "openai/gpt-image-2/edit",
+                aspectRatio: "3:4",
+                resolution: "4K",
                 referenceImageKeys: ["references/user-1/ref.png"]
             })
         )

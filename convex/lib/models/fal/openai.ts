@@ -144,6 +144,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
             editEndpoint: `openai/gpt-image-2.5/${variant}/edit`,
             supportsReferences: true,
             imageSizeMode: "standard",
+            editImageSizeMode: "explicit",
             usesQuality: true,
             defaultQuality: "high",
             safety: {}
@@ -155,6 +156,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         editEndpoint: "openai/gpt-image-2/edit",
         supportsReferences: true,
         imageSizeMode: "standard",
+        editImageSizeMode: "explicit",
         usesQuality: true,
         defaultQuality: "medium",
         safety: {

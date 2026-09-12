@@ -38,18 +38,21 @@ describe("fal image model payloads", () => {
         })
     })
 
-    it("uses only image_urls for reference-based edit endpoints", () => {
-        const input = buildFalImageInput(descriptor("gpt-5.4-image-2"), {
+    it("preserves GPT Image 2 resolution and aspect ratio for reference-based edits", () => {
+        const model = descriptor("gpt-5.4-image-2")
+        const input = buildFalImageInput(model, {
             prompt: "Edit this",
-            imageSize: "1:1",
+            imageSize: "3:4",
+            imageResolution: "4K",
             referenceImages: [
                 { key: "references/user/ref.png", url: "https://example.com/ref.png" }
             ],
             maxAssets: 1
         })
 
+        expect(model.editImageSizeMode).toBe("explicit")
         expect(input).toMatchObject({
-            image_size: "auto",
+            image_size: { width: 2448, height: 3264 },
             image_urls: ["https://example.com/ref.png"]
         })
         expect(input).not.toHaveProperty("image_url")
@@ -331,7 +334,13 @@ it.each(["flare", "sunburst"])(
             `openai/gpt-image-2.5/${variant}/text-to-image`
         )
         expect(getFalEndpointForRequest(model, 1)).toBe(`openai/gpt-image-2.5/${variant}/edit`)
-        const request = { prompt: "A portrait", imageSize: "1:1" as const, referenceImages: [] }
+        expect(model.editImageSizeMode).toBe("explicit")
+        const request = {
+            prompt: "A portrait",
+            imageSize: "3:4" as const,
+            imageResolution: "4K" as const,
+            referenceImages: []
+        }
         expect(buildFalImageInput(model, request).quality).toBe("high")
         expect(buildFalImageInput(model, { ...request, quality: "max" }).quality).toBe("max")
         const edit = buildFalImageInput(model, {
@@ -339,7 +348,7 @@ it.each(["flare", "sunburst"])(
             referenceImages: [{ key: "reference", url: "https://example.com/reference.png" }]
         })
         expect(edit).toMatchObject({
-            image_size: "auto",
+            image_size: { width: 2448, height: 3264 },
             image_urls: ["https://example.com/reference.png"],
             quality: "high"
         })

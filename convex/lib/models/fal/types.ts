@@ -15,6 +15,7 @@ export type FalImageDescriptor = {
     editEndpoint?: string
     supportsReferences?: boolean
     imageSizeMode?: "standard" | "legacyOpenAi" | "seedream" | "seedreamPro"
+    editImageSizeMode?: "auto" | "explicit"
     usesAspectRatio?: boolean
     resolutionMode?: "uppercase" | "lowercase"
     usesQuality?: boolean
