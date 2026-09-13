@@ -1,19 +1,12 @@
 "use client"
 
-import {
-    type MotionValue,
-    motion,
-    useMotionValue,
-    useReducedMotion,
-    useScroll,
-    useTransform
-} from "motion/react"
-import { createRef, type RefObject, useEffect, useState } from "react"
+import { easeOut, type MotionValue, motion, useReducedMotion, useTransform } from "motion/react"
+import { createRef, type RefObject, useRef, useState } from "react"
 
 import { type LandingIcon, type UseCase, useCases } from "@/components/landing-page/content"
 import { SectionHead } from "@/components/landing-page/shared"
-import { cn } from "@/lib/utils"
-import { workflowObjectOpacity, workflowScenePhase } from "@/lib/workflow-scene"
+import { LandingScene, LandingSceneGroup, useLandingVisual } from "./landing-story"
+import { useLandingScroll } from "./use-landing-scroll"
 
 const objects = [
     { src: "/images/workflows/cube.webp", alt: "An interlocking brushed silver cube", rotate: -7 },
@@ -50,47 +43,79 @@ const choreography = [
         light: [70, 30, -10, -35, -70]
     }
 ]
-const sceneStops = [-0.2, 0.15, 0.5, 0.85, 1.2]
+const sceneStops = [0, 0.25, 0.5, 0.75, 1]
 
 type SceneRefs = {
     containerRef: RefObject<HTMLDivElement | null>
     sceneRef: RefObject<HTMLElement | null>
 }
 
-function useSceneProgress({ containerRef, sceneRef }: SceneRefs) {
-    const ratio = useMotionValue(1)
-    const { scrollYProgress } = useScroll({
-        container: containerRef,
-        target: sceneRef,
-        offset: ["start end", "end start"]
+function OverviewObject({
+    index,
+    progress,
+    reduced
+}: {
+    index: number
+    progress: MotionValue<number>
+    reduced: boolean
+}) {
+    const object = objects[index]
+    const direction = index % 2 === 0 ? -1 : 1
+    const x = useTransform(progress, [0, 0.5, 1], [direction * 36, 0, direction * 12], {
+        ease: easeOut
     })
-    useEffect(() => {
-        const container = containerRef.current
-        const scene = sceneRef.current
-        if (!container || !scene) return
-        const measure = () => ratio.set(container.clientHeight / Math.max(1, scene.offsetHeight))
-        const observer = new ResizeObserver(measure)
-        observer.observe(container)
-        observer.observe(scene)
-        measure()
-        return () => observer.disconnect()
-    }, [containerRef, sceneRef, ratio])
-    // Function-derived values avoid native timeline offset restrictions.
-    return useTransform(() => workflowScenePhase(scrollYProgress.get(), ratio.get()))
+    const y = useTransform(progress, [0, 0.5, 1], [index < 2 ? -24 : 24, 0, -12], {
+        ease: easeOut
+    })
+    const rotate = useTransform(progress, [0, 0.5, 1], [direction * 14, 0, direction * -5], {
+        ease: easeOut
+    })
+    const scale = useTransform(progress, [0, 0.5, 1], [0.72, 1, 0.94], { ease: easeOut })
+    return (
+        <motion.img
+            src={object.src}
+            alt={object.alt}
+            width={1024}
+            height={1024}
+            loading="lazy"
+            decoding="async"
+            style={reduced ? undefined : { x, y, rotate, scale }}
+        />
+    )
+}
+
+function WorkflowOverview({ containerRef }: { containerRef: SceneRefs["containerRef"] }) {
+    const visualRef = useRef<HTMLDivElement>(null)
+    const { progress, reduced } = useLandingVisual(containerRef, visualRef)
+    return (
+        <div ref={visualRef} className="landing-workflow-overview">
+            {objects.map((object, index) => (
+                <OverviewObject
+                    key={object.src}
+                    index={index}
+                    progress={progress}
+                    reduced={reduced}
+                />
+            ))}
+        </div>
+    )
+}
+
+function useSceneProgress({ containerRef, sceneRef }: SceneRefs) {
+    return useLandingScroll(containerRef, sceneRef, "scene").progress
 }
 
 function AnchoredObject({ index, ...refs }: SceneRefs & { index: number }) {
-    const progress = useSceneProgress(refs)
+    const visualRef = useRef<HTMLDivElement>(null)
+    const { progress } = useLandingVisual(refs.containerRef, visualRef)
     const object = objects[index]
     const path = choreography[index]
-    const opacity = useTransform(() => workflowObjectOpacity(progress.get()))
     const x = useTransform(progress, sceneStops, path.x)
     const y = useTransform(progress, sceneStops, path.y)
     const scale = useTransform(progress, sceneStops, [0.72, 0.91, 1.02, 0.97, 0.78])
     const rotate = useTransform(progress, sceneStops, path.turn)
     const lightX = useTransform(progress, sceneStops, path.light)
     const lightScale = useTransform(progress, sceneStops, [0.65, 1, 1.2, 1, 0.65])
-    const atmosphere = useTransform(() => workflowObjectOpacity(progress.get()) * 0.8)
     const filter = useTransform(progress, sceneStops, [
         "blur(7px) brightness(0.7)",
         "blur(0px) brightness(0.92)",
@@ -100,17 +125,17 @@ function AnchoredObject({ index, ...refs }: SceneRefs & { index: number }) {
     ])
     const shadowScale = useTransform(progress, sceneStops, [0.5, 0.8, 1, 0.85, 0.5])
     return (
-        <>
+        <div ref={visualRef} className="absolute inset-0">
             <motion.div
-                style={{ opacity: atmosphere, x: lightX, scale: lightScale }}
+                style={{ opacity: 0.8, x: lightX, scale: lightScale }}
                 className="pointer-events-none absolute -inset-x-16 inset-y-0 [background:radial-gradient(ellipse_at_45%_45%,color-mix(in_oklab,var(--landing-fg)_13%,transparent),transparent_65%)]"
             />
             <motion.div
-                style={{ opacity: atmosphere, x: lightX, rotate, scale: lightScale }}
+                style={{ opacity: 0.8, x: lightX, rotate, scale: lightScale }}
                 className="pointer-events-none absolute inset-0 [background:conic-gradient(from_220deg_at_50%_55%,transparent_0deg,color-mix(in_oklab,var(--landing-fg)_7%,transparent)_35deg,transparent_70deg,transparent_360deg)] [mask-image:radial-gradient(ellipse,black_15%,transparent_68%)]"
             />
             <motion.div
-                style={{ opacity: atmosphere, scaleX: shadowScale, x }}
+                style={{ opacity: 0.8, scaleX: shadowScale, x }}
                 className="pointer-events-none absolute inset-x-16 bottom-[8%] h-[8%] blur-lg [background:radial-gradient(ellipse,var(--landing-border-strong),transparent_70%)]"
             />
             <motion.img
@@ -121,10 +146,10 @@ function AnchoredObject({ index, ...refs }: SceneRefs & { index: number }) {
                 height={1024}
                 loading="lazy"
                 decoding="async"
-                style={{ opacity, x, y, scale, rotate, filter }}
+                style={{ x, y, scale, rotate, filter }}
                 className="pointer-events-none absolute inset-0 h-full w-full object-contain"
             />
-        </>
+        </div>
     )
 }
 
@@ -185,31 +210,28 @@ function WorkflowScene({
     reduced: boolean
 }) {
     const progress = useSceneProgress(refs)
-    const opacity = useTransform(progress, [-0.3, 0.15, 0.95, 1.35], [0.4, 1, 1, 0.4])
-    const y = useTransform(progress, [-0.3, 0.15], [24, 0])
     const object = objects[index]
     return (
-        <article
-            ref={refs.sceneRef}
-            className={cn(
-                "flex flex-col justify-center py-10",
-                !reduced && "md:min-h-[min(70svh,40rem)] md:py-16"
-            )}
+        <LandingScene
+            containerRef={refs.containerRef}
+            sceneRef={refs.sceneRef}
+            visual={
+                reduced ? (
+                    <img
+                        src={object.src}
+                        alt={object.alt}
+                        width={1024}
+                        height={1024}
+                        className="landing-workflow-static"
+                    />
+                ) : (
+                    <div className="landing-workflow-prop">
+                        <AnchoredObject index={index} {...refs} />
+                    </div>
+                )
+            }
         >
-            <motion.img
-                src={object.src}
-                alt={object.alt}
-                width={1024}
-                height={1024}
-                loading="lazy"
-                decoding="async"
-                style={reduced ? undefined : { opacity, y }}
-                className={cn(
-                    "mx-auto mb-6 aspect-square w-full max-w-72 object-contain",
-                    !reduced && "md:hidden"
-                )}
-            />
-            <motion.div style={reduced ? undefined : { opacity, y }}>
+            <div>
                 <h3 className="mb-5 font-medium text-2xl leading-tight [color:var(--landing-fg)] md:text-3xl">
                     {role.title}
                 </h3>
@@ -239,8 +261,8 @@ function WorkflowScene({
                         />
                     ))}
                 </ul>
-            </motion.div>
-        </article>
+            </div>
+        </LandingScene>
     )
 }
 
@@ -252,50 +274,28 @@ export function WorkflowIllustratedSection({
     const reduced = useReducedMotion() === true
     const [sceneRefs] = useState(() => useCases.map(() => createRef<HTMLElement>()))
     return (
-        <section
-            id="workflows"
-            className="border-t py-16 [border-color:var(--landing-border)] md:py-24"
-        >
-            <div className="mx-auto max-w-7xl px-5 md:px-8">
-                <SectionHead className="mb-6 md:mb-8" title="Built for Every Workflow">
-                    Whether you are writing code, researching sources, generating images, or
-                    building characters, SilkChat adapts to the work in front of you.
-                </SectionHead>
-                <div
-                    className={cn(
-                        "grid gap-x-12 lg:gap-x-20",
-                        reduced ? "md:grid-cols-2 md:gap-y-8" : "md:grid-cols-2"
-                    )}
+        <LandingSceneGroup propSide="right">
+            <section id="workflows">
+                <LandingScene
+                    containerRef={containerRef}
+                    visual={<WorkflowOverview containerRef={containerRef} />}
                 >
-                    {!reduced && (
-                        <div aria-hidden="true" className="relative hidden md:block">
-                            <div className="sticky top-24 isolate h-[min(70svh,40rem)] overflow-clip">
-                                {objects.map(({ src }, index) => (
-                                    <AnchoredObject
-                                        key={src}
-                                        index={index}
-                                        containerRef={containerRef}
-                                        sceneRef={sceneRefs[index]}
-                                    />
-                                ))}
-                                <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_45%,var(--landing-bg)_95%)]" />
-                            </div>
-                        </div>
-                    )}
-                    <div className={cn(reduced && "contents")}>
-                        {useCases.map((role, index) => (
-                            <WorkflowScene
-                                key={role.title}
-                                role={role}
-                                index={index}
-                                containerRef={containerRef}
-                                sceneRef={sceneRefs[index]}
-                                reduced={reduced}
-                            />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </section>
+                    <SectionHead className="mb-0" title="Built for Every Workflow">
+                        Whether you are writing code, researching sources, generating images, or
+                        building characters, SilkChat adapts to the work in front of you.
+                    </SectionHead>
+                </LandingScene>
+                {useCases.map((role, index) => (
+                    <WorkflowScene
+                        key={role.title}
+                        role={role}
+                        index={index}
+                        containerRef={containerRef}
+                        sceneRef={sceneRefs[index]}
+                        reduced={reduced}
+                    />
+                ))}
+            </section>
+        </LandingSceneGroup>
     )
 }

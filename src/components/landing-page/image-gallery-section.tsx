@@ -1,56 +1,115 @@
 "use client"
 
-import { ArrowRight } from "lucide-react"
-import { useState } from "react"
+import { ImagePlus, Layers, SlidersHorizontal } from "lucide-react"
+import { easeOut, motion, useTransform } from "motion/react"
+import { useRef, useState } from "react"
 
-import { galleryImages } from "@/components/landing-page/content"
+import { type GalleryImage, galleryImages } from "@/components/landing-page/content"
 import { LibraryLightbox } from "@/components/landing-page/library-lightbox"
-import { SectionHead, SignInButton } from "@/components/landing-page/shared"
-import { LibraryLogo } from "@/components/logo"
-import { Masonry } from "@/components/react-bits/masonry"
 
-export function ImageGallerySection() {
-    const [activeIndex, setActiveIndex] = useState<number | null>(null)
+import type { LandingScrollProps } from "./use-landing-scroll"
+import { LandingScene, useLandingVisual } from "./landing-story"
 
+function Artwork({
+    item,
+    index,
+    onOpen,
+    containerRef
+}: LandingScrollProps & { item: GalleryImage; index: number; onOpen: () => void }) {
+    const frameRef = useRef<HTMLElement>(null)
+    const [focused, setFocused] = useState(false)
+    const { progress, reduced } = useLandingVisual(containerRef, frameRef, "focus")
+    const entry = [0.04 + index * 0.045, 0.52 + index * 0.035]
+    const scale = useTransform(progress, entry, [1.16, 1], { ease: easeOut })
+    const filter = useTransform(progress, entry, ["blur(8px)", "blur(0px)"], { ease: easeOut })
+    const rotate = useTransform(progress, entry, [index % 2 === 0 ? -4 : 4, 0], { ease: easeOut })
+    const opacity = useTransform(progress, entry, [0.2, 1], { ease: easeOut })
     return (
-        <section id="gallery" className="border-t py-24 [border-color:var(--landing-border)]">
-            <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead title={<LibraryLogo className="h-10 w-auto md:h-12" />}>
-                    Envision your ideas with GPT Image 2, Seedream 5 Pro, Nano Banana Pro, FLUX.2
-                    [flex], and more in a First-Class library UI made for concurrent generation,
-                    detailed parameters, and intuitive library management.
-                </SectionHead>
+        <figure ref={frameRef} className="landing-gallery-item">
+            <button
+                type="button"
+                className="landing-gallery-image"
+                aria-haspopup="dialog"
+                aria-label={`Open image: ${item.prompt}`}
+                onClick={onOpen}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+            >
+                <motion.span
+                    className="landing-gallery-window"
+                    style={reduced || focused ? undefined : { opacity }}
+                >
+                    <motion.img
+                        src={item.img}
+                        alt={item.prompt}
+                        width={item.width}
+                        height={item.height}
+                        loading="lazy"
+                        decoding="async"
+                        style={reduced || focused ? undefined : { scale, filter, rotate }}
+                    />
+                </motion.span>
+            </button>
+            <figcaption>{item.label}</figcaption>
+        </figure>
+    )
+}
 
-                <Masonry
-                    items={galleryImages}
-                    animateFrom="bottom"
-                    blurToFocus
-                    scaleOnHover
-                    hoverScale={1.01}
-                    duration={0.6}
-                    stagger={0.06}
-                    onItemClick={(item) => {
-                        const nextIndex = galleryImages.findIndex((image) => image.id === item.id)
-                        if (nextIndex >= 0) {
-                            setActiveIndex(nextIndex)
-                        }
-                    }}
-                />
-
-                <div className="mt-12 flex justify-center">
-                    <SignInButton className="gap-2">
-                        Start generating
-                        <ArrowRight className="size-4" />
-                    </SignInButton>
-                </div>
+function GalleryVisual({ containerRef }: LandingScrollProps) {
+    const [activeIndex, setActiveIndex] = useState<number | null>(null)
+    return (
+        <>
+            <div className="landing-story-gallery">
+                {galleryImages.map((item, index) => (
+                    <Artwork
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        containerRef={containerRef}
+                        onOpen={() => setActiveIndex(index)}
+                    />
+                ))}
             </div>
-
             <LibraryLightbox
                 images={galleryImages}
                 index={activeIndex}
                 onClose={() => setActiveIndex(null)}
                 onNavigate={setActiveIndex}
             />
-        </section>
+        </>
+    )
+}
+export function ImageGallerySection({ containerRef }: LandingScrollProps) {
+    return (
+        <LandingScene
+            id="gallery"
+            propSide="right"
+            containerRef={containerRef}
+            visual={<GalleryVisual containerRef={containerRef} />}
+        >
+            <div className="landing-copy landing-gallery-heading">
+                <h2 className="landing-heading">An idea, made visible.</h2>
+                <ul className="landing-points">
+                    <li>
+                        <span>
+                            <ImagePlus />
+                        </span>
+                        Generate and edit images
+                    </li>
+                    <li>
+                        <span>
+                            <Layers />
+                        </span>
+                        Run several generations at once
+                    </li>
+                    <li>
+                        <span>
+                            <SlidersHorizontal />
+                        </span>
+                        Choose the model, size, and detail
+                    </li>
+                </ul>
+            </div>
+        </LandingScene>
     )
 }

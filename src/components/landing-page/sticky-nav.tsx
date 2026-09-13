@@ -16,14 +16,12 @@ interface StickyNavProps {
 const navSections = [
     { id: "hero", label: "Hero" },
     { id: "providers", label: "Models" },
-    { id: "model-selector", label: "Selector" },
-    { id: "features", label: "Features" },
+    { id: "workflows", label: "Workflows" },
     { id: "artifacts", label: "Artifacts" },
     { id: "gallery", label: "Gallery" },
-    { id: "workflows", label: "Workflows" },
     { id: "testimonials", label: "Testimonials" },
-    { id: "pricing", label: "Pricing" },
     { id: "privacy", label: "Privacy" },
+    { id: "pricing", label: "Pricing" },
     { id: "start", label: "Get Started" }
 ]
 
@@ -37,12 +35,12 @@ export function StickyNav({ containerRef }: StickyNavProps) {
         const container = containerRef.current
         if (!container) return
 
-        let ticking = false
+        let frame = 0
 
         const handleScroll = () => {
-            if (ticking) return
+            if (frame) return
 
-            window.requestAnimationFrame(() => {
+            frame = window.requestAnimationFrame(() => {
                 const currentScrollY = container.scrollTop
                 setIsNavVisible(currentScrollY <= lastScrollY.current || currentScrollY <= 100)
                 lastScrollY.current = currentScrollY
@@ -62,22 +60,25 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                     setActiveSection(nextActiveIndex)
                 }
 
-                ticking = false
+                frame = 0
             })
-            ticking = true
         }
 
         container.addEventListener("scroll", handleScroll, { passive: true })
         handleScroll()
 
-        return () => container.removeEventListener("scroll", handleScroll)
+        return () => {
+            window.cancelAnimationFrame(frame)
+            container.removeEventListener("scroll", handleScroll)
+        }
     }, [containerRef])
 
     return (
         <>
             <nav
+                aria-label="Main navigation"
                 className={cn(
-                    "fixed top-0 z-50 flex w-full items-center justify-between px-4 py-2 transition-[transform,background-color,backdrop-filter] duration-500 ease-in-out md:px-6",
+                    "landing-header fixed top-0 z-50 flex w-full items-center justify-between px-4 py-2 transition-[transform,background-color,backdrop-filter] duration-500 ease-in-out md:px-6",
                     isHeroSection
                         ? "bg-transparent backdrop-blur-none"
                         : "bg-background/40 backdrop-blur-md",
@@ -123,7 +124,7 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                 </div>
             </nav>
 
-            <div className="-translate-y-1/2 fixed top-1/2 right-6 z-50 hidden flex-col gap-4 md:flex">
+            <div className="fixed top-1/2 right-6 z-50 hidden -translate-y-1/2 flex-col gap-4 md:flex">
                 {navSections.map((section, index) => (
                     <button
                         key={section.id}
@@ -150,7 +151,7 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                         </span>
                         <div
                             className={cn(
-                                "h-2 w-2 rounded-full transition-all duration-300",
+                                "h-2 w-2 rounded-[var(--radius-xl)] transition-all duration-300",
                                 activeSection === index
                                     ? "h-8 bg-primary shadow-lg shadow-primary/50"
                                     : "bg-muted-foreground/30 shadow-sm hover:bg-muted-foreground/60"

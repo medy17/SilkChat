@@ -1,97 +1,87 @@
 "use client"
 
-import { FileUp, LockKeyhole, ShieldCheck } from "lucide-react"
-import type { ComponentType } from "react"
+import { ArrowUpRight, FileCode2, GitFork, Server } from "lucide-react"
+import { useRef } from "react"
 
 import { GithubIcon } from "@/components/brand-icons"
-import { SectionHead, Tile } from "@/components/landing-page/shared"
 import { Button } from "@/components/ui/button"
+import { Sculpture } from "./sculpture"
+import type { LandingScrollProps } from "./use-landing-scroll"
+import { LandingScene, useLandingVisual } from "./landing-story"
 
-export function SecuritySection() {
+function SourceVisual({ containerRef }: LandingScrollProps) {
+    const sculptureRef = useRef<HTMLDivElement>(null)
+    const { progress, reduced } = useLandingVisual(containerRef, sculptureRef, "focus")
     return (
-        <section id="privacy" className="border-t py-24 [border-color:var(--landing-border)]">
-            <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead centered title="Audit it. Host it. Fork it.">
-                    SilkChat is built for privacy and transparency. Use your own keys, review the
-                    source, and keep provider-level retention under your control.
-                </SectionHead>
+        <div ref={sculptureRef} className="flex min-w-0 justify-center">
+            <Sculpture
+                kind="source"
+                progress={progress}
+                reduced={reduced}
+                containerRef={containerRef}
+            />
+        </div>
+    )
+}
 
-                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                    <Tile className="p-0">
-                        <div className="flex items-center gap-2 border-b px-4 py-3 [background:var(--landing-surface-stronger)] [border-color:var(--landing-border)]">
-                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
-                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
-                            <span className="size-2.5 rounded-full [background:var(--landing-muted-faint)]" />
-                            <span className="ml-3 font-mono text-xs [color:var(--landing-muted-faint)]">
-                                ~/silkchat
-                            </span>
-                        </div>
-                        <div className="space-y-1 p-6 font-mono text-sm leading-7">
-                            <div className="[color:var(--landing-muted-soft)]">
-                                <span className="[color:var(--landing-fg)]">$</span> gh repo clone
-                                medy17/silkchat
-                            </div>
-                            <div className="[color:var(--landing-muted-faint)]">
-                                Cloned SilkChat into ./silkchat
-                            </div>
-                            <div className="[color:var(--landing-muted-soft)]">
-                                <span className="[color:var(--landing-fg)]">$</span> bun install
-                            </div>
-                            <div className="[color:var(--landing-muted-faint)]">
-                                Dependencies installed
-                            </div>
-                            <div className="[color:var(--landing-muted-soft)]">
-                                <span className="[color:var(--landing-fg)]">$</span> bun run dev
-                            </div>
-                            <div className="[color:var(--landing-muted-faint)]">
-                                SilkChat dev server{" "}
-                                <span className="[color:var(--landing-fg)]">
-                                    http://localhost:3000
-                                </span>
-                            </div>
-                        </div>
-                    </Tile>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {[
-                            ["Encrypted keys", "Keys are stored securely.", LockKeyhole],
-                            ["Open source", "Audit the code and host it yourself.", GithubIcon],
-                            [
-                                "BYOK controls",
-                                "Use provider-level retention policies.",
-                                ShieldCheck
-                            ],
-                            ["Portable chats", "Import conversations from other tools.", FileUp]
-                        ].map(([title, description, Icon]) => {
-                            const IconComponent = Icon as ComponentType<{ className?: string }>
-
-                            return (
-                                <Tile key={title as string} className="p-5">
-                                    <IconComponent className="mb-5 size-6 [color:var(--landing-fg)]" />
-                                    <div className="font-medium [color:var(--landing-fg)]">
-                                        {title as string}
-                                    </div>
-                                    <p className="mt-2 text-sm [color:var(--landing-muted-faint)]">
-                                        {description as string}
-                                    </p>
-                                </Tile>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                <div className="mt-8 flex justify-center">
-                    <a href="https://github.com/medy17/silkchat" target="_blank" rel="noreferrer">
-                        <Button
-                            variant="outline"
-                            className="h-11 rounded-[var(--radius-lg)] border bg-transparent [border-color:var(--landing-border)] [color:var(--landing-fg)] hover:[background:var(--landing-surface-strong)] hover:[color:var(--landing-fg)]"
+export function SecuritySection({ containerRef }: LandingScrollProps) {
+    return (
+        <LandingScene
+            id="privacy"
+            propSide="right"
+            arrival="after-transition"
+            release
+            containerRef={containerRef}
+            visual={<SourceVisual containerRef={containerRef} />}
+        >
+            <div className="landing-copy">
+                <h2 className="landing-heading">
+                    Open source.
+                    <br />
+                    Open to possibility.
+                </h2>
+                <p>The code is yours to inspect, run, and build on.</p>
+                <ul className="landing-points">
+                    <li>
+                        <span>
+                            <FileCode2 />
+                        </span>
+                        Inspect the complete source
+                    </li>
+                    <li>
+                        <span>
+                            <Server />
+                        </span>
+                        Run your own deployment
+                    </li>
+                    <li>
+                        <span>
+                            <GitFork />
+                        </span>
+                        Fork, customize, and contribute
+                    </li>
+                </ul>
+                <div className="landing-source-actions">
+                    <Button asChild size="lg" className="landing-primary h-12 px-5">
+                        <a
+                            href="https://github.com/medy17/silkchat"
+                            target="_blank"
+                            rel="noreferrer"
                         >
-                            <GithubIcon className="mr-2 size-4" />
-                            View source code
-                        </Button>
+                            <GithubIcon className="size-4" />
+                            Explore the source
+                            <ArrowUpRight className="size-4" />
+                        </a>
+                    </Button>
+                    <a
+                        href="https://github.com/medy17/silkchat/blob/main/docs/SETUP_GUIDE.md"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        Setup guide <ArrowUpRight className="size-4" />
                     </a>
                 </div>
             </div>
-        </section>
+        </LandingScene>
     )
 }

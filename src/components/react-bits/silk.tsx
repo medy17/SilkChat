@@ -13,6 +13,7 @@ type SilkProps = {
     noiseIntensity?: number
     rotation?: number
     className?: string
+    paused?: boolean
 }
 
 type SilkUniforms = {
@@ -36,7 +37,13 @@ const resolveColorInput = (input: string) => {
     const resolved = getComputedStyle(probe).color
     document.body.removeChild(probe)
 
-    return resolved || input
+    // Three expects sRGB; computed theme colors can remain in oklch syntax.
+    const sample = document.createElement("canvas").getContext("2d")
+    if (!sample) return resolved || input
+    sample.fillStyle = resolved || input
+    sample.fillRect(0, 0, 1, 1)
+    const [r, g, b] = sample.getImageData(0, 0, 1, 1).data
+    return `rgb(${r}, ${g}, ${b})`
 }
 
 const vertexShader = `
@@ -99,35 +106,34 @@ void main() {
 }
 `
 
-const SilkPlane = forwardRef<SilkMesh, { uniforms: SilkUniforms }>(function SilkPlane(
-    { uniforms },
-    ref
-) {
-    const { viewport } = useThree()
+const SilkPlane = forwardRef<SilkMesh, { uniforms: SilkUniforms; paused: boolean }>(
+    function SilkPlane({ uniforms, paused }, ref) {
+        const { viewport } = useThree()
 
-    useLayoutEffect(() => {
-        if (typeof ref !== "function" && ref?.current) {
-            ref.current.scale.set(viewport.width, viewport.height, 1)
-        }
-    }, [ref, viewport])
+        useLayoutEffect(() => {
+            if (typeof ref !== "function" && ref?.current) {
+                ref.current.scale.set(viewport.width, viewport.height, 1)
+            }
+        }, [ref, viewport])
 
-    useFrame((_, delta) => {
-        if (typeof ref !== "function" && ref?.current) {
-            ref.current.material.uniforms.uTime.value += 0.1 * delta
-        }
-    })
+        useFrame((_, delta) => {
+            if (!paused && typeof ref !== "function" && ref?.current) {
+                ref.current.material.uniforms.uTime.value += 0.1 * delta
+            }
+        })
 
-    return (
-        <mesh ref={ref}>
-            <planeGeometry args={[1, 1, 1, 1]} />
-            <shaderMaterial
-                fragmentShader={fragmentShader}
-                uniforms={uniforms}
-                vertexShader={vertexShader}
-            />
-        </mesh>
-    )
-})
+        return (
+            <mesh ref={ref}>
+                <planeGeometry args={[1, 1, 1, 1]} />
+                <shaderMaterial
+                    fragmentShader={fragmentShader}
+                    uniforms={uniforms}
+                    vertexShader={vertexShader}
+                />
+            </mesh>
+        )
+    }
+)
 SilkPlane.displayName = "SilkPlane"
 
 export function Silk({
@@ -137,18 +143,20 @@ export function Silk({
     contrast = 1,
     noiseIntensity = 1.5,
     rotation = 0,
-    className
+    className,
+    paused = false
 }: SilkProps) {
     const meshRef = useRef<SilkMesh>(null)
+    const invalidateRef = useRef<(() => void) | null>(null)
 
     const uniforms = useMemo<SilkUniforms>(
         () => ({
-            uSpeed: { value: speed },
-            uScale: { value: scale },
-            uNoiseIntensity: { value: noiseIntensity },
-            uColor: { value: new Color(resolveColorInput(color)) },
-            uContrast: { value: contrast },
-            uRotation: { value: rotation },
+            uSpeed: { value: 0 },
+            uScale: { value: 1 },
+            uNoiseIntensity: { value: 0 },
+            uColor: { value: new Color() },
+            uContrast: { value: 1 },
+            uRotation: { value: 0 },
             uTime: { value: 0 }
         }),
         []
@@ -161,11 +169,19 @@ export function Silk({
         uniforms.uColor.value.set(resolveColorInput(color))
         uniforms.uContrast.value = contrast
         uniforms.uRotation.value = rotation
+        invalidateRef.current?.()
     }, [uniforms, speed, scale, noiseIntensity, color, contrast, rotation])
 
     return (
-        <Canvas className={className} dpr={[1, 2]} frameloop="always">
-            <SilkPlane ref={meshRef} uniforms={uniforms} />
+        <Canvas
+            className={className}
+            dpr={[1, 2]}
+            frameloop={paused ? "demand" : "always"}
+            onCreated={({ invalidate }) => {
+                invalidateRef.current = invalidate
+            }}
+        >
+            <SilkPlane ref={meshRef} uniforms={uniforms} paused={paused} />
         </Canvas>
     )
 }
