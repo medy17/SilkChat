@@ -397,7 +397,7 @@ export const ChatActions = memo(
                     editing || speechActive
                         ? "z-10 opacity-100"
                         : "opacity-100 md:opacity-0 md:group-focus:visible md:group-focus:z-10 md:group-focus:opacity-100 md:group-hover:visible md:group-hover:z-10 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
-                    role === "user" ? "right-0 mt-4" : "left-0 mt-3"
+                    role === "user" ? "top-full right-0 mt-4" : "left-0 mt-3"
                 )}
             >
                 {role === "assistant" && !copyOnly && threadId && (

@@ -1403,8 +1403,6 @@ const MessageRowComponent = ({
     const bubbleAnimationRef = useRef<Animation | null>(null)
     const controlsAnimationRef = useRef<Animation | null>(null)
     const bubbleRectRef = useRef<{ width: number; height: number } | null>(null)
-    const actionsRectRef = useRef<{ left: number; top: number } | null>(null)
-    const actionsAnimationRef = useRef<Animation | null>(null)
     const prevIsEditingRef = useRef(isEditing)
 
     const captureCurrentBubbleLayout = useCallback(() => {
@@ -1412,14 +1410,8 @@ const MessageRowComponent = ({
         if (!element) return
 
         const rect = element.getBoundingClientRect()
-        const actionsRect = element
-            .querySelector<HTMLElement>("[data-message-actions]")
-            ?.getBoundingClientRect()
 
         bubbleRectRef.current = { width: rect.width, height: rect.height }
-        actionsRectRef.current = actionsRect
-            ? { left: actionsRect.left, top: actionsRect.top }
-            : null
         // Reserve the current space before React swaps rendered markdown for
         // raw text (or vice versa). A snapshot alone cannot prevent scroll clamping.
         element.style.height = `${rect.height}px`
@@ -1464,12 +1456,7 @@ const MessageRowComponent = ({
         contentAnimationRef.current?.cancel()
         bubbleAnimationRef.current?.cancel()
         controlsAnimationRef.current?.cancel()
-        actionsAnimationRef.current?.cancel()
-
-        const actionsElement = element.querySelector<HTMLElement>("[data-message-actions]")
-        actionsElement?.removeAttribute("style")
         const rect = element.getBoundingClientRect()
-        const actionsRect = actionsElement?.getBoundingClientRect()
         const content = contentRef.current
         const contentRect = content?.getBoundingClientRect()
         const contentWidth = contentRect?.width
@@ -1487,12 +1474,8 @@ const MessageRowComponent = ({
               parseFloat(shellStyle.borderBottomWidth)
             : rect.height
         const prevRect = bubbleRectRef.current
-        const prevActionsRect = actionsRectRef.current
 
         bubbleRectRef.current = { width: nextWidth, height: nextHeight }
-        actionsRectRef.current = actionsRect
-            ? { left: actionsRect.left, top: actionsRect.top }
-            : null
         prevIsEditingRef.current = isEditing
 
         if (prevRect === null) {
@@ -1508,8 +1491,28 @@ const MessageRowComponent = ({
         const animationOptions = MESSAGE_EDIT_ANIMATION_OPTIONS
 
         if (content && contentWidth !== undefined) {
+            const horizontalInset =
+                parseFloat(shellStyle.paddingLeft) +
+                parseFloat(shellStyle.paddingRight) +
+                parseFloat(shellStyle.borderLeftWidth) +
+                parseFloat(shellStyle.borderRightWidth)
+            const verticalInset = nextHeight - (contentRect?.height ?? 0)
+            const clipRight = Math.max(
+                0,
+                contentWidth - Math.max(0, prevRect.width - horizontalInset)
+            )
+            const clipBottom = Math.max(
+                0,
+                (contentRect?.height ?? 0) - Math.max(0, prevRect.height - verticalInset)
+            )
             contentAnimationRef.current = content.animate(
-                [{ width: `${contentWidth}px` }, { width: `${contentWidth}px` }],
+                [
+                    {
+                        width: `${contentWidth}px`,
+                        clipPath: `inset(0 ${clipRight}px ${clipBottom}px 0)`
+                    },
+                    { width: `${contentWidth}px`, clipPath: "inset(0 0 0 0)" }
+                ],
                 animationOptions
             )
         }
@@ -1518,14 +1521,12 @@ const MessageRowComponent = ({
                 {
                     width: `${prevRect.width}px`,
                     height: `${prevRect.height}px`,
-                    maxWidth: "none",
-                    overflow: "hidden"
+                    maxWidth: "none"
                 },
                 {
                     width: `${nextWidth}px`,
                     height: `${nextHeight}px`,
-                    maxWidth: "none",
-                    overflow: "hidden"
+                    maxWidth: "none"
                 }
             ],
             animationOptions
@@ -1547,36 +1548,6 @@ const MessageRowComponent = ({
                 animationOptions
             )
         }
-
-        if (actionsElement && actionsRect && prevActionsRect) {
-            // Fixed actions remain outside the shell's temporary clipping region.
-            Object.assign(actionsElement.style, {
-                position: "fixed",
-                top: `${actionsRect.top}px`,
-                left: `${actionsRect.left}px`,
-                right: "auto",
-                marginTop: "0"
-            })
-            const actionsAnimation = actionsElement.animate(
-                [
-                    {
-                        transform: `translate(${prevActionsRect.left - actionsRect.left}px, ${prevActionsRect.top - actionsRect.top}px)`
-                    },
-                    { transform: "translate(0, 0)" }
-                ],
-                animationOptions
-            )
-            actionsAnimationRef.current = actionsAnimation
-
-            void actionsAnimation.finished
-                .then(() => {
-                    if (actionsAnimationRef.current !== actionsAnimation) return
-
-                    actionsAnimationRef.current = null
-                    actionsElement.removeAttribute("style")
-                })
-                .catch(() => undefined)
-        }
     })
 
     useLayoutEffect(() => {
@@ -1584,7 +1555,6 @@ const MessageRowComponent = ({
             contentAnimationRef.current?.cancel()
             bubbleAnimationRef.current?.cancel()
             controlsAnimationRef.current?.cancel()
-            actionsAnimationRef.current?.cancel()
         }
     }, [])
 
