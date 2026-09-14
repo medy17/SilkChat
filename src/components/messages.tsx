@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api"
 import { useToken } from "@/hooks/auth-hooks"
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
+import { useEditNavigationGuard } from "@/hooks/use-edit-navigation-guard"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import {
@@ -897,7 +898,6 @@ const EditableMessage = memo(
                 controller.abort()
             }
         }, [])
-
         const commitCancel = useCallback(() => {
             cancelActiveUploads()
             if (addedFiles.length > 0) {
@@ -922,10 +922,21 @@ const EditableMessage = memo(
             setShowCancelConfirmation(true)
         }, [commitCancel, hasUnsavedChanges])
 
+        const navigationGuard = useEditNavigationGuard(hasUnsavedChanges, commitCancel)
+
         const handleConfirmCancel = useCallback(() => {
             setShowCancelConfirmation(false)
             commitCancel()
-        }, [commitCancel])
+            navigationGuard.proceed?.()
+        }, [commitCancel, navigationGuard.proceed])
+
+        const handleCancelDialogOpenChange = useCallback(
+            (open: boolean) => {
+                setShowCancelConfirmation(open)
+                if (!open) navigationGuard.reset?.()
+            },
+            [navigationGuard.reset]
+        )
 
         useEffect(() => {
             if (!cancelRequestRef) return
@@ -953,10 +964,7 @@ const EditableMessage = memo(
 
         return (
             <>
-                <div
-                    className="@container border-2 border-input bg-background/80 p-3 shadow-xs backdrop-blur-lg dark:bg-input/70"
-                    style={{ borderRadius: "var(--radius-lg)" }}
-                >
+                <div className="@container">
                     <Textarea
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
@@ -989,7 +997,10 @@ const EditableMessage = memo(
                                 }
 
                                 return (
-                                    <div key={index} className="group relative shrink-0">
+                                    <div
+                                        key={index}
+                                        className="group relative min-w-0 max-w-full shrink-0"
+                                    >
                                         {isImage ? (
                                             <div
                                                 className={cn(
@@ -1008,7 +1019,7 @@ const EditableMessage = memo(
                                                         "object-cover",
                                                         isCompact
                                                             ? "h-full w-full"
-                                                            : "h-auto max-h-64 w-auto"
+                                                            : "h-auto max-h-64 w-auto max-w-full"
                                                     )}
                                                     style={{
                                                         borderRadius: "calc(var(--radius) - 2px)"
@@ -1135,53 +1146,58 @@ const EditableMessage = memo(
                         </div>
                     )}
 
-                    <div className="flex items-center gap-2 border-border/70 border-t pt-3">
-                        <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
-                            {selectedModel && (
-                                <ModelSelector
-                                    selectedModel={selectedModel}
-                                    onModelChange={setSelectedModel}
-                                    telemetrySurface="message_edit"
-                                    side="top"
-                                    className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
-                                    requiresNativePdf={requiresNativePdfForModelSelection}
+                    <div data-edit-controls>
+                        <div className="flex items-center gap-2 border-border/70 border-t pt-3">
+                            <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
+                                {selectedModel && (
+                                    <ModelSelector
+                                        selectedModel={selectedModel}
+                                        onModelChange={setSelectedModel}
+                                        telemetrySurface="message_edit"
+                                        side="top"
+                                        className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
+                                        requiresNativePdf={requiresNativePdfForModelSelection}
+                                    />
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                    accept={getFileAcceptAttribute(modelSupportsVision)}
                                 />
-                            )}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                multiple
-                                onChange={handleFileChange}
-                                className="hidden"
-                                accept={getFileAcceptAttribute(modelSupportsVision)}
-                            />
-                            <ComposerDesktopActions
+                                <ComposerDesktopActions
+                                    state={composerToolbar}
+                                    threadId={threadId}
+                                    uploading={uploading}
+                                    onAttachClick={() => fileInputRef.current?.click()}
+                                />
+                            </div>
+
+                            <ComposerMobileMenu
                                 state={composerToolbar}
-                                threadId={threadId}
-                                uploading={uploading}
                                 onAttachClick={() => fileInputRef.current?.click()}
                             />
+
+                            <Button
+                                size="icon"
+                                className="size-8 shrink-0"
+                                style={{ borderRadius: "var(--radius-md)" }}
+                                onClick={handleSave}
+                                disabled={uploading}
+                                title="Send"
+                            >
+                                <ArrowUp className="size-5" />
+                            </Button>
                         </div>
-
-                        <ComposerMobileMenu
-                            state={composerToolbar}
-                            onAttachClick={() => fileInputRef.current?.click()}
-                        />
-
-                        <Button
-                            size="icon"
-                            className="size-8 shrink-0"
-                            style={{ borderRadius: "var(--radius-md)" }}
-                            onClick={handleSave}
-                            disabled={uploading}
-                            title="Send"
-                        >
-                            <ArrowUp className="size-5" />
-                        </Button>
                     </div>
                 </div>
 
-                <AlertDialog open={showCancelConfirmation} onOpenChange={setShowCancelConfirmation}>
+                <AlertDialog
+                    open={showCancelConfirmation || navigationGuard.status === "blocked"}
+                    onOpenChange={handleCancelDialogOpenChange}
+                >
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Discard edit?</AlertDialogTitle>
@@ -1205,6 +1221,11 @@ const EditableMessage = memo(
     }
 )
 EditableMessage.displayName = "EditableMessage"
+
+const MESSAGE_EDIT_ANIMATION_OPTIONS = {
+    duration: 240,
+    easing: "cubic-bezier(0, 0, 0.58, 1)"
+}
 
 const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
@@ -1377,6 +1398,10 @@ const MessageRowComponent = ({
     const fileParts = message.parts.filter((part) => part.type === "file")
     const cancelEditRequestRef = useRef<(() => void) | null>(null)
     const bubbleRef = useRef<HTMLDivElement>(null)
+    const contentRef = useRef<HTMLDivElement>(null)
+    const contentAnimationRef = useRef<Animation | null>(null)
+    const bubbleAnimationRef = useRef<Animation | null>(null)
+    const controlsAnimationRef = useRef<Animation | null>(null)
     const bubbleRectRef = useRef<{ width: number; height: number } | null>(null)
     const actionsRectRef = useRef<{ left: number; top: number } | null>(null)
     const actionsAnimationRef = useRef<Animation | null>(null)
@@ -1395,6 +1420,9 @@ const MessageRowComponent = ({
         actionsRectRef.current = actionsRect
             ? { left: actionsRect.left, top: actionsRect.top }
             : null
+        // Reserve the current space before React swaps rendered markdown for
+        // raw text (or vice versa). A snapshot alone cannot prevent scroll clamping.
+        element.style.height = `${rect.height}px`
     }, [])
 
     const handleStartEdit = useCallback(
@@ -1408,25 +1436,56 @@ const MessageRowComponent = ({
         [captureCurrentBubbleLayout, onEdit]
     )
 
-    // FLIP the message bubble when entering/leaving edit mode. The outer element is
-    // the same node across the toggle, so measuring before/after gives real pixel
-    // sizes — which a CSS keyframe can't, since the resting bubble is content-sized
-    // (w-fit) and clamped by max-width. We animate both dimensions so the transition
-    // reads correctly on any viewport: on desktop the width delta dominates (the
-    // clamped bubble grows to full width), while on mobile the bubble is already
-    // ~full width, so the height delta dominates and it reads as the box growing tall.
+    const handleSaveEdit = useCallback(
+        (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
+            captureCurrentBubbleLayout()
+            onSaveEdit(newContent, remainingFileParts, deletedUrls)
+        },
+        [captureCurrentBubbleLayout, onSaveEdit]
+    )
+
+    const handleCancelEdit = useCallback(() => {
+        captureCurrentBubbleLayout()
+        onCancelEdit()
+    }, [captureCurrentBubbleLayout, onCancelEdit])
+
+    // Measure the complete destination before starting any child animations.
+    // Animate the shell, holding content at its final width so markdown/math
+    // does not reflow at every intermediate shell width.
     useLayoutEffect(() => {
         if (message.role !== "user") return
 
         const element = bubbleRef.current
         if (!element) return
 
-        const rect = element.getBoundingClientRect()
-        const actionsElement = element.querySelector<HTMLElement>("[data-message-actions]")
-        const actionsRect = actionsElement?.getBoundingClientRect()
-        const nextWidth = rect.width
-        const nextHeight = rect.height
         const editingChanged = prevIsEditingRef.current !== isEditing
+        if (!editingChanged) return
+
+        contentAnimationRef.current?.cancel()
+        bubbleAnimationRef.current?.cancel()
+        controlsAnimationRef.current?.cancel()
+        actionsAnimationRef.current?.cancel()
+
+        const actionsElement = element.querySelector<HTMLElement>("[data-message-actions]")
+        actionsElement?.removeAttribute("style")
+        const rect = element.getBoundingClientRect()
+        const actionsRect = actionsElement?.getBoundingClientRect()
+        const content = contentRef.current
+        const contentRect = content?.getBoundingClientRect()
+        const contentWidth = contentRect?.width
+        const controls = element.querySelector<HTMLElement>("[data-edit-controls]")
+        const controlsHeight = controls?.getBoundingClientRect().height
+        const nextWidth = rect.width
+        // The shell still holds its previous height. Measure natural content at
+        // the destination width without briefly collapsing the document.
+        const shellStyle = getComputedStyle(element)
+        const nextHeight = contentRect
+            ? contentRect.height +
+              parseFloat(shellStyle.paddingTop) +
+              parseFloat(shellStyle.paddingBottom) +
+              parseFloat(shellStyle.borderTopWidth) +
+              parseFloat(shellStyle.borderBottomWidth)
+            : rect.height
         const prevRect = bubbleRectRef.current
         const prevActionsRect = actionsRectRef.current
 
@@ -1436,26 +1495,25 @@ const MessageRowComponent = ({
             : null
         prevIsEditingRef.current = isEditing
 
-        if (!editingChanged || prevRect === null) {
-            return
-        }
-
-        const widthChanged = Math.abs(prevRect.width - nextWidth) >= 1
-        const heightChanged = Math.abs(prevRect.height - nextHeight) >= 1
-        if (!widthChanged && !heightChanged) {
+        if (prevRect === null) {
+            element.style.removeProperty("height")
             return
         }
 
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            element.style.removeProperty("height")
             return
         }
 
-        const animationOptions = {
-            duration: 300,
-            easing: "cubic-bezier(0.16, 1, 0.3, 1)"
-        }
+        const animationOptions = MESSAGE_EDIT_ANIMATION_OPTIONS
 
-        element.animate(
+        if (content && contentWidth !== undefined) {
+            contentAnimationRef.current = content.animate(
+                [{ width: `${contentWidth}px` }, { width: `${contentWidth}px` }],
+                animationOptions
+            )
+        }
+        bubbleAnimationRef.current = element.animate(
             [
                 {
                     width: `${prevRect.width}px`,
@@ -1472,18 +1530,33 @@ const MessageRowComponent = ({
             ],
             animationOptions
         )
+        const bubbleAnimation = bubbleAnimationRef.current
+        void bubbleAnimation.finished
+            .then(() => {
+                if (bubbleAnimationRef.current !== bubbleAnimation) return
+                element.style.removeProperty("height")
+                bubbleAnimationRef.current = null
+            })
+            .catch(() => undefined)
+        if (controls && controlsHeight !== undefined) {
+            controlsAnimationRef.current = controls.animate(
+                [
+                    { height: "0px", overflow: "hidden" },
+                    { height: `${controlsHeight}px`, overflow: "hidden" }
+                ],
+                animationOptions
+            )
+        }
 
         if (actionsElement && actionsRect && prevActionsRect) {
-            actionsAnimationRef.current?.cancel()
-
+            // Fixed actions remain outside the shell's temporary clipping region.
             Object.assign(actionsElement.style, {
                 position: "fixed",
                 top: `${actionsRect.top}px`,
-                right: "auto",
                 left: `${actionsRect.left}px`,
+                right: "auto",
                 marginTop: "0"
             })
-
             const actionsAnimation = actionsElement.animate(
                 [
                     {
@@ -1506,6 +1579,35 @@ const MessageRowComponent = ({
         }
     })
 
+    useLayoutEffect(() => {
+        return () => {
+            contentAnimationRef.current?.cancel()
+            bubbleAnimationRef.current?.cancel()
+            controlsAnimationRef.current?.cancel()
+            actionsAnimationRef.current?.cancel()
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!isEditing) return
+        let cancelled = false
+        const focusEditor = () => {
+            if (cancelled) return
+            const textarea = contentRef.current?.querySelector("textarea")
+            if (!textarea) return
+            textarea.focus()
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+        }
+        // Let native focus scrolling reveal the editor, then repeat once its
+        // shell has settled. Exiting does not reposition the page.
+        const timer = setTimeout(focusEditor, 0)
+        void bubbleAnimationRef.current?.finished.then(focusEditor).catch(() => undefined)
+        return () => {
+            cancelled = true
+            clearTimeout(timer)
+        }
+    }, [isEditing])
+
     return (
         <div className="pb-3" data-message-id={message.id} data-message-role={message.role}>
             <div
@@ -1521,118 +1623,127 @@ const MessageRowComponent = ({
                     message.role === "user" &&
                         !isEditing &&
                         "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-user-message-foreground",
-                    message.role === "user" && isEditing && "mt-12 ml-auto w-full"
+                    message.role === "user" &&
+                        isEditing &&
+                        "my-12 ml-auto w-full border-2 border-input bg-background/80 p-3 shadow-xs dark:bg-input/70"
                 )}
+                style={isEditing ? { borderRadius: "var(--radius-lg)" } : undefined}
             >
-                {isEditing ? (
-                    <EditableMessage
-                        message={message}
-                        onSave={onSaveEdit}
-                        onCancel={onCancelEdit}
-                        cancelRequestRef={cancelEditRequestRef}
-                        requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
-                    />
-                ) : (
-                    <>
-                        <div className="max-w-full overflow-hidden">
-                            {reasoning && (
-                                <Reasoning
-                                    className="mb-6"
-                                    isStreaming={isStreamingMessage && reasoning.isStreaming}
-                                >
-                                    <ReasoningTrigger className="mb-4">Reasoning</ReasoningTrigger>
-                                    <ReasoningContent
-                                        markdown={message.role === "assistant"}
-                                        isAnimating={isStreamingMessage && reasoning.isStreaming}
-                                        className="rounded-lg border bg-muted/50"
-                                        contentClassName={REASONING_MARKDOWN_CLASS}
+                <div ref={contentRef} className={message.role === "user" ? "flow-root" : undefined}>
+                    {isEditing ? (
+                        <EditableMessage
+                            message={message}
+                            onSave={handleSaveEdit}
+                            onCancel={handleCancelEdit}
+                            cancelRequestRef={cancelEditRequestRef}
+                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
+                        />
+                    ) : (
+                        <>
+                            <div className="max-w-full overflow-hidden">
+                                {reasoning && (
+                                    <Reasoning
+                                        className="mb-6"
+                                        isStreaming={isStreamingMessage && reasoning.isStreaming}
                                     >
-                                        {reasoning.text}
-                                    </ReasoningContent>
-                                </Reasoning>
-                            )}
+                                        <ReasoningTrigger className="mb-4">
+                                            Reasoning
+                                        </ReasoningTrigger>
+                                        <ReasoningContent
+                                            markdown={message.role === "assistant"}
+                                            isAnimating={
+                                                isStreamingMessage && reasoning.isStreaming
+                                            }
+                                            className="rounded-lg border bg-muted/50"
+                                            contentClassName={REASONING_MARKDOWN_CLASS}
+                                        >
+                                            {reasoning.text}
+                                        </ReasoningContent>
+                                    </Reasoning>
+                                )}
 
-                            {groupedToolOrder.map((activity) =>
-                                activity.type === "blocked-tools" ? (
-                                    <BlockedToolCard
-                                        key={`${message.id}-blocked-tools`}
-                                        attempts={toolFailureAttempts}
-                                        retryMessage={retryMessage}
-                                        onRetry={onRetry}
-                                        requiresVision={requiresVisionForModelSelection}
-                                        requiresNativePdf={requiresNativePdfForModelSelection}
-                                    />
-                                ) : activity.type === "code-execution" ? (
-                                    <CodeExecutionGroupRenderer
-                                        key={`${message.id}-code-executions`}
-                                        executions={codeExecutions}
-                                        kind="code"
-                                    />
-                                ) : activity.type === "math-kit" ? (
-                                    <CodeExecutionGroupRenderer
-                                        key={`${message.id}-math-executions`}
-                                        executions={mathExecutions}
-                                        kind="math"
-                                    />
-                                ) : (
-                                    <WebSearchGroupRenderer
-                                        key={`${message.id}-web-searches`}
-                                        searches={webSearches}
-                                    />
-                                )
-                            )}
+                                {groupedToolOrder.map((activity) =>
+                                    activity.type === "blocked-tools" ? (
+                                        <BlockedToolCard
+                                            key={`${message.id}-blocked-tools`}
+                                            attempts={toolFailureAttempts}
+                                            retryMessage={retryMessage}
+                                            onRetry={onRetry}
+                                            requiresVision={requiresVisionForModelSelection}
+                                            requiresNativePdf={requiresNativePdfForModelSelection}
+                                        />
+                                    ) : activity.type === "code-execution" ? (
+                                        <CodeExecutionGroupRenderer
+                                            key={`${message.id}-code-executions`}
+                                            executions={codeExecutions}
+                                            kind="code"
+                                        />
+                                    ) : activity.type === "math-kit" ? (
+                                        <CodeExecutionGroupRenderer
+                                            key={`${message.id}-math-executions`}
+                                            executions={mathExecutions}
+                                            kind="math"
+                                        />
+                                    ) : (
+                                        <WebSearchGroupRenderer
+                                            key={`${message.id}-web-searches`}
+                                            searches={webSearches}
+                                        />
+                                    )
+                                )}
 
-                            {inlineParts.map((part, index) => (
-                                <PartsRenderer
-                                    key={getMessagePartKey(message.id, part, index)}
-                                    part={part}
-                                    markdown={true}
-                                    id={getMessagePartKey(message.id, part, index)}
-                                    threadId={
-                                        ((message.metadata as { threadId?: string } | undefined)
-                                            ?.threadId as string | undefined) ?? threadId
-                                    }
-                                    messageId={message.id}
-                                    sharedThreadId={sharedThreadId}
-                                    onFilePreview={onFilePreview}
-                                    onSwitchModel={onSwitchModel}
-                                    isStreaming={isStreamingMessage}
-                                    readOnly={copyOnlyActions}
-                                />
-                            ))}
-                        </div>
-
-                        {fileParts.length > 1 ? (
-                            <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
-                                {fileParts.map((part, index) => (
-                                    <CompactAttachment
-                                        key={`${message.id}-file-${index}`}
-                                        part={part as FileUIPart}
-                                        onPreview={() => onFilePreview(part as FileUIPart)}
+                                {inlineParts.map((part, index) => (
+                                    <PartsRenderer
+                                        key={getMessagePartKey(message.id, part, index)}
+                                        part={part}
+                                        markdown={true}
+                                        id={getMessagePartKey(message.id, part, index)}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
+                                        sharedThreadId={sharedThreadId}
+                                        onFilePreview={onFilePreview}
+                                        onSwitchModel={onSwitchModel}
+                                        isStreaming={isStreamingMessage}
+                                        readOnly={copyOnlyActions}
                                     />
                                 ))}
                             </div>
-                        ) : fileParts.length === 1 ? (
-                            <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
-                                <PartsRenderer
-                                    key={`${message.id}-file-0`}
-                                    part={fileParts[0]}
-                                    markdown={message.role === "assistant"}
-                                    id={`${message.id}-file-0`}
-                                    threadId={
-                                        ((message.metadata as { threadId?: string } | undefined)
-                                            ?.threadId as string | undefined) ?? threadId
-                                    }
-                                    messageId={message.id}
-                                    sharedThreadId={sharedThreadId}
-                                    onFilePreview={onFilePreview}
-                                    isStreaming={isStreamingMessage}
-                                    readOnly={copyOnlyActions}
-                                />
-                            </div>
-                        ) : null}
-                    </>
-                )}
+
+                            {fileParts.length > 1 ? (
+                                <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
+                                    {fileParts.map((part, index) => (
+                                        <CompactAttachment
+                                            key={`${message.id}-file-${index}`}
+                                            part={part as FileUIPart}
+                                            onPreview={() => onFilePreview(part as FileUIPart)}
+                                        />
+                                    ))}
+                                </div>
+                            ) : fileParts.length === 1 ? (
+                                <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                                    <PartsRenderer
+                                        key={`${message.id}-file-0`}
+                                        part={fileParts[0]}
+                                        markdown={message.role === "assistant"}
+                                        id={`${message.id}-file-0`}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
+                                        sharedThreadId={sharedThreadId}
+                                        onFilePreview={onFilePreview}
+                                        isStreaming={isStreamingMessage}
+                                        readOnly={copyOnlyActions}
+                                    />
+                                </div>
+                            ) : null}
+                        </>
+                    )}
+                </div>
 
                 {message.role === "user" && (!hasActiveTarget || isEditing) ? (
                     <ChatActions
@@ -1778,6 +1889,7 @@ export const Messages = forwardRef<
 
         const handleEdit = useCallback(
             (message: UIMessage) => {
+                shouldStickToBottomRef.current = false
                 setTargetFromMessageId(message.id)
                 setTargetMode("edit")
             },
@@ -1801,6 +1913,7 @@ export const Messages = forwardRef<
         )
 
         const handleCancelEdit = useCallback(() => {
+            shouldStickToBottomRef.current = false
             setTargetFromMessageId(undefined)
             setTargetMode("normal")
         }, [setTargetFromMessageId, setTargetMode])
@@ -2056,6 +2169,7 @@ export const Messages = forwardRef<
         )
 
         const scrollToStreamingEdge = useCallback(() => {
+            if (useChatStore.getState().targetMode === "edit") return
             const scroller = scrollerRef.current
             if (!scroller) return
 
@@ -2192,7 +2306,7 @@ export const Messages = forwardRef<
             void lastMessage?.id
             void status
 
-            if (!shouldStickToBottomRef.current) {
+            if (!shouldStickToBottomRef.current || Date.now() < autoFollowPausedUntilRef.current) {
                 return
             }
 
@@ -2260,6 +2374,11 @@ export const Messages = forwardRef<
                 }
 
                 frameId = requestAnimationFrame(() => {
+                    if (
+                        !shouldStickToBottomRef.current ||
+                        Date.now() < autoFollowPausedUntilRef.current
+                    )
+                        return
                     scrollToStreamingEdge()
                 })
             })
