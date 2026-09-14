@@ -231,7 +231,10 @@ export const Codeblock = memo(
         if (!children) return null
 
         return isBlockCode ? (
-            <div className="relative mt-1 mb-1 flex flex-col overflow-hidden rounded-lg border border-border bg-code-background text-code-foreground">
+            <div
+                data-message-code-block
+                className="relative mt-1 mb-1 flex flex-col overflow-hidden rounded-lg border border-border bg-code-background text-code-foreground"
+            >
                 {supportsArtifact ? (
                     <Tabs
                         value={activeTab}

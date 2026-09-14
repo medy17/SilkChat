@@ -3,6 +3,7 @@ import { useToken } from "@/hooks/auth-hooks"
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
 import { useEditNavigationGuard } from "@/hooks/use-edit-navigation-guard"
+import { MessageEditContent } from "@/components/message-edit-content"
 import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import {
@@ -1400,6 +1401,7 @@ const MessageRowComponent = ({
     const bubbleRef = useRef<HTMLDivElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
     const contentAnimationRef = useRef<Animation | null>(null)
+    const contentViewportAnimationRef = useRef<Animation | null>(null)
     const bubbleAnimationRef = useRef<Animation | null>(null)
     const controlsAnimationRef = useRef<Animation | null>(null)
     const bubbleRectRef = useRef<{ width: number; height: number } | null>(null)
@@ -1454,6 +1456,7 @@ const MessageRowComponent = ({
         if (!editingChanged) return
 
         contentAnimationRef.current?.cancel()
+        contentViewportAnimationRef.current?.cancel()
         bubbleAnimationRef.current?.cancel()
         controlsAnimationRef.current?.cancel()
         const rect = element.getBoundingClientRect()
@@ -1491,27 +1494,21 @@ const MessageRowComponent = ({
         const animationOptions = MESSAGE_EDIT_ANIMATION_OPTIONS
 
         if (content && contentWidth !== undefined) {
-            const horizontalInset =
-                parseFloat(shellStyle.paddingLeft) +
-                parseFloat(shellStyle.paddingRight) +
-                parseFloat(shellStyle.borderLeftWidth) +
-                parseFloat(shellStyle.borderRightWidth)
-            const verticalInset = nextHeight - (contentRect?.height ?? 0)
-            const clipRight = Math.max(
-                0,
-                contentWidth - Math.max(0, prevRect.width - horizontalInset)
-            )
-            const clipBottom = Math.max(
-                0,
-                (contentRect?.height ?? 0) - Math.max(0, prevRect.height - verticalInset)
+            // Clip against the changing shell, while the content keeps its final
+            // width so markdown does not reflow on every animation frame.
+            contentViewportAnimationRef.current = content.parentElement!.animate(
+                [
+                    { maxHeight: "100%", overflow: "hidden" },
+                    { maxHeight: "100%", overflow: "hidden" }
+                ],
+                animationOptions
             )
             contentAnimationRef.current = content.animate(
                 [
                     {
-                        width: `${contentWidth}px`,
-                        clipPath: `inset(0 ${clipRight}px ${clipBottom}px 0)`
+                        width: `${contentWidth}px`
                     },
-                    { width: `${contentWidth}px`, clipPath: "inset(0 0 0 0)" }
+                    { width: `${contentWidth}px` }
                 ],
                 animationOptions
             )
@@ -1553,6 +1550,7 @@ const MessageRowComponent = ({
     useLayoutEffect(() => {
         return () => {
             contentAnimationRef.current?.cancel()
+            contentViewportAnimationRef.current?.cancel()
             bubbleAnimationRef.current?.cancel()
             controlsAnimationRef.current?.cancel()
         }
@@ -1592,127 +1590,147 @@ const MessageRowComponent = ({
                     message.role === "assistant" && isFirstMessage && "mt-12",
                     message.role === "user" &&
                         !isEditing &&
-                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-user-message-foreground",
+                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-user-message-foreground has-[[data-message-code-block]]:w-full",
                     message.role === "user" &&
                         isEditing &&
                         "my-12 ml-auto w-full border-2 border-input bg-background/80 p-3 shadow-xs dark:bg-input/70"
                 )}
                 style={isEditing ? { borderRadius: "var(--radius-lg)" } : undefined}
             >
-                <div ref={contentRef} className={message.role === "user" ? "flow-root" : undefined}>
-                    {isEditing ? (
-                        <EditableMessage
-                            message={message}
-                            onSave={handleSaveEdit}
-                            onCancel={handleCancelEdit}
-                            cancelRequestRef={cancelEditRequestRef}
-                            requiresNativePdfForModelSelection={requiresNativePdfForModelSelection}
-                        />
-                    ) : (
-                        <>
-                            <div className="max-w-full overflow-hidden">
-                                {reasoning && (
-                                    <Reasoning
-                                        className="mb-6"
-                                        isStreaming={isStreamingMessage && reasoning.isStreaming}
-                                    >
-                                        <ReasoningTrigger className="mb-4">
-                                            Reasoning
-                                        </ReasoningTrigger>
-                                        <ReasoningContent
-                                            markdown={message.role === "assistant"}
-                                            isAnimating={
+                <div>
+                    <div
+                        ref={contentRef}
+                        className={message.role === "user" ? "flow-root" : undefined}
+                    >
+                        <MessageEditContent
+                            editing={isEditing}
+                            editor={
+                                <EditableMessage
+                                    message={message}
+                                    onSave={handleSaveEdit}
+                                    onCancel={handleCancelEdit}
+                                    cancelRequestRef={cancelEditRequestRef}
+                                    requiresNativePdfForModelSelection={
+                                        requiresNativePdfForModelSelection
+                                    }
+                                />
+                            }
+                        >
+                            <>
+                                <div className="max-w-full overflow-hidden">
+                                    {reasoning && (
+                                        <Reasoning
+                                            className="mb-6"
+                                            isStreaming={
                                                 isStreamingMessage && reasoning.isStreaming
                                             }
-                                            className="rounded-lg border bg-muted/50"
-                                            contentClassName={REASONING_MARKDOWN_CLASS}
                                         >
-                                            {reasoning.text}
-                                        </ReasoningContent>
-                                    </Reasoning>
-                                )}
+                                            <ReasoningTrigger className="mb-4">
+                                                Reasoning
+                                            </ReasoningTrigger>
+                                            <ReasoningContent
+                                                markdown={message.role === "assistant"}
+                                                isAnimating={
+                                                    isStreamingMessage && reasoning.isStreaming
+                                                }
+                                                className="rounded-lg border bg-muted/50"
+                                                contentClassName={REASONING_MARKDOWN_CLASS}
+                                            >
+                                                {reasoning.text}
+                                            </ReasoningContent>
+                                        </Reasoning>
+                                    )}
 
-                                {groupedToolOrder.map((activity) =>
-                                    activity.type === "blocked-tools" ? (
-                                        <BlockedToolCard
-                                            key={`${message.id}-blocked-tools`}
-                                            attempts={toolFailureAttempts}
-                                            retryMessage={retryMessage}
-                                            onRetry={onRetry}
-                                            requiresVision={requiresVisionForModelSelection}
-                                            requiresNativePdf={requiresNativePdfForModelSelection}
-                                        />
-                                    ) : activity.type === "code-execution" ? (
-                                        <CodeExecutionGroupRenderer
-                                            key={`${message.id}-code-executions`}
-                                            executions={codeExecutions}
-                                            kind="code"
-                                        />
-                                    ) : activity.type === "math-kit" ? (
-                                        <CodeExecutionGroupRenderer
-                                            key={`${message.id}-math-executions`}
-                                            executions={mathExecutions}
-                                            kind="math"
-                                        />
-                                    ) : (
-                                        <WebSearchGroupRenderer
-                                            key={`${message.id}-web-searches`}
-                                            searches={webSearches}
-                                        />
-                                    )
-                                )}
+                                    {groupedToolOrder.map((activity) =>
+                                        activity.type === "blocked-tools" ? (
+                                            <BlockedToolCard
+                                                key={`${message.id}-blocked-tools`}
+                                                attempts={toolFailureAttempts}
+                                                retryMessage={retryMessage}
+                                                onRetry={onRetry}
+                                                requiresVision={requiresVisionForModelSelection}
+                                                requiresNativePdf={
+                                                    requiresNativePdfForModelSelection
+                                                }
+                                            />
+                                        ) : activity.type === "code-execution" ? (
+                                            <CodeExecutionGroupRenderer
+                                                key={`${message.id}-code-executions`}
+                                                executions={codeExecutions}
+                                                kind="code"
+                                            />
+                                        ) : activity.type === "math-kit" ? (
+                                            <CodeExecutionGroupRenderer
+                                                key={`${message.id}-math-executions`}
+                                                executions={mathExecutions}
+                                                kind="math"
+                                            />
+                                        ) : (
+                                            <WebSearchGroupRenderer
+                                                key={`${message.id}-web-searches`}
+                                                searches={webSearches}
+                                            />
+                                        )
+                                    )}
 
-                                {inlineParts.map((part, index) => (
-                                    <PartsRenderer
-                                        key={getMessagePartKey(message.id, part, index)}
-                                        part={part}
-                                        markdown={true}
-                                        id={getMessagePartKey(message.id, part, index)}
-                                        threadId={
-                                            ((message.metadata as { threadId?: string } | undefined)
-                                                ?.threadId as string | undefined) ?? threadId
-                                        }
-                                        messageId={message.id}
-                                        sharedThreadId={sharedThreadId}
-                                        onFilePreview={onFilePreview}
-                                        onSwitchModel={onSwitchModel}
-                                        isStreaming={isStreamingMessage}
-                                        readOnly={copyOnlyActions}
-                                    />
-                                ))}
-                            </div>
-
-                            {fileParts.length > 1 ? (
-                                <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
-                                    {fileParts.map((part, index) => (
-                                        <CompactAttachment
-                                            key={`${message.id}-file-${index}`}
-                                            part={part as FileUIPart}
-                                            onPreview={() => onFilePreview(part as FileUIPart)}
+                                    {inlineParts.map((part, index) => (
+                                        <PartsRenderer
+                                            key={getMessagePartKey(message.id, part, index)}
+                                            part={part}
+                                            markdown={true}
+                                            id={getMessagePartKey(message.id, part, index)}
+                                            threadId={
+                                                ((
+                                                    message.metadata as
+                                                        | { threadId?: string }
+                                                        | undefined
+                                                )?.threadId as string | undefined) ?? threadId
+                                            }
+                                            messageId={message.id}
+                                            sharedThreadId={sharedThreadId}
+                                            onFilePreview={onFilePreview}
+                                            onSwitchModel={onSwitchModel}
+                                            isStreaming={isStreamingMessage}
+                                            readOnly={copyOnlyActions}
                                         />
                                     ))}
                                 </div>
-                            ) : fileParts.length === 1 ? (
-                                <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
-                                    <PartsRenderer
-                                        key={`${message.id}-file-0`}
-                                        part={fileParts[0]}
-                                        markdown={message.role === "assistant"}
-                                        id={`${message.id}-file-0`}
-                                        threadId={
-                                            ((message.metadata as { threadId?: string } | undefined)
-                                                ?.threadId as string | undefined) ?? threadId
-                                        }
-                                        messageId={message.id}
-                                        sharedThreadId={sharedThreadId}
-                                        onFilePreview={onFilePreview}
-                                        isStreaming={isStreamingMessage}
-                                        readOnly={copyOnlyActions}
-                                    />
-                                </div>
-                            ) : null}
-                        </>
-                    )}
+
+                                {fileParts.length > 1 ? (
+                                    <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
+                                        {fileParts.map((part, index) => (
+                                            <CompactAttachment
+                                                key={`${message.id}-file-${index}`}
+                                                part={part as FileUIPart}
+                                                onPreview={() => onFilePreview(part as FileUIPart)}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : fileParts.length === 1 ? (
+                                    <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                                        <PartsRenderer
+                                            key={`${message.id}-file-0`}
+                                            part={fileParts[0]}
+                                            markdown={message.role === "assistant"}
+                                            id={`${message.id}-file-0`}
+                                            threadId={
+                                                ((
+                                                    message.metadata as
+                                                        | { threadId?: string }
+                                                        | undefined
+                                                )?.threadId as string | undefined) ?? threadId
+                                            }
+                                            messageId={message.id}
+                                            sharedThreadId={sharedThreadId}
+                                            onFilePreview={onFilePreview}
+                                            isStreaming={isStreamingMessage}
+                                            readOnly={copyOnlyActions}
+                                        />
+                                    </div>
+                                ) : null}
+                            </>
+                        </MessageEditContent>
+                    </div>
                 </div>
 
                 {message.role === "user" && (!hasActiveTarget || isEditing) ? (
