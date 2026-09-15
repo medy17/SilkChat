@@ -24,4 +24,15 @@ describe("text model registry", () => {
         expect(shortNames.every(Boolean)).toBe(true)
         expect(new Set(shortNames).size).toBe(shortNames.length)
     })
+
+    it("keeps supported GPT-5.1 and GPT-5.2 models callable as legacy models", () => {
+        for (const id of ["gpt-5.1", "gpt-5.2"]) {
+            const model = MODELS_SHARED.find((candidate) => candidate.id === id)
+
+            expect(model).toBeDefined()
+            expect(model?.legacy).toBe(true)
+            expect(model?.sunsetOn).toBeUndefined()
+            expect(model?.replacementId).toBeUndefined()
+        }
+    })
 })

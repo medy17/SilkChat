@@ -195,9 +195,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true,
-        sunsetOn: "2026-08-10",
-        replacementId: "gpt-5.5"
+        legacy: true
     },
     {
         id: "gpt-5.1",
@@ -211,9 +209,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true,
-        sunsetOn: "2026-07-23",
-        replacementId: "gpt-5.5"
+        legacy: true
     },
     {
         id: "gpt-5",
