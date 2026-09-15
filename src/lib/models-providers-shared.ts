@@ -12,6 +12,7 @@ import {
     XAIIcon
 } from "@/components/brand-icons"
 import { normalizeModelAbilities } from "@/convex/lib/model_abilities"
+import { applyModelRouting } from "@/convex/lib/model_routing"
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
@@ -38,6 +39,9 @@ export type DisplayModel =
       }
 
 export type CustomModelsRecord = Infer<typeof UserSettings>["customModels"]
+
+export const getModelRoutingDisabledReason = (model: DisplayModel) =>
+    "routingUnavailableReason" in model ? model.routingUnavailableReason : undefined
 
 export type CoreProviderInfo = {
     id: CoreProvider | "openrouter"
@@ -480,9 +484,11 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
 
     const availableModels: DisplayModel[] = []
     const unavailableModels: DisplayModel[] = []
+    const pickerModels: DisplayModel[] = []
 
     // Add shared models
     sharedModels
+        .map((model) => applyModelRouting(model, userSettings?.modelRouting))
         .filter(
             (model) =>
                 !isModelSunset(model) &&
@@ -520,7 +526,8 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
                 hasOpenRouterProvider ||
                 hasLegacyDirectProvider
 
-            if (hasProvider) {
+            if (hasProvider) pickerModels.push(model)
+            if (hasProvider && !model.routingUnavailableReason) {
                 availableModels.push(model)
             } else {
                 unavailableModels.push(model)
@@ -545,12 +552,13 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
 
         if (hasProvider) {
             availableModels.push(modelData)
+            pickerModels.push(modelData)
         } else {
             unavailableModels.push(modelData)
         }
     })
 
-    return { availableModels, unavailableModels, currentProviders }
+    return { availableModels, unavailableModels, pickerModels, currentProviders }
 }
 
 export const getAbilityIcon = (ability: ModelAbility | "pdf") => {

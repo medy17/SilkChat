@@ -211,7 +211,7 @@ export const manualStreamTransform = (
         const reportedCost = "cost" in raw ? raw.cost : undefined
         const isOpenRouterByok = "is_byok" in raw && raw.is_byok === true
 
-        if (isOpenRouterByok || reportedCost === 0) {
+        if (isOpenRouterByok) {
             return isValidCost(upstreamInferenceCost) ? upstreamInferenceCost : reportedCost
         }
 

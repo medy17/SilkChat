@@ -10,6 +10,7 @@ import {
 import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import { resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
+import { getOpenRouterRouting } from "../lib/model_routing"
 import {
     JsonToSseTransformStream,
     type ModelMessage,
@@ -177,7 +178,7 @@ const resolveModelCreditCharge = (modelType: string, providerSource: string) => 
 
 const buildOpenRouterProviderOptions = (
     modelId: string,
-    openrouterProvider: string | undefined,
+    routing: ReturnType<typeof getOpenRouterRouting>,
     reasoningEffort: ReasoningEffort,
     supportsEffortControl = false,
     supportsReasoningToggle = false,
@@ -201,10 +202,7 @@ const buildOpenRouterProviderOptions = (
         ]
     }
 
-    const baseProviderConfig = {
-        require_parameters: true,
-        ...(openrouterProvider ? { only: [openrouterProvider], allow_fallbacks: false } : {})
-    }
+    const baseProviderConfig = routing
     const applySessionId = () => {
         if (!sessionId) return
         options.session_id = sessionId
@@ -1158,7 +1156,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         if (modelData.providerSource === "internal") {
             const fallbackModelData = await getModel(ctx, body.model, {
                 reasoningEffort: body.reasoningEffort,
-                openRouterByokOnly: true
+                openRouterByokOnly: true,
+                registry: readiness.registry
             })
 
             if (fallbackModelData && !(fallbackModelData instanceof ChatError)) {
@@ -1231,7 +1230,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
     if (contextViolation?.limitType === "hosted") {
         const fallbackModelData = await getModel(ctx, body.model, {
             reasoningEffort: body.reasoningEffort,
-            openRouterByokOnly: true
+            openRouterByokOnly: true,
+            registry: readiness.registry
         })
 
         if (!(fallbackModelData instanceof ChatError)) {
@@ -1885,7 +1885,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         ? {
                               openrouter: buildOpenRouterProviderOptions(
                                   modelData.modelId,
-                                  selectedRegistryModel?.openrouterProvider,
+                                  getOpenRouterRouting(
+                                      settings.modelRouting,
+                                      selectedRegistryModel?.preferredOpenRouterProviders
+                                  ),
                                   effectiveReasoningEffort,
                                   supportsEffortControl,
                                   supportsReasoningToggle,

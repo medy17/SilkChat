@@ -51,6 +51,7 @@ import {
     useAvailableModels
 } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
+import { getModelRoutingDisabledReason } from "@/lib/models-providers-shared"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { cn } from "@/lib/utils"
@@ -1210,7 +1211,7 @@ export function ModelSelector({
         }
     }, [])
 
-    const { availableModels, currentProviders } = useAvailableModels(
+    const { pickerModels: availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
     selectorTelemetryRef.current.availableModelCount = availableModels.length
@@ -1268,12 +1269,16 @@ export function ModelSelector({
 
     const isModelDisabled = React.useCallback(
         (model: DisplayModel) =>
-            isModelLocked(model) || (requiresNativePdf && !modelSupportsNativePdf(model)),
+            Boolean(getModelRoutingDisabledReason(model)) ||
+            isModelLocked(model) ||
+            (requiresNativePdf && !modelSupportsNativePdf(model)),
         [isModelLocked, requiresNativePdf]
     )
 
     const getModelDisabledReason = React.useCallback(
         (model: DisplayModel) => {
+            const routingReason = getModelRoutingDisabledReason(model)
+            if (routingReason) return routingReason
             if (requiresNativePdf && !modelSupportsNativePdf(model)) {
                 return "This thread requires native PDF support."
             }
@@ -1288,8 +1293,11 @@ export function ModelSelector({
     )
 
     const selectedSharedModel = React.useMemo(
-        () => sharedModels.find((model) => model.id === selectedModel),
-        [selectedModel, sharedModels]
+        () =>
+            availableModels.find((model) => model.id === selectedModel && !("isCustom" in model)) as
+                | SharedModel
+                | undefined,
+        [selectedModel, availableModels]
     )
 
     const fallbackReasoningEffort = React.useMemo(() => {

@@ -501,6 +501,23 @@ describe("manualStreamTransform", () => {
         ])
     })
 
+    it("preserves hosted discounts, including zero, across multiple generation steps", async () => {
+        const result = await collectChunks(
+            [0, 0.001].map((cost) => ({
+                type: "finish-step",
+                finishReason: "stop",
+                usage: {
+                    inputTokens: 100,
+                    outputTokens: 10,
+                    outputTokenDetails: {},
+                    totalTokens: 110,
+                    raw: { cost, is_byok: false, cost_details: { upstream_inference_cost: 0.01 } }
+                }
+            }))
+        )
+        expect(result.totalTokenUsage.estimatedCostUsd).toBe(0.001)
+    })
+
     it("uses upstream inference cost when OpenRouter BYOK reports zero credit cost", async () => {
         const result = await collectChunks([
             {

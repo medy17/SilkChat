@@ -329,8 +329,11 @@ const getAvailableTitleModelId = async (
 
     return candidates.find((candidate, index) => {
         if (candidates.indexOf(candidate) !== index) return false
-        return registry.models[candidate]?.adapters.some(
-            (adapter) => adapter.startsWith("i3-") || adapter.startsWith("openrouter:")
+        return (
+            !registry.models[candidate]?.routingUnavailableReason &&
+            registry.models[candidate]?.adapters.some(
+                (adapter) => adapter.startsWith("i3-") || adapter.startsWith("openrouter:")
+            )
         )
     })
 }
@@ -426,7 +429,10 @@ export const generateThreadName = async (
     const generationId = crypto.randomUUID()
 
     try {
-        const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
+        const modelData = await getModel(ctx, titleModelId, {
+            internalOnly: true,
+            modelRouting: settings.modelRouting ?? "silkchat"
+        })
         if (modelData instanceof ChatError) {
             throw new Error(modelData.message)
         }
@@ -504,7 +510,10 @@ export const generateShareQuestion = async (
     const generationId = crypto.randomUUID()
 
     try {
-        const modelData = await getModel(ctx, titleModelId, { internalOnly: true })
+        const modelData = await getModel(ctx, titleModelId, {
+            internalOnly: true,
+            modelRouting: settings.modelRouting ?? "silkchat"
+        })
         if (modelData instanceof ChatError) {
             throw new Error(modelData.message)
         }

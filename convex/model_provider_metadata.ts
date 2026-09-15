@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
+import { compactRoutingMetadata } from "./lib/model_routing_metadata"
 import { ModelProviderMetadata } from "./schema/model_provider_metadata"
 
 export const getOpenRouterModelMetadataInternal = internalQuery({
@@ -34,6 +35,10 @@ export const upsertOpenRouterModelMetadataInternal = internalMutation({
     },
     handler: async (ctx, args) => {
         for (const model of args.models) {
+            const compactModel = {
+                ...model,
+                ...(model.routing ? { routing: compactRoutingMetadata(model.routing) } : {})
+            }
             const existing = await ctx.db
                 .query("modelProviderMetadata")
                 .withIndex("byProviderModel", (q) =>
@@ -42,9 +47,16 @@ export const upsertOpenRouterModelMetadataInternal = internalMutation({
                 .first()
 
             if (existing) {
-                await ctx.db.replace(existing._id, model)
+                const routing =
+                    existing.routing || compactModel.routing
+                        ? compactRoutingMetadata({ ...existing.routing, ...compactModel.routing })
+                        : undefined
+                await ctx.db.replace(existing._id, {
+                    ...compactModel,
+                    ...(routing ? { routing } : {})
+                })
             } else {
-                await ctx.db.insert("modelProviderMetadata", model)
+                await ctx.db.insert("modelProviderMetadata", compactModel)
             }
         }
 

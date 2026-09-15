@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { fetchMock } = vi.hoisted(() => ({
-    fetchMock: vi.fn()
+const { fetchMock, registryModels } = vi.hoisted(() => ({
+    fetchMock: vi.fn(),
+    registryModels: [] as Array<{ adapters: string[]; preferredOpenRouterProviders?: string[] }>
+}))
+
+vi.mock("../../convex/lib/models", () => ({
+    MODELS_SHARED: registryModels,
+    isChatModel: () => true,
+    getOpenRouterProviderModelId: (model: { adapters: string[] }) =>
+        model.adapters[0]?.slice("openrouter:".length)
 }))
 
 vi.mock("convex/values", () => ({
@@ -45,6 +53,8 @@ describe("model_provider_metadata", () => {
     beforeEach(() => {
         vi.stubGlobal("fetch", fetchMock)
         fetchMock.mockReset()
+        fetchMock.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) })
+        registryModels.length = 0
     })
 
     it("normalizes OpenRouter model metadata into per-million-token pricing", async () => {
@@ -117,7 +127,11 @@ describe("model_provider_metadata", () => {
         )
     })
 
-    it("replaces generic prices with the endpoint selected by the model registry", async () => {
+    it("syncs separate routing summaries with curated preferences", async () => {
+        registryModels.push({
+            adapters: ["openrouter:deepseek/deepseek-v4-pro-0813"],
+            preferredOpenRouterProviders: ["deepseek"]
+        })
         fetchMock
             .mockResolvedValueOnce({
                 ok: true,
@@ -132,6 +146,10 @@ describe("model_provider_metadata", () => {
                         }
                     ]
                 })
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ data: [] })
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -157,15 +175,50 @@ describe("model_provider_metadata", () => {
         await syncOpenRouterModelMetadataHandler.handler(ctx)
 
         expect(fetchMock).toHaveBeenNthCalledWith(
-            2,
+            3,
             "https://openrouter.ai/api/v1/models/deepseek/deepseek-v4-pro-0813/endpoints",
             expect.any(Object)
         )
         expect(ctx.runMutation.mock.calls[0][1].models[0]).toMatchObject({
-            inputUsdPer1MTokens: 0.66,
-            outputUsdPer1MTokens: 1.98,
-            pricingProvider: "deepseek"
+            routing: {
+                silkchat: {
+                    available: true,
+                    pricing: { inputUsdPer1MTokens: 0.66, outputUsdPer1MTokens: 1.98 }
+                },
+                zdr: { available: false },
+                floor: { available: true }
+            }
         })
+        expect(
+            Object.values(ctx.runMutation.mock.calls[0][1].models[0].routing).every(
+                (summary) => !("endpoints" in (summary as object))
+            )
+        ).toBe(true)
+    })
+
+    it("does not turn a failed endpoint refresh into an empty provider pool", async () => {
+        registryModels.push({ adapters: ["openrouter:vendor/model"] })
+        fetchMock
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ data: [{ id: "vendor/model" }] })
+            })
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+            .mockResolvedValueOnce({ ok: false, status: 503 })
+        const ctx = { runMutation: vi.fn().mockResolvedValue({ upserted: 1 }) }
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+        expect(ctx.runMutation.mock.calls[0][1].models[0].routing).toBeUndefined()
+    })
+
+    it("marks removed models unavailable after an endpoint 404", async () => {
+        registryModels.push({ adapters: ["openrouter:vendor/removed"] })
+        fetchMock
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+            .mockResolvedValueOnce({ ok: false, status: 404 })
+        const ctx = { runMutation: vi.fn().mockResolvedValue({ upserted: 1 }) }
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+        expect(ctx.runMutation.mock.calls[0][1].models[0].routing.zdr.available).toBe(false)
     })
 
     it("uses canonical OpenRouter slugs for versioned Anthropic and xAI models", () => {
@@ -227,5 +280,38 @@ describe("model_provider_metadata", () => {
 
         expect(ctx.db.replace).toHaveBeenCalledWith("row-1", models[0])
         expect(ctx.db.insert).toHaveBeenCalledWith("modelProviderMetadata", models[1])
+    })
+
+    it("preserves the last successful mode snapshot when only other modes refresh", async () => {
+        const zdr = {
+            available: true,
+            fetchedAt: 1,
+            pricing: { inputUsdPer1MTokens: 2, outputUsdPer1MTokens: 4 },
+            endpoints: [{ tag: "legacy", providerName: "Legacy", pricing: {} }]
+        }
+        const existing = { _id: "row-1", routing: { zdr } }
+        const ctx = {
+            db: {
+                query: () => ({ withIndex: () => ({ first: async () => existing }) }),
+                replace: vi.fn(),
+                insert: vi.fn()
+            }
+        }
+        const next = {
+            provider: "openrouter",
+            providerModelId: "vendor/model",
+            fetchedAt: 2,
+            source: "openrouter",
+            routing: { floor: { available: false, fetchedAt: 2 } }
+        }
+        await upsertOpenRouterModelMetadataInternalHandler.handler(ctx, { models: [next] })
+        expect(ctx.db.replace.mock.calls[0][1].routing).toEqual({
+            zdr: {
+                available: true,
+                fetchedAt: 1,
+                pricing: { inputUsdPer1MTokens: 2, outputUsdPer1MTokens: 4 }
+            },
+            floor: next.routing.floor
+        })
     })
 })

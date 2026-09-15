@@ -55,7 +55,7 @@ export function ModelCostIndicator({ model }: { model: SharedModel }) {
             </TooltipTrigger>
             <TooltipContent>
                 <div className="space-y-0.5">
-                    <p>{COST_LABELS[level]} model cost</p>
+                    <p>{COST_LABELS[level]} estimated model cost</p>
                     {showDetailedPricing && (
                         <p className="text-xs opacity-80">
                             {formatPrice(inputPrice)} input · {formatPrice(outputPrice)} output / 1M

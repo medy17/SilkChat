@@ -1,5 +1,6 @@
 import { type Infer, v } from "convex/values"
 import { CoreProviders } from "../lib/models"
+import { ModelRoutingMode } from "./model_routing"
 
 const CoreProvidersSchema = v.union(
     ...CoreProviders.map((p) => v.literal(p)),
@@ -92,6 +93,7 @@ export const NonSensitiveUserSettings = v.object({
     customThemes: v.optional(v.array(v.string())),
     invertSendNewlineBehavior: v.optional(v.boolean()),
     telemetryEnabled: v.optional(v.boolean()),
+    modelRouting: v.optional(ModelRoutingMode),
     customization: v.optional(UserCustomization),
     responseStyle: v.optional(ResponseStyle),
     imageGenerationDefaults: v.optional(ImageGenerationDefaults),

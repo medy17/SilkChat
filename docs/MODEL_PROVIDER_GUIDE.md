@@ -17,7 +17,7 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `id`: the app-facing model ID
 - `name` and optional `shortName`
 - `adapters`: provider identity and runtime targets like `i3-openai:gpt-4o`, `openai:gpt-4o`, `openrouter:openai/gpt-4o`, or `fal:fal-ai/...`
-- optional `openrouterProvider`: the OpenRouter inference provider slug to use for this model
+- optional `preferredOpenRouterProviders`: ordered inference provider preferences used only by the "Let SilkChat choose" routing mode; other providers remain eligible fallbacks
 - `legacy`: keeps a callable model behind the legacy-model UI affordance
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
@@ -153,7 +153,24 @@ Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` 
 - user BYOK chat/text models use the user's OpenRouter key
 - OpenRouter attribution headers and app metadata are applied in `convex/lib/provider_factory.ts`
 - built-in chat does not read direct OpenAI, Anthropic, Google model-inference, xAI, or AI Gateway keys
-- `openrouterProvider` pins a model to one OpenRouter inference provider and selects that endpoint's pricing during metadata synchronization
+- `preferredOpenRouterProviders` supplies curated provider preferences. There are no unconditional provider pins.
+
+### User-selected model routing
+
+Privacy settings store `modelRouting: "silkchat" | "zdr" | "floor"`; missing values use `silkchat`.
+`convex/lib/model_routing.ts` owns the shared policy:
+
+- `silkchat`: prefer the registry's ordered providers, allowing other providers as fallbacks.
+- `zdr`: require OpenRouter's `provider.zdr: true`, with no curated provider restriction.
+- `floor`: append `:floor` only to the outbound model slug. This admits default and discounted flex endpoints, including ZDR endpoints, without curated ordering. App model IDs remain stable.
+
+`get_model.ts` sets routing on the SDK model so background title/share-question generation inherits it. Chat also sends the same policy alongside its reasoning and session options. Hosted-to-BYOK retries retain the request's settings snapshot. Custom OpenAI-compatible connections, fal images, voice, and external tools are outside this setting's guarantee; it does not change SilkChat's saved history.
+
+The metadata sync reads the model catalog, each registered chat model's endpoints, and `/api/v1/endpoints/zdr`. Endpoint tags identify service tiers (`/flex`, `/fast`, `/priority`); default requests do not admit those tiers unless explicitly selected. ZDR is joined by exact model ID and endpoint tag. Endpoint listings are sync-time inputs only. `modelProviderMetadata.routing` stores compact `silkchat`, `zdr`, and `floor` summaries with availability, paired price estimates, capacity limits, and refresh timestamps. Endpoint prices already reflect the advertised tier; do not apply a second discount. Zero is a valid price.
+
+The frontend receives compact summaries without endpoint arrays. Both model menus keep models with no eligible providers visible but disabled, including favorites. Missing price data alone does not disable a model. Failed refreshes retain the last successful snapshot for each mode; a successful empty listing records unavailability. Runtime ZDR enforcement remains OpenRouter's responsibility even when a snapshot is stale. Account/key guardrails can further restrict runtime eligibility.
+
+Prices are estimates from one eligible endpoint, using paired input/output rates and curated preference order where applicable. Actual request composition, caching, service tiers, and fallbacks affect settlement. Hosted usage settles against OpenRouter's reported charge, preserving zero-cost discounts; BYOK's upstream-cost reporting remains separate.
 
 ### Custom OpenAI-compatible providers
 

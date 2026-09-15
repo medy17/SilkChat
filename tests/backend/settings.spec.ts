@@ -79,7 +79,7 @@ vi.mock("../../convex/lib/models", () => ({
             maxPerMessage: 4,
             supportsReferenceImages: true,
             openrouterImageModalities: undefined,
-            openrouterProvider: "parasail",
+            preferredOpenRouterProviders: ["parasail"],
             supportedImageSizes: ["1:1"],
             supportedImageResolutions: ["1K"]
         },
@@ -250,7 +250,7 @@ describe("settings", () => {
             inputUsdPer1MTokens: 1.25,
             outputUsdPer1MTokens: 10,
             hostedContextLength: 48000,
-            openrouterProvider: "parasail"
+            preferredOpenRouterProviders: ["parasail"]
         })
         expect(result.models["admin-text"]).toBeUndefined()
         expect(result.models["custom-model"]).toMatchObject({
@@ -261,9 +261,9 @@ describe("settings", () => {
         })
     })
 
-    it("only lets matching pinned-provider prices override explicit registry prices", async () => {
+    it("uses the selected routing snapshot instead of fixed registry prices", async () => {
         process.env.OPENROUTER_API_KEY = "or-key"
-        const metadataState = { pricingProvider: undefined as string | undefined }
+        const metadataState = { mode: "silkchat" }
 
         const ctx = createCtx({
             userId: "user-1",
@@ -282,7 +282,8 @@ describe("settings", () => {
                             coreAIProviders: {},
                             customAIProviders: {},
                             customModels: {},
-                            generalProviders: {}
+                            generalProviders: {},
+                            modelRouting: metadataState.mode
                         }
                     }
                     if (tableName === "modelProviderMetadata") {
@@ -294,7 +295,22 @@ describe("settings", () => {
                             knowledgeCutoff: "2025-01-31",
                             inputUsdPer1MTokens: 0.5,
                             outputUsdPer1MTokens: 2,
-                            pricingProvider: metadataState.pricingProvider,
+                            routing: {
+                                silkchat: {
+                                    available: true,
+                                    pricing: { inputUsdPer1MTokens: 0.8, outputUsdPer1MTokens: 3 },
+                                    fetchedAt: 123
+                                },
+                                floor: {
+                                    available: true,
+                                    pricing: {
+                                        inputUsdPer1MTokens: 0.1,
+                                        outputUsdPer1MTokens: 0.2
+                                    },
+                                    fetchedAt: 123
+                                },
+                                zdr: { available: false, fetchedAt: 123 }
+                            },
                             fetchedAt: 123,
                             source: "openrouter"
                         }
@@ -309,17 +325,22 @@ describe("settings", () => {
         expect(result.models["shared-text"]).toMatchObject({
             contextLength: 128000,
             maxTokens: 8192,
-            inputUsdPer1MTokens: 1.25,
-            outputUsdPer1MTokens: 10
+            inputUsdPer1MTokens: 0.8,
+            outputUsdPer1MTokens: 3
         })
-        metadataState.pricingProvider = "parasail"
+        metadataState.mode = "floor"
         const pinnedResult = await getUserRegistryInternalHandler.handler(ctx, {
             userId: "user-1"
         })
         expect(pinnedResult.models["shared-text"]).toMatchObject({
-            inputUsdPer1MTokens: 0.5,
-            outputUsdPer1MTokens: 2
+            inputUsdPer1MTokens: 0.1,
+            outputUsdPer1MTokens: 0.2
         })
+        metadataState.mode = "zdr"
+        const zdrResult = await getUserRegistryInternalHandler.handler(ctx, { userId: "user-1" })
+        expect(zdrResult.models["shared-text"].routingUnavailableReason).toBe(
+            "No ZDR providers available."
+        )
     })
 
     it("includes admin-only shared models in the registry for staff users", async () => {
@@ -612,6 +633,28 @@ describe("settings", () => {
             })
         )
     })
+
+    it.each(["silkchat", "zdr", "floor"] as const)(
+        "persists the %s routing preference",
+        async (modelRouting) => {
+            const ctx = createCtx({
+                _id: "settings-id",
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                generalProviders: {},
+                modelRouting: "silkchat"
+            })
+
+            await updateUserSettingsPartialHandler.handler(ctx, { modelRouting })
+
+            expect(ctx.db.patch).toHaveBeenCalledWith(
+                "settings-id",
+                expect.objectContaining({ modelRouting })
+            )
+        }
+    )
 
     it("persists the account telemetry preference through partial settings updates", async () => {
         const ctx = createCtx({

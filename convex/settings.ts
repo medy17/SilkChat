@@ -20,6 +20,9 @@ import {
 } from "./lib/models"
 import { resolveToolAvailability } from "./lib/tools/availability"
 import type { UserSettings } from "./schema"
+import { applyModelRouting } from "./lib/model_routing"
+import { compactRoutingMetadata } from "./lib/model_routing_metadata"
+import { ModelRoutingMode } from "./schema/model_routing"
 import {
     ImageGenerationDefaults,
     NonSensitiveUserSettings,
@@ -196,7 +199,7 @@ const overlayOpenRouterMetadata = <
         | "knowledgeCutoff"
         | "inputUsdPer1MTokens"
         | "outputUsdPer1MTokens"
-        | "openrouterProvider"
+        | "preferredOpenRouterProviders"
     >
 >(
     model: TModel,
@@ -207,20 +210,17 @@ const overlayOpenRouterMetadata = <
 
     if (!metadata) return model
 
-    const pinnedProvider = model.openrouterProvider
-    const hasPinnedPricing =
-        pinnedProvider !== undefined && metadata.pricingProvider === pinnedProvider
-    const [primaryPrices, fallbackPrices] = hasPinnedPricing ? [metadata, model] : [model, metadata]
+    // Compact legacy rows at the response boundary until the metadata sync rewrites them.
+    const routing = compactRoutingMetadata(metadata.routing)
 
     return {
         ...model,
         contextLength: model.contextLength ?? metadata.contextLength,
         maxTokens: model.maxTokens ?? metadata.maxCompletionTokens,
         knowledgeCutoff: model.knowledgeCutoff ?? metadata.knowledgeCutoff,
-        inputUsdPer1MTokens:
-            primaryPrices.inputUsdPer1MTokens ?? fallbackPrices.inputUsdPer1MTokens,
-        outputUsdPer1MTokens:
-            primaryPrices.outputUsdPer1MTokens ?? fallbackPrices.outputUsdPer1MTokens
+        inputUsdPer1MTokens: metadata.inputUsdPer1MTokens ?? model.inputUsdPer1MTokens,
+        outputUsdPer1MTokens: metadata.outputUsdPer1MTokens ?? model.outputUsdPer1MTokens,
+        routing
     }
 }
 
@@ -383,7 +383,10 @@ export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<Us
 
     const models: Record<string, SharedModel & { customProviderId?: string }> = {}
     for (const rawModel of sharedModelsForUser) {
-        const model = overlayOpenRouterMetadata(rawModel, metadataByProviderModelId)
+        const model = applyModelRouting(
+            overlayOpenRouterMetadata(rawModel, metadataByProviderModelId),
+            settings.modelRouting
+        )
 
         const available_adapters: RegistryKey[] = []
         for (const adapter of model.adapters) {
@@ -453,6 +456,7 @@ export const updateUserSettings = mutation({
             ...normalizeSettingsCustomModels(args.baseSettings),
             customThemes,
             telemetryEnabled: args.baseSettings.telemetryEnabled ?? settings.telemetryEnabled,
+            modelRouting: args.baseSettings.modelRouting ?? settings.modelRouting,
             coreAIProviders: {},
             customAIProviders: {},
             generalProviders: {
@@ -562,6 +566,7 @@ export const updateUserSettingsPartial = mutation({
         toolCallLimitPerTurn: v.optional(v.number()),
         invertSendNewlineBehavior: v.optional(v.boolean()),
         telemetryEnabled: v.optional(v.boolean()),
+        modelRouting: v.optional(ModelRoutingMode),
         imageGenerationDefaults: v.optional(ImageGenerationDefaults),
         customization: v.optional(
             v.object({
@@ -642,6 +647,9 @@ export const updateUserSettingsPartial = mutation({
         }
         if (args.telemetryEnabled !== undefined) {
             newSettings.telemetryEnabled = args.telemetryEnabled
+        }
+        if (args.modelRouting !== undefined) {
+            newSettings.modelRouting = args.modelRouting
         }
         if (args.imageGenerationDefaults !== undefined) {
             // Merge so a partial update (e.g. only resolution) preserves the other field.

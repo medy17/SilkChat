@@ -8,6 +8,7 @@ export const DefaultSettings = (userId: string) => ({
     customThemes: [],
     invertSendNewlineBehavior: false,
     telemetryEnabled: true,
+    modelRouting: "silkchat" as const,
     imageGenerationDefaults: undefined,
     generalProviders: {
         supermemory: undefined

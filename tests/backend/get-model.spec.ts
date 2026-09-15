@@ -64,6 +64,57 @@ describe("getModel", () => {
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
     })
 
+    it("rejects unavailable routing modes before creating a provider", async () => {
+        const result = await getModel(
+            createCtx({
+                settings: { modelRouting: "zdr" },
+                providers: {},
+                models: {
+                    "shared-text": {
+                        id: "shared-text",
+                        abilities: [],
+                        adapters: ["openrouter:or-shared"],
+                        routing: { zdr: { available: false, fetchedAt: 1 } }
+                    }
+                }
+            }),
+            "shared-text"
+        )
+        expect(result).toMatchObject({ cause: "No ZDR providers available." })
+        expect(createProviderMock).not.toHaveBeenCalled()
+    })
+
+    it.each(["zdr", "floor"] as const)(
+        "applies %s without carrying curated provider restrictions",
+        async (mode) => {
+            process.env.OPENROUTER_API_KEY = "test"
+            const chat = vi.fn().mockReturnValue({})
+            createProviderMock.mockResolvedValue({ chat })
+            const result = await getModel(
+                createCtx({
+                    settings: { modelRouting: mode },
+                    providers: {},
+                    models: {
+                        "shared-text": {
+                            id: "shared-text",
+                            abilities: [],
+                            adapters: ["openrouter:or-shared"],
+                            preferredOpenRouterProviders: ["curated"]
+                        }
+                    }
+                }),
+                "shared-text",
+                { internalOnly: true }
+            )
+            expect(chat.mock.calls[0][0]).toBe(mode === "floor" ? "or-shared:floor" : "or-shared")
+            expect(chat.mock.calls[0][1].provider).toEqual({
+                require_parameters: true,
+                ...(mode === "zdr" ? { zdr: true } : {})
+            })
+            expect(result).toMatchObject({ modelId: "shared-text" })
+        }
+    )
+
     it("returns unauthorized when the user identity cannot be resolved", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ error: "Unauthorized" })
 

@@ -9,7 +9,13 @@ import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, MODELS_SHARED } from "../lib/models"
 import { createProvider } from "../lib/provider_factory"
+import {
+    applyModelRouting,
+    getOpenRouterRouting,
+    getRoutedOpenRouterModelId
+} from "../lib/model_routing"
 import type { UserRegistry } from "../settings"
+import type { ModelRoutingMode } from "../schema/model_routing"
 
 const getInternalOpenRouterApiKey = () => process.env.OPENROUTER_API_KEY?.trim()
 const getRegistryProviderId = (adapter: string) => adapter.slice(0, adapter.indexOf(":"))
@@ -30,6 +36,7 @@ export const getModel = async (
         openRouterByokOnly?: boolean
         reasoningEffort?: ReasoningEffort
         registry?: UserRegistry
+        modelRouting?: ModelRoutingMode
     }
 ) => {
     const user = await getUserIdentity(ctx.auth, { allowAnons: false })
@@ -43,8 +50,13 @@ export const getModel = async (
 
     if (!(modelId in registry.models)) return new ChatError("bad_model:api")
 
-    const model = registry.models[modelId]
-    if (!model) return new ChatError("bad_model:api")
+    const registeredModel = registry.models[modelId]
+    if (!registeredModel) return new ChatError("bad_model:api")
+    const mode = options?.modelRouting ?? registry.settings?.modelRouting ?? "silkchat"
+    const model = applyModelRouting(registeredModel, mode)
+    if (model.routingUnavailableReason)
+        return new ChatError("bad_model:api", model.routingUnavailableReason)
+    const routing = getOpenRouterRouting(mode, model.preferredOpenRouterProviders)
     if (model.mode === "text-to-speech")
         return new ChatError("bad_model:api", "Speech models cannot generate chat responses")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
@@ -105,7 +117,10 @@ export const getModel = async (
             if (!openRouterModelId) continue
 
             const openRouterProvider = await createProvider("openrouter", "internal")
-            finalModel = openRouterProvider.chat(openRouterModelId)
+            finalModel = openRouterProvider.chat(
+                getRoutedOpenRouterModelId(openRouterModelId, mode),
+                { provider: routing }
+            )
             providerSource = "internal"
             runtimeProvider = "openrouter"
             break
@@ -128,7 +143,10 @@ export const getModel = async (
                     modelId: providerSpecificModelId
                 }
             )
-            finalModel = sdkProvider.chat(providerSpecificModelId)
+            finalModel = sdkProvider.chat(
+                getRoutedOpenRouterModelId(providerSpecificModelId, mode),
+                { provider: routing }
+            )
             providerSource = shouldUseInternal ? "internal" : "openrouter"
             runtimeProvider = "openrouter"
             break
@@ -178,6 +196,7 @@ export const getModel = async (
         modelName: model.name ?? model.id,
         providerSource,
         runtimeProvider,
+        routing,
         runtimeApiKey: undefined,
         availableToPickFor: model.availableToPickFor,
         availableToPickForReasoningEfforts: model.availableToPickForReasoningEfforts

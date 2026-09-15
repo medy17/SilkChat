@@ -2462,7 +2462,7 @@ describe("chatPOST", () => {
                     "deepseek-v3.2": {
                         abilities: ["reasoning", "function_calling"],
                         supportsDisablingReasoning: true,
-                        openrouterProvider: "deepseek"
+                        preferredOpenRouterProviders: ["deepseek"]
                     }
                 }
             }
@@ -2498,8 +2498,8 @@ describe("chatPOST", () => {
                             enabled: true
                         },
                         provider: {
-                            only: ["deepseek"],
-                            allow_fallbacks: false,
+                            order: ["deepseek"],
+                            allow_fallbacks: true,
                             require_parameters: true
                         },
                         session_id: "thread-1"
@@ -2509,7 +2509,7 @@ describe("chatPOST", () => {
         )
     })
 
-    it("pins Grok 4.3 reasoning control to x-ai when routed through OpenRouter", async () => {
+    it("preserves curated provider preferences alongside reasoning control", async () => {
         const ctx = createCtx()
         ctx.runMutation.mockImplementation(async (name: string) => {
             switch (name) {
@@ -2569,7 +2569,7 @@ describe("chatPOST", () => {
                     "grok-4.3": {
                         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
                         supportsDisablingReasoning: true,
-                        openrouterProvider: "x-ai"
+                        preferredOpenRouterProviders: ["xai"]
                     }
                 }
             }
@@ -2606,8 +2606,8 @@ describe("chatPOST", () => {
                             effort: "high"
                         },
                         provider: {
-                            only: ["x-ai"],
-                            allow_fallbacks: false,
+                            order: ["xai"],
+                            allow_fallbacks: true,
                             require_parameters: true
                         },
                         session_id: "thread-1"

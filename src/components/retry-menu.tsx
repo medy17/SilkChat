@@ -27,6 +27,8 @@ import { buildModelPickerSections, getModelSectionId } from "@/lib/model-picker-
 import { FAVORITES_SECTION_ID } from "@/lib/model-favorites"
 import { useModelFavorites } from "@/hooks/use-model-favorites"
 import { useSharedModels } from "@/lib/shared-models"
+import { ModelCostIndicator } from "@/components/model-cost-indicator"
+import { getModelRoutingDisabledReason } from "@/lib/models-providers-shared"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -205,6 +207,7 @@ const RetryModelRowContent = ({
             </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
+            {!("isCustom" in model) && <ModelCostIndicator model={model} />}
             <RetryModelAbilityIcons model={model} />
             {isModelLocked && (
                 <Badge
@@ -239,7 +242,7 @@ export function RetryMenu({
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
     const creditPlan = useCreditAccess((state) => state.plan)
 
-    const { availableModels, currentProviders } = useAvailableModels(
+    const { pickerModels: availableModels, currentProviders } = useAvailableModels(
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
 
@@ -374,13 +377,15 @@ export function RetryMenu({
                         const isNativePdfBlocked =
                             requiresNativePdf && !modelSupportsNativePdf(model)
                         const isVisionBlocked = requiresVision && !modelSupportsVision(model)
-                        const disabledReason = getDisabledReason(
-                            isModelLocked,
-                            isVisionBlocked,
-                            isNativePdfBlocked
-                        )
+                        const routingReason = getModelRoutingDisabledReason(model)
+                        const disabledReason =
+                            routingReason ??
+                            getDisabledReason(isModelLocked, isVisionBlocked, isNativePdfBlocked)
                         const isModelDisabled =
-                            isModelLocked || isVisionBlocked || isNativePdfBlocked
+                            Boolean(routingReason) ||
+                            isModelLocked ||
+                            isVisionBlocked ||
+                            isNativePdfBlocked
 
                         const handleSelect = (effort?: ReasoningEffort) => {
                             if (isModelDisabled) return

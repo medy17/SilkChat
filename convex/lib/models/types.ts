@@ -1,4 +1,5 @@
 import type { ModelAbility } from "../../schema/settings"
+import type { ModelRoutingMetadata, ModelRoutingMode } from "../../schema/model_routing"
 
 export const CoreProviders = [
     "openai",
@@ -143,7 +144,10 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     supportsReferenceImages?: boolean
     maxReferenceImages?: number
     openrouterImageModalities?: Array<"image" | "text">
-    openrouterProvider?: string
+    preferredOpenRouterProviders?: string[]
+    routing?: ModelRoutingMetadata
+    routingMode?: ModelRoutingMode
+    routingUnavailableReason?: string
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
     supportedImageQualities?: Exclude<ImageQuality, "auto">[]
