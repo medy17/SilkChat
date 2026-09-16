@@ -98,6 +98,13 @@ import {
     buildTemporalContext,
     buildToolBudgetContext
 } from "./prompt"
+import {
+    buildSkillIndexContext,
+    getLoadSkillTool,
+    guardSkillTools,
+    resolveAvailableSkillIds,
+    type AppSkillId
+} from "./skills"
 
 type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
     provider?: {
@@ -955,7 +962,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         : {}
     const buildCurrentTurnContext = (
         toolCallLimitPerTurn?: number,
-        availableImageReferenceLabels?: string[]
+        availableImageReferenceLabels?: string[],
+        skillIndexContext?: string
     ) =>
         [
             buildCapabilityContext({
@@ -967,6 +975,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             }),
             buildTemporalContext(),
             buildToolBudgetContext(toolCallLimitPerTurn),
+            skillIndexContext,
             memoryTurnContext,
             availableImageReferenceLabels
                 ? buildImageReferenceContext(availableImageReferenceLabels)
@@ -1000,7 +1009,10 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const availableImageModels = hasInternalImagePreparationTool
         ? getSelectableImageModels(readiness.plan)
         : []
-    const hasCallableTools = hasPaidCallableTools || hasInternalImagePreparationTool
+    const availableSkillIdsForTurn = resolveAvailableSkillIds({
+        enabledTools: callableEnabledTools,
+        imageGenerationEnabled: hasInternalImagePreparationTool
+    })
     const retryToolCallLimitFloor =
         body.targetMode === "retry" && Number.isFinite(body.toolCallLimitFloorOverride)
             ? (body.toolCallLimitFloorOverride as number)
@@ -1112,13 +1124,20 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         enabledTools: callableEnabledTools,
                         userSettings: settings,
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
-                        includeTemporalContext: false
+                        includeTemporalContext: false,
+                        useSkillLoader: modelSupportsFunctionCalling
                     })
                 },
                 ...prospectiveMappedMessages,
                 {
                     role: "system",
-                    content: buildCurrentTurnContext(effectiveToolCallLimitPerTurn)
+                    content: buildCurrentTurnContext(
+                        effectiveToolCallLimitPerTurn,
+                        undefined,
+                        modelSupportsFunctionCalling
+                            ? buildSkillIndexContext(availableSkillIdsForTurn)
+                            : undefined
+                    )
                 }
             ]
 
@@ -1819,11 +1838,45 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ? formatImageModelCapabilitySummary(availableImageModels)
                     : "- None"
                 const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
-                const tools: Record<string, Tool> = {
+                const loadedSkillIds = new Set<AppSkillId>()
+                const skillContext = {
+                    mathKitEnabled: callableEnabledTools.includes("mathematical_instruments"),
+                    imageGenerationDefaults: settings.imageGenerationDefaults,
+                    availableImageSelectionSummary
+                }
+                const skillLoaderTools = modelSupportsFunctionCalling
+                    ? getLoadSkillTool({
+                          availableSkillIds: availableSkillIdsForTurn,
+                          context: skillContext,
+                          onLoad: (skillId) => loadedSkillIds.add(skillId)
+                      })
+                    : {}
+                const unguardedTools: Record<string, Tool> = {
                     ...blockedTools,
                     ...providerPaidTools,
-                    ...internalTools
+                    ...internalTools,
+                    ...skillLoaderTools
                 }
+                const tools = modelSupportsFunctionCalling
+                    ? guardSkillTools({
+                          tools: unguardedTools,
+                          availableSkillIds: availableSkillIdsForTurn,
+                          loadedSkillIds
+                      })
+                    : unguardedTools
+                const turnPrompt = buildPrompt({
+                    enabledTools: callableEnabledTools,
+                    userSettings: settings,
+                    personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                    includeTemporalContext: false,
+                    useSkillLoader: modelSupportsFunctionCalling,
+                    imageGenerationTool: hasInternalImagePreparationTool
+                        ? {
+                              enabled: true,
+                              availableImageSelectionSummary
+                          }
+                        : undefined
+                })
                 if (telemetryEnabled) {
                     await captureServerEvent({
                         distinctId: user.id,
@@ -1855,18 +1908,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     messages: [
                         {
                             role: "system",
-                            content: buildPrompt({
-                                enabledTools: callableEnabledTools,
-                                userSettings: settings,
-                                personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
-                                includeTemporalContext: false,
-                                imageGenerationTool: hasInternalImagePreparationTool
-                                    ? {
-                                          enabled: true,
-                                          availableImageSelectionSummary
-                                      }
-                                    : undefined
-                            })
+                            content: turnPrompt
                         },
                         ...mapped_messages,
                         {
@@ -1877,6 +1919,9 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                     ? imageReferences.map(
                                           (reference) => `${reference.id}: ${reference.label}`
                                       )
+                                    : undefined,
+                                modelSupportsFunctionCalling
+                                    ? buildSkillIndexContext(availableSkillIdsForTurn)
                                     : undefined
                             )
                         }

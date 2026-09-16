@@ -84,6 +84,25 @@ describe("getMessageWebSearches", () => {
         ])
     })
 
+    it("shows every query in a multi-query search instead of a generic placeholder", () => {
+        const result = getMessageWebSearches({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-web_search",
+                    toolCallId: "search-1",
+                    state: "output-available",
+                    input: {
+                        query: [" broad current topic ", "official announcement", "  "]
+                    },
+                    output: { success: true, results: [] }
+                }
+            ]
+        } as never)
+
+        expect(result[0]?.query).toBe("2 queries: broad current topic · official announcement")
+    })
+
     it("leaves malformed calls to the shared tool-failure card", () => {
         const result = getMessageWebSearches({
             role: "assistant",

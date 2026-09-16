@@ -88,6 +88,7 @@ import { AttachmentTile } from "./attachment-tile"
 import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
+import { SkillLoaderRenderer } from "./renderers/skill-loader"
 import { ModelSelector } from "./model-selector"
 import {
     ComposerDesktopActions,
@@ -416,6 +417,8 @@ const PartsRenderer = memo(
                         messageId={messageId}
                     />
                 )
+            case "tool-load_skill":
+                return <SkillLoaderRenderer toolInvocation={part as UIToolInvocation<Tool>} />
             case "tool-search_memories":
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="search" />
             case "tool-get_memory_profile":
@@ -1345,6 +1348,11 @@ const MessageRowComponent = ({
     }, [hasResponseText, isStreamingMessage, message.role])
 
     const groupedToolOrder = [
+        ...message.parts.flatMap((part, firstPartIndex) =>
+            part.type === "tool-load_skill"
+                ? [{ type: "skill-load" as const, firstPartIndex, part }]
+                : []
+        ),
         ...(toolFailureAttempts.length > 0
             ? [
                   {
@@ -1393,7 +1401,8 @@ const MessageRowComponent = ({
             part.type !== "reasoning" &&
             part.type !== "tool-execute_code" &&
             part.type !== "tool-execute_math" &&
-            part.type !== "tool-web_search"
+            part.type !== "tool-web_search" &&
+            part.type !== "tool-load_skill"
         )
     })
     const fileParts = message.parts.filter((part) => part.type === "file")
@@ -1642,7 +1651,18 @@ const MessageRowComponent = ({
                                     )}
 
                                     {groupedToolOrder.map((activity) =>
-                                        activity.type === "blocked-tools" ? (
+                                        activity.type === "skill-load" ? (
+                                            <SkillLoaderRenderer
+                                                key={getMessagePartKey(
+                                                    message.id,
+                                                    activity.part,
+                                                    activity.firstPartIndex
+                                                )}
+                                                toolInvocation={
+                                                    activity.part as UIToolInvocation<Tool>
+                                                }
+                                            />
+                                        ) : activity.type === "blocked-tools" ? (
                                             <BlockedToolCard
                                                 key={`${message.id}-blocked-tools`}
                                                 attempts={toolFailureAttempts}

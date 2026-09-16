@@ -6,6 +6,7 @@ import { r2 } from "../attachments"
 import { createPersistedToolError } from "../lib/persisted_tool_error"
 import { getCodeExecutionArtifactsFromToolOutput } from "../lib/tools/code_execution_artifacts"
 import type { ErrorUIPart } from "../schema/parts"
+import { getPublicSkillLoadResult } from "./skills"
 
 type StoredPart =
     | {
@@ -450,8 +451,18 @@ export const manualStreamTransform = (
                             { type: "tool-invocation" }
                         >
                         resolvedToolName = resolvedToolName ?? part.toolInvocation.toolName
+                    }
+                    const publicOutput =
+                        resolvedToolName === "load_skill"
+                            ? getPublicSkillLoadResult(chunk.output)
+                            : chunk.output
+                    if (found !== -1) {
+                        const part = parts[found] as Extract<
+                            StoredPart,
+                            { type: "tool-invocation" }
+                        >
                         part.toolInvocation.state = "result"
-                        part.toolInvocation.result = chunk.output
+                        part.toolInvocation.result = publicOutput
                         notifyPartsChanged()
                     }
                     if (resolvedToolName) {
@@ -465,7 +476,7 @@ export const manualStreamTransform = (
                     controller.enqueue({
                         type: "tool-output-available",
                         toolCallId: clientToolCallIds.get(chunk.toolCallId) ?? chunk.toolCallId,
-                        output: chunk.output
+                        output: publicOutput
                     })
 
                     if (

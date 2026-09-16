@@ -126,7 +126,9 @@ const WebSearchStep = memo(({ search }: { search: MessageWebSearch }) => {
                 ) : search.status === "failed" ? (
                     <CircleAlert className="size-3.5 shrink-0 text-destructive" />
                 ) : null}
-                <span className="min-w-0 flex-1 truncate font-medium text-sm">{search.query}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-sm" title={search.query}>
+                    {search.query}
+                </span>
                 {search.status !== "running" && (
                     <span className="shrink-0 text-muted-foreground text-xs">
                         {search.results.length} {search.results.length === 1 ? "result" : "results"}

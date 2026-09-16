@@ -169,6 +169,54 @@ describe("manualStreamTransform", () => {
         })
     })
 
+    it("keeps loaded skill instructions out of the client stream and persisted parts", async () => {
+        const result = await collectChunks([
+            {
+                type: "tool-call",
+                toolCallId: "skill-1",
+                toolName: "load_skill",
+                input: { skill: "diagrams" }
+            },
+            {
+                type: "tool-result",
+                toolCallId: "skill-1",
+                toolName: "load_skill",
+                output: {
+                    success: true,
+                    skill: "diagrams",
+                    label: "Diagrams",
+                    message: "Loaded Diagrams skill for this turn.",
+                    instructions: "PRIVATE SKILL INSTRUCTIONS"
+                }
+            }
+        ])
+
+        const publicResult = {
+            success: true,
+            skill: "diagrams",
+            label: "Diagrams",
+            message: "Loaded Diagrams skill for this turn."
+        }
+        expect(result.parts).toEqual([
+            {
+                type: "tool-invocation",
+                toolInvocation: {
+                    state: "result",
+                    args: { skill: "diagrams" },
+                    result: publicResult,
+                    toolCallId: "skill-1",
+                    toolName: "load_skill"
+                }
+            }
+        ])
+        expect(result.output).toContainEqual({
+            type: "tool-output-available",
+            toolCallId: "skill-1",
+            output: publicResult
+        })
+        expect(JSON.stringify(result)).not.toContain("PRIVATE SKILL INSTRUCTIONS")
+    })
+
     it("persists long normal text responses without truncating them", async () => {
         const longText = "This is a long normal response with spaces and punctuation. ".repeat(700)
 

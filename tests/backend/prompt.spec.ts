@@ -9,6 +9,18 @@ import { formatImageModelCapabilitySummary } from "../../convex/lib/image_genera
 import type { SharedModel } from "../../convex/lib/models"
 
 describe("buildPrompt", () => {
+    it("keeps skill instructions out of the cacheable base prompt", () => {
+        const basePrompt = buildPrompt({
+            enabledTools: ["web_search", "code_execution"],
+            useSkillLoader: true
+        })
+
+        expect(basePrompt).toContain("## Formatting")
+        expect(basePrompt).not.toContain("## Mermaid Diagrams")
+        expect(basePrompt).not.toContain("## Web Search Tool")
+        expect(basePrompt).not.toContain("## Code Execution Tool")
+    })
+
     it("aligns math delimiter guidance with Streamdown defaults", () => {
         const prompt = buildPrompt({
             enabledTools: []
@@ -171,6 +183,27 @@ describe("buildPrompt", () => {
         )
         expect(enabledPrompt).toContain("End the response with a `### Sources` appendix")
         expect(enabledPrompt).toContain("Reuse the same number whenever citing the same URL again")
+        expect(enabledPrompt).toContain(
+            'Use `searchType: "people"` only for individual professional profiles'
+        )
+        expect(enabledPrompt).toContain(
+            "Use ordinary web search for general questions about public figures"
+        )
+        expect(enabledPrompt).toContain(
+            "send only one focused natural-language query and leave every optional refinement unset"
+        )
+        expect(enabledPrompt).toContain(
+            "A request for reliable or primary sources is a source-quality instruction"
+        )
+        expect(enabledPrompt).toContain(
+            "A factual question merely because it is niche, technical, taxonomic, medical-sounding"
+        )
+        expect(enabledPrompt).toContain(
+            "If a broad search returns noisy or irrelevant results, make at most one meaningfully refined follow-up"
+        )
+        expect(enabledPrompt).toContain("Use a query array only when 2 to 5")
+        expect(enabledPrompt).toContain("Never mix both modes")
+        expect(enabledPrompt).toContain("the server favors exact dates if both appear")
         expect(disabledPrompt).not.toContain("## Web Search Tool")
     })
 

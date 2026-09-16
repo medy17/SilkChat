@@ -1603,7 +1603,10 @@ describe("chatPOST", () => {
                 tools: expect.objectContaining({
                     web_search: {
                         description: "Search"
-                    }
+                    },
+                    load_skill: expect.objectContaining({
+                        execute: expect.any(Function)
+                    })
                 }),
                 messages: [
                     {
@@ -1616,10 +1619,26 @@ describe("chatPOST", () => {
                     },
                     {
                         role: "system",
-                        content: "temporal context\n\ntool budget: 3"
+                        content: expect.stringContaining(
+                            "temporal context\n\ntool budget: 3\n\n## Available Skills"
+                        )
                     }
                 ]
             })
+        )
+
+        const streamOptions = streamTextMock.mock.calls[0][0]
+        expect(streamOptions.prepareStep).toBeUndefined()
+        const skillResult = await streamOptions.tools.load_skill.execute(
+            { skill: "web_search" },
+            {} as never
+        )
+        expect(skillResult).toMatchObject({
+            skill: "web_search",
+            instructions: expect.stringContaining("## Web Search Tool")
+        })
+        expect(buildPromptMock).toHaveBeenLastCalledWith(
+            expect.objectContaining({ useSkillLoader: true })
         )
 
         expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {

@@ -26,6 +26,21 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const asTrimmedString = (value: unknown) =>
     typeof value === "string" && value.trim() ? value.trim() : undefined
 
+const getQueryLabel = (value: unknown) => {
+    const singleQuery = asTrimmedString(value)
+    if (singleQuery) return singleQuery
+    if (!Array.isArray(value)) return undefined
+
+    const queries = value.flatMap((query) => {
+        const normalized = asTrimmedString(query)
+        return normalized ? [normalized] : []
+    })
+    if (queries.length === 0) return undefined
+    if (queries.length === 1) return queries[0]
+
+    return `${queries.length} queries: ${queries.join(" · ")}`
+}
+
 const getResults = (value: unknown): WebSearchResult[] => {
     if (!isRecord(value) || !Array.isArray(value.results)) return []
 
@@ -63,9 +78,7 @@ export const getMessageWebSearches = (message: MessageWithParts) => {
         searches.push({
             toolCallId: invocation.toolCallId ?? `web-search-${searches.length}`,
             query:
-                asTrimmedString(input?.query) ??
-                asTrimmedString(output?.query) ??
-                "Searching the web",
+                getQueryLabel(input?.query) ?? getQueryLabel(output?.query) ?? "Searching the web",
             results: getResults(output),
             error: asTrimmedString(invocation.errorText) ?? asTrimmedString(output?.error),
             status: failed ? "failed" : running ? "running" : "succeeded"

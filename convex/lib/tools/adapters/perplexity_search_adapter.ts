@@ -2,6 +2,7 @@ import type {
     SearchAdapter,
     SearchAdapterConfig,
     SearchOptions,
+    SearchResponse,
     SearchResult
 } from "./search_adapter"
 
@@ -13,6 +14,8 @@ interface PerplexitySearchResponse {
         date?: string
         last_updated?: string
     }>
+    id?: string
+    server_time?: string | null
 }
 
 export interface PerplexitySearchConfig extends SearchAdapterConfig {
@@ -31,8 +34,23 @@ export class PerplexitySearchAdapter implements SearchAdapter {
         }
     }
 
-    async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
-        const { limit = 5, maxTokens = 3000, maxTokensPerPage = 600 } = options
+    async search(query: string | string[], options: SearchOptions = {}): Promise<SearchResponse> {
+        const {
+            limit = 5,
+            searchType = "web",
+            country,
+            contextSize,
+            maxTokens = 3000,
+            maxTokensPerPage = 600,
+            languageFilter,
+            domainFilter,
+            publishedAfter,
+            publishedBefore,
+            updatedAfter,
+            updatedBefore,
+            recency
+        } = options
+        const maxResults = searchType === "people" ? 50 : 20
         const response = await fetch(this.config.baseUrl!, {
             method: "POST",
             headers: {
@@ -41,9 +59,22 @@ export class PerplexitySearchAdapter implements SearchAdapter {
             },
             body: JSON.stringify({
                 query,
-                max_results: Math.min(Math.max(limit, 1), 20),
-                max_tokens: Math.max(maxTokens, 1),
-                max_tokens_per_page: Math.max(maxTokensPerPage, 1)
+                search_type: searchType,
+                max_results: Math.min(Math.max(limit, 1), maxResults),
+                ...(country ? { country } : {}),
+                ...(contextSize
+                    ? { search_context_size: contextSize }
+                    : {
+                          max_tokens: Math.max(maxTokens, 1),
+                          max_tokens_per_page: Math.max(maxTokensPerPage, 1)
+                      }),
+                ...(languageFilter?.length ? { search_language_filter: languageFilter } : {}),
+                ...(domainFilter?.length ? { search_domain_filter: domainFilter } : {}),
+                ...(publishedAfter ? { search_after_date_filter: publishedAfter } : {}),
+                ...(publishedBefore ? { search_before_date_filter: publishedBefore } : {}),
+                ...(updatedAfter ? { last_updated_after_filter: updatedAfter } : {}),
+                ...(updatedBefore ? { last_updated_before_filter: updatedBefore } : {}),
+                ...(recency ? { search_recency_filter: recency } : {})
             })
         })
 
@@ -52,7 +83,7 @@ export class PerplexitySearchAdapter implements SearchAdapter {
         }
 
         const data: PerplexitySearchResponse = await response.json()
-        return (data.results ?? []).flatMap((result) => {
+        const results: SearchResult[] = (data.results ?? []).flatMap((result) => {
             if (!result.url) return []
 
             return [
@@ -65,5 +96,11 @@ export class PerplexitySearchAdapter implements SearchAdapter {
                 }
             ]
         })
+
+        return {
+            results,
+            ...(data.id ? { id: data.id } : {}),
+            ...(data.server_time !== undefined ? { serverTime: data.server_time } : {})
+        }
     }
 }

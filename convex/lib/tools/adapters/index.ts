@@ -3,6 +3,7 @@ export type {
     SearchAdapter,
     SearchResult,
     SearchOptions,
+    SearchResponse,
     SearchAdapterConfig
 } from "./search_adapter"
 
