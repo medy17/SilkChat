@@ -1628,7 +1628,9 @@ describe("chatPOST", () => {
         )
 
         const streamOptions = streamTextMock.mock.calls[0][0]
-        expect(streamOptions.prepareStep).toBeUndefined()
+        const initialStep = streamOptions.prepareStep()
+        expect(initialStep.activeTools).toContain("load_skill")
+        expect(initialStep.activeTools).not.toContain("web_search")
         const skillResult = await streamOptions.tools.load_skill.execute(
             { skill: "web_search" },
             {} as never
@@ -1637,6 +1639,8 @@ describe("chatPOST", () => {
             skill: "web_search",
             instructions: expect.stringContaining("## Web Search Tool")
         })
+        expect(streamOptions.prepareStep().activeTools).toContain("web_search")
+        expect(initialStep.activeTools).not.toContain("web_search")
         expect(buildPromptMock).toHaveBeenLastCalledWith(
             expect.objectContaining({ useSkillLoader: true })
         )

@@ -100,6 +100,7 @@ import {
 } from "./prompt"
 import {
     buildSkillIndexContext,
+    getActiveSkillToolNames,
     getLoadSkillTool,
     guardSkillTools,
     resolveAvailableSkillIds,
@@ -1901,6 +1902,17 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     abortSignal: generationAbort.signal,
                     experimental_transform: smoothStream(),
                     tools: Object.keys(tools).length > 0 ? tools : undefined,
+                    // Snapshot availability before each generation. A load returns instructions
+                    // and exposes its schemas on the next step without another retrieval call.
+                    prepareStep: modelSupportsFunctionCalling
+                        ? () => ({
+                              activeTools: getActiveSkillToolNames({
+                                  tools,
+                                  availableSkillIds: availableSkillIdsForTurn,
+                                  loadedSkillIds
+                              })
+                          })
+                        : undefined,
                     // Both system messages below are assembled server-side. The trailing
                     // current-turn context intentionally needs to remain interleaved after
                     // the persisted conversation.

@@ -52,6 +52,25 @@ ${entries}`
 export const getSkillInstructions = (skillId: AppSkillId, context: AppSkillPromptContext) =>
     APP_SKILLS[skillId].buildInstructions(context)
 
+export const getActiveSkillToolNames = ({
+    tools,
+    availableSkillIds,
+    loadedSkillIds
+}: {
+    tools: Record<string, Tool>
+    availableSkillIds: AppSkillId[]
+    loadedSkillIds: ReadonlySet<AppSkillId>
+}): string[] => {
+    const unloadedToolNames = new Set(
+        availableSkillIds
+            .filter((skillId) => !loadedSkillIds.has(skillId))
+            .flatMap((skillId) => [...APP_SKILLS[skillId].toolNames])
+    )
+
+    // Preserve tools outside the skill system, including disabled-tool explanations.
+    return Object.keys(tools).filter((toolName) => !unloadedToolNames.has(toolName))
+}
+
 export const getLoadSkillTool = ({
     availableSkillIds,
     context,

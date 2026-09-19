@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
+import { z } from "zod"
 import {
     buildSkillIndexContext,
+    getActiveSkillToolNames,
     getLoadSkillTool,
     getPublicSkillLoadResult,
     guardSkillTools,
-    resolveAvailableSkillIds
+    resolveAvailableSkillIds,
+    type AppSkillId
 } from "../../convex/chat_http/skills"
 
 const skillContext = {
@@ -59,7 +62,56 @@ describe("application skills", () => {
         })
     })
 
-    it("keeps tool schemas stable but rejects execution before the skill is loaded", async () => {
+    it("exposes only loaded skills' registered tools and retains them across steps", async () => {
+        const loadedSkillIds = new Set<AppSkillId>()
+        const availableSkillIds: AppSkillId[] = ["web_search", "math", "diagrams"]
+        const tools = {
+            ...getLoadSkillTool({
+                availableSkillIds,
+                context: skillContext,
+                onLoad: (skillId) => loadedSkillIds.add(skillId)
+            }),
+            web_search: { inputSchema: z.object({ query: z.string() }) },
+            execute_math: { inputSchema: z.object({ code: z.string() }) },
+            render_chart: { inputSchema: z.object({}) },
+            unrelated: { inputSchema: z.object({}) }
+        }
+        const activeTools = () =>
+            getActiveSkillToolNames({ tools, availableSkillIds, loadedSkillIds })
+        const initialTools = activeTools()
+        expect(initialTools).toEqual(["load_skill", "unrelated"])
+
+        await tools.load_skill.execute?.({ skill: "web_search" }, {} as never)
+        expect(activeTools()).toEqual(["load_skill", "web_search", "unrelated"])
+        expect(initialTools).toEqual(["load_skill", "unrelated"])
+
+        await tools.load_skill.execute?.({ skill: "math" }, {} as never)
+        expect(activeTools()).toEqual([
+            "load_skill",
+            "web_search",
+            "execute_math",
+            "render_chart",
+            "unrelated"
+        ])
+        // Formatting-only skills add instructions, not nonexistent tool definitions.
+        await tools.load_skill.execute?.({ skill: "diagrams" }, {} as never)
+        expect(activeTools()).toEqual([
+            "load_skill",
+            "web_search",
+            "execute_math",
+            "render_chart",
+            "unrelated"
+        ])
+        expect(
+            getActiveSkillToolNames({
+                tools,
+                availableSkillIds,
+                loadedSkillIds: new Set()
+            })
+        ).toEqual(initialTools)
+    })
+
+    it("rejects execution before the skill is loaded", async () => {
         const execute = vi.fn().mockResolvedValue({ ok: true })
         const loadedSkillIds = new Set<"web_search">()
         const guarded = guardSkillTools({
