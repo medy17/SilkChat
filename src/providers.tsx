@@ -1,6 +1,4 @@
-import { DevRuntime } from "@/components/dev/dev-runtime"
 import { SpeechPlaybackRuntime } from "@/components/message-speech"
-import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
 import { CreditAccessRuntime } from "@/components/credits/credit-access-runtime"
 import { TelemetryIdentity } from "@/components/telemetry-identity"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -17,8 +15,21 @@ import { ClientOnly, Link, useRouter } from "@tanstack/react-router"
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache"
 import { MotionConfig } from "motion/react"
 import { PostHogProvider } from "posthog-js/react"
-import { type ReactNode, useEffect } from "react"
+import { type ReactNode, lazy, Suspense, useEffect } from "react"
 import { browserEnv, optionalBrowserEnv } from "./lib/browser-env"
+
+const DevRuntime = import.meta.env.DEV
+    ? lazy(() =>
+          import("@/components/dev/dev-runtime").then((module) => ({ default: module.DevRuntime }))
+      )
+    : null
+const DevUtilityDock = import.meta.env.DEV
+    ? lazy(() =>
+          import("@/components/dev/dev-utility-dock").then((module) => ({
+              default: module.DevUtilityDock
+          }))
+      )
+    : null
 
 let convexQueryClientSingleton: ConvexQueryClient | null = null
 
@@ -74,8 +85,10 @@ export function Providers({ children }: { children: ReactNode }) {
 
                     <DevMotionConfig>{children}</DevMotionConfig>
 
-                    <DevRuntime />
-                    <DevUtilityDock />
+                    <Suspense fallback={null}>
+                        {DevRuntime && <DevRuntime />}
+                        {DevUtilityDock && <DevUtilityDock />}
+                    </Suspense>
                     <Toaster />
                 </AuthUIProviderTanstack>
             </ThemeProvider>

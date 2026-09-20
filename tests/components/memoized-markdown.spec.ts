@@ -7,7 +7,7 @@ import {
 } from "@/components/markdown-table"
 import { MemoizedMarkdown, normalizeMarkdownMathDelimiters } from "@/components/memoized-markdown"
 import { advanceRecipeTimer } from "@/components/recipe-card"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { describe, expect, it, vi } from "vitest"
 
@@ -21,6 +21,9 @@ Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,
     value: ResizeObserverStub
 })
+
+// Streamdown scrolls overflowing code during streaming; jsdom has no element scrollTo.
+Object.defineProperty(HTMLElement.prototype, "scrollTo", { value: () => {}, configurable: true })
 
 describe("MemoizedMarkdown", () => {
     it("subtracts real elapsed time when a timer wakes after being idle", () => {
@@ -103,15 +106,68 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
-    it("renders standalone double-dollar equations as display math", () => {
+    it("renders standalone double-dollar equations as display math", async () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {
                 content: "Before\n\n$$ \\frac{x^{2}}{y^{3}}+\\sqrt{2} $$\n\nAfter"
             })
         )
 
-        expect(container.querySelector(".katex-display")).toBeTruthy()
+        await waitFor(() => expect(container.querySelector(".katex-display")).toBeTruthy(), {
+            timeout: 5000
+        })
         expect(container.querySelector(".math-inline")).toBeNull()
+    })
+
+    it("adds streamed math without replacing an expanded code block", async () => {
+        const code = Array.from({ length: 30 }, (_, index) => `line ${index}`).join("\n")
+        const prefix = `Code:\n\n\`\`\`text\n${code}\n\`\`\`\n\nEquation: `
+        const view = (suffix: string) =>
+            React.createElement(MemoizedMarkdown, {
+                content: prefix + suffix,
+                isAnimating: true
+            })
+        const { container, rerender } = render(view(""))
+        fireEvent.click(await screen.findByRole("button", { name: /more lines/ }))
+        const block = container.querySelector("[data-message-code-block]")
+        expect(block).toBeTruthy()
+
+        rerender(view("$$\\frac{x"))
+        rerender(view("$$\\frac{x}{2}$$"))
+        await waitFor(() => expect(container.querySelector(".katex")).toBeTruthy(), {
+            timeout: 5000
+        })
+        expect(container.querySelector(".katex-display")).toBeNull()
+        expect(container.querySelector("[data-message-code-block]")).toBe(block)
+        expect(screen.queryByRole("button", { name: /more lines/ })).toBeNull()
+        expect(container.querySelector("annotation")?.textContent).toBe("\\frac{x}{2}")
+    })
+
+    it("keeps currency and math-looking code as text", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "It costs $20 and then $30.\n\n`$$x^2$$`\n\n```text\n$$y^2$$\n```"
+            })
+        )
+        expect(container.textContent).toContain("It costs $20 and then $30.")
+        expect(container.textContent).toContain("$$x^2$$")
+        expect(container.querySelector(".katex")).toBeNull()
+        expect(screen.queryByRole("status")).toBeNull()
+    })
+
+    it("renders math fences and handles invalid or untrusted TeX safely", async () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content:
+                    "```math\nx^2\n```\n\nInvalid $$\\frac{1}$$.\n\nLink $$\\href{javascript:alert(1)}{click}$$."
+            })
+        )
+        await waitFor(() => expect(container.querySelector(".katex-display")).toBeTruthy(), {
+            timeout: 5000
+        })
+        expect(container.querySelector(".katex-error")).toBeTruthy()
+        expect(container.querySelector('a[href^="javascript:"]')).toBeNull()
+        expect(container.querySelector("script")).toBeNull()
     })
 
     it("renders streamed text at the stream cadence without word reveal animations", () => {

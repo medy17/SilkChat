@@ -6,6 +6,8 @@
         "personas:sync-builtins": "bun scripts/sync-built-in-personas.mjs",
         "predev": "bun scripts/sync-built-in-personas.mjs",
         "dev": "bun scripts/run-cloud-dev-app.mjs",
+        "dev:bundled": "bun scripts/preview-cloud-dev.mjs",
+        "build:cloud-dev": "bun scripts/preview-cloud-dev.mjs --build-only",
         "prebuild": "bun scripts/sync-built-in-personas.mjs",
         "test": "vitest run",
         "test:bun-local": "bun --bun vitest run tests/lib/local-image-optimizer-server.spec.ts tests/lib/local-image-optimizer.spec.ts tests/lib/cloud-dev-tunnel.spec.ts tests/lib/dev-runner-ui.spec.ts",

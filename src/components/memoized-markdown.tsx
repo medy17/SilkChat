@@ -1,4 +1,3 @@
-import "katex/dist/katex.min.css"
 import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
 import { parseRecipeBlock, splitRecipeContent } from "@/lib/recipe"
@@ -60,13 +59,7 @@ const MarkdownBody = ({ content, isAnimating }: { content: string; isAnimating: 
 )
 
 export const MemoizedMarkdown = memo(
-    ({
-        content,
-        isAnimating = false
-    }: {
-        content: string
-        isAnimating?: boolean
-    }) => {
+    ({ content, isAnimating = false }: { content: string; isAnimating?: boolean }) => {
         const rawMarkdown = useDevRawMarkdown()
 
         if (rawMarkdown) {

@@ -7,7 +7,6 @@ import type { ReactNode } from "react"
 import { ThemeScript } from "@/components/theme-script"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import { OG_DEMOS } from "@/lib/og-content"
-import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
 import globals_css from "@/styles/globals.css?url"
 import { Providers } from "../providers"
 
@@ -126,14 +125,7 @@ export const Route = createRootRouteWithContext<{
                 rel: "preconnect",
                 href: "https://fonts.gstatic.com",
                 crossOrigin: "anonymous" as const
-            },
-            ...LOCAL_THEME_FONT_PRELOADS.map((font) => ({
-                rel: "preload",
-                href: font.href,
-                as: "font",
-                type: font.type,
-                crossOrigin: "anonymous" as const
-            }))
+            }
         ]
     }),
 

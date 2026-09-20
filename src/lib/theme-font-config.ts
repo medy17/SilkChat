@@ -249,13 +249,6 @@ export const LOCAL_THEME_FONT_FAMILY_NAMES = Object.values(LOCAL_THEME_FONTS).ma
     (font) => font.family
 )
 
-export const LOCAL_THEME_FONT_PRELOADS = Object.values(LOCAL_THEME_FONTS).flatMap((font) =>
-    font.sources.map((source) => ({
-        href: source.path,
-        type: source.mimeType
-    }))
-)
-
 function applyOverrideTokens(
     section: Record<string, string>,
     tokens?: ThemeOverrideTokens

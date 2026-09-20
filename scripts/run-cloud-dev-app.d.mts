@@ -4,24 +4,4 @@ export const DEV_HOTKEYS: ReadonlyArray<{
     description: string
 }>
 
-export function getHotkeyAction(input: string): string | null
-export function getHotkeyHelpLines(columns?: number): string[]
-export function formatServiceLogLine(
-    service: string,
-    line: string,
-    stream?: "stdout" | "stderr",
-    colour?: boolean
-): string
-export function createLineCollector(onLine: (line: string) => void): {
-    push(chunk: string | Uint8Array): void
-    flush(): void
-}
-export function stopChild(child: unknown, timeoutMs?: number): Promise<void>
-export function waitForHttpReady(
-    url: string,
-    options?: {
-        timeoutMs?: number
-        intervalMs?: number
-        fetchImpl?: typeof fetch
-    }
-): Promise<void>
+export function runCloudDevApp(): void

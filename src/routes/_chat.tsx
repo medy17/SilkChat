@@ -5,13 +5,12 @@ import {
     useParams
 } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
-import { startTransition, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
 import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
-import { LandingPage } from "@/components/landing-page"
 import { LogoSymbol } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
@@ -53,6 +52,10 @@ import { LibraryView } from "./_chat.library"
 export const Route = createFileRoute("/_chat")({
     component: ChatLayout
 })
+
+const LandingPage = lazy(() =>
+    import("@/components/landing-page").then((module) => ({ default: module.LandingPage }))
+)
 
 const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
 const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
@@ -638,7 +641,19 @@ function ChatLayout() {
     }
 
     if (showLandingPage) {
-        return <LandingPage />
+        return (
+            <Suspense
+                fallback={
+                    <div
+                        className="h-dvh bg-background"
+                        aria-busy="true"
+                        aria-label="Loading page"
+                    />
+                }
+            >
+                <LandingPage />
+            </Suspense>
+        )
     }
 
     const chatTargetToRender = displayedChatTarget ?? currentChatTarget ?? cachedChatTarget

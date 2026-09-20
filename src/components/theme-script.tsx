@@ -1,7 +1,7 @@
 import { APP_SURFACE_FALLBACKS, USER_MESSAGE_FALLBACKS } from "@/lib/apply-theme"
 import {
     GOOGLE_THEME_FONT_AXES,
-    LOCAL_THEME_FONT_FAMILY_NAMES,
+    LOCAL_THEME_FONTS,
     WEB_SAFE_FONT_FAMILY_NAMES
 } from "@/lib/theme-font-config"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
@@ -29,9 +29,14 @@ export function ThemeScript() {
         "fantasy",
         ...${JSON.stringify(WEB_SAFE_FONT_FAMILY_NAMES)}
       ]);
-      const LOCAL_FONTS = new Set(${JSON.stringify(
-          LOCAL_THEME_FONT_FAMILY_NAMES.map((family) => family.toLowerCase())
-      )});
+      const LOCAL_FONTS = ${JSON.stringify(
+          Object.fromEntries(
+              Object.values(LOCAL_THEME_FONTS).map((font) => [
+                  font.family.toLowerCase(),
+                  font.sources.map((source) => ({ href: source.path, type: source.mimeType }))
+              ])
+          )
+      )};
 
       function extractFontFamily(fontFamilyValue) {
         if (!fontFamilyValue) return null;
@@ -41,7 +46,7 @@ export function ThemeScript() {
 
         const cleanFont = firstFont.replace(/['"]/g, "");
         const normalizedFont = cleanFont.toLowerCase();
-        if (SYSTEM_FONTS.has(normalizedFont) || LOCAL_FONTS.has(normalizedFont)) {
+        if (SYSTEM_FONTS.has(normalizedFont)) {
           return null;
         }
 
@@ -56,6 +61,19 @@ export function ThemeScript() {
       }
 
       function ensureFontStylesheet(family) {
+        if (Object.prototype.hasOwnProperty.call(LOCAL_FONTS, family.toLowerCase())) {
+          for (const source of LOCAL_FONTS[family.toLowerCase()]) {
+            if (document.querySelector(\`link[rel="preload"][href="\${source.href}"]\`)) continue;
+            const link = document.createElement("link");
+            link.rel = "preload";
+            link.as = "font";
+            link.href = source.href;
+            link.type = source.type;
+            link.crossOrigin = "anonymous";
+            document.head.appendChild(link);
+          }
+          return;
+        }
         const href = buildFontCssUrl(family);
         const existing = document.querySelector(\`link[data-theme-font="\${family}"], link[href="\${href}"]\`);
         if (existing) return;

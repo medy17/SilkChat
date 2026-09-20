@@ -36,7 +36,7 @@ Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
 })
 
 describe("NativeChartRenderer", () => {
-    it("renders a validated chart as a native message component", () => {
+    it("renders a validated chart as a native message component", async () => {
         const chart = nativeChartSchema.parse({
             title: "Monthly signups",
             description: "New accounts created each month",
@@ -51,7 +51,7 @@ describe("NativeChartRenderer", () => {
 
         const { container } = render(React.createElement(NativeChartRenderer, { chart }))
 
-        expect(screen.getByText("Monthly signups")).toBeTruthy()
+        expect(await screen.findByText("Monthly signups", {}, { timeout: 5000 })).toBeTruthy()
         expect(screen.getByText("New accounts created each month")).toBeTruthy()
         expect(container.querySelector("[data-native-chart]")).toBeTruthy()
         expect(container.querySelector("[data-chart]")).toBeTruthy()
@@ -60,7 +60,7 @@ describe("NativeChartRenderer", () => {
         expect(container.querySelector("iframe")).toBeNull()
     })
 
-    it("opens a large focus view for the chart", () => {
+    it("opens a large focus view for the chart", async () => {
         const chart = nativeChartSchema.parse({
             title: "Expanded curve",
             type: "line",
@@ -74,7 +74,11 @@ describe("NativeChartRenderer", () => {
         })
 
         render(React.createElement(NativeChartRenderer, { chart }))
-        const expandButton = screen.getByRole("button", { name: "Expand chart" })
+        const expandButton = await screen.findByRole(
+            "button",
+            { name: "Expand chart" },
+            { timeout: 5000 }
+        )
         expect(expandButton.classList.contains("hidden")).toBe(true)
         expect(expandButton.classList.contains("md:flex")).toBe(true)
         fireEvent.click(expandButton)

@@ -1,15 +1,21 @@
 import { cn } from "@/lib/utils"
 import { code } from "@streamdown/code"
-import { math } from "@streamdown/math"
+import remarkMath from "remark-math"
 import type React from "react"
 import { createElement } from "react"
 import type { Components, ExtraProps, PluginConfig } from "streamdown"
-import { Codeblock } from "./codeblock"
+import { MarkdownCode } from "./deferred-math"
 import { MarkdownTable } from "./markdown-table"
 
 export const streamdownPlugins: PluginConfig = {
     code,
-    math
+    math: {
+        name: "katex",
+        type: "math",
+        remarkPlugin: [remarkMath, { singleDollarTextMath: false }],
+        // Rendering is handled by MarkdownCode so only equations load KaTeX.
+        rehypePlugin: () => undefined
+    }
 }
 
 const TableHead = ({
@@ -70,8 +76,8 @@ const TableCell = ({
     )
 
 export const streamdownComponents: Components = {
-    code: Codeblock as Components["code"],
-    inlineCode: Codeblock as Components["inlineCode"],
+    code: MarkdownCode,
+    inlineCode: MarkdownCode,
     table: MarkdownTable,
     thead: TableHead,
     tbody: TableBody,

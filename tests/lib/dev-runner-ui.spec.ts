@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
-    DEV_HOTKEYS,
     createLineCollector,
     formatServiceLogLine,
     getHotkeyAction,
     getHotkeyHelpLines,
     stopChild,
     waitForHttpReady
-} from "../../scripts/run-cloud-dev-app.mjs"
+} from "../../scripts/lib/runner-utils.mjs"
+import { DEV_HOTKEYS } from "../../scripts/run-cloud-dev-app.mjs"
 
 describe("development runner controls", () => {
     afterEach(() => {
@@ -24,12 +24,12 @@ describe("development runner controls", () => {
             c: "purgeOptimizerCache",
             t: "restartTunnel"
         })
-        expect(getHotkeyAction("F")).toBe("restartFrontend")
-        expect(getHotkeyAction("x")).toBeNull()
+        expect(getHotkeyAction("F", DEV_HOTKEYS)).toBe("restartFrontend")
+        expect(getHotkeyAction("x", DEV_HOTKEYS)).toBeNull()
     })
 
     it("packs the controls within the available terminal width", () => {
-        const lines = getHotkeyHelpLines(52)
+        const lines = getHotkeyHelpLines(52, DEV_HOTKEYS)
 
         expect(lines.length).toBeGreaterThan(1)
         expect(lines.every((line) => line.length <= 52)).toBe(true)
@@ -47,8 +47,58 @@ describe("development runner controls", () => {
         expect(
             formatServiceLogLine("optimiser", "[local-image-optimizer] GET transform 200 HIT")
         ).toBe("[optimiser] GET transform 200 HIT")
-        expect(formatServiceLogLine("frontend", "    at render (app.ts:10:2)", "stderr")).toBe(
+        expect(
+            formatServiceLogLine("optimiser", "[local-image-optimizer] Unhandled request failure")
+        ).toBe("[optimiser:error] Unhandled request failure")
+        expect(formatServiceLogLine("frontend", "    at render (app.ts:10:2)")).toBe(
             "[frontend:error]     at render (app.ts:10:2)"
+        )
+    })
+
+    it("does not label Bun command echoes or ordinary build output as errors", () => {
+        expect(formatServiceLogLine("build", "$ vite build")).toBe("[build] $ vite build")
+        expect(formatServiceLogLine("backend", "$ bun scripts/push-cloud-dev.mjs")).toBe(
+            "[backend] $ bun scripts/push-cloud-dev.mjs"
+        )
+        const coloredEcho = "\u001b[2m$ bun scripts/sync-built-in-personas.mjs\u001b[0m"
+        expect(formatServiceLogLine("build", coloredEcho)).toBe(`[build] ${coloredEcho}`)
+        expect(formatServiceLogLine("build", "Some chunks are larger than 500 kB.")).toBe(
+            "[build] Some chunks are larger than 500 kB."
+        )
+    })
+
+    it("preserves explicit build error and warning levels", () => {
+        expect(formatServiceLogLine("build", "error during build:")).toBe(
+            "[build:error] error during build:"
+        )
+        expect(formatServiceLogLine("build", "TypeError: invalid input")).toBe(
+            "[build:error] TypeError: invalid input"
+        )
+        expect(formatServiceLogLine("build", "[WARNING] Slow plugin detected")).toBe(
+            "[build:warn] [WARNING] Slow plugin detected"
+        )
+    })
+
+    it("uses explicit severity consistently for all runner services", () => {
+        for (const service of ["build", "frontend", "backend", "optimiser", "worker", "tunnel"]) {
+            expect(formatServiceLogLine(service, "Connected and ready")).toBe(
+                `[${service}] Connected and ready`
+            )
+            expect(formatServiceLogLine(service, "Error: connection failed")).toBe(
+                `[${service}:error] Error: connection failed`
+            )
+            expect(formatServiceLogLine(service, "Warning: reconnecting")).toBe(
+                `[${service}:warn] Warning: reconnecting`
+            )
+        }
+    })
+
+    it("preserves structured tunnel levels", () => {
+        expect(
+            formatServiceLogLine("tunnel", "2026-08-04T19:06:53Z INF Registered tunnel connection")
+        ).toBe("[tunnel] Registered tunnel connection")
+        expect(formatServiceLogLine("tunnel", "2026-08-04T19:06:53Z WRN Reconnecting")).toBe(
+            "[tunnel:warn] Reconnecting"
         )
     })
 

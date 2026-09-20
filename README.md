@@ -52,10 +52,53 @@ bun run cloud:dev:push
 
 See [Setup Guide](./docs/SETUP_GUIDE.md) for environment and deployment details.
 
+## Testing the production bundle locally
+
+Stop `bun run dev` with Ctrl+C, then run:
+
+```bash
+bun run dev:bundled
+```
+
+This builds production assets using `envs/.env.cloud-dev` and `envs/.env.local`,
+then serves the built Nitro app on port 3000 against the cloud-dev Convex backend.
+It starts the existing HTTPS tunnel when configured, so you can use your usual
+sign-in URL. It does not deploy or push backend changes automatically.
+
+There is no HMR or in-app dev dock. The terminal control row stays visible during
+builds and logs:
+
+- `f`: rebuild production assets and restart the frontend, then reload your browser.
+- `b`: sync the cloud-dev backend.
+- `t`: restart the configured HTTPS tunnel.
+- `r`: rebuild the frontend and restart the tunnel.
+- `q` or Ctrl+C: stop the preview and its tunnel.
+
+Rebuilds stop the frontend before replacing its output. Repeated rebuild keypresses
+are ignored while a build is running; if a build fails, fix the error and press `f`
+to retry.
+
+The production image path is used: localhost serves source images directly rather
+than using the local dev optimizer. Ctrl+C stops the preview and its tunnel.
+To build without starting either service, run `bun run build:cloud-dev`.
+
+To check bundle loading, open DevTools Network, disable cache, and reload a signed-in
+chat. The `silk-canvas` chunk should load only on pages showing the animated landing
+background; `native-chart-visualization` should load when a chart is rendered.
+Check that a chart renders and its expanded view opens. Use a signed-out window to
+check that the landing background appears after its chunk loads.
+
+On an empty chat, KaTeX JavaScript and its stylesheet should remain unloaded. Open a
+message containing an equation to load them, then check inline and display math.
+The Proxima font preload is added only when the active theme uses Proxima; select
+another font and reload to verify that its WOFF2 file is no longer requested.
+
 ## Common Commands
 
 ```bash
 bun run dev                 # Vite + local image optimizer against cloud dev
+bun run dev:bundled         # build and serve production assets against cloud dev
+bun run build:cloud-dev     # build the same assets without starting services
 bun run cloud:dev:push      # push local Convex code to cloud dev
 bun run check-types         # TypeScript validation
 bun run test                # one-shot Vitest suite
