@@ -160,7 +160,7 @@ function LibraryLink() {
     const navigate = useNavigate()
 
     return (
-        <div className="px-2">
+        <div className="px-2 md:px-0">
             <Link
                 to="/library"
                 search={DEFAULT_LIBRARY_SEARCH}

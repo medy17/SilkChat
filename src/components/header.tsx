@@ -70,7 +70,7 @@ export function Header() {
                 <>
                     <div
                         className={cn(
-                            "pointer-events-auto fixed z-[5] flex items-center gap-1",
+                            "pointer-events-auto fixed z-[5] flex items-center gap-1 md:hidden",
                             isSidebarCollapsed
                                 ? "top-2 left-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm md:top-4 md:left-4"
                                 : "top-4 left-4 md:top-6 md:left-6"
@@ -98,7 +98,7 @@ export function Header() {
                             </TooltipContent>
                         </Tooltip>
                     </div>
-                    <SidebarTrigger className="pointer-events-auto fixed top-4 left-4 z-50 h-8 w-8 text-muted-foreground transition-colors hover:text-foreground md:top-6 md:left-6" />
+                    <SidebarTrigger className="pointer-events-auto fixed top-4 left-4 z-50 h-8 w-8 text-muted-foreground transition-colors hover:text-foreground md:top-6 md:left-3" />
                 </>
             )}
             <header className="pointer-events-none absolute top-0 z-50 w-full">

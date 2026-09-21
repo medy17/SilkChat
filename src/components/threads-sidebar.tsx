@@ -12,7 +12,8 @@ import {
     SidebarGroupContent,
     SidebarGroupLabel,
     SidebarRail,
-    useSidebarActions
+    useSidebarActions,
+    useSidebar
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
@@ -188,6 +189,8 @@ export function ThreadsSidebar() {
     // width below the mobile breakpoint, which must not disable mouse interactions.
     const isTouchDevice = useIsTouchDevice()
     const { setOpenMobile } = useSidebarActions()
+    const { state: sidebarState } = useSidebar()
+    const isDesktopCollapsed = !isMobile && sidebarState === "collapsed"
     const auth = useConvexAuth()
     const convex = useConvex()
     const togglePinMutation = useMutation(api.threads.togglePinThread)
@@ -860,83 +863,98 @@ export function ThreadsSidebar() {
 
     return (
         <>
-            <Sidebar variant="inset">
-                <ThreadsSidebarHeader
-                    onNewChat={handleNewChatClick}
-                    onImportClick={handleImportClick}
-                    onSearchClick={handleSearchClick}
-                    isLibraryMode={isLibraryMode}
-                />
-                <div
-                    className="relative flex min-h-0 flex-1 overflow-hidden"
-                    onPointerEnter={() => setIsSidebarHovered(true)}
-                    onPointerLeave={() => setIsSidebarHovered(false)}
-                >
-                    <SidebarContent
-                        ref={scrollContainerRef}
-                        className={cn(
-                            "scrollbar-hide absolute inset-0",
-                            isMobile
-                                ? "transition-none"
-                                : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                            isLibraryMode
-                                ? "pointer-events-none -translate-x-4 opacity-0"
-                                : "translate-x-0 opacity-100"
-                        )}
-                    >
-                        {shouldShowDevTools && (
-                            <DevToolsGroup
-                                onShowOnboarding={handleShowOnboardingClick}
-                                onShowProWelcome={handleShowProWelcomeClick}
-                                onShowRenewalNudge={handleShowRenewalNudgeClick}
-                            />
-                        )}
-                        {renderContent()}
-                    </SidebarContent>
-
+            <Sidebar variant="inset" collapsible="icon">
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <ThreadsSidebarHeader
+                        onNewChat={handleNewChatClick}
+                        onImportClick={handleImportClick}
+                        onSearchClick={handleSearchClick}
+                        isLibraryMode={isLibraryMode}
+                    />
                     <div
-                        aria-hidden={!isLibraryMode}
+                        inert={isDesktopCollapsed}
+                        aria-hidden={isDesktopCollapsed}
                         className={cn(
-                            "absolute inset-0 flex flex-col bg-sidebar",
-                            isLibraryMode
-                                ? "pointer-events-auto visible"
-                                : "pointer-events-none invisible"
+                            "relative z-10 flex min-h-0 flex-1 overflow-hidden bg-sidebar transition-opacity duration-150 ease-linear motion-reduce:transition-none md:w-[calc(var(--sidebar-width)-(--spacing(4)))] md:shrink-0",
+                            isDesktopCollapsed && "pointer-events-none",
+                            isDesktopCollapsed && "opacity-0"
                         )}
+                        onPointerEnter={() => setIsSidebarHovered(true)}
+                        onPointerLeave={() => setIsSidebarHovered(false)}
                     >
-                        <div
+                        <SidebarContent
+                            ref={scrollContainerRef}
                             className={cn(
-                                "h-full w-full",
+                                "scrollbar-hide absolute inset-0",
                                 isMobile
                                     ? "transition-none"
                                     : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                 isLibraryMode
-                                    ? "translate-x-0 opacity-100"
-                                    : "translate-x-4 opacity-0"
+                                    ? "pointer-events-none -translate-x-4 opacity-0"
+                                    : "translate-x-0 opacity-100"
                             )}
                         >
-                            <ImageGenerationSidebar disabled={isLibraryArchiveView} />
+                            {shouldShowDevTools && (
+                                <DevToolsGroup
+                                    onShowOnboarding={handleShowOnboardingClick}
+                                    onShowProWelcome={handleShowProWelcomeClick}
+                                    onShowRenewalNudge={handleShowRenewalNudgeClick}
+                                />
+                            )}
+                            {renderContent()}
+                        </SidebarContent>
+
+                        <div
+                            inert={!isLibraryMode}
+                            aria-hidden={!isLibraryMode}
+                            className={cn(
+                                "absolute inset-0 flex flex-col bg-sidebar transition-[opacity,visibility] duration-[150ms,0ms] ease-linear motion-reduce:transition-none",
+                                isLibraryMode
+                                    ? "pointer-events-auto visible opacity-100 delay-0"
+                                    : "pointer-events-none invisible opacity-0 delay-[0ms,150ms]"
+                            )}
+                        >
+                            <div
+                                className={cn(
+                                    "h-full w-full",
+                                    isMobile
+                                        ? "transition-none"
+                                        : "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    isLibraryMode
+                                        ? "translate-x-0 opacity-100"
+                                        : "translate-x-4 opacity-0"
+                                )}
+                            >
+                                <ImageGenerationSidebar disabled={isLibraryArchiveView} />
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div
-                    className={cn(
-                        "pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent transition-opacity duration-300",
-                        showGradient && !isLibraryMode ? "opacity-100" : "opacity-0"
-                    )}
-                />
-                {isSelectionMode && (
-                    <SelectionToolbar
-                        selectedThreads={selectedThreads}
-                        selectedCount={selectedThreadsCount}
-                        canSelectAllThreads={isThreadSelectionMode}
-                        isApplyingSelectionAction={isApplyingSelectionAction}
-                        onSelectAllThreads={handleSelectAllThreads}
-                        onBulkTogglePin={handleBulkTogglePin}
-                        onOpenBulkMoveDialog={handleOpenBulkMoveDialog}
-                        onOpenBulkDeleteDialog={() => setShowBulkDeleteDialog(true)}
-                        onExitSelectionMode={handleExitSelectionMode}
+                    <div
+                        className={cn(
+                            "pointer-events-none absolute right-0 bottom-0 left-0 h-20 bg-gradient-to-t from-sidebar via-sidebar/60 to-transparent transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0! motion-reduce:transition-none",
+                            showGradient && !isLibraryMode ? "opacity-100" : "opacity-0"
+                        )}
                     />
-                )}
+                    {isSelectionMode && (
+                        <div
+                            inert={isDesktopCollapsed}
+                            aria-hidden={isDesktopCollapsed}
+                            className="transition-opacity duration-150 group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none"
+                        >
+                            <SelectionToolbar
+                                selectedThreads={selectedThreads}
+                                selectedCount={selectedThreadsCount}
+                                canSelectAllThreads={isThreadSelectionMode}
+                                isApplyingSelectionAction={isApplyingSelectionAction}
+                                onSelectAllThreads={handleSelectAllThreads}
+                                onBulkTogglePin={handleBulkTogglePin}
+                                onOpenBulkMoveDialog={handleOpenBulkMoveDialog}
+                                onOpenBulkDeleteDialog={() => setShowBulkDeleteDialog(true)}
+                                onExitSelectionMode={handleExitSelectionMode}
+                            />
+                        </div>
+                    )}
+                </div>
                 <SidebarDialogsContainer ref={dialogsRef} projects={resolvedProjects} />
                 <SidebarRail />
             </Sidebar>
