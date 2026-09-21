@@ -1,4 +1,5 @@
 import { convexTest } from "convex-test"
+import aggregate from "@convex-dev/aggregate/test"
 import { describe, expect, it } from "vitest"
 import schema from "../../convex/schema"
 import { api, internal } from "../../convex/_generated/api"
@@ -43,6 +44,147 @@ const setup = async () => {
 }
 
 describe("chat turn lifecycle", () => {
+    it.each(["untouched", "edited", "streaming", "new-message", "wrong-owner"])(
+        "rolls back a rejected opening only while untouched: %s",
+        async (state) => {
+            const t = convexTest(schema, modules)
+            aggregate.register(t, "aggregateFolderThreads")
+            const created = await t.mutation(internal.threads.createThreadOrInsertMessages, {
+                authorId: "user",
+                userMessage: {
+                    role: "user",
+                    messageId: "opening",
+                    parts: [{ type: "text", text: "Search" }]
+                },
+                proposedNewAssistantId: "answer"
+            })
+            if (!created || !("createdMessageIds" in created) || !created.createdMessageIds)
+                throw new Error("Expected creation")
+            if (state === "edited")
+                await t.run((ctx) =>
+                    ctx.db.patch(created.assistantMessageConvexId, {
+                        parts: [{ type: "text", text: "Answer" }]
+                    })
+                )
+            if (state === "streaming")
+                await t.mutation(internal.streams.appendStreamId, {
+                    threadId: created.threadId,
+                    userId: "user",
+                    assistantMessageConvexId: created.assistantMessageConvexId
+                })
+            if (state === "new-message")
+                await t.mutation(internal.threads.createThreadOrInsertMessages, {
+                    threadId: created.threadId,
+                    authorId: "user",
+                    userMessage: {
+                        role: "user",
+                        messageId: "next",
+                        parts: [{ type: "text", text: "Next" }]
+                    },
+                    proposedNewAssistantId: "next-answer"
+                })
+            const rolledBack = await t.mutation(internal.threads.rollbackRejectedOpening, {
+                threadId: created.threadId,
+                authorId: state === "wrong-owner" ? "other" : "user",
+                assistantMessageConvexId: created.assistantMessageConvexId,
+                createdMessageIds: created.createdMessageIds
+            })
+            expect(rolledBack).toBe(state === "untouched")
+            const remaining = await t.run(async (ctx) => ({
+                thread: await ctx.db.get(created.threadId),
+                messages: await ctx.db.query("messages").collect()
+            }))
+            if (state === "untouched") expect(remaining).toEqual({ thread: null, messages: [] })
+            else expect(remaining.thread).not.toBeNull()
+        }
+    )
+
+    it("marks only actual creation, not a replay or retry of the first message, as new", async () => {
+        const t = convexTest(schema, modules)
+        aggregate.register(t, "aggregateFolderThreads")
+        const args = {
+            authorId: "user",
+            userMessage: {
+                role: "user" as const,
+                messageId: "opening",
+                parts: [{ type: "text" as const, text: "Hello" }]
+            },
+            proposedNewAssistantId: "first-answer"
+        }
+        const created = await t.mutation(internal.threads.createThreadOrInsertMessages, args)
+        expect(created).toMatchObject({ createdThread: true })
+        if (!created || !("threadId" in created)) throw new Error("Expected a created thread")
+        const replay = await t.mutation(internal.threads.createThreadOrInsertMessages, args)
+        expect(replay).toMatchObject({ threadId: created.threadId })
+        expect(replay).not.toHaveProperty("createdThread", true)
+        const retry = await t.mutation(internal.threads.createThreadOrInsertMessages, {
+            ...args,
+            threadId: created.threadId,
+            proposedNewAssistantId: "retry-answer",
+            targetFromMessageId: "opening",
+            targetMode: "retry"
+        })
+        expect(retry).toMatchObject({
+            threadId: created.threadId,
+            assistantMessageId: "first-answer"
+        })
+        expect(retry).not.toHaveProperty("createdThread", true)
+    })
+    it("saves the opening tool selection once and makes it available to replays and reconnects", async () => {
+        const t = convexTest(schema, modules)
+        aggregate.register(t, "aggregateFolderThreads")
+        const args = {
+            authorId: "user",
+            proposedNewAssistantId: "opening-answer",
+            userMessage: {
+                role: "user" as const,
+                messageId: "opening-question",
+                parts: [{ type: "text" as const, text: "Find current news" }]
+            },
+            openingToolSelection: {
+                enabledTools: [],
+                skillIds: [],
+                mode: "magic" as const,
+                status: "pending" as const
+            }
+        }
+        const created = await t.mutation(internal.threads.createThreadOrInsertMessages, args)
+        if (!created || !("threadId" in created)) throw new Error("Expected thread")
+        const selection = {
+            enabledTools: ["web_search" as const],
+            skillIds: ["web_search" as const],
+            mode: "magic" as const,
+            status: "complete" as const
+        }
+        await t.mutation(internal.threads.completeOpeningToolSelection, {
+            threadId: created.threadId,
+            authorId: "user",
+            selection
+        })
+        // A delayed duplicate must not replace the saved result.
+        await t.mutation(internal.threads.completeOpeningToolSelection, {
+            threadId: created.threadId,
+            authorId: "user",
+            selection: { ...selection, enabledTools: [], skillIds: [] }
+        })
+        expect(await t.mutation(internal.threads.createThreadOrInsertMessages, args)).toMatchObject(
+            { openingToolSelection: selection }
+        )
+        expect(
+            await t.query(internal.chat_readiness.getThreadContext, {
+                threadId: created.threadId,
+                userId: "user"
+            })
+        ).toMatchObject({ openingToolSelection: selection })
+        await expect(
+            t.mutation(internal.threads.completeOpeningToolSelection, {
+                threadId: created.threadId,
+                authorId: "other-user",
+                selection
+            })
+        ).rejects.toThrow("Thread unavailable")
+    })
+
     it("publishes partial content without changing thread state until completion", async () => {
         const { t, threadId, messageId, register } = await setup()
         const streamId = await register()

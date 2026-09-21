@@ -17,7 +17,25 @@ export type ModelStore = {
     setSelectedModel: (model: string | null) => void
 
     enabledTools: AbilityId[]
+    manualTools: AbilityId[]
+    toolThreadId: string | null
+    conversationTools: Record<string, AbilityId[]>
+    manuallyEditedThreads: Record<string, boolean>
+    toolRevision: number
+    toolDraftGeneration: number
+    draftToolOverride: { revision: number; tools: AbilityId[] } | null
+    startNewToolSelection: () => void
+    activateToolThread: (threadId: string | null, savedTools?: AbilityId[]) => void
+    restoreConversationTools: (
+        threadId: string,
+        tools: AbilityId[],
+        requestRevision?: number,
+        draftGeneration?: number
+    ) => void
+    setConversationTools: (tools: AbilityId[]) => void
     setEnabledTools: (tools: AbilityId[]) => void
+    autoSelectTools: boolean
+    setAutoSelectTools: (enabled: boolean) => void
 
     selectedImageSize: ImageSize
     setSelectedImageSize: (imageSize: ImageSize) => void
@@ -58,7 +76,99 @@ export const useModelStore = create<ModelStore>()(
     persist(
         (set, get) => ({
             selectedModel: initialConfig.selectedModel,
-            enabledTools: initialConfig.enabledTools as AbilityId[],
+            enabledTools: [],
+            manualTools: initialConfig.enabledTools as AbilityId[],
+            toolThreadId: null,
+            conversationTools: {},
+            manuallyEditedThreads: {},
+            toolRevision: 0,
+            toolDraftGeneration: 0,
+            draftToolOverride: null,
+            startNewToolSelection: () =>
+                set((state) => ({
+                    toolThreadId: null,
+                    enabledTools: state.autoSelectTools ? [] : [...state.manualTools],
+                    toolRevision: state.toolRevision + 1,
+                    toolDraftGeneration: state.toolDraftGeneration + 1,
+                    draftToolOverride: null
+                })),
+            activateToolThread: (threadId, savedTools) => {
+                const state = get()
+                if (state.toolThreadId === threadId) {
+                    if (threadId && savedTools && !state.conversationTools[threadId])
+                        state.restoreConversationTools(threadId, savedTools)
+                    return
+                }
+                if (threadId === null) {
+                    state.startNewToolSelection()
+                    return
+                }
+                set({
+                    toolThreadId: threadId,
+                    ...(threadId && savedTools && !state.conversationTools[threadId]
+                        ? {
+                              conversationTools: {
+                                  ...state.conversationTools,
+                                  [threadId]: savedTools
+                              }
+                          }
+                        : {}),
+                    enabledTools: threadId
+                        ? (state.conversationTools[threadId] ?? savedTools ?? [])
+                        : state.autoSelectTools
+                          ? []
+                          : [...state.manualTools]
+                })
+            },
+            restoreConversationTools: (threadId, tools, requestRevision, draftGeneration) => {
+                const state = get()
+                // Local manual choices win over delayed selection or subscription data.
+                const draftOverride =
+                    requestRevision !== undefined &&
+                    draftGeneration === state.toolDraftGeneration &&
+                    state.draftToolOverride &&
+                    state.draftToolOverride.revision > requestRevision
+                        ? state.draftToolOverride.tools
+                        : undefined
+                const selected = state.manuallyEditedThreads[threadId]
+                    ? (state.conversationTools[threadId] ?? tools)
+                    : (draftOverride ?? tools)
+                set({
+                    conversationTools: { ...state.conversationTools, [threadId]: selected },
+                    ...(draftOverride
+                        ? {
+                              manuallyEditedThreads: {
+                                  ...state.manuallyEditedThreads,
+                                  [threadId]: true
+                              }
+                          }
+                        : {}),
+                    ...(state.toolThreadId === threadId ? { enabledTools: selected } : {})
+                })
+            },
+            setConversationTools: (tools) =>
+                set((state) => ({
+                    enabledTools: tools,
+                    ...(state.toolThreadId
+                        ? {
+                              conversationTools: {
+                                  ...state.conversationTools,
+                                  [state.toolThreadId]: tools
+                              }
+                          }
+                        : {})
+                })),
+            autoSelectTools: true,
+            setAutoSelectTools: (enabled) =>
+                set((state) => ({
+                    autoSelectTools: enabled,
+                    ...(state.toolThreadId === null
+                        ? {
+                              enabledTools: enabled ? [] : [...state.manualTools],
+                              toolRevision: state.toolRevision + 1
+                          }
+                        : {})
+                })),
             selectedImageSize: initialConfig.selectedImageSize as ImageSize,
             selectedImageResolution: initialConfig.selectedImageResolution as ImageResolution,
             reasoningEffort: initialConfig.reasoningEffort as ReasoningEffort,
@@ -68,7 +178,7 @@ export const useModelStore = create<ModelStore>()(
                     set({ selectedModel: model })
                     persistConfig(
                         model,
-                        currentState.enabledTools,
+                        currentState.manualTools,
                         currentState.selectedImageSize,
                         currentState.selectedImageResolution,
                         currentState.reasoningEffort
@@ -82,10 +192,44 @@ export const useModelStore = create<ModelStore>()(
                     tools.some((tool, index) => tool !== currentState.enabledTools[index])
 
                 if (hasChanged) {
-                    set({ enabledTools: tools })
+                    const added = tools.filter((tool) => !currentState.enabledTools.includes(tool))
+                    const removed = currentState.enabledTools.filter(
+                        (tool) => !tools.includes(tool)
+                    )
+                    const manualTools = [
+                        ...new Set([
+                            ...currentState.manualTools.filter((tool) => !removed.includes(tool)),
+                            ...added
+                        ])
+                    ]
+                    set({
+                        enabledTools: tools,
+                        manualTools,
+                        toolRevision: currentState.toolRevision + 1,
+                        ...(currentState.toolThreadId === null
+                            ? {
+                                  draftToolOverride: {
+                                      revision: currentState.toolRevision + 1,
+                                      tools
+                                  }
+                              }
+                            : {}),
+                        ...(currentState.toolThreadId
+                            ? {
+                                  conversationTools: {
+                                      ...currentState.conversationTools,
+                                      [currentState.toolThreadId]: tools
+                                  },
+                                  manuallyEditedThreads: {
+                                      ...currentState.manuallyEditedThreads,
+                                      [currentState.toolThreadId]: true
+                                  }
+                              }
+                            : {})
+                    })
                     persistConfig(
                         currentState.selectedModel,
-                        tools,
+                        manualTools,
                         currentState.selectedImageSize,
                         currentState.selectedImageResolution,
                         currentState.reasoningEffort
@@ -98,7 +242,7 @@ export const useModelStore = create<ModelStore>()(
                     set({ selectedImageSize: imageSize })
                     persistConfig(
                         currentState.selectedModel,
-                        currentState.enabledTools,
+                        currentState.manualTools,
                         imageSize,
                         currentState.selectedImageResolution,
                         currentState.reasoningEffort
@@ -111,7 +255,7 @@ export const useModelStore = create<ModelStore>()(
                     set({ selectedImageResolution: imageResolution })
                     persistConfig(
                         currentState.selectedModel,
-                        currentState.enabledTools,
+                        currentState.manualTools,
                         currentState.selectedImageSize,
                         imageResolution,
                         currentState.reasoningEffort
@@ -124,7 +268,7 @@ export const useModelStore = create<ModelStore>()(
                     set({ reasoningEffort: effort })
                     persistConfig(
                         currentState.selectedModel,
-                        currentState.enabledTools,
+                        currentState.manualTools,
                         currentState.selectedImageSize,
                         currentState.selectedImageResolution,
                         effort
@@ -133,7 +277,33 @@ export const useModelStore = create<ModelStore>()(
             }
         }),
         {
-            name: "model-storage"
+            name: "model-storage",
+            partialize: (state) => ({
+                selectedModel: state.selectedModel,
+                manualTools: state.manualTools,
+                conversationTools: state.conversationTools,
+                manuallyEditedThreads: state.manuallyEditedThreads,
+                autoSelectTools: state.autoSelectTools,
+                selectedImageSize: state.selectedImageSize,
+                selectedImageResolution: state.selectedImageResolution,
+                reasoningEffort: state.reasoningEffort
+            }),
+            merge: (persisted, current) => {
+                const saved = persisted as Partial<ModelStore> | undefined
+                const manualTools = saved?.manualTools ?? saved?.enabledTools ?? current.manualTools
+                const autoSelectTools = saved?.autoSelectTools ?? true
+                return {
+                    ...current,
+                    ...saved,
+                    manualTools,
+                    autoSelectTools,
+                    enabledTools: autoSelectTools ? [] : [...manualTools],
+                    toolThreadId: null,
+                    conversationTools: saved?.conversationTools ?? {},
+                    manuallyEditedThreads: saved?.manuallyEditedThreads ?? {},
+                    draftToolOverride: null
+                }
+            }
         }
     )
 )

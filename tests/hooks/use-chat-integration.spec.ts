@@ -42,6 +42,7 @@ type UseChatOptions = {
     experimental_throttle?: number
     transport?: TransportConfig
     messages?: Array<Record<string, unknown>>
+    onData?: (part: { type: string; data: unknown }) => void
     onFinish?: (options: {
         message: Record<string, unknown>
         messages: Array<Record<string, unknown>>
@@ -153,6 +154,14 @@ const resetModelStore = () => {
     useModelStore.setState({
         selectedModel: "model-default",
         enabledTools: ["web_search"] as ModelStore["enabledTools"],
+        autoSelectTools: true,
+        manualTools: [],
+        toolThreadId: null,
+        conversationTools: {},
+        manuallyEditedThreads: {},
+        toolRevision: 0,
+        toolDraftGeneration: 0,
+        draftToolOverride: null,
         selectedImageSize: "1024x1024" as ModelStore["selectedImageSize"],
         selectedImageResolution: "high" as ModelStore["selectedImageResolution"],
         reasoningEffort: "high"
@@ -189,6 +198,41 @@ describe("useChatIntegration", () => {
         useAutoResumeMock.mockImplementation((props: AutoResumeInvocation) => {
             latestAutoResumeProps = props
         })
+    })
+
+    it("restores conversation selections for retry without changing saved manual choices", async () => {
+        useModelStore.getState().setEnabledTools(["supermemory"])
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return { status: "ready", messages: [], setMessages: vi.fn(), resumeStream: vi.fn() }
+        })
+        renderHook(() => useChatIntegration({ threadId: "thread-1" }))
+        act(() =>
+            latestUseChatOptions?.onData?.({
+                type: "data-auto-selected-tools",
+                data: {
+                    threadId: "thread-1",
+                    enabledTools: ["web_search", "web_search", "invalid-tool"]
+                }
+            })
+        )
+        expect(useModelStore.getState().enabledTools).toEqual(["web_search"])
+        expect(useModelStore.getState().manualTools).toEqual(["supermemory"])
+        let request: any
+        await act(async () => {
+            request = await transportConfigs.at(-1)!.prepareSendMessagesRequest({
+                body: { targetMode: "retry" },
+                messages: [
+                    {
+                        id: "question",
+                        role: "user",
+                        parts: [{ type: "text", text: "When is the 2026 Apple Event?" }]
+                    }
+                ]
+            })
+        })
+        expect(request.body.enabledTools).toEqual(["web_search"])
+        expect(request.body.targetMode).toBe("retry")
     })
 
     it.each(["thread-1", undefined])(
@@ -266,6 +310,26 @@ describe("useChatIntegration", () => {
         expect(useConvexQueryMock).toHaveBeenCalledWith("getThread", "skip")
     })
 
+    it("does not let a background conversation replace the active tool selection", () => {
+        useModelStore.getState().activateToolThread("active")
+        useModelStore.getState().setEnabledTools(["code_execution"])
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return { status: "ready", messages: [], setMessages: vi.fn(), resumeStream: vi.fn() }
+        })
+        useConvexQueryMock.mockImplementation((query: string) =>
+            query === "getThread"
+                ? {
+                      _id: "background",
+                      openingToolSelection: { enabledTools: ["web_search"], status: "complete" }
+                  }
+                : undefined
+        )
+        renderHook(() => useChatIntegration({ threadId: "background", isActive: false }))
+        expect(useModelStore.getState().toolThreadId).toBe("active")
+        expect(useModelStore.getState().enabledTools).toEqual(["code_execution"])
+    })
+
     it("builds send and reconnect requests from the latest thread and model state", async () => {
         const chatHelpers = {
             status: "idle",
@@ -300,6 +364,8 @@ describe("useChatIntegration", () => {
         useModelStore.setState({
             selectedModel: "model-1",
             enabledTools: ["web_search", "supermemory"] as ModelStore["enabledTools"],
+            conversationTools: { "thread-1": ["web_search", "supermemory"] },
+            autoSelectTools: false,
             selectedImageSize: "1536x1024" as ModelStore["selectedImageSize"],
             selectedImageResolution: "medium" as ModelStore["selectedImageResolution"],
             reasoningEffort: "medium"
@@ -373,6 +439,7 @@ describe("useChatIntegration", () => {
                     messageId: "user-message-1"
                 },
                 enabledTools: ["web_search", "supermemory"],
+                autoSelectTools: false,
                 folderId: "folder-1",
                 reasoningEffort: "medium",
                 clientId: "client-1"

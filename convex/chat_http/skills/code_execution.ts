@@ -4,13 +4,15 @@ import type { AppSkillDefinition } from "./types"
 export const codeExecutionSkill: AppSkillDefinition = {
     id: "code_execution",
     label: "Code Execution",
-    summary: "Run JavaScript or Python for computation, data work, testing, and artifacts.",
+    summary:
+        "Run JavaScript or Python for computation, dataset processing and comparisons, testing, and artifacts. Include analysis of data that must first be retrieved.",
     ability: "code_execution",
     toolNames: ["execute_code", "request_persistent_sandbox", "release_persistent_sandbox"],
     buildInstructions: () => dedent`
 ## Code Execution Tool
 You can execute JavaScript (Node.js 24) or Python 3.13 in an isolated, ephemeral Linux sandbox with public internet access.
 - Use code execution for calculations, data processing, testing code, and tasks where an actual runtime materially improves correctness.
+- For dataset comparisons, compute aggregates, extrema, ranges, and rankings programmatically. The data may come from attachments, supplied values, or external records retrieved during this turn.
 - Give every execute_code call a concise, user-facing purpose written as an active phrase, such as "Checking smaller candidates" or "Repairing malformed JSON". Describe the intent of that specific step without claiming a result before execution establishes it.
 - Node.js and Python standard libraries are available. No third-party library is guaranteed; put required npm or PyPI packages in the dependencies field instead of writing package-install commands in the code.
 - For a <long-attachment>, use its URL and requestHeaders exactly. Python retrieval: Request(url, headers=requestHeaders), then urlopen(request, timeout=20).read(). JavaScript retrieval: fetch(url, { headers: requestHeaders }). Start with one focused pass that retrieves, searches, and analyzes the file.

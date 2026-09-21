@@ -16,6 +16,17 @@ const skillContext = {
 }
 
 describe("application skills", () => {
+    it("includes preloaded instructions and lists only remaining skills as unloaded", () => {
+        const index = buildSkillIndexContext(
+            ["diagrams", "web_search"],
+            new Set(["web_search"]),
+            skillContext
+        )
+        expect(index).toContain("already loaded for this turn")
+        expect(index).toContain("## Web Search Tool")
+        expect(index).not.toContain("`web_search` —")
+        expect(index).toContain("`diagrams` —")
+    })
     it("only indexes user-enabled abilities while retaining native formats", () => {
         const skillIds = resolveAvailableSkillIds({
             enabledTools: ["web_search"],

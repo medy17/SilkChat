@@ -1,3 +1,4 @@
+import { useModelStore } from "./model-store"
 import type { AttachmentTileKind } from "@/lib/attachment-tile"
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
@@ -178,6 +179,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
             return { pendingBranchGenerations }
         }),
     resetChat: () => {
+        useModelStore.getState().startNewToolSelection()
         const { pendingBranchRetry, pendingBranchHydration, pendingBranchGenerations } = get()
 
         set({

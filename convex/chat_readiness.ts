@@ -18,7 +18,7 @@ export const readThreadContext = async (ctx: QueryCtx, userId: string, threadId:
         .query("threadPersonaSnapshots")
         .withIndex("byThreadId", (q) => q.eq("threadId", threadId))
         .first()
-    return { messages, personaSnapshot }
+    return { messages, personaSnapshot, openingToolSelection: thread.openingToolSelection }
 }
 
 export const get = internalQuery({

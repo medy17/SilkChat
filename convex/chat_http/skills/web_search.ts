@@ -5,7 +5,7 @@ export const webSearchSkill: AppSkillDefinition = {
     id: "web_search",
     label: "Web Search",
     summary:
-        "Use only for explicit web requests, time-sensitive facts, requested citations, or professional people lookups. Never load for a stable factual question merely because it is niche, technical, or worth verifying.",
+        "Use only for explicit web requests, time-sensitive facts, external datasets or records needed for analysis, requested citations, or professional people lookups. Never load for a stable factual question merely because it is niche, technical, or worth verifying.",
     ability: "web_search",
     toolNames: ["web_search"],
     buildInstructions: () => dedent`
@@ -16,12 +16,13 @@ Search for:
 - Current events, recent news, live facts, statistics, schedules, prices, availability, or anything described as latest, newest, or current.
 - Information that changes over time, including company and product details, people's current roles, service capabilities, plans, pricing, software documentation, APIs, and technology updates.
 - Comparisons between named products, services, tools, platforms, or AI models whose capabilities may have changed.
+- External datasets, measurements, records, or source documents needed for a specific comparison or analysis and not supplied in the conversation. Historical records can require retrieval even when they predate your knowledge cutoff.
 - Quotes attributed to a specific person when the user's request requires their actual words.
 - Current verification whenever a material fact may be stale or the user explicitly asks you to search, browse, verify, or look something up.
 
 Do not search for:
 - Creative writing, opinions, hypotheticals, or general coding help that does not depend on current product or library behavior.
-- Stable general knowledge, definitions, well-established historical facts, or static lists.
+- Stable general knowledge, definitions, well-established historical facts, or static lists that do not require retrieving records for a requested analysis.
 - A factual question merely because it is niche, technical, taxonomic, medical-sounding, unfamiliar, or would benefit from authoritative sources. Uncertainty and a desire to verify are not sufficient reasons to search when the user did not ask for current information, sources, citations, browsing, or verification. Answer from knowledge and state material uncertainty when needed.
 - Information already supplied in the conversation when no current verification is needed.
 - Anything the user explicitly asks you not to search for.

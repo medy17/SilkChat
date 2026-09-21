@@ -1,3 +1,4 @@
+import type { AppSkillId } from "../../chat_http/skills/types"
 import type { ModelAbility } from "../../schema/settings"
 import type { ModelRoutingMetadata, ModelRoutingMode } from "../../schema/model_routing"
 
@@ -166,7 +167,13 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     replacementId?: string
 }
 
-export const MODEL_MODES = ["text", "image", "speech-to-text", "text-to-speech"] as const
+export const MODEL_MODES = [
+    "text",
+    "image",
+    "speech-to-text",
+    "text-to-speech",
+    "decision"
+] as const
 export type ModelMode = (typeof MODEL_MODES)[number]
 
 export const isModelMode = (value: unknown): value is ModelMode =>
@@ -178,7 +185,21 @@ export const isChatModel = (model: {
 }) =>
     (model.mode === undefined || model.mode === "text") && !model.supportedImageResolutions?.length
 
+// Calibration is specific to a classifier and its opening-skill task.
+// Other decision models need not participate in skill selection.
+export type SkillSelectionCalibration = {
+    thresholds: Record<AppSkillId, number>
+    prohibitionThresholds: Record<"web_search" | "code_execution", number>
+}
+
 type ModelModeFields =
+    | {
+          mode: "decision"
+          skillSelection?: SkillSelectionCalibration
+          transcription?: never
+          speech?: never
+          imagePricing?: never
+      }
     | { mode?: "text"; transcription?: never; speech?: never; imagePricing?: never }
     | { mode: "image"; supportedImageSizes: ImageSize[]; transcription?: never; speech?: never }
     | {

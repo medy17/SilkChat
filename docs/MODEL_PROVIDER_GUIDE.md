@@ -22,7 +22,7 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
 - `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
 - `abilities`: feature flags used by the runtime and UI
-- optional `mode`: `text`, `image`, `speech-to-text`, or `text-to-speech`
+- optional `mode`: `text`, `image`, `speech-to-text`, `text-to-speech`, or `decision`
 - speech-to-text models declare `transcription.preferredFormat` and `transcription.acceptedFormats`; browser normalization and backend validation must consume this shared capability instead of embedding provider formats in either layer
 - text-to-speech models declare `speech.voice`, `speech.preferredFormat`, `speech.pcm`, and `speech.maxInputCharacters`, and `speech.inputUsdPer1MCharacters`. The managed read-aloud model is `MESSAGE_SPEECH_MODEL` in the Microsoft registry. Keep speech models out of chat, retry, and persona model pickers.
 - optional `supportedImageSizes`
@@ -179,6 +179,29 @@ User-defined custom providers resolve from stored provider settings. They are Op
 ### fal image models
 
 Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` adapters consumed by the library generator and chat image tool.
+
+### OpenRouter decision models
+
+Decision models use `mode: "decision"` and stay out of chat, retry, and persona model pickers.
+`convex/lib/models/typesafe.ts` registers Jev and selects the opening-skill classifier.
+`convex/lib/classifiers.ts` defines typed questions and answers and calls OpenRouter's
+`/api/alpha/decisions` endpoint with the hosted `OPENROUTER_API_KEY`, app attribution,
+and the user's routing policy. No TypeSafe key or chat-completion adapter is needed.
+
+Opening skill selection runs only when the message mutation reports actual thread creation
+and the composer's Magic toggle is enabled. Magic defaults on and persists in the browser. New Magic conversations start with individual tools off; with Magic off they restore saved manual preferences. Automatic choices live separately in conversation state and never update the manual preset. The opening selection, including completion/failure status, is saved on the thread and reused by retries and reconnects. Browser conversation overrides preserve later manual edits; background streams cannot replace the active conversation's tools.
+Creation is never inferred from message count or an absent request thread ID alone. It does not run on retries,
+edits, replayed requests, or subsequent turns. One batched request has a 5-second timeout
+to allow connection setup on the opening request.
+Opening-skill calibration lives in each decision model's `skillSelection` registry field: per-skill `thresholds` and `prohibitionThresholds` for browsing and execution. A classifier used for opening selection must supply its own complete calibration; there is no fallback to Jev values. Tool-need criteria and the maximum-of-independent-needs rule remain application logic. Jev executable skills currently require Noul scores of at least 0.85. Presentation-only diagrams, recipes, and canvas instructions use 0.75 to accommodate implicit output requests. These scores are classifier outputs, not calibrated guarantees.
+Selection receives the current UTC date, the chat model's known cutoff, and each skill's availability category.
+Selection considers all tools allowed by deployment credentials, identity policy, and model capabilities, including tools that are off by default. It enables confident selections while preserving manually enabled tools. The stream returns added abilities to the composer so later turns and retries retain them without reclassifying. Explicit requests not to use a tool still prevent its automatic selection.
+Each skill has explicit classifier criteria describing the work it supports and exclusions; chat-model skill summaries are not used as classifier instructions. Web search uses separate judgments for explicit requests, current facts, facts after the cutoff, external records needed for analysis, and instructions not to browse. Code execution separately evaluates general runtime needs and dataset computation, including data that must first be retrieved, with an explicit prohibition check. Math Kit separately evaluates requested plots and networks so simple plots are not rejected for lacking complex mathematics. Any positive need must meet the search threshold, and a
+prohibition probability of 0.5 or higher prevents automatic preloading.
+These are initial thresholds, not measured accuracy guarantees. Missing classifier credentials or classifier failures make eligible non-Memory tools available for on-demand skill loading without preloading any skill. Memory stays inactive unless it was already enabled or a successful classification selects it. This fallback is saved on the thread and still respects deployment credentials and identity policy. Failed selections defer tool-budget reservation until an executable tool is called, so a direct answer does not reserve tool usage. A rejected tool budget rolls back an untouched opening created by that request. Preloaded instructions must fit the existing context limits.
+The classifier is hosted orchestration overhead, like title generation, and is not a user tool call.
+
+Run `bun scripts/evals/opening-skills.ts` for an opt-in live Jev evaluation across all eight skills. It uses the hosted key, makes no chat-model calls, and reports scores plus required and forbidden selections. Ambiguous requests are marked exploratory rather than assigned an exact expected tool set. Use `--filter=polar --repeat=7` to repeat one case; `--output` selects the JSON report path.
 
 ### OpenRouter speech-to-text
 

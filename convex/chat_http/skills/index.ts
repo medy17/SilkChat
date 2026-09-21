@@ -37,14 +37,28 @@ export const resolveAvailableSkillIds = ({
         return !skill.ability || enabledTools.includes(skill.ability)
     })
 
-export const buildSkillIndexContext = (availableSkillIds: AppSkillId[]) => {
-    if (availableSkillIds.length === 0) return ""
+export const buildSkillIndexContext = (
+    availableSkillIds: AppSkillId[],
+    preloadedSkillIds: ReadonlySet<AppSkillId> = new Set(),
+    context?: AppSkillPromptContext
+) => {
+    const unloadedSkillIds = availableSkillIds.filter((id) => !preloadedSkillIds.has(id))
+    const preloaded = context
+        ? availableSkillIds
+              .filter((id) => preloadedSkillIds.has(id))
+              .map((id) => `### ${APP_SKILLS[id].label}\n${getSkillInstructions(id, context)}`)
+              .join("\n\n")
+        : ""
+    const loadedContext = preloaded
+        ? `## Preloaded Skills\nThese skills are already loaded for this turn. Their tools are available without calling load_skill. Loading does not require using a tool.\n${preloaded}\n\n`
+        : ""
+    if (unloadedSkillIds.length === 0) return loadedContext
 
-    const entries = availableSkillIds
+    const entries = unloadedSkillIds
         .map((skillId) => `- \`${skillId}\` — ${APP_SKILLS[skillId].summary}`)
         .join("\n")
 
-    return `## Available Skills
+    return `${loadedContext}## Available Skills
 The skills below are available but not loaded. Availability is not a suggestion to use them. Loading a skill is itself a tool call, so answer directly whenever the request does not match a listed positive trigger. Uncertainty, unfamiliarity, or a desire to produce a more authoritative answer does not by itself justify loading a skill. When the current request clearly needs one, call \`load_skill\` before following its instructions or using its associated tools. Loading returns complete, turn-scoped instructions as a tool result. Do not load skills for simple adjacent tasks, and do not claim to have loaded one without calling the tool. You may load another skill later in the same turn if necessary.
 ${entries}`
 }

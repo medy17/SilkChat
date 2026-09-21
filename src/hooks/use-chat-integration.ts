@@ -1,3 +1,4 @@
+import { ABILITIES, type AbilityId } from "@/lib/tool-abilities"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages"
@@ -18,7 +19,7 @@ import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { useConvexAuth, useQuery as useLiveQuery } from "convex/react"
 import type { Infer } from "convex/values"
 import { nanoid } from "nanoid"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 type BackendMessagePart =
     | { type: "text"; text: string }
@@ -256,11 +257,13 @@ export function useChatIntegration<IsShared extends boolean>({
     threadId,
     sharedThreadId,
     isShared,
+    isActive = true,
     folderId
 }: {
     threadId: string | undefined
     sharedThreadId?: string | undefined
     isShared?: IsShared
+    isActive?: boolean
     folderId?: Id<"projects">
 }) {
     const auth = useConvexAuth()
@@ -327,6 +330,20 @@ export function useChatIntegration<IsShared extends boolean>({
         !isShared && threadId && !auth.isLoading ? { threadId: threadId as Id<"threads"> } : "skip"
     )
 
+    useLayoutEffect(() => {
+        if (isShared || !isActive) return
+        const savedTools =
+            thread && "openingToolSelection" in thread
+                ? thread.openingToolSelection?.status !== "pending"
+                    ? thread.openingToolSelection?.enabledTools
+                    : undefined
+                : undefined
+        useModelStore.getState().activateToolThread(threadId ?? null, savedTools)
+    }, [threadId, thread, isShared, isActive])
+    const openingToolRequestsRef = useRef(
+        new Map<string, { revision: number; generation: number }>()
+    )
+
     const initialMessages = useMemo<ChatMessage[]>(() => {
         if (
             !isShared &&
@@ -358,7 +375,7 @@ export function useChatIntegration<IsShared extends boolean>({
                   fetch: createChatTransportFetch(),
                   async prepareSendMessagesRequest({ body, messages }) {
                       const currentContext = latestRequestContextRef.current
-                      const { selectedModel, enabledTools, reasoningEffort } =
+                      const { selectedModel, enabledTools, autoSelectTools, reasoningEffort } =
                           useModelStore.getState()
                       const { selectedPersona, pendingPersonaOpening } = useChatStore.getState()
                       const jwt = await resolveJwtToken(currentContext.token)
@@ -376,6 +393,13 @@ export function useChatIntegration<IsShared extends boolean>({
                       }
 
                       const proposedNewAssistantId = nanoid()
+                      if (!currentContext.threadId) {
+                          const state = useModelStore.getState()
+                          openingToolRequestsRef.current.set(proposedNewAssistantId, {
+                              revision: state.toolRevision,
+                              generation: state.toolDraftGeneration
+                          })
+                      }
                       seededNextId.current = proposedNewAssistantId
                       streamOriginRef.current = "send"
                       setDirectSendActive(true)
@@ -401,7 +425,12 @@ export function useChatIntegration<IsShared extends boolean>({
                                   role: message?.role,
                                   messageId: message?.id
                               },
-                              enabledTools,
+                              enabledTools: currentContext.threadId
+                                  ? useModelStore.getState().conversationTools[
+                                        currentContext.threadId
+                                    ]
+                                  : enabledTools,
+                              autoSelectTools,
                               folderId: currentContext.folderId,
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,
@@ -441,6 +470,42 @@ export function useChatIntegration<IsShared extends boolean>({
                   }
               }),
         messages: initialMessages,
+        onData: (part) => {
+            if (
+                part.type !== "data-auto-selected-tools" ||
+                !part.data ||
+                typeof part.data !== "object"
+            )
+                return
+            const data = part.data as {
+                threadId?: unknown
+                enabledTools?: unknown
+                requestId?: unknown
+            }
+            if (typeof data.threadId !== "string" || !Array.isArray(data.enabledTools)) return
+            const tools = [
+                ...new Set(
+                    data.enabledTools.filter(
+                        (id): id is AbilityId =>
+                            typeof id === "string" && ABILITIES.includes(id as AbilityId)
+                    )
+                )
+            ]
+            const snapshot =
+                typeof data.requestId === "string"
+                    ? openingToolRequestsRef.current.get(data.requestId)
+                    : undefined
+            useModelStore
+                .getState()
+                .restoreConversationTools(
+                    data.threadId,
+                    tools,
+                    snapshot?.revision,
+                    snapshot?.generation
+                )
+            if (typeof data.requestId === "string")
+                openingToolRequestsRef.current.delete(data.requestId)
+        },
         onFinish: ({ message, isError }) => {
             setDirectSendActive(false)
             completedLocalMessageRef.current = isError ? null : getCompletedLocalMessage(message)

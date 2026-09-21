@@ -291,6 +291,8 @@ describe("createThreadOrInsertMessages", () => {
         )
         expect(aggregateInsertMock).toHaveBeenCalledWith(ctx, threadDoc)
         expect(result).toEqual({
+            createdMessageIds: ["user-msg-doc", "assistant-msg-doc"],
+            createdThread: true,
             threadId: "thread-1",
             userMessageId: "generated-user-message-id",
             assistantMessageId: "assistant-1",
@@ -362,6 +364,8 @@ describe("createThreadOrInsertMessages", () => {
         expect(openingInsert.createdAt).toBeLessThan(userInsert.createdAt)
         expect(userInsert.createdAt).toBeLessThan(assistantInsert.createdAt)
         expect(result).toEqual({
+            createdMessageIds: ["opening-doc", "user-doc", "assistant-doc"],
+            createdThread: true,
             threadId: "thread-1",
             userMessageId: "user-1",
             assistantMessageId: "assistant-1",

@@ -104,7 +104,7 @@ export const WebSearchAdapter: ToolAdapter = async (params) => {
     return {
         web_search: tool({
             description:
-                "Use only after loading Web Search, and only for an explicit web request, time-sensitive facts, requested citations, or professional people lookups. Do not use for stable factual questions merely because they are niche, technical, unfamiliar, or worth verifying. Start with one query and no optional refinements; narrow only when the user requests a boundary or a broad search proves insufficient.",
+                "Use only after loading Web Search, and only for an explicit web request, time-sensitive facts, external datasets or records needed for analysis, requested citations, or professional people lookups. Do not use for stable factual questions merely because they are niche, technical, unfamiliar, or worth verifying. Start with one query and no optional refinements; narrow only when the user requests a boundary or a broad search proves insufficient.",
             inputSchema: webSearchInputSchema,
             execute: async ({
                 query,

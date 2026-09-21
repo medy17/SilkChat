@@ -7,11 +7,12 @@ describe("text model registry", () => {
     it("excludes image and speech models from chat while accepting legacy text entries", () => {
         expect(isChatModel({})).toBe(true)
         expect(isChatModel({ mode: "text" })).toBe(true)
-        for (const mode of ["image", "speech-to-text", "text-to-speech", "unknown"]) {
+        for (const mode of ["image", "speech-to-text", "text-to-speech", "decision", "unknown"]) {
             expect(isChatModel({ mode })).toBe(false)
         }
         expect(isChatModel({ supportedImageResolutions: ["1K"] })).toBe(false)
         expect(isModelMode("speech-to-text")).toBe(true)
+        expect(isModelMode("decision")).toBe(true)
         expect(isModelMode("unknown")).toBe(false)
     })
 

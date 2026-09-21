@@ -1,3 +1,4 @@
+import { OpeningToolSelection } from "./schema/tool_selection"
 import { ChatError } from "@/lib/errors"
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
 import type { ModelMessage } from "ai"
@@ -281,7 +282,8 @@ export const createThreadOrInsertMessages = internalMutation({
         targetMode: v.optional(v.union(v.literal("normal"), v.literal("edit"), v.literal("retry"))),
         folderId: v.optional(v.id("projects")),
         personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
-        openingMessage: v.optional(HTTPAIMessage)
+        openingMessage: v.optional(HTTPAIMessage),
+        openingToolSelection: v.optional(OpeningToolSelection)
     },
     handler: async (
         ctx,
@@ -294,7 +296,8 @@ export const createThreadOrInsertMessages = internalMutation({
             targetMode,
             folderId,
             personaSnapshot,
-            openingMessage
+            openingMessage,
+            openingToolSelection
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
@@ -353,6 +356,8 @@ export const createThreadOrInsertMessages = internalMutation({
             if (existingAssistantMessage) {
                 return {
                     threadId: existingAssistantMessage.threadId,
+                    openingToolSelection: (await ctx.db.get(existingAssistantMessage.threadId))
+                        ?.openingToolSelection,
                     userMessageId:
                         existingUserMessage?.messageId ??
                         userMessage.messageId ??
@@ -389,6 +394,7 @@ export const createThreadOrInsertMessages = internalMutation({
 
             const newId = await ctx.db.insert("threads", {
                 authorId,
+                openingToolSelection,
                 title: initialTitle,
                 createdAt: now,
                 updatedAt: newAssistantMessage_new.updatedAt,
@@ -413,28 +419,36 @@ export const createThreadOrInsertMessages = internalMutation({
 
             // Thread count will be automatically updated by aggregate triggers
 
+            const createdMessageIds: Id<"messages">[] = []
             if (openingMessage) {
+                createdMessageIds.push(
+                    await ctx.db.insert("messages", {
+                        threadId: newId,
+                        messageId: openingMessage.messageId || nanoid(),
+                        createdAt: now,
+                        updatedAt: now,
+                        metadata: {},
+                        parts: openingMessage.parts,
+                        role: "assistant"
+                    })
+                )
+            }
+            createdMessageIds.push(
                 await ctx.db.insert("messages", {
                     threadId: newId,
-                    messageId: openingMessage.messageId || nanoid(),
-                    createdAt: now,
-                    updatedAt: now,
-                    metadata: {},
-                    parts: openingMessage.parts,
-                    role: "assistant"
+                    ...newUserMessage_new
                 })
-            }
-            await ctx.db.insert("messages", {
-                threadId: newId,
-                ...newUserMessage_new
-            })
+            )
             const assistantMessageConvexId = await ctx.db.insert("messages", {
                 threadId: newId,
                 ...newAssistantMessage_new
             })
 
+            createdMessageIds.push(assistantMessageConvexId)
             return {
+                createdMessageIds,
                 threadId: newId,
+                createdThread: true,
                 userMessageId: userMessageId_new,
                 assistantMessageId: proposedNewAssistantId,
                 assistantMessageConvexId
@@ -1464,5 +1478,71 @@ export const getUserThreadsPaginatedByProject = query({
             )
             .order("desc")
             .paginate(paginationOpts)
+    }
+})
+
+// The creation mutation claims selection once. Replays and retries read the saved
+// result; a late/duplicate completion cannot replace a completed selection.
+export const completeOpeningToolSelection = internalMutation({
+    args: { threadId: v.id("threads"), authorId: v.string(), selection: OpeningToolSelection },
+    handler: async (ctx, { threadId, authorId, selection }) => {
+        const thread = await ctx.db.get(threadId)
+        if (!thread || thread.authorId !== authorId) throw new Error("Thread unavailable")
+        if (thread.openingToolSelection && thread.openingToolSelection.status !== "pending")
+            return thread.openingToolSelection
+        await ctx.db.patch(threadId, { openingToolSelection: selection })
+        return selection
+    }
+})
+
+// Only undo an opening created by this request, before any generation or edits.
+export const rollbackRejectedOpening = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        authorId: v.string(),
+        assistantMessageConvexId: v.id("messages"),
+        createdMessageIds: v.array(v.id("messages"))
+    },
+    handler: async (ctx, args) => {
+        const thread = await ctx.db.get(args.threadId)
+        if (
+            !thread ||
+            thread.authorId !== args.authorId ||
+            thread.currentStreamId ||
+            thread.lastStreamId
+        )
+            return false
+        const messages = await ctx.db
+            .query("messages")
+            .withIndex("byThreadId", (q) => q.eq("threadId", args.threadId))
+            .collect()
+        const assistant = messages.find((message) => message._id === args.assistantMessageConvexId)
+        if (
+            !assistant ||
+            assistant.role !== "assistant" ||
+            assistant.parts.length > 0 ||
+            messages.length !== args.createdMessageIds.length ||
+            messages.some(
+                (message) =>
+                    !args.createdMessageIds.includes(message._id) ||
+                    message.generationStreamId ||
+                    message.updatedAt !== message.createdAt
+            )
+        )
+            return false
+        const streams = await ctx.db
+            .query("streams")
+            .withIndex("byThreadId", (q) => q.eq("threadId", args.threadId))
+            .first()
+        if (streams) return false
+        const snapshots = await ctx.db
+            .query("threadPersonaSnapshots")
+            .withIndex("byThreadId", (q) => q.eq("threadId", args.threadId))
+            .collect()
+        for (const message of messages) await ctx.db.delete(message._id)
+        for (const snapshot of snapshots) await ctx.db.delete(snapshot._id)
+        await aggregrateThreadsByFolder.delete(ctx, thread)
+        await ctx.db.delete(thread._id)
+        return true
     }
 })

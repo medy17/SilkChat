@@ -1,9 +1,11 @@
+import { OpeningToolSelection } from "./tool_selection"
 import { v } from "convex/values"
 import { AIMessage } from "./message"
 
 export const Thread = v.object({
     authorId: v.string(),
     title: v.string(),
+    openingToolSelection: v.optional(OpeningToolSelection),
     createdAt: v.number(),
     updatedAt: v.number(),
     streamStartedAt: v.optional(v.number()),

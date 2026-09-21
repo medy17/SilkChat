@@ -59,6 +59,8 @@ export const getModel = async (
     const routing = getOpenRouterRouting(mode, model.preferredOpenRouterProviders)
     if (model.mode === "text-to-speech")
         return new ChatError("bad_model:api", "Speech models cannot generate chat responses")
+    if (model.mode === "decision")
+        return new ChatError("bad_model:api", "Decision models cannot generate chat responses")
     if (!model.adapters.length) return new ChatError("bad_model:api", "No adapters found for model")
 
     const hasInternalOpenRouter = Boolean(getInternalOpenRouterApiKey())

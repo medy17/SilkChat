@@ -18,6 +18,7 @@ import type { SharedModel } from "./models/types"
 import { XAI_MODELS } from "./models/xai"
 import { XIAOMI_MODELS } from "./models/xiaomi"
 import { ZAI_MODELS } from "./models/zai"
+import { TYPESAFE_MODELS } from "./models/typesafe"
 
 export const getOpenRouterProviderModelId = (model: Pick<SharedModel, "adapters">) => {
     const adapter = model.adapters.find((candidate) => candidate.startsWith("openrouter:"))
@@ -40,6 +41,7 @@ export const MODELS_SHARED: SharedModel[] = [
     ...DEEPGRAM_MODELS,
     ...FISH_AUDIO_MODELS,
     ...XAI_MODELS,
+    ...TYPESAFE_MODELS,
     ...FAL_IMAGE_MODELS
 ] as const
 

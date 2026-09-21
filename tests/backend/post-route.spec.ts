@@ -17,7 +17,9 @@ const {
     resolveGeneratedImageContextUrlMock,
     smoothStreamMock,
     isStepCountMock,
-    streamTextMock
+    streamTextMock,
+    selectOpeningSkillsMock,
+    getSupermemoryTurnContextMock
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
     buildCapabilityContextMock: vi.fn(),
@@ -35,7 +37,14 @@ const {
     resolveGeneratedImageContextUrlMock: vi.fn(),
     smoothStreamMock: vi.fn(),
     isStepCountMock: vi.fn(),
-    streamTextMock: vi.fn()
+    streamTextMock: vi.fn(),
+    getSupermemoryTurnContextMock: vi.fn(),
+    selectOpeningSkillsMock: vi.fn()
+}))
+
+vi.mock("../../convex/lib/supermemory_chat", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../convex/lib/supermemory_chat")>()),
+    getSupermemoryTurnContext: getSupermemoryTurnContextMock
 }))
 
 vi.mock("ai", () => ({
@@ -102,6 +111,8 @@ vi.mock("../../convex/_generated/api", () => ({
         },
         threads: {
             createThreadOrInsertMessages: "createThreadOrInsertMessages",
+            completeOpeningToolSelection: "completeOpeningToolSelection",
+            rollbackRejectedOpening: "rollbackRejectedOpening",
             updateThreadStreamingState: "updateThreadStreamingState"
         }
     }
@@ -119,6 +130,10 @@ vi.mock("../../convex/lib/identity", () => ({
 
 vi.mock("../../convex/lib/account_deletion_gate", () => ({
     getAccountDeletionBlockerForAction: vi.fn().mockResolvedValue(null)
+}))
+
+vi.mock("../../convex/chat_http/select_opening_skills", () => ({
+    selectOpeningSkills: selectOpeningSkillsMock
 }))
 
 vi.mock("../../convex/chat_http/get_model", () => ({
@@ -159,6 +174,10 @@ vi.mock("../../convex/lib/toolkit", () => ({
             web_search: {
                 enabled: hasSearchDeployment,
                 fundingSource: hasSearchDeployment ? "deployment" : "none"
+            },
+            code_execution: {
+                enabled: Boolean(process.env.VERCEL_TOKEN),
+                fundingSource: "deployment"
             },
             supermemory: {
                 enabled: hasMemoryDeployment,
@@ -202,6 +221,7 @@ import {
 const chatPOSTHandler = chatPOST as unknown as (
     ctx: {
         auth: Record<string, never>
+        scheduler: { runAfter: ReturnType<typeof vi.fn> }
         runMutation: ReturnType<typeof vi.fn>
         runQuery: ReturnType<typeof vi.fn>
     },
@@ -352,6 +372,7 @@ const withReadinessQueries =
 const createCtx = () =>
     ({
         auth: {},
+        scheduler: { runAfter: vi.fn() },
         runMutation: vi.fn(),
         runQuery: vi.fn(withReadinessQueries(async () => null))
     }) as ChatPostCtx
@@ -412,6 +433,8 @@ describe("chatPOST", () => {
         ])
         generateThreadNameMock.mockReset().mockResolvedValue("hello thread")
         getUserIdentityMock.mockReset()
+        getSupermemoryTurnContextMock.mockReset().mockResolvedValue(null)
+        selectOpeningSkillsMock.mockReset().mockResolvedValue([])
         getModelMock.mockReset()
         getResumableStreamContextMock.mockReset().mockReturnValue(null)
         getToolkitMock.mockReset().mockResolvedValue({
@@ -500,6 +523,9 @@ describe("chatPOST", () => {
         streamTextMock.mockReset()
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
         Reflect.deleteProperty(process.env, "SUPERMEMORY_API_KEY")
+        Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
+        Reflect.deleteProperty(process.env, "VERCEL_TEAM_ID")
+        Reflect.deleteProperty(process.env, "VERCEL_PROJECT_ID")
         vi.spyOn(console, "error").mockImplementation(() => {})
     })
 
@@ -1181,167 +1207,215 @@ describe("chatPOST", () => {
         })
     })
 
-    it("releases the reserved model charge when tool budget reservation fails", async () => {
-        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        getModelMock.mockResolvedValueOnce({
-            model: { modelType: "text" },
-            modelName: "Shared Text",
-            providerSource: "internal",
-            abilities: ["function_calling"],
-            registry: {
-                models: {
-                    "shared-text": {
-                        abilities: ["function_calling"]
-                    }
-                }
-            }
-        })
-
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "reserveCreditForMessage":
-                    return {
-                        allowed: true,
-                        bypassed: false,
-                        existing: false,
-                        committed: false
-                    }
-                case "reserveToolCallBudget":
-                    return {
-                        allowed: false,
-                        reason: "quota"
-                    }
-                case "releaseReservedCreditForMessage":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
-            }
-        })
-        ctx.runQuery.mockImplementation(
-            withReadinessQueries(async (name: string) => {
-                switch (name) {
-                    case "getMessagesByThreadId":
-                        return [{ _id: "db-message-1" }]
-                    case "getUserSettingsInternal":
-                        return {
-                            userId: "user-1",
-                            searchProvider: "firecrawl",
-                            searchIncludeSourcesByDefault: false,
-                            toolCallLimitPerTurn: 3,
-                            generalProviders: {}
+    it.each([false, true])(
+        "releases the model reservation on budget denial with Magic=%s",
+        async (magic) => {
+            process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+            getModelMock.mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelName: "Shared Text",
+                providerSource: "internal",
+                abilities: ["function_calling"],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: ["function_calling"]
                         }
-                    default:
-                        throw new Error(`Unexpected query: ${name}`)
-                }
-            })
-        )
-
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: ["web_search"],
-                reasoningEffort: "off"
-            })
-        )
-
-        expect(response.status).toBe(429)
-        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
-            userId: "user-1",
-            messageKey: "assistant-1:model"
-        })
-        expect(ctx.runMutation).not.toHaveBeenCalledWith(
-            "createThreadOrInsertMessages",
-            expect.anything()
-        )
-    })
-
-    it("releases the reserved model charge and returns bad_request when reserving tool budget throws", async () => {
-        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        getModelMock.mockResolvedValueOnce({
-            model: { modelType: "text" },
-            modelName: "Shared Text",
-            providerSource: "internal",
-            abilities: ["function_calling"],
-            registry: {
-                models: {
-                    "shared-text": {
-                        abilities: ["function_calling"]
                     }
                 }
-            }
-        })
+            })
 
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "reserveCreditForMessage":
-                    return {
-                        allowed: true,
-                        bypassed: false,
-                        existing: false,
-                        committed: false
-                    }
-                case "reserveToolCallBudget":
-                    throw new Error("tool budget failure")
-                case "releaseReservedCreditForMessage":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
-            }
-        })
-        ctx.runQuery.mockImplementation(
-            withReadinessQueries(async (name: string) => {
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
                 switch (name) {
-                    case "getUserSettingsInternal":
+                    case "createThreadOrInsertMessages":
                         return {
-                            userId: "user-1",
-                            searchProvider: "firecrawl",
-                            searchIncludeSourcesByDefault: false,
-                            toolCallLimitPerTurn: 3,
-                            generalProviders: {}
+                            createdThread: true,
+                            threadId: "thread-1",
+                            assistantMessageId: "assistant-1",
+                            assistantMessageConvexId: "db-assistant",
+                            createdMessageIds: ["db-user", "db-assistant"]
                         }
+                    case "completeOpeningToolSelection":
+                    case "rollbackRejectedOpening":
+                        return null
+                    case "reserveCreditForMessage":
+                        return {
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
+                        }
+                    case "reserveToolCallBudget":
+                        return {
+                            allowed: false,
+                            reason: "quota"
+                        }
+                    case "releaseReservedCreditForMessage":
+                        return null
                     default:
-                        throw new Error(`Unexpected query: ${name}`)
+                        throw new Error(`Unexpected mutation: ${name}`)
                 }
             })
-        )
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getMessagesByThreadId":
+                            return [{ _id: "db-message-1" }]
+                        case "getUserSettingsInternal":
+                            return {
+                                userId: "user-1",
+                                searchProvider: "firecrawl",
+                                searchIncludeSourcesByDefault: false,
+                                toolCallLimitPerTurn: 3,
+                                generalProviders: {}
+                            }
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
+                    }
+                })
+            )
 
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: ["web_search"],
-                reasoningEffort: "off"
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: ["web_search"],
+                    autoSelectTools: magic,
+                    reasoningEffort: "off"
+                })
+            )
+
+            expect(response.status).toBe(429)
+            expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+                userId: "user-1",
+                messageKey: "assistant-1:model"
             })
-        )
+            if (magic)
+                expect(ctx.runMutation).toHaveBeenCalledWith(
+                    "rollbackRejectedOpening",
+                    expect.objectContaining({
+                        threadId: "thread-1",
+                        createdMessageIds: ["db-user", "db-assistant"]
+                    })
+                )
+            else
+                expect(ctx.runMutation).not.toHaveBeenCalledWith(
+                    "createThreadOrInsertMessages",
+                    expect.anything()
+                )
+        }
+    )
 
-        expect(response.status).toBe(400)
-        await expect(response.json()).resolves.toMatchObject({
-            code: "bad_request:chat"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
-            userId: "user-1",
-            messageKey: "assistant-1:model"
-        })
-        expect(ctx.runMutation).not.toHaveBeenCalledWith(
-            "createThreadOrInsertMessages",
-            expect.anything()
-        )
-    })
+    it.each([false, true])(
+        "releases the model reservation on budget error with Magic=%s",
+        async (magic) => {
+            process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+            getModelMock.mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelName: "Shared Text",
+                providerSource: "internal",
+                abilities: ["function_calling"],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: ["function_calling"]
+                        }
+                    }
+                }
+            })
+
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
+                switch (name) {
+                    case "createThreadOrInsertMessages":
+                        return {
+                            createdThread: true,
+                            threadId: "thread-1",
+                            assistantMessageId: "assistant-1",
+                            assistantMessageConvexId: "db-assistant",
+                            createdMessageIds: ["db-user", "db-assistant"]
+                        }
+                    case "completeOpeningToolSelection":
+                    case "rollbackRejectedOpening":
+                        return null
+                    case "reserveCreditForMessage":
+                        return {
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
+                        }
+                    case "reserveToolCallBudget":
+                        throw new Error("tool budget failure")
+                    case "releaseReservedCreditForMessage":
+                        return null
+                    default:
+                        throw new Error(`Unexpected mutation: ${name}`)
+                }
+            })
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getUserSettingsInternal":
+                            return {
+                                userId: "user-1",
+                                searchProvider: "firecrawl",
+                                searchIncludeSourcesByDefault: false,
+                                toolCallLimitPerTurn: 3,
+                                generalProviders: {}
+                            }
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
+                    }
+                })
+            )
+
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: ["web_search"],
+                    autoSelectTools: magic,
+                    reasoningEffort: "off"
+                })
+            )
+
+            expect(response.status).toBe(400)
+            await expect(response.json()).resolves.toMatchObject({
+                code: "bad_request:chat"
+            })
+            expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+                userId: "user-1",
+                messageKey: "assistant-1:model"
+            })
+            if (magic)
+                expect(ctx.runMutation).toHaveBeenCalledWith(
+                    "rollbackRejectedOpening",
+                    expect.objectContaining({
+                        threadId: "thread-1",
+                        createdMessageIds: ["db-user", "db-assistant"]
+                    })
+                )
+            else
+                expect(ctx.runMutation).not.toHaveBeenCalledWith(
+                    "createThreadOrInsertMessages",
+                    expect.anything()
+                )
+        }
+    )
 
     it("returns bad_request when message creation fails before streaming begins", async () => {
         const ctx = createCtx()
@@ -1417,324 +1491,443 @@ describe("chatPOST", () => {
         })
     })
 
-    it("streams a text response, patches the assistant message, and records credits on the happy path", async () => {
-        process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "createThreadOrInsertMessages":
-                    return {
-                        threadId: "thread-1",
-                        assistantMessageId: "assistant-1",
-                        assistantMessageConvexId: 42
-                    }
-                case "appendStreamId":
-                    return "stream-1"
-                case "reserveCreditForMessage":
-                    return {
-                        allowed: true,
-                        bypassed: false,
-                        existing: false,
-                        committed: false
-                    }
-                case "reserveToolCallBudget":
-                    return {
-                        allowed: true,
-                        existing: false,
-                        bypassed: false,
-                        reservedCalls: 3
-                    }
-                case "commitReservedCreditForMessage":
-                    return {
-                        committed: true
-                    }
-                case "updateThreadStreamingState":
-                case "finalizeStream":
-                case "patchMessage":
-                case "finalizeToolCallBudget":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
+    it.each([
+        [false, false, false, false],
+        [true, false, false, false],
+        [true, true, false, false],
+        [true, true, true, false],
+        [true, true, true, true]
+    ])(
+        "streams with new thread=%s, classifier failure=%s, tool use=%s, budget denied=%s",
+        async (createdThread, classifierFailed, usesFallbackTool, budgetDenied) => {
+            let fallbackResults: Array<{ allowed: boolean }> = []
+            const preloaded = createdThread && !classifierFailed
+            if (classifierFailed) {
+                process.env.SUPERMEMORY_API_KEY = "configured-memory"
+                process.env.VERCEL_TEAM_ID = "team"
+                process.env.VERCEL_PROJECT_ID = "project"
+                process.env.VERCEL_TOKEN = "token"
+                getToolkitMock.mockResolvedValue({
+                    web_search: { description: "Search" },
+                    execute_code: { description: "Execute" }
+                })
             }
-        })
-        ctx.runQuery.mockImplementation(
-            withReadinessQueries(async (name: string) => {
+
+            selectOpeningSkillsMock.mockImplementation(async (options) =>
+                classifierFailed
+                    ? (options.onFailure(), [])
+                    : options.createdThread
+                      ? ["web_search"]
+                      : []
+            )
+            process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
                 switch (name) {
-                    case "getMessagesByThreadId":
-                        return [{ _id: "db-message-1" }]
-                    case "getUserSettingsInternal":
+                    case "createThreadOrInsertMessages":
                         return {
-                            userId: "user-1",
-                            searchProvider: "firecrawl",
-                            searchIncludeSourcesByDefault: false,
-                            toolCallLimitPerTurn: 3,
-                            generalProviders: {}
+                            createdThread,
+                            threadId: "thread-1",
+                            assistantMessageId: "assistant-1",
+                            assistantMessageConvexId: 42
                         }
-                    case "getThreadPersonaSnapshotInternal":
+                    case "completeOpeningToolSelection":
+                        return null
+                    case "appendStreamId":
+                        return "stream-1"
+                    case "reserveCreditForMessage":
+                        return {
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
+                        }
+                    case "consumeReservedToolCall":
+                        return { allowed: true }
+                    case "reserveToolCallBudget":
+                        return {
+                            allowed: !budgetDenied,
+                            existing: false,
+                            bypassed: false,
+                            reservedCalls: 3
+                        }
+                    case "commitReservedCreditForMessage":
+                        return {
+                            committed: true
+                        }
+                    case "updateThreadStreamingState":
+                    case "finalizeStream":
+                    case "patchMessage":
+                    case "finalizeToolCallBudget":
                         return null
                     default:
-                        throw new Error(`Unexpected query: ${name}`)
+                        throw new Error(`Unexpected mutation: ${name}`)
                 }
             })
-        )
-
-        const runtimeModel = { provider: "runtime-openai", modelType: "text" }
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
-        getModelMock.mockResolvedValueOnce({
-            model: runtimeModel,
-            modelId: "gpt-5.4-mini",
-            modelName: "GPT 5.4 Mini",
-            runtimeProvider: "openai",
-            providerSource: "internal",
-            abilities: ["function_calling", "effort_control"],
-            registry: {
-                models: {
-                    "shared-text": {
-                        abilities: [],
-                        maxTokens: 2048
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getMessagesByThreadId":
+                            return [{ _id: "db-message-1" }]
+                        case "getUserSettingsInternal":
+                            return {
+                                userId: "user-1",
+                                searchProvider: "firecrawl",
+                                searchIncludeSourcesByDefault: false,
+                                toolCallLimitPerTurn: 3,
+                                generalProviders: {}
+                            }
+                        case "getThreadPersonaSnapshotInternal":
+                            return null
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
                     }
-                }
-            }
-        })
-        manualStreamTransformMock.mockImplementationOnce(
-            (
-                parts: Array<{ type: string; text?: string }>,
-                totalTokenUsage: {
-                    promptTokens: number
-                    completionTokens: number
-                    reasoningTokens: number
-                    totalTokens: number
-                    estimatedCostUsd?: number
-                    estimatedPromptCostUsd?: number
-                    estimatedCompletionCostUsd?: number
-                },
-                _uploadPromises: Promise<void>[],
-                _userId: string,
-                _ctx: unknown,
-                streamMetrics?: {
-                    firstVisibleAtMs?: number
-                },
-                options?: {
-                    onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
-                    onFirstVisible?: () => void
-                }
-            ) => {
-                options?.onToolCall?.({ toolCallId: "call-1", toolName: "web_search" })
-                options?.onFirstVisible?.()
-                parts.push({
-                    type: "text",
-                    text: "Hello world"
                 })
-                totalTokenUsage.promptTokens = 12
-                totalTokenUsage.completionTokens = 34
-                totalTokenUsage.reasoningTokens = 5
-                totalTokenUsage.totalTokens = 46
-                totalTokenUsage.estimatedCostUsd = 0.001552
-                totalTokenUsage.estimatedPromptCostUsd = 0.000757
-                totalTokenUsage.estimatedCompletionCostUsd = 0.000795
-                if (streamMetrics) {
-                    streamMetrics.firstVisibleAtMs = Date.now()
-                }
+            )
 
-                return new TransformStream()
-            }
-        )
-        streamTextMock.mockReturnValueOnce({
-            stream: createObjectStream([
-                { type: "text-start", id: "text-1" },
-                { type: "text-delta", id: "text-1", text: "Hello world" },
-                {
-                    type: "finish-step",
-                    finishReason: "stop",
-                    usage: {
-                        inputTokens: 12,
-                        outputTokens: 34,
-                        outputTokenDetails: {
-                            reasoningTokens: 5
+            const runtimeModel = { provider: "runtime-openai", modelType: "text" }
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+            getModelMock.mockResolvedValueOnce({
+                model: runtimeModel,
+                modelId: "gpt-5.4-mini",
+                modelName: "GPT 5.4 Mini",
+                runtimeProvider: "openai",
+                providerSource: "internal",
+                abilities: ["function_calling", "effort_control"],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: [],
+                            id: "gpt-5.6-luna",
+                            knowledgeCutoff: "2026-02-16",
+                            maxTokens: 2048
                         }
                     }
-                },
-                { type: "text-end", id: "text-1" }
-            ]),
-            finishReason: Promise.resolve("stop")
-        })
-
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: ["web_search"],
-                reasoningEffort: "medium",
-                clientId: "client-1"
-            })
-        )
-
-        expect(response.status).toBe(200)
-        const responseText = await response.text()
-
-        expect(generateThreadNameMock).toHaveBeenCalledTimes(1)
-        expect(buildPromptMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                enabledTools: ["web_search"],
-                userSettings: expect.objectContaining({}),
-                personaPrompt: undefined,
-                includeTemporalContext: false
-            })
-        )
-        expect(getToolkitMock).toHaveBeenCalledWith(
-            ctx,
-            ["web_search"],
-            expect.objectContaining({}),
-            expect.any(Object)
-        )
-        expect(isStepCountMock).toHaveBeenCalledWith(100)
-        expect(smoothStreamMock).toHaveBeenCalledTimes(1)
-        expect(streamTextMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                model: runtimeModel,
-                maxOutputTokens: 2048,
-                stopWhen: "stop-after-100",
-                experimental_transform: "smooth-transform",
-                tools: expect.objectContaining({
-                    web_search: {
-                        description: "Search"
-                    },
-                    load_skill: expect.objectContaining({
-                        execute: expect.any(Function)
-                    })
-                }),
-                messages: [
-                    {
-                        role: "system",
-                        content: "system prompt"
-                    },
-                    {
-                        role: "user",
-                        content: "hello from the user"
-                    },
-                    {
-                        role: "system",
-                        content: expect.stringContaining(
-                            "temporal context\n\ntool budget: 3\n\n## Available Skills"
-                        )
-                    }
-                ]
-            })
-        )
-
-        const streamOptions = streamTextMock.mock.calls[0][0]
-        const initialStep = streamOptions.prepareStep()
-        expect(initialStep.activeTools).toContain("load_skill")
-        expect(initialStep.activeTools).not.toContain("web_search")
-        const skillResult = await streamOptions.tools.load_skill.execute(
-            { skill: "web_search" },
-            {} as never
-        )
-        expect(skillResult).toMatchObject({
-            skill: "web_search",
-            instructions: expect.stringContaining("## Web Search Tool")
-        })
-        expect(streamOptions.prepareStep().activeTools).toContain("web_search")
-        expect(initialStep.activeTools).not.toContain("web_search")
-        expect(buildPromptMock).toHaveBeenLastCalledWith(
-            expect.objectContaining({ useSkillLoader: true })
-        )
-
-        expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
-            expectedStreamId: "stream-1",
-            threadId: "thread-1",
-            isLive: true,
-            streamStartedAt: expect.any(Number),
-            currentStreamId: "stream-1",
-            currentStreamOwnerClientId: "client-1"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("appendStreamId", {
-            userId: "user-1",
-            assistantMessageConvexId: 42,
-            threadId: "thread-1",
-            ownerClientId: "client-1"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("finalizeStream", {
-            expectedStreamId: "stream-1",
-            expectedMessageId: 42,
-            threadId: "thread-1",
-            messageId: "assistant-1",
-            parts: [
-                {
-                    type: "text",
-                    text: "Hello world"
                 }
-            ],
-            metadata: expect.objectContaining({
-                modelId: "shared-text",
-                modelName: "GPT 5.4 Mini",
-                promptTokens: 12,
-                completionTokens: 34,
-                reasoningTokens: 5,
-                totalTokens: 46,
-                estimatedCostUsd: 0.001552,
-                estimatedPromptCostUsd: 0.000757,
-                estimatedCompletionCostUsd: 0.000795,
-                creditProviderSource: "internal",
-                creditFeature: "chat",
-                creditBucket: "none",
-                creditUnits: 0,
-                creditCounted: true,
-                timeToFirstVisibleMs: expect.any(Number)
             })
-        })
-        expect(responseText).toContain('"totalTokens":46')
-        expect(responseText).toContain('"estimatedCostUsd":0.001552')
-        expect(responseText).toMatch(/"timeToFirstVisibleMs":\d+/)
-        expect(ctx.runMutation).toHaveBeenCalledWith(
-            "reserveCreditForMessage",
-            expect.objectContaining({
-                userId: "user-1",
-                threadId: undefined,
-                messageId: "assistant-1",
-                messageKey: "assistant-1:model",
-                modelId: "shared-text",
-                providerSource: "internal",
-                feature: "chat",
-                counted: true,
-                reservedMicrousd: expect.any(Number),
-                pricingSource: "openrouter_estimate",
-                requiredPlan: "pro"
+            manualStreamTransformMock.mockImplementationOnce(
+                (
+                    parts: Array<{ type: string; text?: string }>,
+                    totalTokenUsage: {
+                        promptTokens: number
+                        completionTokens: number
+                        reasoningTokens: number
+                        totalTokens: number
+                        estimatedCostUsd?: number
+                        estimatedPromptCostUsd?: number
+                        estimatedCompletionCostUsd?: number
+                    },
+                    _uploadPromises: Promise<void>[],
+                    _userId: string,
+                    _ctx: unknown,
+                    streamMetrics?: {
+                        firstVisibleAtMs?: number
+                    },
+                    options?: {
+                        onToolCall?: (toolCall: { toolCallId: string; toolName: string }) => void
+                        onFirstVisible?: () => void
+                    }
+                ) => {
+                    options?.onToolCall?.({ toolCallId: "call-1", toolName: "web_search" })
+                    options?.onFirstVisible?.()
+                    parts.push({
+                        type: "text",
+                        text: "Hello world"
+                    })
+                    totalTokenUsage.promptTokens = 12
+                    totalTokenUsage.completionTokens = 34
+                    totalTokenUsage.reasoningTokens = 5
+                    totalTokenUsage.totalTokens = 46
+                    totalTokenUsage.estimatedCostUsd = 0.001552
+                    totalTokenUsage.estimatedPromptCostUsd = 0.000757
+                    totalTokenUsage.estimatedCompletionCostUsd = 0.000795
+                    if (streamMetrics) {
+                        streamMetrics.firstVisibleAtMs = Date.now()
+                    }
+
+                    return new TransformStream({
+                        async start() {
+                            if (classifierFailed) {
+                                expect(
+                                    ctx.runMutation.mock.calls.filter(
+                                        ([name]) => name === "reserveToolCallBudget"
+                                    )
+                                ).toHaveLength(0)
+                                if (usesFallbackTool) {
+                                    const controller = getToolkitMock.mock.calls[0][3]
+                                    fallbackResults = await Promise.all([
+                                        controller.consumeToolCall({
+                                            toolCallId: "search-1",
+                                            toolName: "web_search"
+                                        }),
+                                        controller.consumeToolCall({
+                                            toolCallId: "code-1",
+                                            toolName: "execute_code"
+                                        })
+                                    ])
+                                }
+                            }
+                        }
+                    })
+                }
+            )
+            streamTextMock.mockReturnValueOnce({
+                stream: createObjectStream([
+                    { type: "text-start", id: "text-1" },
+                    { type: "text-delta", id: "text-1", text: "Hello world" },
+                    {
+                        type: "finish-step",
+                        finishReason: "stop",
+                        usage: {
+                            inputTokens: 12,
+                            outputTokens: 34,
+                            outputTokenDetails: {
+                                reasoningTokens: 5
+                            }
+                        }
+                    },
+                    { type: "text-end", id: "text-1" }
+                ]),
+                finishReason: Promise.resolve("stop")
             })
-        )
-        expect(ctx.runMutation).toHaveBeenCalledWith("commitReservedCreditForMessage", {
-            userId: "user-1",
-            messageKey: "assistant-1:model",
-            threadId: "thread-1",
-            messageId: "assistant-1",
-            settledMicrousd: 1552,
-            pricingSource: "openrouter_reported"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("reserveToolCallBudget", {
-            userId: "user-1",
-            threadId: undefined,
-            messageId: "assistant-1",
-            messageKey: "assistant-1:tool-budget",
-            reservedCalls: 3,
-            reservedMicrousd: 15_000
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("finalizeToolCallBudget", {
-            userId: "user-1",
-            messageKey: "assistant-1:tool-budget"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith(
-            "finalizeStream",
-            expect.objectContaining({
+
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: createdThread ? [] : ["web_search"],
+                    reasoningEffort: "medium",
+                    clientId: "client-1"
+                })
+            )
+
+            expect(response.status).toBe(200)
+            const responseText = await response.text()
+
+            expect(generateThreadNameMock).toHaveBeenCalledTimes(1)
+            expect(buildPromptMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    enabledTools: classifierFailed
+                        ? ["web_search", "code_execution"]
+                        : ["web_search"],
+                    userSettings: expect.objectContaining({}),
+                    personaPrompt: undefined,
+                    includeTemporalContext: false
+                })
+            )
+            expect(getToolkitMock).toHaveBeenCalledWith(
+                ctx,
+                classifierFailed ? expect.arrayContaining(["web_search"]) : ["web_search"],
+                expect.objectContaining({}),
+                expect.any(Object)
+            )
+            expect(isStepCountMock).toHaveBeenCalledWith(100)
+            expect(smoothStreamMock).toHaveBeenCalledTimes(1)
+            expect(streamTextMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    model: runtimeModel,
+                    maxOutputTokens: 2048,
+                    stopWhen: "stop-after-100",
+                    experimental_transform: "smooth-transform",
+                    tools: expect.objectContaining({
+                        web_search: {
+                            description: "Search"
+                        },
+                        load_skill: expect.objectContaining({
+                            execute: expect.any(Function)
+                        })
+                    }),
+                    messages: [
+                        {
+                            role: "system",
+                            content: "system prompt"
+                        },
+                        {
+                            role: "user",
+                            content: "hello from the user"
+                        },
+                        {
+                            role: "system",
+                            content: expect.stringContaining(
+                                preloaded
+                                    ? "## Preloaded Skills"
+                                    : "temporal context\n\ntool budget: 3\n\n## Available Skills"
+                            )
+                        }
+                    ]
+                })
+            )
+
+            const streamOptions = streamTextMock.mock.calls[0][0]
+            if (createdThread) {
+                expect(responseText).toContain("data-auto-selected-tools")
+                expect(selectOpeningSkillsMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        availableSkillIds: expect.arrayContaining(["web_search"]),
+                        enabledTools: [],
+                        chatModel: expect.objectContaining({ knowledgeCutoff: "2026-02-16" })
+                    })
+                )
+                if (preloaded)
+                    expect(streamOptions.messages.at(-1).content).toContain("## Web Search Tool")
+                if (classifierFailed) {
+                    expect(ctx.runMutation).toHaveBeenCalledWith(
+                        "completeOpeningToolSelection",
+                        expect.objectContaining({
+                            selection: expect.objectContaining({
+                                status: "failed",
+                                skillIds: [],
+                                enabledTools: expect.arrayContaining(["web_search"])
+                            })
+                        })
+                    )
+                }
+            }
+            const initialStep = streamOptions.prepareStep()
+            expect(initialStep.activeTools).toContain("load_skill")
+            expect(initialStep.activeTools.includes("web_search")).toBe(preloaded)
+            const skillResult = await streamOptions.tools.load_skill.execute(
+                { skill: "web_search" },
+                {} as never
+            )
+            expect(skillResult).toMatchObject({
+                skill: "web_search",
+                instructions: expect.stringContaining("## Web Search Tool")
+            })
+            expect(streamOptions.prepareStep().activeTools).toContain("web_search")
+            if (classifierFailed) {
+                expect(initialStep.activeTools).not.toContain("execute_code")
+                await streamOptions.tools.load_skill.execute({ skill: "code_execution" })
+                expect(streamOptions.prepareStep().activeTools).toContain("execute_code")
+            }
+
+            expect(initialStep.activeTools.includes("web_search")).toBe(preloaded)
+            expect(buildPromptMock).toHaveBeenLastCalledWith(
+                expect.objectContaining({ useSkillLoader: true })
+            )
+
+            expect(ctx.runMutation).toHaveBeenCalledWith("updateThreadStreamingState", {
+                expectedStreamId: "stream-1",
                 threadId: "thread-1",
-                expectedStreamId: "stream-1"
+                isLive: true,
+                streamStartedAt: expect.any(Number),
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
             })
-        )
-    })
+            expect(ctx.runMutation).toHaveBeenCalledWith("appendStreamId", {
+                userId: "user-1",
+                assistantMessageConvexId: 42,
+                threadId: "thread-1",
+                ownerClientId: "client-1"
+            })
+            expect(ctx.runMutation).toHaveBeenCalledWith("finalizeStream", {
+                expectedStreamId: "stream-1",
+                expectedMessageId: 42,
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                parts: [
+                    {
+                        type: "text",
+                        text: "Hello world"
+                    }
+                ],
+                metadata: expect.objectContaining({
+                    modelId: "shared-text",
+                    modelName: "GPT 5.4 Mini",
+                    promptTokens: 12,
+                    completionTokens: 34,
+                    reasoningTokens: 5,
+                    totalTokens: 46,
+                    estimatedCostUsd: 0.001552,
+                    estimatedPromptCostUsd: 0.000757,
+                    estimatedCompletionCostUsd: 0.000795,
+                    creditProviderSource: "internal",
+                    creditFeature: "chat",
+                    creditBucket: "none",
+                    creditUnits: 0,
+                    creditCounted: true,
+                    timeToFirstVisibleMs: expect.any(Number)
+                })
+            })
+            expect(responseText).toContain('"totalTokens":46')
+            expect(responseText).toContain('"estimatedCostUsd":0.001552')
+            expect(responseText).toMatch(/"timeToFirstVisibleMs":\d+/)
+            expect(ctx.runMutation).toHaveBeenCalledWith(
+                "reserveCreditForMessage",
+                expect.objectContaining({
+                    userId: "user-1",
+                    threadId: undefined,
+                    messageId: "assistant-1",
+                    messageKey: "assistant-1:model",
+                    modelId: "shared-text",
+                    providerSource: "internal",
+                    feature: "chat",
+                    counted: true,
+                    reservedMicrousd: expect.any(Number),
+                    pricingSource: "openrouter_estimate",
+                    requiredPlan: "pro"
+                })
+            )
+            expect(ctx.runMutation).toHaveBeenCalledWith("commitReservedCreditForMessage", {
+                userId: "user-1",
+                messageKey: "assistant-1:model",
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                settledMicrousd: 1552,
+                pricingSource: "openrouter_reported"
+            })
+            if (classifierFailed) {
+                expect(getSupermemoryTurnContextMock).not.toHaveBeenCalled()
+                expect(ctx.scheduler.runAfter).not.toHaveBeenCalled()
+                expect(getToolkitMock.mock.calls[0][1]).not.toContain("supermemory")
+                expect(ctx.runMutation).toHaveBeenCalledWith(
+                    "completeOpeningToolSelection",
+                    expect.objectContaining({
+                        selection: expect.objectContaining({
+                            enabledTools: ["web_search", "code_execution"],
+                            status: "failed"
+                        })
+                    })
+                )
+                expect(
+                    ctx.runMutation.mock.calls.filter(([name]) => name === "reserveToolCallBudget")
+                ).toHaveLength(usesFallbackTool ? 1 : 0)
+                expect(
+                    ctx.runMutation.mock.calls.filter(
+                        ([name]) => name === "consumeReservedToolCall"
+                    )
+                ).toHaveLength(usesFallbackTool && !budgetDenied ? 2 : 0)
+                expect(fallbackResults).toEqual(
+                    usesFallbackTool ? [{ allowed: !budgetDenied }, { allowed: !budgetDenied }] : []
+                )
+            } else {
+                expect(ctx.runMutation).toHaveBeenCalledWith("reserveToolCallBudget", {
+                    userId: "user-1",
+                    threadId: undefined,
+                    messageId: "assistant-1",
+                    messageKey: "assistant-1:tool-budget",
+                    reservedCalls: 3,
+                    reservedMicrousd: 15_000
+                })
+                expect(ctx.runMutation).toHaveBeenCalledWith("finalizeToolCallBudget", {
+                    userId: "user-1",
+                    messageKey: "assistant-1:tool-budget"
+                })
+            }
+            expect(ctx.runMutation).toHaveBeenCalledWith(
+                "finalizeStream",
+                expect.objectContaining({
+                    threadId: "thread-1",
+                    expectedStreamId: "stream-1"
+                })
+            )
+        }
+    )
 
     it("commits retry charges against the persisted assistant id while keeping the attempt-scoped message key", async () => {
         const ctx = createCtx()

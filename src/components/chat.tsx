@@ -133,6 +133,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     const chat = useChatIntegration({
         threadId,
+        isActive: isActiveRoute,
         folderId
     })
     const { status, composerStatus, messages, ...chatHelpers } = chat

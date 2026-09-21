@@ -492,6 +492,7 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
         .filter(
             (model) =>
                 !isModelSunset(model) &&
+                model.mode !== "decision" &&
                 isOpenRouterModelEnabledInBrowser(model) &&
                 model.adapters.some((adapter) => !HIDDEN_PROVIDER_IDS.has(adapter.split(":")[0]))
         )

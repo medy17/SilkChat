@@ -52,6 +52,7 @@ import {
     type ComposerIntentId,
     resolveIntentGuideStage
 } from "@/lib/composer-intents"
+import { filterComposerTools } from "@/lib/composer-tool-selection"
 import { isComposerPasteTarget } from "@/lib/composer-paste"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -140,6 +141,7 @@ import {
     Paperclip,
     Plus,
     Sigma,
+    Sparkles,
     Square,
     SquareTerminal,
     X
@@ -619,7 +621,13 @@ function MobileOverflowMenu({
     onToggleTool: (tool: AbilityId) => void
     onAttachClick: () => void
 }) {
-    const { enabledTools, reasoningEffort, setReasoningEffort } = useModelStore()
+    const {
+        enabledTools,
+        autoSelectTools,
+        setAutoSelectTools,
+        reasoningEffort,
+        setReasoningEffort
+    } = useModelStore()
     const [reasoningExpanded, setReasoningExpanded] = useState(false)
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
@@ -749,6 +757,16 @@ function MobileOverflowMenu({
                             <Paperclip className="size-4 shrink-0" />
                             <span className="min-w-0 flex-1 truncate">Attach</span>
                         </button>
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Magic"
+                            icon={<Sparkles className="size-4" />}
+                            enabled={autoSelectTools}
+                            available={modelSupportsFunctionCalling}
+                            onClick={() => setAutoSelectTools(!autoSelectTools)}
+                        />
                     )}
 
                     {!isImageModel && (
@@ -1057,14 +1075,11 @@ export function useComposerToolbarState() {
     const invertSendNewlineBehavior = resolvedUserSettings.invertSendNewlineBehavior === true
 
     useEffect(() => {
-        const unavailableTools = new Set<AbilityId>()
-        if (!modelSupportsFunctionCalling || !webSearchAvailable) unavailableTools.add("web_search")
-        if (!modelSupportsFunctionCalling || !codeExecutionAvailable)
-            unavailableTools.add("code_execution")
-        if (!modelSupportsFunctionCalling || !mathematicalInstrumentsAvailable) {
-            unavailableTools.add("mathematical_instruments")
-        }
-        const nextEnabledTools = enabledTools.filter((tool) => !unavailableTools.has(tool))
+        const nextEnabledTools = filterComposerTools(
+            enabledTools,
+            resolvedToolAvailability,
+            selectedDisplayModel ? modelSupportsFunctionCalling : undefined
+        )
         if (nextEnabledTools.length !== enabledTools.length) {
             for (const tool of enabledTools) {
                 if (!nextEnabledTools.includes(tool)) {
@@ -1076,9 +1091,11 @@ export function useComposerToolbarState() {
                     })
                 }
             }
-            setEnabledTools(nextEnabledTools)
+            useModelStore.getState().setConversationTools(nextEnabledTools)
         }
     }, [
+        resolvedToolAvailability,
+        selectedDisplayModel,
         modelSupportsFunctionCalling,
         webSearchAvailable,
         codeExecutionAvailable,
@@ -1855,7 +1872,7 @@ export const MultimodalInput = forwardRef<
                             enabledTools
                         )
                         if (nextEnabledTools !== enabledTools) {
-                            setEnabledTools(nextEnabledTools)
+                            useModelStore.getState().setConversationTools(nextEnabledTools)
                             toast.info("Code execution enabled for this document")
                         }
 
@@ -2213,7 +2230,7 @@ export const MultimodalInput = forwardRef<
             e.preventDefault()
             const nextEnabledTools = getEnabledToolsForPastedText(decision, enabledTools)
             if (nextEnabledTools !== enabledTools) {
-                setEnabledTools(nextEnabledTools)
+                useModelStore.getState().setConversationTools(nextEnabledTools)
                 toast.info("Code execution enabled for this long paste")
             }
             pastedTextCounterRef.current += 1

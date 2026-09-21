@@ -1,6 +1,7 @@
 "use node"
 
 import { ChatError } from "@/lib/errors"
+import { ABILITIES } from "@/lib/tool-abilities"
 import type { ReasoningEffort } from "@/lib/model-store"
 import {
     SYNTHETIC_PERSONA_OPENING_ID,
@@ -91,6 +92,7 @@ import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
+import { selectOpeningSkills } from "./select_opening_skills"
 import {
     buildCapabilityContext,
     buildImageReferenceContext,
@@ -99,6 +101,7 @@ import {
     buildToolBudgetContext
 } from "./prompt"
 import {
+    APP_SKILLS,
     buildSkillIndexContext,
     getActiveSkillToolNames,
     getLoadSkillTool,
@@ -763,7 +766,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
         message: Infer<typeof HTTPAIMessage>
         model: string
         proposedNewAssistantId: string
-        enabledTools: AbilityId[]
+        enabledTools?: AbilityId[]
+        autoSelectTools?: boolean
         targetFromMessageId?: string
         targetMode?: "normal" | "edit" | "retry"
         toolCallLimitFloorOverride?: number
@@ -937,18 +941,74 @@ export const chatPOST = httpAction(async (ctx, req) => {
             messageKey: modelCreditMessageKey
         })
 
+    const commitMessages = async () => {
+        try {
+            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
+                threadId: body.id as Id<"threads">,
+                authorId: user.id,
+                userMessage: "message" in body ? body.message : undefined,
+                proposedNewAssistantId: body.proposedNewAssistantId,
+                targetFromMessageId: body.targetFromMessageId,
+                targetMode: body.targetMode,
+                folderId: body.folderId,
+                personaSnapshot: personaSnapshot ?? undefined,
+                openingMessage: personaOpening ?? undefined,
+                openingToolSelection: !body.id
+                    ? {
+                          enabledTools: callableEnabledTools,
+                          skillIds: [],
+                          mode: body.autoSelectTools !== false ? "magic" : "manual",
+                          status:
+                              body.autoSelectTools === false
+                                  ? "complete"
+                                  : contextViolation
+                                    ? "failed"
+                                    : modelSupportsFunctionCalling
+                                      ? "pending"
+                                      : "complete"
+                      }
+                    : undefined
+            })
+        } catch (error) {
+            console.error("[cvx][chat] Failed to create or append messages", error)
+            return new ChatError("bad_request:chat")
+        }
+    }
+
+    let messageCommit: ReturnType<typeof commitMessages> | undefined
+    const createMutationResult = () => (messageCommit ??= commitMessages())
+    const rollbackRejectedOpening = async () => {
+        if (!messageCommit) return
+        const result = await messageCommit
+        if (
+            !result ||
+            result instanceof ChatError ||
+            !("createdThread" in result) ||
+            !result.createdThread
+        )
+            return
+        await ctx.runMutation(internal.threads.rollbackRejectedOpening, {
+            threadId: result.threadId,
+            authorId: user.id,
+            assistantMessageConvexId: result.assistantMessageConvexId,
+            createdMessageIds: result.createdMessageIds
+        })
+    }
+
     const settings = readiness.registry.settings
     const telemetryEnabled = settings.telemetryEnabled !== false
     const telemetryTargetMode = body.targetMode ?? "normal"
     const toolAvailability = resolveToolAvailability(settings)
-    const requestedEnabledTools = Array.from(new Set(body.enabledTools))
+    const requestedEnabledTools = Array.from(
+        new Set(body.enabledTools ?? readiness.context?.openingToolSelection?.enabledTools ?? [])
+    )
     const resolvedEnabledTools = enforceToolIdentityPolicy(
         sanitizeEnabledTools(requestedEnabledTools, toolAvailability),
         { isAnonymous: user.isAnonymous }
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
-    const memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
+    let memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
         resolvedEnabledTools,
         modelSupportsFunctionCalling
     )
@@ -984,7 +1044,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         ]
             .filter(Boolean)
             .join("\n\n")
-    const canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
+    let canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
         if (toolName === "execute_code" || toolName === "execute_math") {
@@ -1004,13 +1064,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
         }
         return "none"
     }
-    const hasPaidCallableTools = callableEnabledTools.length > 0
+    let hasPaidCallableTools = callableEnabledTools.length > 0
     const hasInternalImagePreparationTool =
         modelData.abilities.includes("function_calling") && modelData.abilities.includes("vision")
     const availableImageModels = hasInternalImagePreparationTool
         ? getSelectableImageModels(readiness.plan)
         : []
-    const availableSkillIdsForTurn = resolveAvailableSkillIds({
+    let availableSkillIdsForTurn = resolveAvailableSkillIds({
         enabledTools: callableEnabledTools,
         imageGenerationEnabled: hasInternalImagePreparationTool
     })
@@ -1018,28 +1078,32 @@ export const chatPOST = httpAction(async (ctx, req) => {
         body.targetMode === "retry" && Number.isFinite(body.toolCallLimitFloorOverride)
             ? (body.toolCallLimitFloorOverride as number)
             : 0
-    const effectiveToolCallLimitPerTurn = resolveToolCallLimitPerTurn({
-        configuredValue: settings.toolCallLimitPerTurn,
-        retryFloor: retryToolCallLimitFloor,
-        hasEnabledTools: hasPaidCallableTools
-    })
-    const deploymentFundedToolRates = [
-        callableEnabledTools.includes("web_search") &&
-        toolAvailability.web_search.fundingSource === "deployment"
-            ? getConfiguredToolUsageMicrousd("web_search")
-            : 0,
-        callableEnabledTools.includes("code_execution") &&
-        toolAvailability.code_execution.fundingSource === "deployment"
-            ? getConfiguredToolUsageMicrousd("execute_code")
-            : 0,
-        callableEnabledTools.includes("mathematical_instruments") &&
-        toolAvailability.code_execution.fundingSource === "deployment"
-            ? getConfiguredToolUsageMicrousd("execute_math")
+    const resolveTurnToolBudget = () => {
+        const effectiveToolCallLimitPerTurn = resolveToolCallLimitPerTurn({
+            configuredValue: settings.toolCallLimitPerTurn,
+            retryFloor: retryToolCallLimitFloor,
+            hasEnabledTools: hasPaidCallableTools
+        })
+        const deploymentFundedToolRates = [
+            callableEnabledTools.includes("web_search") &&
+            toolAvailability.web_search.fundingSource === "deployment"
+                ? getConfiguredToolUsageMicrousd("web_search")
+                : 0,
+            callableEnabledTools.includes("code_execution") &&
+            toolAvailability.code_execution.fundingSource === "deployment"
+                ? getConfiguredToolUsageMicrousd("execute_code")
+                : 0,
+            callableEnabledTools.includes("mathematical_instruments") &&
+            toolAvailability.code_execution.fundingSource === "deployment"
+                ? getConfiguredToolUsageMicrousd("execute_math")
+                : 0
+        ]
+        const reservedToolMicrousd = hasPaidCallableTools
+            ? effectiveToolCallLimitPerTurn * Math.max(0, ...deploymentFundedToolRates)
             : 0
-    ]
-    const reservedToolMicrousd = hasPaidCallableTools
-        ? effectiveToolCallLimitPerTurn * Math.max(0, ...deploymentFundedToolRates)
-        : 0
+        return { effectiveToolCallLimitPerTurn, reservedToolMicrousd }
+    }
+    let { effectiveToolCallLimitPerTurn, reservedToolMicrousd } = resolveTurnToolBudget()
     const imageChecks = new Map<string, Promise<{ url: string; mediaType?: string }>>()
     const resolveGeneratedImageContext = (storageKey: string) => {
         let check = imageChecks.get(storageKey)
@@ -1223,6 +1287,132 @@ export const chatPOST = httpAction(async (ctx, req) => {
         }
     }
 
+    // Deliberately not tied to req.signal: generation must survive the sending
+    // client disconnecting so other clients can resume. Only an explicit stop
+    // request (chatDELETE -> Redis STOPPED state) aborts it.
+    const generationAbort = new AbortController()
+
+    let openingSkillIds: AppSkillId[] = (
+        readiness.context?.openingToolSelection?.skillIds ?? []
+    ).filter((id) => availableSkillIdsForTurn.includes(id))
+    let deferToolBudgetReservation = readiness.context?.openingToolSelection?.status === "failed"
+    const autoSelectedTools: AbilityId[] = []
+    if (
+        !contextViolation &&
+        !body.id &&
+        body.autoSelectTools !== false &&
+        modelSupportsFunctionCalling
+    ) {
+        const openingMutation = await createMutationResult()
+        if (openingMutation instanceof ChatError || !openingMutation) {
+            await releaseModelCreditReservation()
+            return (
+                openingMutation instanceof ChatError
+                    ? openingMutation
+                    : new ChatError("bad_request:chat")
+            ).toResponse()
+        }
+        // Off is the default, not a prohibition. Candidate eligibility comes from
+        // deployment credentials and identity policy, independently of the toggles.
+        const eligibleTools = enforceToolIdentityPolicy(
+            sanitizeEnabledTools([...ABILITIES], toolAvailability),
+            { isAnonymous: user.isAnonymous }
+        )
+        const candidateSkillIds = resolveAvailableSkillIds({
+            enabledTools: eligibleTools,
+            imageGenerationEnabled: hasInternalImagePreparationTool
+        })
+        let selectionFailed = false
+        const isOpening =
+            "createdThread" in openingMutation && openingMutation.createdThread === true
+        const savedSelection =
+            "openingToolSelection" in openingMutation
+                ? openingMutation.openingToolSelection
+                : undefined
+        openingSkillIds =
+            savedSelection?.skillIds ??
+            (await selectOpeningSkills({
+                onFailure: () => {
+                    selectionFailed = true
+                },
+                createdThread:
+                    "createdThread" in openingMutation && openingMutation.createdThread === true,
+                targetMode: body.targetMode,
+                availableSkillIds: candidateSkillIds,
+                enabledTools: [...callableEnabledTools],
+                parts: body.message.parts,
+                chatModel: selectedRegistryModel ?? { id: body.model },
+                openingText: personaOpening
+                    ? extractVisibleMessageText(personaOpening.parts)
+                    : undefined,
+                routing: settings.modelRouting ?? "silkchat",
+                signal: generationAbort.signal
+            }))
+        if (savedSelection) {
+            callableEnabledTools.splice(
+                0,
+                callableEnabledTools.length,
+                ...enforceToolIdentityPolicy(
+                    sanitizeEnabledTools(savedSelection.enabledTools, toolAvailability),
+                    { isAnonymous: user.isAnonymous }
+                )
+            )
+        }
+        deferToolBudgetReservation = selectionFailed || savedSelection?.status === "failed"
+        // Memory also retrieves and ingests in the background, so a classifier
+        // failure must never opt the user in. Other skills remain loadable.
+        if (selectionFailed) {
+            for (const ability of eligibleTools) {
+                if (ability !== "supermemory" && !callableEnabledTools.includes(ability))
+                    callableEnabledTools.push(ability)
+            }
+        }
+        const previousSkillIndex = buildSkillIndexContext(availableSkillIdsForTurn)
+        for (const skillId of openingSkillIds) {
+            if (!candidateSkillIds.includes(skillId)) continue
+            const ability = APP_SKILLS[skillId].ability
+            if (ability && !callableEnabledTools.includes(ability)) {
+                callableEnabledTools.push(ability)
+                autoSelectedTools.push(ability)
+            }
+        }
+        if (isOpening) {
+            await ctx.runMutation(internal.threads.completeOpeningToolSelection, {
+                threadId: openingMutation.threadId,
+                authorId: user.id,
+                selection: {
+                    enabledTools: callableEnabledTools,
+                    skillIds: openingSkillIds,
+                    mode: "magic",
+                    status: selectionFailed ? "failed" : "complete"
+                }
+            })
+        }
+        hasPaidCallableTools = callableEnabledTools.length > 0
+        canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
+        memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
+            callableEnabledTools,
+            modelSupportsFunctionCalling
+        )
+        availableSkillIdsForTurn = resolveAvailableSkillIds({
+            enabledTools: callableEnabledTools,
+            imageGenerationEnabled: hasInternalImagePreparationTool
+        })
+        ;({ effectiveToolCallLimitPerTurn, reservedToolMicrousd } = resolveTurnToolBudget())
+        estimatedPromptTokens += Math.max(
+            0,
+            estimateModelMessagesTokens([
+                { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
+            ]) - estimateModelMessagesTokens([{ role: "system", content: previousSkillIndex }])
+        )
+        contextViolation = getContextLimitViolation({
+            estimatedTokens: estimatedPromptTokens,
+            limits: contextLimits,
+            providerSource: modelData.providerSource,
+            modelId: body.model
+        })
+    }
+
     if (memoryEnabledForTurn && contextViolation?.limitType !== "model") {
         memoryTurnContext = await getSupermemoryTurnContext(
             user.id,
@@ -1290,25 +1480,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
                 contextViolation = null
             }
-        }
-    }
-
-    const createMutationResult = async () => {
-        try {
-            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
-                threadId: body.id as Id<"threads">,
-                authorId: user.id,
-                userMessage: "message" in body ? body.message : undefined,
-                proposedNewAssistantId: body.proposedNewAssistantId,
-                targetFromMessageId: body.targetFromMessageId,
-                targetMode: body.targetMode,
-                folderId: body.folderId,
-                personaSnapshot: personaSnapshot ?? undefined,
-                openingMessage: personaOpening ?? undefined
-            })
-        } catch (error) {
-            console.error("[cvx][chat] Failed to create or append messages", error)
-            return new ChatError("bad_request:chat")
         }
     }
 
@@ -1413,18 +1584,28 @@ export const chatPOST = httpAction(async (ctx, req) => {
         remainingUsd?: number
         recoversAt?: number | null
     } | null = null
-    if (hasPaidCallableTools && effectiveToolCallLimitPerTurn > 0) {
+    const reserveToolBudget = () =>
+        ctx.runMutation(internal.credits.reserveToolCallBudget, {
+            userId: user.id,
+            threadId: body.id as Id<"threads"> | undefined,
+            messageId: assistantRequestMessageId,
+            messageKey: toolBudgetMessageKey,
+            reservedCalls: effectiveToolCallLimitPerTurn,
+            reservedMicrousd: reservedToolMicrousd
+        })
+    let toolBudgetRequest: ReturnType<typeof reserveToolBudget> | undefined
+    const ensureToolBudgetReservation = async () => {
+        // Parallel tool calls share admission. A denied reservation cannot execute.
+        toolBudgetRequest ??= reserveToolBudget()
+        toolBudgetReservation = await toolBudgetRequest
+        return toolBudgetReservation
+    }
+    if (hasPaidCallableTools && effectiveToolCallLimitPerTurn > 0 && !deferToolBudgetReservation) {
         try {
-            toolBudgetReservation = await ctx.runMutation(internal.credits.reserveToolCallBudget, {
-                userId: user.id,
-                threadId: body.id as Id<"threads"> | undefined,
-                messageId: assistantRequestMessageId,
-                messageKey: toolBudgetMessageKey,
-                reservedCalls: effectiveToolCallLimitPerTurn,
-                reservedMicrousd: reservedToolMicrousd
-            })
+            toolBudgetReservation = await ensureToolBudgetReservation()
         } catch (error) {
             console.error("[cvx][chat] Failed to reserve tool budget", error)
+            await rollbackRejectedOpening()
             await ctx
                 .runMutation(internal.credits.releaseReservedCreditForMessage, {
                     userId: user.id,
@@ -1441,6 +1622,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
     }
 
     if (toolBudgetReservation && !toolBudgetReservation.allowed) {
+        await rollbackRejectedOpening()
         await ctx.runMutation(internal.credits.releaseReservedCreditForMessage, {
             userId: user.id,
             messageKey: modelCreditMessageKey
@@ -1538,11 +1720,6 @@ export const chatPOST = httpAction(async (ctx, req) => {
     const { persistedPersonaSnapshot, streamId, mapped_messages, imageReferences } = streamSetup
 
     const streamStartTime = Date.now()
-
-    // Deliberately not tied to req.signal: generation must survive the sending
-    // client disconnecting so other clients can resume. Only an explicit stop
-    // request (chatDELETE -> Redis STOPPED state) aborts it.
-    const generationAbort = new AbortController()
 
     const parts: Array<
         | { type: "text"; text: string }
@@ -1777,10 +1954,31 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     }
                 })
 
+                if (
+                    autoSelectedTools.length ||
+                    ("createdThread" in mutationResult && mutationResult.createdThread)
+                ) {
+                    writer.write({
+                        type: "data-auto-selected-tools",
+                        data: {
+                            threadId: mutationResult.threadId,
+                            requestId: assistantRequestMessageId,
+                            enabledTools: callableEnabledTools
+                        },
+                        transient: true
+                    })
+                }
+
                 const usesOpenRouter = modelData.runtimeProvider === "openrouter"
                 const paidTools = hasPaidCallableTools
                     ? await getToolkit(ctx, callableEnabledTools, settings, {
                           consumeToolCall: async ({ toolName, toolCallId }) => {
+                              if (deferToolBudgetReservation) {
+                                  if (effectiveToolCallLimitPerTurn <= 0) return { allowed: false }
+                                  const reservation = await ensureToolBudgetReservation()
+                                  if (!reservation.allowed) return { allowed: false }
+                              }
+
                               const fundingSource = getToolFundingSource(toolName)
                               const toolIsDeploymentFunded = fundingSource === "deployment"
 
@@ -1845,6 +2043,40 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     imageGenerationDefaults: settings.imageGenerationDefaults,
                     availableImageSelectionSummary
                 }
+                const candidateSkillIds = new Set(openingSkillIds)
+                const candidateSkillContext = buildSkillIndexContext(
+                    availableSkillIdsForTurn,
+                    candidateSkillIds,
+                    skillContext
+                )
+                const additionalSkillTokens = Math.max(
+                    0,
+                    estimateModelMessagesTokens([
+                        { role: "system", content: candidateSkillContext }
+                    ]) -
+                        estimateModelMessagesTokens([
+                            {
+                                role: "system",
+                                content: buildSkillIndexContext(availableSkillIdsForTurn)
+                            }
+                        ])
+                )
+                // Preloading must not bypass the context admission check performed earlier.
+                if (
+                    !getContextLimitViolation({
+                        estimatedTokens: estimatedPromptTokens + additionalSkillTokens,
+                        limits: contextLimits,
+                        providerSource: modelData.providerSource,
+                        modelId: body.model
+                    })
+                ) {
+                    for (const skillId of openingSkillIds) loadedSkillIds.add(skillId)
+                }
+                const openingSkillContext = buildSkillIndexContext(
+                    availableSkillIdsForTurn,
+                    loadedSkillIds,
+                    skillContext
+                )
                 const skillLoaderTools = modelSupportsFunctionCalling
                     ? getLoadSkillTool({
                           availableSkillIds: availableSkillIdsForTurn,
@@ -1932,9 +2164,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                                           (reference) => `${reference.id}: ${reference.label}`
                                       )
                                     : undefined,
-                                modelSupportsFunctionCalling
-                                    ? buildSkillIndexContext(availableSkillIdsForTurn)
-                                    : undefined
+                                modelSupportsFunctionCalling ? openingSkillContext : undefined
                             )
                         }
                     ],

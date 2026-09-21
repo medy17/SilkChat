@@ -1,12 +1,5 @@
 import { Button } from "@/components/ui/button"
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList
-} from "@/components/ui/command"
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
     ResponsivePopover,
@@ -17,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useModelStore } from "@/lib/model-store"
 import {
     IMAGE_RESOLUTION_OPTIONS,
     type ImageDefaultResolution,
@@ -42,7 +36,7 @@ import {
     Sigma,
     SquareTerminal
 } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, useId, useState } from "react"
 import { toast } from "sonner"
 
 type ToolSelectorPopoverProps = {
@@ -452,9 +446,12 @@ export const ToolSelectorPopover = memo(
         open: controlledOpen,
         onOpenChange
     }: ToolSelectorPopoverProps) => {
+        const magicSwitchId = useId()
         const session = useSession()
         const isMobile = useIsMobile()
         const [internalOpen, setInternalOpen] = useState(false)
+        const autoSelectTools = useModelStore((state) => state.autoSelectTools)
+        const setAutoSelectTools = useModelStore((state) => state.setAutoSelectTools)
         const open = controlledOpen ?? internalOpen
         const setOpen = (nextOpen: boolean) => {
             if (controlledOpen === undefined) setInternalOpen(nextOpen)
@@ -646,12 +643,27 @@ export const ToolSelectorPopover = memo(
                     title="Tool Settings"
                     description="Configure available tools for your conversation"
                 >
-                    <Command className="rounded-none md:rounded-md">
-                        {!isMobile && (
-                            <CommandInput placeholder="Search tools..." className="h-8" />
-                        )}
+                    <Command shouldFilter={false} className="rounded-none md:rounded-md">
+                        <label
+                            htmlFor={magicSwitchId}
+                            className="flex cursor-pointer items-center justify-between gap-4 border-border border-b px-4 py-3"
+                        >
+                            <span className="min-w-0">
+                                <span className="block font-medium text-sm">Magic</span>
+                                <span className="block text-muted-foreground text-xs">
+                                    Preselect tools based on your request
+                                </span>
+                            </span>
+                            <Switch
+                                id={magicSwitchId}
+                                aria-label="Magic"
+                                checked={autoSelectTools}
+                                onCheckedChange={setAutoSelectTools}
+                                disabled={!modelSupportsFunctionCalling}
+                                className="shrink-0"
+                            />
+                        </label>
                         <CommandList>
-                            <CommandEmpty>No tools found.</CommandEmpty>
                             <div>
                                 <CommandGroup heading="Tools">
                                     <CommandItem className="flex items-center justify-between p-3">
