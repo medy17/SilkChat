@@ -34,8 +34,8 @@ export const WelcomeEmailTemplate = ({
                         <Img
                             src={logoUrl}
                             alt="SilkChat"
-                            width="120"
-                            height="32"
+                            width="80"
+                            height="80"
                             style={logoImage}
                         />
                     </Section>
@@ -91,8 +91,8 @@ export const AccountExportEmailTemplate = ({
                         <Img
                             src={logoUrl}
                             alt="SilkChat"
-                            width="120"
-                            height="32"
+                            width="80"
+                            height="80"
                             style={logoImage}
                         />
                     </Section>
@@ -157,8 +157,8 @@ export const InactiveAccountNoticeEmailTemplate = ({
                         <Img
                             src={logoUrl}
                             alt="SilkChat"
-                            width="120"
-                            height="32"
+                            width="80"
+                            height="80"
                             style={logoImage}
                         />
                     </Section>

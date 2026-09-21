@@ -14,7 +14,7 @@ import { PersonaWalkthroughSection } from "./landing-page/persona-walkthrough-se
 import { PricingSection } from "./landing-page/pricing-section"
 import { SilkBackdrop } from "./landing-page/shared"
 import { LogoMark, LogoSymbol } from "./logo"
-import { SPLASH_EXIT_DURATION_MS, SPLASH_FILL_DURATION_MS, SplashScreen } from "./splash-screen"
+import { SPLASH_EXIT_DURATION_MS, SPLASH_REVEAL_DURATION_MS, SplashScreen } from "./splash-screen"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { Button } from "./ui/button"
 
@@ -111,17 +111,17 @@ function PersonaLandingNav({ containerRef }: { containerRef: RefObject<HTMLDivEl
 
 export function PersonaLandingPage() {
     const scrollRef = useRef<HTMLDivElement>(null)
-    // Same choreography as the root route's session splash: let the logo fill,
+    // Same choreography as the root route's session splash: let the Shuriken draw its bubble,
     // scale/fade it out, then mount the page so the hero entry animation starts
     // from a clean first frame.
-    const [splashPhase, setSplashPhase] = useState<"filling" | "exiting" | "done">("filling")
+    const [splashPhase, setSplashPhase] = useState<"revealing" | "exiting" | "done">("revealing")
 
     useEffect(() => {
         if (splashPhase === "done") return
 
         const timeoutId = window.setTimeout(
-            () => setSplashPhase((phase) => (phase === "filling" ? "exiting" : "done")),
-            splashPhase === "filling" ? SPLASH_FILL_DURATION_MS : SPLASH_EXIT_DURATION_MS
+            () => setSplashPhase((phase) => (phase === "revealing" ? "exiting" : "done")),
+            splashPhase === "revealing" ? SPLASH_REVEAL_DURATION_MS : SPLASH_EXIT_DURATION_MS
         )
 
         return () => window.clearTimeout(timeoutId)

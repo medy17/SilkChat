@@ -18,7 +18,7 @@ import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { SharedChat } from "@/components/shared-chat"
 import {
     SPLASH_EXIT_DURATION_MS,
-    SPLASH_FILL_DURATION_MS,
+    SPLASH_REVEAL_DURATION_MS,
     SplashScreen
 } from "@/components/splash-screen"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_chat")({
     component: ChatLayout
 })
 
-const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
+const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_REVEAL_DURATION_MS
 const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
 const INITIAL_CHAT_SKELETON_HOLD_MS = 450
 const INITIAL_CHAT_SKELETON_EXIT_MS = 250

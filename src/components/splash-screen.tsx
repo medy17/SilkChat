@@ -1,11 +1,11 @@
 "use client"
 
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 
-import { LogoSymbol } from "@/components/logo"
+import { SHURIKEN_BUBBLE_DURATION_MS, ShurikenBubble } from "@/components/shuriken-bubble"
 
-// Keep in sync with the `root-logo-fill` keyframes in styles/custom.css.
-export const SPLASH_FILL_DURATION_MS = 2000
+// Finish drawing the bubble and hold briefly before the zoom/fade transition.
+export const SPLASH_REVEAL_DURATION_MS = SHURIKEN_BUBBLE_DURATION_MS + 500
 export const SPLASH_EXIT_DURATION_MS = 700
 
 export function SplashScreen({
@@ -15,6 +15,8 @@ export function SplashScreen({
     isExiting: boolean
     label?: string
 }) {
+    const reduceMotion = useReducedMotion()
+
     return (
         <motion.div
             animate={{
@@ -31,7 +33,7 @@ export function SplashScreen({
         >
             <motion.div
                 animate={{
-                    scale: isExiting ? 4.5 : 1
+                    scale: isExiting && !reduceMotion ? 4.5 : 1
                 }}
                 className="relative size-24"
                 initial={false}
@@ -40,13 +42,11 @@ export function SplashScreen({
                     ease: [0.16, 1, 0.3, 1]
                 }}
             >
-                <LogoSymbol className="absolute inset-0 size-full text-muted-foreground/20" />
-                <div
+                <ShurikenBubble
+                    animated={reduceMotion === false}
                     aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-0 animate-[root-logo-fill_2s_ease-in-out_forwards] overflow-hidden"
-                >
-                    <LogoSymbol className="absolute bottom-0 left-0 size-24 text-primary" />
-                </div>
+                    className="size-full text-primary"
+                />
                 <span className="sr-only">{label}</span>
             </motion.div>
         </motion.div>

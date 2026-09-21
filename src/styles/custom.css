@@ -47,16 +47,6 @@
     --color-model-cost-expensive: var(--model-cost-expensive);
 }
 
-@keyframes root-logo-fill {
-    from {
-        height: 0%;
-    }
-
-    to {
-        height: 100%;
-    }
-}
-
 /* Horizontal nudge for "more content this way" scroll hints. */
 @keyframes hint-bounce-x {
     0%,

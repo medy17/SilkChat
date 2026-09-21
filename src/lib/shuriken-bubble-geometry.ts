@@ -1,0 +1,7 @@
+// Shared by the animated mark and the static asset generator.
+export const SHURIKEN_CORE_SCALE = 0.62
+export const SHURIKEN_BUBBLE_VIEWBOX = "-160 -140 310 310"
+export const SHURIKEN_TAIL_PATH =
+    "M-148 150 C-130 129 -134 108 -134 72 A9 9 0 0 1 -116 72 L-116 86 C-112 103 -90 98 -64 98 A9 9 0 0 1 -64 116 C-107 116 -124 133 -148 150 Z"
+export const SHURIKEN_BORDER_PATH =
+    "M-125 72 L-125 -80 Q-125 -118 -87 -118 L87 -118 Q125 -118 125 -80 L125 69 Q125 107 87 107 L-64 107"
