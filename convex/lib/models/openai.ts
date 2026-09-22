@@ -21,6 +21,35 @@ const FREE_WITHOUT_REASONING_ACCESS = {
 
 export const OPENAI_MODELS: SharedModel[] = [
     {
+        id: "gpt-6-sol",
+        name: "GPT 6 Sol",
+        addedOn: "2026-09-23",
+        shortName: "6 Sol",
+        shortDescription: "OpenAI's high-end GPT-6 model for demanding work with cost-efficient reasoning",
+        description:
+            "GPT 6 Sol is OpenAI's cost-efficient, high-end GPT-6 model for demanding professional work. It accepts text, images, and PDFs, with tool calling and adjustable reasoning that can be turned off for simpler requests.",
+        developer: "OpenAI",
+        releaseOrder: 20261029,
+        adapters: openAiTextAdapters("gpt-6-sol"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true
+    },
+    {
+        id: "gpt-6-luna",
+        name: "GPT 6 Luna",
+        addedOn: "2026-09-23",
+        shortName: "6 Luna",
+        shortDescription: "OpenAI's fast, cost-efficient GPT-6 model for high-volume chat and classification",
+        description:
+            "GPT 6 Luna is OpenAI's fast, cost-efficient GPT-6 model for high-volume chat, classification, and lightweight tool workflows. It accepts text, images, and PDFs, with adjustable reasoning that can be turned off when response speed matters most.",
+        developer: "OpenAI",
+        releaseOrder: 20261028,
+        adapters: openAiTextAdapters("gpt-6-luna"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS
+    },
+    {
         id: "gpt-6-astra",
         name: "GPT 6 Astra",
         addedOn: "2026-09-05",
