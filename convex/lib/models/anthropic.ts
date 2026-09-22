@@ -14,6 +14,30 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {
+        id: "claude-opus-5.5",
+        name: "Claude Opus 5.5",
+        addedOn: "2026-09-22",
+        shortName: "Opus 5.5",
+        shortDescription: "Premium Opus-class Claude for complex coding, reasoning, and extended agent work",
+        description:
+            "Claude Opus 5.5 is Anthropic's premium Opus-class model for demanding reasoning, coding, and extended agent work. It handles multi-step changes across large codebases, follows complex instructions, and analyzes images and documents alongside text.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-opus-5-5"
+        },
+        releaseOrder: 20260922,
+        adapters: anthropicTextAdapters("claude-opus-5-5"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        inputUsdPer1MTokens: 4,
+        outputUsdPer1MTokens: 20,
+        supportsDisablingReasoning: false,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "high"
+    },
+    {
         id: "claude-fable-5.1",
         name: "Claude Fable 5.1",
         addedOn: "2026-09-01",
@@ -43,9 +67,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         name: "Claude Opus 5",
         addedOn: "2026-07-24",
         shortName: "Opus 5",
-        shortDescription: "Premium Claude model for serious coding and knowledge work",
+        shortDescription: "Earlier premium Claude model for serious coding and knowledge work",
         description:
-            "Claude Opus 5 is Anthropic's premium model for production-ready coding, sophisticated agents, and complex knowledge work. It plans and verifies long-running work more reliably than previous Opus models while offering effort control for balancing capability and cost.",
+            "Claude Opus 5 is Anthropic's earlier premium model for production-ready coding, sophisticated agents, and complex knowledge work. It plans and verifies long-running work reliably while offering effort control for balancing capability and cost.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
