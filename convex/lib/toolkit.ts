@@ -30,6 +30,7 @@ export type ConditionalToolParams = {
     enabledTools: AbilityId[]
     userSettings: Infer<typeof UserSettings>
     toolAvailability: ResolvedToolAvailabilityMap
+    useStrictCharts?: boolean
 }
 
 export type ToolCallBudgetController = {
@@ -134,7 +135,8 @@ export const getToolkit = async (
     ctx: GenericActionCtx<DataModel>,
     enabledTools: AbilityId[],
     userSettings: Infer<typeof UserSettings>,
-    controller?: ToolCallBudgetController
+    controller?: ToolCallBudgetController,
+    modelOptions?: Pick<ConditionalToolParams, "useStrictCharts">
 ): Promise<Record<string, Tool>> => {
     const toolAvailability = resolveToolAvailability(userSettings)
     const sanitizedEnabledTools = sanitizeEnabledTools(enabledTools, toolAvailability)
@@ -144,7 +146,8 @@ export const getToolkit = async (
                 ctx,
                 enabledTools: sanitizedEnabledTools,
                 userSettings,
-                toolAvailability
+                toolAvailability,
+                useStrictCharts: modelOptions?.useStrictCharts
             })
         )
     )

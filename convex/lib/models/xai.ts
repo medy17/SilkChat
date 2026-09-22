@@ -32,6 +32,7 @@ export const XAI_MODELS: SharedModel[] = [
         addedOn: "2026-09-22",
         releaseOrder: 20260916,
         adapters: ["i3-xai:grok-4.7", "xai:grok-4.7", "openrouter:x-ai/grok-4.7"],
+        useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 500_000,
         maxTokens: 450_000,
@@ -49,6 +50,7 @@ export const XAI_MODELS: SharedModel[] = [
         addedOn: "2026-08-12",
         releaseOrder: 20260810,
         adapters: ["i3-xai:grok-4.6", "xai:grok-4.6", "openrouter:x-ai/grok-4.6"],
+        useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 500_000,
         inputUsdPer1MTokens: 2,
@@ -65,6 +67,7 @@ export const XAI_MODELS: SharedModel[] = [
         addedOn: "2026-07-09",
         releaseOrder: 20260709,
         adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.5"],
+        useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 500_000,
         customIcon: "xai"
@@ -81,6 +84,7 @@ export const XAI_MODELS: SharedModel[] = [
         releaseOrder: 20260430,
         adapters: ["i3-xai:grok-4.3", "xai:grok-4.3", "openrouter:x-ai/grok-4.3"],
         preferredOpenRouterProviders: ["xai"],
+        useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 1_000_000,
         customIcon: "xai"
@@ -100,6 +104,7 @@ export const XAI_MODELS: SharedModel[] = [
             "xai:grok-4-1-fast-reasoning",
             "openrouter:x-ai/grok-4.1-fast"
         ],
+        useStrictCharts: true,
         abilities: ["reasoning", "function_calling"],
         contextLength: 2_000_000,
         supportsDisablingReasoning: true,
@@ -125,6 +130,7 @@ export const XAI_MODELS: SharedModel[] = [
             "xai:grok-4.20-0309-reasoning",
             "openrouter:x-ai/grok-4.20"
         ],
+        useStrictCharts: true,
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,
         customIcon: "xai"

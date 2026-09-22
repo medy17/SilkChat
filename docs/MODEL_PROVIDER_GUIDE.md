@@ -27,6 +27,10 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - text-to-speech models declare `speech.voice`, `speech.preferredFormat`, `speech.pcm`, and `speech.maxInputCharacters`, and `speech.inputUsdPer1MCharacters`. The managed read-aloud model is `MESSAGE_SPEECH_MODEL` in the Microsoft registry. Keep speech models out of chat, retry, and persona model pickers.
 - optional `supportedImageSizes`
 - optional `customIcon`
+- optional `useStrictCharts`: require every `render_chart` input field for models
+  that omit required chart arrays with the normal optional display fields. Enabled
+  on Grok chat entries; omit or set `false` to use the standard chart schema.
+  This does not enable the provider's `strict` decoding flag or change saved charts.
 
 ### Text model short names
 

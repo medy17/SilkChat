@@ -80,7 +80,7 @@ import {
     PREPARE_IMAGE_GENERATION_TOOL_NAME,
     getPrepareImageGenerationTool
 } from "../lib/tools/image_generation"
-import { withStrictNativeVisualizationTools } from "../lib/tools/native_chart"
+import { withStrictNativeNetworkTool } from "../lib/tools/native_chart"
 import {
     estimateOpenRouterReservationMicrousd,
     getConfiguredToolUsageMicrousd,
@@ -1971,62 +1971,67 @@ export const chatPOST = httpAction(async (ctx, req) => {
 
                 const usesOpenRouter = modelData.runtimeProvider === "openrouter"
                 const paidTools = hasPaidCallableTools
-                    ? await getToolkit(ctx, callableEnabledTools, settings, {
-                          consumeToolCall: async ({ toolName, toolCallId }) => {
-                              if (deferToolBudgetReservation) {
-                                  if (effectiveToolCallLimitPerTurn <= 0) return { allowed: false }
-                                  const reservation = await ensureToolBudgetReservation()
-                                  if (!reservation.allowed) return { allowed: false }
+                    ? await getToolkit(
+                          ctx,
+                          callableEnabledTools,
+                          settings,
+                          {
+                              consumeToolCall: async ({ toolName, toolCallId }) => {
+                                  if (deferToolBudgetReservation) {
+                                      if (effectiveToolCallLimitPerTurn <= 0)
+                                          return { allowed: false }
+                                      const reservation = await ensureToolBudgetReservation()
+                                      if (!reservation.allowed) return { allowed: false }
+                                  }
+
+                                  const fundingSource = getToolFundingSource(toolName)
+                                  const toolIsDeploymentFunded = fundingSource === "deployment"
+
+                                  return await ctx.runMutation(
+                                      internal.credits.consumeReservedToolCall,
+                                      {
+                                          userId: user.id,
+                                          threadId: mutationResult.threadId,
+                                          reservationMessageKey: toolBudgetMessageKey,
+                                          messageId: mutationResult.assistantMessageId,
+                                          messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                          toolCallId,
+                                          toolName,
+                                          modelId: body.model,
+                                          providerSource:
+                                              fundingSource === "byok" ? "byok" : "internal",
+                                          feature: "tool",
+                                          counted: toolIsDeploymentFunded,
+                                          ...(toolIsDeploymentFunded
+                                              ? {
+                                                    chargedMicrousd:
+                                                        getConfiguredToolUsageMicrousd(toolName)
+                                                }
+                                              : {})
+                                      }
+                                  )
+                              },
+                              settleToolCall: async ({
+                                  toolCallId,
+                                  settledMicrousd,
+                                  pricingSource
+                              }) => {
+                                  return await ctx.runMutation(
+                                      internal.credits.reconcileSettledToolUsageCost,
+                                      {
+                                          userId: user.id,
+                                          messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
+                                          settledMicrousd,
+                                          pricingSource
+                                      }
+                                  )
                               }
-
-                              const fundingSource = getToolFundingSource(toolName)
-                              const toolIsDeploymentFunded = fundingSource === "deployment"
-
-                              return await ctx.runMutation(
-                                  internal.credits.consumeReservedToolCall,
-                                  {
-                                      userId: user.id,
-                                      threadId: mutationResult.threadId,
-                                      reservationMessageKey: toolBudgetMessageKey,
-                                      messageId: mutationResult.assistantMessageId,
-                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                                      toolCallId,
-                                      toolName,
-                                      modelId: body.model,
-                                      providerSource:
-                                          fundingSource === "byok" ? "byok" : "internal",
-                                      feature: "tool",
-                                      counted: toolIsDeploymentFunded,
-                                      ...(toolIsDeploymentFunded
-                                          ? {
-                                                chargedMicrousd:
-                                                    getConfiguredToolUsageMicrousd(toolName)
-                                            }
-                                          : {})
-                                  }
-                              )
                           },
-                          settleToolCall: async ({
-                              toolCallId,
-                              settledMicrousd,
-                              pricingSource
-                          }) => {
-                              return await ctx.runMutation(
-                                  internal.credits.reconcileSettledToolUsageCost,
-                                  {
-                                      userId: user.id,
-                                      messageKey: `${toolCallMessageKeyPrefix}:${toolCallId}`,
-                                      settledMicrousd,
-                                      pricingSource
-                                  }
-                              )
-                          }
-                      })
+                          { useStrictCharts: modelData.useStrictCharts }
+                      )
                     : {}
                 const providerPaidTools =
-                    displayProvider === "xai"
-                        ? withStrictNativeVisualizationTools(paidTools)
-                        : paidTools
+                    displayProvider === "xai" ? withStrictNativeNetworkTool(paidTools) : paidTools
                 const internalTools = getPrepareImageGenerationTool({
                     enabled: hasInternalImagePreparationTool,
                     references: imageReferences,

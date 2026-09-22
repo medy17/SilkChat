@@ -193,6 +193,7 @@ export const getModel = async (
     return {
         model: finalModel as LanguageModelV4 & { modelType: "text" },
         abilities: model.abilities,
+        useStrictCharts: model.useStrictCharts,
         registry,
         modelId: model.id,
         modelName: model.name ?? model.id,

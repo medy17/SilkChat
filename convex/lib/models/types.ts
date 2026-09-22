@@ -156,6 +156,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     imagePricing?: ImagePricing
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean
+    /** Require every chart input field; independent of provider strict decoding. */
+    useStrictCharts?: boolean
     reasoningEfforts?: ReasoningEffortTier[]
     defaultReasoningEffort?: ReasoningEffortTier
     reasoningProfiles?: ModelReasoningProfiles

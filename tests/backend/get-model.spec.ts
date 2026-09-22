@@ -64,6 +64,30 @@ describe("getModel", () => {
         Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY")
     })
 
+    it.each([undefined, false, true])(
+        "preserves the model's useStrictCharts=%s setting",
+        async (useStrictCharts) => {
+            process.env.OPENROUTER_API_KEY = "test"
+            createProviderMock.mockResolvedValue({ chat: vi.fn().mockReturnValue({}) })
+            const result = await getModel(
+                createCtx({
+                    providers: {},
+                    models: {
+                        "shared-text": {
+                            id: "shared-text",
+                            abilities: ["function_calling"],
+                            adapters: ["openrouter:or-shared"],
+                            useStrictCharts
+                        }
+                    }
+                }),
+                "shared-text",
+                { internalOnly: true }
+            )
+            expect(result).toMatchObject({ modelId: "shared-text", useStrictCharts })
+        }
+    )
+
     it("rejects unavailable routing modes before creating a provider", async () => {
         const result = await getModel(
             createCtx({

@@ -92,6 +92,18 @@ export const nativeChartSchema = z
 
 export type NativeChart = z.infer<typeof nativeChartSchema>
 
+// Flagged models must spell out display options: mixed optional/required fields can
+// cause Grok to omit the required arrays. Keep the persisted schema above lenient
+// so charts saved before this contract still receive their original defaults.
+export const nativeChartInputSchema = nativeChartSchema.safeExtend({
+    description: nativeChartSchema.shape.description.unwrap(),
+    xScale: nativeChartSchema.shape.xScale.removeDefault().unwrap(),
+    xLabel: nativeChartSchema.shape.xLabel.unwrap(),
+    yLabel: nativeChartSchema.shape.yLabel.unwrap(),
+    showLegend: nativeChartSchema.shape.showLegend.removeDefault().unwrap(),
+    stacked: nativeChartSchema.shape.stacked.removeDefault().unwrap()
+})
+
 export const getBoundedNumericDomain = (values: readonly number[]): [number, number] | null => {
     const finiteValues = values.filter(Number.isFinite)
     if (finiteValues.length === 0) return null

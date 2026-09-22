@@ -1724,7 +1724,8 @@ describe("chatPOST", () => {
                 ctx,
                 classifierFailed ? expect.arrayContaining(["web_search"]) : ["web_search"],
                 expect.objectContaining({}),
-                expect.any(Object)
+                expect.any(Object),
+                { useStrictCharts: undefined }
             )
             expect(isStepCountMock).toHaveBeenCalledWith(100)
             expect(smoothStreamMock).toHaveBeenCalledTimes(1)

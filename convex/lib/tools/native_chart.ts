@@ -1,4 +1,8 @@
-import { NATIVE_CHART_TOOL_NAME, nativeChartSchema } from "@/lib/native-chart"
+import {
+    NATIVE_CHART_TOOL_NAME,
+    nativeChartInputSchema,
+    nativeChartSchema
+} from "@/lib/native-chart"
 import { NATIVE_NETWORK_TOOL_NAME, nativeNetworkSchema } from "@/lib/native-network"
 import { type Tool, tool } from "ai"
 import { z } from "zod"
@@ -17,15 +21,11 @@ export const MATH_PYTHON_DEPENDENCIES = [
     "pint"
 ] as const
 
-const NATIVE_VISUALIZATION_TOOL_NAMES = new Set([NATIVE_CHART_TOOL_NAME, NATIVE_NETWORK_TOOL_NAME])
-
-export const withStrictNativeVisualizationTools = <T extends Partial<Record<string, Tool>>>(
-    tools: T
-): T =>
+export const withStrictNativeNetworkTool = <T extends Partial<Record<string, Tool>>>(tools: T): T =>
     Object.fromEntries(
         Object.entries(tools).map(([name, definition]) => [
             name,
-            definition && NATIVE_VISUALIZATION_TOOL_NAMES.has(name)
+            definition && name === NATIVE_NETWORK_TOOL_NAME
                 ? ({ ...definition, strict: true } as Tool)
                 : definition
         ])
@@ -33,16 +33,17 @@ export const withStrictNativeVisualizationTools = <T extends Partial<Record<stri
 
 export const getNativeChartTool = ({
     enabled,
-    strict = false
+    useStrictCharts = false
 }: {
     enabled: boolean
-    strict?: boolean
+    useStrictCharts?: boolean
 }) => {
     if (!enabled) return {}
 
     return {
         [NATIVE_CHART_TOOL_NAME]: tool({
-            ...(strict ? { strict: true } : {}),
+            // Require fields through the schema when needed. Provider strict
+            // mode rejects dynamic data-row keys on providers including OpenAI.
             description: [
                 "Render a native, interactive chart directly in the conversation.",
                 "This renderer is part of Math Kit, the user-facing name for the mathematical_instruments ability.",
@@ -50,10 +51,15 @@ export const getNativeChartTool = ({
                 "For sampled mathematical functions and continuous numeric axes, set xScale to linear and provide enough ordered samples for a smooth curve.",
                 "Use concise titles and human-readable series labels. Keep data to the smallest useful set of points.",
                 "Every call must include complete, non-empty series and data arrays. Never send chart metadata first and defer either array to a later call.",
+                useStrictCharts
+                    ? "Supply all display fields explicitly. Use empty strings for an unneeded description or axis label, showLegend true unless unnecessary, and stacked false unless stacking is intended."
+                    : "",
                 "All series values must be numeric or null. Scatter charts require numeric x-axis values.",
                 "Do not call this tool when prose or a small Markdown table communicates the result more clearly."
-            ].join("\n"),
-            inputSchema: nativeChartSchema,
+            ]
+                .filter(Boolean)
+                .join("\n"),
+            inputSchema: useStrictCharts ? nativeChartInputSchema : nativeChartSchema,
             execute: async (chart) => ({
                 success: true as const,
                 kind: "native_chart" as const,
@@ -153,7 +159,7 @@ export const NativeChartAdapter: ToolAdapter = async (params) => {
     })
 
     return {
-        ...getNativeChartTool({ enabled: true }),
+        ...getNativeChartTool({ enabled: true, useStrictCharts: params.useStrictCharts }),
         ...getNativeNetworkTool({ enabled: true }),
         ...executeMath
     }

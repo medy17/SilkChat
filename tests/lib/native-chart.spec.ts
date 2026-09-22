@@ -1,13 +1,14 @@
 import {
     getBoundedNumericDomain,
     getNativeChartFromToolOutput,
+    nativeChartInputSchema,
     nativeChartSchema
 } from "@/lib/native-chart"
 import { describe, expect, it } from "vitest"
 import {
     NativeChartAdapter,
     getNativeChartTool,
-    withStrictNativeVisualizationTools
+    withStrictNativeNetworkTool
 } from "../../convex/lib/tools/native_chart"
 
 const validChart = {
@@ -25,7 +26,37 @@ const validChart = {
     ]
 }
 
+const completeChart = {
+    ...validChart,
+    xScale: "linear" as const,
+    showLegend: true,
+    stacked: false
+}
+
 describe("native chart contract", () => {
+    it.each(Object.keys(completeChart))("requires %s in new tool calls", (key) => {
+        const incomplete: Record<string, unknown> = { ...completeChart }
+        delete incomplete[key]
+        expect(nativeChartInputSchema.safeParse(incomplete).success).toBe(false)
+    })
+
+    it("accepts empty optional display text while retaining chart data validation", () => {
+        expect(
+            nativeChartInputSchema.safeParse({
+                ...completeChart,
+                description: "",
+                xLabel: "",
+                yLabel: ""
+            }).success
+        ).toBe(true)
+        expect(
+            nativeChartInputSchema.safeParse({
+                ...completeChart,
+                data: [{ x: 1, y: "one" }]
+            }).success
+        ).toBe(false)
+    })
+
     it("bounds numeric axes to the observed data instead of zero", () => {
         expect(getBoundedNumericDomain([2012, 2014, 2018, 2023])).toEqual([2012, 2023])
         expect(getBoundedNumericDomain([2023])).toEqual([2002.77, 2043.23])
@@ -83,10 +114,9 @@ describe("native chart contract", () => {
     })
 
     it("registers the chart tool and returns a replayable result", async () => {
-        const tools = getNativeChartTool({ enabled: true, strict: true })
-        expect(tools.render_chart?.strict).toBe(true)
+        const tools = getNativeChartTool({ enabled: true })
         const output = await tools.render_chart?.execute?.(
-            nativeChartSchema.parse(validChart),
+            nativeChartInputSchema.parse(completeChart),
             {} as never
         )
 
@@ -97,33 +127,40 @@ describe("native chart contract", () => {
         expect(getNativeChartTool({ enabled: false })).toEqual({})
     })
 
-    it("only exposes chart rendering when Math Kit is enabled", async () => {
-        const toolAvailability = {
-            web_search: { enabled: false, fundingSource: "none" as const },
-            code_execution: { enabled: false, fundingSource: "none" as const },
-            mathematical_instruments: { enabled: true, fundingSource: "none" as const },
-            supermemory: { enabled: false, fundingSource: "none" as const }
+    it.each([false, true])(
+        "exposes the requested chart contract only when Math Kit is enabled (useStrictCharts=%s)",
+        async (useStrictCharts) => {
+            const toolAvailability = {
+                web_search: { enabled: false, fundingSource: "none" as const },
+                code_execution: { enabled: false, fundingSource: "none" as const },
+                mathematical_instruments: { enabled: true, fundingSource: "none" as const },
+                supermemory: { enabled: false, fundingSource: "none" as const }
+            }
+            const baseParams = {
+                toolAvailability,
+                useStrictCharts,
+                userSettings: {} as never,
+                ctx: {} as never
+            }
+
+            expect(await NativeChartAdapter({ ...baseParams, enabledTools: [] })).toEqual({})
+            const tools = await NativeChartAdapter({
+                ...baseParams,
+                enabledTools: ["mathematical_instruments"]
+            })
+
+            expect(Object.keys(tools)).toEqual(["render_chart", "render_network"])
+            expect(tools.render_chart?.strict).toBeUndefined()
+            expect(tools.render_chart?.inputSchema).toBe(
+                useStrictCharts ? nativeChartInputSchema : nativeChartSchema
+            )
+            expect(tools.render_network?.strict).toBeUndefined()
+
+            const strictTools = withStrictNativeNetworkTool(tools)
+            expect(strictTools).toMatchObject({
+                render_network: { strict: true }
+            })
+            expect(strictTools.render_chart).toBe(tools.render_chart)
         }
-        const baseParams = {
-            toolAvailability,
-            userSettings: {} as never,
-            ctx: {} as never
-        }
-
-        expect(await NativeChartAdapter({ ...baseParams, enabledTools: [] })).toEqual({})
-        const tools = await NativeChartAdapter({
-            ...baseParams,
-            enabledTools: ["mathematical_instruments"]
-        })
-
-        expect(Object.keys(tools)).toEqual(["render_chart", "render_network"])
-        expect(tools.render_chart?.strict).toBeUndefined()
-        expect(tools.render_network?.strict).toBeUndefined()
-
-        const strictTools = withStrictNativeVisualizationTools(tools)
-        expect(strictTools).toMatchObject({
-            render_chart: { strict: true },
-            render_network: { strict: true }
-        })
-    })
+    )
 })
