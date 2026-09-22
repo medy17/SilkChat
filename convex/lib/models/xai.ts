@@ -22,12 +22,30 @@ export const GROK_SPEECH_MODEL = {
 export const XAI_MODELS: SharedModel[] = [
     GROK_SPEECH_MODEL,
     {
+        id: "grok-4.7",
+        name: "Grok 4.7",
+        shortName: "Grok 4.7",
+        shortDescription:
+            "xAI's reasoning flagship for sustained software engineering, self-verification, and knowledge work",
+        description:
+            "xAI's latest multimodal reasoning flagship sustains extended software engineering tasks and checks its own work. Its 500K-token context combines image and file understanding with tool calling, structured outputs, and adjustable reasoning effort for coding and knowledge work.",
+        addedOn: "2026-09-22",
+        releaseOrder: 20260916,
+        adapters: ["i3-xai:grok-4.7", "xai:grok-4.7", "openrouter:x-ai/grok-4.7"],
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 500_000,
+        maxTokens: 450_000,
+        inputUsdPer1MTokens: 1.6,
+        outputUsdPer1MTokens: 4.8,
+        customIcon: "xai"
+    },
+    {
         id: "grok-4.6",
         name: "Grok 4.6",
         shortName: "Grok 4.6",
         shortDescription: "xAI reasoning flagship for coding, knowledge work, and STEM",
         description:
-            "xAI's latest multimodal reasoning model for coding, knowledge work, and STEM. It combines a 500K-token context with image and file understanding, function calling, structured outputs, and adjustable reasoning effort for demanding analysis and implementation work.",
+            "xAI's previous-generation multimodal reasoning model for coding, knowledge work, and STEM. It combines a 500K-token context with image and file understanding, function calling, structured outputs, and adjustable reasoning effort for demanding analysis and implementation work.",
         addedOn: "2026-08-12",
         releaseOrder: 20260810,
         adapters: ["i3-xai:grok-4.6", "xai:grok-4.6", "openrouter:x-ai/grok-4.6"],

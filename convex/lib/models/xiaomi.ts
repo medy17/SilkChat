@@ -4,11 +4,50 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const XIAOMI_MODELS: SharedModel[] = [
     {
+        id: "mimo-v2.6-pro",
+        name: "MiMo V2.6 Pro",
+        addedOn: "2026-09-22",
+        shortName: "MiMo V2.6 Pro",
+        shortDescription:
+            "Xiaomi's trillion-parameter multimodal flagship for software engineering, visual analysis, and research",
+        description:
+            "Xiaomi's flagship foundation model uses over a trillion parameters and a million-token context. Native multimodal understanding, optional reasoning, and tool calling support extended software engineering, visual analysis, and research across large collections of material.",
+        releaseOrder: 20260921,
+        adapters: openRouterTextAdapters("xiaomi/mimo-v2.6-pro"),
+        abilities: ["reasoning", "vision", "function_calling"],
+        contextLength: 1_048_576,
+        maxTokens: 131_072,
+        inputUsdPer1MTokens: 0.435,
+        outputUsdPer1MTokens: 0.87,
+        supportsDisablingReasoning: true,
+        developer: "Xiaomi"
+    },
+    {
+        id: "mimo-v2.6-flash",
+        name: "MiMo V2.6 Flash",
+        addedOn: "2026-09-22",
+        shortName: "MiMo V2.6 Flash",
+        shortDescription:
+            "Xiaomi's hybrid-attention mixture-of-experts model for economical coding, visual understanding, and research",
+        description:
+            "Xiaomi's open-source foundation model activates 15B of its 309B parameters per token and uses hybrid attention to reduce computation. A million-token context, native multimodal understanding, optional reasoning, and tool calling suit codebase exploration, visual troubleshooting, and research.",
+        releaseOrder: 20260921,
+        adapters: openRouterTextAdapters("xiaomi/mimo-v2.6-flash"),
+        abilities: ["reasoning", "vision", "function_calling"],
+        contextLength: 1_048_576,
+        maxTokens: 131_072,
+        inputUsdPer1MTokens: 0.14,
+        outputUsdPer1MTokens: 0.28,
+        supportsDisablingReasoning: true,
+        developer: "Xiaomi"
+    },
+    {
         id: "mimo-v2.5-pro",
         name: "MiMo V2.5 Pro",
         addedOn: "2026-04-23",
         shortName: "MiMo V2.5 Pro",
-        shortDescription: "Million-token reasoning specialist for codebases that sprawl and agents that roam",
+        shortDescription:
+            "Million-token reasoning specialist for codebases that sprawl and agents that roam",
         description:
             "MiMo V2.5 Pro is Xiaomi's long-context specialist, giving coding and research agents room to work across a full million tokens. Choose it for deep repository exploration, difficult reasoning, and long runs where continuity matters more than a quick first word.",
         releaseOrder: 20260422,
