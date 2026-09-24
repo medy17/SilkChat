@@ -236,6 +236,25 @@ export const getLibraryImageSources = ({
 
 const FILE_THUMBNAIL_SIZE = 48
 
+// Reference metadata also contains built-in Persona public paths. Preserve those
+// paths instead of interpreting them as bucket keys (including existing records).
+export const getReferenceImageSources = (
+    reference: string
+): {
+    src: string
+    fullResolutionUrl: string
+    srcSet?: string
+    sizes?: string
+} => {
+    if (/^\/avatars\/[a-zA-Z0-9_-]+\.webp$/.test(reference)) {
+        return { src: reference, fullResolutionUrl: reference }
+    }
+    return {
+        ...getFileThumbnailSources(reference),
+        fullResolutionUrl: getGeneratedImageDirectUrl(reference)
+    }
+}
+
 export const getFileThumbnailSources = (storageKey: string) => ({
     src: getOptimizedGeneratedImageUrl({
         storageKey,

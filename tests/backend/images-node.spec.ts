@@ -128,6 +128,7 @@ describe("images_node", () => {
         vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "0")
         vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "0")
         vi.stubEnv("CONVEX_SITE_URL", "https://silkchat.convex.site/")
+        vi.stubEnv("VITE_BETTER_AUTH_URL", "https://app.example.com")
         vi.stubGlobal(
             "fetch",
             vi.fn().mockResolvedValue(
@@ -660,7 +661,7 @@ describe("images_node", () => {
     })
 
     it.each([
-        ["builtin", "/avatars/seraphine.webp", "https://silkchat.dev/avatars/seraphine.webp"],
+        ["builtin", "/avatars/seraphine.webp", "https://app.example.com/avatars/seraphine.webp"],
         ["r2", "persona-avatars/user-1/aria.webp", "https://cdn.example.com/aria.webp"]
     ])(
         "passes the saved %s Persona style reference to portrait generation",
@@ -706,8 +707,9 @@ describe("images_node", () => {
             )
             expect(ctx.runMutation).toHaveBeenCalledWith(
                 "createImageGenerationJob",
-                expect.objectContaining({ aspectRatio: "1:1" })
+                expect.objectContaining({ aspectRatio: "1:1", referenceImageKeys: [value] })
             )
+            if (kind === "builtin") expect(r2GetUrlMock).not.toHaveBeenCalled()
         }
     )
 

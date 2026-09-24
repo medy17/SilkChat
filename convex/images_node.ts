@@ -13,7 +13,10 @@ import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
 import { resolveFalReferenceImagesForProvider } from "./lib/image_generation/reference_images_node"
-import { getPortraitStyleSource } from "./lib/image_generation/portrait_reference"
+import {
+    getPortraitStyleSource,
+    getPublicPortraitReferenceUrl
+} from "./lib/image_generation/portrait_reference"
 import {
     type ImageReferenceSource,
     createImageCreditEventKey,
@@ -643,7 +646,13 @@ export const confirmPreparedChatImageGeneration = action({
                 // the thread's saved Persona, never an arbitrary model-supplied URL.
                 personaStyleReference = {
                     key: style.key,
-                    url: style.url ?? (await r2.getUrl(style.key))
+                    url:
+                        style.kind === "builtin"
+                            ? getPublicPortraitReferenceUrl(
+                                  style.key,
+                                  process.env.VITE_BETTER_AUTH_URL
+                              )
+                            : await r2.getUrl(style.key)
                 }
             }
             for (const reference of result.referenceSources ?? []) {
