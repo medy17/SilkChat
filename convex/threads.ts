@@ -1146,6 +1146,7 @@ export const branchThread = mutation({
                 instructions: personaSnapshot.instructions,
                 defaultModelId: personaSnapshot.defaultModelId,
                 conversationStarters: personaSnapshot.conversationStarters,
+                roleplayFormat: personaSnapshot.roleplayFormat,
                 avatarKind: personaSnapshot.avatarKind,
                 avatarValue: personaSnapshot.avatarValue,
                 avatarMimeType: personaSnapshot.avatarMimeType,

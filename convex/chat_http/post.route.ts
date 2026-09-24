@@ -93,6 +93,7 @@ import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
 import { selectOpeningSkills } from "./select_opening_skills"
+import { shouldPreloadRoleplay } from "./skills/roleplay"
 import {
     buildCapabilityContext,
     buildImageReferenceContext,
@@ -428,6 +429,7 @@ const resolvePersonaSnapshotForRequest = async (
             instructions: persona.instructions,
             defaultModelId: persona.defaultModelId,
             conversationStarters: persona.conversationStarters,
+            roleplayFormat: persona.roleplayFormat,
             avatarKind: "builtin",
             avatarValue: persona.avatarPath,
             knowledgeDocs: persona.knowledgeDocs.map((doc) => ({
@@ -465,6 +467,7 @@ const resolvePersonaSnapshotForRequest = async (
         instructions: persona.instructions,
         defaultModelId: persona.defaultModelId,
         conversationStarters: persona.conversationStarters,
+        roleplayFormat: persona.roleplayFormat,
         avatarKind: persona.avatarKey ? "r2" : undefined,
         avatarValue: persona.avatarKey,
         avatarMimeType: persona.avatarMimeType,
@@ -1189,6 +1192,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         enabledTools: callableEnabledTools,
                         userSettings: settings,
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                        personaName: persistedPersonaSnapshot?.name,
                         includeTemporalContext: false,
                         useSkillLoader: modelSupportsFunctionCalling
                     })
@@ -2044,38 +2048,49 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 const blockedTools = getBlockedBuiltinTools(blockedBuiltinToolReasons)
                 const loadedSkillIds = new Set<AppSkillId>()
                 const skillContext = {
+                    personaName: persistedPersonaSnapshot?.name,
                     mathKitEnabled: callableEnabledTools.includes("mathematical_instruments"),
                     imageGenerationDefaults: settings.imageGenerationDefaults,
                     availableImageSelectionSummary
                 }
-                const candidateSkillIds = new Set(openingSkillIds)
-                const candidateSkillContext = buildSkillIndexContext(
-                    availableSkillIdsForTurn,
-                    candidateSkillIds,
-                    skillContext
-                )
-                const additionalSkillTokens = Math.max(
-                    0,
-                    estimateModelMessagesTokens([
-                        { role: "system", content: candidateSkillContext }
-                    ]) -
+                const baseSkillIndexTokens = estimateModelMessagesTokens([
+                    { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
+                ])
+                // Preloading must not bypass the context admission check performed earlier.
+                // Each group is admitted separately, so a roleplay preload near the limit
+                // cannot displace the opening selection.
+                const admitSkills = (skillIds: Iterable<AppSkillId>) => {
+                    const candidateSkillIds = new Set([...loadedSkillIds, ...skillIds])
+                    const additionalSkillTokens = Math.max(
+                        0,
                         estimateModelMessagesTokens([
                             {
                                 role: "system",
-                                content: buildSkillIndexContext(availableSkillIdsForTurn)
+                                content: buildSkillIndexContext(
+                                    availableSkillIdsForTurn,
+                                    candidateSkillIds,
+                                    skillContext
+                                )
                             }
-                        ])
-                )
-                // Preloading must not bypass the context admission check performed earlier.
+                        ]) - baseSkillIndexTokens
+                    )
+                    if (
+                        !getContextLimitViolation({
+                            estimatedTokens: estimatedPromptTokens + additionalSkillTokens,
+                            limits: contextLimits,
+                            providerSource: modelData.providerSource,
+                            modelId: body.model
+                        })
+                    ) {
+                        for (const skillId of candidateSkillIds) loadedSkillIds.add(skillId)
+                    }
+                }
+                admitSkills(openingSkillIds)
                 if (
-                    !getContextLimitViolation({
-                        estimatedTokens: estimatedPromptTokens + additionalSkillTokens,
-                        limits: contextLimits,
-                        providerSource: modelData.providerSource,
-                        modelId: body.model
-                    })
+                    availableSkillIdsForTurn.includes("roleplay") &&
+                    shouldPreloadRoleplay(persistedPersonaSnapshot?.roleplayFormat, mapped_messages)
                 ) {
-                    for (const skillId of openingSkillIds) loadedSkillIds.add(skillId)
+                    admitSkills(["roleplay"])
                 }
                 const openingSkillContext = buildSkillIndexContext(
                     availableSkillIdsForTurn,
@@ -2106,6 +2121,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     enabledTools: callableEnabledTools,
                     userSettings: settings,
                     personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
+                    personaName: persistedPersonaSnapshot?.name,
                     includeTemporalContext: false,
                     useSkillLoader: modelSupportsFunctionCalling,
                     imageGenerationTool: hasInternalImagePreparationTool

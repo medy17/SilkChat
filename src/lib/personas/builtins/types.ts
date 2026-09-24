@@ -42,6 +42,8 @@ export type BuiltInPersona = {
     conversationStarters: string[]
     openings?: BuiltInPersonaOpening[]
     defaultModelId: string
+    // Preloads native roleplay scene markup on every turn of this persona.
+    roleplayFormat?: boolean
     avatarPath: string
     knowledgeDocs: BuiltInPersonaDoc[]
 }

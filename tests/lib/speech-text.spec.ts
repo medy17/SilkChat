@@ -6,6 +6,15 @@ import {
 } from "../../src/lib/speech-text"
 
 describe("read-aloud text", () => {
+    it("reads mixed roleplay scenes with character attribution without speaking markup", () => {
+        const text = speechTextFromMarkdown(
+            'Before.\n<roleplay><character name="Adelle"><thought>Finally.</thought><dialogue>Got it.</dialogue></character></roleplay>\nAfter.'
+        )
+        expect(text).toBe("Before.\nAdelle:\nFinally.\n“Got it.”\nAfter.")
+        expect(speechTextFromMarkdown("```xml\n<roleplay>hidden</roleplay>\n```")).not.toContain(
+            "hidden"
+        )
+    })
     it("reads inline code and replaces fenced and indented code without exposing their contents", () => {
         const text = speechTextFromMarkdown(
             "Run `bun run test` now.\n\n```ts\nconst secret = 1\n```\n\n    hidden()\n\nDone."

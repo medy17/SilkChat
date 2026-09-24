@@ -18,7 +18,8 @@ export const AttachmentTile = ({
     error,
     previewUrl,
     secondaryAction,
-    disabled = false
+    disabled = false,
+    nativeTitle = true
 }: {
     fileName: string
     kind?: AttachmentTileKind
@@ -32,6 +33,8 @@ export const AttachmentTile = ({
     previewUrl?: string
     secondaryAction?: ReactNode
     disabled?: boolean
+    // Off when the caller supplies its own tooltip for the full file name.
+    nativeTitle?: boolean
 }) => {
     const normalizedProgress = Number.isFinite(progress) ? Math.min(100, Math.max(0, progress)) : 0
     const statusDetail = status === "error" ? error || "Upload failed" : detail
@@ -91,13 +94,13 @@ export const AttachmentTile = ({
             type="button"
             onClick={onClick}
             disabled={disabled}
-            title={fileName}
+            title={nativeTitle ? fileName : undefined}
             className={mainClasses}
         >
             {content}
         </button>
     ) : (
-        <div title={fileName} className={mainClasses}>
+        <div title={nativeTitle ? fileName : undefined} className={mainClasses}>
             {content}
         </div>
     )

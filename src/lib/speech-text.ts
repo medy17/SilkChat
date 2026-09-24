@@ -1,3 +1,4 @@
+import { roleplayToPlainText } from "./roleplay"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import remarkParse from "remark-parse"
@@ -45,7 +46,7 @@ function markdownSpeech(text: string): string {
 export function speechTextFromMarkdown(text: string): string {
     // Remove rich HTML payloads as whole units, including content after blank lines.
     const readContent = (content: string) =>
-        splitRecipeContent(content)
+        splitRecipeContent(roleplayToPlainText(content))
             .map((segment) => {
                 if (segment.type !== "recipe")
                     return markdownSpeech(

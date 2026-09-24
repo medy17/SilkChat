@@ -73,6 +73,7 @@ const toExportablePersonaSnapshot = (
         instructions: value.instructions,
         defaultModelId: value.defaultModelId,
         conversationStarters: value.conversationStarters,
+        roleplayFormat: value.roleplayFormat,
         avatarKind: value.avatarKind,
         avatarValue: value.avatarValue,
         avatarMimeType: value.avatarMimeType,

@@ -201,6 +201,7 @@ describe("opening skill selection", () => {
             answer({
                 diagrams: { type: "noul", noul: 0.75 },
                 recipes: { type: "noul", noul: 0.74 },
+                roleplay: { type: "noul", noul: 0.75 },
                 canvas: { type: "noul", noul: 0.8 },
                 image_generation: { type: "noul", noul: 0.8 },
                 memory: { type: "noul", noul: 0.8 }
@@ -209,9 +210,16 @@ describe("opening skill selection", () => {
         expect(
             await selectOpeningSkills({
                 ...options(),
-                availableSkillIds: ["diagrams", "recipes", "canvas", "image_generation", "memory"]
+                availableSkillIds: [
+                    "diagrams",
+                    "recipes",
+                    "roleplay",
+                    "canvas",
+                    "image_generation",
+                    "memory"
+                ]
             })
-        ).toEqual(["diagrams", "canvas"])
+        ).toEqual(["diagrams", "roleplay", "canvas"])
     })
 
     it.each([

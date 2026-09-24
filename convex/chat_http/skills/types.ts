@@ -3,6 +3,7 @@ import type { AbilityId } from "@/lib/tool-abilities"
 export const APP_SKILL_IDS = [
     "diagrams",
     "recipes",
+    "roleplay",
     "canvas",
     "math",
     "web_search",
@@ -15,6 +16,7 @@ export type AppSkillId = (typeof APP_SKILL_IDS)[number]
 
 export type AppSkillPromptContext = {
     mathKitEnabled: boolean
+    personaName?: string
     imageGenerationDefaults?: {
         resolution?: string
         variants?: number

@@ -73,6 +73,7 @@ Open in your study. Rain has begun outside, and the user has just been shown in.
             ]
         }
     ],
+    roleplayFormat: true,
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/lucian.webp",
     knowledgeDocs: []

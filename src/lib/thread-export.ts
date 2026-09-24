@@ -51,6 +51,7 @@ export interface ExportablePersonaSnapshot {
     instructions: string
     defaultModelId: string
     conversationStarters: string[]
+    roleplayFormat?: boolean
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
     avatarMimeType?: string
@@ -163,13 +164,7 @@ const resolveExportAssetUrl = ({
         : buildProxyAssetUrl(convexApiUrl, value)
 }
 
-const inferAttachmentFilename = ({
-    url,
-    fallback
-}: {
-    url: string
-    fallback: string
-}) => {
+const inferAttachmentFilename = ({ url, fallback }: { url: string; fallback: string }) => {
     try {
         const parsed = new URL(url)
         const fromPath = parsed.pathname.split("/").pop()?.trim()

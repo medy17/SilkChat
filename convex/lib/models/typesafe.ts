@@ -19,6 +19,7 @@ export const TOOL_SELECTION_MODEL = {
             // Presentation-only instructions expose no executable tools.
             diagrams: 0.75,
             recipes: 0.75,
+            roleplay: 0.75,
             canvas: 0.75
         },
         prohibitionThresholds: {

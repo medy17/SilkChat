@@ -26,6 +26,7 @@ const PersonaSnapshotSchema = z.object({
     instructions: z.string(),
     defaultModelId: z.string(),
     conversationStarters: z.array(z.string()),
+    roleplayFormat: z.boolean().optional(),
     avatarKind: z.enum(["builtin", "r2"]).optional(),
     avatarValue: z.string().optional(),
     avatarMimeType: z.string().optional(),

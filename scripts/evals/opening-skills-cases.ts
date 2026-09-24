@@ -116,6 +116,16 @@ export const selectionCases: SelectionCase[] = [
         exploratory: true
     },
     {
+        id: "roleplay-scene",
+        text: "Let's roleplay. You play Monica, the getaway driver, and I'll play Adelle. Start outside the warehouse in the rain.",
+        required: ["roleplay"]
+    },
+    {
+        id: "roleplay-discussion",
+        text: "Explain how dialogue and narration differ in roleplaying games.",
+        forbidden: ["roleplay"]
+    },
+    {
         id: "recipe",
         text: "How do I make pancakes for four people? Give me the amounts and steps.",
         required: ["recipes"]

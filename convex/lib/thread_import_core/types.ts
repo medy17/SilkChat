@@ -29,6 +29,7 @@ export interface ParsedThreadPersonaSnapshot {
     instructions: string
     defaultModelId: string
     conversationStarters: string[]
+    roleplayFormat?: boolean
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
     avatarMimeType?: string

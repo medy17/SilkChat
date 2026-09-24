@@ -1,7 +1,9 @@
+import { parseRoleplay, splitRoleplayContent, type RoleplaySegment } from "@/lib/roleplay"
+import { RoleplayScene } from "./roleplay-scene"
 import "katex/dist/katex.min.css"
 import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
-import { parseRecipeBlock, splitRecipeContent } from "@/lib/recipe"
+import { parseRecipeBlock, splitRecipeContent, type RecipeContentSegment } from "@/lib/recipe"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
 import { RecipeCard } from "./recipe-card"
@@ -44,7 +46,8 @@ export const normalizeMarkdownMathDelimiters = (content: string) =>
             looksLikeMath(expression) ? `${prefix}$$${expression}$$` : `${prefix}$${expression}$`
         )
 
-const MarkdownBody = ({ content, isAnimating }: { content: string; isAnimating: boolean }) => (
+// Memoized so settled roleplay beats skip re-parsing while a later beat streams.
+const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimating: boolean }) => (
     <Streamdown
         animated={false}
         className="markdown-content not-prose"
@@ -57,15 +60,17 @@ const MarkdownBody = ({ content, isAnimating }: { content: string; isAnimating: 
     >
         {normalizeMarkdownMathDelimiters(content)}
     </Streamdown>
-)
+))
 
 export const MemoizedMarkdown = memo(
     ({
         content,
-        isAnimating = false
+        isAnimating = false,
+        roleplayAvatars
     }: {
         content: string
         isAnimating?: boolean
+        roleplayAvatars?: Readonly<Record<string, string>>
     }) => {
         const rawMarkdown = useDevRawMarkdown()
 
@@ -80,11 +85,28 @@ export const MemoizedMarkdown = memo(
             )
         }
 
-        const segments = splitRecipeContent(content)
+        const segments = splitRoleplayContent(content, isAnimating).flatMap<
+            RoleplaySegment | RecipeContentSegment
+        >((segment) =>
+            segment.type === "roleplay" ? [segment] : splitRecipeContent(segment.content)
+        )
 
         return (
             <>
                 {segments.map((segment, index) => {
+                    if (segment.type === "roleplay") {
+                        return (
+                            <RoleplayScene
+                                key={`roleplay-${index}`}
+                                nodes={parseRoleplay(segment.content, segment.streaming)}
+                                streaming={segment.streaming}
+                                avatars={roleplayAvatars}
+                                renderMarkdown={(text, animating) => (
+                                    <MarkdownBody content={text} isAnimating={animating} />
+                                )}
+                            />
+                        )
+                    }
                     if (segment.type === "markdown") {
                         return (
                             <MarkdownBody

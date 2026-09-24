@@ -19,6 +19,7 @@ export const UserPersona = v.object({
     instructions: v.string(),
     conversationStarters: v.array(v.string()),
     defaultModelId: v.string(),
+    roleplayFormat: v.optional(v.boolean()),
     avatarKey: v.optional(v.string()),
     avatarMimeType: v.optional(
         v.union(
@@ -44,6 +45,7 @@ export const ThreadPersonaSnapshotFields = {
     instructions: v.string(),
     defaultModelId: v.string(),
     conversationStarters: v.array(v.string()),
+    roleplayFormat: v.optional(v.boolean()),
     avatarKind: v.optional(PersonaAvatarKind),
     avatarValue: v.optional(v.string()),
     avatarMimeType: v.optional(v.string()),

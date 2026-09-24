@@ -66,6 +66,7 @@ Roleplay conduct:
             ]
         }
     ],
+    roleplayFormat: true,
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/seraphine.webp",
     knowledgeDocs: []

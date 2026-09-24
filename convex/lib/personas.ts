@@ -14,6 +14,7 @@ export type CompiledPersonaSnapshot = {
     instructions: string
     defaultModelId: string
     conversationStarters: string[]
+    roleplayFormat?: boolean
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
     avatarMimeType?: string
@@ -84,6 +85,7 @@ export const compilePersonaSnapshot = ({
     instructions,
     defaultModelId,
     conversationStarters,
+    roleplayFormat,
     avatarKind,
     avatarValue,
     avatarMimeType,
@@ -97,6 +99,7 @@ export const compilePersonaSnapshot = ({
     instructions: string
     defaultModelId: string
     conversationStarters: string[]
+    roleplayFormat?: boolean
     avatarKind?: "builtin" | "r2"
     avatarValue?: string
     avatarMimeType?: string
@@ -118,6 +121,7 @@ export const compilePersonaSnapshot = ({
         instructions: instructions.trim(),
         defaultModelId,
         conversationStarters: normalizeConversationStarters(conversationStarters),
+        roleplayFormat: roleplayFormat || undefined,
         avatarKind,
         avatarValue,
         avatarMimeType,

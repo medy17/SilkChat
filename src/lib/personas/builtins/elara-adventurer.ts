@@ -67,6 +67,7 @@ Roleplay conduct:
             ]
         }
     ],
+    roleplayFormat: true,
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/elara.webp",
     knowledgeDocs: []

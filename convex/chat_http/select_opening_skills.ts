@@ -26,6 +26,8 @@ const SKILL_SELECTION_RULES: Record<AppSkillId, string> = {
         "Does the user ask for a Mermaid diagram or a visual flowchart, sequence diagram, state diagram, entity-relationship diagram, or timeline? This skill formats structured diagrams in Mermaid; it does not retrieve data. Exclude prose explanations, simple lists or tables, numerical charts, and requests that merely mention a process without asking to visualize it.",
     recipes:
         "Does the user request a complete cooking recipe with ingredients, quantities, and preparation steps? This skill formats complete recipes as scalable recipe blocks. Exclude food trivia, nutrition questions, ingredient substitutions, partial meal suggestions, and discussion of recipes without a request for a usable recipe.",
+    roleplay:
+        "Does the user ask to enact or continue an in-character roleplay or multi-character fictional scene? Include collaborative storytelling with character dialogue, actions, and thoughts. Exclude discussing roleplay formats, literary analysis, summarizing fiction, and ordinary assistant conversation.",
     canvas: "Does the user request an interactive webpage, React/HTML UI, simulation, custom visual layout, or a complex visual explanation that needs web rendering? Canvas presents web content in the conversation. Exclude ordinary text answers, code snippets meant only to be read, simple Mermaid diagrams, and ordinary numeric charts supported by Math Kit."
 }
 

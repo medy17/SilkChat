@@ -70,6 +70,7 @@ Open in your safehouse, in the middle of a live breach. The user's connection ha
             ]
         }
     ],
+    roleplayFormat: true,
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/nyx.webp",
     knowledgeDocs: []

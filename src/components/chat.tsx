@@ -1,5 +1,10 @@
 import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
+import {
+    RoleplayPersonaProvider,
+    RoleplayUserImageProvider
+} from "@/components/roleplay-persona-context"
+import { selectRoleplayPersona } from "@/lib/roleplay-persona"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -331,6 +336,34 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                   (persona) =>
                       persona.source === selectedPersona.source && persona.id === selectedPersona.id
               ) ?? null)
+    // The thread's saved display identity binds id="persona" in roleplay scenes.
+    // Primitive dependencies keep the context stable across unrelated thread updates.
+    const savedPersona = chat.thread && "personaName" in chat.thread ? chat.thread : undefined
+    const savedPersonaName = savedPersona?.personaName
+    const savedPersonaAvatarKind = savedPersona?.personaAvatarKind
+    const savedPersonaAvatarValue = savedPersona?.personaAvatarValue
+    const hasThread = Boolean(threadId ?? routeThreadId)
+    const roleplayPersona = useMemo(
+        () =>
+            selectRoleplayPersona({
+                hasThread,
+                saved: savedPersonaName
+                    ? {
+                          name: savedPersonaName,
+                          avatarKind: savedPersonaAvatarKind,
+                          avatarValue: savedPersonaAvatarValue
+                      }
+                    : undefined,
+                selected: selectedPersonaOption
+            }),
+        [
+            hasThread,
+            savedPersonaName,
+            savedPersonaAvatarKind,
+            savedPersonaAvatarValue,
+            selectedPersonaOption
+        ]
+    )
     const hasSelectedPersonaAvatar = Boolean(
         selectedPersonaOption?.avatarKind && selectedPersonaOption.avatarValue
     )
@@ -444,20 +477,24 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         >
             <FullPageDropOverlay onDrop={handleFileDrop} enabled={isActiveRoute} />
 
-            <Messages
-                ref={messagesRef}
-                messages={deferredMessages}
-                onRetry={handleRetry}
-                onBranch={handleBranch}
-                onEditAndRetry={handleEditAndRetry}
-                onQuoteSelection={handleQuoteSelection}
-                status={messageRenderStatus}
-                error={chatHelpers.error}
-                onBottomStateChange={setIsAtBottom}
-                onScrollDirectionChange={setScrollDirection}
-                threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
-                threadId={threadId ?? routeThreadId}
-            />
+            <RoleplayPersonaProvider value={roleplayPersona}>
+                <RoleplayUserImageProvider value={session?.user?.image || undefined}>
+                    <Messages
+                        ref={messagesRef}
+                        messages={deferredMessages}
+                        onRetry={handleRetry}
+                        onBranch={handleBranch}
+                        onEditAndRetry={handleEditAndRetry}
+                        onQuoteSelection={handleQuoteSelection}
+                        status={messageRenderStatus}
+                        error={chatHelpers.error}
+                        onBottomStateChange={setIsAtBottom}
+                        onScrollDirectionChange={setScrollDirection}
+                        threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
+                        threadId={threadId ?? routeThreadId}
+                    />
+                </RoleplayUserImageProvider>
+            </RoleplayPersonaProvider>
 
             <motion.div
                 initial={false}

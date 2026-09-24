@@ -33,7 +33,7 @@ describe("application skills", () => {
             imageGenerationEnabled: false
         })
 
-        expect(skillIds).toEqual(["diagrams", "recipes", "canvas", "web_search"])
+        expect(skillIds).toEqual(["diagrams", "recipes", "roleplay", "canvas", "web_search"])
 
         const index = buildSkillIndexContext(skillIds)
         expect(index).toContain("`web_search` — Use only for explicit web requests")

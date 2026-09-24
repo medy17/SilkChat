@@ -4,6 +4,7 @@ import {
     BrainCircuit,
     ChefHat,
     CircleAlert,
+    Drama,
     Globe,
     Image,
     LayoutTemplate,
@@ -18,6 +19,7 @@ import { memo, useEffect, useState } from "react"
 const SKILL_LABELS: Record<string, string> = {
     diagrams: "Diagrams",
     recipes: "Recipes",
+    roleplay: "Roleplay",
     canvas: "Canvas",
     math: "Math Kit",
     web_search: "Web Search",
@@ -29,6 +31,7 @@ const SKILL_LABELS: Record<string, string> = {
 const SKILL_ICONS: Record<string, LucideIcon> = {
     diagrams: Network,
     recipes: ChefHat,
+    roleplay: Drama,
     canvas: LayoutTemplate,
     math: Sigma,
     web_search: Globe,

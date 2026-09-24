@@ -11,6 +11,7 @@ type BuildPromptOptions = {
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
     personaPrompt?: string
+    personaName?: string
     includeTemporalContext?: boolean
     imageGenerationTool?: {
         enabled: boolean
@@ -162,6 +163,7 @@ export const buildPrompt = ({
     clientTimestampMs,
     userSettings,
     personaPrompt,
+    personaName,
     includeTemporalContext = true,
     imageGenerationTool,
     useSkillLoader = false
@@ -177,6 +179,7 @@ export const buildPrompt = ({
     // and stays in both cases.
     const isPersonaChat = Boolean(personaPrompt?.trim())
     const skillContext = {
+        personaName,
         mathKitEnabled: hasMathematicalInstruments,
         imageGenerationDefaults: userSettings?.imageGenerationDefaults,
         availableImageSelectionSummary: imageGenerationTool?.availableImageSelectionSummary
@@ -199,7 +202,7 @@ You are Silky, an AI assistant in DropSilk Inc.'s SilkChat app. State your ident
 Use Markdown without announcing it.`)
 
     if (!useSkillLoader) {
-        for (const skillId of ["diagrams", "recipes", "math", "canvas"] as const) {
+        for (const skillId of ["diagrams", "recipes", "roleplay", "math", "canvas"] as const) {
             layers.push(getSkillInstructions(skillId, skillContext))
         }
     }

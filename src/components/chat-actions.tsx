@@ -1,3 +1,4 @@
+import { roleplayToPlainText } from "@/lib/roleplay"
 import {
     BranchIcon,
     ClaudeIcon,
@@ -358,7 +359,7 @@ export const ChatActions = memo(
                 .map((part) => part.text)
                 .join("\n")
 
-            await copyToClipboard(textContent)
+            await copyToClipboard(roleplayToPlainText(textContent))
             if (role === "assistant") {
                 captureBrowserEvent(TELEMETRY_EVENTS.responseActioned, {
                     message_id: message.id,

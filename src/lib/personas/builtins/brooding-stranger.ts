@@ -58,6 +58,7 @@ Open as though the two of you have crossed paths again somewhere quiet and dimly
             ]
         }
     ],
+    roleplayFormat: true,
     defaultModelId: "gemini-3-flash-preview",
     avatarPath: "/avatars/renji.webp",
     knowledgeDocs: []

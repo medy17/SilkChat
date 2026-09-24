@@ -88,6 +88,7 @@ import { AttachmentTile } from "./attachment-tile"
 import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
+import { MESSAGE_MARKDOWN_CLASS, USER_MESSAGE_BUBBLE_CLASS } from "./message-presentation"
 import { SkillLoaderRenderer } from "./renderers/skill-loader"
 import { ModelSelector } from "./model-selector"
 import {
@@ -1237,8 +1238,6 @@ const BOTTOM_SCROLL_THRESHOLD_PX = 4
 const SCROLL_IDLE_DELAY_MS = 2_000
 const ACCORDION_SCROLL_FOLLOW_PAUSE_MS = 200
 const STREAMING_ANCHOR_TOP_GAP_PX = 16
-const MESSAGE_MARKDOWN_CLASS =
-    "prose relative max-w-none prose-pre:bg-transparent prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
 const REASONING_MARKDOWN_CLASS =
     "prose max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
 const QUOTE_TOOLTIP_SIZE_PX = 32
@@ -1597,9 +1596,7 @@ const MessageRowComponent = ({
                     // opening the thread (persona speaks first) needs the same gap
                     // below the header.
                     message.role === "assistant" && isFirstMessage && "mt-12",
-                    message.role === "user" &&
-                        !isEditing &&
-                        "my-12 ml-auto w-fit max-w-[min(28rem,100%)] rounded-md border border-border bg-user-message px-4 py-2 text-user-message-foreground has-[[data-message-code-block]]:w-full",
+                    message.role === "user" && !isEditing && USER_MESSAGE_BUBBLE_CLASS,
                     message.role === "user" &&
                         isEditing &&
                         "my-12 ml-auto w-full border-2 border-input bg-background/80 p-3 shadow-xs dark:bg-input/70"

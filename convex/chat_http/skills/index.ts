@@ -8,6 +8,7 @@ import { imageGenerationSkill } from "./image_generation"
 import { mathSkill } from "./math"
 import { memorySkill } from "./memory"
 import { recipesSkill } from "./recipes"
+import { roleplaySkill } from "./roleplay"
 import { APP_SKILL_IDS, type AppSkillId, type AppSkillPromptContext } from "./types"
 import { webSearchSkill } from "./web_search"
 
@@ -16,6 +17,7 @@ export { APP_SKILL_IDS, type AppSkillId, type AppSkillPromptContext } from "./ty
 export const APP_SKILLS = {
     diagrams: diagramsSkill,
     recipes: recipesSkill,
+    roleplay: roleplaySkill,
     canvas: canvasSkill,
     math: mathSkill,
     web_search: webSearchSkill,
