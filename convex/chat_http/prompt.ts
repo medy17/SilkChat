@@ -181,6 +181,7 @@ export const buildPrompt = ({
     const skillContext = {
         personaName,
         mathKitEnabled: hasMathematicalInstruments,
+        imageGenerationEnabled: imageGenerationTool?.enabled === true,
         imageGenerationDefaults: userSettings?.imageGenerationDefaults,
         availableImageSelectionSummary: imageGenerationTool?.availableImageSelectionSummary
     }

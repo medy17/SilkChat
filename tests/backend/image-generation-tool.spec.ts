@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
     getSelectableImageModels,
+    getSupportedAspectRatiosForImageModel,
     getSupportedResolutionsForImageModel
 } from "../../convex/lib/image_generation/shared"
 import {
@@ -32,6 +33,51 @@ const buildTool = (
 }
 
 describe("prepareImageGeneration tool", () => {
+    it("uses the optional Persona style only for portraits without explicit references", async () => {
+        const model = getReferenceCapableModel()
+        const reference = {
+            id: "image_ref_1",
+            key: "attachments/user-1/kael.png",
+            source: "attachment" as const,
+            label: "Kael"
+        }
+        const input = {
+            title: "Kael",
+            prompt: "Kael, a weathered ranger",
+            modelId: model.id,
+            aspectRatio: "1:1",
+            referenceIds: [] as string[],
+            portrait: { characterId: "kael", name: "Kael" }
+        }
+        const run = (hasPersonaStyleReference: boolean, overrides = {}) => {
+            const imageTool = getPrepareImageGenerationTool({
+                enabled: true,
+                references: [reference],
+                hasPersonaStyleReference
+            })[PREPARE_IMAGE_GENERATION_TOOL_NAME]
+            return imageTool?.execute?.(
+                { ...input, ...overrides },
+                { toolCallId: "portrait", messages: [], context: {} }
+            )
+        }
+        expect(await run(true)).toMatchObject({
+            success: true,
+            usePersonaStyleReference: true,
+            references: [{ id: "persona_style" }]
+        })
+        for (const result of [
+            await run(false),
+            await run(true, { portrait: { ...input.portrait, usePersonaStyle: false } }),
+            await run(true, { portrait: undefined }),
+            await run(true, { referenceIds: [reference.id] })
+        ]) {
+            expect(result).toMatchObject({ success: true })
+            expect(result).not.toHaveProperty("usePersonaStyleReference")
+        }
+        expect(await run(true, { referenceIds: [reference.id] })).toMatchObject({
+            referenceSources: [{ key: reference.key }]
+        })
+    })
     it("uses the supplied plan-filtered model catalog", () => {
         const freeModels = getSelectableImageModels("free")
         const imageTool = buildTool([], undefined, freeModels)
@@ -206,5 +252,43 @@ describe("prepareImageGeneration tool", () => {
 
         expect(logo.success).toBe(true)
         expect(banner.success).toBe(true)
+    })
+
+    it("prepares a square portrait card for a supporting character", async () => {
+        const model = getSelectableImageModels().find(
+            (candidate) =>
+                getSupportedAspectRatiosForImageModel(candidate).includes("1:1") &&
+                getSupportedAspectRatiosForImageModel(candidate).some((ratio) => ratio !== "1:1")
+        )
+        if (!model) throw new Error("Expected a model that supports square and other ratios")
+        const imageTool = buildTool([])
+        const input = {
+            title: "Kael portrait",
+            prompt: "A weathered ranger with a scar across one brow.",
+            modelId: model.id,
+            aspectRatio: getSupportedAspectRatiosForImageModel(model).find(
+                (ratio) => ratio !== "1:1"
+            ) as string,
+            referenceIds: []
+        }
+        const options = { toolCallId: "call-portrait", messages: [], context: {} }
+
+        expect(
+            await imageTool?.execute?.(
+                { ...input, portrait: { characterId: "kael", name: " Kael " } },
+                options
+            )
+        ).toMatchObject({
+            success: true,
+            aspectRatio: "1:1",
+            portrait: { characterId: "kael", name: "Kael" }
+        })
+        // The Persona and the user keep their own portraits.
+        expect(
+            await imageTool?.execute?.(
+                { ...input, portrait: { characterId: "persona", name: "Aria" } },
+                options
+            )
+        ).toMatchObject({ success: false })
     })
 })

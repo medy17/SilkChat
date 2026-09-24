@@ -8,8 +8,13 @@ import {
     travelMode
 } from "@/lib/roleplay"
 import { matchRoleplayPersona } from "@/lib/roleplay-persona"
+import { getFileThumbnailSources } from "@/lib/generated-image-urls"
 import { getPersonaAvatarSrc } from "./persona-avatar"
-import { RoleplayPersonaContext, RoleplayUserImageContext } from "./roleplay-persona-context"
+import {
+    RoleplayPersonaContext,
+    RoleplayPortraitsContext,
+    RoleplayUserImageContext
+} from "./roleplay-persona-context"
 import { Carriage, DragonWing, HorseHead, Ufo, UnicornHead } from "./roleplay-travel-icons"
 import {
     Accessibility,
@@ -120,10 +125,17 @@ const initialsOf = (name: string) =>
 export function RoleplayScene({ nodes, renderMarkdown, streaming = false, avatars }: Props) {
     const persona = useContext(RoleplayPersonaContext)
     const userImage = useContext(RoleplayUserImageContext)
+    const portraits = useContext(RoleplayPortraitsContext)?.portraits
     const sceneId = useId()
     const animating = streaming ? lastBeat(nodes) : undefined
     const markdown = (node: RoleplayNode & { text: string }, text = node.text) =>
         renderMarkdown(escapeHtmlOutsideCode(text), node === animating)
+
+    // Thread portraits render at avatar size, so they load as small thumbnails.
+    const portraitSrc = (id: string | undefined) => {
+        const portrait = id ? portraits?.find((entry) => entry.characterId === id) : undefined
+        return portrait ? getFileThumbnailSources(portrait.storageKey).src : undefined
+    }
 
     function renderNode(node: RoleplayNode, key: string): ReactNode {
         if (node.kind === "character") {
@@ -136,7 +148,7 @@ export function RoleplayScene({ nodes, renderMarkdown, streaming = false, avatar
                   ? userImage
                   : node.id && avatars && Object.hasOwn(avatars, node.id)
                     ? avatars[node.id]
-                    : undefined
+                    : portraitSrc(node.id)
             const nameId = `${sceneId}-${key}`
             const portrait = (
                 <Avatar className="rp-character-avatar" aria-hidden="true">

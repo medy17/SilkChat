@@ -10,6 +10,41 @@ import { parseThreadImportContent } from "@/lib/thread-import-core"
 import { parseThreadImportContents as parseBackendThreadImportContents } from "../../convex/lib/thread_import_core"
 
 describe("thread-export", () => {
+    it("preserves supporting-character portraits through export and import", () => {
+        const roleplayPortraits = [
+            { characterId: "kael", storageKey: "roleplay-portraits/user-1/kael.webp" }
+        ]
+        const exported = serializeThreadToMarkdown({
+            thread: {
+                _id: "portrait-thread",
+                title: "Kael",
+                createdAt: 1,
+                updatedAt: 1,
+                roleplayPortraits
+            },
+            messages: [
+                {
+                    messageId: "a",
+                    role: "assistant",
+                    createdAt: 1,
+                    updatedAt: 1,
+                    parts: [
+                        {
+                            type: "text",
+                            text: '<roleplay><character id="kael" name="Kael"><dialogue>Hello.</dialogue></character></roleplay>'
+                        }
+                    ]
+                }
+            ],
+            convexApiUrl: "https://convex.example.com"
+        })
+        expect(
+            parseBackendThreadImportContents({
+                content: exported.markdown,
+                fileName: exported.fileName
+            })[0]?.roleplayPortraits
+        ).toEqual(roleplayPortraits)
+    })
     it("serializes messages in chronological order and resolves internal attachments", () => {
         const exported = serializeThreadToMarkdown({
             thread: {

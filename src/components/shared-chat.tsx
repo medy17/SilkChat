@@ -1,4 +1,5 @@
 import { Messages } from "@/components/messages"
+import { RoleplayPortraitsProvider } from "@/components/roleplay-persona-context"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -56,13 +57,15 @@ export function SharedChat({ sharedThreadId }: SharedChatProps) {
 
     return (
         <div className="relative flex h-screen flex-col">
-            <Messages
-                messages={messages}
-                status="ready"
-                threadKey={sharedThreadId}
-                sharedThreadId={sharedThreadId}
-                copyOnlyActions
-            />
+            <RoleplayPortraitsProvider value={{ portraits: thread?.roleplayPortraits ?? [] }}>
+                <Messages
+                    messages={messages}
+                    status="ready"
+                    threadKey={sharedThreadId}
+                    sharedThreadId={sharedThreadId}
+                    copyOnlyActions
+                />
+            </RoleplayPortraitsProvider>
             <div className="absolute right-0 bottom-2 left-0">
                 {/* Fork prompt instead of input */}
                 <div className="border-t bg-background p-4">

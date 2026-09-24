@@ -89,6 +89,7 @@ import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
 import { MemoizedMarkdown } from "./memoized-markdown"
 import { MESSAGE_MARKDOWN_CLASS, USER_MESSAGE_BUBBLE_CLASS } from "./message-presentation"
+import { RoleplayPortraitAssignmentRenderer } from "./renderers/roleplay-portrait-assignment"
 import { SkillLoaderRenderer } from "./renderers/skill-loader"
 import { ModelSelector } from "./model-selector"
 import {
@@ -420,6 +421,12 @@ const PartsRenderer = memo(
                 )
             case "tool-load_skill":
                 return <SkillLoaderRenderer toolInvocation={part as UIToolInvocation<Tool>} />
+            case "tool-assign_roleplay_portrait":
+                return (
+                    <RoleplayPortraitAssignmentRenderer
+                        toolInvocation={part as UIToolInvocation<Tool>}
+                    />
+                )
             case "tool-search_memories":
                 return <MemoryRetrievalToolRenderer toolInvocation={part} mode="search" />
             case "tool-get_memory_profile":

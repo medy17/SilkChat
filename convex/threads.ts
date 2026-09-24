@@ -1,4 +1,6 @@
 import { OpeningToolSelection } from "./schema/tool_selection"
+import { RoleplayPortraits } from "./schema/thread"
+import { parseRoleplayPortraits, type RoleplayPortrait } from "@/lib/roleplay-portraits"
 import { ChatError } from "@/lib/errors"
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
 import type { ModelMessage } from "ai"
@@ -147,7 +149,8 @@ const performThreadImport = async (
         projectId,
         sourceCreatedAt,
         sourceUpdatedAt,
-        personaSnapshot
+        personaSnapshot,
+        roleplayPortraits
     }: {
         authorId: string
         title: string
@@ -156,6 +159,7 @@ const performThreadImport = async (
         sourceCreatedAt?: number
         sourceUpdatedAt?: number
         personaSnapshot?: Infer<typeof ThreadPersonaSnapshotInput>
+        roleplayPortraits?: RoleplayPortrait[]
     }
 ) => {
     const sanitizedMessages = messages.filter((message) => message.parts.length > 0)
@@ -212,7 +216,8 @@ const performThreadImport = async (
         personaName: personaSnapshot?.name,
         personaAvatarKind: personaSnapshot?.avatarKind,
         personaAvatarValue: personaSnapshot?.avatarValue,
-        personaAvatarMimeType: personaSnapshot?.avatarMimeType
+        personaAvatarMimeType: personaSnapshot?.avatarMimeType,
+        roleplayPortraits: roleplayPortraits ? parseRoleplayPortraits(roleplayPortraits) : undefined
     })
 
     const threadDoc = await ctx.db.get(threadId)
@@ -850,7 +855,8 @@ export const createSharedThread = internalMutation({
         shareQuestion: v.string(),
         sharerName: v.optional(v.string()),
         messages: v.array(v.any()),
-        includeAttachments: v.boolean()
+        includeAttachments: v.boolean(),
+        roleplayPortraits: v.optional(RoleplayPortraits)
     },
     handler: async (
         { db },
@@ -861,7 +867,8 @@ export const createSharedThread = internalMutation({
             shareQuestion,
             sharerName,
             messages,
-            includeAttachments
+            includeAttachments,
+            roleplayPortraits
         }
     ) => {
         const sharedThreadId = await db.insert("sharedThreads", {
@@ -873,7 +880,8 @@ export const createSharedThread = internalMutation({
             createdAt: Date.now(),
             updatedAt: Date.now(),
             messages,
-            includeAttachments
+            includeAttachments,
+            roleplayPortraits
         })
         return { sharedThreadId }
     }
@@ -971,7 +979,8 @@ export const shareThread = action({
             shareQuestion,
             sharerName,
             messages: aiMessages,
-            includeAttachments
+            includeAttachments,
+            roleplayPortraits: thread.roleplayPortraits
         })
 
         return result
@@ -1047,7 +1056,8 @@ export const forkSharedThread = mutation({
             authorId: user.id,
             title: sharedThread.title,
             createdAt: Date.now(),
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
+            roleplayPortraits: sharedThread.roleplayPortraits
         })
         const doc = await ctx.db.get(newThreadId)
         await aggregrateThreadsByFolder.insert(ctx, doc!)
@@ -1111,7 +1121,8 @@ export const branchThread = mutation({
             personaName: thread.personaName,
             personaAvatarKind: thread.personaAvatarKind,
             personaAvatarValue: thread.personaAvatarValue,
-            personaAvatarMimeType: thread.personaAvatarMimeType
+            personaAvatarMimeType: thread.personaAvatarMimeType,
+            roleplayPortraits: thread.roleplayPortraits
         })
         const newThread = await ctx.db.get(newThreadId)
         await aggregrateThreadsByFolder.insert(ctx, newThread!)
@@ -1243,11 +1254,20 @@ export const importThread = mutation({
         projectId: v.optional(v.id("projects")),
         sourceCreatedAt: v.optional(v.number()),
         sourceUpdatedAt: v.optional(v.number()),
-        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
+        roleplayPortraits: v.optional(RoleplayPortraits)
     },
     handler: async (
         ctx,
-        { title, messages, projectId, sourceCreatedAt, sourceUpdatedAt, personaSnapshot }
+        {
+            title,
+            messages,
+            projectId,
+            sourceCreatedAt,
+            sourceUpdatedAt,
+            personaSnapshot,
+            roleplayPortraits
+        }
     ) => {
         const user = await getUserIdentity(ctx.auth, {
             allowAnons: false
@@ -1263,7 +1283,8 @@ export const importThread = mutation({
             projectId,
             sourceCreatedAt,
             sourceUpdatedAt,
-            personaSnapshot
+            personaSnapshot,
+            roleplayPortraits
         })
     }
 })
@@ -1276,11 +1297,21 @@ export const importPreparedThread = internalMutation({
         projectId: v.optional(v.id("projects")),
         sourceCreatedAt: v.optional(v.number()),
         sourceUpdatedAt: v.optional(v.number()),
-        personaSnapshot: v.optional(ThreadPersonaSnapshotInput)
+        personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
+        roleplayPortraits: v.optional(RoleplayPortraits)
     },
     handler: async (
         ctx,
-        { authorId, title, messages, projectId, sourceCreatedAt, sourceUpdatedAt, personaSnapshot }
+        {
+            authorId,
+            title,
+            messages,
+            projectId,
+            sourceCreatedAt,
+            sourceUpdatedAt,
+            personaSnapshot,
+            roleplayPortraits
+        }
     ) => {
         return await performThreadImport(ctx, {
             authorId,
@@ -1289,7 +1320,8 @@ export const importPreparedThread = internalMutation({
             projectId,
             sourceCreatedAt,
             sourceUpdatedAt,
-            personaSnapshot
+            personaSnapshot,
+            roleplayPortraits
         })
     }
 })

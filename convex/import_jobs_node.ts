@@ -236,6 +236,7 @@ export const prepareImportJob = internalAction({
                     })),
                     parseWarnings: entry.parsed.parseWarnings,
                     personaSnapshot: entry.parsed.personaSnapshot,
+                    roleplayPortraits: entry.parsed.roleplayPortraits,
                     sourceMetadata: {
                         service: entry.parsed.source.service,
                         format: entry.parsed.source.format,
@@ -401,7 +402,8 @@ export const processImportJobThread = internalAction({
                 projectId: job.projectId,
                 sourceCreatedAt: importJobThread.sourceMetadata.createdAt,
                 sourceUpdatedAt: importJobThread.sourceMetadata.updatedAt,
-                personaSnapshot: importJobThread.personaSnapshot
+                personaSnapshot: importJobThread.personaSnapshot,
+                roleplayPortraits: importJobThread.roleplayPortraits
             })
 
             if (!result || "error" in result) {

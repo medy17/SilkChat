@@ -2,6 +2,14 @@ import { OpeningToolSelection } from "./tool_selection"
 import { v } from "convex/values"
 import { AIMessage } from "./message"
 
+export const RoleplayPortraits = v.array(
+    v.object({
+        characterId: v.string(),
+        storageKey: v.string(),
+        generatedImageId: v.optional(v.string())
+    })
+)
+
 export const Thread = v.object({
     authorId: v.string(),
     title: v.string(),
@@ -23,7 +31,9 @@ export const Thread = v.object({
     personaName: v.optional(v.string()),
     personaAvatarKind: v.optional(v.union(v.literal("builtin"), v.literal("r2"))),
     personaAvatarValue: v.optional(v.string()),
-    personaAvatarMimeType: v.optional(v.string())
+    personaAvatarMimeType: v.optional(v.string()),
+    // Supporting-character portraits for roleplay scenes, keyed by markup character ID.
+    roleplayPortraits: v.optional(RoleplayPortraits)
 })
 
 export const SharedThread = v.object({
@@ -35,5 +45,6 @@ export const SharedThread = v.object({
     createdAt: v.number(),
     updatedAt: v.number(),
     messages: v.array(AIMessage),
-    includeAttachments: v.boolean()
+    includeAttachments: v.boolean(),
+    roleplayPortraits: v.optional(RoleplayPortraits)
 })

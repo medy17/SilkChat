@@ -1,4 +1,5 @@
 import { getFileTypeInfo } from "@/lib/file_constants"
+import { parseRoleplayPortraits, type RoleplayPortrait } from "@/lib/roleplay-portraits"
 
 type ExportableRole = "user" | "assistant" | "system"
 
@@ -40,6 +41,7 @@ export interface ExportableThread {
     updatedAt: number
     projectId?: string
     personaSnapshot?: ExportablePersonaSnapshot
+    roleplayPortraits?: readonly RoleplayPortrait[]
 }
 
 export interface ExportablePersonaSnapshot {
@@ -421,6 +423,11 @@ const buildThreadFrontmatter = ({
         lines.push(`persona_snapshot: ${escapeFrontmatterString(JSON.stringify(personaSnapshot))}`)
     }
 
+    if (thread.roleplayPortraits?.length) {
+        lines.push(
+            `roleplay_portraits: ${escapeFrontmatterString(JSON.stringify(parseRoleplayPortraits(thread.roleplayPortraits)))}`
+        )
+    }
     lines.push("---")
     return lines.join("\n")
 }

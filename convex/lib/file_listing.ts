@@ -13,6 +13,7 @@ const USER_VISIBLE_FILE_ROOTS = [
     "tts",
     "code-artifacts",
     "persona-avatars",
+    "roleplay-portraits",
     "persona-docs"
 ] as const
 

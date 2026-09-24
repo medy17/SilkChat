@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { parseRoleplayPortraits } from "@/lib/roleplay-portraits"
 import {
     extractLeadingFrontmatter,
     mapRoleHeaderToRole,
@@ -141,6 +142,9 @@ export const tryParseT3ChatMarkdown = (markdown: string): ParsedThreadImportDocu
         messages,
         parseWarnings,
         ...(personaSnapshot ? { personaSnapshot } : {}),
+        ...(frontmatter.roleplay_portraits
+            ? { roleplayPortraits: parseRoleplayPortraits(frontmatter.roleplay_portraits) }
+            : {}),
         source: {
             service: "t3chat",
             format: "markdown",

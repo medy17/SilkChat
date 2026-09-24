@@ -2,6 +2,7 @@ import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/co
 import { PersonaAvatar } from "@/components/persona-avatar"
 import {
     RoleplayPersonaProvider,
+    RoleplayPortraitsProvider,
     RoleplayUserImageProvider
 } from "@/components/roleplay-persona-context"
 import { selectRoleplayPersona } from "@/lib/roleplay-persona"
@@ -364,6 +365,19 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             selectedPersonaOption
         ]
     )
+    // Keyed by content: the thread document changes on every streamed update, and a new
+    // array each time would re-render every scene in the conversation.
+    const savedPortraitsKey = JSON.stringify(
+        (chat.thread && "roleplayPortraits" in chat.thread && chat.thread.roleplayPortraits) || []
+    )
+    const portraitThreadId = threadId ?? routeThreadId
+    const roleplayPortraits = useMemo(
+        () =>
+            portraitThreadId
+                ? { threadId: portraitThreadId, portraits: JSON.parse(savedPortraitsKey) }
+                : undefined,
+        [portraitThreadId, savedPortraitsKey]
+    )
     const hasSelectedPersonaAvatar = Boolean(
         selectedPersonaOption?.avatarKind && selectedPersonaOption.avatarValue
     )
@@ -479,20 +493,22 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
             <RoleplayPersonaProvider value={roleplayPersona}>
                 <RoleplayUserImageProvider value={session?.user?.image || undefined}>
-                    <Messages
-                        ref={messagesRef}
-                        messages={deferredMessages}
-                        onRetry={handleRetry}
-                        onBranch={handleBranch}
-                        onEditAndRetry={handleEditAndRetry}
-                        onQuoteSelection={handleQuoteSelection}
-                        status={messageRenderStatus}
-                        error={chatHelpers.error}
-                        onBottomStateChange={setIsAtBottom}
-                        onScrollDirectionChange={setScrollDirection}
-                        threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
-                        threadId={threadId ?? routeThreadId}
-                    />
+                    <RoleplayPortraitsProvider value={roleplayPortraits}>
+                        <Messages
+                            ref={messagesRef}
+                            messages={deferredMessages}
+                            onRetry={handleRetry}
+                            onBranch={handleBranch}
+                            onEditAndRetry={handleEditAndRetry}
+                            onQuoteSelection={handleQuoteSelection}
+                            status={messageRenderStatus}
+                            error={chatHelpers.error}
+                            onBottomStateChange={setIsAtBottom}
+                            onScrollDirectionChange={setScrollDirection}
+                            threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
+                            threadId={threadId ?? routeThreadId}
+                        />
+                    </RoleplayPortraitsProvider>
                 </RoleplayUserImageProvider>
             </RoleplayPersonaProvider>
 

@@ -81,6 +81,8 @@ import {
     getPrepareImageGenerationTool
 } from "../lib/tools/image_generation"
 import { withStrictNativeNetworkTool } from "../lib/tools/native_chart"
+import { getAssignRoleplayPortraitTool } from "../lib/tools/roleplay_portrait"
+import { getPortraitStyleSource } from "../lib/image_generation/portrait_reference"
 import {
     estimateOpenRouterReservationMicrousd,
     getConfiguredToolUsageMicrousd,
@@ -2036,12 +2038,34 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     : {}
                 const providerPaidTools =
                     displayProvider === "xai" ? withStrictNativeNetworkTool(paidTools) : paidTools
-                const internalTools = getPrepareImageGenerationTool({
-                    enabled: hasInternalImagePreparationTool,
-                    references: imageReferences,
-                    defaults: settings.imageGenerationDefaults,
-                    imageModels: availableImageModels
-                }) as Record<string, Tool>
+                const internalTools = {
+                    ...getPrepareImageGenerationTool({
+                        enabled: hasInternalImagePreparationTool,
+                        references: imageReferences,
+                        defaults: settings.imageGenerationDefaults,
+                        hasPersonaStyleReference: Boolean(
+                            getPortraitStyleSource(
+                                persistedPersonaSnapshot?.avatarKind,
+                                persistedPersonaSnapshot?.avatarValue
+                            )
+                        ),
+                        imageModels: availableImageModels
+                    }),
+                    ...getAssignRoleplayPortraitTool({
+                        enabled: hasInternalImagePreparationTool,
+                        references: imageReferences,
+                        extractKey: extractReferenceKey,
+                        assign: (portrait) =>
+                            ctx.runMutation(
+                                internal.roleplay_portraits.assignRoleplayPortraitInternal,
+                                {
+                                    threadId: mutationResult.threadId,
+                                    userId: user.id,
+                                    ...portrait
+                                }
+                            )
+                    })
+                } as Record<string, Tool>
                 const availableImageSelectionSummary = hasInternalImagePreparationTool
                     ? formatImageModelCapabilitySummary(availableImageModels)
                     : "- None"
@@ -2050,6 +2074,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 const skillContext = {
                     personaName: persistedPersonaSnapshot?.name,
                     mathKitEnabled: callableEnabledTools.includes("mathematical_instruments"),
+                    imageGenerationEnabled: hasInternalImagePreparationTool,
                     imageGenerationDefaults: settings.imageGenerationDefaults,
                     availableImageSelectionSummary
                 }

@@ -36,6 +36,7 @@ export type DirectUploadPurpose =
     | "attachment"
     | "reference"
     | "persona-avatar"
+    | "roleplay-portrait"
     | "persona-doc"
     | "import-source"
 
@@ -109,13 +110,18 @@ export const getDirectUploadPolicy = (request: DirectUploadRequest) => {
                 contentType: getCorrectMimeType(fileName, fileType)
             }
         }
-        case "persona-avatar": {
+        case "persona-avatar":
+        case "roleplay-portrait": {
             if (fileSize > MAX_PERSONA_AVATAR_BYTES) {
                 throw new Error("Persona avatar must be 100KB or smaller")
             }
             const contentType = getAvatarMimeType(fileName, fileType)
             if (!contentType) throw new Error("Unsupported persona avatar format")
-            return { prefix: "persona-avatars", contentType }
+            return {
+                prefix:
+                    request.purpose === "persona-avatar" ? "persona-avatars" : "roleplay-portraits",
+                contentType
+            }
         }
         case "persona-doc": {
             if (!fileName.toLowerCase().endsWith(".md")) {
@@ -157,8 +163,8 @@ const buildStorageKey = (
 }
 
 const isOwnedUploadKey = (key: string, userId: string) =>
-    ["attachments", "references", "persona-avatars", "persona-docs"].some((prefix) =>
-        key.startsWith(`${prefix}/${userId}/`)
+    ["attachments", "references", "persona-avatars", "roleplay-portraits", "persona-docs"].some(
+        (prefix) => key.startsWith(`${prefix}/${userId}/`)
     ) || key.startsWith(`imports/${userId}/sources/`)
 
 const parseJson = async (request: Request) => {
@@ -180,9 +186,14 @@ export const createDirectUpload = httpAction(async (ctx, request) => {
         const body = await parseJson(request)
         const purpose = body.purpose as DirectUploadPurpose
         if (
-            !["attachment", "reference", "persona-avatar", "persona-doc", "import-source"].includes(
-                purpose
-            )
+            ![
+                "attachment",
+                "reference",
+                "persona-avatar",
+                "roleplay-portrait",
+                "persona-doc",
+                "import-source"
+            ].includes(purpose)
         ) {
             return jsonResponse({ error: "Invalid upload purpose" }, 400)
         }
