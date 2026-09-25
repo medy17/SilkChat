@@ -33,6 +33,31 @@ export const getBuiltInPersonaOpenings = (persona: {
         ? persona.openings
         : [getSyntheticPersonaOpening(persona.conversationStarters)]
 
+// FNV-1a: small, synchronous, and identical in the browser and Convex.
+const hashOpeningText = (text: string) => {
+    let hash = 0x811c9dc5
+    for (let index = 0; index < text.length; index++) {
+        hash ^= text.charCodeAt(index)
+        hash = Math.imul(hash, 0x01000193)
+    }
+    return (hash >>> 0).toString(36)
+}
+
+// Custom openings are plain strings, so each id derives from its text. An opening
+// edited after it was shown stops resolving instead of persisting different words.
+// The user's conversation starters stay the suggested replies.
+export const getUserPersonaOpenings = (persona: {
+    openings?: string[]
+    conversationStarters: string[]
+}): BuiltInPersonaOpening[] =>
+    persona.openings?.length
+        ? persona.openings.map((text) => ({
+              id: `custom-${hashOpeningText(text)}`,
+              text,
+              suggestedReplies: persona.conversationStarters
+          }))
+        : [getSyntheticPersonaOpening(persona.conversationStarters)]
+
 export type BuiltInPersona = {
     id: string
     name: string

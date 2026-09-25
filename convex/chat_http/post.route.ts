@@ -3,11 +3,7 @@
 import { ChatError } from "@/lib/errors"
 import { ABILITIES } from "@/lib/tool-abilities"
 import type { ReasoningEffort } from "@/lib/model-store"
-import {
-    SYNTHETIC_PERSONA_OPENING_ID,
-    getBuiltInPersonaOpenings,
-    getSyntheticPersonaOpening
-} from "@/lib/personas/builtins"
+import { getBuiltInPersonaOpenings, getUserPersonaOpenings } from "@/lib/personas/builtins"
 import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import { resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
@@ -385,10 +381,11 @@ export const resolvePersonaOpeningForRequest = async (
         return new ChatError("forbidden:chat", "Persona not found.")
     }
 
-    if (request && request.openingId !== SYNTHETIC_PERSONA_OPENING_ID) {
-        return new ChatError("bad_request:chat", "Persona opening not found.")
-    }
-    const opening = getSyntheticPersonaOpening(persona.conversationStarters)
+    const openings = getUserPersonaOpenings(persona)
+    const opening = request
+        ? openings.find((candidate) => candidate.id === request.openingId)
+        : openings[0]
+    if (!opening) return new ChatError("bad_request:chat", "Persona opening not found.")
     return {
         role: "assistant",
         messageId: request?.messageId ?? `${fallbackMessageId}:opening`,

@@ -226,15 +226,27 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     useChatDataProcessor({ messages, status, clientId: chat.clientId, folderId })
 
-    const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
-        handleInputSubmit(inputValue, fileValues)
-        messagesRef.current?.scrollToBottom("smooth")
-    }
-
     // The opening is display-only until the user replies. The first send carries
     // its authoritative id to the server, which persists it with the reply.
     const awaitingFirstReply =
         Boolean(pendingPersonaOpening) && !threadId && messages.length === 0 && status === "ready"
+
+    const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
+        // The synthetic opening disappears once the send creates the thread. Seed it
+        // into the local history so it stays in place until the persisted copy (same
+        // id, same position) replaces it. Only the last message is sent to the server.
+        if (
+            awaitingFirstReply &&
+            syntheticOpeningMessage &&
+            pendingPersonaOpening?.source === selectedPersona.source &&
+            pendingPersonaOpening.personaId === selectedPersona.id &&
+            (inputValue?.trim() || fileValues?.length)
+        ) {
+            chatHelpers.setMessages([syntheticOpeningMessage])
+        }
+        handleInputSubmit(inputValue, fileValues)
+        messagesRef.current?.scrollToBottom("smooth")
+    }
     const suggestedReplies = awaitingFirstReply
         ? (pendingPersonaOpening?.suggestedReplies ?? [])
         : []

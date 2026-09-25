@@ -1020,7 +1020,9 @@ export function PersonaSelector({
         // Manual choice wins over any pending onboarding handoff.
         clearPersonaOnboardingHandoff()
         setSelectedPersona({ source: option.source, id: option.id })
-        const opening = option.openings?.[0]
+        // The persona picks how it opens; the user only chooses who to talk to.
+        const openings = option.openings ?? []
+        const opening = openings[Math.floor(Math.random() * openings.length)]
         setPendingPersonaOpening(
             opening
                 ? {

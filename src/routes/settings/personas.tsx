@@ -52,6 +52,8 @@ import { estimateTokenCount } from "@/lib/file_constants"
 import { useAvailableModels } from "@/lib/models-providers-shared"
 import {
     MAX_PERSONA_KNOWLEDGE_DOCS,
+    MAX_PERSONA_OPENINGS,
+    MAX_PERSONA_OPENING_LENGTH,
     MAX_PERSONA_PROMPT_TOKENS,
     MAX_PERSONA_STARTERS,
     MIN_PERSONA_STARTERS
@@ -126,6 +128,7 @@ type PersonaFormState = {
     description: string
     instructions: string
     conversationStarters: string[]
+    openings: string[]
     defaultModelId: string
     roleplayFormat: boolean
     avatar: PersonaAvatarUpload | null
@@ -139,6 +142,7 @@ type UserPersonaRecord = {
     description: string
     instructions: string
     conversationStarters: string[]
+    openings?: string[]
     defaultModelId: string
     roleplayFormat?: boolean
     avatarKey?: string
@@ -158,6 +162,7 @@ const EMPTY_FORM: PersonaFormState = {
     description: "",
     instructions: "",
     conversationStarters: Array.from({ length: MIN_PERSONA_STARTERS }, () => ""),
+    openings: [""],
     defaultModelId: "",
     roleplayFormat: true,
     avatar: null,
@@ -175,7 +180,8 @@ const estimatePromptUsage = (form: PersonaFormState) =>
         (form.name.length +
             form.description.length +
             form.instructions.length +
-            form.conversationStarters.join("").length) /
+            form.conversationStarters.join("").length +
+            form.openings.join("").length) /
             4
     ) + form.knowledgeDocs.reduce((sum, doc) => sum + doc.tokenCount, 0)
 
@@ -193,6 +199,7 @@ const buildFormFromPersona = (persona: UserPersonaRecord, duplicate = false): Pe
     description: persona.description,
     instructions: persona.instructions,
     conversationStarters: ensureStarterSlots(persona.conversationStarters),
+    openings: persona.openings?.length ? persona.openings : [""],
     defaultModelId: persona.defaultModelId,
     roleplayFormat: persona.roleplayFormat === true,
     avatar: persona.avatarKey
@@ -392,25 +399,38 @@ function PersonaTokenRing({ used, max }: { used: number; max: number }) {
 }
 
 // The add row sits exactly where the next input will appear, so adding reads as the
-// row turning into an input; the fifth starter simply takes the row's place.
-function ConversationStarterList({
-    starters,
-    onChange
+// row turning into an input; the last allowed entry simply takes the row's place.
+// The first `minSlots` inputs are always shown and cannot be removed.
+function PromptList({
+    items,
+    onChange,
+    minSlots,
+    max,
+    maxLength,
+    itemLabel,
+    placeholder,
+    addLabel
 }: {
-    starters: string[]
-    onChange: (starters: string[]) => void
+    items: string[]
+    onChange: (items: string[]) => void
+    minSlots: number
+    max: number
+    maxLength: number
+    itemLabel: string
+    placeholder: string
+    addLabel: string
 }) {
     const keys = useRef<string[]>([])
     const nextKey = useRef(0)
     const focusIndex = useRef<number | null>(null)
-    while (keys.current.length < starters.length) keys.current.push(`starter-${nextKey.current++}`)
-    if (keys.current.length > starters.length) keys.current.length = starters.length
-    const canAdd = starters.length < MAX_PERSONA_STARTERS
+    while (keys.current.length < items.length) keys.current.push(`item-${nextKey.current++}`)
+    if (keys.current.length > items.length) keys.current.length = items.length
+    const canAdd = items.length < max
     const slide = { type: "spring", stiffness: 520, damping: 42 } as const
 
     return (
         <ol className="space-y-3">
-            {starters.map((starter, index) => (
+            {items.map((item, index) => (
                 <motion.li
                     key={keys.current[index]}
                     layout="position"
@@ -424,29 +444,29 @@ function ConversationStarterList({
                                 focusIndex.current = null
                             }
                         }}
-                        value={starter}
-                        maxLength={160}
-                        aria-label={`Conversation starter ${index + 1}`}
-                        placeholder="Kick off the conversation with a suggested prompt."
-                        className={cn(index >= MIN_PERSONA_STARTERS && "pr-10")}
+                        value={item}
+                        maxLength={maxLength}
+                        aria-label={`${itemLabel} ${index + 1}`}
+                        placeholder={placeholder}
+                        className={cn(index >= minSlots && "pr-10")}
                         onChange={(event) =>
                             onChange(
-                                starters.map((value, valueIndex) =>
+                                items.map((value, valueIndex) =>
                                     valueIndex === index ? event.target.value : value
                                 )
                             )
                         }
                     />
-                    {index >= MIN_PERSONA_STARTERS && (
+                    {index >= minSlots && (
                         <Button
                             variant="ghost"
                             size="icon"
                             type="button"
-                            aria-label={`Remove conversation starter ${index + 1}`}
+                            aria-label={`Remove ${itemLabel.toLowerCase()} ${index + 1}`}
                             className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted-foreground hover:text-destructive"
                             onClick={() => {
                                 keys.current.splice(index, 1)
-                                onChange(starters.filter((_, valueIndex) => valueIndex !== index))
+                                onChange(items.filter((_, valueIndex) => valueIndex !== index))
                             }}
                         >
                             <Trash2 className="size-4" />
@@ -456,7 +476,7 @@ function ConversationStarterList({
             ))}
             {canAdd && (
                 <motion.li
-                    key="add-starter"
+                    key="add-item"
                     layout="position"
                     transition={slide}
                     initial={{ opacity: 0 }}
@@ -465,13 +485,13 @@ function ConversationStarterList({
                     <button
                         type="button"
                         onClick={() => {
-                            focusIndex.current = starters.length
-                            onChange([...starters, ""])
+                            focusIndex.current = items.length
+                            onChange([...items, ""])
                         }}
                         className="flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-input border-dashed px-3 text-muted-foreground text-sm transition-colors hover:border-ring hover:text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                         <Plus className="size-4 shrink-0" />
-                        Add a conversation starter
+                        {addLabel}
                     </button>
                 </motion.li>
             )}
@@ -887,13 +907,33 @@ function PersonaEditorForm({
                 )}
             </div>
 
+            <div id="persona-openings" className="space-y-3">
+                <Label>Persona Openings</Label>
+                <PromptList
+                    items={form.openings}
+                    onChange={(openings) => setForm((current) => ({ ...current, openings }))}
+                    minSlots={1}
+                    max={MAX_PERSONA_OPENINGS}
+                    maxLength={MAX_PERSONA_OPENING_LENGTH}
+                    itemLabel="Persona opening"
+                    placeholder="Have the persona speak first. New chats pick one at random."
+                    addLabel="Add a persona opening"
+                />
+            </div>
+
             <div id="persona-conversation-starters" className="space-y-3">
                 <Label>Conversation Starters</Label>
-                <ConversationStarterList
-                    starters={form.conversationStarters}
+                <PromptList
+                    items={form.conversationStarters}
                     onChange={(conversationStarters) =>
                         setForm((current) => ({ ...current, conversationStarters }))
                     }
+                    minSlots={MIN_PERSONA_STARTERS}
+                    max={MAX_PERSONA_STARTERS}
+                    maxLength={160}
+                    itemLabel="Conversation starter"
+                    placeholder="Kick off the conversation with a suggested prompt."
+                    addLabel="Add a conversation starter"
                 />
             </div>
 
@@ -1422,6 +1462,7 @@ function PersonasSettings() {
                 description: form.description,
                 instructions: form.instructions,
                 conversationStarters: normalizeStarterList(form.conversationStarters),
+                openings: normalizeStarterList(form.openings),
                 defaultModelId: form.defaultModelId,
                 roleplayFormat: form.roleplayFormat,
                 avatar: form.avatar

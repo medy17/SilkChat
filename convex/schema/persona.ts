@@ -18,6 +18,8 @@ export const UserPersona = v.object({
     description: v.string(),
     instructions: v.string(),
     conversationStarters: v.array(v.string()),
+    // Persona-voiced first messages; one is picked at random for each new chat.
+    openings: v.optional(v.array(v.string())),
     defaultModelId: v.string(),
     roleplayFormat: v.optional(v.boolean()),
     avatarKey: v.optional(v.string()),
