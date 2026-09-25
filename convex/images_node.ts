@@ -14,6 +14,10 @@ import { resolveRequiredPlanForModelAccess } from "./lib/credits"
 import { getUserIdentity } from "./lib/identity"
 import { resolveFalReferenceImagesForProvider } from "./lib/image_generation/reference_images_node"
 import {
+    getPortraitStyleSource,
+    getPublicPortraitReferenceUrl
+} from "./lib/image_generation/portrait_reference"
+import {
     type ImageReferenceSource,
     createImageCreditEventKey,
     resolveGeneratedImageReferenceSource,
@@ -21,6 +25,7 @@ import {
 } from "./lib/image_generation/shared"
 import { type ImageQuality, MODELS_SHARED } from "./lib/models"
 import {
+    type FalReferenceImage,
     buildFalImageInput,
     getFalEndpointForRequest,
     normalizeFalImageErrorMessage
@@ -344,6 +349,7 @@ const submitImageGenerationJob = async (
         aspectRatio,
         resolution,
         references,
+        personaStyleReference,
         source,
         sourceThreadId,
         sourceMessageId,
@@ -360,6 +366,7 @@ const submitImageGenerationJob = async (
         aspectRatio?: string
         resolution?: string
         references?: ImageReferenceSource[]
+        personaStyleReference?: FalReferenceImage
         source?: "library" | "chat"
         sourceThreadId?: Id<"threads">
         sourceMessageId?: string
@@ -371,18 +378,19 @@ const submitImageGenerationJob = async (
     }
 ) => {
     const referenceSources = references ?? []
+    const referenceCount = referenceSources.length + Number(Boolean(personaStyleReference))
     const validated = validatePreparedImageRequest({
         modelId,
         aspectRatio,
         resolution,
         variants: 1,
-        referenceCount: referenceSources.length,
+        referenceCount,
         quality
     })
 
     const imageCreditEventKey =
         creditEventKey ?? createImageCreditEventKey(source === "chat" ? "chat" : "standalone")
-    const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceSources.length)
+    const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceCount)
     const fallbackMicrousd = getConfiguredFalReservationMicrousd({
         modelId,
         resolution: validated.resolution
@@ -421,6 +429,7 @@ const submitImageGenerationJob = async (
             userId,
             referenceSources
         )
+        if (personaStyleReference) referenceImages.push(personaStyleReference)
         const input = buildFalImageInput(validated.descriptor, {
             prompt,
             imageSize: validated.aspectRatio,
@@ -444,7 +453,10 @@ const submitImageGenerationJob = async (
                 prompt,
                 aspectRatio: validated.aspectRatio,
                 resolution: validated.resolution,
-                referenceImageKeys: referenceSources.map((reference) => reference.key),
+                referenceImageKeys: [
+                    ...referenceSources.map((reference) => reference.key),
+                    ...(personaStyleReference ? [personaStyleReference.key] : [])
+                ],
                 creditEventKey: imageCreditEventKey
             }
         )
@@ -587,6 +599,8 @@ export const confirmPreparedChatImageGeneration = action({
             aspectRatio?: string
             resolution?: string
             variants?: number
+            portrait?: { characterId: string; name: string }
+            usePersonaStyleReference?: boolean
             referenceSources?: Array<{
                 key?: string
                 source?: ImageReferenceSource["source"]
@@ -617,7 +631,30 @@ export const confirmPreparedChatImageGeneration = action({
 
         let validated: ReturnType<typeof validatePreparedImageRequest>
         const referenceSources: ImageReferenceSource[] = []
+        let personaStyleReference: FalReferenceImage | undefined
         try {
+            if (result.portrait && result.usePersonaStyleReference) {
+                const style = getPortraitStyleSource(
+                    thread.personaAvatarKind,
+                    thread.personaAvatarValue
+                )
+                if (!style)
+                    throw new Error(
+                        "The Persona style reference is no longer available. Prepare a new card without it."
+                    )
+                // Resolve once for the whole card, not once per variant. The source is
+                // the thread's saved Persona, never an arbitrary model-supplied URL.
+                personaStyleReference = {
+                    key: style.key,
+                    url:
+                        style.kind === "builtin"
+                            ? getPublicPortraitReferenceUrl(
+                                  style.key,
+                                  process.env.VITE_BETTER_AUTH_URL
+                              )
+                            : await r2.getUrl(style.key)
+                }
+            }
             for (const reference of result.referenceSources ?? []) {
                 if (reference.generatedImageId) {
                     referenceSources.push(
@@ -640,11 +677,14 @@ export const confirmPreparedChatImageGeneration = action({
 
             validated = validatePreparedImageRequest({
                 modelId: result.modelId,
-                aspectRatio: result.aspectRatio,
+                aspectRatio: result.portrait ? "1:1" : result.aspectRatio,
                 resolution: result.resolution,
                 variants: result.variants ?? 1,
-                referenceCount: referenceSources.length
+                referenceCount: referenceSources.length + Number(Boolean(personaStyleReference))
             })
+            if (result.portrait && validated.aspectRatio !== "1:1") {
+                throw new Error("Choose an image model that supports square portraits.")
+            }
         } catch (error) {
             const message = normalizeFalImageErrorMessage(error)
             await failCard("failed", message)
@@ -654,7 +694,10 @@ export const confirmPreparedChatImageGeneration = action({
         const creditEventKeys = Array.from({ length: validated.variants }, () =>
             createImageCreditEventKey("chat")
         )
-        const falEndpoint = getFalEndpointForRequest(validated.descriptor, referenceSources.length)
+        const falEndpoint = getFalEndpointForRequest(
+            validated.descriptor,
+            referenceSources.length + Number(Boolean(personaStyleReference))
+        )
         const fallbackMicrousd = getConfiguredFalReservationMicrousd({
             modelId: result.modelId,
             resolution: validated.resolution
@@ -711,6 +754,7 @@ export const confirmPreparedChatImageGeneration = action({
                     aspectRatio: validated.aspectRatio,
                     resolution: validated.resolution,
                     references: referenceSources,
+                    personaStyleReference,
                     source: "chat",
                     sourceThreadId: args.threadId,
                     sourceMessageId: args.assistantMessageId,

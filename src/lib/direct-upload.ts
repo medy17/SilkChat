@@ -4,6 +4,7 @@ export type DirectUploadPurpose =
     | "attachment"
     | "reference"
     | "persona-avatar"
+    | "roleplay-portrait"
     | "persona-doc"
     | "import-source"
 
@@ -31,6 +32,7 @@ const MAX_UPLOAD_SIZE_BY_PURPOSE: Record<DirectUploadPurpose, number> = {
     attachment: MAX_FILE_SIZE,
     reference: MAX_FILE_SIZE,
     "persona-avatar": 100 * 1024,
+    "roleplay-portrait": 100 * 1024,
     "persona-doc": MAX_FILE_SIZE,
     "import-source": 100 * 1024 * 1024
 }

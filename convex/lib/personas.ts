@@ -44,6 +44,11 @@ const trimStarter = (starter: string) => starter.replace(/\s+/g, " ").trim()
 export const normalizeConversationStarters = (starters: string[]) =>
     starters.map(trimStarter).filter(Boolean)
 
+// Duplicates would share a text-derived opening id, so keep the first of each.
+export const normalizePersonaOpenings = (openings: string[]) => [
+    ...new Set(openings.map(trimStarter).filter(Boolean))
+]
+
 const buildKnowledgeDocsSection = (knowledgeDocs: PersonaKnowledgeDocInput[]) =>
     knowledgeDocs
         .map(({ fileName, content }) => `### ${fileName}\n${sanitizePersonaMarkdown(content)}`)

@@ -41,6 +41,7 @@ describe("file listing", () => {
             "tts/user-1/",
             "code-artifacts/user-1/",
             "persona-avatars/user-1/",
+            "roleplay-portraits/user-1/",
             "persona-docs/user-1/"
         ])
         expect(getUserVisibleFilePrefixes("user-1")).not.toContain("imports/user-1/")

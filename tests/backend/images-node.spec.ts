@@ -128,6 +128,7 @@ describe("images_node", () => {
         vi.stubEnv("FAL_USAGE_PRICING_ESTIMATE_ENABLED", "0")
         vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "0")
         vi.stubEnv("CONVEX_SITE_URL", "https://silkchat.convex.site/")
+        vi.stubEnv("VITE_BETTER_AUTH_URL", "https://app.example.com")
         vi.stubGlobal(
             "fetch",
             vi.fn().mockResolvedValue(
@@ -658,6 +659,59 @@ describe("images_node", () => {
             expect.anything()
         )
     })
+
+    it.each([
+        ["builtin", "/avatars/seraphine.webp", "https://app.example.com/avatars/seraphine.webp"],
+        ["r2", "persona-avatars/user-1/aria.webp", "https://cdn.example.com/aria.webp"]
+    ])(
+        "passes the saved %s Persona style reference to portrait generation",
+        async (kind, value, url) => {
+            const ctx = createCtx()
+            const defaultMutation = ctx.runMutation.getMockImplementation() as (
+                name: string,
+                args: unknown
+            ) => Promise<unknown>
+            ctx.runQuery.mockImplementation(async (name: string) =>
+                name === "getThreadById"
+                    ? { authorId: "user-1", personaAvatarKind: kind, personaAvatarValue: value }
+                    : null
+            )
+            r2GetUrlMock.mockResolvedValue(url)
+            ctx.runMutation.mockImplementation(async (name: string, args: unknown) => {
+                if (name === "claimPreparedImageGenerationCard")
+                    return {
+                        ok: true,
+                        result: {
+                            success: true,
+                            prompt: "Kael, a weathered ranger",
+                            modelId: "gpt-5.4-image-2",
+                            aspectRatio: "16:9",
+                            variants: 1,
+                            portrait: { characterId: "kael", name: "Kael" },
+                            usePersonaStyleReference: true
+                        }
+                    }
+                return defaultMutation(name, args)
+            })
+            await confirmPreparedChatImageGenerationHandler(ctx, {
+                threadId: "thread-1",
+                assistantMessageId: "a",
+                toolCallId: "call",
+                cardId: "card"
+            })
+            expect(falQueueSubmitMock).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    input: expect.objectContaining({ image_urls: [url] })
+                })
+            )
+            expect(ctx.runMutation).toHaveBeenCalledWith(
+                "createImageGenerationJob",
+                expect.objectContaining({ aspectRatio: "1:1", referenceImageKeys: [value] })
+            )
+            if (kind === "builtin") expect(r2GetUrlMock).not.toHaveBeenCalled()
+        }
+    )
 
     it("fails chat confirmation before submitting when requested variants exceed remaining credits", async () => {
         const ctx = createCtx()

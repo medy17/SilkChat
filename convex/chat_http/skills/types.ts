@@ -17,6 +17,8 @@ export type AppSkillId = (typeof APP_SKILL_IDS)[number]
 export type AppSkillPromptContext = {
     mathKitEnabled: boolean
     personaName?: string
+    // SilkScreen is available this turn (function calling and vision).
+    imageGenerationEnabled?: boolean
     imageGenerationDefaults?: {
         resolution?: string
         variants?: number

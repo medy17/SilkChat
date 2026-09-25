@@ -48,6 +48,22 @@ const request = (path: string, body: Record<string, unknown>) =>
     })
 
 describe("direct uploads", () => {
+    it("stores portrait crops separately with the small image policy", () => {
+        const input = {
+            purpose: "roleplay-portrait" as const,
+            fileName: "kael.webp",
+            fileType: "image/webp",
+            fileSize: 1024
+        }
+        expect(getDirectUploadPolicy(input)).toEqual({
+            prefix: "roleplay-portraits",
+            contentType: "image/webp"
+        })
+        expect(() => getDirectUploadPolicy({ ...input, fileSize: 100 * 1024 + 1 })).toThrow("100KB")
+        expect(() =>
+            getDirectUploadPolicy({ ...input, fileName: "kael.txt", fileType: "text/plain" })
+        ).toThrow("Unsupported")
+    })
     beforeEach(() => {
         vi.clearAllMocks()
         getUserIdentityMock.mockResolvedValue({ id: "user-1" })

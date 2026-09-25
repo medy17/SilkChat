@@ -42,6 +42,17 @@ describe("continuing roleplay instructions", () => {
             "The active Persona's saved name"
         )
     })
+    it("mentions portraits only when SilkScreen is available this turn", () => {
+        const withSilkScreen = roleplaySkill.buildInstructions({
+            mathKitEnabled: false,
+            imageGenerationEnabled: true
+        })
+        expect(withSilkScreen).toContain("assign_roleplay_portrait")
+        expect(withSilkScreen).toContain("Example (emit directly")
+        const withoutSilkScreen = roleplaySkill.buildInstructions({ mathKitEnabled: false })
+        expect(withoutSilkScreen).not.toContain("portrait field")
+        expect(withoutSilkScreen).not.toContain("assign_roleplay_portrait")
+    })
     it("restores the skill after a scene, including after assistant tool-only steps", () => {
         expect(
             isContinuingRoleplay([
@@ -82,8 +93,8 @@ describe("continuing roleplay instructions", () => {
             ])
         ).toBe(false)
     })
-    it("supplies presentation instructions without granting executable tools", () => {
-        expect(roleplaySkill.toolNames).toEqual([])
+    it("supplies presentation instructions, with portrait assignment as its only tool", () => {
+        expect(roleplaySkill.toolNames).toEqual(["assign_roleplay_portrait"])
         expect(roleplaySkill.buildInstructions({ mathKitEnabled: false })).toContain(
             '<character id="adelle" name="Adelle">'
         )

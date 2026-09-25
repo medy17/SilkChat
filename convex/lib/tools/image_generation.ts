@@ -8,6 +8,7 @@ import {
     validatePreparedImageRequest
 } from "../image_generation/shared"
 import type { ImageResolution, SharedModel } from "../models"
+import { getRoleplayPortraitIdError } from "@/lib/roleplay-portraits"
 
 export type ImageGenerationDefaults = {
     resolution?: ImageResolution
@@ -23,11 +24,13 @@ export const getPrepareImageGenerationTool = ({
     enabled,
     references,
     defaults,
+    hasPersonaStyleReference = false,
     imageModels = getSelectableImageModels()
 }: {
     enabled: boolean
     references: PreparedImageReference[]
     defaults?: ImageGenerationDefaults
+    hasPersonaStyleReference?: boolean
     imageModels?: readonly SharedModel[]
 }) => {
     if (!enabled) return {}
@@ -59,6 +62,9 @@ export const getPrepareImageGenerationTool = ({
                 "Use only valid enum inputs supplied by the schema.",
                 "For edits or transformations of an attached/provided/current image, include the relevant referenceIds.",
                 "When multiple SilkScreen variants are available, select the variant-specific reference id the user named. If the intended variant is ambiguous, ask the user which variant to use instead of guessing.",
+                hasPersonaStyleReference
+                    ? "Portrait cards use the saved Persona avatar as a style reference by default when no referenceIds are selected. Set portrait.usePersonaStyle to false to generate without it. Match its style, not the Persona's identity."
+                    : "No Persona avatar is available as a style reference. For portraits, use a supplied reference, ask the user for one when needed, or generate without a reference from the scene's description.",
                 `Leave resolution and variants unset to apply the user's defaults (${defaultsSummary}); an explicit user request for higher fidelity or multiple images overrides them.`
             ].join("\n"),
             inputSchema: z.object({
@@ -98,6 +104,28 @@ export const getPrepareImageGenerationTool = ({
                     .describe(
                         "How many image variants to prepare. Leave unset to use the user's default. Only request multiple when the user explicitly asks for options or variations."
                     ),
+                portrait: z
+                    .object({
+                        characterId: z
+                            .string()
+                            .describe("The character's ID exactly as written in the scene markup."),
+                        name: z
+                            .string()
+                            .trim()
+                            .min(1)
+                            .max(80)
+                            .describe("The character's display name."),
+                        usePersonaStyle: z
+                            .boolean()
+                            .optional()
+                            .describe(
+                                "Use the Persona avatar's style when available and no explicit references are selected (default true). Set false when the user wants a different style or no reference."
+                            )
+                    })
+                    .optional()
+                    .describe(
+                        "Only when the user asks for a portrait of a roleplay character. The card then offers to set the image as that character's portrait. Portraits are square."
+                    ),
                 referenceIds:
                     referenceIds.length > 0
                         ? z
@@ -115,12 +143,26 @@ export const getPrepareImageGenerationTool = ({
                 aspectRatio,
                 resolution,
                 variants,
+                portrait,
                 referenceIds
             }) => {
                 const selectedReferenceIds = referenceIds as string[]
                 const selectedReferences = references.filter((reference) =>
                     selectedReferenceIds.includes(reference.id)
                 )
+                const portraitIdError = portrait
+                    ? getRoleplayPortraitIdError(portrait.characterId)
+                    : undefined
+                if (portraitIdError) {
+                    return { success: false, code: "invalid_selection", error: portraitIdError }
+                }
+                const usePersonaStyleReference = Boolean(
+                    portrait &&
+                        portrait.usePersonaStyle !== false &&
+                        hasPersonaStyleReference &&
+                        selectedReferences.length === 0
+                )
+                const requestedAspectRatio = portrait ? "1:1" : aspectRatio
 
                 try {
                     // Edit vs. text-to-image is decided downstream purely by whether
@@ -130,12 +172,16 @@ export const getPrepareImageGenerationTool = ({
                     // selects is honored as-is.
                     const validated = validatePreparedImageRequest({
                         modelId,
-                        aspectRatio,
+                        aspectRatio: requestedAspectRatio,
                         resolution,
                         variants,
-                        referenceCount: selectedReferences.length,
+                        referenceCount:
+                            selectedReferences.length + Number(usePersonaStyleReference),
                         defaults
                     })
+                    if (portrait && validated.aspectRatio !== "1:1") {
+                        throw new Error("Choose an image model that supports square portraits.")
+                    }
 
                     // Dedupe on everything that defines the image (not variant count): a
                     // model that wants N copies of the same card is really asking for N
@@ -149,7 +195,9 @@ export const getPrepareImageGenerationTool = ({
                         selectedReferences
                             .map((reference) => reference.id)
                             .sort()
-                            .join(",")
+                            .join(","),
+                        portrait?.characterId ?? "",
+                        String(usePersonaStyleReference)
                     ].join("|")
                     if (preparedCardKeys.has(cardKey)) {
                         return {
@@ -173,12 +221,24 @@ export const getPrepareImageGenerationTool = ({
                         resolution: validated.resolution,
                         variants: validated.variants,
                         referenceIds: selectedReferences.map((reference) => reference.id),
-                        references: selectedReferences.map((reference) => ({
-                            id: reference.id,
-                            label: reference.label,
-                            mimeType: reference.mimeType,
-                            source: reference.source
-                        })),
+                        references: [
+                            ...selectedReferences.map((reference) => ({
+                                id: reference.id,
+                                label: reference.label,
+                                mimeType: reference.mimeType,
+                                source: reference.source
+                            })),
+                            ...(usePersonaStyleReference
+                                ? [
+                                      {
+                                          id: "persona_style",
+                                          label: "Persona avatar (style reference)",
+                                          source: "persona"
+                                      }
+                                  ]
+                                : [])
+                        ],
+                        ...(usePersonaStyleReference ? { usePersonaStyleReference: true } : {}),
                         referenceSources: selectedReferences.map((reference) => ({
                             id: reference.id,
                             key: reference.key,
@@ -186,6 +246,14 @@ export const getPrepareImageGenerationTool = ({
                             generatedImageId: reference.generatedImageId
                         })),
                         estimatedCredits: validated.creditEstimate,
+                        ...(portrait
+                            ? {
+                                  portrait: {
+                                      characterId: portrait.characterId,
+                                      name: portrait.name.trim()
+                                  }
+                              }
+                            : {}),
                         validSelectionsVersion: imageModels.map((model) => model.id).join(",")
                     }
                 } catch (error) {

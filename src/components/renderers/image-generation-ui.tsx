@@ -3,6 +3,7 @@ import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { Button } from "@/components/ui/button"
+import { RoleplayPortraitActions } from "@/components/renderers/roleplay-portrait-actions"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
@@ -64,6 +65,7 @@ type PreparedImageGenerationOutput = {
     resolution?: string
     variants?: number
     references?: Array<{ id: string; label: string; source?: string }>
+    portrait?: { characterId: string; name: string }
     estimatedCredits?: {
         requiredPlan: "free" | "pro"
         estimatedUsd?: number
@@ -641,7 +643,9 @@ export const ImageGenerationToolRenderer = memo(
                 }
             }
             const estimatedUsd = output.estimatedCredits?.estimatedUsd
-            const title = output.title?.trim() || "SilkScreen"
+            const title = output.portrait
+                ? `Portrait · ${output.portrait.name}`
+                : output.title?.trim() || "SilkScreen"
             const prompt = output.prompt ?? ""
             const modelLabel = output.modelName ?? output.modelId ?? "Image model"
             const isPending = status === "pending_confirmation"
@@ -958,7 +962,15 @@ export const ImageGenerationToolRenderer = memo(
                     </div>
 
                     <div className="border-t bg-muted/10 p-3">
-                        {status === "pending_confirmation" ? (
+                        {readOnly ? (
+                            <output className="text-muted-foreground text-sm">
+                                {isComplete
+                                    ? "Complete"
+                                    : isTerminalError
+                                      ? "Failed"
+                                      : "Awaiting generation"}
+                            </output>
+                        ) : status === "pending_confirmation" ? (
                             <Button
                                 type="button"
                                 className="h-10 w-full gap-2"
@@ -1006,6 +1018,23 @@ export const ImageGenerationToolRenderer = memo(
                                 <RotateCcw className="size-4" aria-hidden="true" />
                                 Refetch
                             </Button>
+                        ) : output.portrait &&
+                          !readOnly &&
+                          messageId &&
+                          output.cardId &&
+                          visibleAsset?.generatedImageId &&
+                          visibleAsset.storageKey ? (
+                            <RoleplayPortraitActions
+                                key={visibleAsset.generatedImageId}
+                                messageId={messageId}
+                                toolCallId={toolInvocation.toolCallId}
+                                cardId={output.cardId}
+                                portrait={output.portrait}
+                                asset={{
+                                    generatedImageId: visibleAsset.generatedImageId,
+                                    storageKey: visibleAsset.storageKey
+                                }}
+                            />
                         ) : isTerminalError ? (
                             <output className="flex h-10 items-center gap-2 rounded-[var(--radius-md)] bg-destructive/10 px-3 text-destructive text-sm">
                                 <AlertCircle className="size-4" aria-hidden="true" />

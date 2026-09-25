@@ -1,3 +1,5 @@
+import type { RoleplayPortrait } from "@/lib/roleplay-portraits"
+
 export type ImportedMessageRole = "user" | "assistant" | "system"
 
 export type ThreadImportFormat = "markdown" | "json"
@@ -46,6 +48,7 @@ export interface ParsedThreadImportDocument {
     messages: ParsedThreadImportMessage[]
     parseWarnings: string[]
     personaSnapshot?: ParsedThreadPersonaSnapshot
+    roleplayPortraits?: RoleplayPortrait[]
     source: {
         format: ThreadImportFormat
         service: ThreadImportService

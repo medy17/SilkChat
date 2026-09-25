@@ -212,6 +212,7 @@ vi.mock("../../convex/lib/models", () => ({
 }))
 
 import { ChatError } from "@/lib/errors"
+import { SYNTHETIC_PERSONA_OPENING_ID, getUserPersonaOpenings } from "@/lib/personas/builtins"
 import {
     buildPreparedImageReferences,
     chatPOST,
@@ -262,6 +263,52 @@ describe("resolvePersonaOpeningForRequest", () => {
         )
 
         expect(opening).toBeInstanceOf(ChatError)
+    })
+
+    it("persists the custom opening the user saw, and rejects one edited since", async () => {
+        const persona = {
+            authorId: "user-1",
+            conversationStarters: ["Hello"],
+            openings: ["*Kael looks up.* You're late.", "*The door creaks.* Who's there?"]
+        }
+        const resolve = (openingId: string) =>
+            resolvePersonaOpeningForRequest(
+                { runQuery: vi.fn().mockResolvedValue(persona) } as unknown as Parameters<
+                    typeof resolvePersonaOpeningForRequest
+                >[0],
+                "user-1",
+                { source: "user", id: "persona-1" },
+                { openingId, messageId: "opening-message-1" },
+                "assistant-1"
+            )
+        const [, second] = getUserPersonaOpenings(persona)
+
+        expect(await resolve(second.id)).toEqual({
+            role: "assistant",
+            messageId: "opening-message-1",
+            parts: [{ type: "text", text: "*The door creaks.* Who's there?" }]
+        })
+        expect(second.suggestedReplies).toEqual(["Hello"])
+
+        const [edited] = getUserPersonaOpenings({ ...persona, openings: ["You're late."] })
+        expect(await resolve(edited.id)).toBeInstanceOf(ChatError)
+    })
+
+    it("keeps the neutral opening for custom personas without their own", async () => {
+        const persona = { authorId: "user-1", conversationStarters: ["Hello"] }
+        const [opening] = getUserPersonaOpenings(persona)
+        const resolved = await resolvePersonaOpeningForRequest(
+            { runQuery: vi.fn().mockResolvedValue(persona) } as unknown as Parameters<
+                typeof resolvePersonaOpeningForRequest
+            >[0],
+            "user-1",
+            { source: "user", id: "persona-1" },
+            { openingId: opening.id, messageId: "opening-message-1" },
+            "assistant-1"
+        )
+
+        expect(opening.id).toBe(SYNTHETIC_PERSONA_OPENING_ID)
+        expect(resolved).toMatchObject({ parts: [{ type: "text", text: opening.text }] })
     })
 })
 

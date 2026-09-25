@@ -1,9 +1,5 @@
 import type { Doc } from "@/convex/_generated/dataModel"
-import {
-    getFileThumbnailSources,
-    getGeneratedImageDirectUrl,
-    getGeneratedImageProxyUrl
-} from "@/lib/generated-image-urls"
+import { getReferenceImageSources } from "@/lib/generated-image-urls"
 import { cn } from "@/lib/utils"
 import type { CSSProperties, ReactNode } from "react"
 
@@ -23,15 +19,12 @@ export function ReferenceImageThumbnails({
             </h4>
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {referenceImageKeys.map((storageKey, index) => {
-                    const thumbnailSources = getFileThumbnailSources(storageKey)
-                    const fullResolutionUrl =
-                        getGeneratedImageDirectUrl(storageKey) ||
-                        getGeneratedImageProxyUrl(storageKey)
+                    const thumbnailSources = getReferenceImageSources(storageKey)
 
                     return (
                         <a
                             key={`${storageKey}-${index}`}
-                            href={fullResolutionUrl}
+                            href={thumbnailSources.fullResolutionUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="block size-12 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-border/70 bg-muted outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"

@@ -74,6 +74,7 @@ vi.mock("../../convex/schema", () => ({
 }))
 
 vi.mock("../../convex/schema/message", () => ({
+    AIMessage: {},
     HTTPAIMessage: {},
     ImportedMessageMetadata: {},
     Message: {}
@@ -186,7 +187,13 @@ describe("shareThread", () => {
 
         const runQuery = vi
             .fn()
-            .mockResolvedValueOnce({ authorId: "user-1", title: "Twinkling Stars" })
+            .mockResolvedValueOnce({
+                authorId: "user-1",
+                title: "Twinkling Stars",
+                roleplayPortraits: [
+                    { characterId: "kael", storageKey: "generations/user-1/kael.png" }
+                ]
+            })
             .mockResolvedValueOnce([
                 {
                     messageId: "assistant-1",
@@ -217,6 +224,9 @@ describe("shareThread", () => {
             expect.objectContaining({
                 shareQuestion: "Why do stars shimmer?",
                 sharerName: "Ahmed",
+                roleplayPortraits: [
+                    { characterId: "kael", storageKey: "generations/user-1/kael.png" }
+                ],
                 messages: [
                     expect.objectContaining({ messageId: "user-1" }),
                     expect.objectContaining({ messageId: "assistant-1" })
@@ -658,7 +668,10 @@ describe("branchThread", () => {
             _id: "thread-1",
             authorId: "user-1",
             title: "Source thread",
-            projectId: "folder-1"
+            projectId: "folder-1",
+            roleplayPortraits: [
+                { characterId: "kael", storageKey: "roleplay-portraits/user-1/kael.webp" }
+            ]
         }
         const newThread = {
             _id: "branch-thread-1",
@@ -726,6 +739,11 @@ describe("branchThread", () => {
             threadId: "thread-1",
             messageId: "assistant-1"
         })
+
+        expect(ctx.db.insert).toHaveBeenCalledWith(
+            "threads",
+            expect.objectContaining({ roleplayPortraits: sourceThread.roleplayPortraits })
+        )
 
         expect(ctx.db.insert).toHaveBeenNthCalledWith(
             2,
@@ -857,7 +875,8 @@ describe("importPreparedThread", () => {
             authorId: "user-1",
             title: "Persona Chat",
             messages: [{ role: "user", parts: [{ type: "text", text: "Hello Ada" }] }],
-            personaSnapshot
+            personaSnapshot,
+            roleplayPortraits: [{ characterId: "kael", storageKey: "generations/user-1/kael.png" }]
         })
 
         expect(ctx.db.insert).toHaveBeenNthCalledWith(
@@ -868,7 +887,10 @@ describe("importPreparedThread", () => {
                 personaSourceId: "ada",
                 personaName: "Ada",
                 personaAvatarKind: "builtin",
-                personaAvatarValue: "/personas/ada.webp"
+                personaAvatarValue: "/personas/ada.webp",
+                roleplayPortraits: [
+                    { characterId: "kael", storageKey: "generations/user-1/kael.png" }
+                ]
             })
         )
         expect(ctx.db.insert).toHaveBeenNthCalledWith(

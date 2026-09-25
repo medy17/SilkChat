@@ -3,12 +3,14 @@ import {
     BUILT_IN_PERSONAS,
     MAX_PERSONA_AVATAR_BYTES,
     MAX_PERSONA_KNOWLEDGE_DOCS,
+    MAX_PERSONA_OPENINGS,
+    MAX_PERSONA_OPENING_LENGTH,
     MAX_PERSONA_PROMPT_TOKENS,
     MAX_PERSONA_STARTERS,
     MIN_PERSONA_STARTERS,
     getBuiltInPersonaById,
     getBuiltInPersonaOpenings,
-    getSyntheticPersonaOpening
+    getUserPersonaOpenings
 } from "@/lib/personas/builtins"
 import { type Infer, v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
@@ -16,7 +18,7 @@ import { type MutationCtx, internalQuery, mutation, query } from "./_generated/s
 import { r2 } from "./attachments"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
-import { compilePersonaSnapshot } from "./lib/personas"
+import { compilePersonaSnapshot, normalizePersonaOpenings } from "./lib/personas"
 
 const PersonaDocInput = v.object({
     key: v.string(),
@@ -39,12 +41,18 @@ const PersonaAvatarInput = v.object({
 const trimText = (value: string) => value.trim()
 const normalizeConversationStarters = (starters: string[]) => starters.map(trimText).filter(Boolean)
 
+const toStoredOpenings = (openings: string[] | undefined) => {
+    const normalized = normalizePersonaOpenings(openings ?? [])
+    return normalized.length > 0 ? normalized : undefined
+}
+
 const validatePersonaInput = ({
     name,
     shortName,
     description,
     instructions,
     conversationStarters,
+    openings = [],
     knowledgeDocs
 }: {
     name: string
@@ -52,6 +60,7 @@ const validatePersonaInput = ({
     description: string
     instructions: string
     conversationStarters: string[]
+    openings?: string[]
     knowledgeDocs: Array<Infer<typeof PersonaDocInput>>
 }) => {
     if (!trimText(name)) throw new Error("Persona name is required")
@@ -76,6 +85,13 @@ const validatePersonaInput = ({
         if (starter.length > 160) {
             throw new Error("Conversation starters must be 160 characters or less")
         }
+    }
+    const normalizedOpenings = normalizePersonaOpenings(openings)
+    if (normalizedOpenings.length > MAX_PERSONA_OPENINGS) {
+        throw new Error(`Personas can have at most ${MAX_PERSONA_OPENINGS} openings`)
+    }
+    if (normalizedOpenings.some((opening) => opening.length > MAX_PERSONA_OPENING_LENGTH)) {
+        throw new Error(`Persona openings must be ${MAX_PERSONA_OPENING_LENGTH} characters or less`)
     }
     if (knowledgeDocs.length > MAX_PERSONA_KNOWLEDGE_DOCS) {
         throw new Error(`Personas can have at most ${MAX_PERSONA_KNOWLEDGE_DOCS} knowledge docs`)
@@ -302,7 +318,7 @@ export const listPersonaPickerOptions = query({
                 shortName: persona.shortName || persona.name.slice(0, 10),
                 description: persona.description,
                 conversationStarters: persona.conversationStarters,
-                openings: [getSyntheticPersonaOpening(persona.conversationStarters)],
+                openings: getUserPersonaOpenings(persona),
                 defaultModelId: persona.defaultModelId,
                 avatarKind: persona.avatarKey ? ("r2" as const) : undefined,
                 avatarValue: persona.avatarKey,
@@ -352,6 +368,7 @@ export const createUserPersona = mutation({
         description: v.string(),
         instructions: v.string(),
         conversationStarters: v.array(v.string()),
+        openings: v.optional(v.array(v.string())),
         defaultModelId: v.string(),
         roleplayFormat: v.optional(v.boolean()),
         avatar: v.optional(v.union(PersonaAvatarInput, v.null())),
@@ -398,6 +415,7 @@ export const createUserPersona = mutation({
             description: snapshot.description,
             instructions: snapshot.instructions,
             conversationStarters: snapshot.conversationStarters,
+            openings: toStoredOpenings(args.openings),
             defaultModelId: snapshot.defaultModelId,
             roleplayFormat: snapshot.roleplayFormat,
             avatarKey: resolvedAvatar.avatarKey,
@@ -425,6 +443,7 @@ export const updateUserPersona = mutation({
         description: v.string(),
         instructions: v.string(),
         conversationStarters: v.array(v.string()),
+        openings: v.optional(v.array(v.string())),
         defaultModelId: v.string(),
         roleplayFormat: v.optional(v.boolean()),
         avatar: v.optional(v.union(PersonaAvatarInput, v.null())),
@@ -474,6 +493,8 @@ export const updateUserPersona = mutation({
             description: snapshot.description,
             instructions: snapshot.instructions,
             conversationStarters: snapshot.conversationStarters,
+            // A client from before openings existed omits the field; keep what is saved.
+            ...(args.openings === undefined ? {} : { openings: toStoredOpenings(args.openings) }),
             defaultModelId: snapshot.defaultModelId,
             roleplayFormat: snapshot.roleplayFormat,
             avatarKey: resolvedAvatar.avatarKey,

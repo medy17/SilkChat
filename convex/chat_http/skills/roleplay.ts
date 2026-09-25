@@ -1,4 +1,5 @@
 import { splitRoleplayContent } from "@/lib/roleplay"
+import { ASSIGN_ROLEPLAY_PORTRAIT_TOOL_NAME } from "../../lib/tools/roleplay_portrait"
 import type { ModelMessage } from "ai"
 import dedent from "ts-dedent"
 import type { AppSkillDefinition } from "./types"
@@ -14,13 +15,18 @@ function personaBinding(personaName: string): string {
     return `The active Persona's saved name is ${JSON.stringify(personaName)}. Use id="persona" for that character in every group and use its saved name as the display name: open each of its groups exactly as <character id="persona" name=${JSON.stringify(personaName)}>, and write its quick lines as <say id="persona">. Never derive its ID from its name${counterExample}. SilkChat attaches its saved portrait by ID, never by name. Supporting characters must use different IDs, even if they share the Persona's name. Inside a scene, this format replaces any italic or asterisk stage directions the Persona instructions describe; express them as beats.`
 }
 
+// Only offered with SilkScreen, which requires function calling and vision.
+const PORTRAIT_INSTRUCTIONS = `Supporting characters show initials until they have a portrait. Only when the user asks for one: to create it, prepare a square SilkScreen image with its portrait field set to the character's ID and name (load the image generation skill if needed); write the prompt from the character's established appearance in the scene. The card lets the user set or crop the result. The Persona avatar is an optional default style reference, not the supporting character's identity. Not every Persona has an avatar: when none is available, ask for a reference if needed or generate without one. Explicit references take precedence; set portrait.usePersonaStyle=false for a different style or no reference. For another attempt use a fresh prompt/settings, or variants for options; there is no Regenerate button. To use an image already in the conversation, call ${ASSIGN_ROLEPLAY_PORTRAIT_TOOL_NAME}. The Persona and the user keep their own portraits. Keep using the same character ID afterwards.
+
+`
+
 export const roleplaySkill: AppSkillDefinition = {
     id: "roleplay",
     label: "Roleplay",
     summary:
         "Present an in-character roleplay or multi-character fictional scene using native character groups, speech, thoughts, and actions. Presentation markup, not a tool call. Use for playing or continuing a scene, not discussion of roleplay, literary analysis, or ordinary assistant replies.",
-    toolNames: [],
-    buildInstructions: ({ personaName }) => dedent`
+    toolNames: [ASSIGN_ROLEPLAY_PORTRAIT_TOOL_NAME],
+    buildInstructions: ({ personaName, imageGenerationEnabled }) => dedent`
 ## Native Roleplay Format
 When performing or continuing roleplay, wrap each scene in <roleplay>...</roleplay>. This is presentation markup in your response, not a tool call. Never put a rendered scene in a code fence. Ordinary Markdown before or after a scene is allowed; avoid unnecessary preambles. Do not use this format for discussion about roleplay or unrelated requests.
 
@@ -38,7 +44,7 @@ Within a scene:
 
 Preserve narrative order. Do not move speech ahead of preceding actions just to group similar tags. Put all character beats under their character. Do not decide the user's character's actions, thoughts, or replies unless the user delegates control. When you do voice the user's character, always use the reserved id="user" with its in-story name, or name="You" if it has none; SilkChat attaches the user's portrait by that ID. Never use id="user" for anyone else. Close every tag. Escape literal <, >, and & as &lt;, &gt;, and &amp;. Only character and say (quoted id and name) and move (quoted via) accept attributes. Do not add tools, buttons, script, HTML, or URLs to the markup contract.
 
-Example (emit directly, without a code fence):
+${imageGenerationEnabled ? PORTRAIT_INSTRUCTIONS : ""}Example (emit directly, without a code fence):
 <roleplay>
 <narration>Rain struck the warehouse roof. A truck passed outside.</narration>
 <character id="adelle" name="Adelle">

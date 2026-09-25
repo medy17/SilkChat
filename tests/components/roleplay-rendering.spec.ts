@@ -1,13 +1,55 @@
 // @vitest-environment jsdom
 import { MemoizedMarkdown } from "@/components/memoized-markdown"
-import { RoleplayPersonaProvider } from "@/components/roleplay-persona-context"
+import {
+    RoleplayPersonaProvider,
+    RoleplayPortraitsProvider
+} from "@/components/roleplay-persona-context"
 import { cleanup, render, screen } from "@testing-library/react"
 import React from "react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-afterEach(cleanup)
+// Image loading itself belongs to the avatar primitive; expose its src so this
+// suite exercises the scene's live identity and portrait selection.
+vi.mock("@/components/ui/avatar", () => ({
+    Avatar: ({ children }: { children: React.ReactNode }) =>
+        React.createElement("span", null, children),
+    AvatarImage: ({ src }: { src: string }) => React.createElement("img", { src, alt: "" }),
+    AvatarFallback: ({ children }: { children: React.ReactNode }) =>
+        React.createElement("span", null, children)
+}))
+
+afterEach(() => {
+    cleanup()
+    vi.unstubAllEnvs()
+})
 
 describe("embedded roleplay rendering", () => {
+    it("updates every earlier character group when a portrait changes, including read-only views", () => {
+        vi.stubEnv("VITE_R2_PUBLIC_BASE_URL", "https://images.example.com")
+        const message = React.createElement(MemoizedMarkdown, {
+            content:
+                '<roleplay><character id="kael" name="Kael"><dialogue>Hello.</dialogue></character><character id="rook" name="Rook"><dialogue>Hi.</dialogue></character><character id="kael" name="Kael"><dialogue>Again.</dialogue></character></roleplay>'
+        })
+        const view = (storageKey?: string) =>
+            React.createElement(
+                RoleplayPortraitsProvider,
+                {
+                    value: { portraits: storageKey ? [{ characterId: "kael", storageKey }] : [] }
+                },
+                message
+            )
+        const { container, rerender } = render(view())
+        expect(container.querySelectorAll("img")).toHaveLength(0)
+        rerender(view("generations/user-1/kael.png"))
+        const original = [...container.querySelectorAll("img")].map((img) => img.src)
+        expect(original).toHaveLength(2)
+        expect(original[0]).toBe(original[1])
+        rerender(view("roleplay-portraits/user-1/cropped.webp"))
+        expect([...container.querySelectorAll("img")].map((img) => img.src)).not.toEqual(original)
+        expect(screen.getByRole("group", { name: "Rook" }).querySelector("img")).toBeNull()
+        rerender(view())
+        expect(container.querySelectorAll("img")).toHaveLength(0)
+    })
     it("updates already-rendered character groups when the saved Persona arrives, without relabeling supporting characters", () => {
         const message = React.createElement(MemoizedMarkdown, {
             content:

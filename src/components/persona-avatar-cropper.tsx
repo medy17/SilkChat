@@ -147,13 +147,15 @@ export function PersonaAvatarCropper({
     open,
     onOpenChange,
     onConfirm,
-    isSaving
+    isSaving,
+    title = "Crop Persona Avatar"
 }: {
     cropState: PersonaAvatarCropState | null
     open: boolean
     onOpenChange: (open: boolean) => void
     onConfirm: (croppedAreaPixels: Area) => Promise<void>
     isSaving: boolean
+    title?: string
 }) {
     const isMobile = useIsMobile()
     const [crop, setCrop] = useState({ x: 0, y: 0 })
@@ -255,7 +257,7 @@ export function PersonaAvatarCropper({
                     overlayClassName="z-[80]"
                 >
                     <DrawerHeader className="shrink-0 text-left">
-                        <DrawerTitle>Crop Persona Avatar</DrawerTitle>
+                        <DrawerTitle>{title}</DrawerTitle>
                         <DrawerDescription>
                             Adjust the image inside a locked 1:1 crop.
                         </DrawerDescription>
@@ -270,7 +272,7 @@ export function PersonaAvatarCropper({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0">
                 <DialogHeader className="border-b px-6 pt-6 pb-4">
-                    <DialogTitle>Crop Persona Avatar</DialogTitle>
+                    <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>
                         Adjust the image inside a locked 1:1 crop.
                     </DialogDescription>
