@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 type ImageGenerationAsset = {
     imageUrl: string
@@ -263,7 +264,7 @@ function FrostedChip({
 }) {
     const chip = (
         <span
-            className="inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-background/75 px-2 py-0.5 font-medium text-foreground/90 text-xs shadow-sm outline-none backdrop-blur-md focus-visible:ring-2 focus-visible:ring-primary"
+            className="spotlight-glass inline-flex items-center gap-1 rounded-[var(--radius-md)] px-2 py-0.5 font-medium text-xs outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={ariaLabel}
             tabIndex={tooltip ? 0 : undefined}
         >
@@ -508,7 +509,12 @@ export const ImageGenerationToolRenderer = memo(
 
         if (isLoading) {
             return (
-                <div className="my-3 flex w-full max-w-md items-center gap-3 rounded-[var(--radius-xl)] border bg-card p-4 shadow-sm">
+                <div
+                    className={cn(
+                        "not-prose my-3 flex w-full max-w-md items-center gap-3 p-4",
+                        SPOTLIGHT_CARD_CLASS
+                    )}
+                >
                     <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
                     <span className="text-muted-foreground text-sm">Preparing image request</span>
                 </div>
@@ -518,7 +524,7 @@ export const ImageGenerationToolRenderer = memo(
         if (hasError) {
             return (
                 <div
-                    className="flex w-full max-w-md flex-col items-center justify-center rounded-[var(--radius-xl)] border border-destructive/50 bg-destructive/10"
+                    className="flex w-full max-w-md flex-col items-center justify-center rounded-[var(--radius-lg)] border border-destructive/50 bg-destructive/10"
                     style={{ aspectRatio: cssAspectRatio }}
                     role="alert"
                 >
@@ -655,13 +661,16 @@ export const ImageGenerationToolRenderer = memo(
 
             return (
                 <section
-                    className="not-prose relative my-3 w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-card shadow-sm"
+                    className={cn(
+                        "not-prose relative my-3 w-full max-w-md overflow-hidden",
+                        SPOTLIGHT_CARD_CLASS
+                    )}
                     aria-label={`Image generation card: ${title}`}
                     aria-describedby={prompt ? promptId : undefined}
                 >
                     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2.5">
                         <TooltipIconPill tooltip={title} className="pointer-events-auto min-w-0">
-                            <span className="flex min-w-0 items-center gap-1.5 rounded-[var(--radius-md)] bg-background/75 px-2 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
+                            <span className="spotlight-glass flex min-w-0 items-center gap-1.5 rounded-[var(--radius-md)] px-2 py-1 font-medium text-xs">
                                 <Sparkles
                                     className="size-3 shrink-0 text-primary"
                                     aria-hidden="true"
@@ -670,7 +679,7 @@ export const ImageGenerationToolRenderer = memo(
                             </span>
                         </TooltipIconPill>
                         {typeof estimatedUsd === "number" && (
-                            <span className="pointer-events-auto flex shrink-0 items-center rounded-[var(--radius-md)] bg-background/75 px-2 py-1 shadow-sm backdrop-blur-md">
+                            <span className="spotlight-glass pointer-events-auto flex shrink-0 items-center rounded-[var(--radius-md)] px-2 py-1">
                                 <ImageCostEstimateIndicator
                                     totalUsd={estimatedUsd}
                                     variants={output.variants}
@@ -777,7 +786,7 @@ export const ImageGenerationToolRenderer = memo(
                                         className="h-full w-full border-0 bg-transparent"
                                     />
                                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                        <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-background/75 px-2.5 py-1 font-medium text-foreground text-xs shadow-sm backdrop-blur-md">
+                                        <span className="spotlight-glass inline-flex items-center gap-1.5 rounded-[var(--radius-md)] px-2.5 py-1 font-medium text-xs">
                                             <Loader2
                                                 className="size-3 animate-spin"
                                                 aria-hidden="true"
@@ -824,7 +833,7 @@ export const ImageGenerationToolRenderer = memo(
                                         <TooltipTrigger asChild>
                                             <button
                                                 type="button"
-                                                className="absolute top-1/2 left-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                className="spotlight-glass absolute top-1/2 left-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] hover:bg-popover"
                                                 aria-disabled={visibleSlotIndex <= 0}
                                                 onClick={(event) => {
                                                     event.stopPropagation()
@@ -856,7 +865,7 @@ export const ImageGenerationToolRenderer = memo(
                                         <TooltipTrigger asChild>
                                             <button
                                                 type="button"
-                                                className="absolute top-1/2 right-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] border border-background/40 bg-background/80 text-foreground shadow-lg backdrop-blur-md hover:bg-background"
+                                                className="spotlight-glass absolute top-1/2 right-2 z-10 size-8 -translate-y-1/2 rounded-[var(--radius-md)] hover:bg-popover"
                                                 aria-disabled={visibleSlotIndex >= totalSlots - 1}
                                                 onClick={(event) => {
                                                     event.stopPropagation()
@@ -890,7 +899,7 @@ export const ImageGenerationToolRenderer = memo(
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <div
-                                                className="absolute right-2 bottom-2 z-10 rounded-[var(--radius-md)] border border-background/40 bg-background/80 px-2 py-1 font-medium text-foreground text-xs shadow-lg backdrop-blur-md"
+                                                className="spotlight-glass absolute right-2 bottom-2 z-10 rounded-[var(--radius-md)] px-2 py-1 font-medium text-xs"
                                                 aria-label={`Variant ${visibleSlotIndex + 1} of ${totalSlots}`}
                                             >
                                                 {visibleSlotIndex + 1} / {totalSlots}
@@ -1161,7 +1170,7 @@ const ImageWithErrorHandler = memo(
             return (
                 <div
                     className={cn(
-                        "flex w-full max-w-md items-center justify-center rounded-[var(--radius-xl)] border bg-muted/50",
+                        "flex w-full max-w-md items-center justify-center rounded-[var(--radius-lg)] border bg-muted/50",
                         className
                     )}
                     style={{ aspectRatio: cssAspectRatio }}
@@ -1194,7 +1203,7 @@ const ImageWithErrorHandler = memo(
                 <button
                     type="button"
                     className={cn(
-                        "not-prose relative block w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-background text-left outline-none transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary",
+                        "not-prose relative block w-full max-w-md overflow-hidden rounded-[var(--radius-lg)] border bg-background text-left outline-none transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary",
                         className
                     )}
                     style={{ aspectRatio: cssAspectRatio }}

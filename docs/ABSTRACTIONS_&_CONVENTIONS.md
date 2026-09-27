@@ -152,6 +152,8 @@ it never grants access and must not contain secrets.
 
 - Use semantic theme colors such as `bg-background` and `text-muted-foreground`.
 - Use the theme radius scale (`sm`, `md`, `lg`, `xl`). Never hardcode a numeric radius.
+- Model-generated artifacts use the shared Spotlight surfaces; see
+  [Spotlight Surfaces](./SPOTLIGHT_SURFACES.md).
 - Prefer CSS breakpoints for layout.
 - Use `useIsMobile` only when behavior or component structure changes.
 - Use `useIsTouchDevice` for pointer capability, not screen size.
@@ -502,6 +504,7 @@ Push backend changes to cloud development with `bun run cloud:dev:push`. Use
 - [Image Generation](./IMAGE_GENERATION.md)
 - [fal to R2 ingestion Worker](./FAL_R2_INGEST_WORKER.md)
 - [Code Execution Architecture](./CODE_EXECUTION_ARCHITECTURE.md)
+- [Spotlight Surfaces](./SPOTLIGHT_SURFACES.md)
 - [Account Deletion](./ACCOUNT_DELETION.md)
 - [Testing Overview](./TESTING.md)
 - [Test Writing Guide](./TEST_WRITING_GUIDE.md)

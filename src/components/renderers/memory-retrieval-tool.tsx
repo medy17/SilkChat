@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { AlertCircle, BrainCircuit, ChevronDown, Loader2 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 type MemoryRetrievalInvocation = UIToolInvocation<{
     input: unknown
@@ -167,7 +168,10 @@ export const MemoryRetrievalToolRenderer = memo(
 
                 <div
                     ref={contentRef}
-                    className="my-4 overflow-hidden rounded-[var(--radius-lg)] border bg-muted/50 transition-[max-height] duration-150 ease-out"
+                    className={cn(
+                        "my-4 overflow-hidden transition-[max-height] duration-150 ease-out",
+                        SPOTLIGHT_CARD_CLASS
+                    )}
                     style={{ maxHeight: isExpanded ? contentRef.current?.scrollHeight : "0px" }}
                 >
                     <div ref={innerRef} className="space-y-4 p-4">
@@ -191,7 +195,7 @@ export const MemoryRetrievalToolRenderer = memo(
                                                 {section.items.map((item, index) => (
                                                     <li
                                                         key={`${section.label}-${index}`}
-                                                        className="rounded-[var(--radius-md)] bg-card px-3 py-2 text-foreground text-sm"
+                                                        className="rounded-[var(--radius-md)] bg-muted/50 px-3 py-2 text-foreground text-sm"
                                                     >
                                                         {item}
                                                     </li>

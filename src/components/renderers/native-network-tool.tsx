@@ -8,12 +8,14 @@ import {
     nativeNetworkSchema
 } from "@/lib/native-network"
 import type { Core, ElementDefinition, LayoutOptions, StylesheetJson } from "cytoscape"
-import { CircleAlert, Loader2, Network } from "lucide-react"
-import { memo, useEffect, useRef, useState } from "react"
+import { CircleAlert, Loader2 } from "lucide-react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import {
-    NativeVisualizationShell,
-    type NativeVisualizationSize
-} from "./native-visualization-shell"
+    SpotlightChips,
+    SpotlightFrame,
+    type SpotlightSize,
+    useSpotlightFilter
+} from "./spotlight-frame"
 
 export const NATIVE_NETWORK_VIEWPORT_HEIGHT = 360
 
@@ -45,16 +47,67 @@ const readThemeColor = (
         : `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`
 }
 
+const UNGROUPED_KEY = "default"
+
+/** Node groups in first-seen order; the palette index cycles through the five chart colors. */
+export const getNetworkGroups = (network: NativeNetwork) => {
+    const groups = new Map<string, { key: string; label: string; paletteIndex: number }>()
+    for (const node of network.nodes) {
+        const key = node.group ?? UNGROUPED_KEY
+        if (!groups.has(key)) {
+            groups.set(key, {
+                key,
+                label: node.group ?? "Ungrouped",
+                paletteIndex: groups.size % 5
+            })
+        }
+    }
+    return [...groups.values()]
+}
+
+// Spotlight emphasis: hidden groups drop out, a hovered node keeps its neighbourhood lit,
+// and a focused group chip keeps that group and its internal edges lit.
+const applyEmphasis = (
+    graph: Core,
+    hiddenGroups: ReadonlySet<string>,
+    focusGroup: string | null,
+    hoveredNodeId?: string
+) => {
+    graph.batch(() => {
+        const elements = graph.elements()
+        elements.removeClass("spotlight-dimmed spotlight-hidden")
+        const nodes = graph.nodes()
+        nodes.filter((node) => hiddenGroups.has(node.data("group"))).addClass("spotlight-hidden")
+
+        if (hoveredNodeId) {
+            const neighbourhood = graph.getElementById(hoveredNodeId).closedNeighborhood()
+            elements.not(neighbourhood).addClass("spotlight-dimmed")
+        } else if (focusGroup) {
+            const groupNodes = nodes.filter((node) => node.data("group") === focusGroup)
+            elements
+                .not(groupNodes.union(groupNodes.edgesWith(groupNodes)))
+                .addClass("spotlight-dimmed")
+        }
+    })
+}
+
 const NativeNetworkPlot = ({
     network,
     expanded = false,
-    size
+    size,
+    hiddenGroups,
+    focusGroup
 }: {
     network: NativeNetwork
     expanded?: boolean
-    size?: NativeVisualizationSize
+    size?: SpotlightSize
+    hiddenGroups: ReadonlySet<string>
+    focusGroup: string | null
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
+    const graphRef = useRef<Core | undefined>(undefined)
+    const emphasisRef = useRef({ hiddenGroups, focusGroup })
+    emphasisRef.current = { hiddenGroups, focusGroup }
     const fingerprint = getNativeNetworkFingerprint(network)
     const stableNetworkRef = useRef({ fingerprint, network })
     if (stableNetworkRef.current.fingerprint !== fingerprint) {
@@ -81,11 +134,9 @@ const NativeNetworkPlot = ({
                 const { default: cytoscape } = await import("cytoscape")
                 if (disposed || !containerRef.current) return
 
-                const groups = new Map<string, number>()
-                for (const node of stableNetwork.nodes) {
-                    const group = node.group ?? "default"
-                    if (!groups.has(group)) groups.set(group, groups.size % 5)
-                }
+                const groups = new Map(
+                    getNetworkGroups(stableNetwork).map((group) => [group.key, group.paletteIndex])
+                )
 
                 const getPresentation = () => {
                     const theme = getComputedStyle(document.documentElement)
@@ -108,6 +159,7 @@ const NativeNetworkPlot = ({
                         colorContext
                     )
                     const border = readThemeColor(theme, "--border", "#d1d5db", colorContext)
+                    const surface = readThemeColor(theme, "--card", "#ffffff", colorContext)
                     const labelBackground = readThemeColor(
                         theme,
                         "--popover",
@@ -138,7 +190,9 @@ const NativeNetworkPlot = ({
                                 width: "mapData(value, 0, 100, 24, 54)",
                                 height: "mapData(value, 0, 100, 24, 54)",
                                 "border-width": 2,
-                                "border-color": border
+                                "border-color": surface,
+                                "transition-property": "opacity",
+                                "transition-duration": 150
                             }
                         },
                         {
@@ -158,8 +212,19 @@ const NativeNetworkPlot = ({
                                 "text-background-padding": "3px",
                                 "text-border-color": border,
                                 "text-border-opacity": 1,
-                                "text-border-width": 1
+                                "text-border-width": 1,
+                                "line-opacity": 0.7,
+                                "transition-property": "opacity",
+                                "transition-duration": 150
                             }
+                        },
+                        {
+                            selector: ".spotlight-dimmed",
+                            style: { opacity: 0.14 }
+                        },
+                        {
+                            selector: ".spotlight-hidden",
+                            style: { display: "none" }
                         },
                         {
                             selector: ":selected",
@@ -183,7 +248,10 @@ const NativeNetworkPlot = ({
                             id: node.id,
                             label: node.label ?? node.id,
                             value: node.value ?? 1,
-                            color: presentation.palette[groups.get(node.group ?? "default") ?? 0]
+                            group: node.group ?? UNGROUPED_KEY,
+                            color: presentation.palette[
+                                groups.get(node.group ?? UNGROUPED_KEY) ?? 0
+                            ]
                         },
                         position: initialPositions.get(node.id)
                     })),
@@ -210,6 +278,16 @@ const NativeNetworkPlot = ({
                     maxZoom: 3,
                     wheelSensitivity: 0.2
                 })
+
+                graphRef.current = graph
+                const emphasize = (hoveredNodeId?: string) => {
+                    if (disposed || !graph) return
+                    const emphasis = emphasisRef.current
+                    applyEmphasis(graph, emphasis.hiddenGroups, emphasis.focusGroup, hoveredNodeId)
+                }
+                graph.on("mouseover", "node", (event) => emphasize(event.target.id()))
+                graph.on("mouseout", "node", () => emphasize())
+                emphasize()
 
                 const finishLayout = () => {
                     if (disposed || !graph) return
@@ -257,7 +335,7 @@ const NativeNetworkPlot = ({
                                 .data(
                                     "color",
                                     nextPresentation.palette[
-                                        groups.get(node.group ?? "default") ?? 0
+                                        groups.get(node.group ?? UNGROUPED_KEY) ?? 0
                                     ]
                                 )
                         }
@@ -291,15 +369,20 @@ const NativeNetworkPlot = ({
             themeObserver?.disconnect()
             resizeObserver?.disconnect()
             graph?.destroy()
+            graphRef.current = undefined
         }
     }, [fingerprint, stableNetwork])
+
+    useEffect(() => {
+        if (graphRef.current && ready) applyEmphasis(graphRef.current, hiddenGroups, focusGroup)
+    }, [hiddenGroups, focusGroup, ready])
 
     if (error) {
         return <div className="p-4 text-destructive text-sm">{error}</div>
     }
 
     return (
-        <div className="relative w-full bg-background">
+        <div className="relative w-full">
             <div
                 ref={containerRef}
                 role="img"
@@ -330,18 +413,45 @@ const NativeNetworkPlot = ({
     )
 }
 
-export const NativeNetworkRenderer = memo(({ network }: { network: NativeNetwork }) => (
-    <NativeVisualizationShell
-        kind="network"
-        title={network.title}
-        description={network.description}
-        icon={<Network className="size-4" />}
-        dataAttribute="data-native-network"
-        renderVisualization={(expanded, size) => (
-            <NativeNetworkPlot network={network} expanded={expanded} size={size} />
-        )}
-    />
-))
+export const NativeNetworkRenderer = memo(({ network }: { network: NativeNetwork }) => {
+    const groups = useMemo(() => getNetworkGroups(network), [network])
+    const { hiddenKeys, focusKey, toggle, setFocusKey } = useSpotlightFilter(groups.length)
+
+    return (
+        <SpotlightFrame
+            kind="network"
+            title={network.title}
+            description={network.description}
+            dataAttribute="data-native-network"
+            toolbar={
+                groups.length > 1 && (
+                    <SpotlightChips
+                        chips={groups.map((group) => ({
+                            key: group.key,
+                            label: group.label,
+                            color: `var(--chart-${group.paletteIndex + 1})`
+                        }))}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggle}
+                        onFocusChange={setFocusKey}
+                    />
+                )
+            }
+        >
+            {(expanded, size) => (
+                <div className={expanded ? undefined : "pt-2"}>
+                    <NativeNetworkPlot
+                        network={network}
+                        expanded={expanded}
+                        size={size}
+                        hiddenGroups={hiddenKeys}
+                        focusGroup={focusKey}
+                    />
+                </div>
+            )}
+        </SpotlightFrame>
+    )
+})
 
 NativeNetworkRenderer.displayName = "NativeNetworkRenderer"
 

@@ -13,6 +13,7 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { SPOTLIGHT_CARD_CLASS } from "@/components/renderers/spotlight-frame"
 import { cn } from "@/lib/utils"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { Check, Code, Copy, Download, FileText, Maximize2, Minimize2 } from "lucide-react"
@@ -154,7 +155,7 @@ export const MarkdownTable = ({
 
     return (
         <div
-            className="not-prose my-4 flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-background"
+            className={cn("not-prose my-4 flex flex-col overflow-hidden", SPOTLIGHT_CARD_CLASS)}
             data-markdown-table
             data-rows-expanded={expanded}
         >
@@ -181,11 +182,11 @@ export const MarkdownTable = ({
                     </table>
                 </ScrollAreaPrimitive.Viewport>
                 <ScrollAreaPrimitive.ScrollAreaScrollbar
-                    className="flex h-2.5 touch-none select-none flex-col bg-background p-px"
+                    className="flex h-2.5 touch-none select-none flex-col p-px"
                     data-markdown-table-scrollbar
                     orientation="horizontal"
                 >
-                    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-[var(--radius-xl)] bg-border" />
+                    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-[var(--radius-sm)] bg-border" />
                 </ScrollAreaPrimitive.ScrollAreaScrollbar>
                 <ScrollAreaPrimitive.Corner />
             </ScrollAreaPrimitive.Root>

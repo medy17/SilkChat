@@ -1,46 +1,23 @@
 import {
-    type ChartConfig,
-    ChartContainer,
-    ChartLegend,
-    ChartLegendContent,
-    ChartTooltip,
-    ChartTooltipContent
-} from "@/components/ui/chart"
-import {
     type NativeChart,
-    getBoundedNumericDomain,
     getNativeChartFromToolOutput,
     nativeChartSchema
 } from "@/lib/native-chart"
-import { BarChart3, CircleAlert, Loader2 } from "lucide-react"
-import { memo } from "react"
+import { cn } from "@/lib/utils"
+import { CircleAlert, Loader2 } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { memo, useState } from "react"
+import { ChartDataTable } from "./chart-data-table"
 import {
-    Area,
-    AreaChart,
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Line,
-    LineChart,
-    Scatter,
-    ScatterChart,
-    XAxis,
-    YAxis
-} from "recharts"
-import {
-    NativeVisualizationShell,
-    type NativeVisualizationSize
-} from "./native-visualization-shell"
-
-const SERIES_COLORS = [
-    "var(--chart-1)",
-    "var(--chart-2)",
-    "var(--chart-3)",
-    "var(--chart-4)",
-    "var(--chart-5)"
-]
-
-const EXPANDED_CHART_INSET = 16
+    ChartPlot,
+    type ChartPlotStyle,
+    type PlotTooltipProps,
+    formatValue,
+    readTooltip,
+    seriesSwatchColor,
+    useThemeRadiusPx
+} from "./chart-plot"
+import { SpotlightChips, SpotlightFrame, useSpotlightFilter } from "./spotlight-frame"
 
 type ChartToolInvocation = {
     state: string
@@ -49,260 +26,133 @@ type ChartToolInvocation = {
     errorText?: string
 }
 
-const axisProps = {
-    tickLine: false,
-    axisLine: false,
-    tickMargin: 8
-} as const
+const CHART_BODY_CLASS = "px-3 pt-3 pb-4"
+const INLINE_BODY_HEIGHT = "h-[280px]"
 
-const getAxisLabel = ({ value, angle }: { value?: string; angle?: number }) =>
-    value
-        ? {
-              value,
-              angle,
-              position: angle ? ("insideLeft" as const) : ("insideBottom" as const),
-              offset: 0,
-              style: { fill: "var(--muted-foreground)", fontSize: 12 }
-          }
-        : undefined
+type ChartView = "chart" | "table"
 
-const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
-    const margin = { top: 12, left: 8, right: 8, bottom: chart.xLabel ? 16 : 8 }
-    const xAxisHeight = chart.xLabel ? 54 : 30
-    const usesNumericXAxis = chart.type === "scatter" || chart.xScale === "linear"
-    const numericXValues = usesNumericXAxis
-        ? chart.data.flatMap((row) =>
-              typeof row[chart.xKey] === "number" ? [row[chart.xKey] as number] : []
-          )
-        : []
-    const numericXDomain = usesNumericXAxis ? getBoundedNumericDomain(numericXValues) : null
-    const plotData = usesNumericXAxis
-        ? [...chart.data].sort(
-              (left, right) => (left[chart.xKey] as number) - (right[chart.xKey] as number)
-          )
-        : chart.data
-    const xAxisType = usesNumericXAxis ? "number" : "category"
-    const numericXAxisProps =
-        usesNumericXAxis && numericXDomain
-            ? {
-                  domain: numericXDomain,
-                  allowDecimals: !numericXValues.every(Number.isInteger),
-                  tickCount: Math.min(6, new Set(numericXValues).size),
-                  padding: { left: 12, right: 12 }
-              }
-            : {}
-
-    if (usesNumericXAxis && !numericXDomain) {
-        return null
-    }
-
-    if (chart.type === "bar") {
-        return (
-            <BarChart data={plotData} margin={margin}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                <XAxis
-                    {...axisProps}
-                    height={xAxisHeight}
-                    dataKey={chart.xKey}
-                    type={xAxisType}
-                    {...numericXAxisProps}
-                    label={getAxisLabel({ value: chart.xLabel })}
-                />
-                <YAxis
-                    {...axisProps}
-                    type="number"
-                    width={48}
-                    label={getAxisLabel({ value: chart.yLabel, angle: -90 })}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                {chart.showLegend && <ChartLegend content={<ChartLegendContent />} />}
-                {chart.series.map((series) => (
-                    <Bar
-                        key={series.key}
-                        dataKey={series.key}
-                        name={series.label}
-                        fill={`var(--color-${series.key})`}
-                        stackId={chart.stacked ? "value" : undefined}
-                        isAnimationActive={false}
-                    />
-                ))}
-            </BarChart>
-        )
-    }
-
-    if (chart.type === "area") {
-        return (
-            <AreaChart data={plotData} margin={margin}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                <XAxis
-                    {...axisProps}
-                    height={xAxisHeight}
-                    dataKey={chart.xKey}
-                    type={xAxisType}
-                    {...numericXAxisProps}
-                    label={getAxisLabel({ value: chart.xLabel })}
-                />
-                <YAxis
-                    {...axisProps}
-                    type="number"
-                    width={48}
-                    label={getAxisLabel({ value: chart.yLabel, angle: -90 })}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                {chart.showLegend && <ChartLegend content={<ChartLegendContent />} />}
-                {chart.series.map((series) => (
-                    <Area
-                        key={series.key}
-                        type="monotone"
-                        dataKey={series.key}
-                        name={series.label}
-                        stroke={`var(--color-${series.key})`}
-                        fill={`var(--color-${series.key})`}
-                        fillOpacity={0.18}
-                        stackId={chart.stacked ? "value" : undefined}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                    />
-                ))}
-            </AreaChart>
-        )
-    }
-
-    if (chart.type === "scatter") {
-        return (
-            <ScatterChart margin={margin}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                <XAxis
-                    {...axisProps}
-                    height={xAxisHeight}
-                    dataKey="x"
-                    type="number"
-                    {...numericXAxisProps}
-                    label={getAxisLabel({ value: chart.xLabel })}
-                />
-                <YAxis
-                    {...axisProps}
-                    dataKey="y"
-                    type="number"
-                    width={48}
-                    label={getAxisLabel({ value: chart.yLabel, angle: -90 })}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                {chart.showLegend && <ChartLegend content={<ChartLegendContent />} />}
-                {chart.series.map((series) => (
-                    <Scatter
-                        key={series.key}
-                        name={series.label}
-                        data={plotData.map((row) => ({
-                            x: row[chart.xKey],
-                            y: row[series.key]
-                        }))}
-                        fill={`var(--color-${series.key})`}
-                        isAnimationActive={false}
-                    />
-                ))}
-            </ScatterChart>
-        )
-    }
+function SpotlightTooltip({ props, chart }: { props: PlotTooltipProps; chart: NativeChart }) {
+    const content = readTooltip(props, chart)
+    if (!content) return null
+    const rows = chart.stacked
+        ? content.rows
+        : [...content.rows].sort((left, right) => (right.value ?? 0) - (left.value ?? 0))
+    const total = chart.stacked ? rows.reduce((sum, row) => sum + (row.value ?? 0), 0) : null
 
     return (
-        <LineChart data={plotData} margin={margin}>
-            <CartesianGrid vertical={false} stroke="var(--border)" />
-            <XAxis
-                {...axisProps}
-                height={xAxisHeight}
-                dataKey={chart.xKey}
-                type={xAxisType}
-                {...numericXAxisProps}
-                label={getAxisLabel({ value: chart.xLabel })}
-            />
-            <YAxis
-                {...axisProps}
-                type="number"
-                width={48}
-                label={getAxisLabel({ value: chart.yLabel, angle: -90 })}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            {chart.showLegend && <ChartLegend content={<ChartLegendContent />} />}
-            {chart.series.map((series) => (
-                <Line
-                    key={series.key}
-                    type="monotone"
-                    dataKey={series.key}
-                    name={series.label}
-                    stroke={`var(--color-${series.key})`}
-                    strokeWidth={2}
-                    dot={chart.data.length <= 40}
-                    connectNulls={false}
-                    isAnimationActive={false}
-                />
-            ))}
-        </LineChart>
-    )
-}
-
-const NativeChartVisualization = ({
-    chart,
-    expanded,
-    size
-}: {
-    chart: NativeChart
-    expanded: boolean
-    size?: NativeVisualizationSize
-}) => {
-    const config = Object.fromEntries(
-        chart.series.map((series, index) => [
-            series.key,
-            { label: series.label, color: SERIES_COLORS[index] }
-        ])
-    ) satisfies ChartConfig
-
-    const width = expanded ? Math.max(0, (size?.width ?? 0) - EXPANDED_CHART_INSET) : "100%"
-    const height = expanded ? Math.max(0, (size?.height ?? 0) - EXPANDED_CHART_INSET) : 300
-
-    return (
-        <div
-            className={expanded ? "overflow-hidden" : "px-2 py-4 sm:px-4"}
-            style={
-                expanded && size
-                    ? {
-                          width: size.width,
-                          height: size.height,
-                          paddingTop: EXPANDED_CHART_INSET,
-                          paddingLeft: EXPANDED_CHART_INSET
-                      }
-                    : undefined
-            }
-        >
-            <ChartContainer
-                config={config}
-                className="aspect-auto w-full overflow-hidden"
-                style={{ height }}
-                responsiveContainerProps={{
-                    width,
-                    height,
-                    initialDimension: { width: size?.width ?? 800, height: height || 300 },
-                    minWidth: 0
-                }}
-            >
-                <NativeChartPlot chart={chart} />
-            </ChartContainer>
+        <div className="spotlight-glass min-w-40 rounded-[var(--radius-lg)] px-3 py-2.5 text-xs">
+            <p className="mb-1.5 font-semibold text-foreground">{content.title}</p>
+            <div className="grid gap-1">
+                {rows.map((row) => (
+                    <div key={row.key} className="flex items-center gap-2">
+                        <span
+                            aria-hidden
+                            className="h-3.5 w-1 rounded-[var(--radius-sm)]"
+                            style={{ background: seriesSwatchColor(chart, row.key) }}
+                        />
+                        <span className="text-muted-foreground">{row.label}</span>
+                        <span className="ml-auto pl-4 font-medium tabular-nums">
+                            {formatValue(row.value)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            {total !== null && (
+                <div className="mt-1.5 flex items-center border-border/70 border-t pt-1.5">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="ml-auto font-semibold tabular-nums">{formatValue(total)}</span>
+                </div>
+            )}
         </div>
     )
 }
 
-export const NativeChartRenderer = memo(({ chart }: { chart: NativeChart }) => (
-    <NativeVisualizationShell
-        kind="chart"
-        title={chart.title}
-        description={chart.description}
-        icon={<BarChart3 className="size-4" />}
-        dataAttribute="data-native-chart"
-        renderVisualization={(expanded, size) => (
-            <NativeChartVisualization chart={chart} expanded={expanded} size={size} />
-        )}
-    />
-))
+export const NativeChartRenderer = memo(({ chart }: { chart: NativeChart }) => {
+    const { hiddenKeys, focusKey, toggle, setFocusKey } = useSpotlightFilter(chart.series.length)
+    const barRadius = useThemeRadiusPx("md")
+    const [view, setView] = useState<ChartView>("chart")
+
+    const plotStyle: ChartPlotStyle = {
+        grid: "solid",
+        yAxis: "left",
+        lineWidth: 2.5,
+        lineDots: "none",
+        endDot: true,
+        lineShade: true,
+        areaFill: "gradient",
+        barRadius,
+        barMaxSize: 36,
+        barGradient: true,
+        animate: true,
+        cursor: chart.type === "bar" ? "band" : "line",
+        tooltip: (props) => <SpotlightTooltip props={props} chart={chart} />
+    }
+
+    const plot = (
+        <ChartPlot
+            chart={chart}
+            plotStyle={plotStyle}
+            hiddenKeys={hiddenKeys}
+            focusKey={focusKey}
+        />
+    )
+
+    return (
+        <SpotlightFrame
+            kind="chart"
+            title={chart.title}
+            description={chart.description}
+            dataAttribute="data-native-chart"
+            actions={
+                <Tabs value={view} onValueChange={(value) => setView(value as ChartView)}>
+                    <TabsList className="h-7 p-0.5">
+                        <TabsTrigger value="chart" className="h-6 px-2 text-xs shadow-none">
+                            Chart
+                        </TabsTrigger>
+                        <TabsTrigger value="table" className="h-6 px-2 text-xs shadow-none">
+                            Table
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            }
+            toolbar={
+                // Chips double as filters, so a single series never needs them; a model that asks
+                // for no legend gets none.
+                chart.series.length > 1 &&
+                chart.showLegend && (
+                    <SpotlightChips
+                        chips={chart.series.map((series) => ({
+                            key: series.key,
+                            label: series.label,
+                            color: seriesSwatchColor(chart, series.key)
+                        }))}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggle}
+                        onFocusChange={setFocusKey}
+                    />
+                )
+            }
+        >
+            {(expanded, size) => {
+                const sizing =
+                    expanded && size ? { style: size } : { className: INLINE_BODY_HEIGHT }
+                // The table takes the plot's exact footprint so switching views never
+                // resizes the card.
+                return view === "table" ? (
+                    <div {...sizing} className={cn("pt-3", sizing.className)}>
+                        <div className="h-full border-border border-t">
+                            <ChartDataTable chart={chart} hiddenKeys={hiddenKeys} />
+                        </div>
+                    </div>
+                ) : (
+                    <div {...sizing} className={cn(CHART_BODY_CLASS, sizing.className)}>
+                        {plot}
+                    </div>
+                )
+            }}
+        </SpotlightFrame>
+    )
+})
 
 NativeChartRenderer.displayName = "NativeChartRenderer"
 

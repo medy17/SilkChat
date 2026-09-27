@@ -41,6 +41,51 @@ const ArtifactPreview = lazy(async () => {
 
 const isStringChild = (value: React.ReactNode): value is string => typeof value === "string"
 
+/** Splits a still-streaming block into finished lines and the line being written. */
+export const splitStreamingCode = (code: string) => {
+    const lastNewline = code.lastIndexOf("\n")
+    return {
+        settled: lastNewline >= 0 ? code.slice(0, lastNewline) : "",
+        tail: code.slice(lastNewline + 1),
+        tailStartLine: (code.slice(0, lastNewline + 1).match(/\n/g)?.length ?? 0) + 1
+    }
+}
+
+// Streamdown re-tokenizes a whole block for every new code string, on the main thread, so
+// a block that is still streaming re-highlights on every token and one runaway line can
+// lock the tab. While the fence is open, only finished lines are highlighted (they change
+// once per newline) and the line being written stays plain until it ends.
+const StreamingSafeCodeBlock = ({
+    code,
+    language,
+    isIncomplete
+}: {
+    code: string
+    language: string
+    isIncomplete: boolean
+}) => {
+    if (!isIncomplete) {
+        return <StreamdownCodeBlock code={code} language={language} lineNumbers={true} />
+    }
+
+    const { settled, tail, tailStartLine } = splitStreamingCode(code)
+    return (
+        <>
+            {settled && (
+                <StreamdownCodeBlock code={settled} language={language} lineNumbers={true} />
+            )}
+            {tail && (
+                <StreamdownCodeBlock
+                    code={tail}
+                    language="plaintext"
+                    lineNumbers={true}
+                    startLine={tailStartLine}
+                />
+            )}
+        </>
+    )
+}
+
 const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => {
     const copyImage = async () => {
         if (!svg) return
@@ -223,6 +268,9 @@ export const Codeblock = memo(
             "[&_[data-streamdown=code-block-body]_code>span]:block [&_[data-streamdown=code-block-body]_code>span]:before:hidden",
             "[&_[data-streamdown=code-block-body]]:overflow-auto",
             !expanded && "[&_[data-streamdown=code-block-body]]:max-h-72",
+            // A streaming block renders as two stacked parts; join them without a seam.
+            "[&_[data-streamdown=code-block]:has(+[data-streamdown=code-block])_[data-streamdown=code-block-body]]:pb-0",
+            "[&_[data-streamdown=code-block]+[data-streamdown=code-block]_[data-streamdown=code-block-body]]:pt-0",
             wrapped
                 ? "[&_[data-streamdown=code-block-body]_code]:whitespace-pre-wrap [&_[data-streamdown=code-block-body]_code]:break-words"
                 : "[&_[data-streamdown=code-block-body]_code]:whitespace-pre [&_[data-streamdown=code-block-body]_code]:break-keep"
@@ -344,10 +392,10 @@ export const Codeblock = memo(
                         <TabsContent value="code" className="mt-0">
                             <div className="relative h-full">
                                 <div className={codeRendererClassName}>
-                                    <StreamdownCodeBlock
+                                    <StreamingSafeCodeBlock
                                         code={codeString}
                                         language={language}
-                                        lineNumbers={true}
+                                        isIncomplete={isCodeFenceIncomplete}
                                     />
                                 </div>
 
@@ -473,10 +521,10 @@ export const Codeblock = memo(
                         </div>
 
                         <div className={codeRendererClassName}>
-                            <StreamdownCodeBlock
+                            <StreamingSafeCodeBlock
                                 code={codeString}
                                 language={language}
-                                lineNumbers={true}
+                                isIncomplete={isCodeFenceIncomplete}
                             />
                         </div>
 

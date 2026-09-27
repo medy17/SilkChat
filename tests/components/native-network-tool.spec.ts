@@ -15,10 +15,19 @@ const { cytoscapeMock, graphLayoutMock, graphStyleMock, nodeDataMock } = vi.hois
     const graphLayoutMock = vi.fn((options: { stop?: () => void }) => ({
         run: vi.fn(() => options.stop?.())
     }))
+    // Emphasis only chains collection calls, so every method returns the same collection.
+    const collection: Record<string, unknown> = {}
+    for (const method of ["addClass", "removeClass", "filter", "not", "union", "edgesWith"]) {
+        collection[method] = vi.fn(() => collection)
+    }
     const cytoscapeMock = vi.fn((_options: unknown) => ({
         destroy: vi.fn(),
         fit: vi.fn(),
         resize: vi.fn(),
+        on: vi.fn(),
+        batch: vi.fn((callback: () => void) => callback()),
+        elements: vi.fn(() => collection),
+        nodes: vi.fn(() => collection),
         style: graphStyleMock,
         layout: graphLayoutMock,
         getElementById: vi.fn(() => ({ data: nodeDataMock }))

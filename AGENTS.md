@@ -13,6 +13,8 @@
 
 - Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
 
+- Follow [SPOTLIGHT_SURFACES.md](./docs/SPOTLIGHT_SURFACES.md) when building or restyling UI for anything the model generates (charts, tool cards, recipes, tables, roleplay markup).
+
 - Local development uses cloud Convex plus the local image optimizer. The user normally runs:
   ```
   bun run dev

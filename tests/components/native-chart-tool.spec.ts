@@ -60,6 +60,35 @@ describe("NativeChartRenderer", () => {
         expect(container.querySelector("iframe")).toBeNull()
     })
 
+    it("switches to the exact data rows behind the chart", () => {
+        const chart = nativeChartSchema.parse({
+            title: "Revenue",
+            type: "line",
+            xKey: "month",
+            series: [
+                { key: "revenue", label: "Revenue" },
+                { key: "costs", label: "Costs" }
+            ],
+            data: [
+                { month: "Jan", revenue: 128_450.5, costs: null },
+                { month: "Feb", revenue: 131_020, costs: 90_000 },
+                { month: "Mar", revenue: 0.0000001, costs: 90_000 }
+            ]
+        })
+
+        const { container } = render(React.createElement(NativeChartRenderer, { chart }))
+        fireEvent.mouseDown(screen.getByRole("tab", { name: "Table" }), { button: 0 })
+
+        const table = container.querySelector("[data-native-chart-table] table")
+        expect(table?.textContent).toContain("128,450.5")
+        expect(table?.textContent).toContain("–")
+        expect(table?.textContent).toContain("1e-7")
+
+        fireEvent.click(screen.getByRole("button", { name: "Costs" }))
+        expect(table?.textContent).not.toContain("Costs")
+        expect(table?.textContent).toContain("Revenue")
+    })
+
     it("opens a large focus view for the chart", () => {
         const chart = nativeChartSchema.parse({
             title: "Expanded curve",
@@ -92,10 +121,7 @@ describe("NativeChartRenderer", () => {
         expect(dialog.style.maxWidth).toBe("80rem")
         expect(dialog.style.maxHeight).toBe("56rem")
         expect(screen.getByRole("button", { name: "Close expanded chart" })).toBeTruthy()
-        const expandedChart = dialog.querySelector("[data-chart]") as HTMLElement | null
-        expect(expandedChart?.parentElement?.style.paddingLeft).toBe("16px")
-        expect(expandedChart?.parentElement?.style.paddingTop).toBe("16px")
-        expect(expandedChart?.style.height).toBe("284px")
+        expect(dialog.querySelector("[data-chart]")).toBeTruthy()
         expect(document.querySelectorAll("svg.recharts-surface")).toHaveLength(2)
     })
 })

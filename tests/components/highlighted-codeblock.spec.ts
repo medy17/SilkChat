@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { splitStreamingCode } from "@/components/codeblock"
 import { createCodeFence } from "@/components/highlighted-codeblock"
 import { describe, expect, it } from "vitest"
 
@@ -18,5 +19,23 @@ describe("createCodeFence", () => {
         expect(createCodeFence("value", "python injected\ntext")).toBe(
             "```pythoninjectedtext\nvalue\n```"
         )
+    })
+})
+
+describe("splitStreamingCode", () => {
+    it("highlights finished lines and leaves the line being written plain", () => {
+        expect(splitStreamingCode("import math\nrows = []\nfor i in ra")).toEqual({
+            settled: "import math\nrows = []",
+            tail: "for i in ra",
+            tailStartLine: 3
+        })
+    })
+
+    it("keeps a single unfinished line out of the highlighter entirely", () => {
+        expect(splitStreamingCode("print(json.dumps(rows))garbage")).toEqual({
+            settled: "",
+            tail: "print(json.dumps(rows))garbage",
+            tailStartLine: 1
+        })
     })
 })

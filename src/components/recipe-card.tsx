@@ -11,6 +11,7 @@ import {
     DialogTitle
 } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { SPOTLIGHT_CARD_CLASS } from "@/components/renderers/spotlight-frame"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     type ParsedRecipe,
@@ -20,6 +21,7 @@ import {
     formatRecipeQuantity,
     getRecipeUnitSystem
 } from "@/lib/recipe"
+import { cn } from "@/lib/utils"
 import {
     Check,
     ChefHat,
@@ -494,7 +496,10 @@ export const RecipeCard = ({
                 ref={printRootRef}
                 data-recipe-card
                 data-recipe-layout={layout}
-                className="not-prose mx-auto my-10 max-w-4xl rounded-[var(--radius-xl)] border border-border/80 bg-background p-6 sm:p-12"
+                className={cn(
+                    "not-prose mx-auto my-10 max-w-4xl p-6 sm:p-12",
+                    SPOTLIGHT_CARD_CLASS
+                )}
             >
                 {/* Hero Header */}
                 <header className="space-y-6">
@@ -887,7 +892,7 @@ export const RecipeCard = ({
                 <DialogContent
                     showCloseButton={false}
                     overlayClassName="bg-background"
-                    className="inset-0 top-0 left-0 flex h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-[var(--radius-xl)] border-0 bg-background p-0 shadow-none sm:max-w-none"
+                    className="spotlight-surface inset-0 top-0 left-0 flex h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none sm:max-w-none"
                 >
                     <DialogHeader className="flex h-16 shrink-0 flex-row items-center gap-3 border-border/60 border-b px-4 text-left sm:h-18 sm:px-6">
                         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-primary/10 text-primary">

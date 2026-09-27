@@ -3,6 +3,7 @@ import type { MessageWebSearch, WebSearchResult } from "@/lib/message-web-search
 import { cn } from "@/lib/utils"
 import { ChevronDown, CircleAlert, ExternalLink, Globe, Loader2 } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 function getFaviconUrl(url: string): string {
     try {
@@ -212,7 +213,7 @@ export const WebSearchGroupRenderer = memo(({ searches }: { searches: MessageWeb
             </button>
 
             <AnimatedCollapsible open={isOpen}>
-                <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
+                <div className={cn("mt-4 overflow-hidden", SPOTLIGHT_CARD_CLASS)}>
                     {searches.map((search) => (
                         <WebSearchStep key={search.toolCallId} search={search} />
                     ))}

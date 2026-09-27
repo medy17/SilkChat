@@ -5,6 +5,7 @@ import type { MessageCodeExecution } from "@/lib/message-code-executions"
 import { cn } from "@/lib/utils"
 import { ChevronDown, CircleAlert, Clock3, Loader2, Sigma, SquareTerminal } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 const formatDuration = (durationMs: number) => {
     if (durationMs < 1_000) return `${Math.round(durationMs)} ms`
@@ -94,7 +95,15 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                             </h4>
                             <HighlightedCodeblock
                                 source={input.code}
-                                language={language ?? "plaintext"}
+                                // Re-highlighting the whole program on every streamed token
+                                // is quadratic, and TextMate grammars are slow on long lines,
+                                // so a runaway argument can lock the tab. Highlight once the
+                                // input is complete.
+                                language={
+                                    execution.state === "input-streaming"
+                                        ? "plaintext"
+                                        : (language ?? "plaintext")
+                                }
                             />
                         </section>
                     ) : execution.status === "running" ? (
@@ -254,7 +263,7 @@ export const CodeExecutionGroupRenderer = memo(
                 </button>
 
                 <AnimatedCollapsible open={isOpen}>
-                    <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
+                    <div className={cn("mt-4 overflow-hidden", SPOTLIGHT_CARD_CLASS)}>
                         {executions.map((execution) => (
                             <ExecutionStep key={execution.toolCallId} execution={execution} />
                         ))}

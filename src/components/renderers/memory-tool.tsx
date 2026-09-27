@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useQuery } from "convex/react"
 import { AlertCircle, BrainCircuit, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { memo, useState } from "react"
 import { toast } from "sonner"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 type MemoryToolInvocation = UIToolInvocation<{
     input: unknown
@@ -103,7 +105,12 @@ export const MemoryToolRenderer = memo(
 
         if (isLoading) {
             return (
-                <div className="my-3 flex w-full max-w-lg items-center gap-3 rounded-[var(--radius-xl)] border bg-card p-4 shadow-sm">
+                <div
+                    className={cn(
+                        "not-prose my-3 flex w-full max-w-lg items-center gap-3 p-4",
+                        SPOTLIGHT_CARD_CLASS
+                    )}
+                >
                     <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
                     <span className="text-muted-foreground text-sm">Preparing memory change</span>
                 </div>
@@ -119,7 +126,7 @@ export const MemoryToolRenderer = memo(
             const error = output?.error ?? "Could not prepare this memory change."
             return (
                 <div
-                    className="my-3 flex w-full max-w-lg items-start gap-3 rounded-[var(--radius-xl)] border border-destructive/50 bg-destructive/10 p-4"
+                    className="my-3 flex w-full max-w-lg items-start gap-3 rounded-[var(--radius-lg)] border border-destructive/50 bg-destructive/10 p-4"
                     role="alert"
                 >
                     <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
@@ -181,17 +188,22 @@ export const MemoryToolRenderer = memo(
 
         return (
             <section
-                className="not-prose my-3 w-full max-w-lg overflow-hidden rounded-[var(--radius-xl)] border bg-card shadow-sm"
+                className={cn(
+                    "not-prose my-3 w-full max-w-lg overflow-hidden",
+                    SPOTLIGHT_CARD_CLASS
+                )}
                 aria-label={`${details.title} confirmation card`}
             >
-                <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
+                <div className="flex items-start gap-3 border-border/70 border-b p-4">
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-primary/10 text-primary">
                         <BrainCircuit className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                             <OperationIcon className="size-4 text-primary" aria-hidden="true" />
-                            <h3 className="font-medium text-sm">{details.title}</h3>
+                            <h3 className="font-semibold text-sm tracking-tight">
+                                {details.title}
+                            </h3>
                         </div>
                         <p className="mt-1 text-muted-foreground text-xs">{details.description}</p>
                     </div>
@@ -222,14 +234,14 @@ export const MemoryToolRenderer = memo(
                     {(change.metadata?.category || tags.length > 0) && (
                         <div className="flex flex-wrap gap-1.5">
                             {change.metadata?.category && (
-                                <span className="rounded-[var(--radius-sm)] bg-secondary px-2 py-1 text-secondary-foreground text-xs">
+                                <span className="rounded-[var(--radius-md)] border border-border bg-background/70 px-2 py-0.5 font-medium text-xs shadow-xs">
                                     {change.metadata.category}
                                 </span>
                             )}
                             {tags.map((tag) => (
                                 <span
                                     key={tag}
-                                    className="rounded-[var(--radius-sm)] bg-secondary px-2 py-1 text-secondary-foreground text-xs"
+                                    className="rounded-[var(--radius-md)] border border-border bg-background/70 px-2 py-0.5 font-medium text-xs shadow-xs"
                                 >
                                     {tag}
                                 </span>

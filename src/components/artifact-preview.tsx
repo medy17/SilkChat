@@ -17,11 +17,12 @@ import {
     SandpackProvider,
     useSandpack
 } from "@codesandbox/sandpack-react"
-import { Maximize2, Minus, Plus, ScanSearch, X } from "lucide-react"
+import { Loader2, Maximize2, Minus, Plus, ScanSearch, X } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
 import { Streamdown } from "streamdown"
 import type { ArtifactLanguage } from "./artifact-preview-shared"
+import { SpotlightHeader } from "./renderers/spotlight-frame"
 import { prepareMermaidSvg } from "./mermaid-export"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
@@ -81,7 +82,7 @@ const MermaidCanvas = ({
                             />
                         </TransformComponent>
 
-                        <div className="absolute right-3 bottom-3 z-10 flex items-center overflow-hidden rounded-[var(--radius-md)] border border-border bg-background/90 shadow-sm backdrop-blur">
+                        <div className="spotlight-glass absolute right-3 bottom-3 z-10 flex items-center overflow-hidden rounded-[var(--radius-lg)]">
                             <Button
                                 type="button"
                                 size="icon"
@@ -200,7 +201,10 @@ const MermaidRenderer = memo(
                         "flex items-center justify-center p-8"
                     )}
                 >
-                    <div className="h-8 w-8 animate-spin rounded-full border-primary border-b-2" />
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                        Rendering diagram…
+                    </div>
                 </div>
             )
         }
@@ -219,7 +223,7 @@ const MermaidRenderer = memo(
                 <DialogContent
                     showCloseButton={false}
                     overlayClassName="backdrop-blur-md data-[state=open]:animate-none data-[state=closed]:animate-none"
-                    className="flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-card p-0 text-card-foreground data-[state=closed]:animate-none data-[state=open]:animate-none"
+                    className="spotlight-surface flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-card p-0 text-card-foreground data-[state=closed]:animate-none data-[state=open]:animate-none"
                     style={{
                         width: "92vw",
                         height: "85vh",
@@ -227,28 +231,29 @@ const MermaidRenderer = memo(
                         maxHeight: "56rem"
                     }}
                 >
-                    <div className="flex h-14 shrink-0 items-center gap-3 border-border border-b px-4">
-                        <div className="min-w-0 flex-1">
-                            <h3 className="font-medium text-sm">Mermaid diagram</h3>
-                            <p className="text-muted-foreground text-xs">Pan and zoom to explore</p>
-                        </div>
-                        <DialogClose asChild>
-                            <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 rounded-[var(--radius-sm)]"
-                                aria-label="Close fullscreen Mermaid diagram"
-                            >
-                                <X className="size-4" />
-                            </Button>
-                        </DialogClose>
-                    </div>
+                    <SpotlightHeader
+                        className="pb-4"
+                        title="Mermaid diagram"
+                        description="Pan and zoom to explore"
+                        action={
+                            <DialogClose asChild>
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="size-8 rounded-[var(--radius-sm)]"
+                                    aria-label="Close fullscreen Mermaid diagram"
+                                >
+                                    <X className="size-4" />
+                                </Button>
+                            </DialogClose>
+                        }
+                    />
                     <DialogTitle className="sr-only">Mermaid diagram</DialogTitle>
                     <DialogDescription className="sr-only">
                         Fullscreen interactive Mermaid diagram with pan and zoom controls.
                     </DialogDescription>
-                    <div className="relative min-h-0 flex-1 overflow-hidden">
+                    <div className="relative min-h-0 flex-1 overflow-hidden border-border border-t">
                         <MermaidCanvas svg={mermaidHTML ?? ""} expanded />
                     </div>
                 </DialogContent>
@@ -259,62 +264,63 @@ const MermaidRenderer = memo(
 
 MermaidRenderer.displayName = "MermaidRenderer"
 
+// Theme tokens handed to HTML previews. The preview sits on the card, so the card
+// surface becomes the document background.
+const HTML_PREVIEW_THEME_VARS = [
+    ["background", "--card"],
+    ["foreground", "--card-foreground"],
+    ["primary", "--primary"],
+    ["primary-foreground", "--primary-foreground"],
+    ["muted", "--muted"],
+    ["muted-foreground", "--muted-foreground"],
+    ["accent", "--accent"],
+    ["accent-foreground", "--accent-foreground"],
+    ["border", "--border"],
+    ["radius", "--radius"],
+    ["font-sans", "--font-sans"],
+    ["font-mono", "--font-mono"],
+    ["chart-1", "--chart-1"],
+    ["chart-2", "--chart-2"],
+    ["chart-3", "--chart-3"],
+    ["chart-4", "--chart-4"],
+    ["chart-5", "--chart-5"]
+] as const
+
+const readHtmlPreviewTheme = () => {
+    const styles = getComputedStyle(document.documentElement)
+    return HTML_PREVIEW_THEME_VARS.map(([name, source]) => {
+        const value = styles.getPropertyValue(source).trim()
+        return value ? `--${name}: ${value};` : ""
+    }).join("\n                ")
+}
+
 const HTMLRenderer = memo(({ code }: { code: string }) => {
-    const [isDark, setIsDark] = useState(false)
+    const [themeVars, setThemeVars] = useState("")
 
     useEffect(() => {
-        const checkDarkMode = () => {
-            const isDarkMode =
-                document.documentElement.classList.contains("dark") ||
-                window.matchMedia("(prefers-color-scheme: dark)").matches
-            setIsDark(isDarkMode)
-        }
+        const syncTheme = () => setThemeVars(readHtmlPreviewTheme())
+        syncTheme()
 
-        checkDarkMode()
-
-        const observer = new MutationObserver(checkDarkMode)
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
-
-        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-        mediaQuery.addEventListener("change", checkDarkMode)
-
-        return () => {
-            observer.disconnect()
-            mediaQuery.removeEventListener("change", checkDarkMode)
-        }
+        const observer = new MutationObserver(syncTheme)
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class", "style"]
+        })
+        return () => observer.disconnect()
     }, [])
 
-    // Hardcoded colors based on globals.css
-    const colors = isDark
-        ? {
-              background: "#000000", // Dark background
-              foreground: "#f9fafb", // Light text
-              primary: "#10b981", // Green primary
-              border: "#374151" // Dark border
-          }
-        : {
-              background: "#fefefe", // Light background
-              foreground: "#1f2937", // Dark text
-              primary: "#10b981", // Green primary
-              border: "#e5e7eb" // Light border
-          }
-
-    // Inject basic theme CSS variables into the HTML
     const themeCSS = `
         <style>
             :root {
-                --background: ${colors.background};
-                --foreground: ${colors.foreground};
-                --primary: ${colors.primary};
-                --border: ${colors.border};
+                ${themeVars}
             }
-            
+
             body {
                 background-color: var(--background);
                 color: var(--foreground);
                 margin: 0;
                 padding: 1rem;
-                font-family: system-ui, -apple-system, sans-serif;
+                font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
             }
         </style>
     `

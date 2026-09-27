@@ -587,6 +587,27 @@ html {
     }
 }
 
+/* Spotlight: the shared surface language for model-generated artifacts. The accent wash
+   has a fixed length so tall cards (recipes, long tables) tint their header, not their
+   whole body. */
+@utility spotlight-surface {
+    background-color: var(--card);
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--chart-1) 7%, var(--card)) 0,
+        var(--card) 16rem
+    );
+}
+
+/* Frosted overlay for tooltips and floating controls on Spotlight surfaces. */
+@utility spotlight-glass {
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    background-color: color-mix(in oklab, var(--popover) 80%, transparent);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(12px);
+}
+
 @layer components {
     /* Sonner Toast Theme Overrides */
     [data-sonner-toaster] [data-sonner-toast] {

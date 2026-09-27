@@ -4,6 +4,7 @@ import { ChevronDown, Loader2, Wrench } from "lucide-react"
 import type { ComponentType } from "react"
 import { memo, useEffect, useRef, useState } from "react"
 import { Codeblock } from "../codeblock"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 type GenericToolInvocation = UIToolInvocation<{
     input: unknown
@@ -80,7 +81,8 @@ export const GenericToolRenderer = memo(
                     ref={contentRef}
                     className={cn(
                         "overflow-hidden transition-[max-height] duration-150 ease-out",
-                        "my-4 rounded-lg border bg-muted/50"
+                        "my-4",
+                        SPOTLIGHT_CARD_CLASS
                     )}
                     style={{
                         maxHeight: isExpanded ? contentRef.current?.scrollHeight : "0px"

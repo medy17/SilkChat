@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { Box, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
+import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
 type PersistentSandboxInvocation = UIToolInvocation<{
     input: unknown
@@ -100,8 +102,13 @@ export const PersistentSandboxCard = memo(
 
         if (!output) {
             return (
-                <div className="my-3 flex items-center gap-2 rounded-[var(--radius-lg)] border bg-card p-3 text-muted-foreground text-sm">
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <div
+                    className={cn(
+                        "not-prose my-3 flex w-full max-w-md items-center gap-2 p-3 text-muted-foreground text-sm",
+                        SPOTLIGHT_CARD_CLASS
+                    )}
+                >
+                    <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
                     Preparing persistent workspace request
                 </div>
             )
@@ -163,7 +170,10 @@ export const PersistentSandboxCard = memo(
 
         return (
             <section
-                className="not-prose my-3 w-full max-w-md overflow-hidden rounded-[var(--radius-xl)] border bg-card shadow-sm"
+                className={cn(
+                    "not-prose my-3 w-full max-w-md overflow-hidden",
+                    SPOTLIGHT_CARD_CLASS
+                )}
                 aria-label="Persistent sandbox request"
             >
                 <div className="flex items-start gap-3 p-4">
@@ -172,8 +182,10 @@ export const PersistentSandboxCard = memo(
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-medium text-sm">Persistent workspace</h3>
-                            <span className="rounded-[var(--radius-sm)] bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
+                            <h3 className="font-semibold text-sm tracking-tight">
+                                Persistent workspace
+                            </h3>
+                            <span className="rounded-[var(--radius-md)] border border-border bg-background/70 px-2 py-0.5 font-medium text-muted-foreground text-xs shadow-xs">
                                 {output.runtime === "python" ? "Python" : "Node.js"}
                                 {output.runtimeVersion ? ` ${output.runtimeVersion}` : ""}
                             </span>
@@ -191,7 +203,7 @@ export const PersistentSandboxCard = memo(
                     </div>
                 </div>
 
-                <div className="border-t bg-muted/10 p-3">
+                <div className="border-border/70 border-t p-3">
                     {status === "pending_confirmation" ? (
                         <div className="grid grid-cols-2 gap-2">
                             <Button

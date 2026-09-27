@@ -141,7 +141,8 @@ Native chart and network rendering has no upstream usage charge. Calls still par
 - `src/lib/native-network.ts`: native network schema and replay validation
 - `src/components/renderers/native-chart-tool.tsx`: chart UI
 - `src/components/renderers/native-network-tool.tsx`: network UI
-- `src/components/renderers/native-visualization-shell.tsx`: shared expandable focus view
+- `src/components/renderers/spotlight-frame.tsx`: shared Spotlight card, filter chips, and expandable focus view
+- `src/components/renderers/chart-plot.tsx`: Recharts plot, formatting, and tooltip helpers
 - `src/lib/message-code-executions.ts`: shared execution grouping
 - `src/components/tool-selector-popover.tsx`: desktop Math Kit control
 - `src/components/multimodal-input.tsx`: mobile Math Kit control
