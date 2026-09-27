@@ -61,13 +61,14 @@ const getAxisLabel = ({ value, angle }: { value?: string; angle?: number }) =>
               value,
               angle,
               position: angle ? ("insideLeft" as const) : ("insideBottom" as const),
-              offset: angle ? 0 : -4,
+              offset: 0,
               style: { fill: "var(--muted-foreground)", fontSize: 12 }
           }
         : undefined
 
 const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
-    const margin = { left: 8, right: 8, bottom: chart.xLabel ? 16 : 0 }
+    const margin = { top: 12, left: 8, right: 8, bottom: chart.xLabel ? 16 : 8 }
+    const xAxisHeight = chart.xLabel ? 54 : 30
     const usesNumericXAxis = chart.type === "scatter" || chart.xScale === "linear"
     const numericXValues = usesNumericXAxis
         ? chart.data.flatMap((row) =>
@@ -85,7 +86,6 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
         usesNumericXAxis && numericXDomain
             ? {
                   domain: numericXDomain,
-                  allowDataOverflow: true,
                   allowDecimals: !numericXValues.every(Number.isInteger),
                   tickCount: Math.min(6, new Set(numericXValues).size),
                   padding: { left: 12, right: 12 }
@@ -102,6 +102,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                     {...axisProps}
+                    height={xAxisHeight}
                     dataKey={chart.xKey}
                     type={xAxisType}
                     {...numericXAxisProps}
@@ -135,6 +136,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                     {...axisProps}
+                    height={xAxisHeight}
                     dataKey={chart.xKey}
                     type={xAxisType}
                     {...numericXAxisProps}
@@ -172,6 +174,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                     {...axisProps}
+                    height={xAxisHeight}
                     dataKey="x"
                     type="number"
                     {...numericXAxisProps}
@@ -207,6 +210,7 @@ const NativeChartPlot = ({ chart }: { chart: NativeChart }) => {
             <CartesianGrid vertical={false} stroke="var(--border)" />
             <XAxis
                 {...axisProps}
+                height={xAxisHeight}
                 dataKey={chart.xKey}
                 type={xAxisType}
                 {...numericXAxisProps}
@@ -241,7 +245,11 @@ const NativeChartVisualization = ({
     chart,
     expanded,
     size
-}: { chart: NativeChart; expanded: boolean; size?: NativeVisualizationSize }) => {
+}: {
+    chart: NativeChart
+    expanded: boolean
+    size?: NativeVisualizationSize
+}) => {
     const config = Object.fromEntries(
         chart.series.map((series, index) => [
             series.key,
