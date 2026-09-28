@@ -115,6 +115,7 @@ function MemorySettingsPage() {
         if (requestId !== latestRequestRef.current) return
 
         setResult((current) => (next ? patch(next) : current && patch(current)))
+        if (next) setLoadError(null)
         setFetchingPage(false)
     }
 

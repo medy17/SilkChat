@@ -83,7 +83,9 @@ because the list sorts by `updatedAt`. Waiting for the refetch makes each of the
 The patches in `src/lib/memory.ts` are applied to the refetched page. They do nothing when that
 page already reflects the change. They cover a Supermemory list that lags a write, so a forgotten
 memory can't reappear and a new one can't go missing. If the refetch fails, the patch is applied
-to the current page instead.
+to the current page instead. Patches that change the count trim the page to its `limit` and
+recompute `totalPages`, so pagination never offers an empty next page. A successful refetch also
+clears an earlier load error.
 
 Stale responses are dropped by request id, so a slow earlier page can't overwrite a newer one.
 

@@ -8,6 +8,26 @@ export const filterCurrentMemories = (memories: readonly SupermemoryMemoryEntry[
 
 type SavedMemory = { id: string; memory: string }
 
+// Keeps a patched page consistent with what the server would return: at most `limit`
+// entries, with `totalPages` derived from the new total.
+const withEntries = (
+    page: SupermemoryMemoryListResponse,
+    memoryEntries: SupermemoryMemoryEntry[],
+    totalItems: number
+): SupermemoryMemoryListResponse => {
+    const { limit } = page.pagination
+    const safeTotal = Math.max(0, totalItems)
+
+    return {
+        memoryEntries: memoryEntries.slice(0, limit),
+        pagination: {
+            ...page.pagination,
+            totalItems: safeTotal,
+            totalPages: Math.max(1, Math.ceil(safeTotal / limit))
+        }
+    }
+}
+
 // Patches reflect a mutation on a list page. Each is a no-op when the page already
 // reflects it, so they can run on a refetched page as well as the stale one.
 export const prependMemories = (
@@ -20,9 +40,9 @@ export const prependMemories = (
     )
     if (created.length === 0) return page
 
-    return {
-        ...page,
-        memoryEntries: [
+    return withEntries(
+        page,
+        [
             ...created.map((entry) => ({
                 id: entry.id,
                 memory: entry.memory,
@@ -37,11 +57,8 @@ export const prependMemories = (
             })),
             ...page.memoryEntries
         ],
-        pagination: {
-            ...page.pagination,
-            totalItems: page.pagination.totalItems + created.length
-        }
-    }
+        page.pagination.totalItems + created.length
+    )
 }
 
 // Supermemory versions an edit under a new id, so swap the entry rather than mutate it.
@@ -72,13 +89,7 @@ export const removeMemory = (
 ): SupermemoryMemoryListResponse => {
     const memoryEntries = page.memoryEntries.filter((entry) => entry.id !== memoryId)
     const removed = page.memoryEntries.length - memoryEntries.length
+    if (removed === 0) return page
 
-    return {
-        ...page,
-        memoryEntries,
-        pagination: {
-            ...page.pagination,
-            totalItems: Math.max(0, page.pagination.totalItems - removed)
-        }
-    }
+    return withEntries(page, memoryEntries, page.pagination.totalItems - removed)
 }

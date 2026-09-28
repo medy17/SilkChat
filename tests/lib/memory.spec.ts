@@ -54,6 +54,29 @@ describe("memory list patches", () => {
         expect(next.pagination.totalItems).toBe(2)
     })
 
+    it("keeps a full page at its limit and rolls the overflow onto a new page", () => {
+        const fullPage = {
+            memoryEntries: [memory("a"), memory("b")],
+            pagination: { currentPage: 1, limit: 2, totalItems: 2, totalPages: 1 }
+        }
+        const next = prependMemories(fullPage, [{ id: "new", memory: "Likes tea" }], now)
+
+        expect(next.memoryEntries.map((entry) => entry.id)).toEqual(["new", "a"])
+        expect(next.pagination).toMatchObject({ totalItems: 3, totalPages: 2 })
+    })
+
+    it("drops the trailing page once removal fits everything on fewer pages", () => {
+        const firstOfTwo = {
+            memoryEntries: [memory("a"), memory("b")],
+            pagination: { currentPage: 1, limit: 2, totalItems: 3, totalPages: 2 }
+        }
+
+        expect(removeMemory(firstOfTwo, "a").pagination).toMatchObject({
+            totalItems: 2,
+            totalPages: 1
+        })
+    })
+
     it("leaves a refetched page alone when it already has the created memory", () => {
         const refetched = listPage([memory("new"), memory("old")])
         expect(prependMemories(refetched, [{ id: "new", memory: "Likes tea" }], now)).toBe(
