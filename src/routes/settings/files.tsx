@@ -1,4 +1,5 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { FilesTableSkeleton } from "@/components/settings/settings-skeletons"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
     AlertDialog,
@@ -27,7 +28,6 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
     Table,
     TableBody,
@@ -144,24 +144,6 @@ function FilePreview({ file }: { file: FileMetadata }) {
     return (
         <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted">
             <Icon className="size-5 text-muted-foreground" />
-        </div>
-    )
-}
-
-function FilesTableSkeleton() {
-    return (
-        <div className="overflow-hidden rounded-lg border">
-            {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="flex items-center gap-4 border-b p-4 last:border-b-0">
-                    <Skeleton className="size-12 rounded-md" />
-                    <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-48 max-w-full" />
-                        <Skeleton className="h-3 w-32 max-w-full" />
-                    </div>
-                    <Skeleton className="hidden h-4 w-24 sm:block" />
-                    <Skeleton className="size-9" />
-                </div>
-            ))}
         </div>
     )
 }

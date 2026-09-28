@@ -1,5 +1,5 @@
 import type { SupermemoryMemoryEntry } from "@/convex/lib/supermemory_api"
-import { filterCurrentMemories } from "@/lib/memory"
+import { filterCurrentMemories, prependMemories, removeMemory, replaceMemory } from "@/lib/memory"
 import { describe, expect, it } from "vitest"
 
 const memory = (
@@ -28,5 +28,62 @@ describe("filterCurrentMemories", () => {
                 memory("forgotten", { isForgotten: true })
             ]).map((entry) => entry.id)
         ).toEqual(["current"])
+    })
+})
+
+const listPage = (entries: SupermemoryMemoryEntry[], totalItems = entries.length) => ({
+    memoryEntries: entries,
+    pagination: { currentPage: 1, limit: 20, totalItems, totalPages: 1 }
+})
+
+describe("memory list patches", () => {
+    const now = "2026-09-28T00:00:00.000Z"
+
+    it("prepends created memories and counts them", () => {
+        const next = prependMemories(
+            listPage([memory("old")]),
+            [{ id: "new", memory: "Likes tea" }],
+            now
+        )
+
+        expect(next.memoryEntries.map((entry) => entry.id)).toEqual(["new", "old"])
+        expect(filterCurrentMemories(next.memoryEntries)[0]).toMatchObject({
+            memory: "Likes tea",
+            updatedAt: now
+        })
+        expect(next.pagination.totalItems).toBe(2)
+    })
+
+    it("leaves a refetched page alone when it already has the created memory", () => {
+        const refetched = listPage([memory("new"), memory("old")])
+        expect(prependMemories(refetched, [{ id: "new", memory: "Likes tea" }], now)).toBe(
+            refetched
+        )
+    })
+
+    it("swaps an edited memory to its new version in place", () => {
+        const next = replaceMemory(
+            listPage([memory("a"), memory("b"), memory("c")]),
+            "b",
+            { id: "b2", memory: "Edited" },
+            now
+        )
+
+        expect(next.memoryEntries.map((entry) => entry.id)).toEqual(["a", "b2", "c"])
+        expect(next.memoryEntries[1]).toMatchObject({
+            memory: "Edited",
+            version: 2,
+            parentMemoryId: "b",
+            updatedAt: now
+        })
+    })
+
+    it("removes a forgotten memory and never drops the total below zero", () => {
+        const next = removeMemory(listPage([memory("a"), memory("b")], 2), "a")
+        expect(next.memoryEntries.map((entry) => entry.id)).toEqual(["b"])
+        expect(next.pagination.totalItems).toBe(1)
+
+        expect(removeMemory(listPage([memory("a")], 0), "a").pagination.totalItems).toBe(0)
+        expect(removeMemory(listPage([memory("a")]), "missing").pagination.totalItems).toBe(1)
     })
 })

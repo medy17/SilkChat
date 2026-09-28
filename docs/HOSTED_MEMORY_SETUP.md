@@ -80,6 +80,8 @@ production. Do not expose either value through a `VITE_` variable.
 - Explicit add, update, and forget requests remain confirmation-card actions. A turn that creates
   one of these cards is not also ingested automatically, so confirmation cannot be bypassed.
 - `/settings/memory` lists, adds, edits, and forgets memories in the signed-in user's container.
+  See [SETTINGS_LOADING.md](./SETTINGS_LOADING.md#memory-list) for how the list stays in place
+  across changes.
 - Existing BYOK settings are ignored. There is no memory migration or cross-account synchronization.
 - Account exports include `memory/memories.json`.
 - Account deletion deletes the user's Supermemory container before removing authentication data.

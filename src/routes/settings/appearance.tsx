@@ -1,4 +1,5 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { ThemeGridSkeleton } from "@/components/settings/settings-skeletons"
 import { ImportThemeDialog } from "@/components/themes/import-theme-dialog"
 import {
     AlertDialog,
@@ -513,10 +514,7 @@ function AppearanceSettings() {
 
                     {/* Theme Content */}
                     {isLoadingThemes ? (
-                        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-                            <div className="size-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                            Loading themes...
-                        </div>
+                        <ThemeGridSkeleton />
                     ) : (
                         <div className="space-y-8">
                             <div className="space-y-3">

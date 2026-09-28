@@ -160,6 +160,8 @@ it never grants access and must not contain secrets.
 - Reuse `ResponsivePopover` for the existing popover-on-desktop, drawer-on-mobile pattern.
 - Preserve labels, keyboard controls, visible focus, native semantics, and reduced motion.
 - Design loading, empty, error, success, and retry states for every async view.
+- Settings sections load with layout-shaped skeletons and keep content mounted across changes;
+  see [Settings Loading States](./SETTINGS_LOADING.md).
 
 ### Browser and server boundaries
 
@@ -505,6 +507,7 @@ Push backend changes to cloud development with `bun run cloud:dev:push`. Use
 - [fal to R2 ingestion Worker](./FAL_R2_INGEST_WORKER.md)
 - [Code Execution Architecture](./CODE_EXECUTION_ARCHITECTURE.md)
 - [Spotlight Surfaces](./SPOTLIGHT_SURFACES.md)
+- [Settings Loading States](./SETTINGS_LOADING.md)
 - [Account Deletion](./ACCOUNT_DELETION.md)
 - [Testing Overview](./TESTING.md)
 - [Test Writing Guide](./TEST_WRITING_GUIDE.md)

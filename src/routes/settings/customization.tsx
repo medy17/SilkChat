@@ -1,3 +1,4 @@
+import { BehaviorSettingsSkeleton } from "@/components/settings/settings-skeletons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -251,11 +252,7 @@ export function BehaviorSettingsContent() {
     }
 
     if (!userSettings) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
+        return <BehaviorSettingsSkeleton />
     }
 
     return (

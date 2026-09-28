@@ -7,11 +7,8 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
-import { useConvexQuery } from "@convex-dev/react-query"
 import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
 import {
     BarChart3,
@@ -110,44 +107,20 @@ export const Route = createLazyFileRoute("/settings")({
     component: SettingsPage
 })
 
+// Sections render their own header and skeleton, so the shell only gates on sign-in.
 const Inner = () => {
     const session = useSession()
-    const userSettings = useConvexQuery(
-        api.settings.getUserSettings,
-        session.user?.id ? {} : "skip"
-    )
-    if (!session.user?.id) {
-        return (
-            <SettingsLayout
-                title="API Keys"
-                description="Manage your models and providers. Keys are encrypted and stored securely."
-            >
-                <p className="text-muted-foreground text-sm">Sign in to manage your API keys.</p>
-            </SettingsLayout>
-        )
-    }
-    if (!userSettings) {
-        return (
-            <SettingsLayout
-                title="API Keys"
-                description="Manage your models and providers. Keys are encrypted and stored securely."
-            >
-                <Skeleton className="h-10 w-full" />
-            </SettingsLayout>
-        )
-    }
-    if ("error" in userSettings) {
-        return (
-            <SettingsLayout
-                title="API Keys"
-                description="Manage your models and providers. Keys are encrypted and stored securely."
-            >
-                <p className="text-muted-foreground text-sm">Error loading API keys.</p>
-            </SettingsLayout>
-        )
-    }
+    if (session.user?.id) return <Outlet />
+    if (session.isPending) return null
 
-    return <Outlet />
+    return (
+        <SettingsLayout
+            title="Settings"
+            description="Manage your account preferences and configuration."
+        >
+            <p className="text-muted-foreground text-sm">Sign in to manage your settings.</p>
+        </SettingsLayout>
+    )
 }
 
 function SettingsPage({ title, description }: SettingsLayoutProps) {

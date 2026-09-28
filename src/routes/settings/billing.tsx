@@ -2,6 +2,7 @@ import { PrototypeCreditsCard } from "@/components/credits/prototype-credits"
 import { pricingOptions } from "@/components/landing-page/content"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { usePrototypeCredits } from "@/hooks/use-prototype-credits"
@@ -123,6 +124,8 @@ function BillingSettingsRoute() {
                   trialEndsAt: trialEndsAtLabel
               })
     const PlanIcon = plan === "pro" ? Crown : Wallet
+    // Until the plan is known, don't mark a card as current or offer an up/downgrade.
+    const isPlanLoading = billingSummary === undefined
 
     return (
         <SettingsLayout
@@ -133,7 +136,7 @@ function BillingSettingsRoute() {
                 <div className="grid gap-4 md:grid-cols-2">
                     {pricingOptions.map(({ title, price, cadence, description, items }) => {
                         const optionPlan = title === "Pro" ? "pro" : "free"
-                        const isCurrentPlan = optionPlan === plan
+                        const isCurrentPlan = !isPlanLoading && optionPlan === plan
                         const isProOption = optionPlan === "pro"
                         const actionLabel = isCurrentPlan
                             ? "Current Plan"
@@ -193,24 +196,28 @@ function BillingSettingsRoute() {
                                     ))}
                                 </ul>
 
-                                <Button
-                                    asChild={Boolean(actionUrl) && !isCurrentPlan}
-                                    variant={isCurrentPlan ? "secondary" : "default"}
-                                    disabled={isActionDisabled}
-                                    className="w-full rounded-[var(--radius-lg)]"
-                                >
-                                    {actionUrl && !isCurrentPlan ? (
-                                        <a
-                                            href={actionUrl}
-                                            target={isProOption ? undefined : "_blank"}
-                                            rel={isProOption ? undefined : "noreferrer"}
-                                        >
-                                            {actionLabel}
-                                        </a>
-                                    ) : (
-                                        <span>{actionLabel}</span>
-                                    )}
-                                </Button>
+                                {isPlanLoading ? (
+                                    <Skeleton className="h-9 w-full rounded-[var(--radius-lg)]" />
+                                ) : (
+                                    <Button
+                                        asChild={Boolean(actionUrl) && !isCurrentPlan}
+                                        variant={isCurrentPlan ? "secondary" : "default"}
+                                        disabled={isActionDisabled}
+                                        className="w-full rounded-[var(--radius-lg)]"
+                                    >
+                                        {actionUrl && !isCurrentPlan ? (
+                                            <a
+                                                href={actionUrl}
+                                                target={isProOption ? undefined : "_blank"}
+                                                rel={isProOption ? undefined : "noreferrer"}
+                                            >
+                                                {actionLabel}
+                                            </a>
+                                        ) : (
+                                            <span>{actionLabel}</span>
+                                        )}
+                                    </Button>
+                                )}
                             </div>
                         )
                     })}
@@ -218,7 +225,7 @@ function BillingSettingsRoute() {
 
                 <PrototypeCreditsCard
                     summary={creditSummary}
-                    isLoading={isCreditSummaryLoading}
+                    isLoading={isCreditSummaryLoading || isPlanLoading}
                     isRefreshing={isRefreshing}
                     shouldShowDevCreditPlanToggle={false}
                     devCreditState={devCreditState}
@@ -227,14 +234,18 @@ function BillingSettingsRoute() {
                     onRefresh={refreshCredits}
                     planState={subscriptionTimelineRows}
                     title={
-                        <span className="flex items-center gap-2">
-                            <PlanIcon className="size-5" />
-                            {plan === "pro" ? "Pro Plan" : "Free Plan"}
-                        </span>
+                        isPlanLoading ? (
+                            <Skeleton className="h-5 w-28" />
+                        ) : (
+                            <span className="flex items-center gap-2">
+                                <PlanIcon className="size-5" />
+                                {plan === "pro" ? "Pro Plan" : "Free Plan"}
+                            </span>
+                        )
                     }
                     showPlanHeader={false}
                     headerAction={
-                        plan === "pro" ? (
+                        !isPlanLoading && plan === "pro" ? (
                             <Button
                                 asChild={Boolean(customerPortalUrl)}
                                 disabled={!customerPortalUrl}

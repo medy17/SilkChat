@@ -12,6 +12,7 @@ import { USER_MESSAGE_BUBBLE_CLASS } from "@/components/message-presentation"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import { RoleplayPersonaProvider } from "@/components/roleplay-persona-context"
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { PersonasSettingsSkeleton } from "@/components/settings/settings-skeletons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -1525,9 +1526,7 @@ function PersonasSettings() {
     if (!builtIns || !userPersonas) {
         return (
             <SettingsLayout title="Personas" description="Create reusable prompt personas">
-                <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+                <PersonasSettingsSkeleton />
             </SettingsLayout>
         )
     }

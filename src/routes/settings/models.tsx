@@ -1,4 +1,5 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { ModelListSkeleton } from "@/components/settings/settings-skeletons"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -459,7 +460,7 @@ export function ModelsSettingsContent() {
     }
 
     if (!userSettings || "error" in userSettings) {
-        return <p className="text-muted-foreground text-sm">Loading model settings...</p>
+        return <ModelListSkeleton />
     }
 
     return (

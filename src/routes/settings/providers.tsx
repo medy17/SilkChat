@@ -1,5 +1,6 @@
 import { Logo } from "@/components/logo"
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { ProviderListSkeleton } from "@/components/settings/settings-skeletons"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -795,7 +796,7 @@ export function ProvidersSettingsContent() {
     }
 
     if (!userSettings || "error" in userSettings) {
-        return <p className="text-muted-foreground text-sm">Loading provider settings...</p>
+        return <ProviderListSkeleton />
     }
 
     return (

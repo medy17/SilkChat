@@ -1,4 +1,5 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { PrivacySettingsSkeleton } from "@/components/settings/settings-skeletons"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -9,7 +10,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { CheckCircle, Loader2 } from "lucide-react"
+import { CheckCircle } from "lucide-react"
 import { usePostHog } from "posthog-js/react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -75,9 +76,7 @@ function PrivacySettingsRoute() {
             description="Choose how model requests are routed and manage optional usage analytics."
         >
             {!userSettings || "error" in userSettings ? (
-                <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+                <PrivacySettingsSkeleton />
             ) : (
                 <div className="space-y-4">
                     <section

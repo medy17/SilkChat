@@ -1,5 +1,10 @@
 import { PrototypeCreditsCard } from "@/components/credits/prototype-credits"
 import {
+    AccountSettingsSkeleton,
+    SessionListSkeleton,
+    SettingsSkeleton
+} from "@/components/settings/settings-skeletons"
+import {
     AlertDialog,
     AlertDialogCancel,
     AlertDialogContent,
@@ -402,11 +407,7 @@ export function AccountSettingsContent() {
     }, [])
 
     if (sessionLoading) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <div className="h-8 w-8 animate-spin rounded-full border-primary border-b-2" />
-            </div>
-        )
+        return <AccountSettingsSkeleton />
     }
 
     return (
@@ -523,9 +524,9 @@ export function AccountSettingsContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {sessionsLoading ? (
-                        <div className="flex items-center justify-center p-4">
-                            <div className="h-6 w-6 animate-spin rounded-full border-primary border-b-2" />
-                        </div>
+                        <SettingsSkeleton label="Loading sessions">
+                            <SessionListSkeleton />
+                        </SettingsSkeleton>
                     ) : (
                         <>
                             <div className="space-y-3">
