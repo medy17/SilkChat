@@ -44,6 +44,7 @@ import { Route as SettingsCustomizationRouteImport } from './routes/settings/cus
 import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsMemoryRouteImport } from './routes/settings/memory'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
+import { Route as SettingsPersonalizationRouteImport } from './routes/settings/personalization'
 import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
@@ -245,6 +246,11 @@ const SettingsModelsRoute = SettingsModelsRouteImport.update({
   path: '/models',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsPersonalizationRoute = SettingsPersonalizationRouteImport.update({
+  id: '/personalization',
+  path: '/personalization',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsPersonasRoute = SettingsPersonasRouteImport.update({
   id: '/personas',
   path: '/personas',
@@ -340,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -386,6 +393,7 @@ export interface FileRoutesByTo {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -435,6 +443,7 @@ export interface FileRoutesById {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -485,6 +494,7 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
@@ -531,6 +541,7 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
@@ -579,6 +590,7 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
@@ -868,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsModelsRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/personalization': {
+      id: '/settings/personalization'
+      path: '/personalization'
+      fullPath: '/settings/personalization'
+      preLoaderRoute: typeof SettingsPersonalizationRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/personas': {
       id: '/settings/personas'
       path: '/personas'
@@ -993,6 +1012,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsFilesRoute: typeof SettingsFilesRoute
   SettingsMemoryRoute: typeof SettingsMemoryRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
+  SettingsPersonalizationRoute: typeof SettingsPersonalizationRoute
   SettingsPersonasRoute: typeof SettingsPersonasRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
@@ -1012,6 +1032,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsFilesRoute: SettingsFilesRoute,
   SettingsMemoryRoute: SettingsMemoryRoute,
   SettingsModelsRoute: SettingsModelsRoute,
+  SettingsPersonalizationRoute: SettingsPersonalizationRoute,
   SettingsPersonasRoute: SettingsPersonasRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsProfileRoute: SettingsProfileRoute,

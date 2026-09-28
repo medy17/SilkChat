@@ -15,10 +15,10 @@ import {
     Bot,
     BrainCircuit,
     CreditCard,
+    Fingerprint,
     PaintBucket,
     Paperclip,
     ShieldCheck,
-    SlidersHorizontal,
     User,
     Users
 } from "lucide-react"
@@ -42,14 +42,14 @@ const settingsNavItems = [
         icon: Bot
     },
     {
+        title: "Personalization",
+        href: "/settings/personalization",
+        icon: Fingerprint
+    },
+    {
         title: "Memory",
         href: "/settings/memory",
         icon: BrainCircuit
-    },
-    {
-        title: "Behavior",
-        href: "/settings/behavior",
-        icon: SlidersHorizontal
     },
     {
         title: "Personas",
@@ -57,7 +57,7 @@ const settingsNavItems = [
         icon: Users
     },
     {
-        title: "Appearance",
+        title: "Look & Feel",
         href: "/settings/appearance",
         icon: PaintBucket
     },
@@ -90,7 +90,8 @@ const legacySettingsRouteMap: Record<string, SettingsNavHref> = {
     "/settings/providers": "/settings/ai-setup",
     "/settings/models": "/settings/ai-setup",
     "/settings/ai-options": "/settings/memory",
-    "/settings/customization": "/settings/behavior",
+    "/settings/customization": "/settings/personalization",
+    "/settings/behavior": "/settings/appearance",
     "/settings/attachments": "/settings/files"
 }
 
@@ -205,7 +206,7 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
 
                     {/* Main Content */}
                     <div className="col-span-3 flex-1">
-                        <div className="space-y-6 p-0.5 lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto">
+                        <div className="space-y-6 p-0.5 lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto lg:pr-6">
                             <Inner />
                         </div>
                     </div>

@@ -158,27 +158,54 @@ export function SessionListSkeleton() {
     )
 }
 
-export function BehaviorSettingsSkeleton() {
+function SkeletonFieldLabel() {
     return (
-        <SettingsSkeleton label="Loading behavior settings" className="space-y-8">
+        <div className="flex items-center gap-2">
+            <Skeleton className="size-4 shrink-0" />
+            <Skeleton className="h-4 w-20" />
+        </div>
+    )
+}
+
+export function PersonalizationSettingsSkeleton() {
+    return (
+        <SettingsSkeleton label="Loading personalization" className="space-y-6">
+            <div className="flex flex-col items-center gap-4">
+                <Skeleton className="size-20 rounded-full" />
+                <Skeleton className="h-9 w-full max-w-xs" />
+            </div>
             <div className="space-y-6">
-                <SkeletonSectionHeading />
-                <SkeletonField />
-                <SkeletonField multiline />
-                <SkeletonField multiline />
+                {[0, 1].map((row) => (
+                    <div key={row} className="space-y-3">
+                        <SkeletonFieldLabel />
+                        <Skeleton className="h-16 w-full" />
+                    </div>
+                ))}
             </div>
-            <div className="space-y-4">
-                <SkeletonSectionHeading />
-                <div className="grid gap-3 sm:grid-cols-3">
-                    {[0, 1, 2].map((index) => (
-                        <Skeleton key={index} className="h-24 w-full" />
-                    ))}
-                </div>
+            <div className="space-y-6 border-border border-t pt-6">
+                {[0, 1, 2].map((row) => (
+                    <div key={row} className="space-y-3">
+                        <SkeletonFieldLabel />
+                        <div className="grid max-w-3xl grid-cols-3 gap-2 sm:gap-3">
+                            {[0, 1, 2].map((index) => (
+                                <Skeleton
+                                    key={index}
+                                    className="h-24 w-full rounded-[var(--radius-xl)]"
+                                />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
-            <div className="space-y-4">
-                <SkeletonSectionHeading />
-                <SkeletonCardRow leading="none" trailing="switch" />
-            </div>
+        </SettingsSkeleton>
+    )
+}
+
+// Only the composer row waits on user settings; the Interaction heading is static.
+export function ComposerSettingSkeleton() {
+    return (
+        <SettingsSkeleton label="Loading composer settings">
+            <SkeletonCardRow leading="none" trailing="switch" />
         </SettingsSkeleton>
     )
 }

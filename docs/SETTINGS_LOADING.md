@@ -55,10 +55,10 @@ skeleton back.
 | --- | --- | --- |
 | Account | `AccountSettingsSkeleton`, `SessionListSkeleton` | Auth session, session list |
 | AI Setup | `ProviderListSkeleton`, `ModelListSkeleton` | User settings |
+| Personalization | `PersonalizationSettingsSkeleton` | User settings |
 | Memory | `MemoryListSkeleton` | Tool availability, first list page |
-| Behavior | `BehaviorSettingsSkeleton` | User settings |
 | Personas | `PersonasSettingsSkeleton` | Built-in and user personas |
-| Appearance | `ThemeGridSkeleton` | Imported theme fetches |
+| Look & Feel | `ThemeGridSkeleton`, `ComposerSettingSkeleton` | Imported theme fetches; user settings for the desktop composer row (haptics is local) |
 | Files | `FilesTableSkeleton` | File list page |
 | Privacy | `PrivacySettingsSkeleton` | User settings |
 | Usage | `UsageDashboardSkeleton` | Usage stats and chart data |

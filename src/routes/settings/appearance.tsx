@@ -1,3 +1,4 @@
+import { InteractionSettings } from "@/components/settings/interaction-settings"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { ThemeGridSkeleton } from "@/components/settings/settings-skeletons"
 import { ImportThemeDialog } from "@/components/themes/import-theme-dialog"
@@ -186,12 +187,12 @@ function AppearanceSettings() {
     if (!session.user?.id) {
         return (
             <SettingsLayout
-                title="Appearance"
-                description="Customize the look and feel of your interface."
+                title="Look & Feel"
+                description="Customize how SilkChat looks and feels."
             >
                 <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">
-                        Sign in to manage your appearance settings.
+                        Sign in to manage your look and feel settings.
                     </p>
                 </div>
             </SettingsLayout>
@@ -199,10 +200,7 @@ function AppearanceSettings() {
     }
 
     return (
-        <SettingsLayout
-            title="Appearance"
-            description="Customize the look and feel of your interface."
-        >
+        <SettingsLayout title="Look & Feel" description="Customize how SilkChat looks and feels.">
             <ImportThemeDialog
                 open={isImportDialogOpen}
                 onOpenChange={setIsImportDialogOpen}
@@ -466,6 +464,8 @@ function AppearanceSettings() {
                         </Card>
                     </div>
                 </div>
+
+                <InteractionSettings />
 
                 {/* Themes Section */}
                 <div className="space-y-4">

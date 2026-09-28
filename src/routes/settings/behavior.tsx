@@ -1,18 +1,19 @@
-import { SettingsLayout } from "@/components/settings/settings-layout"
-import { createFileRoute } from "@tanstack/react-router"
-import { BehaviorSettingsContent } from "./customization"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useEffect } from "react"
 
 export const Route = createFileRoute("/settings/behavior")({
-    component: BehaviorSettingsRoute
+    component: LegacyBehaviorRedirect
 })
 
-function BehaviorSettingsRoute() {
-    return (
-        <SettingsLayout
-            title="Behavior"
-            description="Control composer behavior, assistant defaults, and saved context."
-        >
-            <BehaviorSettingsContent />
-        </SettingsLayout>
-    )
+function LegacyBehaviorRedirect() {
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        navigate({
+            to: "/settings/appearance",
+            replace: true
+        })
+    }, [navigate])
+
+    return null
 }
