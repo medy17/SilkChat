@@ -14,11 +14,36 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {
+        id: "claude-sonnet-5.5",
+        name: "Claude Sonnet 5.5",
+        addedOn: "2026-09-28",
+        shortName: "Sonnet 5.5",
+        shortDescription: "Everyday Claude for coding, agent work, and polished documents",
+        description:
+            "Claude Sonnet 5.5 is Anthropic's Sonnet-class model for everyday work. It builds features, fixes bugs, and creates documents, slides, and spreadsheets. Thinking stays on, with effort control for balancing depth and response time.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm",
+            slug: "claude-sonnet-5-5"
+        },
+        releaseOrder: 20260928,
+        adapters: anthropicTextAdapters("claude-sonnet-5-5"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        inputUsdPer1MTokens: 2,
+        outputUsdPer1MTokens: 10,
+        supportsDisablingReasoning: false,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "high"
+    },
+    {
         id: "claude-opus-5.5",
         name: "Claude Opus 5.5",
         addedOn: "2026-09-22",
         shortName: "Opus 5.5",
-        shortDescription: "Premium Opus-class Claude for complex coding, reasoning, and extended agent work",
+        shortDescription:
+            "Premium Opus-class Claude for complex coding, reasoning, and extended agent work",
         description:
             "Claude Opus 5.5 is Anthropic's premium Opus-class model for demanding reasoning, coding, and extended agent work. It handles multi-step changes across large codebases, follows complex instructions, and analyzes images and documents alongside text.",
         developer: "Anthropic",
@@ -106,9 +131,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         name: "Claude Sonnet 5",
         addedOn: "2026-06-30",
         shortName: "Sonnet 5",
-        shortDescription: "Current Sonnet-class Claude model for agentic work and coding",
+        shortDescription: "Earlier Sonnet-class Claude model for agentic work and coding",
         description:
-            "Claude Sonnet 5 is Anthropic's current Sonnet-class model for production chat, coding, analysis, tool use, and agentic workflows. It is the balanced Claude 5 generation option, with stronger capability than previous Sonnet models while staying below the cost and latency of the premium Claude tiers.",
+            "Claude Sonnet 5 is Anthropic's earlier Sonnet-class model for production chat, coding, analysis, tool use, and agentic workflows. It is a balanced Claude 5 generation option, with stronger capability than previous Sonnet models while staying below the cost and latency of the premium Claude tiers.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm",
