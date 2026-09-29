@@ -1,8 +1,15 @@
 import { cleanup } from "@testing-library/react"
-import { afterEach } from "vitest"
+import { afterEach, beforeEach } from "vitest"
 import { vi } from "vitest"
 
 const originalEnv = { ...process.env }
+
+beforeEach(() => {
+    // jsdom has no layout or scrolling; dialogs still restore the window's scroll position.
+    if (typeof window !== "undefined") {
+        vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+    }
+})
 
 afterEach(() => {
     cleanup()
