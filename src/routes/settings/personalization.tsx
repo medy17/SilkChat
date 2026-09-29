@@ -235,6 +235,7 @@ function PersonalizationForm({
         isDirty(field) ? (
             <SettingsFormActions
                 isSaving={savingField === field}
+                canSave={savingField === null}
                 onSave={() => void saveField(field)}
                 onCancel={() => cancelField(field)}
                 className={className}
@@ -257,6 +258,7 @@ function PersonalizationForm({
                 <Input
                     id="name"
                     value={draft.name}
+                    disabled={savingField === "name"}
                     onChange={(event) => updateDraft("name", event.target.value)}
                     placeholder="What should SilkChat call you?"
                     maxLength={100}
@@ -273,6 +275,7 @@ function PersonalizationForm({
                     <Textarea
                         id="context"
                         value={draft.additionalContext}
+                        disabled={savingField === "additionalContext"}
                         onChange={(event) => updateDraft("additionalContext", event.target.value)}
                         placeholder="Your work, interests, or anything worth knowing"
                         maxLength={2000}
@@ -288,6 +291,7 @@ function PersonalizationForm({
                     <Textarea
                         id="personality"
                         value={draft.aiPersonality}
+                        disabled={savingField === "aiPersonality"}
                         onChange={(event) => updateDraft("aiPersonality", event.target.value)}
                         placeholder="Direct and concise. Push back when I'm wrong."
                         maxLength={2000}

@@ -424,12 +424,14 @@ function CustomModelForm({
 
     const applyCatalogEntry = (entry: OpenRouterCatalogEntry) => {
         const name = cleanCatalogName(entry.name)
+        const previousPrefilledName = prefilledNameRef.current
+        const previousPrefilledDescription = prefilledDescriptionRef.current
         setForm((prev) => ({
             ...prev,
             modelId: entry.id,
-            name: !prev.name.trim() || prev.name === prefilledNameRef.current ? name : prev.name,
+            name: !prev.name.trim() || prev.name === previousPrefilledName ? name : prev.name,
             description:
-                !prev.description?.trim() || prev.description === prefilledDescriptionRef.current
+                !prev.description?.trim() || prev.description === previousPrefilledDescription
                     ? (entry.description ?? "")
                     : prev.description,
             abilities: [
