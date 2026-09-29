@@ -81,4 +81,12 @@ export const useThreadComposerHydration = ({
         threadId,
         threadMessages
     ])
+
+    // An errored history never hydrates; count it as done so the route
+    // transition can't wait on it forever.
+    return (
+        !threadId ||
+        hydratedThreadId === threadId ||
+        Boolean(threadMessages && "error" in threadMessages)
+    )
 }

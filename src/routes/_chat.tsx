@@ -4,17 +4,17 @@ import {
     useLocation,
     useParams
 } from "@tanstack/react-router"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, MotionConfig, motion } from "motion/react"
 import { startTransition, useEffect, useMemo, useRef, useState } from "react"
 
 import { Chat } from "@/components/chat"
-import { ChatLoadingOverlay } from "@/components/chat-loading-overlay"
 import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
 import { LandingPage } from "@/components/landing-page"
 import { LogoSymbol } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
+import { PROMPT_TEXTAREA_CLASS } from "@/components/prompt-kit/prompt-input"
 import { SharedChat } from "@/components/shared-chat"
 import {
     SPLASH_EXIT_DURATION_MS,
@@ -24,10 +24,13 @@ import {
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useChatHydrationStore } from "@/lib/chat-hydration-store"
+import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
 import { useHeaderActionsStore } from "@/lib/header-actions-store"
 import {
@@ -65,12 +68,9 @@ const CHAT_TRANSITION_SWAP_DELAY_MS = 180
 // competes with the exit animation, and keep the spinner up past the swap.
 const MOBILE_CHAT_TRANSITION_MIN_SPINNER_MS = 700
 const MOBILE_CHAT_TRANSITION_SWAP_DELAY_MS = 360
-// Slightly longer than the fade-in's duration-300 so the class is removed only
-// after the enter animation has finished.
+// Slightly longer than the transition skeleton's 300ms exit so layout animations
+// stay suppressed until it has fully faded.
 const CHAT_CONTENT_ENTER_FADE_MS = 350
-// Hard cap on how long the transition overlay may wait for hydration. Error
-// states or views that never report settled must not strand the spinner.
-const CHAT_TRANSITION_MAX_SPINNER_MS = 2000
 
 const areStringArraysEqual = (left: string[], right: string[]) =>
     left.length === right.length && left.every((value, index) => value === right[index])
@@ -274,51 +274,210 @@ function ChatInitialSkeleton({
                 <ChatSkeletonBlock className="size-8 rounded-[var(--radius-xl)]" />
             </div>
 
-            <div className="relative flex h-[calc(100dvh-var(--app-header-height))] items-center justify-center overflow-y-auto px-4 py-16">
-                <div
-                    aria-hidden="true"
-                    className="flex w-full max-w-2xl flex-col items-center gap-5 [@media(min-height:820px)]:gap-7"
-                >
-                    <div className="relative size-24 sm:size-28 [@media(max-height:620px)]:size-14 [@media(min-height:820px)]:size-32">
-                        <ChatSkeletonBlock className="absolute inset-0 rounded-[var(--radius-xl)]" />
-                        <LogoSymbol className="absolute inset-1/4 size-1/2 text-muted-foreground/25" />
+            <NewChatSkeletonBody />
+        </motion.div>
+    )
+}
+
+// A real (invisible, inert) textarea with the composer's classes, so the browser
+// sizes it exactly like PromptInputTextarea instead of us hand-matching its box.
+// The placeholder bar sits on its first line, where the real placeholder draws.
+function ComposerTextareaSkeleton({ className }: { className?: string }) {
+    return (
+        <div className="relative min-w-0 flex-1">
+            <Textarea
+                aria-hidden="true"
+                tabIndex={-1}
+                readOnly
+                rows={1}
+                className={cn(PROMPT_TEXTAREA_CLASS, "pointer-events-none invisible", className)}
+            />
+            <div className="absolute top-2 left-3 flex h-6 items-center md:h-5">
+                <ChatSkeletonBlock className="h-4 w-28 rounded-[var(--radius-sm)]" />
+            </div>
+        </div>
+    )
+}
+
+function ChatComposerSkeleton({
+    className,
+    isCompact = false
+}: {
+    className?: string
+    isCompact?: boolean
+}) {
+    // Mirrors isCompactTouchComposer in multimodal-input.tsx: a single row of
+    // attach, placeholder, and primary action with the toolbar collapsed away.
+    if (isCompact) {
+        return (
+            <div
+                className={cn(
+                    "flex items-center gap-1 rounded-[var(--radius-lg)] border border-border/70 bg-composer p-2 shadow-xs",
+                    className
+                )}
+            >
+                <ChatSkeletonBlock className="size-11 shrink-0 rounded-[var(--radius-md)]" />
+                <ComposerTextareaSkeleton className="!h-11 !min-h-11 overflow-hidden whitespace-nowrap" />
+                <ChatSkeletonBlock className="size-11 shrink-0 rounded-[var(--radius-md)]" />
+            </div>
+        )
+    }
+
+    return (
+        <div
+            className={cn(
+                "rounded-[var(--radius-lg)] border border-border/70 bg-composer p-3 shadow-xs",
+                className
+            )}
+        >
+            <div className="flex w-full items-start">
+                <ComposerTextareaSkeleton />
+            </div>
+            {/* Same row structure and responsive classes as the real toolbar in
+                multimodal-input.tsx (model, empty persona slot, ComposerDesktopActions,
+                ComposerMobileMenu, primary action). Reusing its classes also guarantees
+                Tailwind has generated them whichever route boots first. */}
+            <div className="flex items-center gap-2 pt-2">
+                <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden">
+                    <ChatSkeletonBlock className="h-8 w-36 shrink-0 rounded-[var(--radius-md)]" />
+                    <div className="shrink-0" />
+                    <div className="@3xl:flex hidden items-center gap-2">
+                        <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                        <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                        <ChatSkeletonBlock className="h-8 w-24 rounded-[var(--radius-md)]" />
                     </div>
+                </div>
+                <div className="@3xl:hidden shrink-0">
+                    <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
+                </div>
+                <ChatSkeletonBlock className="size-8 shrink-0 rounded-[var(--radius-md)]" />
+            </div>
+        </div>
+    )
+}
 
-                    <div className="flex w-full flex-col items-center gap-2 [@media(max-height:480px)]:hidden">
-                        <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
-                    </div>
+function NewChatSkeletonBody() {
+    return (
+        <div className="@container relative flex h-[calc(100dvh-var(--app-header-height))] items-center justify-center overflow-y-auto px-4 py-16">
+            <div
+                aria-hidden="true"
+                className="flex w-full max-w-2xl flex-col items-center gap-5 [@media(min-height:820px)]:gap-7"
+            >
+                <div className="relative size-24 sm:size-28 [@media(max-height:620px)]:size-14 [@media(min-height:820px)]:size-32">
+                    <ChatSkeletonBlock className="absolute inset-0 rounded-[var(--radius-xl)]" />
+                    <LogoSymbol className="absolute inset-1/4 size-1/2 text-muted-foreground/25" />
+                </div>
 
-                    <div className="w-full px-1">
-                        <div className="rounded-[var(--radius-lg)] border border-border/70 bg-composer p-3">
-                            <div className="flex h-12 items-center px-1">
-                                <ChatSkeletonBlock className="h-4 w-40 rounded-[var(--radius-md)]" />
+                <div className="flex w-full flex-col items-center gap-2 [@media(max-height:480px)]:hidden">
+                    <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
+                </div>
+
+                <div className="w-full px-1">
+                    <ChatComposerSkeleton />
+
+                    <div className="mt-3 flex flex-col gap-1 px-2">
+                        {["w-36", "w-44", "w-40", "w-32"].map((width) => (
+                            <div
+                                key={width}
+                                className="flex h-9 items-center gap-3 rounded-[var(--radius-md)] px-3"
+                            >
+                                <ChatSkeletonBlock className="size-4 rounded-[var(--radius-sm)]" />
+                                <ChatSkeletonBlock
+                                    className={`${width} h-3 rounded-[var(--radius-sm)]`}
+                                />
                             </div>
-                            <div className="flex h-10 items-center gap-2 pt-2">
-                                <ChatSkeletonBlock className="h-8 w-28 rounded-[var(--radius-md)]" />
-                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
-                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
-                                <ChatSkeletonBlock className="hidden size-8 rounded-[var(--radius-md)] sm:block" />
-                                <div className="flex-1" />
-                                <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
-                            </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-col gap-1 px-2">
-                            {["w-36", "w-44", "w-40", "w-32"].map((width) => (
-                                <div
-                                    key={width}
-                                    className="flex h-9 items-center gap-3 rounded-[var(--radius-md)] px-3"
-                                >
-                                    <ChatSkeletonBlock className="size-4 rounded-[var(--radius-sm)]" />
-                                    <ChatSkeletonBlock
-                                        className={`${width} h-3 rounded-[var(--radius-sm)]`}
-                                    />
-                                </div>
-                            ))}
-                        </div>
+                        ))}
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+// Mirrors the thread layout in chat.tsx/messages.tsx: user bubbles on the right,
+// prose lines on the left, and the composer docked at the bottom with the same
+// overlap, so the real thread replaces it without anything moving.
+const THREAD_SKELETON_TURNS = [
+    { user: "w-48", assistant: ["w-full", "w-11/12", "w-4/5", "w-2/3"] },
+    { user: "w-64", assistant: ["w-full", "w-5/6", "w-3/4"] }
+]
+
+function ThreadSkeletonBody() {
+    const chatWidth = useChatWidthStore((state) => state.chatWidthState.chatWidth)
+    const widthClass = getChatWidthClass(chatWidth)
+    // Threads open with an unfocused composer, so touch devices land in the
+    // compact layout unless a draft is restored.
+    const isTouchDevice = useIsTouchDevice()
+
+    return (
+        // No overflow clipping here: like the real chat column, the composer hangs
+        // below this box by --chat-composer-overlap and only the overlay clips it.
+        <div aria-hidden="true" className="relative h-[calc(100dvh-var(--app-header-height))]">
+            <div className="p-4 pt-6">
+                <div className={cn("mx-auto w-full", widthClass)}>
+                    {THREAD_SKELETON_TURNS.map((turn) => (
+                        <div key={turn.user}>
+                            <div className="my-12 ml-auto w-fit rounded-[var(--radius-md)] border border-border px-4 py-3">
+                                <ChatSkeletonBlock
+                                    className={`${turn.user} h-4 max-w-[60vw] rounded-[var(--radius-sm)]`}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-3 p-4">
+                                {turn.assistant.map((width) => (
+                                    <ChatSkeletonBlock
+                                        key={width}
+                                        className={`${width} h-4 rounded-[var(--radius-sm)]`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div
+                className="absolute inset-x-0 flex flex-col items-center justify-center pb-6"
+                style={{ bottom: "calc(-1 * var(--chat-composer-overlap))" }}
+            >
+                <div className="@container relative z-10 w-full px-1">
+                    <ChatComposerSkeleton
+                        className={cn("mx-auto w-full", widthClass)}
+                        isCompact={isTouchDevice}
+                    />
+                </div>
+                {/* Same backdrop chat.tsx draws behind the thread composer, so it
+                    doesn't pop in when the real one takes over. */}
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]" />
+            </div>
+        </div>
+    )
+}
+
+// Route-transition stand-in for the old spinner: shaped like whatever is about to
+// render so the swap reads as content filling in, not a page change.
+function ChatTransitionSkeleton({ target }: { target: CachedChatTarget | null }) {
+    const isThreadLike =
+        target?.kind === "thread" || target?.kind === "folderThread" || target?.kind === "shared"
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            // The content underneath is already fully rendered and opaque, so this
+            // exit is a single cross-fade: shared pieces (composer, backdrop) sit in
+            // the same place in both layers and hold steady instead of stacking.
+            exit={{ opacity: 0, transition: { duration: 0.3, ease: "easeOut" } }}
+            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+            aria-busy="true"
+            aria-label="Loading conversation"
+            className="absolute inset-0 z-20 overflow-hidden bg-background"
+            style={{
+                backgroundImage: "url(/noise.png)",
+                backgroundRepeat: "repeat",
+                backgroundSize: "auto"
+            }}
+        >
+            {isThreadLike ? <ThreadSkeletonBody /> : <NewChatSkeletonBody />}
         </motion.div>
     )
 }
@@ -375,7 +534,6 @@ function ChatLayout() {
     const [hasChatTransitionMinSpinnerElapsed, setHasChatTransitionMinSpinnerElapsed] =
         useState(true)
     const [isChatContentEntering, setIsChatContentEntering] = useState(false)
-    const [hasChatTransitionMaxWaitElapsed, setHasChatTransitionMaxWaitElapsed] = useState(false)
     const hydratedChatKey = useChatHydrationStore((state) => state.hydratedChatKey)
     // Once the Library/Chat cross-fade finishes, the losing pane is taken out of the render
     // budget with `content-visibility: hidden` (see below) and the Library grid defers its
@@ -388,7 +546,6 @@ function ChatLayout() {
     )
     const chatTransitionHideTimeoutRef = useRef<number | null>(null)
     const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
-    const chatTransitionMaxWaitTimeoutRef = useRef<number | null>(null)
     const hasLoadedLibraryGridRef = useRef(false)
 
     // Reset the settle flag synchronously when a toggle starts (render-phase, not an effect) so
@@ -495,11 +652,6 @@ function ChatLayout() {
             chatTransitionSwapTimeoutRef.current = null
         }
 
-        if (chatTransitionMaxWaitTimeoutRef.current !== null) {
-            window.clearTimeout(chatTransitionMaxWaitTimeoutRef.current)
-            chatTransitionMaxWaitTimeoutRef.current = null
-        }
-
         if (isLibraryRoute) {
             setIsChatTransitionOverlayVisible(false)
             return
@@ -555,11 +707,6 @@ function ChatLayout() {
             },
             isMobile ? MOBILE_CHAT_TRANSITION_MIN_SPINNER_MS : CHAT_TRANSITION_MIN_SPINNER_MS
         )
-        setHasChatTransitionMaxWaitElapsed(false)
-        chatTransitionMaxWaitTimeoutRef.current = window.setTimeout(() => {
-            setHasChatTransitionMaxWaitElapsed(true)
-            chatTransitionMaxWaitTimeoutRef.current = null
-        }, CHAT_TRANSITION_MAX_SPINNER_MS)
 
         return () => {
             if (chatTransitionHideTimeoutRef.current !== null) {
@@ -571,18 +718,12 @@ function ChatLayout() {
                 window.clearTimeout(chatTransitionSwapTimeoutRef.current)
                 chatTransitionSwapTimeoutRef.current = null
             }
-
-            if (chatTransitionMaxWaitTimeoutRef.current !== null) {
-                window.clearTimeout(chatTransitionMaxWaitTimeoutRef.current)
-                chatTransitionMaxWaitTimeoutRef.current = null
-            }
         }
     }, [currentChatTarget, isLibraryRoute, isMobile])
 
     // The overlay exits only once the minimum spinner time has passed, the new
     // thread has committed, AND its deferred message render has settled — so slow
-    // markdown hydrations never flash stale or half-rendered content. The max-wait
-    // cap dismisses unconditionally so a view that never settles can't strand it.
+    // markdown hydrations never flash stale or half-rendered content.
     useEffect(() => {
         if (!isChatTransitionOverlayVisible) return
 
@@ -594,16 +735,15 @@ function ChatLayout() {
             areCachedChatTargetsEqual(displayedChatTarget, currentChatTarget) &&
             isHydrationSettled
 
-        if (!isReady && !hasChatTransitionMaxWaitElapsed) return
+        if (!isReady) return
 
         setIsChatTransitionOverlayVisible(false)
-        // The content fades in as the spinner fades out instead of appearing fully
-        // formed the instant the overlay is gone.
+        // Covers the skeleton's exit fade, during which the content is visible
+        // underneath and must not animate layout.
         setIsChatContentEntering(true)
     }, [
         isChatTransitionOverlayVisible,
         hasChatTransitionMinSpinnerElapsed,
-        hasChatTransitionMaxWaitElapsed,
         hydratedChatKey,
         displayedChatTarget,
         currentChatTarget
@@ -725,25 +865,33 @@ function ChatLayout() {
                                         contentVisibility: chatContentHidden ? "hidden" : "visible"
                                     }}
                                 >
-                                    <div
-                                        className={cn(
-                                            "flex min-h-0 flex-1 flex-col",
-                                            isChatContentEntering &&
-                                                "fade-in-0 animate-in duration-300"
-                                        )}
-                                    >
-                                        <PersistentChatView
-                                            target={chatTargetToRender}
-                                            isActiveRoute={isRenderedChatActiveRoute}
-                                        />
+                                    {/* Content stays fully opaque; the skeleton's exit is the
+                                        only fade. Fading both at once let the two composer
+                                        backdrops stack and flashed darker mid-swap. */}
+                                    <div className="flex min-h-0 flex-1 flex-col">
+                                        {/* Late composer/toolbar adjustments snap into place
+                                            under the skeleton and its exit instead of sliding. */}
+                                        <MotionConfig
+                                            reducedMotion={
+                                                isChatTransitionOverlayVisible ||
+                                                isChatContentEntering
+                                                    ? "always"
+                                                    : "user"
+                                            }
+                                        >
+                                            <PersistentChatView
+                                                target={chatTargetToRender}
+                                                isActiveRoute={isRenderedChatActiveRoute}
+                                            />
+                                        </MotionConfig>
                                     </div>
                                 </motion.div>
                             ) : null}
                             <AnimatePresence>
                                 {isChatTransitionOverlayVisible && !isLibraryRoute ? (
-                                    <ChatLoadingOverlay
+                                    <ChatTransitionSkeleton
                                         key="chat-route-transition"
-                                        label="Loading conversation"
+                                        target={currentChatTarget}
                                     />
                                 ) : null}
                             </AnimatePresence>

@@ -197,6 +197,11 @@ const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
 
 PromptInput.displayName = "PromptInput"
 
+// Shared with the chat transition skeleton, which renders an invisible textarea
+// with these classes so its height always matches the real composer's.
+export const PROMPT_TEXTAREA_CLASS =
+    "field-sizing-fixed min-h-[3.5rem] w-full resize-none overflow-y-auto border-none bg-transparent text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:min-h-[4rem]"
+
 export type PromptInputTextareaProps = {
     disableAutosize?: boolean
 } & React.ComponentProps<typeof Textarea>
@@ -269,10 +274,7 @@ function PromptInputTextarea({
             ref={textareaRef}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            className={cn(
-                "field-sizing-fixed min-h-[3.5rem] w-full resize-none overflow-y-auto border-none bg-transparent text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:min-h-[4rem]",
-                className
-            )}
+            className={cn(PROMPT_TEXTAREA_CLASS, className)}
             rows={1}
             disabled={disabled}
             {...props}

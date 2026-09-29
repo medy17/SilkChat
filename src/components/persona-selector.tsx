@@ -41,7 +41,7 @@ import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useQuery } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache"
 import {
     Bot,
     CheckCircle,

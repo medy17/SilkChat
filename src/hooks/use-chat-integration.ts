@@ -291,6 +291,11 @@ export function useChatIntegration<IsShared extends boolean>({
     )
     const seededNextId = useRef<string | null>(null)
     const hydratedThreadIdRef = useRef<string | undefined>(undefined)
+    // Reactive mirror of hydratedThreadIdRef, set in the same effect as the
+    // seeding setMessages so both land in one render.
+    const [hydratedMessagesThreadId, setHydratedMessagesThreadId] = useState<string | undefined>(
+        undefined
+    )
     const hydratedSharedSnapshotRef = useRef<string | undefined>(undefined)
     const previousThreadIdRef = useRef<string | undefined>(threadId)
     // The SDK receives its finish event before the final Convex message snapshot is
@@ -620,6 +625,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
         if (!threadId) {
             hydratedThreadIdRef.current = undefined
+            setHydratedMessagesThreadId(undefined)
             return
         }
 
@@ -627,6 +633,7 @@ export function useChatIntegration<IsShared extends boolean>({
 
         if (hydratedThreadIdRef.current !== threadId) {
             hydratedThreadIdRef.current = threadId
+            setHydratedMessagesThreadId(threadId)
 
             if (!hasActiveThreadStream) {
                 chatHelpers.setMessages(initialMessages)
@@ -796,12 +803,25 @@ export function useChatIntegration<IsShared extends boolean>({
             (chatHelpers.status === "submitted" || chatHelpers.status === "streaming")
     })
 
+    // True once the thread record and its seeded history are both in, so the
+    // route transition never reveals a composer still catching up. A local
+    // stream skips the history subscription, and errors must not stall it.
+    const isThreadDataReady =
+        isShared ||
+        !threadId ||
+        (thread !== undefined &&
+            (hydratedMessagesThreadId === threadId ||
+                hasPendingLocalStream ||
+                directSendActive ||
+                Boolean(threadMessages && "error" in threadMessages)))
+
     return {
         ...chatHelpers,
         composerStatus,
         stopRemoteStream,
         clientId,
         seededNextId,
+        isThreadDataReady,
         thread: (thread || sharedThread) as unknown as IsShared extends true
             ? Infer<typeof SharedThread>
             : Infer<typeof Thread>

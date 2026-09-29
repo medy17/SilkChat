@@ -97,7 +97,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         fallbackModelId: defaultModelId
     })
 
-    useThreadComposerHydration({
+    const isComposerHydrated = useThreadComposerHydration({
         threadId,
         sharedModels,
         availableModels,
@@ -177,11 +177,13 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         ? displayMessages
         : resolveDeferredChatMessages(displayMessages, deferredMessageCandidate)
     const messageRenderStatus = isLiveMessageStream ? "streaming" : status
-    // Signal the route-transition overlay once the deferred message render has
-    // caught up with the live list for this chat. Keyed off the route props so it
-    // matches the key `_chat.tsx` derives from the current route target.
+    // Signal the route-transition overlay once the thread's data is in, the
+    // composer has adopted its model/tools, and the deferred message render has
+    // caught up. Keyed off the route props so it matches the key `_chat.tsx`
+    // derives from the current route target.
     const hydrationKey = routeThreadId ?? folderId?.toString() ?? "chat"
-    const isHydrationSettled = deferredMessages === displayMessages
+    const isHydrationSettled =
+        chat.isThreadDataReady && isComposerHydrated && deferredMessages === displayMessages
     useEffect(() => {
         useChatHydrationStore
             .getState()
