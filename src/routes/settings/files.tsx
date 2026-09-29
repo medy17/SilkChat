@@ -39,6 +39,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { type CursorHistory, getPageCursor, rememberPageCursor } from "@/lib/cursor-pagination"
 import { getFileThumbnailSources } from "@/lib/generated-image-urls"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
@@ -58,7 +59,6 @@ import { type ComponentType, useCallback, useEffect, useMemo, useState } from "r
 import { toast } from "sonner"
 
 type FileTypeFilter = "all" | "image" | "pdf" | "text" | "other"
-type FileSort = "newest" | "oldest"
 
 const PAGE_SIZE = 20
 
@@ -153,10 +153,24 @@ function FilesSettingsRoute() {
     const search = Route.useSearch()
     const session = useSession()
     const deleteFile = useMutation(api.attachments.deleteFile)
-    const cursor = search.page > 1 ? String((search.page - 1) * PAGE_SIZE) : null
+    const usesCursorPagination = search.type === "all"
+    const cursorScope = JSON.stringify([session.user?.id, search.type, search.sort, PAGE_SIZE])
+    const [cursorHistory, setCursorHistory] = useState<CursorHistory>(() => ({
+        scope: cursorScope,
+        pages: { 1: null }
+    }))
+    const [pendingNextPage, setPendingNextPage] = useState<{
+        scope: string
+        page: number
+    } | null>(null)
+    const cursor = usesCursorPagination
+        ? getPageCursor(cursorHistory, cursorScope, search.page)
+        : search.page > 1
+          ? String((search.page - 1) * PAGE_SIZE)
+          : null
     const filesResult = useQuery(
         api.attachments.listFiles,
-        session.user?.id
+        session.user?.id && cursor !== undefined
             ? {
                   paginationOpts: { numItems: PAGE_SIZE, cursor },
                   type: search.type,
@@ -164,6 +178,44 @@ function FilesSettingsRoute() {
               }
             : "skip"
     )
+    // Only prefetch the bounded All files view. The intentional type-filter scans
+    // run on navigation, rather than scanning the inventory twice up front.
+    const nextFilesResult = useQuery(
+        api.attachments.listFiles,
+        session.user?.id && usesCursorPagination && filesResult && !filesResult.isDone
+            ? {
+                  paginationOpts: { numItems: PAGE_SIZE, cursor: filesResult.continueCursor },
+                  type: search.type,
+                  sort: search.sort
+              }
+            : "skip"
+    )
+    const isNextPagePending =
+        pendingNextPage?.scope === cursorScope && pendingNextPage.page === search.page + 1
+
+    useEffect(() => {
+        if (!usesCursorPagination || !isNextPagePending || !filesResult || !nextFilesResult) return
+        setCursorHistory((history) =>
+            rememberPageCursor(history, cursorScope, search.page + 1, filesResult.continueCursor)
+        )
+        setPendingNextPage(null)
+        navigate({ search: (previous) => ({ ...previous, page: search.page + 1 }) })
+    }, [
+        usesCursorPagination,
+        isNextPagePending,
+        filesResult,
+        nextFilesResult,
+        cursorScope,
+        search.page,
+        navigate
+    ])
+
+    useEffect(() => {
+        // As in Library, a numeric deep link has no cursor history. Restart at
+        // page one instead of rebuilding the offset with an unbounded scan.
+        if (cursor !== undefined) return
+        navigate({ replace: true, search: (previous) => ({ ...previous, page: 1 }) })
+    }, [cursor, navigate])
 
     const files = useMemo(() => filesResult?.page ?? [], [filesResult])
     const canGoPrevious = search.page > 1
@@ -194,10 +246,12 @@ function FilesSettingsRoute() {
     )
 
     const handleFilterChange = (type: FileTypeFilter) => {
+        setPendingNextPage(null)
         navigate({ replace: true, search: (previous) => ({ ...previous, type, page: 1 }) })
     }
 
     const handleSortToggle = () => {
+        setPendingNextPage(null)
         navigate({
             replace: true,
             search: (previous) => ({
@@ -256,11 +310,15 @@ function FilesSettingsRoute() {
                 ) : files.length === 0 ? (
                     <div className="rounded-lg border py-16 text-center">
                         <File className="mx-auto mb-4 size-10 text-muted-foreground" />
-                        <h3 className="font-medium">No files found</h3>
+                        <h3 className="font-medium">
+                            {filesResult.isDone ? "No files found" : "No files on this page"}
+                        </h3>
                         <p className="mt-1 text-muted-foreground text-sm">
-                            {search.type === "all"
-                                ? "Files you upload or create will appear here."
-                                : "No files match this type filter."}
+                            {!filesResult.isDone
+                                ? "Use Next to continue through your files."
+                                : search.type === "all"
+                                  ? "Files you upload or create will appear here."
+                                  : "No files match this type filter."}
                         </p>
                     </div>
                 ) : (
@@ -388,6 +446,7 @@ function FilesSettingsRoute() {
                                     onClick={(event) => {
                                         event.preventDefault()
                                         if (!canGoPrevious) return
+                                        setPendingNextPage(null)
                                         navigate({
                                             search: (previous) => ({
                                                 ...previous,
@@ -411,12 +470,25 @@ function FilesSettingsRoute() {
                             <PaginationItem>
                                 <PaginationNext
                                     href="#files-list"
+                                    aria-label={
+                                        isNextPagePending ? "Loading next page" : "Next page"
+                                    }
+                                    aria-disabled={!canGoNext || isNextPagePending}
                                     className={
-                                        canGoNext ? undefined : "pointer-events-none opacity-50"
+                                        canGoNext && !isNextPagePending
+                                            ? undefined
+                                            : "pointer-events-none opacity-50"
                                     }
                                     onClick={(event) => {
                                         event.preventDefault()
-                                        if (!canGoNext) return
+                                        if (!canGoNext || isNextPagePending) return
+                                        if (usesCursorPagination) {
+                                            setPendingNextPage({
+                                                scope: cursorScope,
+                                                page: search.page + 1
+                                            })
+                                            return
+                                        }
                                         navigate({
                                             search: (previous) => ({
                                                 ...previous,

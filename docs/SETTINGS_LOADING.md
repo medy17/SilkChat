@@ -64,6 +64,22 @@ skeleton back.
 | Usage | `UsageDashboardSkeleton` | Usage stats and chart data |
 | Billing | Inline `Skeleton` in plan buttons and plan title | Billing summary, credit summary |
 
+## Files pagination
+
+The All files view uses an opaque cursor over the R2 component's
+`bucket_author_lastModified` index, descending for Newest and ascending for Oldest.
+Its metadata-only query is maintained in
+`patches/@convex-dev+r2+0.10.2.patch`; it returns no signed URLs and bounds each read to
+512 rows / 2 MiB, including rows skipped by the visibility filter. Pending uploads and
+non-user-visible storage prefixes remain excluded. A bounded empty page can still have
+a continuation, so it must not be treated as exhaustion.
+
+Files and Library share `src/lib/cursor-pagination.ts`. Files prefetches only the next All files
+page, keeping the current page mounted until it is ready. Cursor history is scoped by account,
+filter, sort, and page size. Reloading a later All files page without history restarts at page one.
+Explicit type filters retain their full-inventory offset query and are not
+prefetched. Backend deployment must include the patched component and its index.
+
 ## Memory list
 
 `/settings/memory` reads from Supermemory through the `listMemories` action, so it has no reactive

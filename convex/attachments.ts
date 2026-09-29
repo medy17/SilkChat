@@ -418,6 +418,20 @@ export const listFiles = query({
                 return { page: [], isDone: true, continueCursor: "" }
             }
 
+            // All files resumes in either date order using the same index. Explicit
+            // type filters retain the full-inventory path below.
+            if ((args.type ?? "all") === "all") {
+                const bucket = process.env.R2_BUCKET
+                if (!bucket) throw new Error("R2 is not configured")
+                return await ctx.runQuery(components.r2.lib.paginateUserFiles, {
+                    bucket,
+                    authorId: user.id,
+                    keyPrefixes: getUserVisibleFilePrefixes(user.id),
+                    sort: args.sort,
+                    paginationOpts: args.paginationOpts
+                })
+            }
+
             const files: Awaited<ReturnType<typeof r2.listMetadata>>["page"] = []
             for (const keyPrefix of getUserVisibleFilePrefixes(user.id)) {
                 for await (const page of iterateMetadataPages(

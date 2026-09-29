@@ -346,13 +346,20 @@ index eb0dd22..4c36a40 100644
 \ No newline at end of file
 +//# sourceMappingURL=index.js.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts b/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
-index b6a5900..53fef32 100644
+index b6a5900..8f94336 100644
 --- a/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
 +++ b/node_modules/@convex-dev/r2/dist/component/_generated/component.d.ts
-@@ -20,11 +20,26 @@ import type { FunctionReference } from "convex/server";
+@@ -20,11 +20,33 @@ import type { FunctionReference } from "convex/server";
   */
  export type ComponentApi<Name extends string | undefined = string | undefined> = {
      lib: {
++        paginateUserFiles: FunctionReference<"query", "internal", {
++            bucket: string;
++            authorId: string;
++            keyPrefixes: string[];
++            sort?: "newest" | "oldest";
++            paginationOpts: import("convex/server").PaginationOptions;
++        }, import("../lib.js").UserFileMetadataPage, Name>;
 +        deletePendingMetadata: FunctionReference<"mutation", "internal", {
 +            authorId: string;
 +            bucket: string;
@@ -376,7 +383,7 @@ index b6a5900..53fef32 100644
              accessKeyId: string;
              bucket: string;
              endpoint: string;
-@@ -32,6 +47,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+@@ -32,6 +54,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
              secretAccessKey: string;
          }, null, Name>;
          deleteR2Object: FunctionReference<"action", "internal", {
@@ -384,7 +391,7 @@ index b6a5900..53fef32 100644
              accessKeyId: string;
              bucket: string;
              endpoint: string;
-@@ -39,6 +55,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+@@ -39,6 +62,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
              secretAccessKey: string;
          }, null, Name>;
          getMetadata: FunctionReference<"query", "internal", {
@@ -392,7 +399,7 @@ index b6a5900..53fef32 100644
              accessKeyId: string;
              bucket: string;
              endpoint: string;
-@@ -48,14 +65,32 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+@@ -48,14 +72,32 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
              bucket: string;
              bucketLink: string;
              contentType?: string;
@@ -425,7 +432,7 @@ index b6a5900..53fef32 100644
              accessKeyId: string;
              bucket: string;
              cursor?: string;
-@@ -69,24 +104,45 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+@@ -69,24 +111,45 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  bucket: string;
                  bucketLink: string;
                  contentType?: string;
@@ -471,7 +478,7 @@ index b6a5900..53fef32 100644
              accessKeyId: string;
              bucket: string;
              endpoint: string;
-@@ -97,14 +153,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+@@ -97,14 +160,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
          upsertMetadata: FunctionReference<"mutation", "internal", {
              bucket: string;
              contentType?: string;
@@ -495,11 +502,24 @@ index b6a5900..53fef32 100644
 \ No newline at end of file
 +//# sourceMappingURL=component.d.ts.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/lib.d.ts b/node_modules/@convex-dev/r2/dist/component/lib.d.ts
-index 2eae702..1d0becc 100644
+index 2eae702..c8f2819 100644
 --- a/node_modules/@convex-dev/r2/dist/component/lib.d.ts
 +++ b/node_modules/@convex-dev/r2/dist/component/lib.d.ts
-@@ -1,12 +1,36 @@
+@@ -1,12 +1,49 @@
  import type { Doc, TableNames } from "./_generated/dataModel.js";
++export type UserFileMetadataPage = import("convex/server").PaginationResult<{
++    key: string;
++    contentType?: string;
++    size?: number;
++    lastModified: string;
++}>;
++export declare const paginateUserFiles: import("convex/server").RegisteredQuery<"public", {
++    bucket: string;
++    authorId: string;
++    keyPrefixes: string[];
++    sort?: "newest" | "oldest";
++    paginationOpts: import("convex/server").PaginationOptions;
++}, Promise<UserFileMetadataPage>>;
  export declare const store: import("convex/server").RegisteredAction<"public", {
 +    forcePathStyle?: boolean | undefined;
      bucket: string;
@@ -535,7 +555,7 @@ index 2eae702..1d0becc 100644
      bucket: string;
      endpoint: string;
      accessKeyId: string;
-@@ -18,14 +42,22 @@ export declare const getMetadata: import("convex/server").RegisteredQuery<"publi
+@@ -18,14 +55,22 @@ export declare const getMetadata: import("convex/server").RegisteredQuery<"publi
      bucket: string;
      sha256?: string | undefined;
      key: string;
@@ -560,7 +580,7 @@ index 2eae702..1d0becc 100644
      bucket: string;
      endpoint: string;
      accessKeyId: string;
-@@ -37,10 +69,15 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
+@@ -37,10 +82,15 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
          bucket: string;
          sha256?: string | undefined;
          key: string;
@@ -578,7 +598,7 @@ index 2eae702..1d0becc 100644
      }[];
      isDone: boolean;
      continueCursor: import("convex/server").Cursor;
-@@ -49,16 +86,25 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
+@@ -49,16 +99,25 @@ export declare const listMetadata: import("convex/server").RegisteredQuery<"publ
  }>>;
  export declare const upsertMetadata: import("convex/server").RegisteredMutation<"public", {
      sha256?: string | undefined;
@@ -605,7 +625,7 @@ index 2eae702..1d0becc 100644
      onComplete?: string | undefined;
      bucket: string;
      endpoint: string;
-@@ -66,18 +112,34 @@ export declare const syncMetadata: import("convex/server").RegisteredAction<"pub
+@@ -66,18 +125,34 @@ export declare const syncMetadata: import("convex/server").RegisteredAction<"pub
      secretAccessKey: string;
      key: string;
  }, Promise<void>>;
@@ -641,7 +661,7 @@ index 2eae702..1d0becc 100644
      bucket: string;
      endpoint: string;
      accessKeyId: string;
-@@ -85,4 +147,4 @@ export declare const deleteObject: import("convex/server").RegisteredMutation<"p
+@@ -85,4 +160,4 @@ export declare const deleteObject: import("convex/server").RegisteredMutation<"p
      key: string;
  }, Promise<void>>;
  export declare const withoutSystemFields: <T extends Doc<TableNames>>(fields: T) => Omit<T, "_creationTime" | "_id">;
@@ -649,10 +669,17 @@ index 2eae702..1d0becc 100644
 \ No newline at end of file
 +//# sourceMappingURL=lib.d.ts.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/lib.js b/node_modules/@convex-dev/r2/dist/component/lib.js
-index 88f5fa0..98cc0a9 100644
+index 88f5fa0..2ce85a4 100644
 --- a/node_modules/@convex-dev/r2/dist/component/lib.js
 +++ b/node_modules/@convex-dev/r2/dist/component/lib.js
-@@ -9,10 +9,27 @@ import { asyncMap } from "convex-helpers";
+@@ -1,5 +1,6 @@
+ import { action, mutation, query } from "./_generated/server.js";
+ import { v } from "convex/values";
++import { paginationOptsValidator } from "convex/server";
+ import schema from "./schema.js";
+ import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client, } from "@aws-sdk/client-s3";
+ import { createR2Client, paginationReturnValidator, r2ConfigValidator, } from "../shared.js";
+@@ -9,10 +10,27 @@ import { asyncMap } from "convex-helpers";
  import { paginator } from "convex-helpers/server/pagination";
  import { ActionRetrier } from "@convex-dev/action-retrier";
  const DEFAULT_LIST_LIMIT = 100;
@@ -680,7 +707,7 @@ index 88f5fa0..98cc0a9 100644
  export const store = action({
      args: {
          ...r2ConfigValidator.fields,
-@@ -33,6 +50,78 @@ export const store = action({
+@@ -33,6 +51,78 @@ export const store = action({
          return key;
      },
  });
@@ -759,7 +786,7 @@ index 88f5fa0..98cc0a9 100644
  export const getMetadata = query({
      args: {
          key: v.string(),
-@@ -50,7 +139,7 @@ export const getMetadata = query({
+@@ -50,7 +140,7 @@ export const getMetadata = query({
              .query("metadata")
              .withIndex("bucket_key", (q) => q.eq("bucket", args.bucket).eq("key", args.key))
              .unique();
@@ -768,7 +795,52 @@ index 88f5fa0..98cc0a9 100644
              return null;
          }
          return {
-@@ -64,6 +153,8 @@ export const listMetadata = query({
+@@ -60,10 +150,53 @@ export const getMetadata = query({
+         };
+     },
+ });
++// Settings' All files view reads one chronological page without signing object URLs.
++export const paginateUserFiles = query({
++    args: {
++        bucket: v.string(),
++        authorId: v.string(),
++        keyPrefixes: v.array(v.string()),
++        sort: v.optional(v.union(v.literal("newest"), v.literal("oldest"))),
++        paginationOpts: paginationOptsValidator,
++    },
++    returns: paginationReturnValidator(v.object({
++        key: v.string(),
++        contentType: v.optional(v.string()),
++        size: v.optional(v.number()),
++        lastModified: v.string(),
++    })),
++    handler: async (ctx, { bucket, authorId, keyPrefixes, sort, paginationOpts }) => {
++        const result = await ctx.db
++            .query("metadata")
++            .withIndex("bucket_author_lastModified", (q) => q.eq("bucket", bucket).eq("authorId", authorId))
++            .order(sort === "oldest" ? "asc" : "desc")
++            .filter((q) => q.and(
++                q.neq(q.field("uploadStatus"), "pending"),
++                q.or(...keyPrefixes.map((prefix) => q.and(
++                    q.gte(q.field("key"), prefix),
++                    q.lt(q.field("key"), `${prefix}\uffff`),
++                ))),
++            ))
++            .paginate({
++                ...paginationOpts,
++                numItems: Math.max(1, Math.min(100, Math.floor(paginationOpts.numItems))),
++                maximumRowsRead: 512,
++                maximumBytesRead: 2 * 1024 * 1024,
++            });
++        return {
++            ...result,
++            page: result.page.map(({ key, contentType, size, lastModified }) => ({
++                key, contentType, size, lastModified,
++            })),
++        };
++    },
++});
+ export const listMetadata = query({
      args: {
          limit: v.optional(v.number()),
          cursor: v.optional(v.string()),
@@ -777,7 +849,7 @@ index 88f5fa0..98cc0a9 100644
          ...r2ConfigValidator.fields,
      },
      returns: paginationReturnValidator(v.object({
-@@ -72,18 +163,47 @@ export const listMetadata = query({
+@@ -72,18 +205,47 @@ export const listMetadata = query({
          bucketLink: v.string(),
      })),
      handler: async (ctx, args) => {
@@ -834,7 +906,7 @@ index 88f5fa0..98cc0a9 100644
                  ...withoutSystemFields(doc),
                  url: await getUrl(r2, r2Config.bucket, doc.key),
                  bucketLink: doc.link.replace(/\/objects\/.*$/, ""),
-@@ -92,7 +212,10 @@ export const listMetadata = query({
+@@ -92,7 +254,10 @@ export const listMetadata = query({
      },
  });
  export const upsertMetadata = mutation({
@@ -846,7 +918,7 @@ index 88f5fa0..98cc0a9 100644
      returns: v.object({
          isNew: v.boolean(),
      }),
-@@ -101,21 +224,45 @@ export const upsertMetadata = mutation({
+@@ -101,21 +266,45 @@ export const upsertMetadata = mutation({
              .query("metadata")
              .withIndex("bucket_key", (q) => q.eq("bucket", args.bucket).eq("key", args.key))
              .unique();
@@ -892,7 +964,7 @@ index 88f5fa0..98cc0a9 100644
              bucket: args.bucket,
              lastModified: args.lastModified,
              link: args.link,
-@@ -127,29 +274,66 @@ export const syncMetadata = action({
+@@ -127,29 +316,66 @@ export const syncMetadata = action({
      args: {
          key: v.string(),
          onComplete: v.optional(v.string()),
@@ -963,7 +1035,7 @@ index 88f5fa0..98cc0a9 100644
          if (onComplete) {
              await ctx.runMutation(onComplete, {
                  key,
-@@ -159,6 +343,47 @@ export const syncMetadata = action({
+@@ -159,6 +385,47 @@ export const syncMetadata = action({
          }
      },
  });
@@ -1011,7 +1083,7 @@ index 88f5fa0..98cc0a9 100644
  export const deleteMetadata = mutation({
      args: {
          key: v.string(),
-@@ -184,7 +409,7 @@ export const deleteR2Object = action({
+@@ -184,7 +451,7 @@ export const deleteR2Object = action({
      handler: async (ctx, args) => {
          const { key, ...r2Config } = args;
          const r2 = createR2Client(r2Config);
@@ -1020,7 +1092,7 @@ index 88f5fa0..98cc0a9 100644
      },
  });
  export const deleteObject = mutation({
-@@ -208,4 +433,4 @@ export const withoutSystemFields = (fields) => {
+@@ -208,4 +475,4 @@ export const withoutSystemFields = (fields) => {
      const { _id, _creationTime, ...rest } = fields;
      return rest;
  };
@@ -1028,10 +1100,10 @@ index 88f5fa0..98cc0a9 100644
 \ No newline at end of file
 +//# sourceMappingURL=lib.js.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/schema.d.ts b/node_modules/@convex-dev/r2/dist/component/schema.d.ts
-index 40917da..08cd5f7 100644
+index 40917da..484a7b6 100644
 --- a/node_modules/@convex-dev/r2/dist/component/schema.d.ts
 +++ b/node_modules/@convex-dev/r2/dist/component/schema.d.ts
-@@ -3,22 +3,34 @@ declare const _default: import("convex/server").SchemaDefinition<{
+@@ -3,22 +3,35 @@ declare const _default: import("convex/server").SchemaDefinition<{
          sha256?: string | undefined;
          contentType?: string | undefined;
          size?: number | undefined;
@@ -1061,6 +1133,7 @@ index 40917da..08cd5f7 100644
 +    }, "required", "bucket" | "sha256" | "key" | "contentType" | "lastModified" | "link" | "size" | "authorId" | "uploadStatus" | "expectedSize" | "expectedContentType" | "uploadExpiresAt">, {
          bucket: ["bucket", "_creationTime"];
 +        bucket_author: ["bucket", "authorId", "_creationTime"];
++        bucket_author_lastModified: ["bucket", "authorId", "lastModified", "_creationTime"];
 +        bucket_author_key: ["bucket", "authorId", "key", "_creationTime"];
          bucket_key: ["bucket", "key", "_creationTime"];
      }, {}, {}>;
@@ -1070,10 +1143,10 @@ index 40917da..08cd5f7 100644
 \ No newline at end of file
 +//# sourceMappingURL=schema.d.ts.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/schema.js b/node_modules/@convex-dev/r2/dist/component/schema.js
-index d065b83..e7fa8f3 100644
+index d065b83..e6cf832 100644
 --- a/node_modules/@convex-dev/r2/dist/component/schema.js
 +++ b/node_modules/@convex-dev/r2/dist/component/schema.js
-@@ -2,15 +2,22 @@ import { defineSchema, defineTable } from "convex/server";
+@@ -2,15 +2,23 @@ import { defineSchema, defineTable } from "convex/server";
  import { v } from "convex/values";
  export default defineSchema({
      metadata: defineTable({
@@ -1092,6 +1165,7 @@ index d065b83..e7fa8f3 100644
      })
          .index("bucket", ["bucket"])
 +        .index("bucket_author", ["bucket", "authorId"])
++        .index("bucket_author_lastModified", ["bucket", "authorId", "lastModified"])
 +        .index("bucket_author_key", ["bucket", "authorId", "key"])
          .index("bucket_key", ["bucket", "key"]),
  });

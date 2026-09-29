@@ -1,8 +1,4 @@
-import {
-    getLibraryPageCursor,
-    rememberLibraryPageCursor,
-    type LibraryCursorHistory
-} from "@/lib/library-pagination"
+import { getPageCursor, rememberPageCursor, type CursorHistory } from "@/lib/cursor-pagination"
 import { useGenerationStore } from "@/components/library/generation-store"
 import { getImageComparisonUrl } from "@/lib/image-comparison-search"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
@@ -1183,11 +1179,11 @@ export function LibraryView({
         search.aspectRatios,
         search.orientations
     ])
-    const [cursorHistory, setCursorHistory] = useState<LibraryCursorHistory>(() => ({
+    const [cursorHistory, setCursorHistory] = useState<CursorHistory>(() => ({
         scope: cursorScope,
         pages: { 1: null }
     }))
-    const currentCursor = getLibraryPageCursor(cursorHistory, cursorScope, pageNumber)
+    const currentCursor = getPageCursor(cursorHistory, cursorScope, pageNumber)
     const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
     const [isDesktopFiltersOpen, setIsDesktopFiltersOpen] = useState(false)
     const [draftQuery, setDraftQuery] = useState(searchQuery)
@@ -1618,7 +1614,7 @@ export function LibraryView({
     useEffect(() => {
         if (!isNextPagePending || !prefetchedNextImagePage || !resolvedImagePage) return
         setCursorHistory((history) =>
-            rememberLibraryPageCursor(
+            rememberPageCursor(
                 history,
                 cursorScope,
                 nextPageNumber,
