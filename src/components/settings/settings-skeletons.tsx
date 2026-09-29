@@ -271,17 +271,26 @@ export function PersonasSettingsSkeleton() {
     )
 }
 
+function SkeletonSectionHeaderWithAction() {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-8 w-28 shrink-0" />
+        </div>
+    )
+}
+
 export function ProviderListSkeleton() {
     return (
-        <SettingsSkeleton label="Loading providers">
-            <div className="space-y-1.5">
-                <SkeletonSectionHeading description />
-                <SkeletonCardRow />
+        <SettingsSkeleton label="Loading providers" className="space-y-8">
+            <div className="space-y-3">
+                <SkeletonSectionHeading />
+                <SkeletonCardRow trailing="button" />
             </div>
-            <div className="space-y-1.5">
-                <SkeletonSectionHeading description />
-                <SkeletonRows count={4}>
-                    <SkeletonCardRow trailing="switch" />
+            <div className="space-y-3">
+                <SkeletonSectionHeaderWithAction />
+                <SkeletonRows count={2}>
+                    <SkeletonCardRow trailing="actions" />
                 </SkeletonRows>
             </div>
         </SettingsSkeleton>
@@ -290,11 +299,15 @@ export function ProviderListSkeleton() {
 
 export function ModelListSkeleton() {
     return (
-        <SettingsSkeleton label="Loading models">
-            <div className="space-y-1.5">
-                <SkeletonSectionHeading description />
+        <SettingsSkeleton label="Loading models" className="space-y-8">
+            <div className="space-y-3">
+                <SkeletonSectionHeaderWithAction />
+                <Skeleton className="h-4 w-72 max-w-full" />
+            </div>
+            <div className="space-y-3">
+                <SkeletonSectionHeading />
                 <SkeletonRows count={5}>
-                    <SkeletonCardRow trailing="switch" />
+                    <SkeletonCardRow leading="none" />
                 </SkeletonRows>
             </div>
         </SettingsSkeleton>

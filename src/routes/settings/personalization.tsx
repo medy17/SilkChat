@@ -1,7 +1,7 @@
 import { SettingsLayout } from "@/components/settings/settings-layout"
+import { SettingsFormActions } from "@/components/settings/settings-section"
 import { PersonalizationSettingsSkeleton } from "@/components/settings/settings-skeletons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,9 +19,7 @@ import {
     type LucideIcon,
     Megaphone,
     MessageSquareQuote,
-    Save,
-    Smile,
-    X
+    Smile
 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -165,33 +163,6 @@ function toTextDraft(settings: SavedPersonalization): TextDraft {
     }
 }
 
-// Save and Cancel sit under the field, like Account's name editing, but only once
-// the field differs from the saved value.
-function InlineFieldActions({
-    isSaving,
-    onSave,
-    onCancel,
-    className
-}: {
-    isSaving: boolean
-    onSave: () => void
-    onCancel: () => void
-    className?: string
-}) {
-    return (
-        <div className={cn("flex gap-2", className)}>
-            <Button onClick={onSave} disabled={isSaving} size="sm">
-                <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save"}
-            </Button>
-            <Button onClick={onCancel} disabled={isSaving} variant="outline" size="sm">
-                <X className="h-4 w-4" />
-                Cancel
-            </Button>
-        </div>
-    )
-}
-
 function PersonalizationForm({
     userSettings,
     accountImage,
@@ -262,7 +233,7 @@ function PersonalizationForm({
 
     const fieldActions = (field: TextField, className?: string) =>
         isDirty(field) ? (
-            <InlineFieldActions
+            <SettingsFormActions
                 isSaving={savingField === field}
                 onSave={() => void saveField(field)}
                 onCancel={() => cancelField(field)}
