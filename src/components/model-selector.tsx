@@ -80,6 +80,14 @@ import { LayoutGroup, motion } from "motion/react"
 import { toast } from "sonner"
 import "./model-selector.css"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
+import { ModelExpiryBadge } from "@/components/model-expiry-badge"
+import { RETIRED_MODEL_REASON } from "@/convex/lib/openrouter_catalog"
+
+// Badge for a custom model that's greyed out because OpenRouter retired or stopped serving it.
+const getCustomModelUnavailableBadge = (model: DisplayModel) => {
+    if (!("isCustom" in model && model.isCustom) || !model.unavailableReason) return undefined
+    return model.unavailableReason === RETIRED_MODEL_REASON ? "Retired" : "Unavailable"
+}
 
 const getGrokModeIcon = (model: SharedModel, reasoningEffort: ReasoningEffort) => {
     const isToggleOnlyReasoningModel =
@@ -1013,6 +1021,15 @@ const ModelCard = React.memo(function ModelCard({
                                     )}
                                     {isNewRelease && <NewModelBadge />}
                                     {isAdminOnlyModel(model) && <AdminOnlyModelBadge />}
+                                    {"isCustom" in model &&
+                                        model.isCustom &&
+                                        model.expirationDate &&
+                                        !disabled && (
+                                            <ModelExpiryBadge
+                                                expirationDate={model.expirationDate}
+                                                className="text-[0.625rem] uppercase tracking-wide"
+                                            />
+                                        )}
                                 </div>
                                 <p
                                     className={cn(
@@ -1315,6 +1332,7 @@ export function ModelSelector({
     React.useEffect(() => {
         if (!selectedModelData || !fallbackModelId) return
         if (!isModelDisabled(selectedModelData)) return
+        if (getCustomModelUnavailableBadge(selectedModelData)) return
         if (
             isModelLocked(selectedModelData) &&
             fallbackReasoningEffort &&
@@ -1521,13 +1539,16 @@ export function ModelSelector({
                         badgeLabel={
                             requiresNativePdf && !modelSupportsNativePdf(model)
                                 ? "PDF Required"
-                                : creditPlan === "free" &&
-                                    getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
-                                  ? "Pro"
-                                  : undefined
+                                : getCustomModelUnavailableBadge(model)
+                                  ? getCustomModelUnavailableBadge(model)
+                                  : creditPlan === "free" &&
+                                      getRequiredPlanToPickModel(model, reasoningEffort) === "pro"
+                                    ? "Pro"
+                                    : undefined
                         }
                         badgeVariant={
-                            requiresNativePdf && !modelSupportsNativePdf(model)
+                            (requiresNativePdf && !modelSupportsNativePdf(model)) ||
+                            getCustomModelUnavailableBadge(model)
                                 ? "warning"
                                 : "secondary"
                         }

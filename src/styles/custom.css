@@ -26,16 +26,18 @@
     text-size-adjust: none !important;
 }
 
+/* Warning stays amber in both themes: deep enough to read as text on light surfaces, bright
+   enough on dark ones, with a foreground that contrasts with it on solid badges. */
 :root {
-    --warning: hsl(38 92% 50%);
-    --warning-foreground: hsl(48 96% 89%);
+    --warning: hsl(26 90% 37%);
+    --warning-foreground: hsl(0 0% 100%);
     --model-cost-affordable: oklch(0.52 0.15 160);
     --model-cost-expensive: var(--destructive);
 }
 
 .dark {
-    --warning: hsl(48 96% 89%);
-    --warning-foreground: hsl(38 92% 50%);
+    --warning: hsl(43 96% 56%);
+    --warning-foreground: hsl(21 92% 14%);
     --model-cost-affordable: oklch(0.72 0.16 160);
     --model-cost-expensive: var(--destructive);
 }

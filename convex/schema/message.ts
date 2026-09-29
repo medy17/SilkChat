@@ -12,7 +12,9 @@ export const ImportedMessageMetadata = v.object({
             v.literal("minimal"),
             v.literal("low"),
             v.literal("medium"),
-            v.literal("high")
+            v.literal("high"),
+            v.literal("xhigh"),
+            v.literal("max")
         )
     ),
     promptTokens: v.optional(v.number()),

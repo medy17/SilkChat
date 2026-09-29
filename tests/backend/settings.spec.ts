@@ -108,6 +108,7 @@ vi.mock("../../convex/schema", () => ({
 vi.mock("../../convex/schema/settings", () => ({
     ImageGenerationDefaults: {},
     NonSensitiveUserSettings: {},
+    ReasoningEffortTierSchema: {},
     ResponseStyleLevel: {},
     StoredModelAbilitySchema: {}
 }))

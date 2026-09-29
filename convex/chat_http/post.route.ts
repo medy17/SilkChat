@@ -47,6 +47,7 @@ import {
 import { type CoreProvider, MODELS_SHARED, type SharedModel } from "../lib/models"
 import {
     getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
+    getNearestReasoningEffort,
     resolveReasoningEffortForModel
 } from "../lib/models/reasoning"
 import { type CompiledPersonaSnapshot, compilePersonaSnapshot } from "../lib/personas"
@@ -248,9 +249,14 @@ const buildOpenRouterProviderOptions = (
         return options
     }
 
+    // OpenRouter accepts "max" (its catalog lists it per model); the SDK types lag behind.
+    type OpenRouterEffort = Extract<
+        NonNullable<OpenRouterRequestProviderOptions["reasoning"]>,
+        { effort: unknown }
+    >["effort"]
     options.reasoning = {
         enabled: true,
-        effort: reasoningEffort === "off" ? "medium" : reasoningEffort
+        effort: (reasoningEffort === "off" ? "medium" : reasoningEffort) as OpenRouterEffort
     }
     options.provider = baseProviderConfig
     applySessionId()
@@ -285,6 +291,15 @@ const resolveEffectiveReasoningEffort = (
 
     if (isToggleOnlyReasoningModel) {
         return reasoningEffort === "off" ? "off" : "medium"
+    }
+
+    // The request body is client-supplied, so never pass through a level the model doesn't
+    // offer: built-ins stay within their curated levels, and "xhigh"/"max" only reach models
+    // that list them (BYOK custom models).
+    if (supportsReasoning && !allowedReasoningEfforts.includes(reasoningEffort)) {
+        return (
+            getNearestReasoningEffort(reasoningEffort, allowedReasoningEfforts) ?? reasoningEffort
+        )
     }
 
     return reasoningEffort

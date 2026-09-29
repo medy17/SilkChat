@@ -1,6 +1,13 @@
 export type PrototypeCreditPlan = "free" | "pro"
 export type PrototypeAccessPlan = PrototypeCreditPlan
-export type PrototypeReasoningEffort = "off" | "minimal" | "low" | "medium" | "high"
+export type PrototypeReasoningEffort =
+    | "off"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
 export type PrototypeReasoningAccessPlanMap = Partial<
     Record<PrototypeReasoningEffort, PrototypeAccessPlan>
 >

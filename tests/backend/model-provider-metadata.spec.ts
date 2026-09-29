@@ -24,13 +24,15 @@ vi.mock("convex/values", () => ({
 vi.mock("../../convex/_generated/server", () => ({
     internalAction: (config: unknown) => config,
     internalMutation: (config: unknown) => config,
-    internalQuery: (config: unknown) => config
+    internalQuery: (config: unknown) => config,
+    query: (config: unknown) => config
 }))
 
 vi.mock("../../convex/_generated/api", () => ({
     internal: {
         model_provider_metadata: {
-            upsertOpenRouterModelMetadataInternal: "upsertOpenRouterModelMetadataInternal"
+            upsertOpenRouterModelMetadataInternal: "upsertOpenRouterModelMetadataInternal",
+            markRemovedOpenRouterModelsInternal: "markRemovedOpenRouterModelsInternal"
         }
     }
 }))
@@ -38,12 +40,19 @@ vi.mock("../../convex/_generated/api", () => ({
 import { ANTHROPIC_MODELS } from "../../convex/lib/models/anthropic"
 import { OPENAI_MODELS } from "../../convex/lib/models/openai"
 import { XAI_MODELS } from "../../convex/lib/models/xai"
-import { upsertOpenRouterModelMetadataInternal } from "../../convex/model_provider_metadata"
+import {
+    markRemovedOpenRouterModelsInternal,
+    upsertOpenRouterModelMetadataInternal
+} from "../../convex/model_provider_metadata"
 import { syncOpenRouterModelMetadata } from "../../convex/model_provider_metadata_node"
 
 const syncOpenRouterModelMetadataHandler = syncOpenRouterModelMetadata as unknown as {
     handler: (ctx: any) => Promise<any>
 }
+const markRemovedOpenRouterModelsInternalHandler =
+    markRemovedOpenRouterModelsInternal as unknown as {
+        handler: (ctx: any, args: any) => Promise<any>
+    }
 const upsertOpenRouterModelMetadataInternalHandler =
     upsertOpenRouterModelMetadataInternal as unknown as {
         handler: (ctx: any, args: any) => Promise<any>
@@ -102,6 +111,82 @@ describe("model_provider_metadata", () => {
                 })
             ]
         })
+    })
+
+    it("captures catalog names, modalities, and supported parameters", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        id: "vendor/model",
+                        name: "Vendor: Model",
+                        architecture: {
+                            input_modalities: ["text", "image", 42],
+                            output_modalities: ["text"]
+                        },
+                        supported_parameters: ["tools", "reasoning"]
+                    }
+                ]
+            })
+        })
+        const ctx = { runMutation: vi.fn().mockResolvedValue({ upserted: 1 }) }
+
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+
+        expect(ctx.runMutation.mock.calls[0][1].models[0]).toMatchObject({
+            name: "Vendor: Model",
+            inputModalities: ["text", "image"],
+            outputModalities: ["text"],
+            supportedParameters: ["tools", "reasoning"]
+        })
+    })
+
+    it("records aliases, removal dates, and provider counts for chat models", async () => {
+        const chat = { input_modalities: ["text"], output_modalities: ["text"] }
+        fetchMock.mockImplementation(async (url: string) => {
+            if (url.endsWith("/models")) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        data: [
+                            { id: "vendor/served", architecture: chat },
+                            {
+                                id: "~vendor/latest",
+                                architecture: chat,
+                                alias_target: { slug: "vendor/served" },
+                                expiration_date: "2026-10-20"
+                            },
+                            { id: "vendor/unreachable", architecture: chat }
+                        ]
+                    })
+                }
+            }
+            if (url.includes("vendor/served")) {
+                return { ok: true, json: async () => ({ data: { endpoints: [{}, {}] } }) }
+            }
+            if (url.includes("unreachable")) return { ok: false, status: 503 }
+            return { ok: true, json: async () => ({ data: { endpoints: [] } }) }
+        })
+        const ctx = { runMutation: vi.fn().mockResolvedValue({ upserted: 3 }) }
+
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+
+        type SyncedRow = { providerModelId: string; providerCount?: number }
+        const byId: Record<string, SyncedRow> = Object.fromEntries(
+            ctx.runMutation.mock.calls
+                .filter((call) => call[0] === "upsertOpenRouterModelMetadataInternal")
+                .flatMap((call) => call[1].models as SyncedRow[])
+                .map((model) => [model.providerModelId, model])
+        )
+        expect(byId["vendor/served"].providerCount).toBe(2)
+        expect(byId["~vendor/latest"]).toMatchObject({
+            aliasOf: "vendor/served",
+            expirationDate: "2026-10-20",
+            providerCount: 0
+        })
+        // A failed fetch isn't a zero; the stored count is kept instead.
+        expect(byId["vendor/unreachable"].providerCount).toBeUndefined()
     })
 
     it("ignores missing and malformed OpenRouter knowledge cutoffs", async () => {
@@ -280,6 +365,74 @@ describe("model_provider_metadata", () => {
 
         expect(ctx.db.replace).toHaveBeenCalledWith("row-1", models[0])
         expect(ctx.db.insert).toHaveBeenCalledWith("modelProviderMetadata", models[1])
+    })
+
+    it("marks models missing from the latest catalog as removed", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ data: [{ id: "vendor/present" }] })
+        })
+        const ctx = { runMutation: vi.fn().mockResolvedValue({ upserted: 1 }) }
+
+        await syncOpenRouterModelMetadataHandler.handler(ctx)
+
+        expect(ctx.runMutation).toHaveBeenLastCalledWith(
+            "markRemovedOpenRouterModelsInternal",
+            expect.objectContaining({ presentModelIds: ["vendor/present"] })
+        )
+
+        const rows = [
+            { _id: "present", providerModelId: "vendor/present" },
+            { _id: "gone", providerModelId: "vendor/gone" },
+            { _id: "already", providerModelId: "vendor/already", removedAt: 1 }
+        ]
+        const patch = vi.fn()
+        const markCtx = {
+            db: {
+                query: vi.fn(() => ({
+                    withIndex: vi.fn(() => ({ collect: vi.fn().mockResolvedValue(rows) }))
+                })),
+                patch
+            }
+        }
+
+        await markRemovedOpenRouterModelsInternalHandler.handler(markCtx, {
+            presentModelIds: ["vendor/present"],
+            removedAt: 5
+        })
+
+        expect(patch.mock.calls).toEqual([["gone", { removedAt: 5 }]])
+    })
+
+    it("keeps the last provider count when a sync couldn't fetch one", async () => {
+        const existing = {
+            _id: "row-1",
+            provider: "openrouter",
+            providerModelId: "vendor/model",
+            providerCount: 4
+        }
+        const ctx = {
+            db: {
+                query: vi.fn(() => ({
+                    withIndex: vi.fn(() => ({ first: vi.fn().mockResolvedValue(existing) }))
+                })),
+                replace: vi.fn(),
+                insert: vi.fn()
+            }
+        }
+
+        await upsertOpenRouterModelMetadataInternalHandler.handler(ctx, {
+            models: [
+                {
+                    provider: "openrouter",
+                    providerModelId: "vendor/model",
+                    fetchedAt: 2,
+                    source: "openrouter"
+                }
+            ]
+        })
+
+        expect(ctx.db.replace.mock.calls[0][1].providerCount).toBe(4)
     })
 
     it("preserves the last successful mode snapshot when only other modes refresh", async () => {

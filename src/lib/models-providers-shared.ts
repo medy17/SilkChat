@@ -16,10 +16,12 @@ import { applyModelRouting } from "@/convex/lib/model_routing"
 import type { CoreProvider, SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import {
+    getCustomModelReasoningFields,
     getNearestReasoningEffort,
     getAllowedReasoningEffortsForModel as getSharedAllowedReasoningEffortsForModel,
     getDefaultReasoningEffortForModel as getSharedDefaultReasoningEffortForModel
 } from "@/convex/lib/models/reasoning"
+import type { CustomModelCatalogStatus } from "@/convex/lib/openrouter_catalog"
 import type { GoogleAuthMode, ModelAbility, UserSettings } from "@/convex/schema/settings"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import type { ReasoningEffort } from "@/lib/model-store"
@@ -35,13 +37,85 @@ export type DisplayModel =
           abilities: ModelAbility[]
           isCustom: true
           providerId: string
+          // The provider's model ID and the user's description of it.
+          modelId?: string
+          description?: string
           mode?: "text" | "image"
+          reasoningEfforts?: ReasoningEffort[]
+          supportsDisablingReasoning?: boolean
+          defaultReasoningEffort?: ReasoningEffort
+          // From the synced OpenRouter catalog: a scheduled removal date, or why the model
+          // can't be used any more (it's greyed out rather than hidden).
+          expirationDate?: string
+          unavailableReason?: string
       }
 
 export type CustomModelsRecord = Infer<typeof UserSettings>["customModels"]
+export type CustomModelCatalog = Record<string, CustomModelCatalogStatus>
+// What the settings query returns: stored settings plus custom models' catalog standing.
+export type HydratedUserSettings = Infer<typeof UserSettings> & {
+    customModelCatalog?: CustomModelCatalog
+}
 
-export const getModelRoutingDisabledReason = (model: DisplayModel) =>
-    "routingUnavailableReason" in model ? model.routingUnavailableReason : undefined
+type CustomDisplayModel = Extract<DisplayModel, { isCustom: true }>
+
+// One place turns a stored custom model into what the picker and composer use, including
+// its reasoning levels, so the server registry and the client never disagree.
+export const toCustomDisplayModel = (
+    id: string,
+    customModel: CustomModelsRecord[string],
+    catalogStatus?: CustomModelCatalogStatus
+): CustomDisplayModel => {
+    const abilities = normalizeModelAbilities(
+        customModel.abilities as Parameters<typeof normalizeModelAbilities>[0]
+    )
+    const { effortControl, ...reasoning } = getCustomModelReasoningFields({
+        ...customModel,
+        abilities
+    })
+
+    return {
+        id,
+        name: customModel.name || customModel.modelId,
+        abilities:
+            effortControl && !abilities.includes("effort_control")
+                ? [...abilities, "effort_control"]
+                : abilities,
+        isCustom: true,
+        providerId: customModel.providerId,
+        modelId: customModel.modelId,
+        description: customModel.description?.trim() || undefined,
+        ...reasoning,
+        expirationDate: catalogStatus?.expirationDate,
+        unavailableReason: catalogStatus?.unavailableReason
+    }
+}
+
+// The reasoning helpers take a SharedModel; custom models carry the same reasoning fields,
+// so they can stand in and get the composer's level picker too.
+export const getReasoningSourceModel = (
+    model: DisplayModel | null | undefined
+): SharedModel | undefined => {
+    if (!model) return undefined
+    if (!("isCustom" in model && model.isCustom)) return model as SharedModel
+
+    return {
+        id: model.id,
+        name: model.name,
+        adapters: [],
+        abilities: model.abilities,
+        reasoningEfforts: model.reasoningEfforts,
+        supportsDisablingReasoning: model.supportsDisablingReasoning,
+        defaultReasoningEffort: model.defaultReasoningEffort
+    } as unknown as SharedModel
+}
+
+// Why a listed model can't be picked: a routing mode it isn't served under, or, for custom
+// models, being retired or unserved on OpenRouter.
+export const getModelRoutingDisabledReason = (model: DisplayModel) => {
+    if ("isCustom" in model && model.isCustom) return model.unavailableReason
+    return "routingUnavailableReason" in model ? model.routingUnavailableReason : undefined
+}
 
 export type CoreProviderInfo = {
     id: CoreProvider | "openrouter"
@@ -62,7 +136,7 @@ export const CORE_PROVIDERS: CoreProviderInfo[] = [
     {
         id: "openrouter",
         name: "OpenRouter",
-        description: "Access a wide variety of models through OpenRouter",
+        description: "Use your own key for built-in models",
         placeholder: "sk-or-...",
         icon: OpenRouterIcon
     },
@@ -325,13 +399,7 @@ export const resolveSelectedDisplayModel = (
     const customModel = customModels?.[selectedModelId]
     if (!customModel?.enabled) return undefined
 
-    return {
-        id: selectedModelId,
-        name: customModel.name || customModel.modelId,
-        abilities: normalizeModelAbilities(customModel.abilities),
-        isCustom: true,
-        providerId: customModel.providerId
-    }
+    return toCustomDisplayModel(selectedModelId, customModel)
 }
 
 const buildFallbackModelDescription = (model: DisplayModel) => {
@@ -351,6 +419,12 @@ const buildFallbackModelDescription = (model: DisplayModel) => {
 }
 
 export const getModelShortDescription = (model: DisplayModel) => {
+    // Custom models: the user's description, else the provider's model ID. Their abilities
+    // already show as icons, so listing them again adds nothing.
+    if ("isCustom" in model && model.isCustom) {
+        return model.description || model.modelId || model.name
+    }
+
     if ("shortDescription" in model && typeof model.shortDescription === "string") {
         const description = model.shortDescription.trim()
         if (description) return description
@@ -450,6 +524,8 @@ export const getReasoningEffortLabelForModel = (
         return "Thinking"
     }
 
+    if (effort === "xhigh") return "Extra high"
+
     return effort.charAt(0).toUpperCase() + effort.slice(1)
 }
 
@@ -471,11 +547,13 @@ export const getReasoningEffortIcon = (effort: ReasoningEffort, model?: SharedMo
         case "medium":
             return ReasoningMediumIcon
         case "high":
+        case "xhigh":
+        case "max":
             return ReasoningHighIcon
     }
 }
 
-export function useAvailableModels(userSettings: Infer<typeof UserSettings> | undefined) {
+export function useAvailableModels(userSettings: HydratedUserSettings | undefined) {
     const { models: sharedModels } = useSharedModels()
     const currentProviders = {
         core: userSettings?.coreAIProviders || {},
@@ -541,19 +619,17 @@ export function useAvailableModels(userSettings: Infer<typeof UserSettings> | un
 
         const hasProvider = isCustomModelProviderAvailable(customModel.providerId, currentProviders)
 
-        const modelData = {
+        const modelData = toCustomDisplayModel(
             id,
-            name: customModel.name || customModel.modelId,
-            abilities: normalizeModelAbilities(
-                customModel.abilities as Parameters<typeof normalizeModelAbilities>[0]
-            ),
-            isCustom: true as const,
-            providerId: customModel.providerId
-        }
+            customModel,
+            userSettings?.customModelCatalog?.[id]
+        )
 
-        if (hasProvider) {
+        // Retired or unserved custom models stay in the picker, greyed out with the reason,
+        // so a user's own entry never silently disappears.
+        if (hasProvider) pickerModels.push(modelData)
+        if (hasProvider && !modelData.unavailableReason) {
             availableModels.push(modelData)
-            pickerModels.push(modelData)
         } else {
             unavailableModels.push(modelData)
         }
@@ -642,4 +718,7 @@ export type CustomModelFormData = {
     maxTokens: number
     abilities: ModelAbility[]
     enabled: boolean
+    description?: string
+    reasoningEfforts?: ReasoningEffort[]
+    defaultReasoningEffort?: ReasoningEffort
 }

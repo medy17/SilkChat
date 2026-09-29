@@ -6,7 +6,9 @@ const AIConfigSchema = z.object({
     enabledTools: z.array(z.enum(ABILITIES)).default([]),
     selectedImageSize: z.string().optional().default("1:1"),
     selectedImageResolution: z.string().optional().default("1K"),
-    reasoningEffort: z.enum(["off", "minimal", "low", "medium", "high"]).default("off")
+    reasoningEffort: z
+        .enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
+        .default("off")
 })
 
 export type AIConfig = z.infer<typeof AIConfigSchema>

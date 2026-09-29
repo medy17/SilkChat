@@ -4,7 +4,7 @@ type AssistantMessageMetadata = {
     displayProvider?: string
     runtimeProvider?: string
     creditProviderSource?: "internal" | "byok" | "openrouter" | "custom" | "unknown"
-    reasoningEffort?: "off" | "minimal" | "low" | "medium" | "high"
+    reasoningEffort?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
     promptTokens?: number
     completionTokens?: number
     reasoningTokens?: number
@@ -202,6 +202,10 @@ export const formatFooterReasoningEffort = (
             return "Medium"
         case "high":
             return "High"
+        case "xhigh":
+            return "Extra high"
+        case "max":
+            return "Max"
         default:
             return undefined
     }

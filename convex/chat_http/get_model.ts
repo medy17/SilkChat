@@ -56,6 +56,7 @@ export const getModel = async (
     const model = applyModelRouting(registeredModel, mode)
     if (model.routingUnavailableReason)
         return new ChatError("bad_model:api", model.routingUnavailableReason)
+    if (model.unavailableReason) return new ChatError("bad_model:api", model.unavailableReason)
     const routing = getOpenRouterRouting(mode, model.preferredOpenRouterProviders)
     if (model.mode === "text-to-speech")
         return new ChatError("bad_model:api", "Speech models cannot generate chat responses")

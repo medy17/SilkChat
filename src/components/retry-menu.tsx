@@ -13,6 +13,7 @@ import {
     getReasoningEffortForPlan,
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
+    getReasoningSourceModel,
     getRequiredPlanToPickModel,
     isAdminOnlyModel,
     useAvailableModels
@@ -362,8 +363,7 @@ export function RetryMenu({
                               : legacyModels.slice(5)
 
                     const renderModel = (model: DisplayModel) => {
-                        const sharedModel =
-                            "isCustom" in model && model.isCustom ? null : (model as SharedModel)
+                        const sharedModel = getReasoningSourceModel(model) ?? null
                         const allowedEfforts = getAllowedReasoningEffortsForModel(sharedModel)
                         const defaultRetryEffort = getDefaultRetryEffort(
                             sharedModel,

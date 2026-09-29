@@ -10,6 +10,11 @@ import { resolveContextLimits } from "./lib/context_limits"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
 import { normalizeModelAbilities } from "./lib/model_abilities"
+import { getCustomModelReasoningFields } from "./lib/models/reasoning"
+import {
+    type CustomModelCatalogStatus,
+    getCustomModelCatalogStatus
+} from "./lib/openrouter_catalog"
 import {
     MODELS_SHARED,
     type RegistryKey,
@@ -26,6 +31,7 @@ import { ModelRoutingMode } from "./schema/model_routing"
 import {
     ImageGenerationDefaults,
     NonSensitiveUserSettings,
+    ReasoningEffortTierSchema,
     ResponseStyleLevel,
     StoredModelAbilitySchema
 } from "./schema/settings"
@@ -256,12 +262,49 @@ export const getUserSettingsInternal = internalQuery({
     }
 })
 
+// Catalog standing for the user's custom OpenRouter models, keyed by custom model ID: one
+// indexed read of the synced metadata each, no calls to OpenRouter.
+const getCustomModelCatalog = async (
+    ctx: QueryCtx,
+    customModels: Record<string, { providerId: string; modelId: string }>
+): Promise<Record<string, CustomModelCatalogStatus>> => {
+    const statuses = await Promise.all(
+        Object.entries(customModels)
+            .filter(([, model]) => model.providerId === "openrouter")
+            .map(async ([id, model]) => {
+                const row = await ctx.db
+                    .query("modelProviderMetadata")
+                    .withIndex("byProviderModel", (q) =>
+                        q.eq("provider", "openrouter").eq("providerModelId", model.modelId)
+                    )
+                    .first()
+                return [id, getCustomModelCatalogStatus(row)] as const
+            })
+    )
+
+    return Object.fromEntries(
+        statuses.filter((entry): entry is readonly [string, CustomModelCatalogStatus] =>
+            Boolean(entry[1])
+        )
+    )
+}
+
 export const getUserSettings = query({
     args: {},
-    handler: async (ctx): Promise<Infer<typeof UserSettings>> => {
+    handler: async (
+        ctx
+    ): Promise<
+        Infer<typeof UserSettings> & {
+            customModelCatalog?: Record<string, CustomModelCatalogStatus>
+        }
+    > => {
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return DefaultSettings("unauthorized")
-        return await getSettings(ctx, user.id)
+        const settings = await getSettings(ctx, user.id)
+        return {
+            ...settings,
+            customModelCatalog: await getCustomModelCatalog(ctx, settings.customModels)
+        }
     }
 })
 
@@ -402,18 +445,29 @@ export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<Us
         models[model.id] = { ...model, adapters: available_adapters }
     }
 
+    const customModelCatalog = await getCustomModelCatalog(ctx, settings.customModels)
     for (const [modelId, model] of Object.entries(settings.customModels)) {
         if (!model.enabled) continue
+        const abilities = normalizeModelAbilities(
+            model.abilities as Parameters<typeof normalizeModelAbilities>[0]
+        )
+        const { effortControl, ...reasoning } = getCustomModelReasoningFields({
+            ...model,
+            abilities
+        })
         models[modelId] = {
             id: model.modelId,
             name: model.name ?? model.modelId,
             adapters: [`${model.providerId}:${model.modelId}`],
-            abilities: normalizeModelAbilities(
-                model.abilities as Parameters<typeof normalizeModelAbilities>[0]
-            ),
+            abilities:
+                effortControl && !abilities.includes("effort_control")
+                    ? [...abilities, "effort_control"]
+                    : abilities,
+            ...reasoning,
             contextLength: model.contextLength,
             maxTokens: model.maxTokens,
-            customProviderId: model.providerId
+            customProviderId: model.providerId,
+            unavailableReason: customModelCatalog[modelId]?.unavailableReason
         }
     }
 
@@ -616,7 +670,10 @@ export const updateUserSettingsPartial = mutation({
                         providerId: v.string(),
                         contextLength: v.number(),
                         maxTokens: v.number(),
-                        abilities: v.array(StoredModelAbilitySchema)
+                        abilities: v.array(StoredModelAbilitySchema),
+                        description: v.optional(v.string()),
+                        reasoningEfforts: v.optional(v.array(ReasoningEffortTierSchema)),
+                        defaultReasoningEffort: v.optional(ReasoningEffortTierSchema)
                     }),
                     v.null() // Delete model
                 )

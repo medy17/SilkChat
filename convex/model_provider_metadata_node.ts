@@ -11,10 +11,20 @@ import {
     parseZdrEndpointKeys,
     pricePerMillion
 } from "./lib/model_routing_metadata"
+import { isTextChatModel } from "./lib/openrouter_catalog"
 import type { ModelProviderMetadata } from "./schema/model_provider_metadata"
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 type Metadata = Infer<typeof ModelProviderMetadata>
+
+const getEndpointsUrl = (slug: string) =>
+    `${OPENROUTER_MODELS_URL}/${slug.split("/").map(encodeURIComponent).join("/")}/endpoints`
+
+// Undefined when the listing is malformed, so an unreadable response isn't taken as zero.
+const countEndpoints = (payload: unknown) => {
+    const endpoints = (payload as { data?: { endpoints?: unknown } } | undefined)?.data?.endpoints
+    return Array.isArray(endpoints) ? endpoints.length : undefined
+}
 
 const fetchJson = async (url: string, allowMissingEndpoints = false) => {
     const response = await fetch(url, {
@@ -39,9 +49,46 @@ export const syncOpenRouterModelMetadata = internalAction({
                 const parsed = parseNonNegativePrice(value)
                 return parsed && parsed > 0 ? parsed : undefined
             }
+            const strings = (value: unknown) =>
+                Array.isArray(value)
+                    ? value.filter((item): item is string => typeof item === "string")
+                    : undefined
             models.set(model.id, {
                 provider: "openrouter",
                 providerModelId: model.id,
+                name:
+                    typeof model.name === "string" && model.name.trim()
+                        ? model.name.trim()
+                        : undefined,
+                description:
+                    typeof model.description === "string" && model.description.trim()
+                        ? model.description.trim()
+                        : undefined,
+                inputModalities: strings(model.architecture?.input_modalities),
+                outputModalities: strings(model.architecture?.output_modalities),
+                supportedParameters: strings(model.supported_parameters),
+                aliasOf:
+                    typeof model.alias_target?.slug === "string"
+                        ? model.alias_target.slug
+                        : undefined,
+                expirationDate:
+                    typeof model.expiration_date === "string" && model.expiration_date.trim()
+                        ? model.expiration_date.trim()
+                        : undefined,
+                reasoning:
+                    model.reasoning && typeof model.reasoning === "object"
+                        ? {
+                              mandatory:
+                                  typeof model.reasoning.mandatory === "boolean"
+                                      ? model.reasoning.mandatory
+                                      : undefined,
+                              supportedEfforts: strings(model.reasoning.supported_efforts),
+                              defaultEffort:
+                                  typeof model.reasoning.default_effort === "string"
+                                      ? model.reasoning.default_effort
+                                      : undefined
+                          }
+                        : undefined,
                 contextLength: positive(model.context_length),
                 maxCompletionTokens: positive(model.top_provider?.max_completion_tokens),
                 knowledgeCutoff:
@@ -84,12 +131,9 @@ export const syncOpenRouterModelMetadata = internalAction({
                     }
                     models.set(slug, metadata)
                     try {
-                        const url = `${OPENROUTER_MODELS_URL}/${slug.split("/").map(encodeURIComponent).join("/")}/endpoints`
-                        const endpoints = parseRoutingEndpoints(
-                            await fetchJson(url, true),
-                            slug,
-                            zdrKeys
-                        )
+                        const listing = await fetchJson(getEndpointsUrl(slug), true)
+                        metadata.providerCount = countEndpoints(listing)
+                        const endpoints = parseRoutingEndpoints(listing, slug, zdrKeys)
                         metadata.routing = buildRoutingMetadata(
                             endpoints,
                             fetchedAt,
@@ -106,6 +150,29 @@ export const syncOpenRouterModelMetadata = internalAction({
             )
         }
 
+        // Provider counts for the rest of the chat catalog, so Settings can hide aliases,
+        // routers, and models no provider serves any more. A failed fetch leaves the count
+        // unset and the previous one is kept.
+        const uncounted = [...models.values()].filter(
+            (metadata) => metadata.providerCount === undefined && isTextChatModel(metadata)
+        )
+        for (let offset = 0; offset < uncounted.length; offset += 8) {
+            await Promise.all(
+                uncounted.slice(offset, offset + 8).map(async (metadata) => {
+                    try {
+                        metadata.providerCount = countEndpoints(
+                            await fetchJson(getEndpointsUrl(metadata.providerModelId), true)
+                        )
+                    } catch (error) {
+                        console.error(
+                            `[model-provider-metadata] Keeping previous provider count for ${metadata.providerModelId}`,
+                            error
+                        )
+                    }
+                })
+            )
+        }
+
         const rows = [...models.values()]
         let upserted = 0
         for (let offset = 0; offset < rows.length; offset += 20) {
@@ -115,6 +182,14 @@ export const syncOpenRouterModelMetadata = internalAction({
             )
             upserted += result.upserted
         }
+
+        await ctx.runMutation(
+            internal.model_provider_metadata.markRemovedOpenRouterModelsInternal,
+            {
+                presentModelIds: [...models.keys()],
+                removedAt: fetchedAt
+            }
+        )
         return { upserted }
     }
 })

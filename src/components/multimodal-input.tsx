@@ -78,6 +78,7 @@ import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import {
     getAllowedReasoningEffortsForModel,
     getReasoningEffortForPlan,
+    getReasoningSourceModel,
     getReasoningEffortIcon,
     getReasoningEffortLabelForModel,
     getRequiredPlanToPickModel,
@@ -334,9 +335,12 @@ export const ReasoningEffortSelector = ({
     creditPlan,
     open,
     onOpenChange,
-    suppressTooltip = false
+    suppressTooltip = false,
+    reasoningModel
 }: {
     selectedModel: string | null
+    // Custom models aren't in the shared list, so the composer passes them in.
+    reasoningModel?: SharedModel
     tone?: "default" | "on-primary"
     creditPlan?: CreditPlan | null
     open?: boolean
@@ -349,8 +353,8 @@ export const ReasoningEffortSelector = ({
     const resolvedCreditPlan = creditPlan === undefined ? sharedCreditPlan : creditPlan
 
     const selectedSharedModel = useMemo(
-        () => sharedModels.find((model) => model.id === selectedModel),
-        [selectedModel, sharedModels]
+        () => reasoningModel ?? sharedModels.find((model) => model.id === selectedModel),
+        [reasoningModel, selectedModel, sharedModels]
     )
     const allowedEfforts = useMemo(
         () => getAllowedReasoningEffortsForModel(selectedSharedModel),
@@ -1035,10 +1039,11 @@ export function useComposerToolbarState() {
         () => resolveSelectedDisplayModel(selectedModel, sharedModels, customModels),
         [customModels, selectedModel, sharedModels]
     )
-    const selectedSharedModel =
-        selectedDisplayModel && !("isCustom" in selectedDisplayModel)
-            ? selectedDisplayModel
-            : undefined
+    // Custom models stand in with their stored reasoning levels.
+    const selectedSharedModel = useMemo(
+        () => getReasoningSourceModel(selectedDisplayModel),
+        [selectedDisplayModel]
+    )
     const allowedReasoningEfforts = useMemo(
         () => getAllowedReasoningEffortsForModel(selectedSharedModel),
         [selectedSharedModel]
@@ -1296,6 +1301,7 @@ export function ComposerDesktopActions({
 
                     <ReasoningEffortSelector
                         selectedModel={state.selectedModel}
+                        reasoningModel={state.selectedSharedModel}
                         creditPlan={state.creditPlan}
                         open={onOverlayOpenChange ? activeOverlay === "reasoning" : undefined}
                         onOpenChange={

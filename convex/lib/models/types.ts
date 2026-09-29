@@ -83,12 +83,13 @@ export type ImagePricing = {
     roundRequestUsdUpTo?: number
 }
 
-export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high"
+// "xhigh" and "max" exist only for BYOK custom models; built-in models are capped at "high".
+export type ReasoningEffortTier = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
 export type PrototypeAccessPlan = "free" | "pro"
 export type ModelRequiredRole = "admin"
 type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
-type GoogleThinkingLevel = Exclude<ReasoningEffortTier, "off">
-type StandardReasoningEffortTier = Exclude<ReasoningEffortTier, "off" | "minimal">
+type GoogleThinkingLevel = Exclude<ReasoningEffortTier, "off" | "xhigh" | "max">
+type StandardReasoningEffortTier = Exclude<ReasoningEffortTier, "off" | "minimal" | "xhigh" | "max">
 
 export type ArtificialAnalysisModelType = "llm" | "text-to-image" | "image-editing"
 
@@ -149,6 +150,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     routing?: ModelRoutingMetadata
     routingMode?: ModelRoutingMode
     routingUnavailableReason?: string
+    // Set on custom models whose OpenRouter model is retired or unserved.
+    unavailableReason?: string
     supportedImageSizes?: ImageSize[]
     supportedImageResolutions?: ImageResolution[]
     supportedImageQualities?: Exclude<ImageQuality, "auto">[]

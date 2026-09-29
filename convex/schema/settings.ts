@@ -64,6 +64,23 @@ export type ModelAbility = Infer<typeof ModelAbilitySchema>
 export const StoredModelAbilitySchema = v.union(ModelAbilitySchema, v.literal("pdf"))
 export type StoredModelAbility = Infer<typeof StoredModelAbilitySchema>
 
+export const ReasoningEffortTierSchema = v.union(
+    v.literal("off"),
+    v.literal("minimal"),
+    v.literal("low"),
+    v.literal("medium"),
+    v.literal("high"),
+    v.literal("xhigh"),
+    v.literal("max")
+)
+
+// Reasoning levels a custom OpenRouter model offers; "off" means it can be turned off.
+// Unset keeps the legacy behavior: reasoning always on, no level picker.
+const CustomModelReasoningFields = {
+    reasoningEfforts: v.optional(v.array(ReasoningEffortTierSchema)),
+    defaultReasoningEffort: v.optional(ReasoningEffortTierSchema)
+}
+
 export const CustomModel = v.object({
     enabled: v.boolean(),
     name: v.optional(v.string()),
@@ -71,7 +88,10 @@ export const CustomModel = v.object({
     providerId: v.union(CoreProvidersSchema, v.string()),
     contextLength: v.number(),
     maxTokens: v.number(),
-    abilities: v.array(StoredModelAbilitySchema)
+    abilities: v.array(StoredModelAbilitySchema),
+    // Shown in the model picker; prefilled from OpenRouter and editable.
+    description: v.optional(v.string()),
+    ...CustomModelReasoningFields
 })
 
 export const NonSensitiveUserSettings = v.object({

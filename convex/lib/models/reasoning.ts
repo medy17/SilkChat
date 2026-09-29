@@ -5,7 +5,9 @@ export const REASONING_EFFORT_RANK: Record<ReasoningEffortTier, number> = {
     minimal: 1,
     low: 2,
     medium: 3,
-    high: 4
+    high: 4,
+    xhigh: 5,
+    max: 6
 }
 
 export const getAllowedReasoningEffortsForModel = (
@@ -86,4 +88,49 @@ export const resolveReasoningEffortForModel = (
     }
 
     return getNearestReasoningEffort(requestedEffort, allowedEfforts)
+}
+
+export const sortReasoningEfforts = (efforts: readonly ReasoningEffortTier[]) =>
+    [...new Set(efforts)].sort(
+        (left, right) => REASONING_EFFORT_RANK[left] - REASONING_EFFORT_RANK[right]
+    )
+
+// Runtime reasoning fields for a custom model. Only OpenRouter custom models, which always
+// run on the user's own key, use stored levels; the rest keep always-on reasoning.
+export const getCustomModelReasoningFields = (model: {
+    providerId: string
+    abilities: readonly string[]
+    reasoningEfforts?: readonly ReasoningEffortTier[]
+    defaultReasoningEffort?: ReasoningEffortTier
+}): {
+    effortControl: boolean
+    reasoningEfforts?: ReasoningEffortTier[]
+    supportsDisablingReasoning?: boolean
+    defaultReasoningEffort?: ReasoningEffortTier
+} => {
+    if (
+        model.providerId !== "openrouter" ||
+        !model.abilities.includes("reasoning") ||
+        !model.reasoningEfforts
+    ) {
+        return { effortControl: false }
+    }
+
+    const levels = sortReasoningEfforts(model.reasoningEfforts)
+    const supportsDisablingReasoning = levels.includes("off")
+
+    // No levels besides "off": a plain on/off toggle, or always on.
+    if (!levels.some((level) => level !== "off")) {
+        return { effortControl: false, supportsDisablingReasoning }
+    }
+
+    return {
+        effortControl: true,
+        reasoningEfforts: levels,
+        supportsDisablingReasoning,
+        defaultReasoningEffort:
+            model.defaultReasoningEffort && levels.includes(model.defaultReasoningEffort)
+                ? model.defaultReasoningEffort
+                : undefined
+    }
 }
