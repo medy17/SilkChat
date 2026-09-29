@@ -45,6 +45,14 @@ const setup = () => {
 }
 
 describe("All files cursor pagination", () => {
+    it("reports storage failures instead of presenting an empty inventory", async () => {
+        const { addFile, page } = setup()
+        await addFile("attachments/user-1/existing.png", 1)
+        expect((await page()).page).toHaveLength(1)
+        vi.stubEnv("R2_BUCKET", "")
+        await expect(page()).rejects.toThrow("Unable to load your files. Please try again.")
+    })
+
     it("lists owned TTS audio in Files without adding it to the generated-image gallery", async () => {
         const { user, addFile, page } = setup()
         await addFile("tts/user-1/new-speech.wav", 4, { contentType: "audio/wav" })

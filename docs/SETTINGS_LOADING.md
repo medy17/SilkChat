@@ -74,6 +74,12 @@ Its metadata-only query is maintained in
 non-user-visible storage prefixes remain excluded. A bounded empty page can still have
 a continuation, so it must not be treated as exhaustion.
 
+The component must use `paginator(ctx.db, schema)` from `convex-helpers`, with
+`filterWith` for visibility checks. Native `ctx.db` pagination is unsupported inside
+components even though `convex-test` currently accepts it. Verify component pagination
+against cloud dev as well as the test emulator. Listing failures must surface as errors,
+not successful empty pages.
+
 Files and Library share `src/lib/cursor-pagination.ts`. Files prefetches only the next All files
 page, keeping the current page mounted until it is ready. Cursor history is scoped by account,
 filter, sort, and page size. Reloading a later All files page without history restarts at page one.

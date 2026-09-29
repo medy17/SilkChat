@@ -1,7 +1,7 @@
 // convex/attachments.ts
 import { R2 } from "@convex-dev/r2"
 import { paginationOptsValidator } from "convex/server"
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 import { components } from "./_generated/api"
 import { httpAction, mutation, query } from "./_generated/server"
 import { getAccountDeletionBlockerForAction } from "./lib/account_deletion_gate"
@@ -463,7 +463,7 @@ export const listFiles = query({
             }
         } catch (error) {
             console.error("Error listing files:", error)
-            return { page: [], isDone: true, continueCursor: "" }
+            throw new ConvexError("Unable to load your files. Please try again.")
         }
     }
 })

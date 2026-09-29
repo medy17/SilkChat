@@ -669,7 +669,7 @@ index 2eae702..c8f2819 100644
 \ No newline at end of file
 +//# sourceMappingURL=lib.d.ts.map
 diff --git a/node_modules/@convex-dev/r2/dist/component/lib.js b/node_modules/@convex-dev/r2/dist/component/lib.js
-index 88f5fa0..2ce85a4 100644
+index 88f5fa0..7f035d8 100644
 --- a/node_modules/@convex-dev/r2/dist/component/lib.js
 +++ b/node_modules/@convex-dev/r2/dist/component/lib.js
 @@ -1,5 +1,6 @@
@@ -795,7 +795,7 @@ index 88f5fa0..2ce85a4 100644
              return null;
          }
          return {
-@@ -60,10 +150,53 @@ export const getMetadata = query({
+@@ -60,10 +150,49 @@ export const getMetadata = query({
          };
      },
  });
@@ -815,17 +815,13 @@ index 88f5fa0..2ce85a4 100644
 +        lastModified: v.string(),
 +    })),
 +    handler: async (ctx, { bucket, authorId, keyPrefixes, sort, paginationOpts }) => {
-+        const result = await ctx.db
++        // Native db.paginate() is unavailable inside Convex components.
++        const result = await paginator(ctx.db, schema)
 +            .query("metadata")
 +            .withIndex("bucket_author_lastModified", (q) => q.eq("bucket", bucket).eq("authorId", authorId))
 +            .order(sort === "oldest" ? "asc" : "desc")
-+            .filter((q) => q.and(
-+                q.neq(q.field("uploadStatus"), "pending"),
-+                q.or(...keyPrefixes.map((prefix) => q.and(
-+                    q.gte(q.field("key"), prefix),
-+                    q.lt(q.field("key"), `${prefix}\uffff`),
-+                ))),
-+            ))
++            .filterWith(async (file) => file.uploadStatus !== "pending" &&
++                keyPrefixes.some((prefix) => file.key.startsWith(prefix)))
 +            .paginate({
 +                ...paginationOpts,
 +                numItems: Math.max(1, Math.min(100, Math.floor(paginationOpts.numItems))),
@@ -849,7 +845,7 @@ index 88f5fa0..2ce85a4 100644
          ...r2ConfigValidator.fields,
      },
      returns: paginationReturnValidator(v.object({
-@@ -72,18 +205,47 @@ export const listMetadata = query({
+@@ -72,18 +201,47 @@ export const listMetadata = query({
          bucketLink: v.string(),
      })),
      handler: async (ctx, args) => {
@@ -906,7 +902,7 @@ index 88f5fa0..2ce85a4 100644
                  ...withoutSystemFields(doc),
                  url: await getUrl(r2, r2Config.bucket, doc.key),
                  bucketLink: doc.link.replace(/\/objects\/.*$/, ""),
-@@ -92,7 +254,10 @@ export const listMetadata = query({
+@@ -92,7 +250,10 @@ export const listMetadata = query({
      },
  });
  export const upsertMetadata = mutation({
@@ -918,7 +914,7 @@ index 88f5fa0..2ce85a4 100644
      returns: v.object({
          isNew: v.boolean(),
      }),
-@@ -101,21 +266,45 @@ export const upsertMetadata = mutation({
+@@ -101,21 +262,45 @@ export const upsertMetadata = mutation({
              .query("metadata")
              .withIndex("bucket_key", (q) => q.eq("bucket", args.bucket).eq("key", args.key))
              .unique();
@@ -964,7 +960,7 @@ index 88f5fa0..2ce85a4 100644
              bucket: args.bucket,
              lastModified: args.lastModified,
              link: args.link,
-@@ -127,29 +316,66 @@ export const syncMetadata = action({
+@@ -127,29 +312,66 @@ export const syncMetadata = action({
      args: {
          key: v.string(),
          onComplete: v.optional(v.string()),
@@ -1035,7 +1031,7 @@ index 88f5fa0..2ce85a4 100644
          if (onComplete) {
              await ctx.runMutation(onComplete, {
                  key,
-@@ -159,6 +385,47 @@ export const syncMetadata = action({
+@@ -159,6 +381,47 @@ export const syncMetadata = action({
          }
      },
  });
@@ -1083,7 +1079,7 @@ index 88f5fa0..2ce85a4 100644
  export const deleteMetadata = mutation({
      args: {
          key: v.string(),
-@@ -184,7 +451,7 @@ export const deleteR2Object = action({
+@@ -184,7 +447,7 @@ export const deleteR2Object = action({
      handler: async (ctx, args) => {
          const { key, ...r2Config } = args;
          const r2 = createR2Client(r2Config);
@@ -1092,7 +1088,7 @@ index 88f5fa0..2ce85a4 100644
      },
  });
  export const deleteObject = mutation({
-@@ -208,4 +475,4 @@ export const withoutSystemFields = (fields) => {
+@@ -208,4 +471,4 @@ export const withoutSystemFields = (fields) => {
      const { _id, _creationTime, ...rest } = fields;
      return rest;
  };
