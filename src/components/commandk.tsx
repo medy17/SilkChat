@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "@tanstack/react-router"
-import { useQuery as useConvexQuery } from "convex/react"
+import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
@@ -13,10 +13,12 @@ import {
     CommandItem,
     CommandList
 } from "@/components/ui/command"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { matchesSearchChatsShortcut } from "@/lib/keyboard-shortcuts"
+import { cn } from "@/lib/utils"
 
 interface Thread {
     _id: string
@@ -24,6 +26,27 @@ interface Thread {
     createdAt: number
     updatedAt: number
     authorId: string
+}
+
+const SKELETON_TITLE_WIDTHS = ["w-48", "w-64", "w-40", "w-56", "w-44"]
+
+function CommandKSkeleton() {
+    return (
+        <div role="status" aria-busy="true" className="p-1">
+            <span className="sr-only">Loading chats</span>
+            <div aria-hidden="true">
+                <div className="px-2 py-1.5">
+                    <Skeleton className="h-3 w-12" />
+                </div>
+                {SKELETON_TITLE_WIDTHS.map((width) => (
+                    <div key={width} className="flex h-9 items-center justify-between gap-4 px-2">
+                        <Skeleton className={`h-4 max-w-[70%] ${width}`} />
+                        <Skeleton className="h-3 w-10 shrink-0" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
 }
 
 interface CommandKProps {
@@ -76,14 +99,24 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
         return () => document.removeEventListener("keydown", down)
     }, [open, setOpen])
 
-    const threads = useMemo(() => {
-        if (!searchResults || "error" in searchResults) return []
-        return searchResults.page || []
+    const loadedThreads = useMemo(() => {
+        if (!searchResults) return undefined
+        if ("error" in searchResults) return []
+        return (searchResults.page || []) as Thread[]
     }, [searchResults])
+
+    // Keep the last settled results on screen while a new query loads.
+    const lastThreadsRef = useRef<Thread[] | null>(null)
+    if (loadedThreads) lastThreadsRef.current = loadedThreads
+    const threads = loadedThreads ?? lastThreadsRef.current
+    const isPending = query !== debouncedQuery || loadedThreads === undefined
+    const showSkeleton = threads === null || (threads.length === 0 && isPending)
+    const showEmpty = !showSkeleton && threads.length === 0
 
     const handleSelect = (threadId: string) => {
         setOpen(false)
         setQuery("")
+        setDebouncedQuery("")
         router.navigate({ to: "/thread/$threadId", params: { threadId } })
     }
 
@@ -96,6 +129,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
             e.preventDefault()
             setOpen(false)
             setQuery("")
+            setDebouncedQuery("")
             router.navigate({ to: "/" })
         }
     }
@@ -154,11 +188,18 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
                     onValueChange={setQuery}
                     onKeyDown={handleKeyDown}
                 />
-                <CommandList>
-                    <CommandEmpty>No chats found.</CommandEmpty>
-                    {threads.length > 0 && (
-                        <CommandGroup heading="Chats">
-                            {threads.map((thread: Thread) => (
+                <CommandList aria-busy={isPending}>
+                    {showSkeleton && <CommandKSkeleton />}
+                    {showEmpty && <CommandEmpty>No chats found.</CommandEmpty>}
+                    {threads && threads.length > 0 && (
+                        <CommandGroup
+                            heading="Chats"
+                            className={cn(
+                                "transition-opacity duration-150",
+                                isPending && "opacity-60"
+                            )}
+                        >
+                            {threads.map((thread) => (
                                 <CommandItem
                                     key={thread._id}
                                     value={thread._id}
