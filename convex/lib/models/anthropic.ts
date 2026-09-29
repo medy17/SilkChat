@@ -28,6 +28,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260928,
         adapters: anthropicTextAdapters("claude-sonnet-5-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         maxTokens: 128_000,
@@ -53,6 +54,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260922,
         adapters: anthropicTextAdapters("claude-opus-5-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         maxTokens: 128_000,
@@ -77,6 +79,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260901,
         adapters: anthropicTextAdapters("claude-fable-5-1"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         knowledgeCutoff: "2026-06-30",
         contextLength: 1_000_000,
@@ -102,6 +105,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260724,
         adapters: anthropicTextAdapters("claude-opus-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         maxTokens: 128_000,
@@ -122,6 +126,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260609,
         adapters: anthropicTextAdapters("claude-fable-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         supportsDisablingReasoning: true
@@ -141,6 +146,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260630,
         adapters: anthropicTextAdapters("claude-sonnet-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         supportsDisablingReasoning: true
@@ -159,6 +165,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260217,
         adapters: anthropicTextAdapters("claude-sonnet-4-6"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         legacy: true
@@ -177,6 +184,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260205,
         adapters: anthropicTextAdapters("claude-opus-4-6"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         legacy: true
@@ -196,6 +204,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260528,
         adapters: anthropicTextAdapters("claude-opus-4-8"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true
     },
@@ -213,6 +222,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260416,
         adapters: anthropicTextAdapters("claude-opus-4-7"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         legacy: true
@@ -227,6 +237,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
             "Claude Opus 4.5 is a patient, high-end problem solver that excels at complex codebases, long-running agents, computer use, and research-heavy knowledge work. It is particularly good when the brief is ambiguous and the right answer depends on noticing the tradeoffs hiding between the lines.",
         releaseOrder: 20251124,
         adapters: anthropicTextAdapters("claude-opus-4-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         legacy: true,
@@ -247,6 +258,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         },
         releaseOrder: 20251015,
         adapters: anthropicTextAdapters("claude-haiku-4-5"),
+        explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true
     },

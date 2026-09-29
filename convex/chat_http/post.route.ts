@@ -36,6 +36,7 @@ import {
 } from "../lib/context_limits"
 import { resolveRequiredPlanForModelAccess } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
+import { EPHEMERAL_CACHE_CONTROL, withCacheBreakpoint } from "../lib/prompt_caching"
 import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION } from "../lib/file_constants"
 import { getUserIdentity } from "../lib/identity"
 import {
@@ -1988,6 +1989,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                 }
 
                 const usesOpenRouter = modelData.runtimeProvider === "openrouter"
+                const usesExplicitPromptCaching =
+                    usesOpenRouter && selectedRegistryModel?.explicitPromptCaching === true
                 const paidTools = hasPaidCallableTools
                     ? await getToolkit(
                           ctx,
@@ -2205,14 +2208,19 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         : undefined,
                     // Both system messages below are assembled server-side. The trailing
                     // current-turn context intentionally needs to remain interleaved after
-                    // the persisted conversation.
+                    // the persisted conversation. With explicit prompt caching, breakpoints
+                    // close the stable prefix so the volatile tail never invalidates it.
                     allowSystemInMessages: true,
                     messages: [
-                        {
-                            role: "system",
-                            content: turnPrompt
-                        },
-                        ...mapped_messages,
+                        usesExplicitPromptCaching
+                            ? withCacheBreakpoint({ role: "system", content: turnPrompt })
+                            : { role: "system", content: turnPrompt },
+                        ...(usesExplicitPromptCaching && mapped_messages.length > 0
+                            ? [
+                                  ...mapped_messages.slice(0, -1),
+                                  withCacheBreakpoint(mapped_messages[mapped_messages.length - 1])
+                              ]
+                            : mapped_messages),
                         {
                             role: "system",
                             content: buildCurrentTurnContext(
@@ -2228,18 +2236,25 @@ export const chatPOST = httpAction(async (ctx, req) => {
                     ],
                     providerOptions: usesOpenRouter
                         ? {
-                              openrouter: buildOpenRouterProviderOptions(
-                                  modelData.modelId,
-                                  getOpenRouterRouting(
-                                      settings.modelRouting,
-                                      selectedRegistryModel?.preferredOpenRouterProviders
+                              openrouter: {
+                                  ...buildOpenRouterProviderOptions(
+                                      modelData.modelId,
+                                      getOpenRouterRouting(
+                                          settings.modelRouting,
+                                          selectedRegistryModel?.preferredOpenRouterProviders
+                                      ),
+                                      effectiveReasoningEffort,
+                                      supportsEffortControl,
+                                      supportsReasoningToggle,
+                                      supportsReasoning,
+                                      String(mutationResult.threadId)
                                   ),
-                                  effectiveReasoningEffort,
-                                  supportsEffortControl,
-                                  supportsReasoningToggle,
-                                  supportsReasoning,
-                                  String(mutationResult.threadId)
-                              )
+                                  // Automatic breakpoint on the last block reuses earlier
+                                  // steps within this turn's tool loop.
+                                  ...(usesExplicitPromptCaching
+                                      ? { cacheControl: EPHEMERAL_CACHE_CONTROL }
+                                      : {})
+                              }
                           }
                         : undefined
                 })

@@ -161,6 +161,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     supportsDisablingReasoning?: boolean
     /** Require every chart input field; independent of provider strict decoding. */
     useStrictCharts?: boolean
+    /** Provider caches only at explicit cache_control breakpoints (Anthropic). */
+    explicitPromptCaching?: boolean
     reasoningEfforts?: ReasoningEffortTier[]
     defaultReasoningEffort?: ReasoningEffortTier
     reasoningProfiles?: ModelReasoningProfiles
