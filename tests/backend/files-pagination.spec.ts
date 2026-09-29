@@ -45,6 +45,30 @@ const setup = () => {
 }
 
 describe("All files cursor pagination", () => {
+    it("lists owned TTS audio in Files without adding it to the generated-image gallery", async () => {
+        const { user, addFile, page } = setup()
+        await addFile("tts/user-1/new-speech.wav", 4, { contentType: "audio/wav" })
+        await addFile("tts/user-2/private-speech.wav", 3, {
+            authorId: "user-2",
+            contentType: "audio/wav"
+        })
+        await addFile("generations/user-1/image.png", 2)
+        await addFile("imports/user-1/source.json", 1, { contentType: "application/json" })
+
+        const all = await page()
+        expect(all.page.map((file) => file.key)).toEqual([
+            "tts/user-1/new-speech.wav",
+            "generations/user-1/image.png"
+        ])
+        const other = await user.query(api.attachments.listFiles, {
+            type: "other",
+            paginationOpts: { numItems: 20, cursor: null }
+        })
+        expect(other.page.map((file) => file.key)).toEqual(["tts/user-1/new-speech.wav"])
+        const gallery = await user.query(api.attachments.listGeneratedFiles, {})
+        expect(gallery.map((file) => file.key)).toEqual(["generations/user-1/image.png"])
+    })
+
     it.each(["newest", "oldest"] as const)(
         "reads only a page from a thousand-file inventory in %s order, including on continuation",
         async (sort) => {
