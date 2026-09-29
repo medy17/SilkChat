@@ -141,7 +141,7 @@ export const MemoryRetrievalToolRenderer = memo(
 
                     {(query || hasOutput) && (
                         <div className="flex items-center gap-2 md:ml-auto">
-                            <div className="flex items-center gap-2 rounded-[var(--radius-md)] bg-muted/50 px-2 py-1 text-muted-foreground text-sm">
+                            <div className="flex items-center gap-2 rounded-[var(--radius-md)] bg-silk-muted/50 px-2 py-1 text-muted-foreground text-sm">
                                 {query && (
                                     <span className="max-w-32 truncate md:max-w-48">“{query}”</span>
                                 )}
@@ -167,7 +167,7 @@ export const MemoryRetrievalToolRenderer = memo(
 
                 <div
                     ref={contentRef}
-                    className="my-4 overflow-hidden rounded-[var(--radius-lg)] border bg-muted/50 transition-[max-height] duration-150 ease-out"
+                    className="my-4 overflow-hidden rounded-[var(--radius-lg)] border bg-silk-muted/50 transition-[max-height] duration-150 ease-out"
                     style={{ maxHeight: isExpanded ? contentRef.current?.scrollHeight : "0px" }}
                 >
                     <div ref={innerRef} className="space-y-4 p-4">

@@ -74,3 +74,26 @@ describe("applyThemeToElement user message color", () => {
         )
     })
 })
+
+it("preserves imported theme tokens without overwriting HeroUI's semantic colors", () => {
+    const root = document.createElement("div")
+    root.style.setProperty("--accent", "var(--primary)")
+    root.style.setProperty("--muted", "var(--muted-foreground)")
+    const state = createThemeState({
+        primary: "#123456",
+        accent: "#345678",
+        "accent-foreground": "#ffffff",
+        muted: "#222222",
+        "muted-foreground": "#aaaaaa",
+        composer: "var(--accent)",
+        "user-message": "var(--muted)"
+    })
+    applyThemeToElement(state, root, "dark")
+    expect(root.style.getPropertyValue("--accent")).toBe("var(--primary)")
+    expect(root.style.getPropertyValue("--muted")).toBe("var(--muted-foreground)")
+    expect(root.style.getPropertyValue("--silk-accent")).toBe("#345678")
+    expect(root.style.getPropertyValue("--silk-muted")).toBe("#222222")
+    expect(root.style.getPropertyValue("--composer")).toBe("var(--silk-accent)")
+    expect(root.style.getPropertyValue("--user-message")).toBe("var(--silk-muted)")
+    expect(state.cssVars.dark.accent).toBe("#345678")
+})

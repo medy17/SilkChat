@@ -1,4 +1,5 @@
-"use client"
+import { NumberField } from "@/components/ui/number-field"
+;("use client")
 
 import { RecipeVisuals } from "@/components/recipe-visuals"
 import { Button } from "@/components/ui/button"
@@ -27,10 +28,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Flame,
-    Minus,
     Pause,
     Play,
-    Plus,
     Printer,
     RotateCcw,
     Ruler,
@@ -49,7 +48,7 @@ import {
     useRef,
     useState
 } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export type TimerState = {
     total: number
@@ -122,7 +121,7 @@ const TimerChip = ({
                 <button
                     type="button"
                     data-recipe-print-timer-control
-                    className="ml-1 inline-flex size-6.5 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="ml-1 inline-flex size-6.5 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-silk-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label={`Reset ${token.display} timer`}
                     onClick={() => onReset(id)}
                 >
@@ -576,31 +575,16 @@ export const RecipeCard = ({
                         data-recipe-print-hide
                         className="flex flex-wrap items-center gap-3 pt-2"
                     >
-                        <div className="inline-flex items-center rounded-[var(--radius-lg)] border border-border/70 bg-muted/30 p-1">
-                            <button
-                                type="button"
-                                className="inline-flex size-6 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30"
-                                aria-label="Decrease servings"
-                                disabled={servings <= 1}
-                                onClick={() => setServings((current) => Math.max(1, current - 1))}
-                            >
-                                <Minus className="size-3" />
-                            </button>
-                            <span className="px-3 font-medium text-xs">
-                                <strong className="font-bold text-foreground">
-                                    {formatRecipeNumber(servings)}
-                                </strong>{" "}
-                                servings
-                            </span>
-                            <button
-                                type="button"
-                                className="inline-flex size-6 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-                                aria-label="Increase servings"
-                                onClick={() => setServings((current) => current + 1)}
-                            >
-                                <Plus className="size-3" />
-                            </button>
-                        </div>
+                        <NumberField
+                            aria-label="Servings"
+                            value={servings}
+                            minValue={1}
+                            step={1}
+                            onChange={(value) => {
+                                if (Number.isFinite(value)) setServings(value)
+                            }}
+                            className="w-40"
+                        />
 
                         {availableMeasurementSystems.size > 0 && (
                             <Popover open={unitPopoverOpen} onOpenChange={setUnitPopoverOpen}>
@@ -609,7 +593,7 @@ export const RecipeCard = ({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 gap-2 rounded-[var(--radius-lg)] border-border/70 bg-muted/30 px-3 font-medium text-xs shadow-none hover:bg-muted/60"
+                                        className="h-8 gap-2 rounded-[var(--radius-lg)] border-border/70 bg-silk-muted/30 px-3 font-medium text-xs shadow-none hover:bg-silk-muted/60"
                                         aria-label={`Units: ${measurementSystemLabel}`}
                                     >
                                         <Ruler className="size-3.5 text-muted-foreground" />
@@ -646,24 +630,28 @@ export const RecipeCard = ({
                                                 ["imperial", "Imperial", "Ounces and US cups"]
                                             ] as const
                                         ).map(([value, label, description]) => (
-                                            <label
+                                            <div
                                                 key={value}
-                                                htmlFor={`${unitControlId}-${value}`}
-                                                className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 py-2 transition-colors hover:bg-muted/60"
+                                                className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 py-2 transition-colors hover:bg-silk-muted/60"
                                             >
                                                 <RadioGroupItem
                                                     id={`${unitControlId}-${value}`}
                                                     value={value}
                                                 />
-                                                <span className="min-w-0">
-                                                    <span className="block font-medium text-sm">
-                                                        {label}
+                                                <label
+                                                    htmlFor={`${unitControlId}-${value}`}
+                                                    className="min-w-0 flex-1 cursor-pointer"
+                                                >
+                                                    <span className="min-w-0">
+                                                        <span className="block font-medium text-sm">
+                                                            {label}
+                                                        </span>
+                                                        <span className="block text-muted-foreground text-xs">
+                                                            {description}
+                                                        </span>
                                                     </span>
-                                                    <span className="block text-muted-foreground text-xs">
-                                                        {description}
-                                                    </span>
-                                                </span>
-                                            </label>
+                                                </label>
+                                            </div>
                                         ))}
                                     </RadioGroup>
                                 </PopoverContent>
@@ -694,7 +682,7 @@ export const RecipeCard = ({
                                 </div>
                                 <span
                                     data-recipe-print-hide
-                                    className="rounded-[var(--radius-md)] bg-muted/50 px-2.5 py-0.5 font-medium text-muted-foreground text-xs"
+                                    className="rounded-[var(--radius-md)] bg-silk-muted/50 px-2.5 py-0.5 font-medium text-muted-foreground text-xs"
                                 >
                                     {checkedIngredients.size} of {recipe.ingredients.length} checked
                                 </span>
@@ -867,7 +855,7 @@ export const RecipeCard = ({
                 {/* Notes: Subtle Banner */}
                 {recipe.notes && (
                     <footer className="mt-14 border-border/60 border-t pt-8">
-                        <div className="flex gap-3.5 rounded-[var(--radius-lg)] border border-border/40 bg-muted/20 p-5 sm:p-6">
+                        <div className="flex gap-3.5 rounded-[var(--radius-lg)] border border-border/40 bg-silk-muted/20 p-5 sm:p-6">
                             <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
                             <div className="space-y-1">
                                 <h3 className="font-semibold text-foreground text-sm">

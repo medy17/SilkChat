@@ -1,178 +1,220 @@
-import * as React from "react"
-import { Drawer as DrawerPrimitive } from "vaul"
-
+import { OverlayPortalContext } from "./overlay-portal"
+import { Drawer as HeroDrawer, Modal } from "@heroui/react"
+import { mergeRefs } from "react-aria"
+import { Slot } from "@radix-ui/react-slot"
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useOverlayBackDismiss } from "@/hooks/use-overlay-back-dismiss"
 import { cn } from "@/lib/utils"
+import { Button } from "./button"
+import { DialogDescription, OpenFocus } from "./dialog"
+import {
+    DialogDescriptionContext,
+    useDescriptionState,
+    useOverlayControl,
+    allowOutsideInteraction,
+    type OverlayProps,
+    type OutsideEvent
+} from "./overlay-state"
+import * as Nonmodal from "./nonmodal-drawer"
 
-function Drawer({
-  open: openProp,
-  defaultOpen = false,
-  onOpenChange,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  const isMobile = useIsMobile()
-  const isControlled = openProp !== undefined
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen)
-
-  const open = isControlled ? openProp : uncontrolledOpen
-
-  const handleOpenChange = React.useCallback(
-    (nextOpen: boolean) => {
-      if (!isControlled) {
-        setUncontrolledOpen(nextOpen)
-      }
-
-      onOpenChange?.(nextOpen)
-    },
-    [isControlled, onOpenChange]
-  )
-
-  useOverlayBackDismiss({
-    open,
-    enabled: isMobile,
-    onClose: () => handleOpenChange(false),
-  })
-
-  return (
-    <DrawerPrimitive.Root
-      data-slot="drawer"
-      open={open}
-      onOpenChange={handleOpenChange}
-      {...props}
-    />
-  )
-}
-
-function DrawerTrigger({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
-  return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />
-}
-
-function DrawerPortal({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
-  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />
-}
-
-function DrawerClose({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Close>) {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
-}
-
-function DrawerOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
-  return (
-    <DrawerPrimitive.Overlay
-      data-slot="drawer-overlay"
-      className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-const DrawerContent = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentProps<typeof DrawerPrimitive.Content> & {
-    overlayClassName?: string
-  }
->(function DrawerContent(
-  {
-    className,
-    children,
-    overlayClassName,
-    ...props
-  },
-  ref
-) {
-  return (
-    <DrawerPortal data-slot="drawer-portal">
-      <DrawerOverlay className={overlayClassName} />
-      <DrawerPrimitive.Content
-        ref={ref}
-        data-slot="drawer-content"
-        className={cn(
-          "group/drawer-content bg-background fixed z-50 flex h-auto flex-col font-sans",
-          "data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80dvh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b",
-          "data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80dvh] data-[vaul-drawer-direction=bottom]:rounded-t-lg data-[vaul-drawer-direction=bottom]:border-t",
-          "data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=right]:sm:max-w-sm",
-          "data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:border-r data-[vaul-drawer-direction=left]:sm:max-w-sm",
-          className
-        )}
-        {...props}
-      >
-        <div className="bg-muted mx-auto mt-4 hidden h-2 w-[6.25rem] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
-        {children}
-      </DrawerPrimitive.Content>
-    </DrawerPortal>
-  )
+const DrawerContext = createContext({
+    nonmodal: false,
+    direction: "bottom" as "top" | "bottom" | "left" | "right",
+    setOpen: (_open: boolean) => {}
 })
-
-function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="drawer-header"
-      className={cn(
-        "flex flex-col gap-0.5 p-4 text-left md:gap-1.5",
-        className
-      )}
-      {...props}
-    />
-  )
+type Props = OverlayProps & {
+    nested?: boolean
+    direction?: "top" | "bottom" | "left" | "right"
+    repositionInputs?: boolean
 }
-
-function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="drawer-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
-      {...props}
-    />
-  )
+export function Drawer({
+    children,
+    modal = true,
+    nested,
+    direction = "bottom",
+    repositionInputs,
+    ...props
+}: Props) {
+    const control = useOverlayControl(props)
+    const isMobile = useIsMobile()
+    useOverlayBackDismiss({
+        open: control.open,
+        enabled: isMobile && modal,
+        onClose: () => control.setOpen(false)
+    })
+    const value = { nonmodal: !modal, direction, setOpen: control.setOpen }
+    return (
+        <DrawerContext value={value}>
+            {modal ? (
+                <HeroDrawer isOpen={control.open} onOpenChange={control.setOpen}>
+                    {children}
+                </HeroDrawer>
+            ) : (
+                <Nonmodal.Drawer
+                    {...props}
+                    open={control.open}
+                    onOpenChange={control.setOpen}
+                    modal={false}
+                    nested={nested}
+                    direction={direction}
+                    repositionInputs={repositionInputs}
+                >
+                    {children}
+                </Nonmodal.Drawer>
+            )}
+        </DrawerContext>
+    )
 }
-
-function DrawerTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Title>) {
-  return (
-    <DrawerPrimitive.Title
-      data-slot="drawer-title"
-      className={cn("text-foreground font-semibold", className)}
-      {...props}
-    />
-  )
+export function DrawerTrigger({
+    asChild,
+    children,
+    ...props
+}: ComponentProps<"button"> & { asChild?: boolean }) {
+    const { nonmodal } = useContext(DrawerContext)
+    if (nonmodal)
+        return (
+            <Nonmodal.DrawerTrigger asChild={asChild} {...props}>
+                {children}
+            </Nonmodal.DrawerTrigger>
+        )
+    return (
+        <Modal.Trigger<"button">
+            {...props}
+            render={(triggerProps) =>
+                asChild ? (
+                    <Slot {...triggerProps}>{children}</Slot>
+                ) : (
+                    <button type="button" {...triggerProps}>
+                        {children}
+                    </button>
+                )
+            }
+        />
+    )
 }
-
-function DrawerDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Description>) {
-  return (
-    <DrawerPrimitive.Description
-      data-slot="drawer-description"
-      className={cn("text-muted-foreground text-sm", className)}
-      {...props}
-    />
-  )
+export function DrawerClose({ onClick, ...props }: ComponentProps<typeof Button>) {
+    const { setOpen } = useContext(DrawerContext)
+    return (
+        <Button
+            {...props}
+            onClick={(event) => {
+                onClick?.(event)
+                if (!event.defaultPrevented) setOpen(false)
+            }}
+        />
+    )
 }
-
-export {
-  Drawer,
-  DrawerPortal,
-  DrawerOverlay,
-  DrawerTrigger,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerFooter,
-  DrawerTitle,
-  DrawerDescription,
+type ContentProps = ComponentProps<"div"> & {
+    children?: ReactNode
+    className?: string
+    placement?: "top" | "bottom" | "left" | "right"
+    overlayClassName?: string
+    onInteractOutside?: (event: OutsideEvent) => void
+    onOpenAutoFocus?: (event: Event) => void
+}
+export function DrawerContent({
+    className,
+    overlayClassName,
+    children,
+    onInteractOutside,
+    onOpenAutoFocus,
+    placement,
+    ref,
+    ...props
+}: ContentProps) {
+    const { nonmodal, direction } = useContext(DrawerContext)
+    const description = useDescriptionState()
+    const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
+    if (nonmodal)
+        return (
+            <Nonmodal.DrawerContent
+                ref={ref}
+                className={className}
+                overlayClassName={overlayClassName}
+                onInteractOutside={
+                    onInteractOutside
+                        ? (event) => {
+                              if (
+                                  !allowOutsideInteraction(
+                                      event.target as Element,
+                                      onInteractOutside
+                                  )
+                              )
+                                  event.preventDefault()
+                          }
+                        : undefined
+                }
+                onOpenAutoFocus={onOpenAutoFocus}
+                {...props}
+            >
+                {children}
+            </Nonmodal.DrawerContent>
+        )
+    return (
+        <OverlayPortalContext value={portalContainer}>
+            <DialogDescriptionContext value={description}>
+                <HeroDrawer.Backdrop
+                    style={{ zIndex: "var(--z-index-overlay)" }}
+                    className={overlayClassName}
+                    shouldCloseOnInteractOutside={(target) =>
+                        allowOutsideInteraction(target, onInteractOutside)
+                    }
+                >
+                    <HeroDrawer.Content placement={placement ?? direction} className="z-[80]">
+                        <HeroDrawer.Dialog
+                            render={(dialogProps) => (
+                                <div
+                                    {...dialogProps}
+                                    {...props}
+                                    ref={(node) => {
+                                        const merged = mergeRefs(dialogProps.ref, ref)
+                                        if (typeof merged === "function") return merged(node)
+                                        if (merged) merged.current = node
+                                    }}
+                                />
+                            )}
+                            aria-describedby={
+                                description.hasDescription ? description.id : undefined
+                            }
+                            className={cn(
+                                "flex min-h-0 flex-col bg-background p-0 font-sans",
+                                className
+                            )}
+                        >
+                            <OpenFocus onOpenAutoFocus={onOpenAutoFocus} />
+                            {((placement ?? direction) === "bottom" ||
+                                (placement ?? direction) === "top") && <HeroDrawer.Handle />}
+                            {children}
+                        </HeroDrawer.Dialog>
+                        <div ref={setPortalContainer} className="pointer-events-auto contents" />
+                    </HeroDrawer.Content>
+                </HeroDrawer.Backdrop>
+            </DialogDescriptionContext>
+        </OverlayPortalContext>
+    )
+}
+export function DrawerHeader(props: ComponentProps<"div">) {
+    const { nonmodal } = useContext(DrawerContext)
+    return nonmodal ? (
+        <Nonmodal.DrawerHeader {...props} />
+    ) : (
+        <HeroDrawer.Header {...props} className={cn("p-4", props.className)} />
+    )
+}
+export function DrawerFooter(props: ComponentProps<"div">) {
+    const { nonmodal } = useContext(DrawerContext)
+    return nonmodal ? (
+        <Nonmodal.DrawerFooter {...props} />
+    ) : (
+        <HeroDrawer.Footer {...props} className={cn("p-4", props.className)} />
+    )
+}
+export function DrawerTitle(props: ComponentProps<typeof HeroDrawer.Heading>) {
+    const { nonmodal } = useContext(DrawerContext)
+    return nonmodal ? <Nonmodal.DrawerTitle {...props} /> : <HeroDrawer.Heading {...props} />
+}
+export function DrawerDescription(props: ComponentProps<"p">) {
+    const { nonmodal } = useContext(DrawerContext)
+    return nonmodal ? <Nonmodal.DrawerDescription {...props} /> : <DialogDescription {...props} />
 }

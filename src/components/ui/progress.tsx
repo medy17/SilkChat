@@ -1,29 +1,48 @@
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
-
+import { Meter as HeroMeter, ProgressBar } from "@heroui/react"
+import type { ComponentProps } from "react"
 import { cn } from "@/lib/utils"
 
-function Progress({
-  className,
-  value,
-  ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
-  return (
-    <ProgressPrimitive.Root
-      data-slot="progress"
-      className={cn(
-        "bg-primary/20 relative h-2 w-full overflow-hidden rounded-full",
-        className
-      )}
-      {...props}
-    >
-      <ProgressPrimitive.Indicator
-        data-slot="progress-indicator"
-        className="bg-primary h-full w-full flex-1 transition-all"
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-      />
-    </ProgressPrimitive.Root>
-  )
+type Props = Omit<ComponentProps<typeof ProgressBar>, "value"> & {
+    value?: number | null
+    max?: number
 }
-
-export { Progress }
+export function Progress({ value, max, className, ...props }: Props) {
+    return (
+        <ProgressBar
+            {...props}
+            value={value ?? undefined}
+            maxValue={max}
+            isIndeterminate={value == null}
+            className={cn(
+                "h-2 gap-0 [grid-template-areas:'track'] [grid-template-columns:1fr]",
+                className
+            )}
+        >
+            <ProgressBar.Track className="h-full rounded-md">
+                <ProgressBar.Fill className="rounded-none" />
+            </ProgressBar.Track>
+        </ProgressBar>
+    )
+}
+export function Meter({
+    value,
+    max,
+    className,
+    ...props
+}: Omit<ComponentProps<typeof HeroMeter>, "value"> & { value: number; max?: number }) {
+    return (
+        <HeroMeter
+            {...props}
+            value={value}
+            maxValue={max}
+            className={cn(
+                "h-2 gap-0 [grid-template-areas:'track'] [grid-template-columns:1fr]",
+                className
+            )}
+        >
+            <HeroMeter.Track className="h-full rounded-md">
+                <HeroMeter.Fill className="rounded-none" />
+            </HeroMeter.Track>
+        </HeroMeter>
+    )
+}

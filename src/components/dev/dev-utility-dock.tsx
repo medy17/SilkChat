@@ -1,7 +1,7 @@
+import { NumberField } from "@/components/ui/number-field"
 import { useThemeAuditResultStore } from "@/components/dev/dev-runtime"
 import { LogoSymbol } from "@/components/logo"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -34,7 +34,7 @@ import {
     useRef,
     useState
 } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type CreditDevState = {
     account?: {
@@ -445,7 +445,7 @@ export function DevUtilityDock() {
             const data = (await response.json()) as { removed?: number }
             toast.success(`Purged optimizer cache (${data.removed ?? 0} files)`)
         } catch {
-            toast.error("Optimizer cache purge failed")
+            toast.danger("Optimizer cache purge failed")
         }
     }
 
@@ -666,7 +666,7 @@ export function DevUtilityDock() {
                                             Copy
                                         </Button>
                                     </div>
-                                    <div className="space-y-1 rounded-[var(--radius-lg)] bg-muted/40 p-2 text-xs">
+                                    <div className="space-y-1 rounded-[var(--radius-lg)] bg-silk-muted/40 p-2 text-xs">
                                         <DiagnosticRow label="Route" value={diagnostics.route} />
                                         <DiagnosticRow
                                             label="Thread"
@@ -805,7 +805,7 @@ function ThreadDiagnosticsSection({
     return (
         <div className="space-y-2">
             <span className="font-medium text-xs">Thread</span>
-            <div className="space-y-1 rounded-[var(--radius-lg)] bg-muted/40 p-2 text-xs">
+            <div className="space-y-1 rounded-[var(--radius-lg)] bg-silk-muted/40 p-2 text-xs">
                 <DiagnosticRow
                     label="Persona"
                     value={
@@ -869,23 +869,16 @@ function DevNumberField({
     return (
         <div className="space-y-1">
             <span className="text-[0.625rem] text-muted-foreground">{label}</span>
-            <Input
-                type="number"
-                min={1}
-                value={value ?? ""}
+            <NumberField
+                aria-label={label}
+                value={value ?? Number.NaN}
+                minValue={1}
                 placeholder="real"
-                aria-label={`${label} context limit override`}
-                disabled={disabled}
-                className="h-8 rounded-[var(--radius-sm)] text-xs"
-                onChange={(event) => {
-                    const raw = event.target.value.trim()
-                    if (raw === "") {
-                        onChange(null)
-                        return
-                    }
-                    const parsed = Number.parseInt(raw, 10)
-                    onChange(Number.isNaN(parsed) ? null : Math.max(1, parsed))
-                }}
+                isDisabled={disabled}
+                onChange={(next) =>
+                    onChange(Number.isFinite(next) ? Math.max(1, Math.trunc(next)) : null)
+                }
+                className="text-xs"
             />
         </div>
     )

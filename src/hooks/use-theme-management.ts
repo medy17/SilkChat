@@ -24,7 +24,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useMutation } from "convex/react"
 import isEqual from "fast-deep-equal"
 import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export function useThemeManagement() {
     const session = useSession()
@@ -194,7 +194,7 @@ export function useThemeManagement() {
             }
             toast.success("Theme removed")
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Couldn’t remove this theme")
+            toast.danger(error instanceof Error ? error.message : "Couldn’t remove this theme")
         }
     }
 

@@ -12,7 +12,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { CheckCircle, Loader2 } from "lucide-react"
 import { usePostHog } from "posthog-js/react"
 import { useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createFileRoute("/settings/privacy")({
     component: PrivacySettingsRoute
@@ -35,7 +35,7 @@ function PrivacySettingsRoute() {
             toast.success("Model routing updated")
         } catch (error) {
             console.error("Failed to update model routing:", error)
-            toast.error("Failed to update model routing")
+            toast.danger("Failed to update model routing")
         } finally {
             setIsUpdatingRouting(false)
         }
@@ -63,7 +63,7 @@ function PrivacySettingsRoute() {
                 posthog.opt_in_capturing({ captureEventName: false })
             }
             console.error("Failed to update telemetry preference:", error)
-            toast.error("Failed to update usage analytics")
+            toast.danger("Failed to update usage analytics")
         } finally {
             setIsUpdating(false)
         }
@@ -103,7 +103,7 @@ function PrivacySettingsRoute() {
                                     <label
                                         key={option.value}
                                         className={cn(
-                                            "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-muted/20 p-3 transition-all duration-200 hover:bg-muted/40 sm:p-4 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
+                                            "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-silk-muted/20 p-3 transition-all duration-200 hover:bg-silk-muted/40 sm:p-4 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
                                             isSelected
                                                 ? "bg-primary/5 ring-1 ring-primary/20"
                                                 : "hover:ring-1 hover:ring-border",

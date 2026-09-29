@@ -249,7 +249,7 @@ export function FoldersSection({
             <SidebarGroup>
                 <SidebarGroupLabel className="gap-0 pr-0">
                     <CollapsibleTrigger className="mr-2 flex flex-1 cursor-pointer items-center transition-colors hover:text-sidebar-foreground">
-                        <ChevronRight className="mr-1 h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                        <ChevronRight className="mr-1 h-4 w-4 transition-transform group-data-[expanded=true]/collapsible:rotate-90" />
                         Folders
                     </CollapsibleTrigger>
                     <NewFolderButton onSuccess={() => setIsOpen(true)} />

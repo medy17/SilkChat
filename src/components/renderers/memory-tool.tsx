@@ -5,7 +5,7 @@ import type { UIToolInvocation } from "ai"
 import { useAction, useQuery } from "convex/react"
 import { AlertCircle, BrainCircuit, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { memo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type MemoryToolInvocation = UIToolInvocation<{
     input: unknown
@@ -157,7 +157,7 @@ export const MemoryToolRenderer = memo(
                 })
                 toast.success(details.completedLabel)
             } catch (error) {
-                toast.error(getErrorMessage(error, "Could not apply memory change"))
+                toast.danger(getErrorMessage(error, "Could not apply memory change"))
             } finally {
                 setIsConfirming(false)
             }
@@ -170,7 +170,7 @@ export const MemoryToolRenderer = memo(
                 await cancelMemoryChange(actionArgs())
                 setOptimisticOutput({ ...change, status: "cancelled" })
             } catch (error) {
-                toast.error(getErrorMessage(error, "Could not cancel memory change"))
+                toast.danger(getErrorMessage(error, "Could not cancel memory change"))
             } finally {
                 setIsCancelling(false)
             }
@@ -184,7 +184,7 @@ export const MemoryToolRenderer = memo(
                 className="not-prose my-3 w-full max-w-lg overflow-hidden rounded-[var(--radius-xl)] border bg-card shadow-sm"
                 aria-label={`${details.title} confirmation card`}
             >
-                <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
+                <div className="flex items-start gap-3 border-b bg-silk-muted/20 p-4">
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-primary/10 text-primary">
                         <BrainCircuit className="size-5" />
                     </div>
@@ -200,7 +200,7 @@ export const MemoryToolRenderer = memo(
                 <div className="space-y-3 p-4">
                     {change.operation === "update" ? (
                         <div className="space-y-2">
-                            <div className="rounded-[var(--radius-md)] bg-muted/40 p-3">
+                            <div className="rounded-[var(--radius-md)] bg-silk-muted/40 p-3">
                                 <p className="mb-1 font-medium text-muted-foreground text-xs">
                                     Current
                                 </p>
@@ -214,7 +214,7 @@ export const MemoryToolRenderer = memo(
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-[var(--radius-md)] bg-muted/40 p-3">
+                        <div className="rounded-[var(--radius-md)] bg-silk-muted/40 p-3">
                             <p className="whitespace-pre-wrap text-sm">{change.content}</p>
                         </div>
                     )}
@@ -245,7 +245,7 @@ export const MemoryToolRenderer = memo(
                     )}
                 </div>
 
-                <div className="border-t bg-muted/10 p-3">
+                <div className="border-t bg-silk-muted/10 p-3">
                     {status === "pending_confirmation" ? (
                         <div className="flex gap-2">
                             <Button

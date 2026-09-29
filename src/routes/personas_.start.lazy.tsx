@@ -44,7 +44,7 @@ import {
 import { AnimatePresence, MotionConfig, motion } from "motion/react"
 import { nanoid } from "nanoid"
 import { type CSSProperties, useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createLazyFileRoute("/personas_/start")({
     component: PersonaOnboarding
@@ -108,7 +108,7 @@ function AvatarUploadArea({
             htmlFor={id}
             style={previewUrl ? { borderColor: "var(--persona-accent)" } : undefined}
             className={cn(
-                "group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border-2 border-border border-dashed bg-muted text-muted-foreground transition-colors hover:border-[var(--persona-accent)] hover:text-[var(--persona-accent)]",
+                "group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border-2 border-border border-dashed bg-silk-muted text-muted-foreground transition-colors hover:border-[var(--persona-accent)] hover:text-[var(--persona-accent)]",
                 className
             )}
         >
@@ -245,7 +245,7 @@ function PersonaOnboarding() {
                 fileName: file.name
             })
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Avatar upload failed")
+            toast.danger(error instanceof Error ? error.message : "Avatar upload failed")
         }
     }
 
@@ -311,7 +311,7 @@ function PersonaOnboarding() {
                 ) ?? getBuiltInPersonaOpenings(selectedPersona)[0]
             )
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to start persona chat")
+            toast.danger(error instanceof Error ? error.message : "Failed to start persona chat")
             setIsSaving(false)
         }
     }
@@ -346,7 +346,7 @@ function PersonaOnboarding() {
                 getSyntheticPersonaOpening(createForm.starters.map((starter) => starter.trim()))
             )
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to create persona")
+            toast.danger(error instanceof Error ? error.message : "Failed to create persona")
             setIsSaving(false)
         }
     }
@@ -418,7 +418,7 @@ function PersonaOnboarding() {
                                                         : undefined
                                                 }
                                                 className={cn(
-                                                    "relative aspect-square w-full shrink-0 overflow-hidden rounded-[var(--radius-md)] border-2 bg-muted transition-all",
+                                                    "relative aspect-square w-full shrink-0 overflow-hidden rounded-[var(--radius-md)] border-2 bg-silk-muted transition-all",
                                                     isSelected
                                                         ? "opacity-100"
                                                         : "border-border opacity-65 hover:border-primary/60 hover:opacity-100"
@@ -463,7 +463,7 @@ function PersonaOnboarding() {
                                     </button>
                                 </div>
 
-                                <div className="order-1 hidden aspect-square w-full overflow-hidden rounded-[var(--radius-lg)] bg-muted sm:order-2 sm:block">
+                                <div className="order-1 hidden aspect-square w-full overflow-hidden rounded-[var(--radius-lg)] bg-silk-muted sm:order-2 sm:block">
                                     <AnimatePresence mode="wait" initial={false}>
                                         {isCreating ? (
                                             <motion.div
@@ -741,7 +741,7 @@ function PersonaOnboarding() {
                             setAvatarPreview(croppedFile)
                             setAvatarCropState(null)
                         } catch (error) {
-                            toast.error(
+                            toast.danger(
                                 error instanceof Error ? error.message : "Avatar crop failed"
                             )
                         } finally {

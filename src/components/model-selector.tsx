@@ -1,3 +1,6 @@
+import { Meter as HeroMeter } from "@heroui/react"
+import { SearchField } from "@/components/ui/search-field"
+import { PickerChoices, PickerChoice } from "@/components/ui/picker-choice"
 import {
     buildModelPickerSections,
     isLegacyModel,
@@ -15,7 +18,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Input } from "@/components/ui/input"
 import {
     ResponsivePopover,
     ResponsivePopoverContent,
@@ -69,7 +71,6 @@ import {
     GraduationCap,
     Image,
     Key,
-    Search,
     Sparkle,
     Star,
     Terminal,
@@ -77,7 +78,7 @@ import {
 } from "lucide-react"
 import * as React from "react"
 import { LayoutGroup, motion } from "motion/react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import "./model-selector.css"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
@@ -401,7 +402,12 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
     const strokeOffset = circumference * (1 - normalizedValue / 100)
 
     return (
-        <div className="relative size-14 shrink-0 text-[var(--benchmark-color)]">
+        <HeroMeter
+            value={normalizedValue}
+            aria-label="Benchmark score"
+            aria-valuetext={label}
+            className="relative block size-14 shrink-0 text-[var(--benchmark-color)]"
+        >
             <svg className="size-full -rotate-90" viewBox="0 0 64 64" aria-hidden="true">
                 <circle
                     cx="32"
@@ -427,7 +433,7 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
             <div className="absolute inset-0 flex items-center justify-center font-semibold text-[0.725rem]">
                 {label}
             </div>
-        </div>
+        </HeroMeter>
     )
 }
 
@@ -793,7 +799,7 @@ const FavoriteToggle = ({
     const [isRemovalArmed, setIsRemovalArmed] = React.useState(false)
     const [tooltipOpen, setTooltipOpen] = React.useState(false)
     const resetTimerRef = React.useRef<number | null>(null)
-    const confirmationToastId = `favorite-removal:${model.id}`
+    const confirmationToastId = React.useRef<string | null>(null)
 
     const clearRemovalTimer = React.useCallback(() => {
         if (resetTimerRef.current !== null) {
@@ -820,17 +826,20 @@ const FavoriteToggle = ({
             setIsRemovalArmed(true)
             setTooltipOpen(true)
             if (useToastConfirmation) {
-                toast("Tap again to remove from favorites", {
+                if (confirmationToastId.current) toast.close(confirmationToastId.current)
+                confirmationToastId.current = toast("Tap again to remove from favorites", {
                     description: model.name,
-                    duration: 2500,
-                    id: confirmationToastId
+                    timeout: 2500
                 })
             }
             resetTimerRef.current = window.setTimeout(resetRemoval, 2500)
             return
         }
 
-        if (useToastConfirmation) toast.dismiss(confirmationToastId)
+        if (confirmationToastId.current) {
+            toast.close(confirmationToastId.current)
+            confirmationToastId.current = null
+        }
         resetRemoval()
         onToggleFavorite(model.id)
     }
@@ -847,7 +856,7 @@ const FavoriteToggle = ({
                     size="icon"
                     className={cn(
                         "size-7 rounded-[var(--radius-md)] border text-muted-foreground",
-                        isFavorite && "border-transparent bg-accent text-primary"
+                        isFavorite && "border-transparent bg-silk-accent text-primary"
                     )}
                     aria-label={
                         isRemovalArmed
@@ -954,11 +963,11 @@ const ModelCard = React.memo(function ModelCard({
             className={cn(
                 "relative w-full rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left transition-colors",
                 mobile && "border-input",
-                "hover:border-accent hover:bg-accent/10",
+                "hover:border-silk-accent hover:bg-silk-accent/10",
                 isSelected &&
                     "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10 ring-inset",
                 disabled &&
-                    "cursor-not-allowed border-border/60 bg-muted/30 text-muted-foreground hover:border-border/60 hover:bg-muted/30"
+                    "cursor-not-allowed border-border/60 bg-silk-muted/30 text-muted-foreground hover:border-border/60 hover:bg-silk-muted/30"
             )}
         >
             {isSelected && (
@@ -974,11 +983,11 @@ const ModelCard = React.memo(function ModelCard({
                     <div className="absolute inset-1 rounded-[var(--radius-lg)] border border-primary/25" />
                 </div>
             )}
-            <button
-                type="button"
+            <PickerChoice
+                value={model.id}
+                label={model.name}
                 disabled={disabled}
-                onClick={selectModel}
-                aria-pressed={isSelected}
+                onCommit={selectModel}
                 className="relative z-10 block w-full text-left focus-visible:outline-none"
             >
                 <div className="flex items-start">
@@ -1053,7 +1062,7 @@ const ModelCard = React.memo(function ModelCard({
                         </div>
                     </div>
                 </div>
-            </button>
+            </PickerChoice>
             {isSelected && (
                 <div className="absolute top-3 right-3 z-10 flex size-7 items-center justify-center text-primary">
                     <CheckCircle className="size-4" />
@@ -1498,7 +1507,7 @@ export function ModelSelector({
 
     const modelList =
         visibleSection && visibleSectionModels.length > 0 ? (
-            <div className="space-y-2 pb-3">
+            <PickerChoices aria-label="Models" value={selectedModel} className="gap-2 pb-3">
                 {visibleSectionModels.map((model) => (
                     <ModelCard
                         key={model.id}
@@ -1549,7 +1558,7 @@ export function ModelSelector({
                         Show legacy models
                     </Button>
                 )}
-            </div>
+            </PickerChoices>
         ) : (
             <div className="flex flex-1 items-center justify-center rounded-[var(--radius-xl)] border border-dashed text-center text-muted-foreground text-sm">
                 {visibleSection?.id === FAVORITES_SECTION_ID && !searchValue
@@ -1623,15 +1632,20 @@ export function ModelSelector({
         </Button>
     )
 
+    const pickerTrigger = isMobile ? (
+        triggerButton
+    ) : (
+        <ResponsivePopoverTrigger asChild>{triggerButton}</ResponsivePopoverTrigger>
+    )
     const trigger = (
         <span ref={triggerRef} className={cn("inline-flex", triggerWrapperClassName)}>
             {tooltip && !isMobile ? (
                 <Tooltip open={suppressTooltip ? false : undefined} delayDuration={1_000}>
-                    <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
+                    <TooltipTrigger asChild>{pickerTrigger}</TooltipTrigger>
                     <TooltipContent side="top">{tooltip}</TooltipContent>
                 </Tooltip>
             ) : (
-                triggerButton
+                pickerTrigger
             )}
         </span>
     )
@@ -1654,12 +1668,11 @@ export function ModelSelector({
             {isMobile ? (
                 <div className="shrink-0 bg-background px-4 pt-3 pb-3">
                     <div className="relative">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
+                        <SearchField
                             value={searchValue}
-                            onChange={(event) => setSearchValue(event.target.value)}
+                            onChange={setSearchValue}
                             placeholder="Search models..."
-                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                            groupClassName="h-10 border-0 bg-secondary/60 shadow-none"
                         />
                     </div>
                 </div>
@@ -1672,22 +1685,21 @@ export function ModelSelector({
                         </p>
                     </div>
                     <div className="relative">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
+                        <SearchField
                             value={searchValue}
-                            onChange={(event) => setSearchValue(event.target.value)}
+                            onChange={setSearchValue}
                             placeholder="Search models..."
-                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                            groupClassName="h-10 border-0 bg-secondary/60 shadow-none"
                         />
                     </div>
                 </div>
             )}
 
             <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:max-h-[25rem] md:grid-cols-[4rem_minmax(0,1fr)]">
-                <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
+                <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-silk-muted/50">
                     <div className="relative min-h-0 flex-1 overflow-hidden">
                         {canScrollUp && (
-                            <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
+                            <div className="pointer-events-none absolute top-0 right-[1px] left-0 z-30 flex h-12 items-start justify-center bg-gradient-to-b from-silk-muted/90 via-silk-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
                                 <button
                                     type="button"
                                     className="pointer-events-auto cursor-pointer pt-1 text-muted-foreground transition-colors hover:text-foreground"
@@ -1724,7 +1736,7 @@ export function ModelSelector({
                                                             "relative isolate flex size-11 min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 text-left transition-colors",
                                                             isActive
                                                                 ? "text-foreground"
-                                                                : "text-muted-foreground hover:bg-muted/50"
+                                                                : "text-muted-foreground hover:bg-silk-muted/50"
                                                         )}
                                                         aria-label={section.label}
                                                     >
@@ -1779,7 +1791,7 @@ export function ModelSelector({
                             </LayoutGroup>
                         </div>
                         {canScrollDown && (
-                            <div className="pointer-events-none absolute right-[1px] bottom-0 left-0 z-30 flex h-12 items-end justify-center bg-gradient-to-t from-muted/90 via-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
+                            <div className="pointer-events-none absolute right-[1px] bottom-0 left-0 z-30 flex h-12 items-end justify-center bg-gradient-to-t from-silk-muted/90 via-silk-muted/50 to-transparent backdrop-blur-[2px] transition-opacity duration-300">
                                 <button
                                     type="button"
                                     className="pointer-events-auto cursor-pointer pb-1 text-muted-foreground transition-colors hover:text-foreground"
@@ -1835,8 +1847,9 @@ export function ModelSelector({
 
     return (
         <ResponsivePopover open={open} onOpenChange={setOpen} modal={modal}>
-            <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
+            {trigger}
             <ResponsivePopoverContent
+                title="Select model"
                 className={cn(
                     "flex w-[min(92vw,42.5rem)] flex-col overflow-hidden p-0 md:w-[42.5rem]",
                     contentClassName
@@ -1850,8 +1863,7 @@ export function ModelSelector({
                               width: `${desktopPopoverWidth}px`,
                               maxWidth: "92vw"
                           }
-                        : {}),
-                    maxHeight: "var(--radix-popover-content-available-height)"
+                        : {})
                 }}
             >
                 {selectorContent}

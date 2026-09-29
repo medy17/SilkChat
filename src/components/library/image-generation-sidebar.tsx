@@ -1,10 +1,11 @@
+import { NumberField } from "@/components/ui/number-field"
 import { ImageCostIndicator } from "@/components/image-cost-indicator"
 import { useCreditAccess } from "@/components/credits/credit-access-runtime"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
@@ -40,7 +41,7 @@ import { useAction } from "convex/react"
 import { ConvexError } from "convex/values"
 import { AlertCircle, Archive, Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { useGenerationStore } from "./generation-store"
 
 const DEFAULT_VARIANTS_PER_MODEL = 1
@@ -565,7 +566,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const remainingSlots = Math.max(0, selectedReferenceLimit - referenceFiles.length)
         if (files.length <= remainingSlots) return files
 
-        toast.error(
+        toast.danger(
             `The selected model set supports up to ${selectedReferenceLimit} reference images. Deselect limited models to add more.`
         )
         return files.slice(0, remainingSlots)
@@ -580,7 +581,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         }
 
         if (!supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
+            toast.danger("Reference images are not supported for the selected model set")
             if (fileInputRef.current) {
                 fileInputRef.current.value = ""
             }
@@ -597,7 +598,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }))
             setReferenceFiles((prev) => [...prev, ...newRefs])
             if (newRefs.some((reference) => reference.error)) {
-                toast.error(
+                toast.danger(
                     `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
                 )
             }
@@ -619,7 +620,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         if (imageItems.length > 0) {
             if (!supportsReferenceImagesForSelection) {
                 e.preventDefault()
-                toast.error("Reference images are not supported for the selected model set")
+                toast.danger("Reference images are not supported for the selected model set")
                 return
             }
 
@@ -635,7 +636,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }))
             setReferenceFiles((prev) => [...prev, ...newRefs])
             if (newRefs.some((reference) => reference.error)) {
-                toast.error(
+                toast.danger(
                     `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
                 )
             }
@@ -665,7 +666,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             typeof selectedModelReferenceLimit === "number" &&
             referenceFiles.length > selectedModelReferenceLimit
         ) {
-            toast.error(
+            toast.danger(
                 `This model supports up to ${selectedModelReferenceLimit} reference images. Remove references to select it.`
             )
             return
@@ -723,7 +724,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const nextTotal = totalRequestedGenerations - currentCount + clampedCount
 
         if (nextTotal > effectiveRunTotalMax) {
-            toast.error(`You can generate up to ${effectiveRunTotalMax} images per run`)
+            toast.danger(`You can generate up to ${effectiveRunTotalMax} images per run`)
             return
         }
 
@@ -944,7 +945,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         if (generationPanelDisabled || selectedRequiresPlanUpgrade) return
         if (!normalizedPrompt || selectedModelIds.length === 0) return
         if (referenceFiles.length > 0 && !supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
+            toast.danger("Reference images are not supported for the selected model set")
             return
         }
 
@@ -995,7 +996,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             await new Promise((resolve) => window.setTimeout(resolve, postSubmissionHoldMs))
         } catch (error) {
             console.error("Failed to generate image:", error)
-            toast.error(
+            toast.danger(
                 error instanceof ReferencePreparationError
                     ? error.message
                     : getGenerationErrorMessage(error, "Failed to generate image")
@@ -1009,7 +1010,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         if (generationPanelDisabled || selectedRequiresPlanUpgrade) return
         if (!isDevMode || !normalizedPrompt || selectedModelIds.length === 0) return
         if (referenceFiles.length > 0 && !supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
+            toast.danger("Reference images are not supported for the selected model set")
             return
         }
 
@@ -1055,7 +1056,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to run fake image generation:", error)
-            toast.error(
+            toast.danger(
                 error instanceof ReferencePreparationError
                     ? error.message
                     : getGenerationErrorMessage(error, "Failed to run fake image generation")
@@ -1079,7 +1080,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     <div className="flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
                         <Sparkles className="h-3.5 w-3.5" /> PROMPT
                     </div>
-                    <div className="overflow-hidden rounded-md bg-muted/30 focus-within:ring-1 focus-within:ring-primary/30">
+                    <div className="overflow-hidden rounded-md bg-silk-muted/30 focus-within:ring-1 focus-within:ring-primary/30">
                         <Textarea
                             ref={promptTextareaRef}
                             placeholder="Describe your image..."
@@ -1255,7 +1256,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                 modelDisabled && "cursor-not-allowed opacity-50",
                                                 isSelected
                                                     ? "bg-primary/15 text-primary"
-                                                    : "text-muted-foreground hover:bg-muted/50"
+                                                    : "text-muted-foreground hover:bg-silk-muted/50"
                                             )}
                                         >
                                             <button
@@ -1341,7 +1342,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                     modelPlanLocked ||
                                                                     modelCount <= 1
                                                                 }
-                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <Minus className="h-3 w-3" />
                                                             </button>
@@ -1359,7 +1360,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                 disabled={
                                                                     modelPlanLocked || !canIncrement
                                                                 }
-                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <Plus className="h-3 w-3" />
                                                             </button>
@@ -1373,7 +1374,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                 <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                                     Quality
                                                                 </span>
-                                                                <Tabs
+                                                                <ToggleGroup
+                                                                    className="h-7 gap-0.5 p-0.5"
+                                                                    aria-label={`${model.name} quality`}
                                                                     value={getImageQualityOverride(
                                                                         model
                                                                     )}
@@ -1391,23 +1394,18 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                         )
                                                                     }}
                                                                 >
-                                                                    <TabsList
-                                                                        className="h-7"
-                                                                        aria-label={`${model.name} quality`}
-                                                                    >
-                                                                        {model.supportedImageQualities?.map(
-                                                                            (quality) => (
-                                                                                <TabsTrigger
-                                                                                    key={quality}
-                                                                                    value={quality}
-                                                                                    className="px-2 text-[0.625rem] capitalize"
-                                                                                >
-                                                                                    {quality}
-                                                                                </TabsTrigger>
-                                                                            )
-                                                                        )}
-                                                                    </TabsList>
-                                                                </Tabs>
+                                                                    {model.supportedImageQualities?.map(
+                                                                        (quality) => (
+                                                                            <ToggleGroupItem
+                                                                                key={quality}
+                                                                                value={quality}
+                                                                                className="h-6 px-2 text-[0.625rem] capitalize"
+                                                                            >
+                                                                                {quality}
+                                                                            </ToggleGroupItem>
+                                                                        )
+                                                                    )}
+                                                                </ToggleGroup>
                                                             </div>
                                                         )}
                                                 </div>
@@ -1489,7 +1487,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                 !isAvailable && "cursor-not-allowed opacity-30",
                                                 isSelected && isAvailable
                                                     ? "bg-primary/15 text-primary"
-                                                    : "text-muted-foreground hover:bg-muted/50"
+                                                    : "text-muted-foreground hover:bg-silk-muted/50"
                                             )}
                                         >
                                             <div className="flex h-5 items-center justify-center">
@@ -1566,7 +1564,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                 !isAvailable && "cursor-not-allowed opacity-30",
                                                 isSelected && isAvailable
                                                     ? "border border-primary/20 bg-primary/15 text-primary"
-                                                    : "border border-transparent text-muted-foreground hover:bg-muted/50"
+                                                    : "border border-transparent text-muted-foreground hover:bg-silk-muted/50"
                                             )}
                                         >
                                             <span
@@ -1698,7 +1696,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                             onClick={handleFakeGenerate}
                             disabled={!canSubmitGeneration}
                             variant="outline"
-                            className="mb-2 flex h-11 w-full items-center justify-center gap-2 rounded-md border-border border-dashed bg-background font-medium hover:bg-muted/50"
+                            className="mb-2 flex h-11 w-full items-center justify-center gap-2 rounded-md border-border border-dashed bg-background font-medium hover:bg-silk-muted/50"
                         >
                             {generationMode === "fake" ? (
                                 <>
@@ -1774,22 +1772,15 @@ function ImageOverrideNumber({
     return (
         <div className="space-y-1">
             <span className="text-[0.625rem] text-muted-foreground">{label}</span>
-            <Input
-                type="number"
-                min={min}
-                value={value ?? ""}
-                placeholder="def"
+            <NumberField
                 aria-label={label}
-                className="h-8 rounded-[var(--radius-sm)] text-xs"
-                onChange={(event) => {
-                    const raw = event.target.value.trim()
-                    if (raw === "") {
-                        onChange(null)
-                        return
-                    }
-                    const parsed = Number.parseInt(raw, 10)
-                    onChange(Number.isNaN(parsed) ? null : Math.max(min, parsed))
-                }}
+                value={value ?? Number.NaN}
+                minValue={min}
+                placeholder="def"
+                onChange={(next) =>
+                    onChange(Number.isFinite(next) ? Math.max(min, Math.trunc(next)) : null)
+                }
+                className="text-xs"
             />
         </div>
     )

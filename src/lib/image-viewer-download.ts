@@ -1,5 +1,5 @@
 import { downloadUrl } from "@/lib/utils"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 /** Download original bytes; opening a full-resolution tab is a separate viewer action. */
 export async function downloadViewerImage({
@@ -18,6 +18,6 @@ export async function downloadViewerImage({
         await downloadUrl({ url, fileName: storageKey?.split("/").pop() || fallbackFileName })
     } catch (error) {
         console.error(errorLabel, error)
-        toast.error("Failed to download image")
+        toast.danger("Failed to download image")
     }
 }

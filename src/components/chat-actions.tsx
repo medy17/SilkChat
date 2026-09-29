@@ -430,7 +430,7 @@ export const ChatActions = memo(
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-primary"
                                 aria-label="Branch chat"
                                 onClick={() => onBranch(message)}
                             >
@@ -449,7 +449,7 @@ export const ChatActions = memo(
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-destructive"
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-destructive"
                                 aria-label="Cancel edit"
                                 onClick={onCancelEdit}
                             >
@@ -467,7 +467,7 @@ export const ChatActions = memo(
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                    className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-primary"
                                     onClick={() => onEdit(message)}
                                 >
                                     <Edit3 className="h-3.5 w-3.5" />
@@ -488,7 +488,7 @@ export const ChatActions = memo(
                                 size="icon"
                                 disabled={editing}
                                 aria-label={`Download ${imageGenerationAssets.length > 1 ? "images" : "image"}`}
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-primary"
                                 onClick={handleDownload}
                             >
                                 <Download className="h-3.5 w-3.5" />
@@ -506,7 +506,7 @@ export const ChatActions = memo(
                                 size="icon"
                                 disabled={editing}
                                 aria-label={copied ? "Copied" : "Copy message"}
-                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                                className="h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-primary"
                                 onClick={handleCopy}
                             >
                                 <div className="relative">

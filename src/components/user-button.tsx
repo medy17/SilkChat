@@ -112,15 +112,13 @@ export function UserButton() {
                     <Users className="h-4 w-4" />
                     <span>About Us</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <a
-                        href="https://instagram.com/_medy__"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <InstagramIcon className="h-4 w-4" />
-                        <span>Instagram</span>
-                    </a>
+                <DropdownMenuItem
+                    href="https://instagram.com/_medy__"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <InstagramIcon className="h-4 w-4" />
+                    <span>Instagram</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />

@@ -29,7 +29,7 @@ import {
     X
 } from "lucide-react"
 import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type ImageGenerationAsset = {
     imageUrl: string
@@ -599,7 +599,7 @@ export const ImageGenerationToolRenderer = memo(
                         cardId: output.cardId
                     })
                 } catch (error) {
-                    toast.error(getActionErrorMessage(error, "Failed to start image generation"))
+                    toast.danger(getActionErrorMessage(error, "Failed to start image generation"))
                 } finally {
                     setIsConfirming(false)
                 }
@@ -631,7 +631,7 @@ export const ImageGenerationToolRenderer = memo(
                     }
                     toast.success("Image refetched")
                 } catch (error) {
-                    toast.error(getActionErrorMessage(error, "Failed to refetch image"))
+                    toast.danger(getActionErrorMessage(error, "Failed to refetch image"))
                 } finally {
                     setRetryingAssetJobIds((current) => {
                         const next = new Set(current)
@@ -683,7 +683,7 @@ export const ImageGenerationToolRenderer = memo(
                     <RevealBlock show={showCanvas}>
                         <div
                             id={showCanvas ? previewId : undefined}
-                            className="relative overflow-hidden border-b bg-muted/30"
+                            className="relative overflow-hidden border-b bg-silk-muted/30"
                             style={{ aspectRatio: cssAspectRatio }}
                             role={canNavigateSlots ? "group" : undefined}
                             aria-roledescription={canNavigateSlots ? "carousel" : undefined}
@@ -810,7 +810,7 @@ export const ImageGenerationToolRenderer = memo(
                                     </p>
                                 </div>
                             ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-muted/10">
+                                <div className="flex h-full w-full items-center justify-center bg-silk-muted/10">
                                     <ImageIcon
                                         className="size-7 text-muted-foreground/45"
                                         aria-hidden="true"
@@ -961,7 +961,7 @@ export const ImageGenerationToolRenderer = memo(
                         )}
                     </div>
 
-                    <div className="border-t bg-muted/10 p-3">
+                    <div className="border-t bg-silk-muted/10 p-3">
                         {readOnly ? (
                             <output className="text-muted-foreground text-sm">
                                 {isComplete
@@ -1161,7 +1161,7 @@ const ImageWithErrorHandler = memo(
             return (
                 <div
                     className={cn(
-                        "flex w-full max-w-md items-center justify-center rounded-[var(--radius-xl)] border bg-muted/50",
+                        "flex w-full max-w-md items-center justify-center rounded-[var(--radius-xl)] border bg-silk-muted/50",
                         className
                     )}
                     style={{ aspectRatio: cssAspectRatio }}

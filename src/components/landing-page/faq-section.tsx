@@ -44,7 +44,7 @@ export function FaqSection() {
         <section
             id="faq"
             ref={sectionRef}
-            className="flex min-h-screen snap-start flex-col items-center justify-center bg-muted/10 px-6 py-20"
+            className="flex min-h-screen snap-start flex-col items-center justify-center bg-silk-muted/10 px-6 py-20"
         >
             <div
                 className="faq-content container mx-auto max-w-3xl"

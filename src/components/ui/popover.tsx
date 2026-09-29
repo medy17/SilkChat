@@ -1,51 +1,126 @@
-import * as React from "react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
-
+import { OverlayPortalContext } from "./overlay-portal"
+import { Popover as HeroPopover } from "@heroui/react"
+import { Slot } from "@radix-ui/react-slot"
+import { createContext, useContext, useRef, useState, type ComponentProps } from "react"
+import { mergeProps, mergeRefs, useOverlay } from "react-aria"
+import { OverlayTriggerStateContext } from "react-aria-components"
 import { cn } from "@/lib/utils"
+import { OpenFocus } from "./dialog"
+import type { OverlayProps } from "./overlay-state"
 
-function Popover({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+const ModalContext = createContext(false)
+export function Popover({
+    open,
+    defaultOpen,
+    onOpenChange,
+    modal = false,
+    children
+}: OverlayProps) {
+    return (
+        <ModalContext value={modal}>
+            <HeroPopover isOpen={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
+                {children}
+            </HeroPopover>
+        </ModalContext>
+    )
 }
-
-function PopoverTrigger({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+export function PopoverTrigger({
+    asChild,
+    children,
+    ...props
+}: ComponentProps<"button"> & { asChild?: boolean }) {
+    return (
+        <HeroPopover.Trigger<"button">
+            {...props}
+            render={(triggerProps) =>
+                asChild ? (
+                    <Slot {...triggerProps}>{children}</Slot>
+                ) : (
+                    <button type="button" {...triggerProps}>
+                        {children}
+                    </button>
+                )
+            }
+        />
+    )
 }
-
-function PopoverContent({
-  className,
-  align = "center",
-  sideOffset = 4,
-  onOpenAutoFocus,
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
-  return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-slot="popover-content"
-        align={align}
-        sideOffset={sideOffset}
-        onOpenAutoFocus={(event) => {
-          event.preventDefault()
-          onOpenAutoFocus?.(event)
-        }}
-        className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
-          className
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
-  )
+export function PopoverContent({
+    side = "bottom",
+    align = "center",
+    sideOffset = 4,
+    alignOffset = 0,
+    collisionPadding = 12,
+    className,
+    style,
+    children,
+    onOpenAutoFocus,
+    ref,
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledBy,
+    ...props
+}: Omit<ComponentProps<typeof HeroPopover.Content>, "placement" | "style"> & {
+    style?: ComponentProps<typeof HeroPopover.Dialog>["style"]
+    side?: "top" | "bottom" | "left" | "right"
+    align?: "start" | "center" | "end"
+    sideOffset?: number
+    alignOffset?: number
+    collisionPadding?: number
+    onOpenAutoFocus?: (event: Event) => void
+}) {
+    const modal = useContext(ModalContext)
+    const state = useContext(OverlayTriggerStateContext)
+    const contentRef = useRef<HTMLDivElement>(null)
+    // HeroUI's nonmodal popover only closes on blur. Register pointer dismissal
+    // with React Aria's overlay stack so nested menus still close one at a time.
+    const { overlayProps } = useOverlay(
+        {
+            isOpen: !modal && !!state?.isOpen,
+            onClose: state?.close,
+            isDismissable: true,
+            shouldCloseOnBlur: true,
+            isKeyboardDismissDisabled: props.isKeyboardDismissDisabled,
+            shouldCloseOnInteractOutside: props.shouldCloseOnInteractOutside
+        },
+        contentRef
+    )
+    const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null)
+    const placement =
+        side === "left" || side === "right"
+            ? align === "center"
+                ? side
+                : (`${side} ${align === "start" ? "top" : "bottom"}` as const)
+            : align === "center"
+              ? side
+              : (`${side} ${align}` as const)
+    return (
+        <OverlayPortalContext value={portalContainer}>
+            <HeroPopover.Content
+                {...props}
+                ref={mergeRefs(contentRef, ref)}
+                containerPadding={collisionPadding}
+                isNonModal={!modal}
+                placement={placement}
+                offset={sideOffset}
+                crossOffset={alignOffset}
+                className="flex flex-col bg-transparent p-0 shadow-none"
+            >
+                <HeroPopover.Dialog
+                    render={(dialogProps) => (
+                        <section {...mergeProps(dialogProps, modal ? {} : overlayProps)} />
+                    )}
+                    aria-label={ariaLabel}
+                    aria-labelledby={ariaLabelledBy}
+                    style={style}
+                    className={cn(
+                        "min-h-0 w-72 overflow-y-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none",
+                        typeof className === "string" && className
+                    )}
+                >
+                    <OpenFocus onOpenAutoFocus={onOpenAutoFocus} />
+                    {children}
+                </HeroPopover.Dialog>
+                <div ref={setPortalContainer} className="contents" />
+            </HeroPopover.Content>
+        </OverlayPortalContext>
+    )
 }
-
-function PopoverAnchor({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
-}
-
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor }

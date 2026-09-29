@@ -1,7 +1,9 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 @import "tailwindcss-safe-area";
 @import "tw-animate-css";
 @import "./custom.css";
+@import "./heroui-theme.css";
 
 @source "../../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/@streamdown/code/dist/*.js";
@@ -16,11 +18,7 @@
     --chat-composer-overlap: 3.875rem;
     --scrollbar-thumb: color-mix(in oklab, var(--foreground) 42%, transparent);
     --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 58%, transparent);
-    --selection-background: color-mix(
-        in oklab,
-        var(--foreground) 22%,
-        var(--background)
-    );
+    --selection-background: color-mix(in oklab, var(--foreground) 22%, var(--background));
     --selection-foreground: var(--foreground);
     --background: oklch(0.99 0 0);
     --foreground: oklch(0 0 0);
@@ -37,10 +35,10 @@
     --composer: color-mix(in oklab, var(--background) 80%, transparent);
     --code-background: var(--background);
     --code-foreground: var(--foreground);
-    --muted: oklch(0.97 0 0);
+    --silk-muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.44 0 0);
-    --accent: oklch(0.94 0 0);
-    --accent-foreground: oklch(0 0 0);
+    --silk-accent: oklch(0.94 0 0);
+    --silk-accent-foreground: oklch(0 0 0);
     --destructive: oklch(0.63 0.19 23.03);
     --destructive-foreground: oklch(1 0 0);
     --border: oklch(0.92 0 0);
@@ -61,11 +59,12 @@
     --sidebar-accent-foreground: oklch(0 0 0);
     --sidebar-border: oklch(0.94 0 0);
     --sidebar-ring: oklch(0 0 0);
-    --font-sans: "ProximaVara", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        "Helvetica Neue", Arial, sans-serif;
+    --font-sans:
+        "ProximaVara", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
     --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
-        monospace;
+    --font-mono:
+        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     --radius: 0.5rem;
     --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
     --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
@@ -83,11 +82,7 @@ html {
 }
 
 .dark {
-    --selection-background: color-mix(
-        in oklab,
-        var(--foreground) 28%,
-        var(--background)
-    );
+    --selection-background: color-mix(in oklab, var(--foreground) 28%, var(--background));
     --background: oklch(0.2645 0 0);
     --foreground: oklch(0.94 0 0);
     --card: oklch(0.19 0 0);
@@ -99,10 +94,10 @@ html {
     --secondary: oklch(0.25 0 0);
     --secondary-foreground: oklch(0.94 0 0);
     --composer: var(--sidebar);
-    --muted: oklch(0.23 0 0);
+    --silk-muted: oklch(0.23 0 0);
     --muted-foreground: oklch(0.72 0 0);
-    --accent: oklch(0.32 0 0);
-    --accent-foreground: oklch(0.94 0 0);
+    --silk-accent: oklch(0.32 0 0);
+    --silk-accent-foreground: oklch(0.94 0 0);
     --destructive: oklch(0.69 0.2 23.91);
     --destructive-foreground: oklch(0 0 0);
     --border: oklch(0.26 0 0);
@@ -123,11 +118,12 @@ html {
     --sidebar-accent-foreground: oklch(0.94 0 0);
     --sidebar-border: oklch(0.32 0 0);
     --sidebar-ring: oklch(0.72 0 0);
-    --font-sans: "ProximaVara", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        "Helvetica Neue", Arial, sans-serif;
+    --font-sans:
+        "ProximaVara", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
     --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
-        monospace;
+    --font-mono:
+        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     --radius: 0.5rem;
     --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
     --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
@@ -174,10 +170,10 @@ html {
     --color-composer: var(--composer);
     --color-code-background: var(--code-background);
     --color-code-foreground: var(--code-foreground);
-    --color-muted: var(--muted);
+    --color-silk-muted: var(--silk-muted);
     --color-muted-foreground: var(--muted-foreground);
-    --color-accent: var(--accent);
-    --color-accent-foreground: var(--accent-foreground);
+    --color-silk-accent: var(--silk-accent);
+    --color-silk-accent-foreground: var(--silk-accent-foreground);
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
     --color-border: var(--border);
@@ -230,7 +226,7 @@ html {
     --tw-prose-captions: var(--muted-foreground);
     --tw-prose-code: var(--foreground);
     --tw-prose-pre-code: var(--foreground);
-    --tw-prose-pre-bg: var(--muted);
+    --tw-prose-pre-bg: var(--silk-muted);
     --tw-prose-th-borders: var(--border);
     --tw-prose-td-borders: var(--border);
 }

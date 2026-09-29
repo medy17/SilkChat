@@ -6,9 +6,13 @@ import {
 } from "@/lib/theme-font-config"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 
+import { themeTokenName, themeTokenValue } from "@/lib/theme-tokens"
+
 export function ThemeScript() {
     const scriptContent = `
     (function() {
+      const tokenName = ${themeTokenName.toString()};
+      const tokenValue = ${themeTokenValue.toString()};
       const storageKey = "theme-store";
       const root = document.documentElement;
       const defaultThemePreset = ${JSON.stringify(DEFAULT_THEME_PRESET)};
@@ -188,7 +192,7 @@ export function ThemeScript() {
       for (const styleName of Object.keys(stylesToApply)) {
         const value = stylesToApply[styleName];
         if (value !== undefined) {
-          root.style.setProperty(\`--\${styleName}\`, value);
+          root.style.setProperty(\`--\${tokenName(styleName)}\`, tokenValue(value));
         }
       }
 

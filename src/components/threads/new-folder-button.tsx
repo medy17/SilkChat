@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 import { useMutation } from "convex/react"
 import { Check, Plus } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 function NewFolderForm({
     folderName,
@@ -126,7 +126,7 @@ export function NewFolderDialog({
     const handleCreate = async () => {
         const trimmedName = folderName.trim()
         if (!trimmedName) {
-            toast.error("Folder name cannot be empty")
+            toast.danger("Folder name cannot be empty")
             return
         }
 
@@ -147,11 +147,11 @@ export function NewFolderDialog({
                 onOpenChange(false)
                 onSuccess?.(result.projectId as Id<"projects">)
             } else {
-                toast.error("Failed to create folder")
+                toast.danger("Failed to create folder")
             }
         } catch (error) {
             console.error("Failed to create folder:", error)
-            toast.error("Failed to create folder")
+            toast.danger("Failed to create folder")
         } finally {
             setIsCreating(false)
         }

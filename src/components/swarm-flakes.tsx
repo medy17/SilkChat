@@ -273,7 +273,7 @@ const SwarmFlakesDemoWebGL = forwardRef<SwarmFlakesRef, SwarmFlakesDemoProps>(
                 if (!SWARM_CONFIG.useThemeColors) return
 
                 const p = parseColorVarToRgb("--primary")
-                const a = parseColorVarToRgb("--accent")
+                const a = parseColorVarToRgb("--silk-accent")
                 const s = parseColorVarToRgb("--secondary")
                 const t =
                     parseColorVarToRgb("--muted-foreground") || parseColorVarToRgb("--tertiary")

@@ -80,7 +80,7 @@ export const GenericToolRenderer = memo(
                     ref={contentRef}
                     className={cn(
                         "overflow-hidden transition-[max-height] duration-150 ease-out",
-                        "my-4 rounded-lg border bg-muted/50"
+                        "my-4 rounded-lg border bg-silk-muted/50"
                     )}
                     style={{
                         maxHeight: isExpanded ? contentRef.current?.scrollHeight : "0px"

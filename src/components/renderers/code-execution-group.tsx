@@ -57,7 +57,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
             <button
                 type="button"
                 data-pause-chat-scroll-follow=""
-                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-silk-muted/40 focus-visible:bg-silk-muted/40"
                 onClick={() => setIsOpen((open) => !open)}
                 aria-expanded={isOpen}
             >
@@ -150,7 +150,7 @@ const ExecutionStep = memo(({ execution }: { execution: MessageCodeExecution }) 
                                 Details
                             </button>
                             <AnimatedCollapsible open={showDetails}>
-                                <dl className="mt-2 divide-y divide-border/60 rounded-[var(--radius-md)] border border-border/70 bg-muted/25 px-3 text-xs">
+                                <dl className="mt-2 divide-y divide-border/60 rounded-[var(--radius-md)] border border-border/70 bg-silk-muted/25 px-3 text-xs">
                                     <DetailItem
                                         label="Language"
                                         value={getLanguageLabel(language)}
@@ -254,7 +254,7 @@ export const CodeExecutionGroupRenderer = memo(
                 </button>
 
                 <AnimatedCollapsible open={isOpen}>
-                    <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
+                    <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-silk-muted/25">
                         {executions.map((execution) => (
                             <ExecutionStep key={execution.toolCallId} execution={execution} />
                         ))}

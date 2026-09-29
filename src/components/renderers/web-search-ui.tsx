@@ -54,13 +54,13 @@ const SearchResultCard = memo(({ result }: { result: WebSearchResult }) => {
     return (
         <button
             type="button"
-            className="group relative w-64 min-w-64 shrink-0 overflow-hidden rounded-[var(--radius-lg)] border bg-card text-left transition-all duration-200 hover:border-primary/20 hover:bg-accent/50 hover:shadow-lg"
+            className="group relative w-64 min-w-64 shrink-0 overflow-hidden rounded-[var(--radius-lg)] border bg-card text-left transition-all duration-200 hover:border-primary/20 hover:bg-silk-accent/50 hover:shadow-lg"
             onClick={() => result.url && window.open(result.url, "_blank", "noopener,noreferrer")}
             disabled={!result.url}
             aria-label={`Open ${label} in new tab`}
         >
             {result.url && (
-                <div className="relative h-32 overflow-hidden bg-muted/30">
+                <div className="relative h-32 overflow-hidden bg-silk-muted/30">
                     <img
                         src={getOpenGraphImage(result.url)}
                         alt=""
@@ -72,7 +72,7 @@ const SearchResultCard = memo(({ result }: { result: WebSearchResult }) => {
                             if (fallback) fallback.style.display = "flex"
                         }}
                     />
-                    <div className="absolute inset-0 hidden items-center justify-center bg-muted/50">
+                    <div className="absolute inset-0 hidden items-center justify-center bg-silk-muted/50">
                         <Globe className="size-8 text-muted-foreground/50" />
                     </div>
                 </div>
@@ -117,7 +117,7 @@ const WebSearchStep = memo(({ search }: { search: MessageWebSearch }) => {
         <section className="border-border/70 border-t first:border-t-0">
             <button
                 type="button"
-                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-silk-muted/40 focus-visible:bg-silk-muted/40"
                 onClick={() => setIsOpen((open) => !open)}
                 aria-expanded={isOpen}
             >
@@ -212,7 +212,7 @@ export const WebSearchGroupRenderer = memo(({ searches }: { searches: MessageWeb
             </button>
 
             <AnimatedCollapsible open={isOpen}>
-                <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted/25">
+                <div className="mt-4 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-silk-muted/25">
                     {searches.map((search) => (
                         <WebSearchStep key={search.toolCallId} search={search} />
                     ))}

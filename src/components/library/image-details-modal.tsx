@@ -704,7 +704,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                         {isImageHidden ? "Unhide image" : "Hide image"}
                                     </span>
                                     {loadState !== "ready" && (
-                                        <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                                        <div className="absolute inset-0 z-10 bg-gradient-to-br from-silk-muted/85 via-silk-muted/65 to-silk-accent/20" />
                                     )}
                                     {loadState !== "ready" && (
                                         <ImageLoadIndicator complete={loadState === "revealing"} />
@@ -917,7 +917,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-silk-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onPrevious}
                                 disabled={!canNavigatePrevious}
                             >
@@ -928,7 +928,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-silk-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onNext}
                                 disabled={!canNavigateNext}
                             >
@@ -941,7 +941,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute -top-14 right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-accent lg:top-0 lg:-right-[4.5rem]"
+                        className="absolute -top-14 right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-silk-accent lg:top-0 lg:-right-[4.5rem]"
                         onClick={onClose}
                     >
                         <span className="sr-only">Close</span>
@@ -949,14 +949,14 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                     </Button>
 
                     <div
-                        className="relative shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted/35 shadow-2xl"
+                        className="relative shrink-0 overflow-hidden rounded-xl border border-border/60 bg-silk-muted/35 shadow-2xl"
                         style={{
                             width: layout.imageWidth,
                             height: layout.imageHeight
                         }}
                     >
                         {loadState !== "ready" && (
-                            <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                            <div className="absolute inset-0 z-10 bg-gradient-to-br from-silk-muted/85 via-silk-muted/65 to-silk-accent/20" />
                         )}
                         {loadState !== "ready" && (
                             <div className="absolute inset-x-0 bottom-4 z-10 mx-4 space-y-2 rounded-lg border border-border/50 bg-background/55 p-3 backdrop-blur-sm">

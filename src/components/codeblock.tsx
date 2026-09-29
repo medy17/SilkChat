@@ -29,7 +29,7 @@ import {
     WrapText
 } from "lucide-react"
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { CodeBlock as StreamdownCodeBlock, useIsCodeFenceIncomplete } from "streamdown"
 import { type ArtifactLanguage, isArtifactSupported } from "./artifact-preview-shared"
 import { downloadBlob, mermaidSvgBlob, mermaidSvgToPng } from "./mermaid-export"
@@ -50,7 +50,7 @@ const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => 
             ])
             toast.success("Copied Mermaid diagram")
         } catch {
-            toast.error("Failed to copy Mermaid diagram")
+            toast.danger("Failed to copy Mermaid diagram")
         }
     }
 
@@ -59,7 +59,7 @@ const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => 
             await navigator.clipboard.writeText(code.trim())
             toast.success("Copied Mermaid code")
         } catch {
-            toast.error("Failed to copy Mermaid code")
+            toast.danger("Failed to copy Mermaid code")
         }
     }
 
@@ -73,7 +73,7 @@ const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => 
                 downloadBlob(await mermaidSvgToPng(svg), "diagram.png")
             }
         } catch {
-            toast.error(`Failed to download Mermaid ${format.toUpperCase()}`)
+            toast.danger(`Failed to download Mermaid ${format.toUpperCase()}`)
         }
     }
 

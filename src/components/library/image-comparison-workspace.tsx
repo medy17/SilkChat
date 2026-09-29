@@ -4,7 +4,7 @@ import { useImageViewerActions } from "@/hooks/use-image-viewer-actions"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { ReferenceImageThumbnails } from "@/components/library/image-metadata-panel"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Doc } from "@/convex/_generated/dataModel"
 import {
@@ -192,7 +192,7 @@ function ComparisonImage({
     if (recoveryPhase === "error") {
         return (
             <div
-                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted text-sm"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-silk-muted text-sm"
                 role="status"
             >
                 <p>Couldn't load this image.</p>
@@ -218,7 +218,7 @@ function ComparisonImage({
             }
         >
             {!isLoaded && (
-                <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                <div className="absolute inset-0 z-10 bg-gradient-to-br from-silk-muted/85 via-silk-muted/65 to-silk-accent/20" />
             )}
             {!isLoaded && <ImageLoadIndicator complete={false} />}
             <div className="flex h-full w-full items-center justify-center">
@@ -909,28 +909,29 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                         animate={{ opacity: 1, y: 0 }}
                         className="flex shrink-0 items-center justify-between gap-3"
                     >
-                        <Tabs
+                        <ToggleGroup
+                            className="h-11 rounded-[var(--radius-lg)] border border-border/60 bg-background/90 shadow-lg backdrop-blur-md"
+                            type="single"
+                            aria-label="Comparison mode"
                             value={mode}
                             onValueChange={(value) => setMode(value as ComparisonMode)}
                         >
-                            <TabsList className="h-11 rounded-[var(--radius-lg)] border border-border/60 bg-background/90 p-1 shadow-lg backdrop-blur-md">
-                                <TabsTrigger
-                                    value="side-by-side"
-                                    className="h-9 rounded-[var(--radius-md)] px-3 sm:px-5"
-                                >
-                                    <Columns2 className="size-4" />
-                                    <span className="hidden sm:inline">Side by side</span>
-                                    <span className="sm:hidden">Split</span>
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="slider"
-                                    className="h-9 rounded-[var(--radius-md)] px-3 sm:px-5"
-                                >
-                                    <SquareSplitHorizontal className="size-4" />
-                                    Slider
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
+                            <ToggleGroupItem
+                                value="side-by-side"
+                                className="h-9 rounded-[var(--radius-md)] px-3 sm:px-5"
+                            >
+                                <Columns2 className="size-4" />
+                                <span className="hidden sm:inline">Side by side</span>
+                                <span className="sm:hidden">Split</span>
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                                value="slider"
+                                className="h-9 rounded-[var(--radius-md)] px-3 sm:px-5"
+                            >
+                                <SquareSplitHorizontal className="size-4" />
+                                Slider
+                            </ToggleGroupItem>
+                        </ToggleGroup>
                         <div className="flex items-center gap-1">
                             <Button
                                 variant={showDetails ? "secondary" : "outline"}
@@ -954,7 +955,7 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         className="flex min-h-0 flex-1 flex-col lg:flex-row"
                     >
-                        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-[var(--radius-xl)] bg-muted/30 p-3 sm:p-5 lg:rounded-none lg:bg-transparent lg:p-0">
+                        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-[var(--radius-xl)] bg-silk-muted/30 p-3 sm:p-5 lg:rounded-none lg:bg-transparent lg:p-0">
                             <AnimatePresence mode="wait" initial={false}>
                                 <motion.div
                                     key={mode}

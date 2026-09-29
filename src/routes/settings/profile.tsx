@@ -58,7 +58,7 @@ import {
     X
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { UAParser } from "ua-parser-js"
 
 export const Route = createFileRoute("/settings/profile")({
@@ -171,7 +171,7 @@ export function AccountSettingsContent() {
 
     const handleSaveName = useCallback(async () => {
         if (!nameValue.trim()) {
-            toast.error("Name cannot be empty")
+            toast.danger("Name cannot be empty")
             return
         }
 
@@ -180,7 +180,7 @@ export function AccountSettingsContent() {
             setIsEditingName(false)
             toast.success("Name updated successfully")
         } catch (error) {
-            toast.error("Failed to update name")
+            toast.danger("Failed to update name")
             console.error("Error updating name:", error)
         }
     }, [nameValue, updateUser])
@@ -245,7 +245,7 @@ export function AccountSettingsContent() {
             toast.success("Export requested. A download link will be emailed to you.")
         } catch (error) {
             console.error("Failed to export account data:", error)
-            toast.error(error instanceof Error ? error.message : "Failed to export account data")
+            toast.danger(error instanceof Error ? error.message : "Failed to export account data")
             setTurnstileToken(null)
             turnstileRef.current?.reset()
         } finally {
@@ -273,7 +273,7 @@ export function AccountSettingsContent() {
                 await revokeSession.mutateAsync({ sessionId })
                 toast.success("Session revoked successfully")
             } catch (error) {
-                toast.error("Failed to revoke session")
+                toast.danger("Failed to revoke session")
                 console.error("Error revoking session:", error)
             }
         },
@@ -294,7 +294,7 @@ export function AccountSettingsContent() {
             toast.success("Signed out successfully")
             router.navigate({ to: "/" })
         } catch (error) {
-            toast.error("Failed to sign out")
+            toast.danger("Failed to sign out")
             console.error("Error signing out:", error)
         }
     }, [router])
@@ -304,7 +304,7 @@ export function AccountSettingsContent() {
             await revokeOtherSessions.mutateAsync({})
             toast.success("All other sessions revoked successfully")
         } catch (error) {
-            toast.error("Failed to revoke other sessions")
+            toast.danger("Failed to revoke other sessions")
             console.error("Error revoking other sessions:", error)
         }
     }, [revokeOtherSessions])
@@ -345,7 +345,7 @@ export function AccountSettingsContent() {
             handleDeleteDialogOpenChange(false)
             await handleSignOut()
         } catch (error) {
-            toast.error("Failed to request account deletion")
+            toast.danger("Failed to request account deletion")
             console.error("Error requesting account deletion:", error)
         } finally {
             setIsRequestingDeletion(false)
@@ -701,7 +701,7 @@ export function AccountSettingsContent() {
                         <div className="min-w-0 space-y-4">
                             <div className="flex min-w-0 items-center gap-2">
                                 <code
-                                    className="block w-0 min-w-0 flex-1 truncate whitespace-nowrap rounded-[var(--radius-md)] bg-muted p-3 text-xs"
+                                    className="block w-0 min-w-0 flex-1 truncate whitespace-nowrap rounded-[var(--radius-md)] bg-silk-muted p-3 text-xs"
                                     title={accountExportKey}
                                 >
                                     {accountExportKey}
@@ -743,10 +743,7 @@ export function AccountSettingsContent() {
                     ) : (
                         <div className="space-y-4">
                             <div className="space-y-3">
-                                <label
-                                    htmlFor="export-sensitive-data-consent"
-                                    className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
-                                >
+                                <div className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm">
                                     <Checkbox
                                         id="export-sensitive-data-consent"
                                         checked={acceptExportSensitiveData}
@@ -755,16 +752,19 @@ export function AccountSettingsContent() {
                                         }
                                         className="mt-0.5 rounded-[var(--radius-sm)]"
                                     />
-                                    <span>
-                                        I understand that my export may contain private
-                                        conversations and links to files I’ve uploaded or created.
-                                    </span>
-                                </label>
+                                    <label
+                                        htmlFor="export-sensitive-data-consent"
+                                        className="min-w-0 flex-1 cursor-pointer"
+                                    >
+                                        <span>
+                                            I understand that my export may contain private
+                                            conversations and links to files I’ve uploaded or
+                                            created.
+                                        </span>
+                                    </label>
+                                </div>
 
-                                <label
-                                    htmlFor="export-password-consent"
-                                    className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
-                                >
+                                <div className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm">
                                     <Checkbox
                                         id="export-password-consent"
                                         checked={acceptExportPasswordResponsibility}
@@ -773,11 +773,16 @@ export function AccountSettingsContent() {
                                         }
                                         className="mt-0.5 rounded-[var(--radius-sm)]"
                                     />
-                                    <span>
-                                        I’ll save the one-time password shown after I request my
-                                        export. SilkChat can’t recover it for me.
-                                    </span>
-                                </label>
+                                    <label
+                                        htmlFor="export-password-consent"
+                                        className="min-w-0 flex-1 cursor-pointer"
+                                    >
+                                        <span>
+                                            I’ll save the one-time password shown after I request my
+                                            export. SilkChat can’t recover it for me.
+                                        </span>
+                                    </label>
+                                </div>
                             </div>
 
                             {accountExportAvailability?.siteKey && (
@@ -895,10 +900,7 @@ export function AccountSettingsContent() {
                         </div>
 
                         <div className="space-y-3">
-                            <label
-                                htmlFor="delete-permanent-erasure-consent"
-                                className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
-                            >
+                            <div className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm">
                                 <Checkbox
                                     id="delete-permanent-erasure-consent"
                                     checked={acceptPermanentErasure}
@@ -907,16 +909,18 @@ export function AccountSettingsContent() {
                                     }
                                     className="mt-0.5 rounded-[var(--radius-sm)]"
                                 />
-                                <span>
-                                    I understand that deleting my SilkChat account will permanently
-                                    erase my user data with no recovery guarantee.
-                                </span>
-                            </label>
+                                <label
+                                    htmlFor="delete-permanent-erasure-consent"
+                                    className="min-w-0 flex-1 cursor-pointer"
+                                >
+                                    <span>
+                                        I understand that deleting my SilkChat account will
+                                        permanently erase my user data with no recovery guarantee.
+                                    </span>
+                                </label>
+                            </div>
 
-                            <label
-                                htmlFor="delete-fraud-retention-consent"
-                                className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm"
-                            >
+                            <div className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border p-3 text-sm">
                                 <Checkbox
                                     id="delete-fraud-retention-consent"
                                     checked={acceptFraudRetention}
@@ -925,12 +929,17 @@ export function AccountSettingsContent() {
                                     }
                                     className="mt-0.5 rounded-[var(--radius-sm)]"
                                 />
-                                <span>
-                                    I understand SilkChat may retain limited records where required
-                                    for fraud prevention, security, legal compliance, or abuse
-                                    prevention.
-                                </span>
-                            </label>
+                                <label
+                                    htmlFor="delete-fraud-retention-consent"
+                                    className="min-w-0 flex-1 cursor-pointer"
+                                >
+                                    <span>
+                                        I understand SilkChat may retain limited records where
+                                        required for fraud prevention, security, legal compliance,
+                                        or abuse prevention.
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 

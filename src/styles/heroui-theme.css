@@ -1,0 +1,124 @@
+/* Resolve these on each theme scope, including previews and portal roots. */
+:root,
+.light,
+.dark,
+[data-theme] {
+    --accent: var(--primary);
+    --accent-foreground: var(--primary-foreground);
+    --muted: var(--muted-foreground);
+    --surface: var(--card);
+    --surface-foreground: var(--card-foreground);
+    --surface-secondary: var(--secondary);
+    --surface-secondary-foreground: var(--secondary-foreground);
+    --surface-tertiary: var(--silk-muted);
+    --surface-tertiary-foreground: var(--foreground);
+    --overlay: var(--popover);
+    --overlay-foreground: var(--popover-foreground);
+    --default: var(--secondary);
+    --default-foreground: var(--secondary-foreground);
+    --field-background: var(--background);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted-foreground);
+    --field-border: var(--input);
+    --field-border-width: 1px;
+    --field-radius: var(--radius-md);
+    --danger: var(--destructive);
+    --danger-foreground: var(--destructive-foreground);
+    --focus: var(--ring);
+    --segment: var(--background);
+    --segment-foreground: var(--foreground);
+    /* HeroUI's larger shape tokens must follow imported SilkChat themes too. */
+    --radius-2xl: var(--radius-lg);
+    --radius-3xl: var(--radius-lg);
+    --radius-4xl: var(--radius-xl);
+}
+
+/* Keep SilkChat's shape scale. Component defaults belong below caller utilities. */
+@layer components {
+    .button,
+    .toggle-button,
+    .chip,
+    .avatar,
+    .avatar--sm,
+    .avatar--lg,
+    .popover,
+    .tooltip,
+    .select__popover,
+    .dropdown__popover,
+    .number-field__group,
+    .search-field__group,
+    .skeleton {
+        border-radius: var(--radius-md);
+    }
+
+    .card {
+        border-radius: var(--radius-xl);
+    }
+
+    .modal__dialog,
+    .alert-dialog__dialog,
+    .alert,
+    .toast {
+        border-radius: var(--radius-lg);
+    }
+
+    .drawer__dialog[data-placement="bottom"] {
+        border-start-start-radius: var(--radius-lg);
+        border-start-end-radius: var(--radius-lg);
+    }
+
+    .drawer__dialog[data-placement="top"] {
+        border-end-start-radius: var(--radius-lg);
+        border-end-end-radius: var(--radius-lg);
+    }
+
+    .tabs__list {
+        border-radius: var(--radius-md);
+    }
+
+    /* Match the grouped selectors: HeroUI's end caps otherwise override the base radius. */
+    .toggle-button-group--horizontal:not(.toggle-button-group--detached)
+    .toggle-button:first-child {
+        border-start-start-radius: var(--radius-md);
+        border-end-start-radius: var(--radius-md);
+    }
+
+    .toggle-button-group--horizontal:not(.toggle-button-group--detached) .toggle-button:last-child {
+        border-start-end-radius: var(--radius-md);
+        border-end-end-radius: var(--radius-md);
+    }
+
+    .toggle-button-group--vertical .toggle-button:first-child {
+        border-top-left-radius: var(--radius-md);
+        border-top-right-radius: var(--radius-md);
+    }
+
+    .toggle-button-group--vertical .toggle-button:last-child {
+        border-bottom-left-radius: var(--radius-md);
+        border-bottom-right-radius: var(--radius-md);
+    }
+
+    .toggle-button-group .toggle-button:first-child:last-child {
+        border-radius: var(--radius-md);
+    }
+
+    .toggle-button-group--detached .toggle-button,
+    .toggle-button-group--detached .toggle-button:first-child,
+    .toggle-button-group--detached .toggle-button:last-child,
+    .toggle-button-group--detached .toggle-button:first-child:last-child {
+        border-radius: var(--radius-sm);
+    }
+
+    .tabs__tab,
+    .tabs__indicator,
+    .checkbox__control,
+    .list-box-item,
+    .menu-item {
+        border-radius: var(--radius-sm);
+    }
+
+    /* A trigger composed onto a button must retain the button's layout. */
+    .button:is(.tooltip__trigger, .popover__trigger, .modal__trigger) {
+        display: inline-flex;
+    }
+}

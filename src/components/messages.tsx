@@ -82,7 +82,7 @@ import {
     useRef,
     useState
 } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { Virtualizer, type VirtualizerHandle } from "virtua"
 import { AttachmentTile } from "./attachment-tile"
 import { ChatActions } from "./chat-actions"
@@ -403,7 +403,7 @@ const PartsRenderer = memo(
                         <ReasoningContent
                             markdown={markdown}
                             isAnimating={isReasoningStreaming}
-                            className="rounded-lg border bg-muted/50"
+                            className="rounded-lg border bg-silk-muted/50"
                             contentClassName={REASONING_MARKDOWN_CLASS}
                         >
                             {hasReasoningContent ? part.text : ""}
@@ -609,7 +609,7 @@ const EditableMessage = memo(
                     .filter((error): error is string => Boolean(error))
 
                 if (validationErrors.length > 0) {
-                    toast.error(`File validation failed:\n${validationErrors.join("\n")}`)
+                    toast.danger(`File validation failed:\n${validationErrors.join("\n")}`)
                     return
                 }
 
@@ -756,7 +756,7 @@ const EditableMessage = memo(
                     await Promise.allSettled(
                         [...storedKeys].map((key) => deleteFileMutation({ key }))
                     )
-                    toast.error(errorMessage)
+                    toast.danger(errorMessage)
                     setTimeout(() => {
                         setUploadingFiles((current) =>
                             current.filter(
@@ -821,11 +821,11 @@ const EditableMessage = memo(
                     } else if (result.error === "File not found") {
                         toast.info("Attachment was already deleted")
                     } else {
-                        toast.error(result.error || "Failed to delete attachment")
+                        toast.danger(result.error || "Failed to delete attachment")
                     }
                 })
                 .catch((error) => {
-                    toast.error(
+                    toast.danger(
                         error instanceof Error ? error.message : "Failed to delete attachment"
                     )
                 })
@@ -888,7 +888,7 @@ const EditableMessage = memo(
                     )
                 }
                 if (failedCount > 0) {
-                    toast.error(
+                    toast.danger(
                         failedCount === 1
                             ? "Failed to delete attachment"
                             : `Failed to delete ${failedCount} attachments`
@@ -1646,7 +1646,7 @@ const MessageRowComponent = ({
                                                 isAnimating={
                                                     isStreamingMessage && reasoning.isStreaming
                                                 }
-                                                className="rounded-lg border bg-muted/50"
+                                                className="rounded-lg border bg-silk-muted/50"
                                                 contentClassName={REASONING_MARKDOWN_CLASS}
                                             >
                                                 {reasoning.text}
@@ -1960,7 +1960,7 @@ export const Messages = forwardRef<
                     fileName: fileName || "download"
                 })
             } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Download failed")
+                toast.danger(error instanceof Error ? error.message : "Download failed")
             } finally {
                 setPreviewDownloadPending(false)
             }
@@ -2014,7 +2014,7 @@ export const Messages = forwardRef<
                     {isPdf && <PdfFilePreview url={resolvedPreviewUrl} filename={fileName} />}
 
                     {!isImage && !isText && !isPdf && !isTabular && (
-                        <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-sm">
+                        <div className="rounded-[var(--radius-md)] border bg-silk-muted/40 p-4 text-sm">
                             <p className="font-medium">Preview unavailable</p>
                             <p className="mt-1 text-muted-foreground">
                                 This file type cannot be previewed safely. Use Download to save it.
@@ -2564,7 +2564,7 @@ export const Messages = forwardRef<
                             type="button"
                             size="icon"
                             variant="secondary"
-                            className="pointer-events-auto size-8 rounded-md border border-border/70 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-accent"
+                            className="pointer-events-auto size-8 rounded-md border border-border/70 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-silk-accent"
                             aria-label="Quote selection"
                             title="Quote selection"
                             onMouseDown={(event) => event.preventDefault()}

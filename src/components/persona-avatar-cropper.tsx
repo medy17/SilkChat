@@ -172,7 +172,7 @@ export function PersonaAvatarCropper({
     const content = (
         <>
             <div className="space-y-5 px-4 pb-4 md:px-6 md:pb-0">
-                <div className="persona-avatar-cropper relative h-72 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-muted/60 md:h-96">
+                <div className="persona-avatar-cropper relative h-72 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-silk-muted/60 md:h-96">
                     {cropState ? (
                         <Cropper
                             image={cropState.src}
@@ -193,7 +193,7 @@ export function PersonaAvatarCropper({
                         />
                     ) : null}
                 </div>
-                <div className="space-y-3 rounded-[var(--radius-lg)] border border-border/70 bg-muted/30 px-4 py-3">
+                <div className="space-y-3 rounded-[var(--radius-lg)] border border-border/70 bg-silk-muted/30 px-4 py-3">
                     <div className="flex items-center justify-between text-sm">
                         <Label htmlFor="persona-onboarding-avatar-zoom">Zoom</Label>
                         <span className="text-muted-foreground">{Math.round(zoom * 100)}%</span>

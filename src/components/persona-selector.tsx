@@ -1,3 +1,5 @@
+import { SearchField } from "@/components/ui/search-field"
+import { PickerChoices, PickerChoice } from "@/components/ui/picker-choice"
 import { MemoizedMarkdown } from "@/components/memoized-markdown"
 import { getProviderIcon } from "@/components/model-selector"
 import { PersonaAvatar, getPersonaAvatarSrc } from "@/components/persona-avatar"
@@ -5,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Input } from "@/components/ui/input"
 import {
     ResponsivePopover,
     ResponsivePopoverContent,
@@ -51,7 +52,6 @@ import {
     MessagesSquare,
     Plus,
     Reply,
-    Search,
     Sparkles,
     Star,
     UserRound
@@ -60,7 +60,7 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { nanoid } from "nanoid"
 import type { CSSProperties, ReactNode } from "react"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import "./persona-selector.css"
 
 type PersonaOption = {
@@ -143,7 +143,7 @@ function PersonaPickerCard({
         <div
             ref={cardRef}
             className={cn(
-                "relative flex w-full items-start gap-3 rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left outline-none transition-colors hover:border-accent hover:bg-accent/10 focus-visible:ring-2 focus-visible:ring-ring",
+                "relative flex w-full items-start gap-3 rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left outline-none transition-colors hover:border-silk-accent hover:bg-silk-accent/10 focus-visible:ring-2 focus-visible:ring-ring",
                 isMobile && "border-input",
                 selected && "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10 ring-inset"
             )}
@@ -161,10 +161,10 @@ function PersonaPickerCard({
                     <div className="absolute inset-1 rounded-[var(--radius-lg)] border border-primary/25" />
                 </div>
             )}
-            <button
-                type="button"
-                aria-pressed={selected}
-                onClick={onSelect}
+            <PickerChoice
+                value={getSelectValue(persona.source, persona.id)}
+                label={persona.name}
+                onCommit={onSelect}
                 className="relative z-10 flex w-0 min-w-0 flex-1 items-start gap-3 text-left outline-none"
             >
                 <PersonaAvatar
@@ -186,7 +186,7 @@ function PersonaPickerCard({
                         {getPersonaDescriptionPreview(persona.description)}
                     </span>
                 </span>
-            </button>
+            </PickerChoice>
             {selected && <CheckCircle className="absolute top-3 right-3 size-4 text-primary" />}
             <div className="absolute right-3 bottom-3 z-20 flex items-center gap-1">
                 <PersonaFavoriteToggle
@@ -216,7 +216,7 @@ function PersonaFavoriteToggle({
     const [tooltipOpen, setTooltipOpen] = useState(false)
     const resetTimerRef = useRef<number | null>(null)
     const personaKey = getSelectValue(persona.source, persona.id)
-    const confirmationToastId = `persona-favorite-removal:${personaKey}`
+    const confirmationToastId = useRef<string | null>(null)
 
     const clearRemovalTimer = useCallback(() => {
         if (resetTimerRef.current !== null) {
@@ -242,17 +242,20 @@ function PersonaFavoriteToggle({
             setIsRemovalArmed(true)
             setTooltipOpen(true)
             if (useToastConfirmation) {
-                toast("Tap again to remove from favorites", {
+                if (confirmationToastId.current) toast.close(confirmationToastId.current)
+                confirmationToastId.current = toast("Tap again to remove from favorites", {
                     description: persona.name,
-                    duration: 2500,
-                    id: confirmationToastId
+                    timeout: 2500
                 })
             }
             resetTimerRef.current = window.setTimeout(resetRemoval, 2500)
             return
         }
 
-        if (useToastConfirmation) toast.dismiss(confirmationToastId)
+        if (confirmationToastId.current) {
+            toast.close(confirmationToastId.current)
+            confirmationToastId.current = null
+        }
         resetRemoval()
         onToggleFavorite(personaKey)
     }
@@ -269,7 +272,7 @@ function PersonaFavoriteToggle({
                     size="icon"
                     className={cn(
                         "size-7 rounded-[var(--radius-md)] border text-muted-foreground",
-                        isFavorite && "border-transparent bg-accent text-primary"
+                        isFavorite && "border-transparent bg-silk-accent text-primary"
                     )}
                     aria-label={
                         isRemovalArmed
@@ -552,7 +555,7 @@ function DefaultPersonaCard({ selected, onSelect }: { selected: boolean; onSelec
         <div
             ref={cardRef}
             className={cn(
-                "relative w-full rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left transition-colors hover:border-accent hover:bg-accent/10",
+                "relative w-full rounded-[var(--radius-xl)] border bg-background/60 p-3 text-left transition-colors hover:border-silk-accent hover:bg-silk-accent/10",
                 isMobile && "border-input",
                 selected && "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10 ring-inset"
             )}
@@ -570,10 +573,10 @@ function DefaultPersonaCard({ selected, onSelect }: { selected: boolean; onSelec
                     <div className="absolute inset-1 rounded-[var(--radius-lg)] border border-primary/25" />
                 </div>
             )}
-            <button
-                type="button"
-                aria-pressed={selected}
-                onClick={onSelect}
+            <PickerChoice
+                value={"default"}
+                label={"Default"}
+                onCommit={onSelect}
                 className="relative z-10 flex w-0 min-w-0 flex-1 items-start gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-xl)] border border-foreground/10 bg-secondary text-muted-foreground shadow-inner">
@@ -588,7 +591,7 @@ function DefaultPersonaCard({ selected, onSelect }: { selected: boolean; onSelec
                         {getPersonaDescriptionPreview(DEFAULT_PERSONA_DESCRIPTION)}
                     </span>
                 </span>
-            </button>
+            </PickerChoice>
             {selected && <CheckCircle className="absolute top-3 right-3 size-4 text-primary" />}
         </div>
     )
@@ -669,20 +672,20 @@ function PersonaPicker({
         <ResponsivePopover open={open} onOpenChange={onOpenChange}>
             <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
             <ResponsivePopoverContent
+                title="Select persona"
                 align="start"
                 side="top"
                 sideOffset={6}
                 alignOffset={desktopAlignOffset}
                 collisionPadding={8}
-                className="z-[80] flex h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-border/70 bg-popover p-0 shadow-lg"
+                className="z-[80] flex h-[38rem] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-border/70 bg-popover p-0 shadow-lg"
                 style={{
                     ...(desktopPopoverWidth
                         ? {
                               width: `${desktopPopoverWidth}px`,
                               maxWidth: "92vw"
                           }
-                        : {}),
-                    maxHeight: "var(--radix-popover-content-available-height)"
+                        : {})
                 }}
             >
                 {children}
@@ -717,7 +720,7 @@ export function PersonaSelector({
     const [canRevalidatePickerOptions, setCanRevalidatePickerOptions] = useState(true)
     const [useShortLabel, setUseShortLabel] = useState(false)
     const selectorRootRef = useRef<HTMLDivElement>(null)
-    const pickerTriggerRef = useRef<HTMLSpanElement>(null)
+    const pickerTriggerRef = useRef<HTMLButtonElement>(null)
     const fullLabelMeasureRef = useRef<HTMLSpanElement>(null)
     const shortLabelMeasureRef = useRef<HTMLSpanElement>(null)
     const [desktopAlignOffset, setDesktopAlignOffset] = useState(0)
@@ -1083,7 +1086,7 @@ export function PersonaSelector({
 
     const personaList =
         showDefaultOption || visibleOptions.length > 0 ? (
-            <div className="space-y-2 pb-3">
+            <PickerChoices aria-label="Personas" value={selectedValue} className="gap-2 pb-3">
                 {showDefaultOption && (
                     <DefaultPersonaCard
                         selected={selectedPersona.source === "default"}
@@ -1106,7 +1109,7 @@ export function PersonaSelector({
                         setIsPickerOpen(false)
                     }}
                 />
-            </div>
+            </PickerChoices>
         ) : (
             <div className="flex min-h-48 flex-1 items-center justify-center rounded-[var(--radius-xl)] border border-dashed px-6 text-center text-muted-foreground text-sm">
                 {searchValue.trim()
@@ -1147,48 +1150,45 @@ export function PersonaSelector({
                             desktopAlignOffset={desktopAlignOffset}
                             desktopPopoverWidth={desktopPopoverWidth}
                             trigger={
-                                <span ref={pickerTriggerRef} className="inline-flex">
-                                    <button
-                                        type="button"
-                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
-                                        aria-label="Select persona"
-                                        title="Select persona"
-                                        onClick={() => {
-                                            if (isMobile) setIsPickerOpen(true)
-                                        }}
-                                    >
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            {selectedOption ? (
-                                                <PersonaAvatar
-                                                    name={selectedOption.name}
-                                                    avatarKind={selectedOption.avatarKind}
-                                                    avatarValue={selectedOption.avatarValue}
-                                                    className="size-5"
-                                                />
-                                            ) : (
-                                                <Sparkles className="size-4 shrink-0" />
-                                            )}
-                                            <span className="hidden whitespace-nowrap min-[390px]:block">
-                                                {selectedLabel}
-                                            </span>
-                                        </div>
-                                        <ChevronDown className="size-4 shrink-0 opacity-50" />
-                                    </button>
-                                </span>
+                                <Button
+                                    ref={pickerTriggerRef}
+                                    variant="ghost"
+                                    type="button"
+                                    className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
+                                    aria-label="Select persona"
+                                    title="Select persona"
+                                    onClick={() => {
+                                        if (isMobile) setIsPickerOpen(true)
+                                    }}
+                                >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {selectedOption ? (
+                                            <PersonaAvatar
+                                                name={selectedOption.name}
+                                                avatarKind={selectedOption.avatarKind}
+                                                avatarValue={selectedOption.avatarValue}
+                                                className="size-5"
+                                            />
+                                        ) : (
+                                            <Sparkles className="size-4 shrink-0" />
+                                        )}
+                                        <span className="hidden whitespace-nowrap min-[390px]:block">
+                                            {selectedLabel}
+                                        </span>
+                                    </div>
+                                    <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                </Button>
                             }
                         >
                             <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-popover">
                                 <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-popover sm:p-3 sm:pb-2">
                                     <div className="flex items-center gap-2">
                                         <div className="relative min-w-0 flex-1">
-                                            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
+                                            <SearchField
                                                 value={searchValue}
-                                                onChange={(event) =>
-                                                    setSearchValue(event.target.value)
-                                                }
+                                                onChange={setSearchValue}
                                                 placeholder="Search personas..."
-                                                className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                                                groupClassName="h-10 border-0 bg-secondary/60 shadow-none"
                                             />
                                         </div>
                                         <button
@@ -1206,7 +1206,7 @@ export function PersonaSelector({
                                 </div>
 
                                 <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:grid-cols-[4rem_minmax(0,1fr)]">
-                                    <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
+                                    <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-silk-muted/50">
                                         <LayoutGroup id={personaRailLayoutGroupId}>
                                             <div
                                                 className={cn(
@@ -1228,7 +1228,7 @@ export function PersonaSelector({
                                                                         "relative isolate flex size-11 min-w-0 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 text-left transition-colors",
                                                                         isActive
                                                                             ? "text-foreground"
-                                                                            : "text-muted-foreground hover:bg-muted/50"
+                                                                            : "text-muted-foreground hover:bg-silk-muted/50"
                                                                     )}
                                                                     aria-label={section.label}
                                                                 >

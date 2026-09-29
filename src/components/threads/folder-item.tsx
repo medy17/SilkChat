@@ -61,7 +61,7 @@ import {
     Trash2
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { ThreadItem } from "./thread-item"
 import type { SidebarProject, Thread } from "./types"
 
@@ -210,7 +210,7 @@ export function FolderItem({
     const handleEdit = async () => {
         const trimmedName = editName.trim()
         if (!trimmedName) {
-            toast.error("Folder name cannot be empty")
+            toast.danger("Folder name cannot be empty")
             return
         }
 
@@ -225,7 +225,7 @@ export function FolderItem({
             })
 
             if (result && "error" in result) {
-                toast.error(
+                toast.danger(
                     typeof result.error === "string" ? result.error : "Failed to update folder"
                 )
             } else {
@@ -234,7 +234,7 @@ export function FolderItem({
             }
         } catch (error) {
             console.error("Failed to update folder:", error)
-            toast.error("Failed to update folder")
+            toast.danger("Failed to update folder")
         } finally {
             setIsEditing(false)
         }
@@ -250,7 +250,7 @@ export function FolderItem({
             const result = await deleteProjectMutation({ projectId: project._id })
 
             if (result && "error" in result) {
-                toast.error(
+                toast.danger(
                     typeof result.error === "string" ? result.error : "Failed to delete folder"
                 )
             } else if (result && "archived" in result && result.archived) {
@@ -262,7 +262,7 @@ export function FolderItem({
             setShowDeleteDialog(false)
         } catch (error) {
             console.error("Failed to delete folder:", error)
-            toast.error("Failed to delete folder")
+            toast.danger("Failed to delete folder")
         } finally {
             setIsDeleting(false)
         }

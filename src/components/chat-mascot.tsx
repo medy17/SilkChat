@@ -8,7 +8,7 @@ type ChatMascotProps = SVGProps<SVGSVGElement> & {
 
 const mascotColors = {
     hoodHighlight: "var(--secondary)",
-    hoodMidtone: "var(--accent)",
+    hoodMidtone: "var(--silk-accent)",
     hoodShadow: "color-mix(in oklch, var(--muted-foreground) 76%, var(--primary))",
     cloakHighlight: "var(--primary)",
     cloakMidtone: "var(--muted-foreground)",
@@ -18,7 +18,7 @@ const mascotColors = {
     featureLight: "var(--background)",
     featureDark: "var(--foreground)",
     accentLight: "color-mix(in oklch, var(--background) 70%, var(--muted-foreground))",
-    accentMidtone: "var(--accent)",
+    accentMidtone: "var(--silk-accent)",
     runeHighlight: "var(--primary)",
     runeShadow: "var(--muted-foreground)",
     shadow: "var(--muted-foreground)"

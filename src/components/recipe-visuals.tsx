@@ -58,7 +58,7 @@ export const RecipeVisuals = ({
                 }
             >
                 {Array.from({ length: isGallery ? limit : 1 }, (_, index) => (
-                    <div key={index} className="aspect-[4/3] animate-pulse bg-muted" />
+                    <div key={index} className="aspect-[4/3] animate-pulse bg-silk-muted" />
                 ))}
             </div>
         )
@@ -82,7 +82,7 @@ export const RecipeVisuals = ({
                         target="_blank"
                         rel="noreferrer"
                         className={`group relative isolate block overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            isGallery ? "aspect-[5/4] bg-muted/60" : "bg-transparent"
+                            isGallery ? "aspect-[5/4] bg-silk-muted/60" : "bg-transparent"
                         }`}
                         title={`View source on ${visual.source}`}
                     >

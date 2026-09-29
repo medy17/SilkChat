@@ -19,7 +19,7 @@ import { useMutation } from "convex/react"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type UserTextPart = {
     type: "text"
@@ -308,7 +308,7 @@ export function useChatActions<TMessage extends UIMessage>({
                     })
                 } catch (error) {
                     console.error("Failed to retry message:", error)
-                    toast.error("Failed to retry message")
+                    toast.danger("Failed to retry message")
                 } finally {
                     retryPreparationInFlightRef.current = false
                 }
@@ -386,7 +386,7 @@ export function useChatActions<TMessage extends UIMessage>({
                             )
                         }
                         if (failedCount > 0) {
-                            toast.error(
+                            toast.danger(
                                 failedCount === 1
                                     ? "Failed to delete attachment"
                                     : `Failed to delete ${failedCount} attachments`
@@ -457,7 +457,7 @@ export function useChatActions<TMessage extends UIMessage>({
                     })
 
                     if (!result || "error" in result) {
-                        toast.error(
+                        toast.danger(
                             typeof result?.error === "string"
                                 ? result.error
                                 : "Failed to branch chat"
@@ -495,7 +495,7 @@ export function useChatActions<TMessage extends UIMessage>({
                     })
                 } catch (error) {
                     console.error("Failed to branch chat:", error)
-                    toast.error("Failed to branch chat")
+                    toast.danger("Failed to branch chat")
                 } finally {
                     setPendingBranchGeneration(branchTransitionKey, false)
                 }

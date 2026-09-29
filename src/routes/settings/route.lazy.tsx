@@ -175,6 +175,7 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
 
                     <div className="mb-5 lg:hidden">
                         <Select
+                            aria-label="Settings section"
                             value={activeSettingsHref}
                             onValueChange={(value) =>
                                 navigate({
@@ -218,8 +219,8 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
                                         className={cn(
                                             "flex w-full items-center gap-3 rounded-lg px-3 py-2 font-medium text-sm transition-colors",
                                             isActive
-                                                ? "bg-muted text-foreground"
-                                                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                                                ? "bg-silk-muted text-foreground"
+                                                : "text-muted-foreground hover:bg-silk-muted/50 hover:text-foreground"
                                         )}
                                     >
                                         <Icon className="h-4 w-4" />

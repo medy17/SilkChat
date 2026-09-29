@@ -24,7 +24,8 @@ interface ResponsivePopoverTriggerProps {
     asChild?: boolean
 }
 
-interface ResponsivePopoverContentProps extends Omit<React.ComponentPropsWithoutRef<typeof PopoverContent>, "children"> {
+interface ResponsivePopoverContentProps
+    extends Omit<React.ComponentPropsWithoutRef<typeof PopoverContent>, "children"> {
     children: React.ReactNode
     className?: string
     title?: string
@@ -40,19 +41,16 @@ const ResponsivePopoverContext = React.createContext<{
     isMobile: false
 })
 
-export function ResponsivePopover({ 
-    open, 
-    onOpenChange, 
+export function ResponsivePopover({
+    open,
+    onOpenChange,
     children,
     modal = true,
     nested = false
 }: ResponsivePopoverProps) {
     const isMobile = useIsMobile()
 
-    const contextValue = React.useMemo(
-        () => ({ isMobile }),
-        [isMobile]
-    )
+    const contextValue = React.useMemo(() => ({ isMobile }), [isMobile])
 
     if (isMobile) {
         return (
@@ -73,9 +71,9 @@ export function ResponsivePopover({
     )
 }
 
-export function ResponsivePopoverTrigger({ 
-    children, 
-    asChild = false 
+export function ResponsivePopoverTrigger({
+    children,
+    asChild = false
 }: ResponsivePopoverTriggerProps) {
     const { isMobile } = React.useContext(ResponsivePopoverContext)
 
@@ -106,7 +104,7 @@ export function ResponsivePopoverContent({
             <DrawerContent
                 overlayClassName={overlayClassName}
                 className={cn(
-                    "max-h-[85dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-popover",
+                    "max-h-[85dvh] w-full max-w-full overflow-y-auto overflow-x-hidden bg-popover",
                     className
                 )}
             >
@@ -130,14 +128,15 @@ export function ResponsivePopoverContent({
 
     return (
         <PopoverContent
+            aria-label={title}
             side={side}
             align={align}
             alignOffset={alignOffset}
             sideOffset={sideOffset}
-            className={cn("bg-popover rounded-none md:rounded-md", className)}
+            className={cn("rounded-none bg-popover md:rounded-md", className)}
             {...props}
         >
             {children}
         </PopoverContent>
     )
-} 
+}

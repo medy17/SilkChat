@@ -109,7 +109,7 @@ export function NativeVisualizationShell({
                                     type="button"
                                     aria-label={`Expand ${kind}`}
                                     title={`Expand ${kind}`}
-                                    className="hidden size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
+                                    className="hidden size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-silk-accent hover:text-silk-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
                                 >
                                     <Maximize2 className="size-4" />
                                 </button>
@@ -141,7 +141,7 @@ export function NativeVisualizationShell({
                                 type="button"
                                 aria-label={`Close expanded ${kind}`}
                                 title="Close"
-                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-silk-accent hover:text-silk-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                                 <X className="size-4" />
                             </button>

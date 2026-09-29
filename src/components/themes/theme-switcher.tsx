@@ -217,7 +217,7 @@ export function ThemeSwitcher({
 
                     <ResponsivePopoverContent
                         align="end"
-                        className="flex h-[85dvh] min-h-0 w-full flex-col overflow-hidden p-0 md:h-auto md:max-h-[min(32rem,var(--radix-popover-content-available-height))] md:w-80"
+                        className="flex h-[85dvh] min-h-0 w-full flex-col overflow-hidden p-0 md:h-auto md:max-h-[32rem] md:w-80"
                         title="Theme Selector"
                         description="Choose a theme for your interface"
                     >
@@ -229,7 +229,7 @@ export function ThemeSwitcher({
                             className={cn("px-4 pt-3 pb-3 md:p-2", !isMobile && "hidden md:block")}
                         >
                             <div className="relative">
-                                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                                 <Input
                                     placeholder="Search themes..."
                                     className="h-9 rounded-none border-none bg-popover pl-10 shadow-none dark:bg-popover"
@@ -287,8 +287,7 @@ export function ThemeSwitcher({
                         <div
                             className={cn(
                                 "min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                                !isMobile &&
-                                    "h-[clamp(12rem,calc(var(--radix-popover-content-available-height)-8.5rem),20rem)]"
+                                !isMobile && "h-80"
                             )}
                         >
                             <div className="p-3">

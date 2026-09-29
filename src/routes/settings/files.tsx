@@ -55,7 +55,7 @@ import {
     Video
 } from "lucide-react"
 import { type ComponentType, useCallback, useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type FileTypeFilter = "all" | "image" | "pdf" | "text" | "other"
 type FileSort = "newest" | "oldest"
@@ -131,7 +131,7 @@ function FilePreview({ file }: { file: FileMetadata }) {
                 srcSet={isOptimized ? optimizedSources.srcSet : undefined}
                 sizes={isOptimized ? optimizedSources.sizes : undefined}
                 alt=""
-                className="size-12 shrink-0 rounded-md border bg-muted object-cover"
+                className="size-12 shrink-0 rounded-md border bg-silk-muted object-cover"
                 loading="lazy"
                 decoding="async"
                 onError={() => {
@@ -142,7 +142,7 @@ function FilePreview({ file }: { file: FileMetadata }) {
     }
 
     return (
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-silk-muted">
             <Icon className="size-5 text-muted-foreground" />
         </div>
     )
@@ -202,10 +202,10 @@ function FilesSettingsRoute() {
             try {
                 const result = await deleteFile({ key })
                 if (result.success) toast.success("File deleted")
-                else toast.error(result.error || "Failed to delete file")
+                else toast.danger(result.error || "Failed to delete file")
             } catch (error) {
                 console.error("Delete error:", error)
-                toast.error("Failed to delete file")
+                toast.danger("Failed to delete file")
             }
         },
         [deleteFile]
@@ -246,7 +246,14 @@ function FilesSettingsRoute() {
         >
             <div className="space-y-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Select value={search.type} onValueChange={handleFilterChange}>
+                    <Select
+                        aria-label="File type"
+                        value={search.type}
+                        onValueChange={(value) => {
+                            const filter = FILE_FILTERS.find((filter) => filter.value === value)
+                            if (filter) handleFilterChange(filter.value)
+                        }}
+                    >
                         <SelectTrigger className="w-full sm:w-56" aria-label="Filter files by type">
                             <SelectValue />
                         </SelectTrigger>

@@ -1,6 +1,6 @@
 import { PrototypeCreditsQuickView } from "@/components/credits/prototype-credits"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSession } from "@/hooks/auth-hooks"
 import { useShowContextualDevTools } from "@/lib/dev-tools"
@@ -109,23 +109,23 @@ export function Header() {
                     >
                         {showDesktopLibraryControls && (
                             <>
-                                <Tabs
+                                <ToggleGroup
+                                    className="h-8"
+                                    aria-label="Library view"
                                     value={librarySearch.view}
                                     onValueChange={(value) =>
                                         handleLibraryViewChange(value as LibraryView)
                                     }
                                 >
-                                    <TabsList className="h-8">
-                                        <TabsTrigger value="active" className="px-4 text-xs">
-                                            <ImageIcon className="hidden h-3.5 w-3.5 lg:block" />
-                                            Library
-                                        </TabsTrigger>
-                                        <TabsTrigger value="archived" className="px-4 text-xs">
-                                            <Archive className="hidden h-3.5 w-3.5 lg:block" />
-                                            Archive
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
+                                    <ToggleGroupItem value="active" className="h-6 px-4 text-xs">
+                                        <ImageIcon className="hidden h-3.5 w-3.5 lg:block" />
+                                        Library
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem value="archived" className="h-6 px-4 text-xs">
+                                        <Archive className="hidden h-3.5 w-3.5 lg:block" />
+                                        Archive
+                                    </ToggleGroupItem>
+                                </ToggleGroup>
                                 <div className="h-4 w-px bg-border" />
                             </>
                         )}

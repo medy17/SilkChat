@@ -18,7 +18,7 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { Check, Code, Copy, Download, FileText, Maximize2, Minimize2 } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { ExtraProps } from "streamdown"
 
 const extractTableRows = (table: HTMLTableElement) =>
@@ -142,7 +142,7 @@ export const MarkdownTable = ({
                 setCopyTooltipOpen(false)
             }, 1500)
         } catch {
-            toast.error("Failed to copy table")
+            toast.danger("Failed to copy table")
         }
     }
 

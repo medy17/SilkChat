@@ -50,7 +50,7 @@ import {
     X
 } from "lucide-react"
 import { memo, useEffect, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createFileRoute("/settings/providers")({
     component: LegacyProvidersRedirect
@@ -173,6 +173,7 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                                 Authentication Mode
                                             </Label>
                                             <Select
+                                                aria-label="Authentication mode"
                                                 value={selectedAuthMode}
                                                 onValueChange={(value) =>
                                                     setAuthMode(value as GoogleAuthMode)
@@ -242,7 +243,7 @@ const ProviderCard = memo(({ provider, currentProvider, onSave, loading }: Provi
                                     )}
 
                                     {hasExistingKey && (
-                                        <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                                        <div className="flex items-center justify-between rounded-lg bg-silk-muted/50 p-3">
                                             <div className="flex items-center gap-2">
                                                 <Key className="h-4 w-4 text-green-600" />
                                                 <span className="text-sm">{existingKeyLabel}</span>
@@ -531,6 +532,7 @@ const CustomProviderCard = memo(
                                 <div className="space-y-2">
                                     <Label htmlFor={`${providerId}-api-mode`}>API Mode</Label>
                                     <Select
+                                        aria-label="API mode"
                                         value={formData.apiMode}
                                         onValueChange={(value) =>
                                             setFormData((prev) => ({
@@ -552,7 +554,7 @@ const CustomProviderCard = memo(
                                 {formData.enabled && (
                                     <div className="space-y-3">
                                         {hasExistingKey && (
-                                            <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                                            <div className="flex items-center justify-between rounded-lg bg-silk-muted/50 p-3">
                                                 <div className="flex items-center gap-2">
                                                     <Key className="h-4 w-4 text-green-600" />
                                                     <span className="text-sm">
@@ -699,7 +701,7 @@ export function ProvidersSettingsContent() {
                 `${CORE_PROVIDERS.find((p) => p.id === providerId)?.name} provider updated`
             )
         } catch (error) {
-            toast.error("Failed to save provider settings")
+            toast.danger("Failed to save provider settings")
             console.error(error)
             throw error
         } finally {
@@ -728,7 +730,7 @@ export function ProvidersSettingsContent() {
             })
             toast.success("Custom provider updated")
         } catch (error) {
-            toast.error("Failed to save custom provider")
+            toast.danger("Failed to save custom provider")
             console.error(error)
             throw error
         } finally {
@@ -764,7 +766,7 @@ export function ProvidersSettingsContent() {
                 key: ""
             })
         } catch (error) {
-            toast.error("Failed to add custom provider")
+            toast.danger("Failed to add custom provider")
             console.error(error)
         } finally {
             setLoading(false)
@@ -783,7 +785,7 @@ export function ProvidersSettingsContent() {
             })
             toast.success("Custom provider deleted")
         } catch (error) {
-            toast.error("Failed to delete custom provider")
+            toast.danger("Failed to delete custom provider")
             console.error(error)
         } finally {
             setLoading(false)
@@ -947,6 +949,7 @@ export function ProvidersSettingsContent() {
                                 <div className="space-y-2">
                                     <Label htmlFor="custom-provider-api-mode">API Mode</Label>
                                     <Select
+                                        aria-label="API mode"
                                         value={customProviderForm.apiMode}
                                         onValueChange={(value) =>
                                             setCustomProviderForm((prev) => ({
@@ -1032,7 +1035,7 @@ export function ProvidersSettingsContent() {
                 ) : (
                     <Card className="border-dashed p-4 shadow-xs">
                         <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
+                            <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-silk-muted">
                                 <PackageIcon className="size-6" />
                             </div>
                             <h4 className="mb-2 font-semibold">Add Custom Provider</h4>

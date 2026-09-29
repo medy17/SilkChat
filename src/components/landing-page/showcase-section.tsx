@@ -137,7 +137,7 @@ function ShowcaseGalleryCard({ title, screens }: ShowcaseGallery) {
             </div>
 
             <div
-                className="group relative h-[min(54dvh,31rem)] w-full overflow-hidden rounded-xl border border-border/50 bg-muted/30 shadow-2xl md:aspect-[4/3] md:h-auto"
+                className="group relative h-[min(54dvh,31rem)] w-full overflow-hidden rounded-xl border border-border/50 bg-silk-muted/30 shadow-2xl md:aspect-[4/3] md:h-auto"
                 onMouseEnter={() => setExpanded(true)}
                 onMouseLeave={() => setExpanded(false)}
                 onFocusCapture={() => setExpanded(true)}
@@ -234,7 +234,7 @@ function ShowcaseGalleryCard({ title, screens }: ShowcaseGallery) {
                 })}
 
                 {hasMultipleScreens ? (
-                    <div className="-translate-x-1/2 absolute bottom-3 left-1/2 z-30 flex items-center gap-2 rounded-full border border-border/70 bg-background/85 p-1 shadow-lg backdrop-blur-md">
+                    <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border/70 bg-background/85 p-1 shadow-lg backdrop-blur-md">
                         <Button
                             type="button"
                             variant="ghost"
@@ -338,7 +338,7 @@ export function ShowcaseSection() {
         <section
             id="showcase"
             ref={sectionRef}
-            className="flex min-h-screen snap-start flex-col items-center justify-start bg-muted/10 px-4 pt-20 pb-10 md:min-h-screen md:justify-center md:px-8 md:py-20 lg:min-h-[120vh]"
+            className="flex min-h-screen snap-start flex-col items-center justify-start bg-silk-muted/10 px-4 pt-20 pb-10 md:min-h-screen md:justify-center md:px-8 md:py-20 lg:min-h-[120vh]"
         >
             <div className="mx-auto w-full max-w-[1400px]">
                 <div
@@ -353,7 +353,7 @@ export function ShowcaseSection() {
                     </p>
                 </div>
 
-                <div className="-mx-[50vw] relative right-1/2 left-1/2 flex w-screen snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-10 [scroll-padding-inline:1rem] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+                <div className="relative right-1/2 left-1/2 -mx-[50vw] flex w-screen snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-10 [scroll-padding-inline:1rem] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
                     {showcaseGalleries.map((gallery) => (
                         <div
                             key={gallery.title}

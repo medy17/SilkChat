@@ -18,10 +18,10 @@ export function MagicCard({
     children,
     className,
     gradientSize = 200,
-    gradientColor = "hsl(var(--muted))",
+    gradientColor = "hsl(var(--silk-muted))",
     gradientOpacity = 0.8,
     gradientFrom = "hsl(var(--primary))",
-    gradientTo = "hsl(var(--accent))",
+    gradientTo = "hsl(var(--silk-accent))",
     ...props
 }: MagicCardProps) {
     const cardRef = useRef<HTMLDivElement>(null)

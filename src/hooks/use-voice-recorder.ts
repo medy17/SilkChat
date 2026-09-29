@@ -6,7 +6,7 @@ import { resolveJwtToken } from "@/lib/auth-token"
 import { browserEnv } from "@/lib/browser-env"
 import { prepareAudioForTranscription } from "@/lib/audio-transcription"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 interface UseVoiceRecorderOptions {
     onTranscript: (text: string) => void
@@ -336,9 +336,9 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 console.error("MediaRecorder error:", event)
                 const errorEvent = event as Event & { error?: Error }
                 if (errorEvent.error) {
-                    toast.error(`Recording failed: ${errorEvent.error.message}`)
+                    toast.danger(`Recording failed: ${errorEvent.error.message}`)
                 } else {
-                    toast.error("Recording failed. Please try again.")
+                    toast.danger("Recording failed. Please try again.")
                 }
                 cleanupRecording()
             }
@@ -377,24 +377,24 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
 
             if (error instanceof Error) {
                 if (error.name === "NotAllowedError") {
-                    toast.error(
+                    toast.danger(
                         "Microphone permission denied. Please allow microphone access and try again."
                     )
                 } else if (error.name === "NotFoundError") {
-                    toast.error(
+                    toast.danger(
                         "No microphone found. Please check your device's microphone and try again."
                     )
                 } else if (error.name === "NotSupportedError") {
-                    toast.error(
+                    toast.danger(
                         "Audio recording is not supported on this device/browser combination."
                     )
                 } else if (error.name === "AbortError") {
-                    toast.error("Recording was interrupted. Please try again.")
+                    toast.danger("Recording was interrupted. Please try again.")
                 } else {
-                    toast.error(error.message)
+                    toast.danger(error.message)
                 }
             } else {
-                toast.error("Failed to start recording. Please check microphone permissions.")
+                toast.danger("Failed to start recording. Please check microphone permissions.")
             }
         }
     }, [updateAudioLevel, cleanupRecording])
@@ -469,11 +469,11 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                     console.log("Transcription successful:", text)
                     onTranscript(text.trim())
                 } else {
-                    toast.error("No speech detected. Please try again and speak clearly.")
+                    toast.danger("No speech detected. Please try again and speak clearly.")
                 }
             } catch (error) {
                 console.error("Transcription error:", error)
-                toast.error(error instanceof Error ? error.message : "Failed to transcribe audio")
+                toast.danger(error instanceof Error ? error.message : "Failed to transcribe audio")
             } finally {
                 setState((prev) => ({
                     ...prev,

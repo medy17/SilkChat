@@ -5,10 +5,10 @@ import { useImageViewerLoad } from "@/hooks/use-image-viewer-load"
 import { useImageViewerActions } from "@/hooks/use-image-viewer-actions"
 import { copyViewerPrompt } from "@/lib/image-viewer-clipboard"
 import { downloadUrl } from "@/lib/utils"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 vi.mock("@/lib/utils", () => ({ downloadUrl: vi.fn() }))
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), danger: vi.fn() } }))
 
 beforeEach(() => {
     vi.useFakeTimers()
@@ -99,7 +99,7 @@ describe("image viewer actions", () => {
         vi.mocked(navigator.clipboard.writeText).mockClear()
         await copyViewerPrompt({ prompt: "", trim: false, reportEmpty: false })
         expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
-        expect(toast.error).not.toHaveBeenCalled()
+        expect(toast.danger).not.toHaveBeenCalled()
     })
     const options = {
         url: "https://example.com/original",
@@ -130,7 +130,7 @@ describe("image viewer actions", () => {
             url: options.url,
             fileName: "silkscreen-image-A"
         })
-        expect(toast.error).toHaveBeenCalledWith("Failed to download image")
+        expect(toast.danger).toHaveBeenCalledWith("Failed to download image")
     })
 
     it("shows prompt-copy feedback for 1500 ms after the clipboard succeeds", async () => {
@@ -148,7 +148,7 @@ describe("image viewer actions", () => {
         await act(() => hook.result.current.handleCopyPrompt())
         expect(hook.result.current.isPromptCopied).toBe(false)
         expect(toast.success).not.toHaveBeenCalled()
-        expect(toast.error).toHaveBeenCalledWith("Failed to copy prompt")
+        expect(toast.danger).toHaveBeenCalledWith("Failed to copy prompt")
     })
 
     it("ignores a pending clipboard result after navigating to another image", async () => {

@@ -39,7 +39,7 @@ export function ComparisonSection() {
         <section
             id="comparison"
             ref={sectionRef}
-            className="flex min-h-[80vh] snap-start flex-col items-center justify-center bg-muted/10 px-6 py-20"
+            className="flex min-h-[80vh] snap-start flex-col items-center justify-center bg-silk-muted/10 px-6 py-20"
         >
             <div
                 className="comparison-content container mx-auto max-w-4xl text-center"
@@ -52,7 +52,7 @@ export function ComparisonSection() {
 
                 <div className="overflow-x-auto rounded-xl border border-border/50 bg-background/50">
                     <table className="w-full table-fixed border-collapse text-left text-sm md:text-base">
-                        <thead className="border-border/50 border-b bg-muted/50">
+                        <thead className="border-border/50 border-b bg-silk-muted/50">
                             <tr>
                                 <th className="w-1/3 p-4 font-semibold text-muted-foreground">
                                     Feature
@@ -66,7 +66,7 @@ export function ComparisonSection() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
-                            <tr className="transition-colors hover:bg-muted/20">
+                            <tr className="transition-colors hover:bg-silk-muted/20">
                                 <td className="p-4 text-muted-foreground">Models</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     All major models and providers
@@ -75,7 +75,7 @@ export function ComparisonSection() {
                                     Locked to a single provider
                                 </td>
                             </tr>
-                            <tr className="transition-colors hover:bg-muted/20">
+                            <tr className="transition-colors hover:bg-silk-muted/20">
                                 <td className="p-4 text-muted-foreground">Pricing</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     From only $8.99/mo
@@ -84,7 +84,7 @@ export function ComparisonSection() {
                                     From $20+/mo
                                 </td>
                             </tr>
-                            <tr className="transition-colors hover:bg-muted/20">
+                            <tr className="transition-colors hover:bg-silk-muted/20">
                                 <td className="p-4 text-muted-foreground">Open Source</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     <div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export function ComparisonSection() {
                                     </div>
                                 </td>
                             </tr>
-                            <tr className="transition-colors hover:bg-muted/20">
+                            <tr className="transition-colors hover:bg-silk-muted/20">
                                 <td className="p-4 text-muted-foreground">Privacy</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     Use your own keys or ours. The choice is yours.
@@ -108,7 +108,7 @@ export function ComparisonSection() {
                                     Data used for training (often by default)
                                 </td>
                             </tr>
-                            <tr className="transition-colors hover:bg-muted/20">
+                            <tr className="transition-colors hover:bg-silk-muted/20">
                                 <td className="p-4 text-muted-foreground">Portability</td>
                                 <td className="border-border/50 border-l bg-primary/5 p-4 font-medium">
                                     <div className="flex items-center gap-2">

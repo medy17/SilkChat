@@ -17,9 +17,9 @@ vi.mock("convex/react", () => ({
     useQuery: useQueryMock
 }))
 
-vi.mock("sonner", () => ({
+vi.mock("@/lib/toast", () => ({
     toast: {
-        error: toastErrorMock
+        danger: toastErrorMock
     }
 }))
 

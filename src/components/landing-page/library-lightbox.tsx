@@ -29,7 +29,7 @@ import {
     DrawerTitle
 } from "@/components/ui/drawer"
 import { cn, downloadUrl } from "@/lib/utils"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const DESKTOP_BREAKPOINT = 1100
 const DESKTOP_GAP = 24
@@ -386,7 +386,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
             })
         } catch (error) {
             console.error("Failed to download image:", error)
-            toast.error("Failed to download image")
+            toast.danger("Failed to download image")
         }
     }
 
@@ -668,7 +668,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                                 >
                                     <span className="sr-only">Generated image</span>
                                     {loadState !== "ready" && (
-                                        <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                                        <div className="absolute inset-0 z-10 bg-gradient-to-br from-silk-muted/85 via-silk-muted/65 to-silk-accent/20" />
                                     )}
                                     {loadState !== "ready" && (
                                         <ImageLoadIndicator complete={loadState === "revealing"} />
@@ -804,7 +804,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="-left-[4.5rem] -translate-y-1/2 absolute top-1/2 z-20 h-11 w-11 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-silk-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onPrevious}
                                 disabled={!canNavigatePrevious}
                             >
@@ -815,7 +815,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="-right-[4.5rem] -translate-y-1/2 absolute top-1/2 z-20 h-11 w-11 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-silk-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onNext}
                                 disabled={!canNavigateNext}
                             >
@@ -828,7 +828,7 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="-top-14 lg:-right-[4.5rem] absolute right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-accent lg:top-0"
+                        className="absolute -top-14 right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-silk-accent lg:top-0 lg:-right-[4.5rem]"
                         onClick={onClose}
                     >
                         <span className="sr-only">Close</span>
@@ -836,11 +836,11 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                     </Button>
 
                     <div
-                        className="relative shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted/35 shadow-2xl"
+                        className="relative shrink-0 overflow-hidden rounded-xl border border-border/60 bg-silk-muted/35 shadow-2xl"
                         style={{ width: layout.imageWidth, height: layout.imageHeight }}
                     >
                         {loadState !== "ready" && (
-                            <div className="absolute inset-0 z-10 bg-gradient-to-br from-muted/85 via-muted/65 to-accent/20" />
+                            <div className="absolute inset-0 z-10 bg-gradient-to-br from-silk-muted/85 via-silk-muted/65 to-silk-accent/20" />
                         )}
                         {loadState !== "ready" && (
                             <div className="absolute inset-x-0 bottom-4 z-10 mx-4 space-y-2 rounded-lg border border-border/50 bg-background/55 p-3 backdrop-blur-sm">

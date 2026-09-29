@@ -27,7 +27,7 @@ export function ReferenceImageThumbnails({
                             href={thumbnailSources.fullResolutionUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="block size-12 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-border/70 bg-muted outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"
+                            className="block size-12 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-border/70 bg-silk-muted outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"
                             aria-label={`Open reference image ${index + 1}`}
                         >
                             <img

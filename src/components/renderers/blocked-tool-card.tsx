@@ -158,7 +158,7 @@ export const BlockedToolCard = memo(
 
         return (
             <div
-                className="not-prose my-4 border border-border bg-muted/40 p-4"
+                className="not-prose my-4 border border-border bg-silk-muted/40 p-4"
                 style={{ borderRadius: "var(--radius-md)" }}
             >
                 <div className="flex items-start gap-3">

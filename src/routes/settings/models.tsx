@@ -1,3 +1,4 @@
+import { NumberField } from "@/components/ui/number-field"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import {
     AlertDialog,
@@ -45,7 +46,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { Box, Check, Image, Plus, SquarePen, Trash2, X } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createFileRoute("/settings/models")({
     component: LegacyModelsRedirect
@@ -148,7 +149,7 @@ const ModelCard = memo(({ model, currentProviders, onEdit, onDelete }: ModelCard
         <Card
             className={cn(
                 "px-4 py-3 shadow-xs",
-                !activeProvider.available && "bg-muted/20 opacity-50"
+                !activeProvider.available && "bg-silk-muted/20 opacity-50"
             )}
         >
             <div className="flex flex-col items-start justify-between max-sm:gap-1 sm:flex-row sm:items-center">
@@ -374,7 +375,7 @@ export function ModelsSettingsContent() {
                 enabled: true
             })
         } catch (error) {
-            toast.error("Failed to save custom model")
+            toast.danger("Failed to save custom model")
             console.error(error)
         } finally {
             setLoading(false)
@@ -428,7 +429,7 @@ export function ModelsSettingsContent() {
                 enabled: true
             })
         } catch (error) {
-            toast.error("Failed to update custom model")
+            toast.danger("Failed to update custom model")
             console.error(error)
         } finally {
             setLoading(false)
@@ -447,7 +448,7 @@ export function ModelsSettingsContent() {
             })
             toast.success("Custom model deleted")
         } catch (error) {
-            toast.error("Failed to delete custom model")
+            toast.danger("Failed to delete custom model")
             console.error(error)
         } finally {
             setLoading(false)
@@ -571,6 +572,7 @@ export function ModelsSettingsContent() {
                                     <div className="space-y-2">
                                         <Label htmlFor="edit-custom-model-provider">Provider</Label>
                                         <Select
+                                            aria-label="Provider"
                                             value={customModelForm.providerId}
                                             onValueChange={(value) =>
                                                 setCustomModelForm((prev) => ({
@@ -605,15 +607,14 @@ export function ModelsSettingsContent() {
                                             <Label htmlFor="edit-custom-model-context">
                                                 Context Length
                                             </Label>
-                                            <Input
+                                            <NumberField
                                                 id="edit-custom-model-context"
-                                                type="number"
+                                                minValue={1}
                                                 value={customModelForm.contextLength}
                                                 onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        contextLength:
-                                                            Number.parseInt(e.target.value) || 4096
+                                                        contextLength: Math.trunc(e) || 4096
                                                     }))
                                                 }
                                             />
@@ -623,15 +624,14 @@ export function ModelsSettingsContent() {
                                             <Label htmlFor="edit-custom-model-tokens">
                                                 Max Tokens
                                             </Label>
-                                            <Input
+                                            <NumberField
                                                 id="edit-custom-model-tokens"
-                                                type="number"
+                                                minValue={1}
                                                 value={customModelForm.maxTokens}
                                                 onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        maxTokens:
-                                                            Number.parseInt(e.target.value) || 1024
+                                                        maxTokens: Math.trunc(e) || 1024
                                                     }))
                                                 }
                                             />
@@ -763,6 +763,7 @@ export function ModelsSettingsContent() {
                                     <div className="space-y-2">
                                         <Label htmlFor="custom-model-provider">Provider</Label>
                                         <Select
+                                            aria-label="Provider"
                                             value={customModelForm.providerId}
                                             onValueChange={(value) =>
                                                 setCustomModelForm((prev) => ({
@@ -797,15 +798,14 @@ export function ModelsSettingsContent() {
                                             <Label htmlFor="custom-model-context">
                                                 Context Length
                                             </Label>
-                                            <Input
+                                            <NumberField
                                                 id="custom-model-context"
-                                                type="number"
+                                                minValue={1}
                                                 value={customModelForm.contextLength}
                                                 onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        contextLength:
-                                                            Number.parseInt(e.target.value) || 4096
+                                                        contextLength: Math.trunc(e) || 4096
                                                     }))
                                                 }
                                             />
@@ -813,15 +813,14 @@ export function ModelsSettingsContent() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="custom-model-tokens">Max Tokens</Label>
-                                            <Input
+                                            <NumberField
                                                 id="custom-model-tokens"
-                                                type="number"
+                                                minValue={1}
                                                 value={customModelForm.maxTokens}
                                                 onChange={(e) =>
                                                     setCustomModelForm((prev) => ({
                                                         ...prev,
-                                                        maxTokens:
-                                                            Number.parseInt(e.target.value) || 1024
+                                                        maxTokens: Math.trunc(e) || 1024
                                                     }))
                                                 }
                                             />
@@ -888,7 +887,7 @@ export function ModelsSettingsContent() {
                     ) : !editingCustomModel ? (
                         <Card className="border-dashed p-4 shadow-xs">
                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
+                                <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-silk-muted">
                                     <Box className="size-6" />
                                 </div>
                                 <h4 className="mb-2 font-semibold">Add Custom Model</h4>

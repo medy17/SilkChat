@@ -221,7 +221,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
                     ].map(({ icon: Icon, label }) => (
                         <div
                             key={label}
-                            className="flex items-center space-x-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2"
+                            className="flex items-center space-x-2 rounded-lg border border-border/50 bg-silk-muted/10 px-3 py-2"
                         >
                             <Icon className="h-4 w-4 text-primary" />
                             <span className="font-medium text-sm">{label}</span>

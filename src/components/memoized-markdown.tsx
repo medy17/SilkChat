@@ -78,7 +78,7 @@ export const MemoizedMarkdown = memo(
             return (
                 <pre
                     data-dev-audit-ignore
-                    className="markdown-content overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-muted/40 p-3 font-mono text-xs"
+                    className="markdown-content overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-silk-muted/40 p-3 font-mono text-xs"
                 >
                     {content}
                 </pre>

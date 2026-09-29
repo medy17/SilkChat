@@ -4,15 +4,9 @@ import { useRouter } from "@tanstack/react-router"
 import { useQuery as useConvexQuery } from "convex/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import {
-    Command,
-    CommandDialog,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList
-} from "@/components/ui/command"
+import { Autocomplete, EmptyState, Kbd, ListBox, SearchField } from "@heroui/react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
@@ -37,7 +31,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const { data: session } = useSession()
     const router = useRouter()
-    const commandRef = useRef<HTMLDivElement>(null)
+    const searchRef = useRef<HTMLInputElement>(null)
     const isTouchDevice = useIsTouchDevice()
 
     const isControlled = controlledOpen !== undefined
@@ -89,7 +83,7 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && query.trim() === "") {
-            const selectedItem = commandRef.current?.querySelector('[data-selected="true"]')
+            const selectedItem = searchRef.current?.getAttribute("aria-activedescendant")
             if (selectedItem) {
                 return
             }
@@ -145,44 +139,60 @@ export function CommandK({ open: controlledOpen, onOpenChange }: CommandKProps =
     }
 
     return (
-        <CommandDialog open={open} onOpenChange={setOpen} className="top-[30%] translate-y-0">
-            <Command ref={commandRef} shouldFilter={false} disablePointerSelection value={"-"}>
-                <CommandInput
-                    autoFocus={!isTouchDevice}
-                    placeholder="Search chats or press Enter to start a new chat..."
-                    value={query}
-                    onValueChange={setQuery}
-                    onKeyDown={handleKeyDown}
-                />
-                <CommandList>
-                    <CommandEmpty>No chats found.</CommandEmpty>
-                    {threads.length > 0 && (
-                        <CommandGroup heading="Chats">
-                            {threads.map((thread: Thread) => (
-                                <CommandItem
-                                    key={thread._id}
-                                    value={thread._id}
-                                    onSelect={() => handleSelect(thread._id)}
-                                    className="h-9 hover:bg-accent/80"
-                                >
-                                    <div className="flex w-full items-center justify-between gap-4">
-                                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                                            <div className="truncate font-medium">
-                                                {thread.title}
-                                            </div>
-                                        </div>
-                                        <div className="flex-shrink-0 text-muted-foreground text-xs">
-                                            {formatRelativeTime(
-                                                thread.updatedAt ?? thread.createdAt
-                                            )}
-                                        </div>
-                                    </div>
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    )}
-                </CommandList>
-            </Command>
-        </CommandDialog>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="overflow-hidden p-0" showCloseButton={false}>
+                <DialogTitle className="sr-only">Search chats</DialogTitle>
+                <Autocomplete.Filter
+                    inputValue={query}
+                    onInputChange={setQuery}
+                    filter={() => true}
+                    disableAutoFocusFirst
+                >
+                    <SearchField
+                        aria-label="Search chats"
+                        autoFocus={!isTouchDevice}
+                        className="p-3"
+                    >
+                        <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input
+                                ref={searchRef}
+                                placeholder="Search chats or press Enter for a new chat..."
+                                onKeyDown={handleKeyDown}
+                            />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
+                    <ListBox
+                        aria-label="Chats"
+                        selectionMode="none"
+                        onAction={(key) => handleSelect(String(key))}
+                        className="max-h-80 overflow-y-auto p-2"
+                        renderEmptyState={() => (
+                            <EmptyState>
+                                {searchResults === undefined ? "Searching..." : "No chats found."}
+                            </EmptyState>
+                        )}
+                    >
+                        {threads.map((thread: Thread) => (
+                            <ListBox.Item
+                                key={thread._id}
+                                id={thread._id}
+                                textValue={thread.title}
+                                className="flex min-h-9 items-center justify-between gap-4"
+                            >
+                                <span className="truncate font-medium">{thread.title}</span>
+                                <span className="shrink-0 text-muted-foreground text-xs">
+                                    {formatRelativeTime(thread.updatedAt ?? thread.createdAt)}
+                                </span>
+                            </ListBox.Item>
+                        ))}
+                    </ListBox>
+                </Autocomplete.Filter>
+                <div className="flex items-center gap-2 border-t px-4 py-2 text-muted-foreground text-xs">
+                    <Kbd>Enter</Kbd> Open chat <Kbd>Esc</Kbd> Close
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }

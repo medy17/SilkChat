@@ -170,7 +170,7 @@ function BillingSettingsRoute() {
                                             {description}
                                         </p>
                                     </div>
-                                    <div className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-lg)] bg-muted">
+                                    <div className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-lg)] bg-silk-muted">
                                         {isProOption ? (
                                             <Crown className="size-5" />
                                         ) : (
@@ -185,7 +185,7 @@ function BillingSettingsRoute() {
                                             key={label}
                                             className="flex items-center gap-3 text-muted-foreground text-sm"
                                         >
-                                            <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-md)] bg-muted text-foreground">
+                                            <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-md)] bg-silk-muted text-foreground">
                                                 <Icon className="size-4" />
                                             </span>
                                             {label}

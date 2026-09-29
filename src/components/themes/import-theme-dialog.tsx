@@ -136,7 +136,7 @@ export function ImportThemeDialog({
             )}
 
             {!canImport && maxImportedThemes !== undefined && (
-                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3">
+                <div className="flex items-start gap-2 rounded-md border border-border bg-silk-muted/40 p-3">
                     <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <p className="text-muted-foreground text-sm leading-relaxed">
                         You can save up to {maxImportedThemes} themes. Remove one to add another.

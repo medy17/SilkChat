@@ -28,7 +28,7 @@ import {
     Trash2
 } from "lucide-react"
 import { memo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { ShareButton } from "../share-button"
 import type { Thread } from "./types"
 
@@ -171,7 +171,7 @@ export const ThreadItem = memo(
                 await togglePinMutation({ threadId: thread._id })
             } catch (error) {
                 console.error("Failed to toggle pin:", error)
-                toast.error(`Failed to ${pinned ? "unpin" : "pin"} thread`)
+                toast.danger(`Failed to ${pinned ? "unpin" : "pin"} thread`)
             }
         }
 
@@ -206,7 +206,7 @@ export const ThreadItem = memo(
                 })
 
                 if ("error" in result) {
-                    toast.error(
+                    toast.danger(
                         typeof result.error === "string"
                             ? result.error
                             : "Failed to regenerate title"
@@ -217,7 +217,7 @@ export const ThreadItem = memo(
                 toast.success("Thread title regenerated")
             } catch (error) {
                 console.error("Failed to regenerate thread title:", error)
-                toast.error("Failed to regenerate title")
+                toast.danger("Failed to regenerate title")
             } finally {
                 setIsRegeneratingTitle(false)
             }

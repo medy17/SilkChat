@@ -257,7 +257,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                 <Link
                                     to="/folder/$folderId/thread/$threadId"
                                     params={{ folderId, threadId: thread._id }}
-                                    className="flex items-center gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-accent/50"
+                                    className="flex items-center gap-3 rounded-lg border bg-background/50 px-4 py-3 transition-colors hover:bg-silk-accent/50"
                                 >
                                     <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 items-center gap-2 font-medium text-sm">

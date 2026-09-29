@@ -5,7 +5,7 @@ import {
     ChartTooltip,
     ChartTooltipContent
 } from "@/components/ui/chart"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -137,16 +137,16 @@ export function UsageDashboard({ className }: UsageDashboardProps) {
         <div className={cn("space-y-4", className)}>
             {/* Header with timeframe selector */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Tabs
+                <ToggleGroup
+                    className="grid w-full grid-cols-3 sm:w-auto"
+                    aria-label="Usage timeframe"
                     value={timeframe}
                     onValueChange={(value) => setTimeframe(value as "1d" | "7d" | "30d")}
                 >
-                    <TabsList className="grid w-full grid-cols-3 sm:w-auto">
-                        <TabsTrigger value="1d">1 Day</TabsTrigger>
-                        <TabsTrigger value="7d">7 Days</TabsTrigger>
-                        <TabsTrigger value="30d">30 Days</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                    <ToggleGroupItem value="1d">1 Day</ToggleGroupItem>
+                    <ToggleGroupItem value="7d">7 Days</ToggleGroupItem>
+                    <ToggleGroupItem value="30d">30 Days</ToggleGroupItem>
+                </ToggleGroup>
             </div>
 
             {/* Key Metrics Cards - Compact */}

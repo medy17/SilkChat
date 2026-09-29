@@ -1,7 +1,7 @@
 import type { SharedModel } from "@/convex/lib/models"
 import { isModelSunset, resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import { useEffect } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const TOAST_KEY_PREFIX = "model-lifecycle-toast"
 

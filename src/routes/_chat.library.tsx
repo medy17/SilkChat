@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/select"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
@@ -122,7 +122,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createFileRoute("/_chat/library")({
     validateSearch: validateLibrarySearch,
@@ -269,14 +269,15 @@ const MobileSortFilter = ({
     <MobileFilterSection title="Sort By">
         <RadioGroup value={value} onValueChange={(next) => onChange(next as ImageSortOption)}>
             {options.map((option) => (
-                <label
-                    key={option.value}
-                    htmlFor={`mobile-sort-${option.value}`}
-                    className="flex items-center gap-3 py-1.5 text-sm"
-                >
+                <div key={option.value} className="flex items-center gap-3 py-1.5 text-sm">
                     <RadioGroupItem id={`mobile-sort-${option.value}`} value={option.value} />
-                    <span>{option.label}</span>
-                </label>
+                    <label
+                        htmlFor={`mobile-sort-${option.value}`}
+                        className="min-w-0 flex-1 cursor-pointer"
+                    >
+                        <span>{option.label}</span>
+                    </label>
+                </div>
             ))}
         </RadioGroup>
     </MobileFilterSection>
@@ -313,18 +314,19 @@ const MobileCheckboxFilter = ({
     >
         <div className="space-y-3">
             {options.map((option) => (
-                <label
-                    key={option.value}
-                    htmlFor={`${title.toLowerCase().replace(/\s+/g, "-")}-${option.value}`}
-                    className="flex items-center gap-3 py-1.5 text-sm"
-                >
+                <div key={option.value} className="flex items-center gap-3 py-1.5 text-sm">
                     <Checkbox
                         id={`${title.toLowerCase().replace(/\s+/g, "-")}-${option.value}`}
                         checked={selectedValues.includes(option.value)}
                         onCheckedChange={() => onToggleValue(option.value)}
                     />
-                    <span>{option.label}</span>
-                </label>
+                    <label
+                        htmlFor={`${title.toLowerCase().replace(/\s+/g, "-")}-${option.value}`}
+                        className="min-w-0 flex-1 cursor-pointer"
+                    >
+                        <span>{option.label}</span>
+                    </label>
+                </div>
             ))}
         </div>
     </MobileFilterSection>
@@ -371,18 +373,22 @@ const DesktopCheckboxFilter = ({
             {options.length > 0 ? (
                 <div className="grid max-h-64 gap-1 overflow-y-auto pr-1">
                     {options.map((option) => (
-                        <label
+                        <div
                             key={option.value}
-                            htmlFor={`desktop-${value}-${option.value}`}
-                            className="flex min-h-10 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 text-sm transition-colors hover:bg-muted/60 has-[[data-state=checked]]:bg-muted/60"
+                            className="flex min-h-10 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 text-sm transition-colors hover:bg-silk-muted/60 has-[[data-state=checked]]:bg-silk-muted/60"
                         >
                             <Checkbox
                                 id={`desktop-${value}-${option.value}`}
                                 checked={selectedValues.includes(option.value)}
                                 onCheckedChange={() => onToggleValue(option.value)}
                             />
-                            <span className="min-w-0 break-words">{option.label}</span>
-                        </label>
+                            <label
+                                htmlFor={`desktop-${value}-${option.value}`}
+                                className="min-w-0 flex-1 cursor-pointer"
+                            >
+                                <span className="min-w-0 break-words">{option.label}</span>
+                            </label>
+                        </div>
                     ))}
                 </div>
             ) : (
@@ -393,8 +399,8 @@ const DesktopCheckboxFilter = ({
 )
 
 const GalleryImageSkeleton = memo(() => (
-    <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40">
-        <Skeleton className="absolute inset-0 h-full w-full rounded-[var(--radius-xl)] bg-muted/60" />
+    <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-xl)] bg-silk-muted/40">
+        <Skeleton className="absolute inset-0 h-full w-full rounded-[var(--radius-xl)] bg-silk-muted/60" />
     </div>
 ))
 GalleryImageSkeleton.displayName = "GalleryImageSkeleton"
@@ -441,7 +447,7 @@ const PendingImageItem = memo(
 
         return (
             <div
-                className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-muted/40"
+                className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-silk-muted/40"
                 style={{ aspectRatio: cssAspectRatio }}
             >
                 <ImageSkeleton
@@ -810,7 +816,7 @@ const GeneratedImageItem = memo(
         if (isError || hasInvalidStoredImage) {
             return (
                 <div
-                    className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-muted/50"
+                    className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-silk-muted/50"
                     style={{ aspectRatio: cssAspectRatio }}
                 >
                     <div className="flex h-full items-center justify-center">
@@ -830,7 +836,7 @@ const GeneratedImageItem = memo(
                 <ContextMenuTrigger asChild>
                     <div
                         className={cn(
-                            "group relative w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40 ring-1 ring-border/40 transition-[box-shadow] duration-200",
+                            "group relative w-full overflow-hidden rounded-[var(--radius-xl)] bg-silk-muted/40 ring-1 ring-border/40 transition-[box-shadow] duration-200",
                             isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}
@@ -1421,7 +1427,7 @@ export function LibraryView({
             try {
                 await reprocessImageAsset({ jobId: jobId as Id<"imageGenerationJobs"> })
             } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Couldn't retrieve the image")
+                toast.danger(error instanceof Error ? error.message : "Couldn't retrieve the image")
             } finally {
                 setRetryingAssetJobIds((prev) => {
                     const next = new Set(prev)
@@ -1878,6 +1884,7 @@ export function LibraryView({
             <MobileSortFilter options={sortOptions} value={draftSortBy} onChange={setDraftSortBy} />
             <MobileFilterSection title="Results Per Page">
                 <Select
+                    aria-label="Results per page"
                     value={String(draftPageSize)}
                     onValueChange={(value) => setDraftPageSize(Number(value) as LibraryPageSize)}
                 >
@@ -1932,6 +1939,7 @@ export function LibraryView({
                         Sort by
                     </label>
                     <Select
+                        aria-label="Sort by"
                         value={draftSortBy}
                         onValueChange={(value) => setDraftSortBy(value as ImageSortOption)}
                     >
@@ -1952,6 +1960,7 @@ export function LibraryView({
                         Results per page
                     </label>
                     <Select
+                        aria-label="Results per page"
                         value={String(draftPageSize)}
                         onValueChange={(value) =>
                             setDraftPageSize(Number(value) as LibraryPageSize)
@@ -2095,23 +2104,23 @@ export function LibraryView({
                     {isMobile && (
                         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                             <div className="flex items-center gap-2">
-                                <Tabs
+                                <ToggleGroup
+                                    className="h-9"
+                                    aria-label="Library view"
                                     value={view}
                                     onValueChange={(value) =>
                                         handleViewChange(value as LibraryViewMode)
                                     }
                                 >
-                                    <TabsList className="h-9">
-                                        <TabsTrigger value="active" className="text-xs">
-                                            <ImageIcon className="mr-2 hidden h-3.5 w-3.5 sm:block" />
-                                            Library
-                                        </TabsTrigger>
-                                        <TabsTrigger value="archived" className="text-xs">
-                                            <Archive className="mr-2 hidden h-3.5 w-3.5 sm:block" />
-                                            Archive
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
+                                    <ToggleGroupItem value="active" className="text-xs">
+                                        <ImageIcon className="mr-2 hidden h-3.5 w-3.5 sm:block" />
+                                        Library
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem value="archived" className="text-xs">
+                                        <Archive className="mr-2 hidden h-3.5 w-3.5 sm:block" />
+                                        Archive
+                                    </ToggleGroupItem>
+                                </ToggleGroup>
                                 <Button
                                     type="button"
                                     variant={privateViewingEnabled ? "secondary" : "outline"}
@@ -2143,7 +2152,7 @@ export function LibraryView({
                                 value={draftQuery}
                                 onChange={(event) => setDraftQuery(event.target.value)}
                                 placeholder="Search images"
-                                className="h-10 rounded-[var(--radius-lg)] border-border/60 bg-muted/35 pr-10 pl-9 shadow-none transition-colors placeholder:text-muted-foreground focus-visible:bg-background"
+                                className="h-10 rounded-[var(--radius-lg)] border-border/60 bg-silk-muted/35 pr-10 pl-9 shadow-none transition-colors placeholder:text-muted-foreground focus-visible:bg-background"
                                 aria-label="Search library"
                             />
                             {draftQuery.length > 0 && (
@@ -2232,7 +2241,7 @@ export function LibraryView({
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                             >
-                                <div className="mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-muted/20 p-4 lg:p-5">
+                                <div className="mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-silk-muted/20 p-4 lg:p-5">
                                     {desktopFilterControls}
                                     <div className="mt-4 flex justify-end gap-2 border-border/60 border-t pt-4">
                                         <Button

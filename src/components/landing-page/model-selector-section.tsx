@@ -192,7 +192,7 @@ export function ModelSelectorSection() {
                         </div>
                     </div>
                     <div className="grid h-[380px] grid-cols-[3.5rem_minmax(0,1fr)] md:grid-cols-[4rem_minmax(0,1fr)]">
-                        <div className="flex min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
+                        <div className="flex min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-silk-muted/50">
                             <LayoutGroup id={providerRailLayoutGroupId}>
                                 <div className="relative flex flex-col items-center gap-1 px-1 pt-3 pb-2 md:px-2">
                                     {providers.map(({ name, Icon }, index) => (
@@ -209,7 +209,7 @@ export function ModelSelectorSection() {
                                                 "relative isolate flex size-11 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                                 index === activeIndex
                                                     ? "text-foreground"
-                                                    : "text-muted-foreground hover:bg-muted/50"
+                                                    : "text-muted-foreground hover:bg-silk-muted/50"
                                             )}
                                         >
                                             {index === activeIndex && (

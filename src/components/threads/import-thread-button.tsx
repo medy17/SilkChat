@@ -66,7 +66,7 @@ import {
 } from "lucide-react"
 import { nanoid } from "nanoid"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { NewFolderDialog } from "./new-folder-button"
 import type { Project } from "./types"
 
@@ -133,7 +133,7 @@ const statusLabel: Record<ImportQueueStatus, string> = {
 }
 
 const statusClasses: Record<ImportQueueStatus, string> = {
-    parsing: "bg-muted text-muted-foreground",
+    parsing: "bg-silk-muted text-muted-foreground",
     ready: "bg-primary/10 text-primary",
     importing: "bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:bg-amber-500/20",
     success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-500/20",
@@ -183,7 +183,7 @@ const importJobStatusDescriptions: Record<ImportJobStatus, string> = {
 }
 
 const importJobStatusClasses: Record<ImportJobStatus, string> = {
-    queued: "bg-muted text-muted-foreground",
+    queued: "bg-silk-muted text-muted-foreground",
     preparing: "bg-primary/10 text-primary",
     importing: "bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:bg-amber-500/20",
     completed: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-500/20",
@@ -583,7 +583,7 @@ export function ImportThreadDialog({
         const { accepted, rejected } = sanitizeIncomingFiles(files)
 
         if (rejected > 0) {
-            toast.error(
+            toast.danger(
                 `Skipped ${rejected} file${rejected > 1 ? "s" : ""}. Use supported exports (.md, .txt, .json).`
             )
         }
@@ -918,7 +918,7 @@ export function ImportThreadDialog({
 
     const handleImport = async () => {
         if (itemsReadyForImport.length === 0) {
-            toast.error("Select at least one valid conversation to import")
+            toast.danger("Select at least one valid conversation to import")
             return
         }
 
@@ -1065,11 +1065,11 @@ export function ImportThreadDialog({
                 toast.success(`Imported ${successCount} conversation${successCount > 1 ? "s" : ""}`)
             }
             if (failedCount > 0) {
-                toast.error(`${failedCount} conversation${failedCount > 1 ? "s" : ""} failed`)
+                toast.danger(`${failedCount} conversation${failedCount > 1 ? "s" : ""} failed`)
             }
         } catch (error) {
             console.error("[thread-import] failed", error)
-            toast.error(error instanceof Error ? error.message : "Failed to import thread")
+            toast.danger(error instanceof Error ? error.message : "Failed to import thread")
         } finally {
             setIsImporting(false)
         }
@@ -1096,7 +1096,7 @@ export function ImportThreadDialog({
             onJobIdChange(null)
             toast.success("Import job removed")
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to remove import job")
+            toast.danger(error instanceof Error ? error.message : "Failed to remove import job")
         }
     }
 
@@ -1153,6 +1153,8 @@ export function ImportThreadDialog({
                                     <Label htmlFor="thread-import-folder">Destination Folder</Label>
                                     <div className="flex items-center gap-2">
                                         <Select
+                                            aria-label="Destination folder"
+                                            className="min-w-0 flex-1"
                                             open={selectOpen}
                                             onOpenChange={setSelectOpen}
                                             value={selectedProjectId}
@@ -1165,7 +1167,26 @@ export function ImportThreadDialog({
                                             >
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent className="z-[80]">
+                                            <SelectContent
+                                                className="z-[80]"
+                                                footer={
+                                                    <>
+                                                        <SelectSeparator />
+                                                        <Button
+                                                            variant="ghost"
+                                                            type="button"
+                                                            className="flex h-auto w-full cursor-default select-none items-center justify-start gap-2 rounded-sm px-2 py-1.5 text-primary text-sm outline-hidden hover:bg-silk-accent focus:bg-silk-accent"
+                                                            onPress={() => {
+                                                                setSelectOpen(false)
+                                                                setShowNewFolderDialog(true)
+                                                            }}
+                                                        >
+                                                            <Plus className="h-4 w-4" />
+                                                            <span>Create Folder</span>
+                                                        </Button>
+                                                    </>
+                                                }
+                                            >
                                                 <SelectItem value="no-folder">
                                                     General (No Folder)
                                                 </SelectItem>
@@ -1177,30 +1198,12 @@ export function ImportThreadDialog({
                                                         {project.name}
                                                     </SelectItem>
                                                 ))}
-                                                <SelectSeparator />
-                                                <button
-                                                    type="button"
-                                                    className="flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-primary text-sm outline-hidden hover:bg-accent focus:bg-accent"
-                                                    onPointerDown={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        setSelectOpen(false)
-                                                        setShowNewFolderDialog(true)
-                                                    }}
-                                                >
-                                                    <Plus className="h-4 w-4" />
-                                                    <span>Create Folder</span>
-                                                </button>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
 
-                                <div className="rounded-md border bg-muted/10 px-3">
+                                <div className="rounded-md border bg-silk-muted/10 px-3">
                                     <Accordion type="single" collapsible>
                                         <AccordionItem
                                             value="attachment-options"
@@ -1232,70 +1235,77 @@ export function ImportThreadDialog({
                                                     }
                                                     className="gap-2"
                                                 >
-                                                    <label
-                                                        htmlFor="thread-import-attachment-mirror"
-                                                        className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-muted/40"
-                                                    >
+                                                    <div className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-silk-muted/40">
                                                         <RadioGroupItem
                                                             id="thread-import-attachment-mirror"
                                                             value="mirror"
                                                             disabled={isImporting || isParsingFiles}
                                                             className="mt-0.5"
                                                         />
-                                                        <div className="space-y-1">
-                                                            <div className="font-medium text-sm">
-                                                                Mirror attachments
+                                                        <label
+                                                            htmlFor="thread-import-attachment-mirror"
+                                                            className="min-w-0 flex-1 cursor-pointer"
+                                                        >
+                                                            <div className="space-y-1">
+                                                                <div className="font-medium text-sm">
+                                                                    Mirror attachments
+                                                                </div>
+                                                                <p className="text-muted-foreground text-xs leading-5">
+                                                                    Slowest. Copies files into your
+                                                                    app for better reliability. Max{" "}
+                                                                    {MAX_ATTACHMENTS_PER_THREAD}{" "}
+                                                                    mirrored attachments per
+                                                                    imported thread.
+                                                                </p>
                                                             </div>
-                                                            <p className="text-muted-foreground text-xs leading-5">
-                                                                Slowest. Copies files into your app
-                                                                for better reliability. Max{" "}
-                                                                {MAX_ATTACHMENTS_PER_THREAD}{" "}
-                                                                mirrored attachments per imported
-                                                                thread.
-                                                            </p>
-                                                        </div>
-                                                    </label>
+                                                        </label>
+                                                    </div>
 
-                                                    <label
-                                                        htmlFor="thread-import-attachment-external"
-                                                        className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-muted/40"
-                                                    >
+                                                    <div className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-silk-muted/40">
                                                         <RadioGroupItem
                                                             id="thread-import-attachment-external"
                                                             value="external"
                                                             disabled={isImporting || isParsingFiles}
                                                             className="mt-0.5"
                                                         />
-                                                        <div className="space-y-1">
-                                                            <div className="font-medium text-sm">
-                                                                Keep external links
+                                                        <label
+                                                            htmlFor="thread-import-attachment-external"
+                                                            className="min-w-0 flex-1 cursor-pointer"
+                                                        >
+                                                            <div className="space-y-1">
+                                                                <div className="font-medium text-sm">
+                                                                    Keep external links
+                                                                </div>
+                                                                <p className="text-muted-foreground text-xs leading-5">
+                                                                    Fastest. Files stay on the
+                                                                    original source and may break
+                                                                    later.
+                                                                </p>
                                                             </div>
-                                                            <p className="text-muted-foreground text-xs leading-5">
-                                                                Fastest. Files stay on the original
-                                                                source and may break later.
-                                                            </p>
-                                                        </div>
-                                                    </label>
+                                                        </label>
+                                                    </div>
 
-                                                    <label
-                                                        htmlFor="thread-import-attachment-skip"
-                                                        className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-muted/40"
-                                                    >
+                                                    <div className="flex cursor-pointer items-start gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:bg-silk-muted/40">
                                                         <RadioGroupItem
                                                             id="thread-import-attachment-skip"
                                                             value="skip"
                                                             disabled={isImporting || isParsingFiles}
                                                             className="mt-0.5"
                                                         />
-                                                        <div className="space-y-1">
-                                                            <div className="font-medium text-sm">
-                                                                Skip attachments
+                                                        <label
+                                                            htmlFor="thread-import-attachment-skip"
+                                                            className="min-w-0 flex-1 cursor-pointer"
+                                                        >
+                                                            <div className="space-y-1">
+                                                                <div className="font-medium text-sm">
+                                                                    Skip attachments
+                                                                </div>
+                                                                <p className="text-muted-foreground text-xs leading-5">
+                                                                    Imports messages only.
+                                                                </p>
                                                             </div>
-                                                            <p className="text-muted-foreground text-xs leading-5">
-                                                                Imports messages only.
-                                                            </p>
-                                                        </div>
-                                                    </label>
+                                                        </label>
+                                                    </div>
                                                 </RadioGroup>
                                             </AccordionContent>
                                         </AccordionItem>
@@ -1318,7 +1328,7 @@ export function ImportThreadDialog({
                                     isDropZoneActive && "border-primary bg-primary/5"
                                 )}
                             >
-                                <div className="flex items-center justify-between border-b bg-muted/10 px-3 py-2">
+                                <div className="flex items-center justify-between border-b bg-silk-muted/10 px-3 py-2">
                                     <div className="flex items-center gap-2">
                                         <Checkbox
                                             checked={
@@ -1329,10 +1339,7 @@ export function ImportThreadDialog({
                                                       : false
                                             }
                                             onCheckedChange={(checked) => {
-                                                const isChecked =
-                                                    checked === "indeterminate"
-                                                        ? true
-                                                        : Boolean(checked)
+                                                const isChecked = checked
 
                                                 setQueue((previous) =>
                                                     previous.map((item) =>
@@ -1362,7 +1369,7 @@ export function ImportThreadDialog({
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-1 border-b bg-muted/20 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
+                                <div className="flex flex-wrap items-center gap-1 border-b bg-silk-muted/20 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
                                     <Button
                                         size="sm"
                                         variant="secondary"
@@ -1455,11 +1462,7 @@ export function ImportThreadDialog({
                                                                     ? currentItem
                                                                     : {
                                                                           ...currentItem,
-                                                                          selected:
-                                                                              checked ===
-                                                                              "indeterminate"
-                                                                                  ? true
-                                                                                  : Boolean(checked)
+                                                                          selected: checked
                                                                       }
                                                             )
                                                         )
@@ -1611,7 +1614,7 @@ export function ImportThreadDialog({
                         <div className="space-y-5 pb-4">
                             {currentJob ? (
                                 <>
-                                    <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                                    <div className="space-y-3 rounded-lg border bg-silk-muted/20 p-4">
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
@@ -1758,7 +1761,7 @@ export function ImportThreadDialog({
                                             {currentJob.sources.map((source) => (
                                                 <div
                                                     key={source._id}
-                                                    className="flex items-start justify-between gap-3 rounded-md border bg-muted/10 px-3 py-2"
+                                                    className="flex items-start justify-between gap-3 rounded-md border bg-silk-muted/10 px-3 py-2"
                                                 >
                                                     <div className="min-w-0">
                                                         <p className="truncate font-medium text-sm">
@@ -1785,7 +1788,7 @@ export function ImportThreadDialog({
                                                                 ? "bg-destructive/10 text-destructive"
                                                                 : source.status === "prepared"
                                                                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                                                  : "bg-muted text-muted-foreground"
+                                                                  : "bg-silk-muted text-muted-foreground"
                                                         )}
                                                     >
                                                         {source.status}

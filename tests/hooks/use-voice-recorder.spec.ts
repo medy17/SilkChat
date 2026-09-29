@@ -22,9 +22,9 @@ vi.mock("@/lib/browser-env", () => ({
     browserEnv: browserEnvMock
 }))
 
-vi.mock("sonner", () => ({
+vi.mock("@/lib/toast", () => ({
     toast: {
-        error: toastErrorMock
+        danger: toastErrorMock
     }
 }))
 

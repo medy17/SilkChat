@@ -4,7 +4,7 @@ import { exportSingleThread } from "@/lib/thread-export-client"
 import { useConvex } from "convex/react"
 import { Download, Loader2 } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export function ThreadExportButton({ threadId }: { threadId: string }) {
     const convex = useConvex()
@@ -19,7 +19,7 @@ export function ThreadExportButton({ threadId }: { threadId: string }) {
             })
         } catch (error) {
             console.error("Failed to export thread:", error)
-            toast.error(error instanceof Error ? error.message : "Failed to export conversation")
+            toast.danger(error instanceof Error ? error.message : "Failed to export conversation")
         } finally {
             setIsExporting(false)
         }

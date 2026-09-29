@@ -23,7 +23,7 @@ function ShortcutTokens({ tokens }: { tokens: readonly string[] }) {
                     {index > 0 ? <span className="text-muted-foreground text-xs">+</span> : null}
                     <kbd
                         className={cn(
-                            "inline-flex min-h-6 items-center rounded-[var(--radius-md)] border border-border/70 bg-muted/60 px-1.5 py-0.5",
+                            "inline-flex min-h-6 items-center rounded-[var(--radius-md)] border border-border/70 bg-silk-muted/60 px-1.5 py-0.5",
                             "font-medium font-mono text-[0.6875rem] text-foreground"
                         )}
                     >

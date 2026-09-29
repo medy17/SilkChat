@@ -14,7 +14,7 @@ import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { CheckCircle, Loader2, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type ResponseStyleLevel = "less" | "default" | "more"
 type ResponseStyleField = "warmth" | "enthusiasm" | "structure" | "emoji" | "profanity"
@@ -210,7 +210,7 @@ export function BehaviorSettingsContent() {
             toast.success("Customization settings saved")
         } catch (error) {
             console.error("Failed to save customization:", error)
-            toast.error("Failed to save customization settings")
+            toast.danger("Failed to save customization settings")
         } finally {
             setIsSaving(false)
         }
@@ -231,7 +231,7 @@ export function BehaviorSettingsContent() {
             )
         } catch (error) {
             console.error("Failed to update composer behavior:", error)
-            toast.error("Failed to update composer behavior")
+            toast.danger("Failed to update composer behavior")
         } finally {
             setIsUpdatingComposerBehavior(false)
         }
@@ -339,7 +339,7 @@ export function BehaviorSettingsContent() {
                                             <label
                                                 key={level}
                                                 className={cn(
-                                                    "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-muted/20 p-3 transition-all duration-200 hover:bg-muted/40 sm:p-4 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
+                                                    "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-silk-muted/20 p-3 transition-all duration-200 hover:bg-silk-muted/40 sm:p-4 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
                                                     isSelected
                                                         ? "bg-primary/5 ring-1 ring-primary/20"
                                                         : "hover:ring-1 hover:ring-border"

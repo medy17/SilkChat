@@ -11,7 +11,7 @@ import {
     writeCachedPrototypeCreditValue
 } from "@/lib/prototype-credits"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const MIN_REFRESH_VISIBLE_MS = 700
 
@@ -133,7 +133,7 @@ export function usePrototypeCredits({
                 await refreshDevCreditState()
             } catch (error) {
                 console.error("Failed to update dev credit state:", error)
-                toast.error("Failed to update dev credit state")
+                toast.danger("Failed to update dev credit state")
             } finally {
                 setIsUpdatingDevCreditState(false)
             }

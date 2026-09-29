@@ -223,7 +223,7 @@ function AppearanceSettings() {
                     <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
                         <Card
                             className={cn(
-                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                "cursor-pointer border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40",
                                 themeState.currentMode === "system"
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
@@ -249,7 +249,7 @@ function AppearanceSettings() {
 
                         <Card
                             className={cn(
-                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                "cursor-pointer border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40",
                                 themeState.currentMode === "light"
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
@@ -275,7 +275,7 @@ function AppearanceSettings() {
 
                         <Card
                             className={cn(
-                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                "cursor-pointer border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40",
                                 themeState.currentMode === "dark"
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
@@ -345,7 +345,7 @@ function AppearanceSettings() {
                                 <label
                                     key={option.value}
                                     className={cn(
-                                        "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
+                                        "cursor-pointer rounded-[var(--radius-xl)] border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40 [&:has(input:focus-visible)]:ring-2 [&:has(input:focus-visible)]:ring-ring",
                                         isSelected
                                             ? "bg-primary/5 ring-1 ring-primary/20"
                                             : "hover:ring-1 hover:ring-border"
@@ -377,9 +377,9 @@ function AppearanceSettings() {
                                                     <div
                                                         key={`${option.value}-${index}`}
                                                         className={cn(
-                                                            "h-2 rounded-[var(--radius-sm)] bg-muted",
+                                                            "h-2 rounded-[var(--radius-sm)] bg-silk-muted",
                                                             width,
-                                                            index > 1 && "bg-muted/60"
+                                                            index > 1 && "bg-silk-muted/60"
                                                         )}
                                                     />
                                                 ))}
@@ -404,7 +404,7 @@ function AppearanceSettings() {
                     <div className="grid max-w-xl grid-cols-2 gap-3">
                         <Card
                             className={cn(
-                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                "cursor-pointer border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40",
                                 chatWidthState.chatWidth === "normal"
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
@@ -425,9 +425,9 @@ function AppearanceSettings() {
                                         )}
                                     </div>
                                     <div className="mt-2 flex flex-col gap-1">
-                                        <div className="h-2 w-full rounded-sm bg-muted" />
-                                        <div className="h-2 w-4/5 rounded-sm bg-muted" />
-                                        <div className="h-2 w-full rounded-sm bg-muted/60" />
+                                        <div className="h-2 w-full rounded-sm bg-silk-muted" />
+                                        <div className="h-2 w-4/5 rounded-sm bg-silk-muted" />
+                                        <div className="h-2 w-full rounded-sm bg-silk-muted/60" />
                                     </div>
                                 </div>
                             </div>
@@ -435,7 +435,7 @@ function AppearanceSettings() {
 
                         <Card
                             className={cn(
-                                "cursor-pointer border-0 bg-muted/20 p-4 transition-all duration-200 hover:bg-muted/40",
+                                "cursor-pointer border-0 bg-silk-muted/20 p-4 transition-all duration-200 hover:bg-silk-muted/40",
                                 chatWidthState.chatWidth === "wider"
                                     ? "bg-primary/5 ring-1 ring-primary/20"
                                     : "hover:ring-1 hover:ring-border"
@@ -456,9 +456,9 @@ function AppearanceSettings() {
                                         )}
                                     </div>
                                     <div className="mt-2 flex flex-col gap-1">
-                                        <div className="h-2 w-full rounded-sm bg-muted" />
-                                        <div className="h-2 w-full rounded-sm bg-muted" />
-                                        <div className="h-2 w-5/6 rounded-sm bg-muted/60" />
+                                        <div className="h-2 w-full rounded-sm bg-silk-muted" />
+                                        <div className="h-2 w-full rounded-sm bg-silk-muted" />
+                                        <div className="h-2 w-5/6 rounded-sm bg-silk-muted/60" />
                                     </div>
                                 </div>
                             </div>
@@ -482,7 +482,7 @@ function AppearanceSettings() {
                                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search themes..."
-                                    className="bg-muted/20 pl-10 focus:bg-background"
+                                    className="bg-silk-muted/20 pl-10 focus:bg-background"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />

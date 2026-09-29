@@ -5,7 +5,7 @@ import type { UIToolInvocation } from "ai"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { Box, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
 import { memo, useEffect, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type PersistentSandboxInvocation = UIToolInvocation<{
     input: unknown
@@ -125,7 +125,7 @@ export const PersistentSandboxCard = memo(
                 })
                 toast.success("Persistent sandbox started")
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to start persistent sandbox"))
+                toast.danger(getErrorMessage(error, "Failed to start persistent sandbox"))
             } finally {
                 setIsActing(false)
             }
@@ -142,7 +142,7 @@ export const PersistentSandboxCard = memo(
                     cardId: output.cardId
                 })
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to deny persistent sandbox"))
+                toast.danger(getErrorMessage(error, "Failed to deny persistent sandbox"))
             } finally {
                 setIsActing(false)
             }
@@ -155,7 +155,7 @@ export const PersistentSandboxCard = memo(
                 await kill({ sandboxId: output.sandboxId })
                 toast.success("Persistent sandbox killed")
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to kill persistent sandbox"))
+                toast.danger(getErrorMessage(error, "Failed to kill persistent sandbox"))
             } finally {
                 setIsActing(false)
             }
@@ -173,7 +173,7 @@ export const PersistentSandboxCard = memo(
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-medium text-sm">Persistent workspace</h3>
-                            <span className="rounded-[var(--radius-sm)] bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
+                            <span className="rounded-[var(--radius-sm)] bg-silk-muted px-1.5 py-0.5 text-muted-foreground text-xs">
                                 {output.runtime === "python" ? "Python" : "Node.js"}
                                 {output.runtimeVersion ? ` ${output.runtimeVersion}` : ""}
                             </span>
@@ -191,7 +191,7 @@ export const PersistentSandboxCard = memo(
                     </div>
                 </div>
 
-                <div className="border-t bg-muted/10 p-3">
+                <div className="border-t bg-silk-muted/10 p-3">
                     {status === "pending_confirmation" ? (
                         <div className="grid grid-cols-2 gap-2">
                             <Button
@@ -242,7 +242,7 @@ export const PersistentSandboxCard = memo(
                             Killing sandbox
                         </Button>
                     ) : (
-                        <output className="flex h-9 items-center justify-center rounded-[var(--radius-md)] bg-muted px-3 text-muted-foreground text-sm">
+                        <output className="flex h-9 items-center justify-center rounded-[var(--radius-md)] bg-silk-muted px-3 text-muted-foreground text-sm">
                             {status === "denied"
                                 ? "Denied"
                                 : status === "expired"

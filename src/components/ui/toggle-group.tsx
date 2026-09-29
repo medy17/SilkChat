@@ -1,73 +1,66 @@
-"use client"
-
-import * as React from "react"
-import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group"
-import { type VariantProps } from "class-variance-authority"
-
+import { ToggleButton, ToggleButtonGroup } from "@heroui/react"
+import type { ComponentProps, ReactNode } from "react"
 import { cn } from "@/lib/utils"
-import { toggleVariants } from "@/components/ui/toggle"
 
-const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants>
->({
-  size: "default",
-  variant: "default",
-})
-
-function ToggleGroup({
-  className,
-  variant,
-  size,
-  children,
-  ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants>) {
-  return (
-    <ToggleGroupPrimitive.Root
-      data-slot="toggle-group"
-      data-variant={variant}
-      data-size={size}
-      className={cn(
-        "group/toggle-group flex w-fit items-center rounded-md data-[variant=outline]:shadow-xs",
-        className
-      )}
-      {...props}
-    >
-      <ToggleGroupContext.Provider value={{ variant, size }}>
-        {children}
-      </ToggleGroupContext.Provider>
-    </ToggleGroupPrimitive.Root>
-  )
+type SelectionProps =
+    | {
+          type?: "single"
+          value?: string
+          defaultValue?: string
+          onValueChange?: (value: string) => void
+      }
+    | {
+          type: "multiple"
+          value?: string[]
+          defaultValue?: string[]
+          onValueChange?: (value: string[]) => void
+      }
+type Props = Omit<ComponentProps<typeof ToggleButtonGroup>, "onSelectionChange" | "children"> &
+    SelectionProps & { children?: ReactNode; disabled?: boolean }
+export function ToggleGroup({ disabled, children, className, ...props }: Props) {
+    const { type = "single", value, defaultValue, onValueChange: _onValueChange, ...rest } = props
+    const keys = (value: string | string[]) => (Array.isArray(value) ? value : value ? [value] : [])
+    return (
+        <ToggleButtonGroup
+            isDetached
+            size="sm"
+            {...rest}
+            className={cn(
+                "gap-1 rounded-md bg-silk-muted p-1",
+                typeof className === "string" && className
+            )}
+            isDisabled={disabled}
+            selectionMode={type}
+            disallowEmptySelection={type === "single"}
+            selectedKeys={value === undefined ? undefined : keys(value)}
+            defaultSelectedKeys={defaultValue === undefined ? undefined : keys(defaultValue)}
+            onSelectionChange={(keys) => {
+                if (props.type === "multiple") props.onValueChange?.([...keys].map(String))
+                else {
+                    const value = [...keys][0]
+                    if (value !== undefined) props.onValueChange?.(String(value))
+                }
+            }}
+        >
+            {children}
+        </ToggleButtonGroup>
+    )
 }
-
-function ToggleGroupItem({
-  className,
-  children,
-  variant,
-  size,
-  ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
-  VariantProps<typeof toggleVariants>) {
-  const context = React.useContext(ToggleGroupContext)
-
-  return (
-    <ToggleGroupPrimitive.Item
-      data-slot="toggle-group-item"
-      data-variant={context.variant || variant}
-      data-size={context.size || size}
-      className={cn(
-        toggleVariants({
-          variant: context.variant || variant,
-          size: context.size || size,
-        }),
-        "min-w-0 flex-1 shrink-0 rounded-none shadow-none first:rounded-l-md last:rounded-r-md focus:z-10 focus-visible:z-10 data-[variant=outline]:border-l-0 data-[variant=outline]:first:border-l",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </ToggleGroupPrimitive.Item>
-  )
+export function ToggleGroupItem({
+    value,
+    disabled,
+    className,
+    ...props
+}: Omit<ComponentProps<typeof ToggleButton>, "id"> & { value: string; disabled?: boolean }) {
+    return (
+        <ToggleButton
+            {...props}
+            id={value}
+            isDisabled={disabled}
+            className={cn(
+                "h-7 min-w-0 rounded-sm px-3 font-medium text-muted-foreground data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm",
+                typeof className === "string" && className
+            )}
+        />
+    )
 }
-
-export { ToggleGroup, ToggleGroupItem }

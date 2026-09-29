@@ -28,7 +28,7 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { FolderOpen, Loader2 } from "lucide-react"
 import { memo, useEffect, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { Thread } from "./types"
 
 interface Project {
@@ -127,7 +127,7 @@ export const ThreadItemDialogs = memo(
                 toast.success("Thread deleted successfully")
             } catch (error) {
                 console.error("Failed to delete thread:", error)
-                toast.error("Failed to delete thread")
+                toast.danger("Failed to delete thread")
             }
         }
 
@@ -136,7 +136,7 @@ export const ThreadItemDialogs = memo(
 
             const trimmedValue = renameValue.trim()
             if (!trimmedValue) {
-                toast.error("Thread name cannot be empty")
+                toast.danger("Thread name cannot be empty")
                 return
             }
 
@@ -153,7 +153,7 @@ export const ThreadItemDialogs = memo(
                 })
 
                 if (result && "error" in result) {
-                    toast.error(
+                    toast.danger(
                         typeof result.error === "string" ? result.error : "Failed to rename thread"
                     )
                 } else {
@@ -162,7 +162,7 @@ export const ThreadItemDialogs = memo(
                 }
             } catch (error) {
                 console.error("Failed to rename thread:", error)
-                toast.error("Failed to rename thread")
+                toast.danger("Failed to rename thread")
             } finally {
                 setIsRenaming(false)
             }
@@ -190,7 +190,7 @@ export const ThreadItemDialogs = memo(
                 })
 
                 if (result && "error" in result) {
-                    toast.error(
+                    toast.danger(
                         typeof result.error === "string" ? result.error : "Failed to move thread"
                     )
                 } else {
@@ -202,7 +202,7 @@ export const ThreadItemDialogs = memo(
                 }
             } catch (error) {
                 console.error("Failed to move thread:", error)
-                toast.error("Failed to move thread")
+                toast.danger("Failed to move thread")
             } finally {
                 setIsMoving(false)
             }

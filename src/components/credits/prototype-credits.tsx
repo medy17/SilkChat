@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { Meter } from "@/components/ui/progress"
 import {
     ResponsivePopover,
     ResponsivePopoverContent,
@@ -258,7 +258,7 @@ function PrototypeCreditsBody({
                                     <TooltipTrigger asChild>
                                         <button
                                             type="button"
-                                            className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                            className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-muted-foreground transition-colors hover:bg-silk-muted hover:text-foreground"
                                             aria-label={`${Math.max(0, Math.min(100, Math.round(remainingPercent)))}% remaining`}
                                         >
                                             <Clock className="size-3" />
@@ -271,7 +271,11 @@ function PrototypeCreditsBody({
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
-                            <Progress value={remainingPercent} className="h-2" />
+                            <Meter
+                                aria-label={`${label} credits remaining`}
+                                value={remainingPercent}
+                                className="h-2"
+                            />
                         </div>
                     )
                 })}
@@ -455,6 +459,7 @@ function DevAccessSwitch({
         <div className="flex items-center justify-between gap-3 text-xs">
             <span>{label}</span>
             <Switch
+                aria-label={label}
                 checked={checked}
                 disabled={disabled}
                 onCheckedChange={(checkedValue) => void onCheckedChange(checkedValue)}

@@ -4,7 +4,8 @@ import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
 import { CreditAccessRuntime } from "@/components/credits/credit-access-runtime"
 import { TelemetryIdentity } from "@/components/telemetry-identity"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
+import { toast } from "@/lib/toast"
 import { authClient } from "@/lib/auth-client"
 import { useDevDisableAnimations } from "@/lib/dev-overrides"
 import { installStaleAssetRecovery } from "@/lib/stale-asset-recovery"
@@ -62,6 +63,12 @@ export function Providers({ children }: { children: ReactNode }) {
         <AuthQueryProvider>
             <ThemeProvider>
                 <AuthUIProviderTanstack
+                    toast={({ variant, message }) => {
+                        if (!message) return
+                        if (variant === "error") toast.danger(message)
+                        else if (variant && variant !== "default") toast[variant](message)
+                        else toast(message)
+                    }}
                     authClient={authClient}
                     navigate={(href) => router.navigate({ href })}
                     replace={(href) => router.navigate({ href, replace: true })}

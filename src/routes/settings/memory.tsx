@@ -36,7 +36,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useAction, useQuery } from "convex/react"
 import { BrainCircuit, Pencil, Plus, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const PAGE_SIZE = 20
 
@@ -131,7 +131,7 @@ function MemorySettingsPage() {
             }
         } catch (error) {
             console.error(error)
-            toast.error(editingMemory ? "Failed to update memory" : "Failed to add memory")
+            toast.danger(editingMemory ? "Failed to update memory" : "Failed to add memory")
         } finally {
             setSaving(false)
         }
@@ -151,7 +151,7 @@ function MemorySettingsPage() {
             }
         } catch (error) {
             console.error(error)
-            toast.error("Failed to forget memory")
+            toast.danger("Failed to forget memory")
         } finally {
             setForgetting(false)
         }
@@ -183,7 +183,7 @@ function MemorySettingsPage() {
                 </div>
             ) : !memoryAvailable ? (
                 <div
-                    className="border border-border bg-muted/40 p-6"
+                    className="border border-border bg-silk-muted/40 p-6"
                     style={{ borderRadius: "var(--radius-lg)" }}
                 >
                     <p className="font-medium">Memory isn't available right now</p>
@@ -202,7 +202,7 @@ function MemorySettingsPage() {
                 </div>
             ) : memories.length === 0 ? (
                 <div
-                    className="flex flex-col items-center border border-border bg-muted/20 px-6 py-12 text-center"
+                    className="flex flex-col items-center border border-border bg-silk-muted/20 px-6 py-12 text-center"
                     style={{ borderRadius: "var(--radius-lg)" }}
                 >
                     <BrainCircuit className="size-8 text-muted-foreground" />

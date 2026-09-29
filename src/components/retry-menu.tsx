@@ -29,13 +29,14 @@ import { useModelFavorites } from "@/hooks/use-model-favorites"
 import { useSharedModels } from "@/lib/shared-models"
 import { ModelCostIndicator } from "@/components/model-cost-indicator"
 import { getModelRoutingDisabledReason } from "@/lib/models-providers-shared"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuGroup,
+    DropdownMenuLabel,
     DropdownMenuPortal,
     DropdownMenuSeparator,
     DropdownMenuSub,
@@ -45,26 +46,6 @@ import {
 } from "./ui/dropdown-menu"
 import { ResponsivePopover, ResponsivePopoverContent } from "./ui/responsive-popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
-
-function RetryMenuDisabledReasonTooltip({
-    reason,
-    children
-}: {
-    reason: string
-    children: React.ReactElement
-}) {
-    return (
-        <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>{children}</TooltipTrigger>
-            <TooltipContent className="z-[71] max-w-[min(22rem,calc(100vw-2rem))]">
-                <div className="space-y-1.5 p-1">
-                    <p className="font-medium leading-none">Why this model is unavailable</p>
-                    <p className="text-primary-foreground/80">{reason}</p>
-                </div>
-            </TooltipContent>
-        </Tooltip>
-    )
-}
 
 const AdminOnlyModelBadge = () => (
     <Badge
@@ -177,10 +158,7 @@ const RetrySubmenuContent = ({
             ref={alignMobileContent}
             avoidCollisions
             collisionPadding={20}
-            className={cn(
-                "max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto",
-                className
-            )}
+            className={cn("max-h-[inherit] overflow-y-auto", className)}
             {...props}
         />
     )
@@ -302,7 +280,7 @@ export function RetryMenu({
                 className={
                     triggerLabel
                         ? "text-foreground"
-                        : "h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                        : "h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-silk-accent hover:text-primary"
                 }
             >
                 <RotateCcw className={triggerLabel ? "size-4" : "h-3.5 w-3.5"} />
@@ -335,11 +313,9 @@ export function RetryMenu({
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator className="mx-2 my-5 opacity-50" />
-                <div className="absolute z-10 -mt-8 flex w-full items-center justify-center">
-                    <span className="bg-popover px-2 text-muted-foreground/80 text-sm">
-                        OR SWITCH MODEL
-                    </span>
-                </div>
+                <DropdownMenuLabel className="px-3 text-muted-foreground">
+                    Or switch model
+                </DropdownMenuLabel>
 
                 {providerSections.map((section) => {
                     const currentModels = section.models.filter(
@@ -408,6 +384,7 @@ export function RetryMenu({
                             const disabledRow = (
                                 <DropdownMenuItem
                                     key={model.id}
+                                    textValue={model.name}
                                     aria-label={`${model.name} unavailable: ${disabledReason}`}
                                     onSelect={(event) => {
                                         event.preventDefault()
@@ -415,9 +392,12 @@ export function RetryMenu({
                                             setMobileDisabledReason(disabledReason)
                                         }
                                     }}
-                                    className="cursor-not-allowed gap-0 p-0 opacity-50 hover:bg-transparent max-sm:cursor-pointer"
+                                    className="cursor-not-allowed flex-col items-start gap-0 p-0 opacity-50 hover:bg-transparent max-sm:cursor-pointer"
                                 >
                                     {rowContent}
+                                    <span className="px-3 pb-2 text-muted-foreground text-xs">
+                                        {disabledReason}
+                                    </span>
                                     <span
                                         aria-hidden="true"
                                         className="flex w-10 shrink-0 items-center justify-center"
@@ -427,24 +407,14 @@ export function RetryMenu({
                                 </DropdownMenuItem>
                             )
 
-                            if (isMobile || !disabledReason) {
-                                return disabledRow
-                            }
-
-                            return (
-                                <RetryMenuDisabledReasonTooltip
-                                    key={model.id}
-                                    reason={disabledReason}
-                                >
-                                    {disabledRow}
-                                </RetryMenuDisabledReasonTooltip>
-                            )
+                            return disabledRow
                         }
 
                         if (allowedEfforts.length === 0) {
                             return (
                                 <DropdownMenuItem
                                     key={model.id}
+                                    textValue={model.name}
                                     onSelect={(event) => {
                                         if (isModelDisabled) {
                                             event.preventDefault()
@@ -470,8 +440,13 @@ export function RetryMenu({
                         }
 
                         return (
-                            <div key={model.id} className="flex w-full items-stretch">
+                            <DropdownMenuGroup
+                                key={model.id}
+                                aria-label={model.name}
+                                className="flex w-full items-stretch"
+                            >
                                 <DropdownMenuItem
+                                    textValue={model.name}
                                     onSelect={(event) => {
                                         if (isModelDisabled || defaultRetryEffort === null) {
                                             event.preventDefault()
@@ -537,14 +512,10 @@ export function RetryMenu({
                                                             <React.Fragment key={effort}>
                                                                 {shouldShowProDivider &&
                                                                     firstProIndex === index && (
-                                                                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
-                                                                            <div className="h-px flex-1 bg-border" />
-                                                                            <span className="flex items-center gap-1 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                                                                                <Crown className="size-3 shrink-0" />
-                                                                                <span>Pro</span>
-                                                                            </span>
-                                                                            <div className="h-px flex-1 bg-border" />
-                                                                        </div>
+                                                                        <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground text-xs">
+                                                                            <Crown className="size-3" />
+                                                                            Pro
+                                                                        </DropdownMenuLabel>
                                                                     )}
                                                                 <DropdownMenuItem
                                                                     disabled={isEffortLocked}
@@ -583,7 +554,7 @@ export function RetryMenu({
                                         </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
-                            </div>
+                            </DropdownMenuGroup>
                         )
                     }
 
@@ -609,19 +580,18 @@ export function RetryMenu({
                                 >
                                     {visibleModels.map(renderModel)}
                                     {hiddenLegacyModels.length > 0 && (
-                                        <Accordion type="single" collapsible className="w-full">
-                                            <AccordionItem value="legacy" className="border-none">
-                                                <AccordionTrigger className="px-3 py-2 text-muted-foreground hover:no-underline data-[state=open]:hidden">
-                                                    <span className="flex items-center gap-4">
-                                                        <Archive className="size-4" />
-                                                        <span>Show legacy models</span>
-                                                    </span>
-                                                </AccordionTrigger>
-                                                <AccordionContent className="px-0 pb-0">
-                                                    {hiddenLegacyModels.map(renderModel)}
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        </Accordion>
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger
+                                                textValue="Legacy models"
+                                                className="px-3 py-2 text-muted-foreground"
+                                            >
+                                                <Archive className="size-4" />
+                                                Legacy models
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent>
+                                                {hiddenLegacyModels.map(renderModel)}
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
                                     )}
                                 </RetrySubmenuContent>
                             </DropdownMenuPortal>

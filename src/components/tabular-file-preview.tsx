@@ -67,7 +67,7 @@ export const TabularFilePreview = ({
 
     if (state.status === "error") {
         return (
-            <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-sm">
+            <div className="rounded-[var(--radius-md)] border bg-silk-muted/40 p-4 text-sm">
                 <p className="font-medium">Preview unavailable</p>
                 <p className="mt-1 text-muted-foreground">{state.message}</p>
             </div>
@@ -76,7 +76,7 @@ export const TabularFilePreview = ({
 
     if (state.rows.length === 0) {
         return (
-            <div className="rounded-[var(--radius-md)] border bg-muted/40 p-4 text-muted-foreground text-sm">
+            <div className="rounded-[var(--radius-md)] border bg-silk-muted/40 p-4 text-muted-foreground text-sm">
                 This file contains no tabular rows.
             </div>
         )
@@ -113,7 +113,7 @@ export const TabularFilePreview = ({
                     </thead>
                     <tbody>
                         {body.map((row, rowIndex) => (
-                            <tr className="odd:bg-muted/30" key={`row-${rowIndex}`}>
+                            <tr className="odd:bg-silk-muted/30" key={`row-${rowIndex}`}>
                                 {columns.map((_, columnIndex) => (
                                     <td
                                         className="max-w-80 border-r border-b px-3 py-2 align-top last:border-r-0"

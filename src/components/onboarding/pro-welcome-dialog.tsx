@@ -38,13 +38,7 @@ const GALLERY_IMAGES = [
 
 const capabilityIcons = [Brain, Eye, Code2, FileText]
 
-function SlideHeading({
-    title,
-    description
-}: {
-    title: string
-    description: React.ReactNode
-}) {
+function SlideHeading({ title, description }: { title: string; description: React.ReactNode }) {
     return (
         <div className="space-y-3 text-left">
             <DialogTitle className="font-semibold text-foreground text-xl tracking-tight">
@@ -85,7 +79,7 @@ function ImageToolSlide() {
                     </div>
                 </div>
 
-                <div className="border-t bg-muted/10 p-3">
+                <div className="border-t bg-silk-muted/10 p-3">
                     <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary font-medium text-primary-foreground text-sm">
                         <Sparkles className="size-4" />
                         Generate
@@ -103,7 +97,7 @@ function ImageToolSlide() {
 
 function DemoChip({ icon, label }: { icon: React.ReactNode; label: string }) {
     return (
-        <span className="inline-flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1 text-muted-foreground text-xs">
+        <span className="inline-flex items-center gap-1 rounded-md border bg-silk-muted/40 px-2 py-1 text-muted-foreground text-xs">
             {icon}
             {label}
         </span>
@@ -121,7 +115,7 @@ function SilkScreenSlide() {
                     <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-[0.625rem] text-muted-foreground uppercase tracking-wider">
                         <Sparkles className="size-3" /> Prompt
                     </div>
-                    <div className="truncate rounded-md bg-muted/30 px-2 py-1.5 text-[0.6875rem]">
+                    <div className="truncate rounded-md bg-silk-muted/30 px-2 py-1.5 text-[0.6875rem]">
                         A bioluminescent jellyfish drifting through a dark ocean...
                     </div>
                     <div className="mt-2 flex items-center gap-1.5">
@@ -172,7 +166,9 @@ function CapabilityIcons({ emphasized = false }: { emphasized?: boolean }) {
                 <span
                     key={index}
                     className={`grid size-7 place-items-center rounded-md border text-muted-foreground ${
-                        emphasized ? "border-transparent bg-accent text-accent-foreground" : ""
+                        emphasized
+                            ? "border-transparent bg-silk-accent text-silk-accent-foreground"
+                            : ""
                     }`}
                 >
                     <Icon className="size-3.5" />
@@ -189,14 +185,14 @@ function ProModelsSlide() {
                 className="overflow-hidden rounded-xl border bg-popover shadow-none"
                 aria-label="Example Pro model selector"
             >
-                <div className="bg-muted/50 p-3 pb-2">
+                <div className="bg-silk-muted/50 p-3 pb-2">
                     <div className="flex h-9 items-center gap-2 rounded-md bg-secondary/60 px-3 text-muted-foreground text-sm">
                         <Search className="size-4" /> Search models...
                     </div>
                 </div>
 
                 <div className="hidden h-[16rem] grid-cols-[4.5rem_minmax(0,1fr)] sm:grid">
-                    <div className="border-r bg-muted/50 p-2">
+                    <div className="border-r bg-silk-muted/50 p-2">
                         <div className="space-y-1">
                             <ProviderIcon icon={<OpenAIIcon className="size-5" />} />
                             <ProviderIcon active icon={<ClaudeIcon className="size-5" />} />
@@ -230,7 +226,7 @@ function ProModelsSlide() {
                 </div>
 
                 <div className="sm:hidden">
-                    <div className="flex border-b bg-muted/50 px-2 pt-1">
+                    <div className="flex border-b bg-silk-muted/50 px-2 pt-1">
                         <MobileProviderTab
                             label="OpenAI"
                             icon={<OpenAIIcon className="size-4" />}

@@ -1,12 +1,12 @@
 .persona-avatar-cropper__container {
     background: radial-gradient(
             circle at top,
-            color-mix(in oklab, var(--muted) 78%, var(--background)) 0%,
+            color-mix(in oklab, var(--silk-muted) 78%, var(--background)) 0%,
             transparent 62%
         ),
         linear-gradient(
             180deg,
-            color-mix(in oklab, var(--muted) 82%, var(--background)) 0%,
+            color-mix(in oklab, var(--silk-muted) 82%, var(--background)) 0%,
             var(--background) 100%
         );
 }

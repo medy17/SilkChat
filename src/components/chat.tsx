@@ -600,7 +600,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                                         <button
                                                             key={starter}
                                                             type="button"
-                                                            className="rounded-full border border-border bg-background/70 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                                                            className="rounded-full border border-border bg-background/70 px-3 py-1.5 text-left text-sm transition-colors hover:bg-silk-accent"
                                                             onClick={() => {
                                                                 multimodalInputRef.current?.setValue(
                                                                     starter
@@ -632,7 +632,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                         <button
                                             key={reply}
                                             type="button"
-                                            className="rounded-[var(--radius-xl)] border border-border bg-background/70 px-3 py-1.5 text-left text-sm backdrop-blur transition-colors hover:bg-accent"
+                                            className="rounded-[var(--radius-xl)] border border-border bg-background/70 px-3 py-1.5 text-left text-sm backdrop-blur transition-colors hover:bg-silk-accent"
                                             onClick={() => handleInputSubmitWithScroll(reply, [])}
                                         >
                                             {reply}

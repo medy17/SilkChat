@@ -156,7 +156,7 @@ import {
     useRef,
     useState
 } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 type ExtendedUploadedFile = UploadedFileWithSource
 type ComposerOverlay = "model" | "persona" | "tools" | "reasoning" | "mobile-menu"
@@ -390,6 +390,7 @@ export const ReasoningEffortSelector = ({
         >
             <span className="inline-flex">
                 <Select
+                    aria-label="Reasoning effort"
                     open={open}
                     onOpenChange={onOpenChange}
                     value={reasoningEffort}
@@ -413,7 +414,7 @@ export const ReasoningEffortSelector = ({
                                 ? isReasoningOff
                                     ? "border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
                                     : "border border-primary-foreground/20 bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-primary"
-                                : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-accent"
+                                : "border-0 bg-secondary/70 backdrop-blur-lg hover:bg-silk-accent"
                         )}
                     >
                         <div className="hidden items-center gap-1.5 sm:flex">
@@ -471,7 +472,7 @@ export interface MultimodalInputRef {
 }
 
 const mobileMenuRowClassName =
-    "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60"
+    "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-left text-sm transition-colors hover:bg-silk-accent/60"
 
 type CreditPlan = "free" | "pro"
 
@@ -487,7 +488,7 @@ function MobileAvailabilityIndicator({
         <button
             type="button"
             aria-label={`Explain ${label} availability`}
-            className="flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-xl)] border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-xl)] border border-border bg-silk-muted text-muted-foreground transition-colors hover:bg-silk-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
             <X className="size-2.5" />
         </button>
@@ -657,7 +658,7 @@ function MobileOverflowMenu({
                 align="end"
                 side="top"
                 sideOffset={8}
-                className="max-h-[min(var(--radix-popover-content-available-height),calc(100dvh-1rem))] w-[min(16rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border/70 bg-popover p-1.5 shadow-lg"
+                className="w-[min(16rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border/70 bg-popover p-1.5 shadow-lg"
                 style={{ borderRadius: "var(--radius-lg)" }}
             >
                 <div className="space-y-1">
@@ -670,7 +671,7 @@ function MobileOverflowMenu({
                             >
                                 <ReasoningIcon className="size-4 shrink-0" />
                                 <span className="min-w-0 flex-1 truncate">Reasoning</span>
-                                <span className="shrink-0 rounded-[var(--radius-md)] border border-border/60 bg-muted/50 px-1.5 py-1 text-xs">
+                                <span className="shrink-0 rounded-[var(--radius-md)] border border-border/60 bg-silk-muted/50 px-1.5 py-1 text-xs">
                                     {reasoningLabel}
                                 </span>
                                 {reasoningExpanded ? (
@@ -703,8 +704,8 @@ function MobileOverflowMenu({
                                                 key={effort}
                                                 type="button"
                                                 className={cn(
-                                                    "flex w-full items-center gap-2 rounded-md px-9 py-2 text-left text-sm transition-colors hover:bg-accent/60",
-                                                    isSelected && "bg-accent/50 text-primary",
+                                                    "flex w-full items-center gap-2 rounded-md px-9 py-2 text-left text-sm transition-colors hover:bg-silk-accent/60",
+                                                    isSelected && "bg-silk-accent/50 text-primary",
                                                     isEffortLocked &&
                                                         "cursor-not-allowed opacity-50 hover:bg-transparent"
                                                 )}
@@ -872,7 +873,7 @@ function MobileOverflowMenu({
                                                     "flex h-6 min-w-9 items-center justify-center rounded border px-2 text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                                                     isActive
                                                         ? "border-primary bg-primary text-primary-foreground"
-                                                        : "border-border/60 text-foreground hover:bg-muted/60"
+                                                        : "border-border/60 text-foreground hover:bg-silk-muted/60"
                                                 )}
                                                 onClick={() =>
                                                     onSetImageDefaults({ resolution: option })
@@ -897,7 +898,7 @@ function MobileOverflowMenu({
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
-                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                         disabled={
                                             !(
                                                 modelSupportsVision && modelSupportsFunctionCalling
@@ -916,7 +917,7 @@ function MobileOverflowMenu({
                                     </span>
                                     <button
                                         type="button"
-                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                         disabled={
                                             !(
                                                 modelSupportsVision && modelSupportsFunctionCalling
@@ -945,7 +946,7 @@ function MobileOverflowMenu({
                             </p>
                             <div
                                 className={cn(
-                                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent/60",
+                                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-silk-accent/60",
                                     !toolLimitInteractive && "cursor-not-allowed opacity-50"
                                 )}
                             >
@@ -955,7 +956,7 @@ function MobileOverflowMenu({
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
-                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                         disabled={
                                             !toolLimitInteractive ||
                                             toolCallLimitPerTurn <= MIN_TOOL_CALL_LIMIT_PER_TURN
@@ -976,7 +977,7 @@ function MobileOverflowMenu({
                                     </span>
                                     <button
                                         type="button"
-                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-silk-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
                                         disabled={
                                             !toolLimitInteractive ||
                                             toolCallLimitPerTurn >= MAX_TOOL_CALL_LIMIT_PER_TURN
@@ -1168,7 +1169,7 @@ export function useComposerToolbarState() {
                 toolCallLimitPerTurn: pendingToolCallLimitPerTurn
             }).catch((error) => {
                 setPendingToolCallLimitPerTurn(null)
-                toast.error("Failed to update tool call limit")
+                toast.danger("Failed to update tool call limit")
                 console.error(error)
             })
         }, 200)
@@ -1187,7 +1188,7 @@ export function useComposerToolbarState() {
     const handleImageDefaultsUpdate = useCallback(
         (partial: { resolution?: ImageDefaultResolution; variants?: number }) => {
             void updateUserSettings({ imageGenerationDefaults: partial }).catch((error) => {
-                toast.error("Failed to update image defaults")
+                toast.danger("Failed to update image defaults")
                 console.error(error)
             })
         },
@@ -1469,7 +1470,7 @@ export const MultimodalInput = forwardRef<
             await killPersistentSandbox({ sandboxId: activePersistentSandbox._id })
             toast.success("Persistent sandbox killed")
         } catch (error) {
-            toast.error(
+            toast.danger(
                 error instanceof Error ? error.message : "Failed to kill persistent sandbox"
             )
         } finally {
@@ -1524,9 +1525,9 @@ export const MultimodalInput = forwardRef<
 
         if (isImageGenerationPending && !imageGenerationGateBypassRef.current) {
             toast.warning("An image is still generating in this chat.", {
-                action: {
-                    label: "Send anyway",
-                    onClick: () => {
+                actionProps: {
+                    children: "Send anyway",
+                    onPress: () => {
                         imageGenerationGateBypassRef.current = true
                         void handleSubmit()
                     }
@@ -1554,7 +1555,7 @@ export const MultimodalInput = forwardRef<
             .filter((error): error is string => Boolean(error))
 
         if (attachmentValidationErrors.length > 0) {
-            toast.error(`File validation failed:\n${attachmentValidationErrors.join("\n")}`)
+            toast.danger(`File validation failed:\n${attachmentValidationErrors.join("\n")}`)
             return
         }
 
@@ -1820,7 +1821,7 @@ export const MultimodalInput = forwardRef<
             }
 
             if (syncErrors.length > 0) {
-                toast.error(`File validation failed:\n${syncErrors.join("\n")}`)
+                toast.danger(`File validation failed:\n${syncErrors.join("\n")}`)
             }
 
             if (validFiles.length === 0) return
@@ -1891,7 +1892,7 @@ export const MultimodalInput = forwardRef<
                             stage: "conversion",
                             error_type: getErrorType(error)
                         })
-                        toast.error(
+                        toast.danger(
                             error instanceof Error
                                 ? error.message
                                 : `${file.name}: Document conversion failed`
@@ -2071,7 +2072,7 @@ export const MultimodalInput = forwardRef<
                         stage: "upload",
                         error_type: getErrorType(error)
                     })
-                    toast.error(errorMessage)
+                    toast.danger(errorMessage)
 
                     setLocalUploadingFiles((prev) =>
                         prev.map((f) =>
@@ -2161,11 +2162,11 @@ export const MultimodalInput = forwardRef<
                 } else if (result.error === "File not found") {
                     toast.info("Attachment was already deleted")
                 } else {
-                    toast.error(result.error || "Failed to delete attachment")
+                    toast.danger(result.error || "Failed to delete attachment")
                 }
             })
             .catch((error) => {
-                toast.error(error instanceof Error ? error.message : "Failed to delete attachment")
+                toast.danger(error instanceof Error ? error.message : "Failed to delete attachment")
             })
     }
 
@@ -2434,7 +2435,7 @@ export const MultimodalInput = forwardRef<
                                     the file for the complete content.
                                 </p>
                             )}
-                            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[var(--radius-md)] bg-muted p-4 text-sm">
+                            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[var(--radius-md)] bg-silk-muted p-4 text-sm">
                                 {textPreview.content}
                             </pre>
                         </div>
@@ -2557,7 +2558,7 @@ export const MultimodalInput = forwardRef<
                 promptInputRef.current?.focus()
             } catch (error) {
                 console.error("Failed to attach recent generated image:", error)
-                toast.error(error instanceof Error ? error.message : "Failed to attach image")
+                toast.danger(error instanceof Error ? error.message : "Failed to attach image")
             } finally {
                 setAttachingImageKey(undefined)
             }

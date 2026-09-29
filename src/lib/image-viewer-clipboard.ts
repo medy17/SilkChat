@@ -1,4 +1,4 @@
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 /** Tiles copy the original prompt; modal buttons trim it and report missing prompts. */
 export async function copyViewerPrompt({
@@ -16,13 +16,13 @@ export async function copyViewerPrompt({
 }) {
     const text = trim ? prompt?.trim() : prompt
     if (!text) {
-        if (reportEmpty) toast.error("No prompt available to copy")
+        if (reportEmpty) toast.danger("No prompt available to copy")
         return
     }
     try {
         await navigator.clipboard.writeText(text)
     } catch {
-        if (isCurrent()) toast.error("Failed to copy prompt")
+        if (isCurrent()) toast.danger("Failed to copy prompt")
         return
     }
     if (!isCurrent()) return

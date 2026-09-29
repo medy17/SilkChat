@@ -49,9 +49,9 @@ vi.mock("@tanstack/react-router", () => ({
     useNavigate: () => navigateMock
 }))
 
-vi.mock("sonner", () => ({
+vi.mock("@/lib/toast", () => ({
     toast: {
-        error: toastErrorMock
+        danger: toastErrorMock
     }
 }))
 

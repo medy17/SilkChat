@@ -288,7 +288,7 @@
 
 .og-demo__capture-meta button:hover:not(:disabled) {
     border-color: var(--ring);
-    background: var(--accent);
+    background: var(--silk-accent);
 }
 
 .og-demo__capture-meta button:focus-visible {

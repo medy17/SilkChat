@@ -228,7 +228,7 @@ function ChatSkeletonBlock({ className }: { className: string }) {
     return (
         <Skeleton
             className={cn(
-                "animate-[shimmer_1.15s_infinite_linear] bg-[linear-gradient(to_right,var(--muted)_25%,var(--accent)_50%,var(--muted)_75%)] bg-size-[200%_100%]",
+                "animate-[shimmer_1.15s_infinite_linear] bg-[linear-gradient(to_right,var(--silk-muted)_25%,var(--silk-accent)_50%,var(--silk-muted)_75%)] bg-size-[200%_100%]",
                 className
             )}
         />

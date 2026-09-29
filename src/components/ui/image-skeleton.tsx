@@ -157,9 +157,7 @@ export const ImageSkeleton = ({
                 canvas.height = targetHeight
             }
 
-            fadeAlpha = isShimmering
-                ? Math.min(1, fadeAlpha + 0.05)
-                : Math.max(0, fadeAlpha - 0.05)
+            fadeAlpha = isShimmering ? Math.min(1, fadeAlpha + 0.05) : Math.max(0, fadeAlpha - 0.05)
 
             context.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -169,7 +167,11 @@ export const ImageSkeleton = ({
                 const actualGap = gap * dpr
                 const baseDotSize =
                     dotSize > 0
-                        ? Math.min(dotSize * dpr, Math.max(cellWidth - actualGap, 1), Math.max(cellHeight - actualGap, 1))
+                        ? Math.min(
+                              dotSize * dpr,
+                              Math.max(cellWidth - actualGap, 1),
+                              Math.max(cellHeight - actualGap, 1)
+                          )
                         : Math.max(Math.min(cellWidth, cellHeight) - actualGap, 1)
 
                 context.fillStyle = themeColorRef.current
@@ -206,7 +208,7 @@ export const ImageSkeleton = ({
         <div
             ref={containerRef}
             {...props}
-            className={`relative h-full w-full overflow-hidden rounded-lg border border-border/50 bg-muted/10 ${className}`}
+            className={`relative h-full w-full overflow-hidden rounded-lg border border-border/50 bg-silk-muted/10 ${className}`}
         >
             <style>{`
                 @keyframes image-skeleton-fade-in {

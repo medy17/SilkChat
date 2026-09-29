@@ -38,7 +38,7 @@ import { useConvex, useConvexAuth, useMutation, useQuery } from "convex/react"
 import { PlayCircle } from "lucide-react"
 import type { MouseEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { ImageGenerationSidebar } from "./library/image-generation-sidebar"
 import { ImportThreadDialog } from "./threads/import-thread-button"
 import { BulkDeleteThreadsDialog, BulkMoveThreadsDialog } from "./threads/sidebar-bulk-dialogs"
@@ -349,7 +349,7 @@ export function ThreadsSidebar() {
                     `Import finished with issues (${job.importedThreads} imported, ${job.failedThreads} failed)`
                 )
             } else if (job.status === "failed") {
-                toast.error("Background import failed")
+                toast.danger("Background import failed")
             }
         }
 
@@ -528,7 +528,7 @@ export function ThreadsSidebar() {
             setSelectedThreadIds(threadIds)
         } catch (error) {
             console.error("Failed to load folder threads for selection:", error)
-            toast.error("Failed to select folder threads")
+            toast.danger("Failed to select folder threads")
         }
     })
 
@@ -562,7 +562,7 @@ export function ThreadsSidebar() {
             })
         } catch (error) {
             console.error("Failed to toggle folder thread selection:", error)
-            toast.error("Failed to update folder selection")
+            toast.danger("Failed to update folder selection")
         }
     })
 
@@ -585,7 +585,7 @@ export function ThreadsSidebar() {
             })
         } catch (error) {
             console.error("Failed to export thread:", error)
-            toast.error(error instanceof Error ? error.message : "Failed to export conversation")
+            toast.danger(error instanceof Error ? error.message : "Failed to export conversation")
         }
     })
 
@@ -600,7 +600,7 @@ export function ThreadsSidebar() {
             })
         } catch (error) {
             console.error("Failed to export selected threads:", error)
-            toast.error(
+            toast.danger(
                 error instanceof Error ? error.message : "Failed to export selected threads"
             )
         } finally {
@@ -630,7 +630,7 @@ export function ThreadsSidebar() {
             )
         } catch (error) {
             console.error("Failed to update selected thread pins:", error)
-            toast.error("Failed to update selected threads")
+            toast.danger("Failed to update selected threads")
         } finally {
             setIsApplyingSelectionAction(false)
         }
@@ -664,7 +664,7 @@ export function ThreadsSidebar() {
             handleExitSelectionMode()
         } catch (error) {
             console.error("Failed to delete selected threads:", error)
-            toast.error("Failed to delete selected threads")
+            toast.danger("Failed to delete selected threads")
         } finally {
             setIsApplyingSelectionAction(false)
             setShowBulkDeleteDialog(false)
@@ -704,7 +704,7 @@ export function ThreadsSidebar() {
             handleExitSelectionMode()
         } catch (error) {
             console.error("Failed to move selected threads:", error)
-            toast.error("Failed to move selected threads")
+            toast.danger("Failed to move selected threads")
         } finally {
             setIsApplyingSelectionAction(false)
             setShowBulkMoveDialog(false)

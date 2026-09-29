@@ -128,7 +128,7 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
     const pageCount = documentProxy?.numPages ?? 0
 
     return (
-        <div className="flex h-[69dvh] min-h-0 flex-col overflow-hidden rounded-[var(--radius-md)] border bg-muted/20">
+        <div className="flex h-[69dvh] min-h-0 flex-col overflow-hidden rounded-[var(--radius-md)] border bg-silk-muted/20">
             <div className="flex min-h-11 shrink-0 items-center justify-center gap-1 border-b bg-background/90 px-2">
                 <Button
                     type="button"
@@ -185,7 +185,7 @@ export function PdfFilePreview({ url, filename }: { url: string; filename: strin
 
             <div
                 ref={viewportRef}
-                className="relative min-h-0 flex-1 overflow-auto bg-muted/40 p-2"
+                className="relative min-h-0 flex-1 overflow-auto bg-silk-muted/40 p-2"
                 aria-label={`PDF preview: ${filename}`}
                 role="region"
             >

@@ -62,7 +62,7 @@ describe("usage visibility", () => {
 
             // Mobile back dismissal and desktop Escape must release usage equally.
             if (mobile) fireEvent(window, new PopStateEvent("popstate", { state: {} }))
-            else fireEvent.keyDown(document, { key: "Escape" })
+            else fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" })
             await waitFor(() => expectEnabled(false))
 
             fireEvent.click(screen.getByRole("button", { name: "Usage" }))

@@ -75,7 +75,7 @@ export function SharedChat({ sharedThreadId }: SharedChatProps) {
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     >
-                        <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
+                        <div className="flex items-center justify-between rounded-lg border bg-silk-muted/50 p-4">
                             <div className="flex-1">
                                 {thread ? (
                                     <h3 className="font-semibold text-sm">{thread.title}</h3>

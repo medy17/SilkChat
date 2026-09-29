@@ -1,3 +1,4 @@
+import { Meter as HeroMeter } from "@heroui/react"
 import {
     PersonaAvatarCropper as AvatarCropper,
     type PersonaAvatarCropState as AvatarCropState,
@@ -87,7 +88,7 @@ import {
     useState
 } from "react"
 import type { Area } from "react-easy-crop"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export const Route = createFileRoute("/settings/personas")({
     component: PersonasSettings
@@ -352,17 +353,14 @@ function PersonaTokenRing({ used, max }: { used: number; max: number }) {
     const tone: PersonaSaveTone = used > max ? "danger" : used >= max * 0.8 ? "warning" : "ready"
     return (
         <EditorTooltip label={`${used.toLocaleString()} of ${max.toLocaleString()} prompt tokens`}>
-            <div className="flex shrink-0 items-center gap-2 text-muted-foreground text-xs tabular-nums">
-                <svg
-                    viewBox="0 0 20 20"
-                    className="size-5 -rotate-90"
-                    role="meter"
-                    aria-label="Persona prompt size"
-                    aria-valuemin={0}
-                    aria-valuemax={max}
-                    aria-valuenow={used}
-                    aria-valuetext={`${used.toLocaleString()} of ${max.toLocaleString()} tokens`}
-                >
+            <HeroMeter
+                value={Math.min(used, max)}
+                maxValue={max}
+                aria-label="Persona prompt size"
+                aria-valuetext={`${used.toLocaleString()} of ${max.toLocaleString()} tokens`}
+                className="flex w-auto shrink-0 items-center gap-2 whitespace-nowrap text-muted-foreground text-xs tabular-nums"
+            >
+                <svg viewBox="0 0 20 20" className="size-5 shrink-0 -rotate-90" aria-hidden="true">
                     <circle
                         cx="10"
                         cy="10"
@@ -393,7 +391,7 @@ function PersonaTokenRing({ used, max }: { used: number; max: number }) {
                 <span className={cn(tone === "danger" && "text-destructive")}>
                     {compactNumber.format(used)} / {compactNumber.format(max)} tokens
                 </span>
-            </div>
+            </HeroMeter>
         </EditorTooltip>
     )
 }
@@ -746,7 +744,7 @@ function PersonaEditorForm({
                     <button
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
-                        className="relative inline-flex size-20 items-center justify-center rounded-full border bg-background transition-colors hover:bg-muted/50"
+                        className="relative inline-flex size-20 items-center justify-center rounded-full border bg-background transition-colors hover:bg-silk-muted/50"
                         aria-label={
                             form.avatar ? "Replace persona avatar" : "Upload persona avatar"
                         }
@@ -792,7 +790,7 @@ function PersonaEditorForm({
                                     }))
                                     setRemovedAvatar(null)
                                 }}
-                                className="absolute right-0.5 bottom-0.5 flex size-6 items-center justify-center rounded-full border bg-background text-foreground transition-colors hover:bg-muted"
+                                className="absolute right-0.5 bottom-0.5 flex size-6 items-center justify-center rounded-full border bg-background text-foreground transition-colors hover:bg-silk-muted"
                             >
                                 <Undo2 className="size-3.5" />
                             </button>
@@ -1343,7 +1341,7 @@ function PersonasSettings() {
                 fileName: file.name
             })
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Avatar upload failed")
+            toast.danger(error instanceof Error ? error.message : "Avatar upload failed")
         }
     }
 
@@ -1368,7 +1366,7 @@ function PersonasSettings() {
             }))
             setAvatarCropState(null)
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Avatar upload failed")
+            toast.danger(error instanceof Error ? error.message : "Avatar upload failed")
         } finally {
             setIsUploadingAvatar(false)
         }
@@ -1439,7 +1437,7 @@ function PersonasSettings() {
                 } catch (error) {
                     if (signal.aborted) return
                     const message = error instanceof Error ? error.message : "Upload failed"
-                    toast.error(message)
+                    toast.danger(message)
                     updatePendingDoc(pending.id, { status: "error", error: message })
                 }
             })
@@ -1493,7 +1491,7 @@ function PersonasSettings() {
 
             handleEditorOpenChange(false)
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to save persona")
+            toast.danger(error instanceof Error ? error.message : "Failed to save persona")
         } finally {
             setIsSaving(false)
         }
@@ -1508,7 +1506,7 @@ function PersonasSettings() {
             toast.success("Persona deleted")
             handleEditorOpenChange(false)
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to delete persona")
+            toast.danger(error instanceof Error ? error.message : "Failed to delete persona")
         } finally {
             setIsDeleting(false)
         }

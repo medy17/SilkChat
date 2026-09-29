@@ -18,7 +18,7 @@ import { getRoleplayPortraitIdError } from "@/lib/roleplay-portraits"
 import { useMutation } from "convex/react"
 import { Check, Crop, Loader2, UserRound } from "lucide-react"
 import { useContext, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const errorMessage = (error: unknown, fallback: string) =>
     error instanceof Error && error.message ? error.message : fallback
@@ -69,7 +69,7 @@ export function RoleplayPortraitActions({
                 }
             })
         } catch (error) {
-            toast.error(errorMessage(error, "Couldn't set the portrait"))
+            toast.danger(errorMessage(error, "Couldn't set the portrait"))
         } finally {
             setPending(null)
         }
@@ -87,7 +87,7 @@ export function RoleplayPortraitActions({
             )
             setCropState({ src, fileName })
         } catch (error) {
-            toast.error(errorMessage(error, "Couldn't load that image"))
+            toast.danger(errorMessage(error, "Couldn't load that image"))
         } finally {
             setPending(null)
         }
@@ -124,7 +124,7 @@ export function RoleplayPortraitActions({
             })
             setCropState(null)
         } catch (error) {
-            toast.error(errorMessage(error, "Couldn't set the portrait"))
+            toast.danger(errorMessage(error, "Couldn't set the portrait"))
         } finally {
             setIsSavingCrop(false)
         }

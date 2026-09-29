@@ -11,7 +11,7 @@ import { useRouter, useSearch } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { MotionConfig, motion } from "motion/react"
 import { useEffect } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export function AuthCard() {
     const router = useRouter()
@@ -39,7 +39,7 @@ export function AuthCard() {
                 callbackURL: redirectTarget
             }),
         onError: (error) => {
-            toast.error(error.message ?? "Failed to sign in with Google")
+            toast.danger(error.message ?? "Failed to sign in with Google")
         }
     })
 
