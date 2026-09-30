@@ -65,6 +65,7 @@ export const getPrepareImageGenerationTool = ({
                 "Use only valid enum inputs supplied by the schema.",
                 "For edits or transformations of an attached/provided/current image, include the relevant referenceIds.",
                 "When multiple SilkScreen variants are available, select the variant-specific reference id the user named. If the intended variant is ambiguous, ask the user which variant to use instead of guessing.",
+                "Portrait mode (the portrait field) is not for general image generation. Use it only in a roleplay scene when the user explicitly asks for a portrait of a character in that scene; never for posters, edits, illustrations, or any other request, even ones that depict a person. Otherwise omit the portrait field entirely.",
                 hasPersonaStyleReference
                     ? "Portrait cards use the saved Persona avatar as a style reference by default when no referenceIds are selected. Set portrait.usePersonaStyle to false to generate without it. Match its style, not the Persona's identity."
                     : "No Persona avatar is available as a style reference. For portraits, use a supplied reference, ask the user for one when needed, or generate without a reference from the scene's description.",
@@ -135,7 +136,7 @@ export const getPrepareImageGenerationTool = ({
                     })
                     .optional()
                     .describe(
-                        "Only when the user asks for a portrait of a roleplay character. The card then offers to set the image as that character's portrait. Portraits are square."
+                        "Roleplay only. Set this only when the user explicitly asks for a portrait of a character from the current roleplay scene; omit it for all other image generation and edits. The card then offers to set the image as that character's portrait. Portraits are square."
                     ),
                 referenceIds:
                     referenceIds.length > 0
