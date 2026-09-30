@@ -357,7 +357,8 @@ const submitImageGenerationJob = async (
         sourceCardId,
         creditEventKey,
         reservedMicrousd: providedReservedMicrousd,
-        quality
+        quality,
+        transparentBackground
     }: {
         userId: string
         prompt: string
@@ -375,6 +376,7 @@ const submitImageGenerationJob = async (
         creditEventKey?: string
         reservedMicrousd?: number
         quality?: Exclude<ImageQuality, "auto">
+        transparentBackground?: boolean
     }
 ) => {
     const referenceSources = references ?? []
@@ -385,7 +387,8 @@ const submitImageGenerationJob = async (
         resolution,
         variants: 1,
         referenceCount,
-        quality
+        quality,
+        transparentBackground
     })
 
     const imageCreditEventKey =
@@ -436,7 +439,8 @@ const submitImageGenerationJob = async (
             imageResolution: validated.resolution,
             referenceImages,
             maxAssets: 1,
-            quality
+            quality,
+            transparentBackground: validated.transparentBackground
         })
         const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
             internal.image_generation_jobs.createImageGenerationJob,
@@ -453,6 +457,7 @@ const submitImageGenerationJob = async (
                 prompt,
                 aspectRatio: validated.aspectRatio,
                 resolution: validated.resolution,
+                ...(validated.transparentBackground ? { transparentBackground: true } : {}),
                 referenceImageKeys: [
                     ...referenceSources.map((reference) => reference.key),
                     ...(personaStyleReference ? [personaStyleReference.key] : [])
@@ -526,6 +531,7 @@ export const generateStandaloneImage = action({
                 v.literal("max")
             )
         ),
+        transparentBackground: v.optional(v.boolean()),
         referenceImageIds: v.optional(v.array(v.string()))
     },
     handler: async (ctx, args) => {
@@ -553,6 +559,7 @@ export const generateStandaloneImage = action({
             resolution: args.resolution,
             quality:
                 isSupportedQualityRequest && canOverrideImageQuality ? args.quality : undefined,
+            transparentBackground: args.transparentBackground,
             references: toReferenceSources(args.referenceImageIds)
         })
 
@@ -599,6 +606,7 @@ export const confirmPreparedChatImageGeneration = action({
             aspectRatio?: string
             resolution?: string
             variants?: number
+            transparentBackground?: boolean
             portrait?: { characterId: string; name: string }
             usePersonaStyleReference?: boolean
             referenceSources?: Array<{
@@ -680,7 +688,8 @@ export const confirmPreparedChatImageGeneration = action({
                 aspectRatio: result.portrait ? "1:1" : result.aspectRatio,
                 resolution: result.resolution,
                 variants: result.variants ?? 1,
-                referenceCount: referenceSources.length + Number(Boolean(personaStyleReference))
+                referenceCount: referenceSources.length + Number(Boolean(personaStyleReference)),
+                transparentBackground: result.transparentBackground
             })
             if (result.portrait && validated.aspectRatio !== "1:1") {
                 throw new Error("Choose an image model that supports square portraits.")
@@ -753,6 +762,7 @@ export const confirmPreparedChatImageGeneration = action({
                     clientRequestId: `${args.cardId}:${index + 1}`,
                     aspectRatio: validated.aspectRatio,
                     resolution: validated.resolution,
+                    transparentBackground: validated.transparentBackground,
                     references: referenceSources,
                     personaStyleReference,
                     source: "chat",

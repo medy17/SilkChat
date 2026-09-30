@@ -1,5 +1,6 @@
 import type { Doc } from "@/convex/_generated/dataModel"
 import { getReferenceImageSources } from "@/lib/generated-image-urls"
+import { TRANSPARENT_BACKDROP_OPTIONS, type TransparentBackdrop } from "@/lib/transparent-backdrop"
 import { cn } from "@/lib/utils"
 import type { CSSProperties, ReactNode } from "react"
 
@@ -56,13 +57,17 @@ export function ImageMetadataPanel({
     modelName,
     footer,
     className,
-    style
+    style,
+    transparentBackdrop = "checker",
+    onTransparentBackdropChange
 }: {
     image: Doc<"generatedImages">
     modelName: string
     footer?: ReactNode
     className?: string
     style?: CSSProperties
+    transparentBackdrop?: TransparentBackdrop
+    onTransparentBackdropChange?: (backdrop: TransparentBackdrop) => void
 }) {
     const formattedDate = new Date(image.createdAt).toLocaleDateString()
     const resolutionLabel = image.resolution || "1K"
@@ -102,6 +107,41 @@ export function ImageMetadataPanel({
                         </h4>
                         <p className="text-sm">{resolutionLabel}</p>
                     </div>
+                    {image.transparentBackground && onTransparentBackdropChange && (
+                        <div>
+                            <h4 className="mb-1.5 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
+                                Background
+                            </h4>
+                            <div
+                                className="flex items-center gap-2"
+                                role="radiogroup"
+                                aria-label="Transparent image backdrop"
+                            >
+                                {TRANSPARENT_BACKDROP_OPTIONS.map((option) => {
+                                    const isSelected = transparentBackdrop === option.value
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={isSelected}
+                                            aria-label={`${option.label} backdrop`}
+                                            className={cn(
+                                                "size-5 rounded-[var(--radius-sm)] outline-none ring-offset-2 ring-offset-background transition-shadow focus-visible:ring-2 focus-visible:ring-primary",
+                                                option.className,
+                                                isSelected
+                                                    ? "ring-2 ring-primary"
+                                                    : "ring-1 ring-border hover:ring-foreground/40"
+                                            )}
+                                            onClick={() =>
+                                                onTransparentBackdropChange(option.value)
+                                            }
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
                     <div>
                         <h4 className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
                             Date

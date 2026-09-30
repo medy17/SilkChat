@@ -27,6 +27,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
             supportsReferenceImages: true,
             maxReferenceImages: 16,
             customIcon: "openai",
+            supportsTransparentBackground: true,
             supportedImageSizes: [...GPT_IMAGE_2_SIZES],
             supportedImageResolutions: ["1K", "2K", "4K"],
             supportedImageQualities: ["low", "medium", "high", "xhigh", "max"],
@@ -52,6 +53,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         maxPerMessage: 10,
         supportsReferenceImages: true,
         customIcon: "openai",
+        supportsTransparentBackground: true,
         supportedImageSizes: [...GPT_IMAGE_2_SIZES],
         supportedImageResolutions: ["1K", "2K", "4K"],
         supportedImageQualities: ["low", "medium", "high"],
@@ -82,6 +84,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         maxPerMessage: 2,
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
+        supportsTransparentBackground: true,
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
         defaultImageQuality: "auto",
         imagePricing: {
@@ -115,6 +118,7 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
         maxPerMessage: 2,
         openrouterImageModalities: ["image", "text"],
         customIcon: "openai",
+        supportsTransparentBackground: true,
         supportedImageSizes: ["1024x1024", "1536x1024", "1024x1536", "16:9", "9:16"],
         defaultImageQuality: "high",
         imagePricing: {
@@ -146,6 +150,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
             imageSizeMode: "standard",
             editImageSizeMode: "explicit",
             usesQuality: true,
+            usesBackground: true,
             defaultQuality: "high",
             safety: {}
         })
@@ -158,6 +163,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         imageSizeMode: "standard",
         editImageSizeMode: "explicit",
         usesQuality: true,
+        usesBackground: true,
         defaultQuality: "medium",
         safety: {
             enableSafetyChecker: false
@@ -170,6 +176,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         imageSizeMode: "legacyOpenAi",
         usesQuality: true,
+        usesBackground: true,
         defaultQuality: "auto",
         safety: {}
     },
@@ -180,6 +187,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         imageSizeMode: "legacyOpenAi",
         usesQuality: true,
+        usesBackground: true,
         defaultQuality: "high",
         safety: {}
     }

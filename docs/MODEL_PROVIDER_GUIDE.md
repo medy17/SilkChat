@@ -234,6 +234,8 @@ Image models must set:
 - `mode: "image"`
 - `supportedImageSizes`
 
+Set `supportsTransparentBackground: true` only when the fal endpoint (text-to-image and edit) accepts `background: "transparent"` with PNG output. It enables the library's per-model Background toggle and the SilkScreen tool's `transparentBackground` field; requests for other models drop the flag. Also set `usesBackground` on the fal descriptor so every request sends an explicit `transparent`/`opaque` value instead of fal's `auto`, which lets the image model decide and leaves transparency untracked. Transparent images render on a checker backdrop; the image details panel has a view-only white/black/checker switch.
+
 Runtime image generation flows through the shared fal queue/job system from both the library and chat image tool, with model definitions under:
 
 ```text

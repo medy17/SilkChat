@@ -43,6 +43,10 @@ import {
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
 import { playExpandedImageDismissHaptic } from "@/lib/haptics"
+import {
+    type TransparentBackdrop,
+    getTransparentBackdropClassName
+} from "@/lib/transparent-backdrop"
 import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
@@ -131,6 +135,15 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const privateViewingEnabled = usePrivateViewingStore((state) => state.privateViewingEnabled)
     const imageOverrides = usePrivateViewingStore((state) => state.imageOverrides)
     const [localImage, setLocalImage] = useState(image)
+    // View-only and keyed to the image, so navigating to another image resets to checker.
+    const [backdropChoice, setBackdropChoice] = useState<{
+        imageId?: string
+        backdrop: TransparentBackdrop
+    }>({ backdrop: "checker" })
+    const transparentBackdrop =
+        backdropChoice.imageId === image?._id ? backdropChoice.backdrop : "checker"
+    const setTransparentBackdrop = (backdrop: TransparentBackdrop) =>
+        setBackdropChoice({ imageId: image?._id, backdrop })
     const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const [isModalImageHidden, setIsModalImageHidden] = useState(false)
     useEffect(() => {
@@ -715,6 +728,10 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                         alt={localImage.prompt || "Generated Image"}
                                         className={cn(
                                             "h-full w-full rounded-[var(--radius-xl)] object-contain shadow-2xl transition-all duration-500",
+                                            getTransparentBackdropClassName(
+                                                localImage,
+                                                transparentBackdrop
+                                            ),
                                             loadState === "loading" &&
                                                 "scale-[1.02] opacity-0 blur-xl",
                                             loadState === "revealing" &&
@@ -981,6 +998,10 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                 alt={localImage.prompt || "Generated Image"}
                                 className={cn(
                                     "h-full w-full object-contain transition-all duration-500",
+                                    getTransparentBackdropClassName(
+                                        localImage,
+                                        transparentBackdrop
+                                    ),
                                     loadState === "loading" && "scale-[1.02] opacity-0 blur-xl",
                                     loadState === "revealing" && "scale-[1.01] opacity-100 blur-md",
                                     loadState === "ready" && "scale-100 opacity-100 blur-0",
@@ -1003,6 +1024,8 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
 
                     <ImageMetadataPanel
                         image={localImage}
+                        transparentBackdrop={transparentBackdrop}
+                        onTransparentBackdropChange={setTransparentBackdrop}
                         modelName={model?.name || localImage.modelId || "Unknown"}
                         style={{
                             width: layout.infoWidth,

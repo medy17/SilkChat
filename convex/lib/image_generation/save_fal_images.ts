@@ -69,7 +69,13 @@ export const downloadFalImage = async (image: FalGeneratedImage) => {
 
 type ImageJob = Pick<
     Doc<"imageGenerationJobs">,
-    "userId" | "prompt" | "appModelId" | "aspectRatio" | "resolution" | "referenceImageKeys"
+    | "userId"
+    | "prompt"
+    | "appModelId"
+    | "aspectRatio"
+    | "resolution"
+    | "transparentBackground"
+    | "referenceImageKeys"
 >
 
 export async function saveFalImages(
@@ -98,6 +104,7 @@ export async function saveFalImages(
                     modelId: job.appModelId,
                     aspectRatio: job.aspectRatio,
                     resolution: job.resolution,
+                    transparentBackground: job.transparentBackground,
                     referenceImageKeys: job.referenceImageKeys,
                     generationJobId,
                     falRequestId

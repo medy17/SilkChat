@@ -248,4 +248,23 @@ describe("validatePreparedImageRequest coercion", () => {
             })
         ).toThrow("This model supports up to 10 reference images.")
     })
+
+    it("keeps a transparent background only on models that support alpha output", () => {
+        const models = getSelectableImageModels()
+        const transparentModel = models.find((model) => model.supportsTransparentBackground)
+        const opaqueModel = models.find((model) => !model.supportsTransparentBackground)
+        if (!transparentModel || !opaqueModel) {
+            throw new Error("Expected image models with and without transparent backgrounds")
+        }
+
+        const validate = (modelId: string) =>
+            validatePreparedImageRequest({
+                modelId,
+                referenceCount: 0,
+                transparentBackground: true
+            }).transparentBackground
+
+        expect(validate(transparentModel.id)).toBe(true)
+        expect(validate(opaqueModel.id)).toBe(false)
+    })
 })

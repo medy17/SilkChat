@@ -576,12 +576,14 @@ export const buildPreparedImageReferences = (
                 aspectRatio?: string
                 resolution?: string
                 variants?: number
+                transparentBackground?: boolean
             }
             const modelLabel = result.modelName ? `, ${result.modelName}` : ""
             const sizeLabel =
                 result.aspectRatio || result.resolution
                     ? `, ${[result.aspectRatio, result.resolution].filter(Boolean).join(" ")}`
                     : ""
+            const backgroundLabel = result.transparentBackground ? ", transparent background" : ""
             const assets = result.assets ?? []
             const variantCount = Math.max(result.variants ?? 1, assets.length, 1)
 
@@ -599,7 +601,7 @@ export const buildPreparedImageReferences = (
                     key,
                     source,
                     generatedImageId: asset.generatedImageId,
-                    label: `SilkScreen generation from assistant message ${assistantMessageIndex}, ${variantLabel}${modelLabel}${sizeLabel}`,
+                    label: `SilkScreen generation from assistant message ${assistantMessageIndex}, ${variantLabel}${modelLabel}${sizeLabel}${backgroundLabel}`,
                     mimeType: "image/png"
                 })
             }

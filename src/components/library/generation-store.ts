@@ -43,6 +43,7 @@ interface GenerationStore {
     selectedModelCounts: Record<string, number>
     aspectRatio: string
     resolution: string
+    transparentBackgroundModelIds: string[]
     addPendingGeneration: (info: PendingGeneration) => void
     removePendingGeneration: (id: string, options?: { countCompleted?: boolean }) => void
     setPrompt: (prompt: string) => void
@@ -54,6 +55,7 @@ interface GenerationStore {
     ) => void
     setAspectRatio: (aspectRatio: string) => void
     setResolution: (resolution: string) => void
+    setModelTransparentBackground: (modelId: string, transparent: boolean) => void
 }
 
 export const useGenerationStore = create<GenerationStore>()(
@@ -66,6 +68,7 @@ export const useGenerationStore = create<GenerationStore>()(
             selectedModelCounts: {},
             aspectRatio: "1:1",
             resolution: "1K",
+            transparentBackgroundModelIds: [],
             addPendingGeneration: (info) =>
                 set((state) => ({
                     pendingGenerations: [info, ...state.pendingGenerations]
@@ -92,7 +95,13 @@ export const useGenerationStore = create<GenerationStore>()(
                             : modelCounts
                 })),
             setAspectRatio: (aspectRatio) => set({ aspectRatio }),
-            setResolution: (resolution) => set({ resolution })
+            setResolution: (resolution) => set({ resolution }),
+            setModelTransparentBackground: (modelId, transparent) =>
+                set((state) => ({
+                    transparentBackgroundModelIds: transparent
+                        ? [...new Set([...state.transparentBackgroundModelIds, modelId])]
+                        : state.transparentBackgroundModelIds.filter((id) => id !== modelId)
+                }))
         }),
         {
             name: LIBRARY_GENERATION_STORE_KEY,
@@ -101,7 +110,8 @@ export const useGenerationStore = create<GenerationStore>()(
                 selectedModelIds: state.selectedModelIds,
                 selectedModelCounts: state.selectedModelCounts,
                 aspectRatio: state.aspectRatio,
-                resolution: state.resolution
+                resolution: state.resolution,
+                transparentBackgroundModelIds: state.transparentBackgroundModelIds
             })
         }
     )

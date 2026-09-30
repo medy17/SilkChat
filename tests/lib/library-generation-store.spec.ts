@@ -19,7 +19,8 @@ describe("library-generation-store", () => {
             selectedModelIds: [],
             selectedModelCounts: {},
             aspectRatio: "1:1",
-            resolution: "1K"
+            resolution: "1K",
+            transparentBackgroundModelIds: []
         })
     })
 
@@ -29,6 +30,10 @@ describe("library-generation-store", () => {
         useGenerationStore.getState().setSelectedModelCounts({ "image-a": 2, "image-b": 1 })
         useGenerationStore.getState().setAspectRatio("16:9")
         useGenerationStore.getState().setResolution("2K")
+        useGenerationStore.getState().setModelTransparentBackground("image-a", true)
+        useGenerationStore.getState().setModelTransparentBackground("image-b", true)
+        useGenerationStore.getState().setModelTransparentBackground("image-a", true)
+        useGenerationStore.getState().setModelTransparentBackground("image-b", false)
 
         expect(useGenerationStore.getState()).toMatchObject({
             prompt: "sunset over the ocean",
@@ -44,7 +49,8 @@ describe("library-generation-store", () => {
                 selectedModelIds: ["image-a", "image-b"],
                 selectedModelCounts: { "image-a": 2, "image-b": 1 },
                 aspectRatio: "16:9",
-                resolution: "2K"
+                resolution: "2K",
+                transparentBackgroundModelIds: ["image-a"]
             },
             version: 0
         })
@@ -68,7 +74,8 @@ describe("library-generation-store", () => {
                 selectedModelIds: [],
                 selectedModelCounts: {},
                 aspectRatio: "1:1",
-                resolution: "1K"
+                resolution: "1K",
+                transparentBackgroundModelIds: []
             },
             version: 0
         })

@@ -87,6 +87,7 @@ export const createImageGenerationJob = internalMutation({
         prompt: v.string(),
         aspectRatio: v.string(),
         resolution: v.optional(v.string()),
+        transparentBackground: v.optional(v.boolean()),
         referenceImageKeys: v.array(v.string()),
         creditEventKey: v.string()
     },
@@ -308,6 +309,7 @@ export const claimImageGenerationJobAssetRetry = internalMutation({
             appModelId: job.appModelId,
             aspectRatio: job.aspectRatio,
             resolution: job.resolution,
+            transparentBackground: job.transparentBackground,
             referenceImageKeys: job.referenceImageKeys,
             source: job.source,
             sourceThreadId: job.sourceThreadId,

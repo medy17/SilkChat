@@ -8,6 +8,7 @@ export const GeneratedImage = {
     modelId: v.optional(v.string()),
     aspectRatio: v.optional(v.string()), // Or whatever format ImageSize is
     resolution: v.optional(v.string()), // If applicable
+    transparentBackground: v.optional(v.boolean()),
     referenceImageKeys: v.optional(v.array(v.string())),
     generationJobId: v.optional(v.id("imageGenerationJobs")),
     falRequestId: v.optional(v.string()),

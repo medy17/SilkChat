@@ -41,6 +41,7 @@ export const ImageGenerationJob = v.object({
     prompt: v.string(),
     aspectRatio: v.string(),
     resolution: v.optional(v.string()),
+    transparentBackground: v.optional(v.boolean()),
     referenceImageKeys: v.array(v.string()),
     creditEventKey: v.string(),
     status: ImageGenerationJobStatus,

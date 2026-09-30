@@ -21,6 +21,27 @@ const sharedModel = (modelId: string) => {
 }
 
 describe("fal image model payloads", () => {
+    it("always sends an explicit background so GPT Image never picks one itself", () => {
+        const request = {
+            prompt: "A fox sticker",
+            imageSize: "1:1" as const,
+            imageResolution: "1K" as const,
+            referenceImages: []
+        }
+        const model = descriptor("gpt-image-2.5-flare")
+
+        expect(
+            buildFalImageInput(model, { ...request, transparentBackground: true })
+        ).toMatchObject({ background: "transparent", output_format: "png" })
+        expect(buildFalImageInput(model, request)).toMatchObject({ background: "opaque" })
+        expect(
+            buildFalImageInput(descriptor("seedream-5-lite"), {
+                ...request,
+                transparentBackground: true
+            })
+        ).not.toHaveProperty("background")
+    })
+
     it("uses GPT Image 2 image_size objects instead of size strings", () => {
         expect(
             buildFalImageInput(descriptor("gpt-5.4-image-2"), {

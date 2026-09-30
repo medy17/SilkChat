@@ -220,6 +220,7 @@ const buildPreparedImageGenerationBlock = ({
         aspectRatio?: string
         resolution?: string
         variants?: number
+        transparentBackground?: boolean
         references?: Array<{ label?: string; source?: string }>
         referenceSources?: Array<{ key?: string; source?: string }>
         assets?: Array<{ storageKey?: string; imageUrl?: string }>
@@ -237,6 +238,7 @@ const buildPreparedImageGenerationBlock = ({
             ? `Size: ${card.aspectRatio}${card.resolution ? `, ${card.resolution}` : ""}`
             : undefined,
         `Variants: ${card.variants ?? 1}`,
+        card.transparentBackground ? "Background: Transparent" : undefined,
         card.error ? `Error: ${card.error}` : undefined
     ].filter((line): line is string => Boolean(line))
 

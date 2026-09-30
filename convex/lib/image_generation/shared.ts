@@ -104,7 +104,7 @@ export const formatImageModelCapabilitySummary = (models: readonly SharedModel[]
                         : "model limit"
                     : "none"
 
-                return `- ${model.id} (${model.name}) — res: ${resolutions.join("|") || "default only"}; refs: ${referenceLimit}; variants: max ${getImageModelMaxPerMessage(model)}`
+                return `- ${model.id} (${model.name}) — res: ${resolutions.join("|") || "default only"}; refs: ${referenceLimit}; variants: max ${getImageModelMaxPerMessage(model)}${model.supportsTransparentBackground ? "; transparent background" : ""}`
             })
 
             return [`Aspect ratios: ${aspectRatios.join(", ") || "default"}`, ...modelLines].join(
@@ -143,6 +143,7 @@ export const validatePreparedImageRequest = ({
     variants,
     referenceCount,
     quality,
+    transparentBackground,
     defaults
 }: {
     modelId: string
@@ -151,6 +152,7 @@ export const validatePreparedImageRequest = ({
     variants?: number
     referenceCount: number
     quality?: ImageQuality
+    transparentBackground?: boolean
     // Soft per-user defaults: fill an empty field, are outranked by an explicit model
     // choice, and are themselves clamped to the model's capabilities below.
     defaults?: {
@@ -223,6 +225,11 @@ export const validatePreparedImageRequest = ({
         aspectRatio: selectedAspectRatio,
         resolution: selectedResolution,
         variants: selectedVariants,
+        // Dropped rather than rejected on models without alpha output, like the other
+        // coerced fields: the request still makes sense with an opaque background.
+        transparentBackground: Boolean(
+            transparentBackground && model.supportsTransparentBackground
+        ),
         creditEstimate: {
             ...getImageModelCreditEstimate(model),
             estimatedUsd: estimateImageCost({

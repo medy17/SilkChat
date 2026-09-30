@@ -19,6 +19,8 @@ export type FalImageDescriptor = {
     usesAspectRatio?: boolean
     resolutionMode?: "uppercase" | "lowercase"
     usesQuality?: boolean
+    /** Endpoint takes `background`; we always send it so the model never picks for itself. */
+    usesBackground?: boolean
     defaultQuality?: string
     usesMaxImages?: boolean
     omitOutputFormat?: boolean
@@ -38,6 +40,7 @@ export type FalImageRequest = {
     referenceImages: FalReferenceImage[]
     maxAssets?: number
     quality?: Exclude<ImageQuality, "auto">
+    transparentBackground?: boolean
 }
 
 export type FalGeneratedImage = {

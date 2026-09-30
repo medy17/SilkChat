@@ -156,6 +156,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     supportedImageResolutions?: ImageResolution[]
     supportedImageQualities?: Exclude<ImageQuality, "auto">[]
     defaultImageQuality?: ImageQuality
+    /** fal endpoint accepts `background: "transparent"` (PNG with alpha). */
+    supportsTransparentBackground?: boolean
     imagePricing?: ImagePricing
     customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
     supportsDisablingReasoning?: boolean

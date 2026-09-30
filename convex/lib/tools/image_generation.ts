@@ -44,6 +44,9 @@ export const getPrepareImageGenerationTool = ({
         new Set(imageModels.flatMap((model) => getSupportedResolutionsForImageModel(model)))
     )
     const referenceIds = references.map((reference) => reference.id)
+    const supportsTransparentBackground = imageModels.some(
+        (model) => model.supportsTransparentBackground
+    )
 
     const defaultsSummary = `resolution ${defaults?.resolution ?? "1K"}, variants ${defaults?.variants ?? 1}`
 
@@ -104,6 +107,14 @@ export const getPrepareImageGenerationTool = ({
                     .describe(
                         "How many image variants to prepare. Leave unset to use the user's default. Only request multiple when the user explicitly asks for options or variations."
                     ),
+                transparentBackground: supportsTransparentBackground
+                    ? z
+                          .boolean()
+                          .optional()
+                          .describe(
+                              "Render on a transparent background (PNG with alpha). Only for models listed with transparent background support. Set when the user asks for a transparent/cut-out/no background, or for assets meant to be placed on other designs such as logos, icons, and stickers."
+                          )
+                    : z.undefined().optional(),
                 portrait: z
                     .object({
                         characterId: z
@@ -143,6 +154,7 @@ export const getPrepareImageGenerationTool = ({
                 aspectRatio,
                 resolution,
                 variants,
+                transparentBackground,
                 portrait,
                 referenceIds
             }) => {
@@ -177,6 +189,7 @@ export const getPrepareImageGenerationTool = ({
                         variants,
                         referenceCount:
                             selectedReferences.length + Number(usePersonaStyleReference),
+                        transparentBackground,
                         defaults
                     })
                     if (portrait && validated.aspectRatio !== "1:1") {
@@ -192,6 +205,7 @@ export const getPrepareImageGenerationTool = ({
                         validated.model.id,
                         validated.aspectRatio,
                         validated.resolution ?? "",
+                        String(validated.transparentBackground),
                         selectedReferences
                             .map((reference) => reference.id)
                             .sort()
@@ -220,6 +234,7 @@ export const getPrepareImageGenerationTool = ({
                         aspectRatio: validated.aspectRatio,
                         resolution: validated.resolution,
                         variants: validated.variants,
+                        ...(validated.transparentBackground ? { transparentBackground: true } : {}),
                         referenceIds: selectedReferences.map((reference) => reference.id),
                         references: [
                             ...selectedReferences.map((reference) => ({

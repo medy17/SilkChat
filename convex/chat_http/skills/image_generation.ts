@@ -35,6 +35,9 @@ The count belongs in \`variants\`, never in the prompt words. Each variant is an
 
 Call \`prepareImageGeneration\` exactly once per distinct image. Never call it repeatedly to produce copies of the same card — that is what the \`variants\` field is for. Two calls are only correct when the images are genuinely different (e.g. a logo and a banner).
 
+**Transparent background**
+Set \`transparentBackground\` when the user wants a transparent, cut-out, or no background, or when the asset is clearly meant to sit on top of other designs (logo, icon, sticker, emblem). Only models marked "transparent background" below support it; pick one of those. Describe the subject alone in the prompt — don't add "white background" or scenery.
+
 **Editing existing images**
 You MUST pass the reference id whenever the request edits, transforms, restyles, or builds on an existing image (an attachment, a provided image, or one you generated earlier) — this is what makes SilkScreen edit that image rather than generating a new one. If the user clearly means an existing image but no reference id is available, ask them to attach or select it first. If multiple variants exist and the user says "that image" or "one of those" without specifying which, ask rather than guess.
 it is highly recommended to start over a prompt instead of passing a reference if a generated image is flawed or the user is unsatisfied with it. References are best used for user supplied content.

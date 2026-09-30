@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { getChatImageCardSources } from "@/lib/generated-image-urls"
+import { getTransparentBackdropClassName } from "@/lib/transparent-backdrop"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getPublicR2AssetUrl } from "@/lib/r2-public-url"
 import { useSharedModels } from "@/lib/shared-models"
@@ -26,6 +27,7 @@ import {
     Loader2,
     RotateCcw,
     Sparkles,
+    SquareDashed,
     X
 } from "lucide-react"
 import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -65,6 +67,7 @@ type PreparedImageGenerationOutput = {
     aspectRatio?: string
     resolution?: string
     variants?: number
+    transparentBackground?: boolean
     references?: Array<{ id: string; label: string; source?: string }>
     portrait?: { characterId: string; name: string }
     estimatedCredits?: {
@@ -957,6 +960,15 @@ export const ImageGenerationToolRenderer = memo(
                                 tooltip="Resolution"
                                 tooltipSide="bottom"
                             />
+                            {output.transparentBackground && (
+                                <FrostedChip
+                                    icon={<SquareDashed className="size-3" />}
+                                    label="Transparent"
+                                    ariaLabel="Transparent background"
+                                    tooltip="Background"
+                                    tooltipSide="bottom"
+                                />
+                            )}
                         </div>
                         {(output.references?.length ?? 0) > 0 && (
                             <div className="flex flex-wrap gap-1.5">
@@ -1223,6 +1235,7 @@ const ImageWithErrorHandler = memo(
                         alt={prompt || "Generated image"}
                         className={cn(
                             "h-full w-full object-cover transition-opacity duration-300 ease-out",
+                            getTransparentBackdropClassName(image),
                             loadState === "loading" && "opacity-0"
                         )}
                         style={{ aspectRatio: cssAspectRatio }}

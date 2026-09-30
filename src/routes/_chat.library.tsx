@@ -1,4 +1,5 @@
 import { getPageCursor, rememberPageCursor, type CursorHistory } from "@/lib/cursor-pagination"
+import { getTransparentBackdropClassName } from "@/lib/transparent-backdrop"
 import { useGenerationStore } from "@/components/library/generation-store"
 import { getImageComparisonUrl } from "@/lib/image-comparison-search"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
@@ -876,6 +877,7 @@ const GeneratedImageItem = memo(
                                 alt={image.prompt || "AI generation"}
                                 className={cn(
                                     "absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    getTransparentBackdropClassName(image),
                                     loadState === "loading" && "translate-y-4 opacity-0",
                                     loadState !== "loading" && "translate-y-0 opacity-100",
                                     isImageHidden && blurVariantStatus === "ready" && "opacity-0",

@@ -215,6 +215,12 @@ export const buildFalImageInput = (descriptor: FalImageDescriptor, request: FalI
         input.output_format = "png"
     }
 
+    // fal's default "auto" lets GPT Image choose from the prompt, which would make
+    // transparency untracked. Always send an explicit choice; PNG keeps the alpha.
+    if (descriptor.usesBackground) {
+        input.background = request.transparentBackground ? "transparent" : "opaque"
+    }
+
     if (descriptor.usesMaxImages) {
         input.max_images = Math.min(maxAssets, 6)
     }

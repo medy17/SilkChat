@@ -179,7 +179,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         aspectRatio,
         setAspectRatio,
         resolution,
-        setResolution
+        setResolution,
+        transparentBackgroundModelIds,
+        setModelTransparentBackground
     } = useGenerationStore()
     const isDevMode = useShowContextualDevTools()
 
@@ -972,6 +974,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 ...(canSelectImageQuality && model?.supportedImageQualities?.length
                                     ? { quality: getImageQualityOverride(model) }
                                     : {}),
+                                ...(model?.supportsTransparentBackground &&
+                                transparentBackgroundModelIds.includes(modelId)
+                                    ? { transparentBackground: true }
+                                    : {}),
                                 ...(supportsResolution ? { resolution } : {})
                             })
                         })
@@ -1410,6 +1416,46 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                 </Tabs>
                                                             </div>
                                                         )}
+                                                    {model.supportsTransparentBackground && (
+                                                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                            <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
+                                                                Background
+                                                            </span>
+                                                            <Tabs
+                                                                value={
+                                                                    transparentBackgroundModelIds.includes(
+                                                                        model.id
+                                                                    )
+                                                                        ? "transparent"
+                                                                        : "opaque"
+                                                                }
+                                                                onValueChange={(value) =>
+                                                                    setModelTransparentBackground(
+                                                                        model.id,
+                                                                        value === "transparent"
+                                                                    )
+                                                                }
+                                                            >
+                                                                <TabsList
+                                                                    className="h-7"
+                                                                    aria-label={`${model.name} background`}
+                                                                >
+                                                                    <TabsTrigger
+                                                                        value="opaque"
+                                                                        className="px-2 text-[0.625rem]"
+                                                                    >
+                                                                        Opaque
+                                                                    </TabsTrigger>
+                                                                    <TabsTrigger
+                                                                        value="transparent"
+                                                                        className="px-2 text-[0.625rem]"
+                                                                    >
+                                                                        Transparent
+                                                                    </TabsTrigger>
+                                                                </TabsList>
+                                                            </Tabs>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

@@ -602,6 +602,26 @@ html {
     backdrop-filter: blur(12px);
 }
 
+/* Backdrops behind generated images with alpha. */
+@utility transparent-backdrop-light {
+    background-color: var(--color-white);
+}
+
+@utility transparent-backdrop-dark {
+    background-color: var(--color-black);
+}
+
+@utility transparent-backdrop-checker {
+    background-color: var(--muted);
+    background-image: conic-gradient(
+        color-mix(in oklab, var(--foreground) 10%, transparent) 25%,
+        transparent 0 50%,
+        color-mix(in oklab, var(--foreground) 10%, transparent) 0 75%,
+        transparent 0
+    );
+    background-size: 1rem 1rem;
+}
+
 @layer components {
     /* Sonner Toast Theme Overrides */
     [data-sonner-toaster] [data-sonner-toast] {

@@ -18,6 +18,7 @@ import {
     getGeneratedImageProxyUrl
 } from "@/lib/generated-image-urls"
 import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
+import { getTransparentBackdropClassName } from "@/lib/transparent-backdrop"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
 import {
@@ -229,6 +230,7 @@ function ComparisonImage({
                     draggable={false}
                     className={cn(
                         "max-h-full max-w-full select-none object-contain transition-[opacity,filter] duration-300 will-change-transform",
+                        getTransparentBackdropClassName(image),
                         isLoaded ? "opacity-100 blur-0" : "opacity-0 blur-md"
                     )}
                     style={{
