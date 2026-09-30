@@ -291,4 +291,25 @@ describe("prepareImageGeneration tool", () => {
             )
         ).toMatchObject({ success: false })
     })
+
+    it("ignores a portrait with a blank character ID on ordinary requests", async () => {
+        const model = getSelectableImageModels().find((candidate) =>
+            getSupportedAspectRatiosForImageModel(candidate).includes("3:4")
+        )
+        if (!model) throw new Error("Expected a model that supports 3:4")
+        const result = await buildTool([])?.execute?.(
+            {
+                title: "Sustainability poster",
+                prompt: "An editorial poster of a wooden spoon.",
+                modelId: model.id,
+                aspectRatio: "3:4",
+                referenceIds: [],
+                portrait: { characterId: "", name: "Medy", usePersonaStyle: false }
+            },
+            { toolCallId: "call-blank-portrait", messages: [], context: {} }
+        )
+
+        expect(result).toMatchObject({ success: true, aspectRatio: "3:4" })
+        expect(result).not.toHaveProperty("portrait")
+    })
 })

@@ -156,9 +156,14 @@ export const getPrepareImageGenerationTool = ({
                 resolution,
                 variants,
                 transparentBackground,
-                portrait,
+                portrait: requestedPortrait,
                 referenceIds
             }) => {
+                // Models that fill every optional field send a portrait with a blank
+                // characterId on ordinary requests; treat that as no portrait.
+                const portrait = requestedPortrait?.characterId.trim()
+                    ? requestedPortrait
+                    : undefined
                 const selectedReferenceIds = referenceIds as string[]
                 const selectedReferences = references.filter((reference) =>
                     selectedReferenceIds.includes(reference.id)
