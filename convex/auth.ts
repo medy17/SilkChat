@@ -11,8 +11,8 @@ import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_
 import { buildAuthBaseURLConfig, hasLoopbackAuthHost } from "./lib/auth_origins"
 import { getUserIdentity } from "./lib/identity"
 
-const RECIPE_VISUAL_RATE_LIMIT = 30
-const RECIPE_VISUAL_RATE_WINDOW_MS = 10 * 60 * 1000
+const VISUAL_SEARCH_RATE_LIMIT = 30
+const VISUAL_SEARCH_RATE_WINDOW_MS = 10 * 60 * 1000
 
 const betterAuthComponent = (
     components as typeof components & {
@@ -228,7 +228,7 @@ export const getCurrentUser = query({
     }
 })
 
-export const consumeRecipeVisualSearchQuota = mutation({
+export const consumeVisualReferenceSearchQuota = mutation({
     args: {},
     handler: async (ctx) => {
         const identity = await getUserIdentity(ctx.auth, { allowAnons: false })
@@ -237,13 +237,13 @@ export const consumeRecipeVisualSearchQuota = mutation({
         }
 
         const now = Date.now()
-        const key = `recipe-visuals:${identity.id}`
+        const key = `visual-search:${identity.id}`
         const existing = await ctx.db
             .query("rateLimit")
             .withIndex("key", (q) => q.eq("key", key))
             .first()
 
-        if (!existing || now - existing.lastRequest >= RECIPE_VISUAL_RATE_WINDOW_MS) {
+        if (!existing || now - existing.lastRequest >= VISUAL_SEARCH_RATE_WINDOW_MS) {
             if (existing) {
                 await ctx.db.patch(existing._id, { count: 1, lastRequest: now })
             } else {
@@ -252,12 +252,12 @@ export const consumeRecipeVisualSearchQuota = mutation({
             return { allowed: true, retryAfterSeconds: 0, unauthorized: false }
         }
 
-        if (existing.count >= RECIPE_VISUAL_RATE_LIMIT) {
+        if (existing.count >= VISUAL_SEARCH_RATE_LIMIT) {
             return {
                 allowed: false,
                 retryAfterSeconds: Math.max(
                     1,
-                    Math.ceil((RECIPE_VISUAL_RATE_WINDOW_MS - (now - existing.lastRequest)) / 1000)
+                    Math.ceil((VISUAL_SEARCH_RATE_WINDOW_MS - (now - existing.lastRequest)) / 1000)
                 ),
                 unauthorized: false
             }

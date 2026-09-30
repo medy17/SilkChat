@@ -1,17 +1,27 @@
-import type { RecipeVisual } from "./recipe-visuals"
+import type { VisualReference } from "./visual-references"
 
 type BraveImageResult = {
     title?: unknown
     url?: unknown
     source?: unknown
     confidence?: unknown
-    properties?: { url?: unknown }
+    properties?: { url?: unknown; width?: unknown; height?: unknown }
 }
 
 const BRAVE_IMAGE_SEARCH_URL = "https://api.search.brave.com/res/v1/images/search"
 const CACHE_TTL_MS = 24 * 60 * 60 * 1_000
 const MAX_CACHE_ENTRIES = 500
-const searchCache = new Map<string, { visuals: RecipeVisual[]; fetchedAt: number }>()
+// Anything shorter than this upscales into a blurry tile, so skip it and let the
+// next candidate take its place.
+const MIN_IMAGE_EDGE = 200
+const searchCache = new Map<string, { visuals: VisualReference[]; fetchedAt: number }>()
+
+const positiveDimension = (value: unknown) => {
+    const dimension = typeof value === "string" ? Number(value) : value
+    return typeof dimension === "number" && Number.isFinite(dimension) && dimension > 0
+        ? Math.round(dimension)
+        : undefined
+}
 
 const normalizedHttpsUrl = (value: unknown, hostname?: string) => {
     if (typeof value !== "string") return undefined
@@ -28,13 +38,13 @@ export const parseBraveImageResults = (
     payload: unknown,
     variant: "gallery" | "step",
     limit: number
-): RecipeVisual[] => {
+): VisualReference[] => {
     if (!payload || typeof payload !== "object") return []
     const response = payload as { results?: unknown; extra?: { might_be_offensive?: unknown } }
     if (response.extra?.might_be_offensive === true || !Array.isArray(response.results)) return []
 
     const acceptedConfidence = variant === "step" ? new Set(["high"]) : new Set(["high", "medium"])
-    const visuals: RecipeVisual[] = []
+    const visuals: VisualReference[] = []
     const seen = new Set<string>()
 
     for (const result of response.results as BraveImageResult[]) {
@@ -44,16 +54,21 @@ export const parseBraveImageResults = (
         const thumbnailUrl = normalizedHttpsUrl(result.properties?.url)
         const sourceUrl = normalizedHttpsUrl(result.url)
         if (!thumbnailUrl || !sourceUrl || seen.has(thumbnailUrl)) continue
+        // Dimensions are optional in Brave's response; unknown sizes pass through.
+        const width = positiveDimension(result.properties?.width)
+        const height = positiveDimension(result.properties?.height)
+        if (width && height && Math.min(width, height) < MIN_IMAGE_EDGE) continue
         seen.add(thumbnailUrl)
 
         const source = typeof result.source === "string" ? result.source.trim() : ""
         const title = typeof result.title === "string" ? result.title.trim() : ""
         visuals.push({
             id: thumbnailUrl,
-            title: title || "Recipe visual",
+            title: title || "Visual reference",
             thumbnailUrl,
             sourceUrl,
-            source: source || new URL(sourceUrl).hostname
+            source: source || new URL(sourceUrl).hostname,
+            ...(width && height ? { width, height } : {})
         })
         if (visuals.length >= limit) break
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { RecipeVisuals } from "@/components/recipe-visuals"
+import { VisualReferences } from "@/components/visual-references"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -572,7 +572,7 @@ export const RecipeCard = ({
                     </div>
 
                     {recipe.visualCue && (
-                        <RecipeVisuals cue={recipe.visualCue} limit={3} variant="gallery" />
+                        <VisualReferences cue={recipe.visualCue} limit={3} variant="gallery" />
                     )}
 
                     {/* Serving and unit controls */}
@@ -854,7 +854,7 @@ export const RecipeCard = ({
                                                     />
                                                 </div>
                                                 {step.visualCue && (
-                                                    <RecipeVisuals
+                                                    <VisualReferences
                                                         cue={step.visualCue}
                                                         limit={1}
                                                         variant="step"
@@ -939,7 +939,7 @@ export const RecipeCard = ({
                             >
                                 {recipe.visualCue && (
                                     <div className="overflow-hidden rounded-[var(--radius-xl)]">
-                                        <RecipeVisuals
+                                        <VisualReferences
                                             cue={recipe.visualCue}
                                             limit={3}
                                             variant="gallery"
@@ -1029,7 +1029,7 @@ export const RecipeCard = ({
 
                                         {currentStep.visualCue && (
                                             <div className="overflow-hidden rounded-[var(--radius-xl)]">
-                                                <RecipeVisuals
+                                                <VisualReferences
                                                     cue={currentStep.visualCue}
                                                     limit={1}
                                                     variant="step"

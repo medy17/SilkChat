@@ -30,7 +30,7 @@ vi.mock("@/lib/brave-image-search", () => ({
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
 import { Route as DevCreditStateRoute } from "@/routes/api/dev/credit-state"
-import { Route as RecipeVisualsRoute } from "@/routes/api/recipe-visuals"
+import { Route as VisualReferencesRoute } from "@/routes/api/visual-references"
 
 type RouteHandlers = {
     server: {
@@ -43,7 +43,7 @@ type RouteHandlers = {
 
 const creditSummaryHandlers = (CreditSummaryRoute as unknown as RouteHandlers).server.handlers
 const devCreditStateHandlers = (DevCreditStateRoute as unknown as RouteHandlers).server.handlers
-const recipeVisualsHandlers = (RecipeVisualsRoute as unknown as RouteHandlers).server.handlers
+const visualReferencesHandlers = (VisualReferencesRoute as unknown as RouteHandlers).server.handlers
 
 describe("API routes", () => {
     beforeEach(() => {
@@ -94,17 +94,17 @@ describe("API routes", () => {
         })
 
         fetchAuthQueryMock.mockResolvedValueOnce(null)
-        const recipeVisualsResponse = await recipeVisualsHandlers.GET!({
-            request: new Request("https://example.com/api/recipe-visuals?q=shuwa")
+        const visualReferencesResponse = await visualReferencesHandlers.GET!({
+            request: new Request("https://example.com/api/visual-references?q=shuwa")
         })
-        expect(recipeVisualsResponse.status).toBe(401)
+        expect(visualReferencesResponse.status).toBe(401)
     })
 
     it("keeps Brave recipe image search server-side and configuration-gated", async () => {
         fetchAuthQueryMock.mockResolvedValue({ id: "user-1" })
 
-        const unconfiguredResponse = await recipeVisualsHandlers.GET!({
-            request: new Request("https://example.com/api/recipe-visuals?q=shuwa")
+        const unconfiguredResponse = await visualReferencesHandlers.GET!({
+            request: new Request("https://example.com/api/visual-references?q=shuwa")
         })
         expect(unconfiguredResponse.status).toBe(503)
 
@@ -123,9 +123,9 @@ describe("API routes", () => {
                 source: "example.com"
             }
         ])
-        const response = await recipeVisualsHandlers.GET!({
+        const response = await visualReferencesHandlers.GET!({
             request: new Request(
-                "https://example.com/api/recipe-visuals?q=wrapping%20shuwa&limit=99&variant=step"
+                "https://example.com/api/visual-references?q=wrapping%20shuwa&limit=99&variant=step"
             )
         })
 
@@ -146,7 +146,7 @@ describe("API routes", () => {
         })
     })
 
-    it("rate limits recipe visual searches before calling Brave", async () => {
+    it("rate limits visual reference searches before calling Brave", async () => {
         process.env.BRAVE_API_KEY = "server-brave-key"
         fetchAuthQueryMock.mockResolvedValue({ id: "user-1" })
         fetchAuthMutationMock.mockResolvedValueOnce({
@@ -155,8 +155,8 @@ describe("API routes", () => {
             unauthorized: false
         })
 
-        const response = await recipeVisualsHandlers.GET!({
-            request: new Request("https://example.com/api/recipe-visuals?q=shuwa")
+        const response = await visualReferencesHandlers.GET!({
+            request: new Request("https://example.com/api/visual-references?q=shuwa")
         })
 
         expect(response.status).toBe(429)

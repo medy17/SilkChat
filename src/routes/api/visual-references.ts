@@ -8,7 +8,7 @@ const responseHeaders = {
     "Content-Type": "application/json; charset=utf-8"
 }
 
-export const Route = createFileRoute("/api/recipe-visuals")({
+export const Route = createFileRoute("/api/visual-references")({
     server: {
         handlers: {
             GET: async ({ request }) => {
@@ -29,20 +29,20 @@ export const Route = createFileRoute("/api/recipe-visuals")({
                 const apiKey = process.env.BRAVE_API_KEY?.trim()
                 if (!apiKey) {
                     return Response.json(
-                        { error: "Recipe visuals are not configured" },
+                        { error: "Visual references are not configured" },
                         { status: 503 }
                     )
                 }
 
                 const quota = await authServer.fetchAuthMutation(
-                    api.auth.consumeRecipeVisualSearchQuota
+                    api.auth.consumeVisualReferenceSearchQuota
                 )
                 if (quota.unauthorized) {
                     return Response.json({ error: "Unauthorized" }, { status: 401 })
                 }
                 if (!quota.allowed) {
                     return Response.json(
-                        { error: "Too many recipe visual searches" },
+                        { error: "Too many visual reference searches" },
                         {
                             status: 429,
                             headers: { "Retry-After": String(quota.retryAfterSeconds) }
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/recipe-visuals")({
                     const visuals = await searchBraveImages({ cue, limit, variant, apiKey })
                     return Response.json({ visuals }, { headers: responseHeaders })
                 } catch (error) {
-                    console.error("[recipe-visuals] Brave image search failed", { error })
+                    console.error("[visual-references] Brave image search failed", { error })
                     return Response.json({ visuals: [] }, { status: 502 })
                 }
             }

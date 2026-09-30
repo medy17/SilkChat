@@ -3,10 +3,17 @@ import { RoleplayScene } from "./roleplay-scene"
 import "katex/dist/katex.min.css"
 import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
+import { collectLinkDefinitions } from "@/lib/markdown-scan"
 import { parseRecipeBlock, splitRecipeContent, type RecipeContentSegment } from "@/lib/recipe"
+import {
+    MAX_VISUAL_SEARCHES,
+    splitVisualContent,
+    type VisualContentSegment
+} from "@/lib/visual-references"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
 import { RecipeCard } from "./recipe-card"
+import { VisualReferences } from "./visual-references"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
 const SINGLE_DOLLAR_BLOCK_PATTERN = /(^|\n)([ \t]*)\$[ \t]*\n([\s\S]*?)\n[ \t]*\$([ \t]*(?=\n|$))/g
@@ -85,11 +92,25 @@ export const MemoizedMarkdown = memo(
             )
         }
 
-        const segments = splitRoleplayContent(content, isAnimating).flatMap<
-            RoleplaySegment | RecipeContentSegment
-        >((segment) =>
-            segment.type === "roleplay" ? [segment] : splitRecipeContent(segment.content)
-        )
+        let visualCount = 0
+        const segments = splitRoleplayContent(content, isAnimating)
+            .flatMap<RoleplaySegment | RecipeContentSegment>((segment) =>
+                segment.type === "roleplay" ? [segment] : splitRecipeContent(segment.content)
+            )
+            .flatMap<RoleplaySegment | RecipeContentSegment | VisualContentSegment>((segment) =>
+                segment.type === "markdown"
+                    ? splitVisualContent(segment.content, isAnimating)
+                    : [segment]
+            )
+            .filter((segment) => segment.type !== "visual" || ++visualCount <= MAX_VISUAL_SEARCHES)
+
+        // Each segment is its own Markdown document, so carry the message's link definitions
+        // into the segments that lack them; a [ref] then resolves across a split.
+        const linkDefinitions = segments.length > 1 ? collectLinkDefinitions(content) : []
+        const withLinkDefinitions = (text: string) => {
+            const missing = linkDefinitions.filter((definition) => !text.includes(definition))
+            return missing.length > 0 ? `${text}\n\n${missing.join("\n")}` : text
+        }
 
         return (
             <>
@@ -107,11 +128,23 @@ export const MemoizedMarkdown = memo(
                             />
                         )
                     }
+                    if (segment.type === "visual") {
+                        return (
+                            <div key={`visual-${index}`} className="my-4">
+                                <VisualReferences
+                                    cue={segment.cue}
+                                    limit={3}
+                                    variant="gallery"
+                                    framed
+                                />
+                            </div>
+                        )
+                    }
                     if (segment.type === "markdown") {
                         return (
                             <MarkdownBody
                                 key={`markdown-${index}`}
-                                content={segment.content}
+                                content={withLinkDefinitions(segment.content)}
                                 isAnimating={isAnimating}
                             />
                         )
@@ -123,7 +156,7 @@ export const MemoizedMarkdown = memo(
                     return (
                         <MarkdownBody
                             key={`recipe-fallback-${index}`}
-                            content={segment.content}
+                            content={withLinkDefinitions(segment.content)}
                             isAnimating={isAnimating}
                         />
                     )

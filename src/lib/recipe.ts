@@ -1,4 +1,6 @@
 import { type UnitSystem, convertUnit } from "parse-ingredient"
+import { maskMarkdownFences } from "./markdown-scan"
+import { MAX_VISUAL_SEARCHES } from "./visual-references"
 
 export const RECIPE_UNITS = [
     "mcg",
@@ -80,7 +82,6 @@ const VISUAL_TAG_PATTERN = /<visual\b[^>]*>([\s\S]*?)<\/visual\s*>/gi
 const DESCRIPTION_TAG_PATTERN = /<description\b[^>]*>([\s\S]*?)<\/description\s*>/i
 const SECTION_TAG_PATTERN = /^<(\/)?(ingredients|steps|notes)\s*>$/i
 const NUMBER_TOKEN_PATTERN = /(?:\d+\s+)?\d+(?:[.,]\d+)?(?:\/\d+)?[¼½¾⅓⅔⅛⅜⅝⅞]?|[¼½¾⅓⅔⅛⅜⅝⅞]/u
-const MAX_RECIPE_VISUAL_SEARCHES = 3
 
 const INGREDIENT_HEADINGS = new Set([
     "ingredient",
@@ -194,37 +195,6 @@ export const parseRecipeInline = (source: string): RecipeInlineToken[] => {
 
     if (cursor < source.length) tokens.push({ type: "text", text: source.slice(cursor) })
     return tokens.length > 0 ? tokens : [{ type: "text", text: source }]
-}
-
-const maskMarkdownFences = (content: string) => {
-    let activeFence: { marker: "`" | "~"; length: number } | undefined
-
-    return content
-        .split(/(?<=\n)/)
-        .map((line) => {
-            const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line)
-            const wasInsideFence = Boolean(activeFence)
-
-            if (!activeFence && opening?.[1]) {
-                activeFence = {
-                    marker: opening[1][0] as "`" | "~",
-                    length: opening[1].length
-                }
-            } else if (activeFence) {
-                const trimmed = line.trimStart()
-                const markerRun = trimmed.match(/^[`~]+/)?.[0]
-                if (
-                    markerRun?.[0] === activeFence.marker &&
-                    markerRun.length >= activeFence.length &&
-                    trimmed.slice(markerRun.length).trim() === ""
-                ) {
-                    activeFence = undefined
-                }
-            }
-
-            return wasInsideFence || opening ? line.replace(/[^\r\n]/g, " ") : line
-        })
-        .join("")
 }
 
 export const splitRecipeContent = (content: string): RecipeContentSegment[] => {
@@ -407,7 +377,7 @@ export const parseRecipeBlock = (body: string, openingAttributes = ""): ParsedRe
 
     const taggedSteps = parseTaggedSteps(stepSectionLines.join("\n"))
     const resolvedSteps = taggedSteps.length >= steps.length ? taggedSteps : steps
-    const stepVisualLimit = Math.max(0, MAX_RECIPE_VISUAL_SEARCHES - (visualCue ? 1 : 0))
+    const stepVisualLimit = Math.max(0, MAX_VISUAL_SEARCHES - (visualCue ? 1 : 0))
     let stepVisualCount = 0
     const limitedSteps = resolvedSteps.map((step) => {
         if (!step.visualCue) return step

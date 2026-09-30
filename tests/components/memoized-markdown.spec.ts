@@ -114,6 +114,26 @@ describe("MemoizedMarkdown", () => {
         expect(container.querySelector(".math-inline")).toBeNull()
     })
 
+    it("resolves reference-style links across visual reference galleries", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => new Promise(() => {}))
+        )
+        render(
+            React.createElement(MemoizedMarkdown, {
+                content:
+                    "Read [the guide][ref] first.\n\n<visual>snow leopard</visual>\n\nThen [the guide][ref] again.\n\n[ref]: https://example.com/guide"
+            })
+        )
+        vi.unstubAllGlobals()
+
+        const links = screen.getAllByRole("link", { name: "the guide" })
+        expect(links.map((link) => link.getAttribute("href"))).toEqual([
+            "https://example.com/guide",
+            "https://example.com/guide"
+        ])
+    })
+
     it("renders streamed text at the stream cadence without word reveal animations", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {

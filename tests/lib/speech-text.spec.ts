@@ -70,6 +70,12 @@ After.`)
         expect(text).toBe("See the guide.\nDone.")
     })
 
+    it("does not speak visual reference search cues", () => {
+        expect(
+            speechTextFromMarkdown("Snow leopards blend in.\n<visual>snow leopard</visual>\nDone.")
+        ).toBe("Snow leopards blend in.\nDone.")
+    })
+
     it("does not extract a recipe inside a code example", () => {
         expect(speechTextFromMarkdown("```xml\n<recipe>hidden</recipe>\n```")).toBe(
             "You can see this code block in our conversation history."

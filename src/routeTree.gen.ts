@@ -30,8 +30,8 @@ import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiOgRouteImport } from './routes/api/og'
-import { Route as ApiRecipeVisualsRouteImport } from './routes/api/recipe-visuals'
 import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
+import { Route as ApiVisualReferencesRouteImport } from './routes/api/visual-references'
 import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAiOptionsRouteImport } from './routes/settings/ai-options'
@@ -167,14 +167,14 @@ const ApiOgRoute = ApiOgRouteImport.update({
   path: '/api/og',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiRecipeVisualsRoute = ApiRecipeVisualsRouteImport.update({
-  id: '/api/recipe-visuals',
-  path: '/api/recipe-visuals',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
   id: '/api/search-trends',
   path: '/api/search-trends',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVisualReferencesRoute = ApiVisualReferencesRouteImport.update({
+  id: '/api/visual-references',
+  path: '/api/visual-references',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthPathnameRoute = AuthPathnameRouteImport.update({
@@ -332,8 +332,8 @@ export interface FileRoutesByFullPath {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
-  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -379,8 +379,8 @@ export interface FileRoutesByTo {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
-  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -429,8 +429,8 @@ export interface FileRoutesById {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
-  '/api/recipe-visuals': typeof ApiRecipeVisualsRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/ai-options': typeof SettingsAiOptionsRoute
@@ -480,8 +480,8 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
-    | '/api/recipe-visuals'
     | '/api/search-trends'
+    | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -527,8 +527,8 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
-    | '/api/recipe-visuals'
     | '/api/search-trends'
+    | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -576,8 +576,8 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/model-benchmarks'
     | '/api/og'
-    | '/api/recipe-visuals'
     | '/api/search-trends'
+    | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
     | '/settings/ai-options'
@@ -625,8 +625,8 @@ export interface RootRouteChildren {
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   ApiOgRoute: typeof ApiOgRoute
-  ApiRecipeVisualsRoute: typeof ApiRecipeVisualsRoute
   ApiSearchTrendsRoute: typeof ApiSearchTrendsRoute
+  ApiVisualReferencesRoute: typeof ApiVisualReferencesRoute
   AuthPathnameRoute: typeof AuthPathnameRoute
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -775,18 +775,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOgRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/recipe-visuals': {
-      id: '/api/recipe-visuals'
-      path: '/api/recipe-visuals'
-      fullPath: '/api/recipe-visuals'
-      preLoaderRoute: typeof ApiRecipeVisualsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/search-trends': {
       id: '/api/search-trends'
       path: '/api/search-trends'
       fullPath: '/api/search-trends'
       preLoaderRoute: typeof ApiSearchTrendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/visual-references': {
+      id: '/api/visual-references'
+      path: '/api/visual-references'
+      fullPath: '/api/visual-references'
+      preLoaderRoute: typeof ApiVisualReferencesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/$pathname': {
@@ -1062,8 +1062,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   ApiOgRoute: ApiOgRoute,
-  ApiRecipeVisualsRoute: ApiRecipeVisualsRoute,
   ApiSearchTrendsRoute: ApiSearchTrendsRoute,
+  ApiVisualReferencesRoute: ApiVisualReferencesRoute,
   AuthPathnameRoute: AuthPathnameRoute,
   PersonasStartLazyRoute: PersonasStartLazyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -21,7 +21,7 @@
     cursor: pointer;
 }
 
-[data-recipe-visual-attribution] {
+[data-visual-attribution] {
     -webkit-text-size-adjust: none !important;
     text-size-adjust: none !important;
 }

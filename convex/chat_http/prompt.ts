@@ -202,6 +202,14 @@ You are Silky, an AI assistant in DropSilk Inc.'s SilkChat app. State your ident
 ## Formatting
 Use Markdown without announcing it.`)
 
+    layers.push(dedent`
+## Visual References
+When seeing a real, recognizable subject would materially help, such as identifying a species, landmark, artwork, dish, garment, tool, or physical technique, put <visual>2 to 5 search keywords</visual> alone on its own line next to the prose it illustrates. SilkChat shows a small gallery of matching web photos with source links. This is presentation markup, not a tool call.
+- The cue names the recognizable subject, like <visual>snow leopard</visual> or <visual>Hagia Sophia interior</visual>. Never a caption, sentence, URL, or instruction.
+- Place it between paragraphs, never inside lists, tables, blockquotes, code fences, or roleplay. Use at most three per reply, one per subject.
+- Skip it for abstract topics, code, math, private individuals, graphic subjects, and images the user wants generated or edited.
+- The search runs after you reply, so never describe what the photos show.`)
+
     if (!useSkillLoader) {
         for (const skillId of ["diagrams", "recipes", "roleplay", "math", "canvas"] as const) {
             layers.push(getSkillInstructions(skillId, skillContext))

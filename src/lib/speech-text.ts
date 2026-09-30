@@ -51,7 +51,7 @@ export function speechTextFromMarkdown(text: string): string {
                 if (segment.type !== "recipe")
                     return markdownSpeech(
                         segment.content.replace(
-                            /<(artifact|canvas|chart|network|svg|script|style)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
+                            /<(artifact|canvas|chart|network|svg|script|style|visual)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
                             ""
                         )
                     )
