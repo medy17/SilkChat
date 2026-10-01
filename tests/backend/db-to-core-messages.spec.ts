@@ -19,6 +19,66 @@ vi.mock("../../convex/_generated/api", () => ({
 import { dbMessagesToCore, normalizeAttachmentReferer } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
+    it.each(["batch", "single"])(
+        "validates paperclip PDF URLs by their stored key through %s admission",
+        async (mode) => {
+            const data = "https://r2.test/assets/attachments/user/electricity%20bill.pdf"
+            const messages = [
+                {
+                    role: "user",
+                    parts: [
+                        { type: "file", filename: "bill.pdf", mimeType: "application/pdf", data }
+                    ]
+                }
+            ] as never
+            const validatePdf = async (storageKey: string) => {
+                expect(storageKey).toBe("attachments/user/electricity bill.pdf")
+                if (!storageKey.startsWith("attachments/")) throw new Error("External PDFs")
+            }
+            const result = await dbMessagesToCore(messages, ["native_pdf"], {
+                publicAssetBaseUrl: "https://r2.test/assets/",
+                ...(mode === "single"
+                    ? { validatePdf }
+                    : {
+                          validatePdfs: async (files: Array<{ storageKey: string }>) => {
+                              expect(files).toHaveLength(1)
+                              for (const file of files) await validatePdf(file.storageKey)
+                          }
+                      })
+            })
+            expect(result[0].content).toEqual([
+                {
+                    type: "file",
+                    mediaType: "application/pdf",
+                    filename: "bill.pdf",
+                    data: new URL(data)
+                }
+            ])
+        }
+    )
+
+    it.each([
+        "https://foreign.test/assets/attachments/user/bill.pdf",
+        "https://r2.test/assets-other/attachments/user/bill.pdf",
+        "https://r2.test/assets/attachments/user/bad%ZZ.pdf"
+    ])("does not treat an unrecognized PDF URL as a stored upload: %s", async (data) => {
+        const messages = [
+            {
+                role: "user",
+                parts: [{ type: "file", filename: "bill.pdf", mimeType: "application/pdf", data }]
+            }
+        ] as never
+        await expect(
+            dbMessagesToCore(messages, ["native_pdf"], {
+                publicAssetBaseUrl: "https://r2.test/assets",
+                validatePdfs: async (files) => {
+                    expect(files[0].storageKey).toBe(data)
+                    throw new Error("External PDFs")
+                }
+            })
+        ).rejects.toThrow("External PDFs")
+    })
+
     it("requires successful batch admission for every distinct PDF before emitting model input", async () => {
         const file = {
             type: "file",

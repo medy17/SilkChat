@@ -94,6 +94,23 @@ const extractProxyKeyFromUrl = (value: string) => {
     }
 }
 
+const extractStoredFileKey = (value: string, publicAssetBaseUrl?: string) => {
+    const proxyKey = extractProxyKeyFromUrl(value)
+    if (proxyKey) return proxyKey
+    if (!publicAssetBaseUrl) return null
+
+    try {
+        const url = new URL(value)
+        const base = new URL(publicAssetBaseUrl)
+        const prefix = `${trimTrailingSlash(base.pathname)}/`
+        if (url.origin !== base.origin || !url.pathname.startsWith(prefix)) return null
+        const key = decodeURIComponent(url.pathname.slice(prefix.length))
+        return isModelFacingStorageKey(key) ? key : null
+    } catch {
+        return null
+    }
+}
+
 const attachmentFilename = (part: { data: string; filename?: string }) => {
     const extracted = part.data.startsWith("attachments/") ? (part.data.split("/").pop() ?? "") : ""
     return part.filename || (extracted.length > 51 ? extracted.slice(51) : extracted)
@@ -129,7 +146,8 @@ export const dbMessagesToCore = async (
                     (info.isText && !info.isImage)
                 )
                     continue
-                const storageKey = extractProxyKeyFromUrl(part.data) ?? part.data
+                const storageKey =
+                    extractStoredFileKey(part.data, options?.publicAssetBaseUrl) ?? part.data
                 files.set(storageKey, { storageKey, fileName })
             }
         }
@@ -158,11 +176,11 @@ export const dbMessagesToCore = async (
                 if (p.type === "file") {
                     const filename = attachmentFilename(p)
                     const fileTypeInfo = getFileTypeInfo(filename, p.mimeType)
-                    const proxiedKey = isExternalFileReference(p.data)
-                        ? extractProxyKeyFromUrl(p.data)
+                    const storedKey = isExternalFileReference(p.data)
+                        ? extractStoredFileKey(p.data, options?.publicAssetBaseUrl)
                         : null
-                    const fileUrl = proxiedKey
-                        ? buildDirectPublicAssetUrl(proxiedKey, options?.publicAssetBaseUrl)
+                    const fileUrl = storedKey
+                        ? buildDirectPublicAssetUrl(storedKey, options?.publicAssetBaseUrl)
                         : isExternalFileReference(p.data)
                           ? p.data
                           : buildDirectPublicAssetUrl(p.data, options?.publicAssetBaseUrl)
@@ -237,7 +255,7 @@ export const dbMessagesToCore = async (
                             throw new Error("PDF validation is required before model use")
                         // External references cannot reuse an immutable object's validation.
                         if (!options.validatePdfs)
-                            await options.validatePdf!(proxiedKey ?? p.data, filename)
+                            await options.validatePdf!(storedKey ?? p.data, filename)
                         mapped_content.push({
                             type: "file",
                             mediaType: "application/pdf",
