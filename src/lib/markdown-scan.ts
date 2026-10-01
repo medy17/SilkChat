@@ -39,3 +39,17 @@ const LINK_DEFINITION_PATTERN = /^ {0,3}\[(?!\^)[^\]\n]+\]:[ \t]*\S.*$/gm
 // code so each segment can carry them; definitions themselves render nothing.
 export const collectLinkDefinitions = (content: string) =>
     [...maskMarkdownFences(content).matchAll(LINK_DEFINITION_PATTERN)].map((match) => match[0])
+
+const ATTRIBUTE_PATTERN = /([:\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+
+export const parseTagAttributes = (source: string) => {
+    const attributes: Record<string, string | true> = {}
+
+    for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
+        const name = match[1]?.toLocaleLowerCase()
+        if (!name) continue
+        attributes[name] = match[2] ?? match[3] ?? match[4] ?? true
+    }
+
+    return attributes
+}

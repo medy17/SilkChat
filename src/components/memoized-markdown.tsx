@@ -133,6 +133,7 @@ export const MemoizedMarkdown = memo(
                             <div key={`visual-${index}`} className="my-4">
                                 <VisualReferences
                                     cue={segment.cue}
+                                    title={segment.title}
                                     limit={3}
                                     variant="gallery"
                                     framed

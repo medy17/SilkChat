@@ -116,6 +116,17 @@ describe("visual references in ordinary replies", () => {
         ])
     })
 
+    it("separates an optional card title from the search cue", () => {
+        expect(
+            splitVisualContent(
+                '<visual title=" Beelzebufo  Was a Giant ">beelzebufo fossil</visual>\n<visual title="">snow leopard</visual>'
+            )
+        ).toEqual([
+            { type: "visual", cue: "beelzebufo fossil", title: "Beelzebufo Was a Giant" },
+            { type: "visual", cue: "snow leopard" }
+        ])
+    })
+
     it("holds back an unfinished visual line only while streaming", () => {
         expect(splitVisualContent("Intro.\n<visual>snow leo", true)).toEqual([
             { type: "markdown", content: "Intro.\n" }

@@ -1,4 +1,4 @@
-import { maskMarkdownFences } from "./markdown-scan"
+import { maskMarkdownFences, parseTagAttributes } from "./markdown-scan"
 
 export type VisualReference = {
     id: string
@@ -63,11 +63,15 @@ const isVisualReference = (value: unknown): value is VisualReference => {
 
 export type VisualContentSegment =
     | { type: "markdown"; content: string }
-    | { type: "visual"; cue: string }
+    // The cue is what gets searched; the optional title is the card heading.
+    | { type: "visual"; cue: string; title?: string }
 
 // Search budget per recipe and per ordinary reply.
 export const MAX_VISUAL_SEARCHES = 3
-const STANDALONE_VISUAL_PATTERN = /^ {0,3}<visual\b[^>\n]*>([^<\n]*)<\/visual\s*>[ \t]*$/gim
+const STANDALONE_VISUAL_PATTERN = /^ {0,3}<visual\b([^>\n]*)>([^<\n]*)<\/visual\s*>[ \t]*$/gim
+
+const normalizeVisualText = (value: unknown, maxLength: number) =>
+    typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : ""
 
 // Lifts standalone <visual> lines out of prose, outside code fences. While streaming,
 // an unfinished visual line is held back so its markup never flashes as text.
@@ -97,8 +101,9 @@ export const splitVisualContent = (content: string, streaming = false): VisualCo
         const index = match.index ?? 0
         if (index > cursor)
             segments.push({ type: "markdown", content: visible.slice(cursor, index) })
-        const cue = match[1]?.replace(/\s+/g, " ").trim().slice(0, 160)
-        if (cue) segments.push({ type: "visual", cue })
+        const cue = normalizeVisualText(match[2], 160)
+        const title = normalizeVisualText(parseTagAttributes(match[1] ?? "").title, 120)
+        if (cue) segments.push({ type: "visual", cue, ...(title ? { title } : {}) })
         cursor = index + match[0].length
     }
 

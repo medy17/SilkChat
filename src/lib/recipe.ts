@@ -1,5 +1,5 @@
 import { type UnitSystem, convertUnit } from "parse-ingredient"
-import { maskMarkdownFences } from "./markdown-scan"
+import { maskMarkdownFences, parseTagAttributes } from "./markdown-scan"
 import { MAX_VISUAL_SEARCHES } from "./visual-references"
 
 export const RECIPE_UNITS = [
@@ -75,7 +75,6 @@ export type RecipeContentSegment =
     | { type: "markdown"; content: string }
     | { type: "recipe"; content: string; openingAttributes: string }
 
-const ATTRIBUTE_PATTERN = /([:\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
 const INLINE_TAG_PATTERN = /<(qty|timer)\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi
 const STEP_TAG_PATTERN = /<step\b[^>]*>([\s\S]*?)<\/step\s*>/gi
 const VISUAL_TAG_PATTERN = /<visual\b[^>]*>([\s\S]*?)<\/visual\s*>/gi
@@ -127,18 +126,6 @@ const normalizeHeading = (value: string) =>
         .trim()
         .toLocaleLowerCase()
         .replace(/[：:]$/, "")
-
-export const parseTagAttributes = (source: string) => {
-    const attributes: Record<string, string | true> = {}
-
-    for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
-        const name = match[1]?.toLocaleLowerCase()
-        if (!name) continue
-        attributes[name] = match[2] ?? match[3] ?? match[4] ?? true
-    }
-
-    return attributes
-}
 
 const isRecipeUnit = (value: unknown): value is RecipeUnit =>
     typeof value === "string" && RECIPE_UNITS.includes(value as RecipeUnit)

@@ -204,8 +204,9 @@ Use Markdown without announcing it.`)
 
     layers.push(dedent`
 ## Visual References
-When seeing a real, recognizable subject would materially help, such as identifying a species, landmark, artwork, dish, garment, tool, or physical technique, put <visual>2 to 5 search keywords</visual> alone on its own line next to the prose it illustrates. SilkChat shows a small gallery of matching web photos with source links. This is presentation markup, not a tool call.
-- The cue names the recognizable subject, like <visual>snow leopard</visual> or <visual>Hagia Sophia interior</visual>. Never a caption, sentence, URL, or instruction.
+When seeing a real, recognizable subject would materially help, such as identifying a species, landmark, artwork, dish, garment, tool, or physical technique, put <visual title="short heading">2 to 5 search keywords</visual> alone on its own line next to the prose it illustrates. SilkChat shows a small gallery of matching web photos with source links under the title. This is presentation markup, not a tool call.
+- The keywords are the search and name the recognizable subject, like <visual title="The Snow Leopard">snow leopard</visual> or <visual title="Inside the Hagia Sophia">Hagia Sophia interior</visual>. Never a caption, sentence, URL, or instruction.
+- The title is a short, natural heading in the reply's language. It names the subject, never the photos.
 - Place it between paragraphs, never inside lists, tables, blockquotes, code fences, or roleplay. Use at most three per reply, one per subject.
 - Skip it for abstract topics, code, math, private individuals, graphic subjects, and images the user wants generated or edited.
 - The search runs after you reply, so never describe what the photos show.`)

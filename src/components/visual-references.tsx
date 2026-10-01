@@ -1,6 +1,7 @@
 "use client"
 
 import { SPOTLIGHT_CARD_CLASS, SpotlightHeader } from "@/components/renderers/spotlight-frame"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type VisualReference, searchVisualReferences } from "@/lib/visual-references"
 import { cn } from "@/lib/utils"
 import {
@@ -154,14 +155,17 @@ const ReferenceGallery = ({
 
 export const VisualReferences = ({
     cue,
+    title,
     limit,
     variant,
     framed = false
 }: {
     cue: string
+    // Card heading for framed galleries; the search cue is the fallback.
+    title?: string
     limit: number
     variant: "gallery" | "step"
-    // Standalone galleries in chat get their own Spotlight card titled by the search cue.
+    // Standalone galleries in chat get their own Spotlight card.
     framed?: boolean
 }) => {
     const [visuals, setVisuals] = useState<VisualReference[]>([])
@@ -199,16 +203,32 @@ export const VisualReferences = ({
               ? "grid-cols-2"
               : "grid-cols-3"
 
+    // A friendlier title hides what was actually searched, so the cue stays one hover away.
+    const heading =
+        title && title.toLocaleLowerCase() !== cue.toLocaleLowerCase() ? (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span
+                        // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users reach the search cue through focus.
+                        tabIndex={0}
+                        className="inline-block max-w-full truncate align-top focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                        {title}
+                    </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Searched for “{cue}”</TooltipContent>
+            </Tooltip>
+        ) : (
+            <span className="block truncate">{title ?? cue}</span>
+        )
+
     const frame = (body: ReactNode) =>
         framed ? (
             <section className={cn("not-prose", SPOTLIGHT_CARD_CLASS)}>
                 {/* The font leaves ~2px more room above its ascenders than below its
                     baseline, so pt-3.5 over the gallery's pt-4 makes the visible gaps above
                     and below the title match the gallery's 20px side and bottom insets. */}
-                <SpotlightHeader
-                    className="pt-3.5"
-                    title={<span className="block truncate">{cue}</span>}
-                />
+                <SpotlightHeader className="pt-3.5" title={heading} />
                 <div className="p-5 pt-4">{body}</div>
             </section>
         ) : (

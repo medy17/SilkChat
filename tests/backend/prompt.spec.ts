@@ -17,6 +17,7 @@ describe("buildPrompt", () => {
 
         expect(basePrompt).toContain("## Formatting")
         expect(basePrompt).toContain("## Visual References")
+        expect(basePrompt).toContain('<visual title="The Snow Leopard">snow leopard</visual>')
         expect(basePrompt).not.toContain("## Mermaid Diagrams")
         expect(basePrompt).not.toContain("## Web Search Tool")
         expect(basePrompt).not.toContain("## Code Execution Tool")
