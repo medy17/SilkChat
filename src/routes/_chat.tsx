@@ -918,7 +918,7 @@ function RootSessionPendingState({ isExiting }: { isExiting: boolean }) {
 }
 
 export const ChatErrorBoundary = ({ error, info, reset }: ErrorComponentProps) => {
-    const isNotFound = error.message.includes("ArgumentValidationError")
+    const isNotFound = error instanceof Error && error.message.includes("ArgumentValidationError")
 
     useEffect(() => {
         if (isNotFound) return
