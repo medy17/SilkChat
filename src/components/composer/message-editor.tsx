@@ -13,6 +13,11 @@ import { useComposerAttachments } from "@/hooks/use-composer-attachments"
 import { useComposerDropTarget } from "@/hooks/use-composer-drop-target"
 import { getThreadDraftKey } from "@/lib/thread-drafts"
 import {
+    peekMessageEditRecovery,
+    stashMessageEditRecovery,
+    takeMessageEditRecovery
+} from "@/lib/message-edit-recovery"
+import {
     ComposerModelProvider,
     createMessageEditModelStore,
     hasEditSettingsChanges,
@@ -82,7 +87,9 @@ const MessageEditor = memo(
     }) => {
         const deleteFileMutation = useMutation(api.attachments.deleteFile)
         const fileInputRef = useRef<HTMLInputElement>(null)
-        const [editSession] = useState(() => createComposerSession())
+        const [recovery] = useState(() => peekMessageEditRecovery(message.id))
+        const [editSession] = useState(() => recovery?.session ?? createComposerSession())
+        const mountedRef = useRef(false)
         const { attachments: addedFiles, jobs: uploadingFiles } = useStore(editSession)
         const uploading = uploadingFiles.some((file) => file.status !== "error")
         const [saving, setSaving] = useState(false)
@@ -113,8 +120,8 @@ const MessageEditor = memo(
 
         const fileParts = originalMessage.parts.filter((p): p is FileUIPart => p.type === "file")
 
-        const [editedContent, setEditedContent] = useState(textContent)
-        const [deletedUrls, setDeletedUrls] = useState<string[]>([])
+        const [editedContent, setEditedContent] = useState(recovery?.text ?? textContent)
+        const [deletedUrls, setDeletedUrls] = useState<string[]>(recovery?.deletedUrls ?? [])
         const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
         const settingsChanged = useComposerModelStore(hasEditSettingsChanges)
 
@@ -198,19 +205,30 @@ const MessageEditor = memo(
                 return
             }
             if (!selectedModel) return
+            const config = {
+                modelId: selectedModel,
+                reasoningEffort,
+                enabledTools,
+                autoSelectTools,
+                toolCallLimitPerTurn
+            }
             savingRef.current = true
             setSaving(true)
+            stashMessageEditRecovery(message.id, {
+                session: editSession,
+                text: editedContent,
+                deletedUrls,
+                config
+            })
             try {
-                await onSave(text, nextFileParts, deletedUrls, {
-                    modelId: selectedModel,
-                    reasoningEffort,
-                    enabledTools,
-                    autoSelectTools,
-                    toolCallLimitPerTurn
-                })
+                await onSave(text, nextFileParts, deletedUrls, config)
             } finally {
-                savingRef.current = false
-                setSaving(false)
+                // Still mounted means the save was refused before the editor closed.
+                if (mountedRef.current) {
+                    takeMessageEditRecovery(message.id)
+                    savingRef.current = false
+                    setSaving(false)
+                }
             }
         }
 
@@ -300,9 +318,14 @@ const MessageEditor = memo(
         }, [cancelRequestRef, requestCancel])
 
         useEffect(() => {
+            mountedRef.current = true
             editSession.setState({ disposed: false })
-            return () => disposeComposerSession(editSession)
-        }, [editSession])
+            takeMessageEditRecovery(message.id)
+            return () => {
+                mountedRef.current = false
+                disposeComposerSession(editSession)
+            }
+        }, [editSession, message.id])
 
         const handleKeyDown = (e: React.KeyboardEvent) => {
             if (matchesSaveMessageEditShortcut(e)) {
@@ -465,8 +488,8 @@ export function EditableMessage(
     const { availableModels } = useAvailableModels(
         "error" in settings ? DefaultSettings(session.user?.id ?? "") : settings
     )
-    const [store] = useState(() =>
-        createMessageEditModelStore({
+    const [store] = useState(() => {
+        const store = createMessageEditModelStore({
             config: props.initialConfig,
             models,
             availableModels,
@@ -475,7 +498,18 @@ export function EditableMessage(
                 : settings
             ).toolCallLimitPerTurn
         })
-    )
+        // A rejected save resumes its attempted settings; the saved message stays the baseline.
+        const config = peekMessageEditRecovery(props.message.id)?.config
+        if (config)
+            store.setState({
+                selectedModel: config.modelId,
+                reasoningEffort: config.reasoningEffort,
+                enabledTools: [...config.enabledTools],
+                autoSelectTools: config.autoSelectTools,
+                toolCallLimitPerTurn: config.toolCallLimitPerTurn
+            })
+        return store
+    })
     return (
         <ComposerModelProvider store={store}>
             <MessageEditor {...props} />

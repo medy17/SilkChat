@@ -24,6 +24,7 @@ The composer supports new chats, existing chats, folder chats, and editing user 
 | `src/lib/composer-context.ts` | Pure context-budget prediction and model-selector hints. |
 | `src/lib/composer-drop.ts` | Routing drops to the active surface within a draft scope. |
 | `src/lib/chat-submission.ts` | Correlating a send or edit with backend acknowledgement. |
+| `src/lib/message-edit-recovery.ts` | Handing a saved edit's session, text, removals, and settings back to the editor if the save is rejected. |
 | `src/hooks/use-chat-actions.ts` | Chat SDK operations, optimistic edit recovery, and attachment deletion after acceptance. |
 
 ## Draft ownership
@@ -125,6 +126,6 @@ For automatic tool-selection checkpoints, the editor restores the resolved tools
 
 Model, reasoning, tool selection, automatic mode, and tool-call limit are local to the editor. User changes do not modify the main composer or account preferences. Automatic availability adjustments update the editor's baseline and do not count as user edits. Image-generation defaults retain their account-level behavior. Image models remain hidden from the model selector.
 
-Saving validates the resulting attachment set and submits the edited text with the local configuration. Saving during a submitted or streaming response is rejected with an explanation. While an edit is awaiting acceptance, duplicate saves and discard are blocked.
+Saving validates the resulting attachment set and submits the edited text with the local configuration. Saving during a submitted or streaming response is rejected with an explanation. Otherwise the edit is optimistic: the editor closes immediately and the edited message replaces the continuation while the request is pending.
 
-A rejected edit restores the optimistic message history and footer metadata and leaves the editor open. An accepted edit replaces the current continuation, closes the editor, and then deletes attachments marked for removal. Conversation versions are not retained. Discarding an edit cancels its jobs and deletes newly added attachments. Changes to text, attachments, or local settings trigger the navigation/discard guard.
+A rejected edit restores the original message history and footer metadata, then reopens the editor with the attempted text, added attachments, removals, and settings; the saved message remains the baseline for the discard guard. If the conversation has moved on (history is then left untouched) or another message is being edited, the edit is not reopened: its added attachments are deleted and an error is shown. An accepted edit deletes attachments marked for removal. Conversation versions are not retained. Discarding an edit cancels its jobs and deletes newly added attachments. Changes to text, attachments, or local settings trigger the navigation/discard guard.

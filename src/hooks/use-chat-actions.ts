@@ -1,6 +1,8 @@
 import { observeChatSubmission, type SubmissionResult } from "@/lib/chat-submission"
 import { resolveComposerText, attachmentToMessagePart } from "@/lib/composer-message"
 import type { GenerationConfig } from "@/lib/assistant-config"
+import { discardEditAttachments } from "@/lib/composer-attachments"
+import { takeMessageEditRecovery } from "@/lib/message-edit-recovery"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { SharedModel } from "@/convex/lib/models"
@@ -100,6 +102,8 @@ export function useChatActions<TMessage extends UIMessage>({
     const generationStartedAtRef = useRef<number | null>(null)
     const activeContext = useRef({ threadId, folderId, isActive, mounted: true })
     activeContext.current = { threadId, folderId, isActive, mounted: true }
+    const latestMessages = useRef(messages)
+    latestMessages.current = messages
     useEffect(() => {
         activeContext.current.mounted = true
         return () => {
@@ -411,7 +415,10 @@ export function useChatActions<TMessage extends UIMessage>({
                 useMessageFooterStore.getState().clearFooterMetadata(editedAssistantMessageId)
             }
             primeImmediateMessageUpdates()
+            // Close the editor optimistically; a rejected edit reopens it from its recovery snapshot.
             flushSync(() => {
+                setTargetFromMessageId(undefined)
+                setTargetMode("normal")
                 setMessages([...messagesUpToEdit, updatedEditedMessage])
             })
             const submissionId = nanoid()
@@ -434,18 +441,33 @@ export function useChatActions<TMessage extends UIMessage>({
             ).then((result) => {
                 if (!result.accepted) {
                     // Only undo this optimistic edit; never replace a newer conversation state.
-                    setMessages((current) =>
-                        [...current].reverse().find((message) => message.role === "user")?.id ===
-                        messageId
-                            ? messages
-                            : current
-                    )
-                    if (editedAssistantMessageId && originalFooter)
-                        useMessageFooterStore
-                            .getState()
-                            .setFooterMetadata(editedAssistantMessageId, originalFooter)
+                    const restorable =
+                        activeContext.current.mounted &&
+                        [...latestMessages.current]
+                            .reverse()
+                            .find((message) => message.role === "user")?.id === messageId
+                    if (restorable) {
+                        setMessages(messages)
+                        if (editedAssistantMessageId && originalFooter)
+                            useMessageFooterStore
+                                .getState()
+                                .setFooterMetadata(editedAssistantMessageId, originalFooter)
+                    }
+                    if (restorable && !useChatStore.getState().targetFromMessageId) {
+                        setTargetFromMessageId(messageId)
+                        setTargetMode("edit")
+                    } else {
+                        // The editor cannot reopen, so release the attachments this edit added.
+                        const recovery = takeMessageEditRecovery(messageId)
+                        if (recovery)
+                            void discardEditAttachments(recovery.session, (key) =>
+                                deleteFileMutation({ key })
+                            )
+                        toast.error("Your edit couldn't be saved.")
+                    }
                     return false
                 }
+                takeMessageEditRecovery(messageId)
                 if (deletedUrls && deletedUrls.length > 0) {
                     const deletionKeys = deletedUrls
                         .map((url) => extractR2KeyFromUrl(url))
@@ -496,8 +518,6 @@ export function useChatActions<TMessage extends UIMessage>({
                     }
                 }
 
-                setTargetFromMessageId(undefined)
-                setTargetMode("normal")
                 return true
             })
         },

@@ -70,6 +70,8 @@ vi.mock("@/lib/browser-env", () => ({
 
 import { useChatActions } from "@/hooks/use-chat-actions"
 import { useChatStore } from "@/lib/chat-store"
+import { createComposerSession } from "@/lib/composer-session"
+import { peekMessageEditRecovery, stashMessageEditRecovery } from "@/lib/message-edit-recovery"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
 
@@ -782,7 +784,7 @@ describe("useChatActions", () => {
         })
     })
 
-    it("a rejected edit restores history and footer data and keeps the editor open", async () => {
+    it("closes the editor optimistically and reopens it when the edit is rejected", async () => {
         const original: TestMessage[] = [
             { id: "user", role: "user", parts: [{ type: "text", text: "Before" }] },
             { id: "assistant", role: "assistant", parts: [{ type: "text", text: "Reply" }] }
@@ -825,6 +827,10 @@ describe("useChatActions", () => {
         })
         expect(result.current.messages).toHaveLength(1)
         expect(useMessageFooterStore.getState().footerMetadataByMessageId.assistant).toBeUndefined()
+        expect(useChatStore.getState()).toMatchObject({
+            targetFromMessageId: undefined,
+            targetMode: "normal"
+        })
         await act(async () => {
             reject(new Error("Not saved"))
             await expect(saved).resolves.toBe(false)
@@ -838,6 +844,64 @@ describe("useChatActions", () => {
             targetMode: "edit"
         })
         expect(deleteFileMutationMock).not.toHaveBeenCalled()
+    })
+
+    it("releases a rejected edit's added attachments when its editor cannot reopen", async () => {
+        const original: TestMessage[] = [
+            { id: "user", role: "user", parts: [{ type: "text", text: "Before" }] },
+            { id: "assistant", role: "assistant", parts: [{ type: "text", text: "Reply" }] }
+        ]
+        const session = createComposerSession()
+        session.setState({ attachments: [{ key: "added-file" } as UploadedFile] })
+        stashMessageEditRecovery("user", {
+            session,
+            text: "Edited",
+            deletedUrls: [],
+            config: {
+                modelId: "current-model",
+                reasoningEffort: "off",
+                enabledTools: [],
+                autoSelectTools: false
+            }
+        })
+        deleteFileMutationMock.mockResolvedValue({ success: true })
+        let reject!: (error: Error) => void
+        const regenerate = vi.fn(
+            () =>
+                new Promise<void>((_resolve, rejectPromise) => {
+                    reject = rejectPromise
+                })
+        )
+        const { result } = renderHook(() => {
+            const [messages, setMessages] = useState(original)
+            return useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                chat: {
+                    status: "idle",
+                    messages,
+                    setMessages,
+                    regenerate,
+                    sendMessage: vi.fn(),
+                    stop: vi.fn()
+                }
+            })
+        })
+        let saved!: Promise<boolean>
+        act(() => {
+            saved = result.current.handleEditAndRetry("user", "Edited")
+        })
+        // The user opened a different edit while this one was pending.
+        useChatStore.setState({ targetFromMessageId: "other", targetMode: "edit" })
+        await act(async () => {
+            reject(new Error("Not saved"))
+            await expect(saved).resolves.toBe(false)
+        })
+        expect(useChatStore.getState().targetFromMessageId).toBe("other")
+        expect(peekMessageEditRecovery("user")).toBeUndefined()
+        expect(deleteFileMutationMock).toHaveBeenCalledWith({ key: "added-file" })
+        expect(toastErrorMock).toHaveBeenCalledWith("Your edit couldn't be saved.")
     })
 
     it.each(["submitted", "streaming"])(
