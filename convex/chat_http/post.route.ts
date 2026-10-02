@@ -5,7 +5,7 @@ import { ABILITIES } from "@/lib/tool-abilities"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { getBuiltInPersonaOpenings, getUserPersonaOpenings } from "@/lib/personas/builtins"
 import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
-import { resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
+import { clampToolCallLimitPerTurn, resolveToolCallLimitPerTurn } from "@/lib/tool-call-limit"
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider"
 import { getOpenRouterRouting } from "../lib/model_routing"
 import {
@@ -781,6 +781,26 @@ const resolveSuggestedModels = async (
 }
 
 export const chatPOST = httpAction(async (ctx, req) => {
+    let acceptedThreadId: string | undefined
+    let response: Response
+    try {
+        response = await handleChatPost(ctx, req, (threadId) => {
+            acceptedThreadId = threadId
+        })
+    } catch (error) {
+        if (!acceptedThreadId) throw error
+        console.error("[cvx][chat] Request failed after messages were saved", error)
+        response = new ChatError("bad_request:chat").toResponse()
+    }
+    if (acceptedThreadId) response.headers.set("X-Silkchat-Accepted-Thread", acceptedThreadId)
+    return response
+})
+
+async function handleChatPost(
+    ctx: ActionCtx,
+    req: Request,
+    onCommit: (threadId: string | undefined) => void
+) {
     type ChatRequestBody = {
         id?: string
         message: Infer<typeof HTTPAIMessage>
@@ -791,6 +811,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
         targetFromMessageId?: string
         targetMode?: "normal" | "edit" | "retry"
         toolCallLimitFloorOverride?: number
+        toolCallLimitPerTurn?: number
         folderId?: Id<"projects">
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
@@ -961,13 +982,26 @@ export const chatPOST = httpAction(async (ctx, req) => {
             messageKey: modelCreditMessageKey
         })
 
+    const getGenerationConfig = () => ({
+        modelId: body.model,
+        reasoningEffort: effectiveReasoningEffort,
+        enabledTools: (body.enabledTools ?? []).filter((tool) => ABILITIES.includes(tool)),
+        autoSelectTools: body.autoSelectTools !== false,
+        resolvedTools: [...callableEnabledTools],
+        toolCallLimitPerTurn: clampToolCallLimitPerTurn(
+            body.toolCallLimitPerTurn ?? settings.toolCallLimitPerTurn,
+            { hasEnabledTools: true }
+        ),
+        resolvedToolCallLimitPerTurn: effectiveToolCallLimitPerTurn
+    })
     const commitMessages = async () => {
         try {
-            return await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
+            const result = await ctx.runMutation(internal.threads.createThreadOrInsertMessages, {
                 threadId: body.id as Id<"threads">,
                 authorId: user.id,
                 userMessage: "message" in body ? body.message : undefined,
                 proposedNewAssistantId: body.proposedNewAssistantId,
+                generationConfig: getGenerationConfig(),
                 targetFromMessageId: body.targetFromMessageId,
                 targetMode: body.targetMode,
                 folderId: body.folderId,
@@ -989,6 +1023,8 @@ export const chatPOST = httpAction(async (ctx, req) => {
                       }
                     : undefined
             })
+            if (result && !(result instanceof ChatError)) onCommit(result.threadId)
+            return result
         } catch (error) {
             console.error("[cvx][chat] Failed to create or append messages", error)
             return new ChatError("bad_request:chat")
@@ -1007,12 +1043,13 @@ export const chatPOST = httpAction(async (ctx, req) => {
             !result.createdThread
         )
             return
-        await ctx.runMutation(internal.threads.rollbackRejectedOpening, {
+        const rolledBack = await ctx.runMutation(internal.threads.rollbackRejectedOpening, {
             threadId: result.threadId,
             authorId: user.id,
             assistantMessageConvexId: result.assistantMessageConvexId,
             createdMessageIds: result.createdMessageIds
         })
+        if (rolledBack) onCommit(undefined)
     }
 
     const settings = readiness.registry.settings
@@ -1100,7 +1137,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             : 0
     const resolveTurnToolBudget = () => {
         const effectiveToolCallLimitPerTurn = resolveToolCallLimitPerTurn({
-            configuredValue: settings.toolCallLimitPerTurn,
+            configuredValue: body.toolCallLimitPerTurn ?? settings.toolCallLimitPerTurn,
             retryFloor: retryToolCallLimitFloor,
             hasEnabledTools: hasPaidCallableTools
         })
@@ -1570,6 +1607,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         displayProvider,
                         runtimeProvider: modelData.runtimeProvider,
                         reasoningEffort: effectiveReasoningEffort,
+                        generationConfig: getGenerationConfig(),
                         creditProviderSource: modelData.providerSource,
                         creditBucket: "none",
                         creditFeature: "chat",
@@ -1789,7 +1827,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
             : undefined
     let modelCreditCommitted = false
     let shouldChargeModelReservation = false
-    const markFirstVisible = () => {
+    const _markFirstVisible = () => {
         if (streamMetrics.firstVisibleAtMs !== undefined) return
         streamMetrics.firstVisibleAtMs = Date.now()
     }
@@ -1971,6 +2009,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         runtimeProvider: modelData.runtimeProvider,
                         creditProviderSource: modelData.providerSource,
                         reasoningEffort: effectiveReasoningEffort,
+                        generationConfig: getGenerationConfig(),
                         ...(contextRouting ? { contextRouting } : {})
                     }
                 })
@@ -2329,6 +2368,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         runtimeProvider: modelData.runtimeProvider,
                         creditProviderSource: modelData.providerSource,
                         reasoningEffort: effectiveReasoningEffort,
+                        generationConfig: getGenerationConfig(),
                         promptTokens: totalTokenUsage.promptTokens,
                         completionTokens: totalTokenUsage.completionTokens,
                         reasoningTokens: totalTokenUsage.reasoningTokens,
@@ -2373,6 +2413,7 @@ export const chatPOST = httpAction(async (ctx, req) => {
                         displayProvider,
                         runtimeProvider: modelData.runtimeProvider,
                         reasoningEffort: effectiveReasoningEffort,
+                        generationConfig: getGenerationConfig(),
                         promptTokens: totalTokenUsage.promptTokens,
                         completionTokens: totalTokenUsage.completionTokens,
                         reasoningTokens: totalTokenUsage.reasoningTokens,
@@ -2601,4 +2642,4 @@ export const chatPOST = httpAction(async (ctx, req) => {
             headers: UI_MESSAGE_STREAM_HEADERS
         }
     )
-})
+}

@@ -42,6 +42,9 @@ const sanitizeKeySegment = (name: string) =>
         .slice(0, 120) || "file"
 
 const r2Unavailable = {
+    get config(): R2["config"] {
+        throw new Error("R2 is not configured")
+    },
     store: async () => {
         throw new Error("R2 is not configured")
     },
@@ -65,6 +68,7 @@ const r2Unavailable = {
     }
 } satisfies Pick<
     R2,
+    | "config"
     | "store"
     | "getMetadata"
     | "deleteObject"
@@ -368,20 +372,41 @@ export const deleteFile = mutation({
             await assertAccountNotDeleting(ctx, user.id)
 
             const metadata = await r2.getMetadata(ctx, args.key)
-            if (!metadata) {
+            // getMetadata hides pending uploads. Cancellation must also own and
+            // invalidate their reservations so /complete cannot revive them.
+            const reservation = metadata
+                ? null
+                : await ctx.runQuery(components.r2.lib.getUploadReservation, {
+                      bucket: r2.config.bucket,
+                      key: args.key
+                  })
+            if (!metadata && !reservation) {
                 return {
                     success: false,
                     error: "File not found"
                 }
             }
 
-            if (metadata.authorId !== user.id) {
+            if ((metadata?.authorId ?? reservation?.authorId) !== user.id) {
                 return {
                     success: false,
                     error: "Access denied: File does not belong to user"
                 }
             }
 
+            if (
+                reservation?.uploadStatus === "pending" &&
+                reservation.uploadExpiresAt !== undefined
+            ) {
+                // A PUT already received by storage can finish after browser abort.
+                // Reap once more after its signed URL expires plus the same grace
+                // period used by the patched R2 reservation expiry job.
+                await ctx.scheduler.runAt(
+                    Math.max(Date.now(), reservation.uploadExpiresAt) + 5 * 60 * 1000,
+                    components.r2.lib.deleteObject,
+                    { ...r2.config, key: args.key }
+                )
+            }
             await r2.deleteObject(ctx, args.key)
 
             console.log("Successfully deleted file:", args.key)

@@ -315,7 +315,7 @@ export const matchesInsertPromptNewlineShortcut = (
 }
 
 export const matchesSaveMessageEditShortcut = (event: ShortcutKeyEvent) =>
-    event.key === "Enter" && hasPrimaryModifier(event)
+    !event.isComposing && event.key === "Enter" && hasPrimaryModifier(event)
 
 export const matchesCancelMessageEditShortcut = (event: Pick<KeyboardEvent, "key">) =>
     event.key === "Escape"

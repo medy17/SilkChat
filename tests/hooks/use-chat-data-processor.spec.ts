@@ -19,7 +19,6 @@ type ProcessorMessages = Parameters<typeof useChatDataProcessor>[0]["messages"]
 const resetChatStore = () => {
     useChatStore.setState({
         threadId: undefined,
-        uploadedFiles: [],
         rerenderTrigger: "rerender-1",
         lastProcessedDataIndex: -1,
         shouldUpdateQuery: false,
@@ -30,7 +29,6 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false,
         selectedPersona: { source: "default" },
         pendingBranchRetry: undefined,
         pendingBranchHydration: undefined,

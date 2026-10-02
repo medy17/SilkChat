@@ -1,4 +1,5 @@
 import { THREAD_IMPORT_DIALOG_STATE_EVENT } from "@/lib/thread-import-events"
+import { dispatchComposerDrop } from "@/lib/composer-drop"
 import { cn } from "@/lib/utils"
 import { Upload } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -7,12 +8,14 @@ interface FullPageDropOverlayProps {
     onDrop: (files: File[]) => void
     className?: string
     enabled?: boolean
+    scopeKey?: string
 }
 
 export function FullPageDropOverlay({
     onDrop,
     className,
-    enabled = true
+    enabled = true,
+    scopeKey
 }: FullPageDropOverlayProps) {
     const [isDragOver, setIsDragOver] = useState(false)
     const [isSuspended, setIsSuspended] = useState(false)
@@ -67,10 +70,10 @@ export function FullPageDropOverlay({
 
             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files)
-                onDrop(files)
+                if (!scopeKey || !dispatchComposerDrop(scopeKey, files)) onDrop(files)
             }
         },
-        [isSuspended, onDrop]
+        [isSuspended, onDrop, scopeKey]
     )
 
     useEffect(() => {

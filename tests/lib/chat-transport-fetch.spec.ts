@@ -1,7 +1,42 @@
 import { createChatTransportFetch } from "@/lib/chat-transport-fetch"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { CHAT_ACCEPTED_HEADER, observeChatSubmission } from "@/lib/chat-submission"
 
 describe("createChatTransportFetch", () => {
+    it.each([200, 400])(
+        "accepts a durably saved message even when stream setup returns %s",
+        async (status) => {
+            const transport = createChatTransportFetch(
+                async () =>
+                    new Response(null, { status, headers: { [CHAT_ACCEPTED_HEADER]: "thread-1" } })
+            )
+            const result = observeChatSubmission(`send-${status}`, () =>
+                transport("/chat", {
+                    method: "POST",
+                    body: JSON.stringify({ submissionId: `send-${status}` })
+                })
+            )
+            await expect(result).resolves.toEqual({
+                accepted: true,
+                threadId: "thread-1",
+                ...(status === 400 ? { streamSetupFailed: true } : {})
+            })
+        }
+    )
+    it("does not infer persistence from a resolved SDK promise or a rejected request", async () => {
+        await expect(observeChatSubmission("sdk-error", async () => undefined)).resolves.toEqual({
+            accepted: false
+        })
+        const transport = createChatTransportFetch(async () => new Response(null, { status: 400 }))
+        await expect(
+            observeChatSubmission("rejected", () =>
+                transport("/chat", {
+                    method: "POST",
+                    body: JSON.stringify({ submissionId: "rejected" })
+                })
+            )
+        ).resolves.toEqual({ accepted: false })
+    })
     afterEach(() => {
         vi.useRealTimers()
     })

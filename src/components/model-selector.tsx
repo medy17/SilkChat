@@ -32,7 +32,8 @@ import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
 import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
 import { FAVORITES_SECTION_ID, getFavoriteToggleAction } from "@/lib/model-favorites"
 import { isNewModelRelease } from "@/lib/model-release"
-import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
+import type { ReasoningEffort } from "@/lib/model-store"
+import { useComposerModelStore as useModelStore } from "@/components/composer/model-context"
 import {
     type DisplayModel,
     getAbilityIcon,
@@ -1191,7 +1192,10 @@ export function ModelSelector({
     const [desktopAlignOffset, setDesktopAlignOffset] = React.useState(0)
     const [desktopPopoverWidth, setDesktopPopoverWidth] = React.useState<number | null>(null)
     const reasoningEffort = useModelStore((state) => state.reasoningEffort)
-    const setReasoningEffort = useModelStore((state) => state.setReasoningEffort)
+    const setReasoningEffort = useModelStore(
+        (state) => state.normalizeReasoningEffort ?? state.setReasoningEffort
+    )
+    const normalizeSelectedModel = useModelStore((state) => state.normalizeSelectedModel)
     const creditPlan = useCreditAccess((state) => state.plan)
     const [canScrollUp, setCanScrollUp] = React.useState(false)
     const [canScrollDown, setCanScrollDown] = React.useState(false)
@@ -1343,10 +1347,11 @@ export function ModelSelector({
         }
         if (fallbackModelId === selectedModel) return
 
-        onModelChange(fallbackModelId)
+        ;(normalizeSelectedModel ?? onModelChange)(fallbackModelId)
     }, [
         fallbackModelId,
         fallbackReasoningEffort,
+        normalizeSelectedModel,
         isModelDisabled,
         isModelLocked,
         onModelChange,

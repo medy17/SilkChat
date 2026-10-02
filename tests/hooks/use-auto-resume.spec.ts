@@ -9,7 +9,6 @@ import { useChatStore } from "@/lib/chat-store"
 const resetChatStore = () => {
     useChatStore.setState({
         threadId: undefined,
-        uploadedFiles: [],
         rerenderTrigger: "rerender-1",
         lastProcessedDataIndex: -1,
         shouldUpdateQuery: false,
@@ -20,7 +19,6 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false,
         pendingBranchRetry: undefined,
         pendingBranchHydration: undefined,
         pendingBranchGenerations: {}

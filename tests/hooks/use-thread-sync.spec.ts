@@ -9,7 +9,6 @@ import { useChatStore } from "@/lib/chat-store"
 const resetChatStore = () => {
     useChatStore.setState({
         threadId: undefined,
-        uploadedFiles: [],
         rerenderTrigger: "rerender-1",
         lastProcessedDataIndex: -1,
         shouldUpdateQuery: false,
@@ -20,7 +19,6 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false,
         pendingBranchRetry: undefined,
         pendingBranchHydration: undefined,
         pendingBranchGenerations: {}
@@ -36,15 +34,6 @@ describe("useThreadSync", () => {
     it("resets chat state when there is no route thread id", () => {
         useChatStore.setState({
             threadId: "thread-1",
-            uploadedFiles: [
-                {
-                    key: "file-1",
-                    fileName: "notes.txt",
-                    fileType: "text/plain",
-                    fileSize: 10,
-                    uploadedAt: 1
-                }
-            ],
             targetFromMessageId: "message-1",
             targetMode: "retry"
         })
@@ -52,7 +41,6 @@ describe("useThreadSync", () => {
         renderHook(() => useThreadSync({ routeThreadId: undefined }))
 
         expect(useChatStore.getState().threadId).toBeUndefined()
-        expect(useChatStore.getState().uploadedFiles).toEqual([])
         expect(useChatStore.getState().targetMode).toBe("normal")
     })
 

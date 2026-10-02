@@ -130,7 +130,6 @@ type IntegrationProps = Parameters<typeof useChatIntegration>[0]
 const resetChatStore = () => {
     useChatStore.setState({
         threadId: undefined,
-        uploadedFiles: [],
         rerenderTrigger: "rerender-1",
         lastProcessedDataIndex: -1,
         shouldUpdateQuery: false,
@@ -141,7 +140,6 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false,
         selectedPersona: { source: "default" },
         pendingPersonaOpening: undefined,
         pendingBranchRetry: undefined,

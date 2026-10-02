@@ -29,7 +29,7 @@ const cors = corsRouter(http, {
         "https://localhost:3000"
     ].filter(Boolean) as string[],
     allowedHeaders: ["Content-Type", "Authorization", UPLOAD_POLICY_HEADER],
-    exposedHeaders: [UPLOAD_POLICY_HEADER],
+    exposedHeaders: [UPLOAD_POLICY_HEADER, "X-Silkchat-Accepted-Thread"],
     allowCredentials: true
 })
 

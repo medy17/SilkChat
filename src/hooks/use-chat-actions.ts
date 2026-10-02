@@ -1,3 +1,6 @@
+import { observeChatSubmission, type SubmissionResult } from "@/lib/chat-submission"
+import { resolveComposerText, attachmentToMessagePart } from "@/lib/composer-message"
+import type { GenerationConfig } from "@/lib/assistant-config"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { SharedModel } from "@/convex/lib/models"
@@ -6,11 +9,10 @@ import {
     getRetryTargetAssistantConfig,
     resolveAssistantConfigOverride
 } from "@/lib/assistant-config"
-import { getAttachmentTileMediaType } from "@/lib/attachment-tile"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useModelStore } from "@/lib/model-store"
-import { extractR2KeyFromUrl, getPublicR2AssetUrl } from "@/lib/r2-public-url"
+import { extractR2KeyFromUrl } from "@/lib/r2-public-url"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { useNavigate } from "@tanstack/react-router"
@@ -36,7 +38,10 @@ interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
     clientId?: string
     status: string
     composerStatus?: string
-    sendMessage: (message: SendableUserMessage) => Promise<unknown>
+    sendMessage: (
+        message: SendableUserMessage,
+        options?: { body?: Record<string, unknown> }
+    ) => Promise<unknown>
     stop: () => void
     stopRemoteStream?: () => void
     messages: TMessage[]
@@ -50,6 +55,7 @@ interface ChatActionHelpers<TMessage extends UIMessage = UIMessage> {
 export function useChatActions<TMessage extends UIMessage>({
     threadId,
     folderId,
+    isActive = true,
     sharedModels,
     availableModels,
     fallbackModelId,
@@ -57,14 +63,13 @@ export function useChatActions<TMessage extends UIMessage>({
 }: {
     threadId: string | undefined
     folderId?: string
+    isActive?: boolean
     sharedModels: readonly SharedModel[]
     availableModels: readonly { id: string }[]
     fallbackModelId?: string | null
     chat: ChatActionHelpers<TMessage>
 }) {
     const {
-        uploadedFiles,
-        setUploadedFiles,
         setPendingStream,
         setManuallyStoppedThread,
         setTargetFromMessageId,
@@ -93,6 +98,14 @@ export function useChatActions<TMessage extends UIMessage>({
     const navigate = useNavigate()
     const retryPreparationInFlightRef = useRef(false)
     const generationStartedAtRef = useRef<number | null>(null)
+    const activeContext = useRef({ threadId, folderId, isActive, mounted: true })
+    activeContext.current = { threadId, folderId, isActive, mounted: true }
+    useEffect(() => {
+        activeContext.current.mounted = true
+        return () => {
+            activeContext.current.mounted = false
+        }
+    }, [])
 
     useEffect(() => {
         if (composerStatus === "submitted" || composerStatus === "streaming") {
@@ -125,7 +138,7 @@ export function useChatActions<TMessage extends UIMessage>({
     }, [primeMessageUpdates])
 
     const handleInputSubmit = useCallback(
-        (inputValue?: string, fileValues?: UploadedFile[]) => {
+        (inputValue?: string, fileValues?: UploadedFile[]): Promise<SubmissionResult> => {
             if (composerStatus === "streaming") {
                 const lastMessage = messages.at(-1)
                 const hadVisibleOutput = Boolean(
@@ -150,39 +163,66 @@ export function useChatActions<TMessage extends UIMessage>({
                 }
                 stop()
                 stopRemoteStream?.()
-                return
+                return Promise.resolve({ accepted: false })
             }
 
             if (composerStatus === "submitted") {
-                return
+                return Promise.resolve({ accepted: false })
             }
 
-            const trimmedInput = inputValue?.trim() ?? ""
-            const finalFiles = fileValues ?? uploadedFiles
+            const trimmedInput = resolveComposerText(inputValue ?? "", (fileValues ?? []).length)
+            const finalFiles = fileValues ?? []
 
             if (!trimmedInput && finalFiles.length === 0) {
-                return
+                return Promise.resolve({ accepted: false })
             }
 
             primeImmediateMessageUpdates()
 
-            void sendMessage({
-                id: nanoid(),
-                role: "user",
-                parts: [
-                    ...finalFiles.map((file) => {
-                        return {
-                            type: "file",
-                            url: file.inlineDataUrl ?? getPublicR2AssetUrl(file.key),
-                            mediaType: getAttachmentTileMediaType(file.fileType, file.tileKind),
-                            filename: file.fileName
-                        } satisfies FileUIPart
-                    }),
-                    ...(trimmedInput ? [{ type: "text" as const, text: trimmedInput }] : [])
-                ]
+            const submissionId = nanoid()
+            const requestGeneration = useChatStore.getState().rerenderTrigger
+            return observeChatSubmission(submissionId, () =>
+                sendMessage(
+                    {
+                        id: nanoid(),
+                        role: "user",
+                        parts: [
+                            ...finalFiles.map(attachmentToMessagePart),
+                            { type: "text", text: trimmedInput! }
+                        ]
+                    },
+                    { body: { submissionId } }
+                )
+            ).then((result) => {
+                const current = activeContext.current
+                // A committed opening can fail before any stream metadata arrives.
+                // Recover its saved conversation, but never navigate a newer surface.
+                if (
+                    result.accepted &&
+                    result.threadId &&
+                    result.streamSetupFailed &&
+                    !threadId &&
+                    current.mounted &&
+                    current.isActive &&
+                    current.threadId === threadId &&
+                    current.folderId === folderId &&
+                    useChatStore.getState().rerenderTrigger === requestGeneration
+                ) {
+                    useChatStore.getState().setThreadId(result.threadId)
+                    void navigate(
+                        folderId
+                            ? {
+                                  to: "/folder/$folderId/thread/$threadId",
+                                  params: { folderId, threadId: result.threadId }
+                              }
+                            : {
+                                  to: "/thread/$threadId",
+                                  params: { threadId: result.threadId }
+                              }
+                    )
+                }
+                return result
             })
-
-            setUploadedFiles([])
         },
         [
             sendMessage,
@@ -194,8 +234,8 @@ export function useChatActions<TMessage extends UIMessage>({
             messages,
             selectedModel,
             threadId,
-            uploadedFiles,
-            setUploadedFiles,
+            folderId,
+            navigate,
             primeImmediateMessageUpdates
         ]
     )
@@ -338,63 +378,20 @@ export function useChatActions<TMessage extends UIMessage>({
             messageId: string,
             newContent: string,
             remainingFileParts?: FileUIPart[],
-            deletedUrls?: string[]
-        ) => {
+            deletedUrls?: string[],
+            config?: GenerationConfig
+        ): Promise<boolean> => {
             const messageIndex = messages.findIndex((m) => m.id === messageId)
-            if (messageIndex === -1) return
+            if (messageIndex === -1) return Promise.resolve(false)
+            if (composerStatus === "submitted" || composerStatus === "streaming") {
+                toast.error(
+                    "Wait for the current response to finish, or stop it before saving your edit."
+                )
+                return Promise.resolve(false)
+            }
             const editedAssistantMessageId = messages
                 .slice(messageIndex + 1)
                 .find((candidate) => candidate.role === "assistant")?.id
-
-            if (deletedUrls && deletedUrls.length > 0) {
-                const deletionKeys = deletedUrls
-                    .map((url) => extractR2KeyFromUrl(url))
-                    .filter((key): key is string => Boolean(key))
-
-                if (deletionKeys.length > 0) {
-                    void Promise.allSettled(
-                        deletionKeys.map((key) => deleteFileMutation({ key }))
-                    ).then((results) => {
-                        let deletedCount = 0
-                        let alreadyDeletedCount = 0
-                        let failedCount = 0
-
-                        for (const result of results) {
-                            if (result.status === "rejected") {
-                                failedCount += 1
-                            } else if (result.value?.success) {
-                                deletedCount += 1
-                            } else if (result.value?.error === "File not found") {
-                                alreadyDeletedCount += 1
-                            } else {
-                                failedCount += 1
-                            }
-                        }
-
-                        if (deletedCount > 0) {
-                            toast.success(
-                                deletedCount === 1
-                                    ? "Attachment deleted"
-                                    : `${deletedCount} attachments deleted`
-                            )
-                        }
-                        if (alreadyDeletedCount > 0) {
-                            toast.info(
-                                alreadyDeletedCount === 1
-                                    ? "Attachment was already deleted"
-                                    : `${alreadyDeletedCount} attachments were already deleted`
-                            )
-                        }
-                        if (failedCount > 0) {
-                            toast.error(
-                                failedCount === 1
-                                    ? "Failed to delete attachment"
-                                    : `Failed to delete ${failedCount} attachments`
-                            )
-                        }
-                    })
-                }
-            }
 
             // Truncate messages and update the edited message
             const messagesUpToEdit = messages.slice(0, messageIndex)
@@ -404,27 +401,108 @@ export function useChatActions<TMessage extends UIMessage>({
                 parts: [...(remainingFileParts || []), { type: "text" as const, text: newContent }]
             }
 
+            const originalFooter = editedAssistantMessageId
+                ? useMessageFooterStore.getState().footerMetadataByMessageId[
+                      editedAssistantMessageId
+                  ]
+                : undefined
+
             if (editedAssistantMessageId) {
                 useMessageFooterStore.getState().clearFooterMetadata(editedAssistantMessageId)
             }
             primeImmediateMessageUpdates()
             flushSync(() => {
-                setTargetFromMessageId(undefined)
-                setTargetMode("normal")
-            })
-
-            flushSync(() => {
                 setMessages([...messagesUpToEdit, updatedEditedMessage])
             })
-            void regenerate({
-                messageId,
-                body: {
-                    targetMode: "edit",
-                    targetFromMessageId: messageId
+            const submissionId = nanoid()
+            return observeChatSubmission(submissionId, () =>
+                regenerate({
+                    messageId,
+                    body: {
+                        targetMode: "edit",
+                        targetFromMessageId: messageId,
+                        submissionId,
+                        ...(config
+                            ? {
+                                  generationConfigOverride: config,
+                                  modelIdOverride: config.modelId,
+                                  reasoningEffortOverride: config.reasoningEffort
+                              }
+                            : {})
+                    }
+                })
+            ).then((result) => {
+                if (!result.accepted) {
+                    // Only undo this optimistic edit; never replace a newer conversation state.
+                    setMessages((current) =>
+                        [...current].reverse().find((message) => message.role === "user")?.id ===
+                        messageId
+                            ? messages
+                            : current
+                    )
+                    if (editedAssistantMessageId && originalFooter)
+                        useMessageFooterStore
+                            .getState()
+                            .setFooterMetadata(editedAssistantMessageId, originalFooter)
+                    return false
                 }
+                if (deletedUrls && deletedUrls.length > 0) {
+                    const deletionKeys = deletedUrls
+                        .map((url) => extractR2KeyFromUrl(url))
+                        .filter((key): key is string => Boolean(key))
+
+                    if (deletionKeys.length > 0) {
+                        void Promise.allSettled(
+                            deletionKeys.map((key) => deleteFileMutation({ key }))
+                        ).then((results) => {
+                            let deletedCount = 0
+                            let alreadyDeletedCount = 0
+                            let failedCount = 0
+
+                            for (const result of results) {
+                                if (result.status === "rejected") {
+                                    failedCount += 1
+                                } else if (result.value?.success) {
+                                    deletedCount += 1
+                                } else if (result.value?.error === "File not found") {
+                                    alreadyDeletedCount += 1
+                                } else {
+                                    failedCount += 1
+                                }
+                            }
+
+                            if (deletedCount > 0) {
+                                toast.success(
+                                    deletedCount === 1
+                                        ? "Attachment deleted"
+                                        : `${deletedCount} attachments deleted`
+                                )
+                            }
+                            if (alreadyDeletedCount > 0) {
+                                toast.info(
+                                    alreadyDeletedCount === 1
+                                        ? "Attachment was already deleted"
+                                        : `${alreadyDeletedCount} attachments were already deleted`
+                                )
+                            }
+                            if (failedCount > 0) {
+                                toast.error(
+                                    failedCount === 1
+                                        ? "Failed to delete attachment"
+                                        : `Failed to delete ${failedCount} attachments`
+                                )
+                            }
+                        })
+                    }
+                }
+
+                setTargetFromMessageId(undefined)
+                setTargetMode("normal")
+                return true
             })
         },
         [
+            composerStatus,
             messages,
             setMessages,
             setTargetFromMessageId,

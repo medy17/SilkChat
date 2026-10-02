@@ -19,7 +19,7 @@ vi.mock("convex/values", () => ({
 
 vi.mock("../../convex/_generated/api", () => ({
     components: {
-        r2: "r2"
+        r2: { lib: { getUploadReservation: "getUploadReservation", deleteObject: "deleteObject" } }
     },
     internal: {
         account_deletion: {
@@ -278,6 +278,42 @@ describe("attachments", () => {
         expect(r2.deleteObject).toHaveBeenCalledWith(expect.anything(), "file-1")
         expect(result).toEqual({ success: true })
     })
+
+    it.each(["user-1", "user-2"])(
+        "checks ownership when canceling a pending reservation belonging to %s",
+        async (authorId) => {
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+            ;(r2.getMetadata as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null)
+            const config = {
+                bucket: "uploads",
+                endpoint: "https://storage.example",
+                accessKeyId: "test",
+                secretAccessKey: "test"
+            }
+            vi.spyOn(r2, "config", "get").mockReturnValue(config)
+            const expiresAt = Date.now() + 600_000
+            const ctx = { ...createQueryCtx(), scheduler: { runAt: vi.fn() } }
+            ctx.runQuery.mockResolvedValueOnce({
+                authorId,
+                uploadStatus: "pending",
+                uploadExpiresAt: expiresAt
+            })
+            const result = await deleteFileHandler(ctx, { key: "pending-file" })
+            if (authorId === "user-1") {
+                expect(result).toEqual({ success: true })
+                expect(r2.deleteObject).toHaveBeenCalledWith(ctx, "pending-file")
+                expect(ctx.scheduler.runAt).toHaveBeenCalledWith(
+                    expiresAt + 300_000,
+                    "deleteObject",
+                    { ...config, key: "pending-file" }
+                )
+            } else {
+                expect(result).toMatchObject({ success: false })
+                expect(r2.deleteObject).not.toHaveBeenCalled()
+                expect(ctx.scheduler.runAt).not.toHaveBeenCalled()
+            }
+        }
+    )
 
     it("walks generated-file pages, deduplicates repeated cursors, and sorts by size", async () => {
         getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })

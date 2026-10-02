@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { useModelStore } from "@/lib/model-store"
+import { useComposerModelStore as useModelStore } from "@/components/composer/model-context"
 import {
     IMAGE_RESOLUTION_OPTIONS,
     type ImageDefaultResolution,
@@ -452,6 +452,8 @@ export const ToolSelectorPopover = memo(
         const [internalOpen, setInternalOpen] = useState(false)
         const autoSelectTools = useModelStore((state) => state.autoSelectTools)
         const setAutoSelectTools = useModelStore((state) => state.setAutoSelectTools)
+        const sessionToolLimit = useModelStore((state) => state.toolCallLimitPerTurn)
+        const setSessionToolLimit = useModelStore((state) => state.setToolCallLimitPerTurn)
         const open = controlledOpen ?? internalOpen
         const setOpen = (nextOpen: boolean) => {
             if (controlledOpen === undefined) setInternalOpen(nextOpen)
@@ -511,6 +513,10 @@ export const ToolSelectorPopover = memo(
         }
         const updateToolCallLimit = async (nextLimit: number, isInteractive: boolean) => {
             if (!isInteractive) {
+                return
+            }
+            if (setSessionToolLimit) {
+                setSessionToolLimit(nextLimit)
                 return
             }
 
@@ -600,7 +606,7 @@ export const ToolSelectorPopover = memo(
 
         const activeCount = getActiveToolsCount()
         const effectiveToolCallLimit = clampToolCallLimitPerTurn(
-            userSettings.toolCallLimitPerTurn,
+            sessionToolLimit ?? userSettings.toolCallLimitPerTurn,
             { hasEnabledTools: activeCount > 0 }
         )
 

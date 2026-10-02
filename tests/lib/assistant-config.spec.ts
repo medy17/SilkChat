@@ -16,6 +16,27 @@ const createModel = (overrides: Partial<SharedModel>): SharedModel =>
     }) as SharedModel
 
 describe("assistant-config", () => {
+    it("does not borrow a later turn's checkpoint when a reply is missing", () => {
+        const generationConfig = {
+            modelId: "original-model",
+            reasoningEffort: "low" as const,
+            enabledTools: [],
+            autoSelectTools: false
+        }
+        const laterTurn = [
+            { id: "u2", role: "user" },
+            { id: "a2", role: "assistant", metadata: { modelId: "later-model" } }
+        ]
+        expect(
+            getRetryTargetAssistantConfig(
+                [{ id: "u1", role: "user", metadata: { generationConfig } }, ...laterTurn],
+                "u1"
+            )?.generationConfig
+        ).toEqual(generationConfig)
+        expect(
+            getRetryTargetAssistantConfig([{ id: "u1", role: "user" }, ...laterTurn], "u1")
+        ).toBeNull()
+    })
     it("uses the assistant reply metadata for retry same", () => {
         const config = getRetryTargetAssistantConfig(
             [

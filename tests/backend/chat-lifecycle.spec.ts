@@ -44,6 +44,73 @@ const setup = async () => {
 }
 
 describe("chat turn lifecycle", () => {
+    it("persists generation checkpoints with a turn and replaces them on an accepted edit", async () => {
+        const { t, threadId } = await setup()
+        const config = {
+            modelId: "original",
+            reasoningEffort: "high" as const,
+            enabledTools: ["web_search" as const],
+            autoSelectTools: false,
+            toolCallLimitPerTurn: 3,
+            resolvedTools: ["web_search" as const]
+        }
+        const result = await t.mutation(internal.threads.createThreadOrInsertMessages, {
+            threadId,
+            authorId: "user",
+            proposedNewAssistantId: "next-answer",
+            userMessage: {
+                messageId: "next-question",
+                role: "user",
+                parts: [{ type: "text", text: "Next" }]
+            },
+            generationConfig: config
+        })
+        if (!result || !("assistantMessageConvexId" in result))
+            throw new Error("Expected saved turn")
+        await t.mutation(internal.messages.patchMessage, {
+            threadId,
+            messageId: result.assistantMessageId,
+            parts: [{ type: "text", text: "Answer" }],
+            metadata: { modelId: "original" }
+        })
+        expect(await t.run((ctx) => ctx.db.get(result.assistantMessageConvexId))).toMatchObject({
+            metadata: { generationConfig: config }
+        })
+        const edited = {
+            ...config,
+            modelId: "replacement",
+            enabledTools: [],
+            autoSelectTools: true
+        }
+        const saved = await t.mutation(internal.threads.createThreadOrInsertMessages, {
+            threadId,
+            authorId: "user",
+            proposedNewAssistantId: "edit-answer",
+            targetMode: "edit",
+            targetFromMessageId: "next-question",
+            userMessage: {
+                messageId: "next-question",
+                role: "user",
+                parts: [{ type: "text", text: "Edited" }]
+            },
+            generationConfig: edited
+        })
+        if (!saved || !("assistantMessageConvexId" in saved))
+            throw new Error("Expected edited turn")
+        expect(await t.run((ctx) => ctx.db.get(saved.assistantMessageConvexId))).toMatchObject({
+            metadata: { generationConfig: edited }
+        })
+        const question = await t.run((ctx) =>
+            ctx.db
+                .query("messages")
+                .withIndex("byMessageId", (q) => q.eq("messageId", "next-question"))
+                .first()
+        )
+        expect(question).toMatchObject({
+            parts: [{ type: "text", text: "Edited" }],
+            metadata: { generationConfig: edited }
+        })
+    })
     it.each(["untouched", "edited", "streaming", "new-message", "wrong-owner"])(
         "rolls back a rejected opening only while untouched: %s",
         async (state) => {

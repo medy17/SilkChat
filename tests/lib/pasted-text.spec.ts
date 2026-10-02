@@ -7,6 +7,14 @@ import {
 import { describe, expect, it } from "vitest"
 
 describe("pasted text policy", () => {
+    it("keeps long text inline without enabling tools when the editor's attachment queue is busy", () => {
+        const decision = classifyPastedText("word ".repeat(30_000), {
+            canReferenceLongTextAttachments: true,
+            attachmentQueueBusy: true
+        })
+        expect(decision.disposition).toBe("inline")
+        expect(getEnabledToolsForPastedText(decision, ["web_search"])).toEqual(["web_search"])
+    })
     it("keeps pastes under 16k tokens inline and turns longer pastes into a URL-backed attachment", () => {
         const inline = classifyPastedText("A short note", {
             canReferenceLongTextAttachments: true

@@ -7,6 +7,7 @@ import {
 } from "@/lib/thread-drafts"
 import { useMutation } from "convex/react"
 import { useCallback } from "react"
+import { invalidateComposerDrafts } from "@/lib/composer-session"
 
 export function useThreadDraftCleanup() {
     const deleteFileMutation = useMutation(api.attachments.deleteFile)
@@ -29,6 +30,7 @@ export function useThreadDraftCleanup() {
         flushPendingDraftAttachments: deleteQueuedAttachments,
         deleteThreadDraft: useCallback(
             (threadId: string) => {
+                invalidateComposerDrafts((scope) => scope.threadId === threadId)
                 cascadeDeleteThreadDraft(threadId)
                 void deleteQueuedAttachments()
             },
@@ -36,6 +38,11 @@ export function useThreadDraftCleanup() {
         ),
         deleteFolderDrafts: useCallback(
             (folderId: string, deletedThreadIds: readonly string[] = []) => {
+                invalidateComposerDrafts(
+                    (scope) =>
+                        scope.folderId === folderId ||
+                        Boolean(scope.threadId && deletedThreadIds.includes(scope.threadId))
+                )
                 cascadeDeleteFolderDrafts(folderId, deletedThreadIds)
                 void deleteQueuedAttachments()
             },

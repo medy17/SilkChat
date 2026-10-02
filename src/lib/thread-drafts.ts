@@ -109,7 +109,11 @@ const writeRegistry = (registry: ThreadDraftRegistry): boolean => {
 }
 
 const attachmentKeysFromDrafts = (drafts: ThreadDraft[]) => [
-    ...new Set(drafts.flatMap((draft) => draft.attachments.map((file) => file.key)))
+    ...new Set(
+        drafts.flatMap((draft) =>
+            draft.attachments.filter((file) => !file.inlineDataUrl).map((file) => file.key)
+        )
+    )
 ]
 
 const removeDrafts = (matches: (draft: ThreadDraft) => boolean) => {
@@ -162,9 +166,14 @@ export const saveThreadDraft = (draft: ThreadDraft): boolean => {
         ...draft,
         // The uploaded object is the durable draft state. Keeping the source paste here can
         // stringify megabytes on every composer edit and can exceed localStorage quotas.
-        attachments: draft.attachments.map(
-            ({ largePasteContent: _largePasteContent, ...attachment }) => attachment
-        )
+        attachments: draft.attachments.map((file) => {
+            const {
+                largePasteContent: _largePasteContent,
+                file: _sourceFile,
+                ...attachment
+            } = file as UploadedFile & { file?: File }
+            return attachment
+        })
     }
     const existing = registry.drafts[draft.key]
 

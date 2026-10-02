@@ -414,7 +414,9 @@ export function useChatIntegration<IsShared extends boolean>({
                       const requestBody = body as Record<string, unknown> & {
                           modelIdOverride?: string
                           reasoningEffortOverride?: ReasoningEffort
+                          generationConfigOverride?: import("@/lib/assistant-config").GenerationConfig
                       }
+                      const editConfig = requestBody.generationConfigOverride
 
                       return {
                           headers: {
@@ -430,12 +432,15 @@ export function useChatIntegration<IsShared extends boolean>({
                                   role: message?.role,
                                   messageId: message?.id
                               },
-                              enabledTools: currentContext.threadId
-                                  ? useModelStore.getState().conversationTools[
-                                        currentContext.threadId
-                                    ]
-                                  : enabledTools,
-                              autoSelectTools,
+                              enabledTools: editConfig
+                                  ? editConfig.enabledTools
+                                  : currentContext.threadId
+                                    ? useModelStore.getState().conversationTools[
+                                          currentContext.threadId
+                                      ]
+                                    : enabledTools,
+                              autoSelectTools: editConfig?.autoSelectTools ?? autoSelectTools,
+                              toolCallLimitPerTurn: editConfig?.toolCallLimitPerTurn,
                               folderId: currentContext.folderId,
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,

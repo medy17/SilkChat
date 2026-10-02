@@ -1464,79 +1464,96 @@ describe("chatPOST", () => {
         }
     )
 
-    it("returns bad_request when message creation fails before streaming begins", async () => {
-        const ctx = createCtx()
-        ctx.runMutation.mockImplementation(async (name: string) => {
-            switch (name) {
-                case "reserveCreditForMessage":
-                    return {
-                        allowed: true,
-                        bypassed: false,
-                        existing: false,
-                        committed: false
-                    }
-                case "createThreadOrInsertMessages":
-                    throw new Error("db failure")
-                case "releaseReservedCreditForMessage":
-                    return null
-                default:
-                    throw new Error(`Unexpected mutation: ${name}`)
-            }
-        })
-
-        getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
-        getModelMock.mockResolvedValueOnce({
-            model: { modelType: "text" },
-            modelName: "Shared Text",
-            providerSource: "internal",
-            abilities: [],
-            registry: {
-                models: {
-                    "shared-text": {
-                        abilities: []
-                    }
-                }
-            }
-        })
-        ctx.runQuery.mockImplementation(
-            withReadinessQueries(async (name: string) => {
+    it.each([false, true])(
+        "reports acceptance accurately when setup fails (saved=%s)",
+        async (saved) => {
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
                 switch (name) {
-                    case "getUserSettingsInternal":
+                    case "reserveCreditForMessage":
                         return {
-                            userId: "user-1",
-                            searchProvider: "firecrawl",
-                            searchIncludeSourcesByDefault: false,
-                            toolCallLimitPerTurn: 3,
-                            generalProviders: {}
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
                         }
+                    case "createThreadOrInsertMessages":
+                        if (saved)
+                            return { threadId: "thread-1", assistantMessageConvexId: "assistant-1" }
+                        throw new Error("db failure")
+                    case "releaseReservedCreditForMessage":
+                        return null
                     default:
-                        throw new Error(`Unexpected query: ${name}`)
+                        throw new Error(`Unexpected mutation: ${name}`)
                 }
             })
-        )
 
-        const response = await chatPOSTHandler(
-            ctx,
-            createRequest({
-                model: "shared-text",
-                proposedNewAssistantId: "assistant-1",
-                message: {
-                    role: "user",
-                    parts: [{ type: "text", text: "hello" }]
-                },
-                enabledTools: []
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
+            getModelMock.mockResolvedValueOnce({
+                model: { modelType: "text" },
+                modelName: "Shared Text",
+                providerSource: "internal",
+                abilities: [],
+                registry: {
+                    models: {
+                        "shared-text": {
+                            abilities: []
+                        }
+                    }
+                }
             })
-        )
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getUserSettingsInternal":
+                            return {
+                                userId: "user-1",
+                                searchProvider: "firecrawl",
+                                searchIncludeSourcesByDefault: false,
+                                toolCallLimitPerTurn: 3,
+                                generalProviders: {}
+                            }
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
+                    }
+                })
+            )
 
-        expect(response.status).toBe(400)
-        await expect(response.json()).resolves.toMatchObject({
-            code: "bad_request:chat"
-        })
-        expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
-            userId: "user-1",
-            messageKey: "assistant-1:model"
-        })
-    })
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "shared-text",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "hello" }]
+                    },
+                    enabledTools: []
+                })
+            )
+
+            expect(response.status).toBe(400)
+            expect(response.headers.get("X-Silkchat-Accepted-Thread")).toBe(
+                saved ? "thread-1" : null
+            )
+            expect(ctx.runMutation).toHaveBeenCalledWith(
+                "createThreadOrInsertMessages",
+                expect.objectContaining({
+                    generationConfig: expect.objectContaining({
+                        toolCallLimitPerTurn: 3,
+                        resolvedToolCallLimitPerTurn: 0
+                    })
+                })
+            )
+            await expect(response.json()).resolves.toMatchObject({
+                code: "bad_request:chat"
+            })
+            expect(ctx.runMutation).toHaveBeenCalledWith("releaseReservedCreditForMessage", {
+                userId: "user-1",
+                messageKey: "assistant-1:model"
+            })
+        }
+    )
 
     it.each([
         [false, false, false, false],

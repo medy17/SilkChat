@@ -1,3 +1,4 @@
+import { getThreadDraftKey } from "@/lib/thread-drafts"
 import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import {
@@ -193,6 +194,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const setMessagesRef = useRef(chatHelpers.setMessages)
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
+        isActive: isActiveRoute,
         threadId,
         folderId,
         sharedModels,
@@ -246,8 +248,9 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         ) {
             chatHelpers.setMessages([syntheticOpeningMessage])
         }
-        handleInputSubmit(inputValue, fileValues)
+        const result = handleInputSubmit(inputValue, fileValues)
         messagesRef.current?.scrollToBottom("smooth")
+        return result
     }
     const suggestedReplies = awaitingFirstReply
         ? (pendingPersonaOpening?.suggestedReplies ?? [])
@@ -503,7 +506,11 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="relative flex h-[calc(100dvh-var(--app-header-height))] flex-col"
         >
-            <FullPageDropOverlay onDrop={handleFileDrop} enabled={isActiveRoute} />
+            <FullPageDropOverlay
+                onDrop={handleFileDrop}
+                enabled={isActiveRoute}
+                scopeKey={getThreadDraftKey({ threadId, folderId })}
+            />
 
             <RoleplayPersonaProvider value={roleplayPersona}>
                 <RoleplayUserImageProvider value={session?.user?.image || undefined}>
@@ -521,6 +528,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             onScrollDirectionChange={setScrollDirection}
                             threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
                             threadId={threadId ?? routeThreadId}
+                            folderId={folderId}
                         />
                     </RoleplayPortraitsProvider>
                 </RoleplayUserImageProvider>

@@ -1,7 +1,11 @@
+import { settleChatSubmission } from "@/lib/chat-submission"
+import { createChatTransportFetch } from "@/lib/chat-transport-fetch"
+import type { UploadedFile } from "@/lib/chat-store"
 // @vitest-environment jsdom
 
 import type { SharedModel } from "@/convex/lib/models"
 import { act, renderHook } from "@testing-library/react"
+import { useState } from "react"
 import type { FileUIPart, UIMessage } from "ai"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -51,6 +55,8 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("sonner", () => ({
     toast: {
+        success: vi.fn(),
+        info: vi.fn(),
         error: toastErrorMock
     }
 }))
@@ -81,7 +87,6 @@ const createModel = (overrides: Partial<SharedModel>): SharedModel =>
 const resetChatStore = () => {
     useChatStore.setState({
         threadId: undefined,
-        uploadedFiles: [],
         rerenderTrigger: "rerender-1",
         lastProcessedDataIndex: -1,
         shouldUpdateQuery: false,
@@ -92,7 +97,6 @@ const resetChatStore = () => {
         manuallyStoppedThreads: {},
         targetFromMessageId: undefined,
         targetMode: "normal",
-        uploading: false,
         pendingBranchRetry: undefined,
         pendingBranchHydration: undefined,
         pendingBranchGenerations: {}
@@ -144,6 +148,98 @@ describe("useChatActions", () => {
         navigateMock.mockResolvedValue(undefined)
         useMessageFooterStore.setState({ footerMetadataByMessageId: {} })
     })
+
+    it.each([undefined, "folder-1"])(
+        "opens a committed first turn after stream setup fails (folder=%s)",
+        async (folderId) => {
+            const transport = createChatTransportFetch(
+                async () =>
+                    new Response("Setup failed", {
+                        status: 400,
+                        headers: { "X-Silkchat-Accepted-Thread": "saved-thread" }
+                    })
+            )
+            const { result } = renderHook(() =>
+                useChatActions({
+                    threadId: undefined,
+                    folderId,
+                    sharedModels: [],
+                    availableModels: [],
+                    chat: {
+                        status: "ready",
+                        messages: [],
+                        stop: vi.fn(),
+                        setMessages: vi.fn(),
+                        regenerate: vi.fn(),
+                        sendMessage: async (_message, options) => {
+                            const response = await transport("https://example.com/chat", {
+                                method: "POST",
+                                body: JSON.stringify(options?.body)
+                            })
+                            if (!response.ok) throw new Error("Setup failed")
+                        }
+                    }
+                })
+            )
+            await act(async () => {
+                expect(await result.current.handleInputSubmit("Hello")).toMatchObject({
+                    accepted: true,
+                    threadId: "saved-thread"
+                })
+            })
+            expect(useChatStore.getState().threadId).toBe("saved-thread")
+            expect(navigateMock).toHaveBeenCalledWith(
+                folderId
+                    ? {
+                          to: "/folder/$folderId/thread/$threadId",
+                          params: { folderId, threadId: "saved-thread" }
+                      }
+                    : { to: "/thread/$threadId", params: { threadId: "saved-thread" } }
+            )
+        }
+    )
+
+    it.each(["inactive", "other-thread", "new-chat", "unmounted"])(
+        "does not adopt delayed acceptance after the originating surface is %s",
+        async (change) => {
+            const { result, rerender, unmount } = renderHook(
+                ({ isActive, threadId }: { isActive: boolean; threadId?: string }) =>
+                    useChatActions({
+                        threadId,
+                        isActive,
+                        sharedModels: [],
+                        availableModels: [],
+                        chat: {
+                            status: "ready",
+                            messages: [],
+                            sendMessage: () => new Promise(() => {}),
+                            stop: vi.fn(),
+                            setMessages: vi.fn(),
+                            regenerate: vi.fn()
+                        }
+                    }),
+                { initialProps: { isActive: true, threadId: undefined as string | undefined } }
+            )
+            let sending!: ReturnType<typeof result.current.handleInputSubmit>
+            act(() => {
+                sending = result.current.handleInputSubmit("Hello")
+            })
+            if (change === "inactive") rerender({ isActive: false, threadId: undefined })
+            if (change === "other-thread") rerender({ isActive: true, threadId: "other" })
+            if (change === "new-chat") act(() => useChatStore.getState().resetChat())
+            if (change === "unmounted") unmount()
+            await act(async () => {
+                settleChatSubmission("generated-message-id", {
+                    accepted: true,
+                    threadId: "saved-thread",
+                    streamSetupFailed: true
+                })
+                await sending
+            })
+            expect(useChatStore.getState().threadId).not.toBe("saved-thread")
+            expect(navigateMock).not.toHaveBeenCalled()
+        }
+    )
 
     it("stops the active stream instead of sending a new message while streaming", () => {
         const sendMessage = vi.fn()
@@ -203,7 +299,7 @@ describe("useChatActions", () => {
         result.current.handleInputSubmit("hello from viewer")
 
         expect(stop).not.toHaveBeenCalled()
-        expect(sendMessage).toHaveBeenCalledWith({
+        expect(sendMessage.mock.calls[0][0]).toEqual({
             id: "generated-message-id",
             role: "user",
             parts: [
@@ -219,10 +315,10 @@ describe("useChatActions", () => {
         )
     })
 
-    it("sends trimmed input plus uploaded files and clears the store", () => {
+    it("serializes the explicit attachment payload and trims text", () => {
         const sendMessage = vi.fn()
 
-        useChatStore.getState().setUploadedFiles([
+        const files: UploadedFile[] = [
             {
                 key: "file-1",
                 fileName: "notes.txt",
@@ -230,7 +326,7 @@ describe("useChatActions", () => {
                 fileSize: 10,
                 uploadedAt: 1
             }
-        ])
+        ]
 
         const { result } = renderHook(() =>
             useChatActions({
@@ -249,9 +345,9 @@ describe("useChatActions", () => {
             })
         )
 
-        result.current.handleInputSubmit("  hello world  ")
+        result.current.handleInputSubmit("  hello world  ", files)
 
-        expect(sendMessage).toHaveBeenCalledWith({
+        expect(sendMessage.mock.calls[0][0]).toEqual({
             id: "generated-message-id",
             role: "user",
             parts: [
@@ -269,7 +365,6 @@ describe("useChatActions", () => {
         })
         expect(useChatStore.getState().pendingStreams["thread-1"]).toBe(true)
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)
-        expect(useChatStore.getState().uploadedFiles).toEqual([])
     })
 
     it("sends a large-paste tile with inline content and preserved tile semantics", () => {
@@ -277,7 +372,7 @@ describe("useChatActions", () => {
         const inlineDataUrl =
             "data:text/markdown;charset=utf-8,%3Cfile%20converted-by%3D%22anydoc-wasm%22%3Eslides%3C%2Ffile%3E"
 
-        useChatStore.getState().setUploadedFiles([
+        const files: UploadedFile[] = [
             {
                 key: "inline-document:1",
                 fileName: "slides.pptx",
@@ -287,7 +382,7 @@ describe("useChatActions", () => {
                 tileKind: "large-paste",
                 inlineDataUrl
             }
-        ])
+        ]
 
         const { result } = renderHook(() =>
             useChatActions({
@@ -306,9 +401,9 @@ describe("useChatActions", () => {
             })
         )
 
-        result.current.handleInputSubmit("summarise")
+        result.current.handleInputSubmit("summarise", files)
 
-        expect(sendMessage).toHaveBeenCalledWith({
+        expect(sendMessage.mock.calls[0][0]).toEqual({
             id: "generated-message-id",
             role: "user",
             parts: [
@@ -586,9 +681,15 @@ describe("useChatActions", () => {
         })
     })
 
-    it("updates edited messages and deletes removed attachments before regenerating", async () => {
+    it("keeps removed attachments until the edit is accepted", async () => {
         const setMessages = vi.fn()
-        const regenerate = vi.fn()
+        let finishGeneration!: () => void
+        const regenerate = vi.fn(
+            () =>
+                new Promise<void>((resolve) => {
+                    finishGeneration = resolve
+                })
+        )
         const messages: TestMessage[] = [
             { id: "m1", role: "user", parts: [{ type: "text", text: "hello" }] },
             {
@@ -638,14 +739,21 @@ describe("useChatActions", () => {
             completionTokens: 100
         })
 
-        result.current.handleEditAndRetry("m2", "after edit", remainingFileParts, [
+        const saved = result.current.handleEditAndRetry("m2", "after edit", remainingFileParts, [
             "https://r2.silkchat.dev/file-1",
             "not-a-url"
         ])
 
-        expect(deleteFileMutationMock).toHaveBeenCalledWith({
-            key: "file-1"
+        expect(deleteFileMutationMock).not.toHaveBeenCalled()
+        await Promise.resolve()
+        expect(deleteFileMutationMock).not.toHaveBeenCalled()
+        settleChatSubmission("generated-message-id", {
+            accepted: true,
+            threadId: "thread-1"
         })
+        await expect(saved).resolves.toBe(true)
+        finishGeneration()
+        expect(deleteFileMutationMock).toHaveBeenCalledWith({ key: "file-1" })
         expect(setMessages.mock.invocationCallOrder[0]).toBeLessThan(
             regenerate.mock.invocationCallOrder[0]
         )
@@ -668,8 +776,93 @@ describe("useChatActions", () => {
             messageId: "m2",
             body: {
                 targetMode: "edit",
-                targetFromMessageId: "m2"
+                targetFromMessageId: "m2",
+                submissionId: expect.any(String)
             }
         })
     })
+
+    it("a rejected edit restores history and footer data and keeps the editor open", async () => {
+        const original: TestMessage[] = [
+            { id: "user", role: "user", parts: [{ type: "text", text: "Before" }] },
+            { id: "assistant", role: "assistant", parts: [{ type: "text", text: "Reply" }] }
+        ]
+        const footer = { modelName: "Historical", completionTokens: 30 }
+        useMessageFooterStore.getState().setFooterMetadata("assistant", footer)
+        useChatStore.setState({ targetFromMessageId: "user", targetMode: "edit" })
+        let reject!: (error: Error) => void
+        const regenerate = vi.fn(
+            () =>
+                new Promise<void>((_resolve, rejectPromise) => {
+                    reject = rejectPromise
+                })
+        )
+        const { result } = renderHook(() => {
+            const [messages, setMessages] = useState(original)
+            const actions = useChatActions({
+                threadId: "thread-1",
+                sharedModels: [],
+                availableModels: [],
+                chat: {
+                    status: "idle",
+                    messages,
+                    setMessages,
+                    regenerate,
+                    sendMessage: vi.fn(),
+                    stop: vi.fn()
+                }
+            })
+            return { messages, actions }
+        })
+        let saved!: Promise<boolean>
+        act(() => {
+            saved = result.current.actions.handleEditAndRetry(
+                "user",
+                "Edited",
+                [],
+                ["https://r2.silkchat.dev/removed"]
+            )
+        })
+        expect(result.current.messages).toHaveLength(1)
+        expect(useMessageFooterStore.getState().footerMetadataByMessageId.assistant).toBeUndefined()
+        await act(async () => {
+            reject(new Error("Not saved"))
+            await expect(saved).resolves.toBe(false)
+        })
+        expect(result.current.messages).toEqual(original)
+        expect(useMessageFooterStore.getState().footerMetadataByMessageId.assistant).toMatchObject(
+            footer
+        )
+        expect(useChatStore.getState()).toMatchObject({
+            targetFromMessageId: "user",
+            targetMode: "edit"
+        })
+        expect(deleteFileMutationMock).not.toHaveBeenCalled()
+    })
+
+    it.each(["submitted", "streaming"])(
+        "explains why an edit cannot save during a %s response",
+        async (composerStatus) => {
+            const regenerate = vi.fn()
+            const { result } = renderHook(() =>
+                useChatActions({
+                    threadId: "thread-1",
+                    sharedModels: [],
+                    availableModels: [],
+                    chat: {
+                        status: "idle",
+                        composerStatus,
+                        messages: [{ id: "user", role: "user", parts: [] }],
+                        setMessages: vi.fn(),
+                        regenerate,
+                        sendMessage: vi.fn(),
+                        stop: vi.fn()
+                    }
+                })
+            )
+            await expect(result.current.handleEditAndRetry("user", "Edited")).resolves.toBe(false)
+            expect(toastErrorMock).toHaveBeenCalledWith(expect.stringContaining("current response"))
+            expect(regenerate).not.toHaveBeenCalled()
+        }
+    )
 })

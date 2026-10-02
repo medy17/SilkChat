@@ -117,6 +117,7 @@ export const AttachmentTile = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/80 text-foreground backdrop-blur-sm"
+                        style={{ borderRadius: "calc(var(--radius) - 2px)", overflow: "hidden" }}
                     >
                         <div className="relative flex h-8 w-full items-center justify-center">
                             <div
@@ -165,6 +166,7 @@ export const AttachmentTile = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+                        style={{ borderRadius: "calc(var(--radius) - 2px)", overflow: "hidden" }}
                     >
                         <span className="flex max-w-[90%] items-center gap-1 bg-destructive/10 px-2 py-1 font-medium text-destructive text-xs">
                             <CircleAlert className="size-3 shrink-0" />

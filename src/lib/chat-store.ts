@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { create } from "zustand"
 
 export type ChatMessageMetadata = {
+    generationConfig?: import("./assistant-config").GenerationConfig
     modelId?: string
     modelName?: string
     displayProvider?: string
@@ -73,7 +74,6 @@ export type PendingBranchGenerations = Record<string, boolean>
 
 interface ChatState {
     threadId: string | undefined
-    uploadedFiles: UploadedFile[]
     rerenderTrigger: string
     lastProcessedDataIndex: number
     shouldUpdateQuery: boolean
@@ -84,7 +84,6 @@ interface ChatState {
     manuallyStoppedThreads: Record<string, boolean>
     targetFromMessageId: string | undefined
     targetMode: "normal" | "edit" | "retry"
-    uploading: boolean
     selectedPersona: PersonaSelection
     pendingPersonaOpening: PendingPersonaOpening | undefined
     lastLocalMutationAt: number
@@ -95,9 +94,6 @@ interface ChatState {
 
 interface ChatActions {
     setThreadId: (threadId: string | undefined) => void
-    setUploadedFiles: (files: UploadedFile[]) => void
-    addUploadedFile: (file: UploadedFile) => void
-    removeUploadedFile: (key: string) => void
     setLastProcessedDataIndex: (index: number) => void
     setShouldUpdateQuery: (should: boolean) => void
     setSkipNextDataCheck: (skip: boolean) => void
@@ -108,7 +104,6 @@ interface ChatActions {
     setManuallyStoppedThread: (threadId: string, stopped: boolean) => void
     setTargetFromMessageId: (messageId: string | undefined) => void
     setTargetMode: (mode: "normal" | "edit" | "retry") => void
-    setUploading: (uploading: boolean) => void
     setRerenderTrigger: (rerenderTrigger: string) => void
     setSelectedPersona: (persona: PersonaSelection) => void
     setPendingPersonaOpening: (opening: PendingPersonaOpening | undefined) => void
@@ -120,7 +115,6 @@ interface ChatActions {
 
 const initialState: ChatState = {
     threadId: undefined,
-    uploadedFiles: [],
     rerenderTrigger: nanoid(),
     lastProcessedDataIndex: -1,
     shouldUpdateQuery: false,
@@ -131,7 +125,6 @@ const initialState: ChatState = {
     manuallyStoppedThreads: {},
     targetFromMessageId: undefined,
     targetMode: "normal",
-    uploading: false,
     selectedPersona: { source: "default" },
     pendingPersonaOpening: undefined,
     lastLocalMutationAt: 0,
@@ -144,19 +137,9 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     ...initialState,
 
     setThreadId: (threadId) => set({ threadId }),
-    setUploadedFiles: (uploadedFiles) => set({ uploadedFiles }),
-    addUploadedFile: (file) =>
-        set((state) => ({
-            uploadedFiles: [...state.uploadedFiles, file]
-        })),
-    removeUploadedFile: (key) =>
-        set((state) => ({
-            uploadedFiles: state.uploadedFiles.filter((f) => f.key !== key)
-        })),
     setLastProcessedDataIndex: (lastProcessedDataIndex) => set({ lastProcessedDataIndex }),
     setShouldUpdateQuery: (shouldUpdateQuery) => set({ shouldUpdateQuery }),
     setSkipNextDataCheck: (skipNextDataCheck) => set({ skipNextDataCheck }),
-    setUploading: (uploading) => set({ uploading }),
     setRerenderTrigger: (rerenderTrigger) => set({ rerenderTrigger }),
     setSelectedPersona: (selectedPersona) => set({ selectedPersona }),
     setPendingPersonaOpening: (pendingPersonaOpening) => set({ pendingPersonaOpening }),

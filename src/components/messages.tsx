@@ -1,43 +1,19 @@
-import { api } from "@/convex/_generated/api"
-import { useToken } from "@/hooks/auth-hooks"
+import { getRetryTargetAssistantConfig, type GenerationConfig } from "@/lib/assistant-config"
+import { EditableMessage } from "./composer/message-editor"
 import type { useChatIntegration } from "@/hooks/use-chat-integration"
 import { useMessageRenderFingerprints } from "@/hooks/use-message-render-fingerprints"
-import { useEditNavigationGuard } from "@/hooks/use-edit-navigation-guard"
 import { MessageEditContent } from "@/components/message-edit-content"
-import { useUploadPolicy } from "@/hooks/use-upload-policy"
 import type { AssistantConfigOverride } from "@/lib/assistant-config"
 import {
-    createInlineIngestedFile,
-    finalizeIngestedUpload,
-    ingestChatAttachment
-} from "@/lib/attachment-ingest"
-import {
-    getAttachmentValidationError,
     hasPdfAttachmentInMessages,
     hasVisionImageAttachmentInMessages
 } from "@/lib/attachment-support"
-import {
-    getAttachmentTileKind,
-    getAttachmentTileMediaType,
-    isLargePasteMediaType
-} from "@/lib/attachment-tile"
-import { resolveJwtToken } from "@/lib/auth-token"
+import { isLargePasteMediaType } from "@/lib/attachment-tile"
 import { getToolFailureAttempt, getToolFailureAttempts } from "@/lib/blocked-tool-attempt"
-import { browserEnv } from "@/lib/browser-env"
-import { prepareChatAttachmentForUpload, uploadChatAttachment } from "@/lib/chat-attachments"
-import { type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
-import {
-    getFileAcceptAttribute,
-    getFileTypeInfo,
-    isDocumentExtension,
-    isImageMimeType
-} from "@/lib/file_constants"
+import { getFileTypeInfo } from "@/lib/file_constants"
 import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
-import {
-    matchesCancelMessageEditShortcut,
-    matchesSaveMessageEditShortcut
-} from "@/lib/keyboard-shortcuts"
 import { getMessageCodeExecutions } from "@/lib/message-code-executions"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
@@ -48,15 +24,11 @@ import {
     getMessageRenderFingerprint
 } from "@/lib/message-render-fingerprint"
 import { getMessageWebSearches } from "@/lib/message-web-searches"
-import { useModelStore } from "@/lib/model-store"
-import { getEnabledToolsForPastedText } from "@/lib/pasted-text"
 import { formatQuotedSelection } from "@/lib/quote-selection"
-import { getPublicR2AssetUrl, resolvePublicFileUrl } from "@/lib/r2-public-url"
+import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { isTabularTextFile } from "@/lib/tabular-file-preview"
 import { cn, downloadUrl } from "@/lib/utils"
-import { useLocation } from "@tanstack/react-router"
 import type { FileUIPart, Tool, UIMessage, UIToolInvocation } from "ai"
-import { useMutation } from "convex/react"
 import {
     Code,
     Download,
@@ -65,11 +37,8 @@ import {
     FileType2,
     Image as ImageIcon,
     Quote,
-    RotateCcw,
-    Trash2,
     X
 } from "lucide-react"
-import { ArrowUp } from "lucide-react"
 import {
     type MouseEvent as ReactMouseEvent,
     forwardRef,
@@ -91,12 +60,6 @@ import { MemoizedMarkdown } from "./memoized-markdown"
 import { MESSAGE_MARKDOWN_CLASS, USER_MESSAGE_BUBBLE_CLASS } from "./message-presentation"
 import { RoleplayPortraitAssignmentRenderer } from "./renderers/roleplay-portrait-assignment"
 import { SkillLoaderRenderer } from "./renderers/skill-loader"
-import { ModelSelector } from "./model-selector"
-import {
-    ComposerDesktopActions,
-    ComposerMobileMenu,
-    useComposerToolbarState
-} from "./multimodal-input"
 import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { BlockedToolCard } from "./renderers/blocked-tool-card"
@@ -110,21 +73,9 @@ import { NativeNetworkToolRenderer } from "./renderers/native-network-tool"
 import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
 import { WebSearchGroupRenderer } from "./renderers/web-search-ui"
 import { TabularFilePreview } from "./tabular-file-preview"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle
-} from "./ui/alert-dialog"
 import { Button } from "./ui/button"
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Loader } from "./ui/loader"
-import { Textarea } from "./ui/textarea"
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 const extractFileName = (url: string) => {
     if (url.startsWith("data:")) return "Inline file"
@@ -152,7 +103,7 @@ const getFileIcon = (part: { url: string; filename?: string; mediaType?: string 
 }
 
 const hasVisibleAssistantContent = (message: UIMessage | undefined) => {
-    if (!message || message.role !== "assistant" || !message.parts?.length) {
+    if (message?.role !== "assistant" || !message.parts?.length) {
         return false
     }
 
@@ -182,7 +133,7 @@ export const shouldShowTypingLoader = ({
 }) => {
     const lastMessage = messages[messages.length - 1]
 
-    if (!lastMessage || lastMessage.role !== "assistant") {
+    if (lastMessage?.role !== "assistant") {
         return status === "submitted"
     }
 
@@ -471,769 +422,6 @@ const PartsRenderer = memo(
 )
 PartsRenderer.displayName = "PartsRenderer"
 
-type EditUploadingFile = {
-    id: string
-    file: File
-    displayName: string
-    tileKind: "attachment" | "large-paste"
-    progress: number
-    status: "uploading" | "success" | "ready" | "error"
-    previewUrl?: string
-    error?: string
-}
-
-const EditableMessage = memo(
-    ({
-        message,
-        onSave,
-        onCancel,
-        cancelRequestRef,
-        requiresNativePdfForModelSelection = false
-    }: {
-        message: UIMessage
-        onSave: (
-            newContent: string,
-            remainingFileParts?: FileUIPart[],
-            deletedUrls?: string[]
-        ) => void
-        onCancel: () => void
-        cancelRequestRef?: React.MutableRefObject<(() => void) | null>
-        requiresNativePdfForModelSelection?: boolean
-    }) => {
-        const location = useLocation()
-        const { token } = useToken()
-        const { policy: uploadPolicy, policyVersion, invalidateUploadPolicy } = useUploadPolicy()
-        const deleteFileMutation = useMutation(api.attachments.deleteFile)
-        const fileInputRef = useRef<HTMLInputElement>(null)
-        const activeUploadControllersRef = useRef(new Set<AbortController>())
-        const threadId = location.pathname.includes("/thread/")
-            ? location.pathname.split("/thread/")[1]?.split("/")[0]
-            : undefined
-
-        const {
-            selectedModel,
-            setSelectedModel,
-            enabledTools,
-            setEnabledTools,
-            reasoningEffort,
-            setReasoningEffort
-        } = useModelStore()
-        const composerToolbar = useComposerToolbarState()
-        const {
-            modelSupportsFunctionCalling,
-            modelSupportsVision,
-            modelSupportsNativePdf,
-            codeExecutionAvailable
-        } = composerToolbar
-
-        const textContent = message.parts
-            .filter((part) => part.type === "text")
-            .map((part) => part.text)
-            .join("\n")
-
-        const fileParts = message.parts.filter((p): p is FileUIPart => p.type === "file")
-
-        const [editedContent, setEditedContent] = useState(textContent)
-        const [deletedUrls, setDeletedUrls] = useState<string[]>([])
-        const [addedFiles, setAddedFiles] = useState<UploadedFile[]>([])
-        const [uploadingFiles, setUploadingFiles] = useState<EditUploadingFile[]>([])
-        const [uploading, setUploading] = useState(false)
-        const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
-        const initialEditSettingsRef = useRef({
-            selectedModel,
-            enabledTools: [...enabledTools],
-            reasoningEffort
-        })
-
-        const haveToolsChanged =
-            enabledTools.length !== initialEditSettingsRef.current.enabledTools.length ||
-            enabledTools.some(
-                (tool, index) => tool !== initialEditSettingsRef.current.enabledTools[index]
-            )
-
-        const hasUnsavedChanges =
-            editedContent !== textContent ||
-            deletedUrls.length > 0 ||
-            addedFiles.length > 0 ||
-            uploadingFiles.length > 0 ||
-            selectedModel !== initialEditSettingsRef.current.selectedModel ||
-            reasoningEffort !== initialEditSettingsRef.current.reasoningEffort ||
-            haveToolsChanged
-
-        const uploadFile = useCallback(
-            async (
-                file: File,
-                onProgress: (progress: number) => void,
-                onReservationCreated: (key: string) => void,
-                signal: AbortSignal
-            ): Promise<UploadedFile> => {
-                const jwt = await resolveJwtToken(token)
-                if (!jwt) {
-                    throw new Error("Authentication token unavailable")
-                }
-
-                return uploadChatAttachment({
-                    file,
-                    jwt,
-                    uploadUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
-                    policyVersion,
-                    onProgress,
-                    onPolicyVersionMismatch: invalidateUploadPolicy,
-                    onReservationCreated,
-                    signal
-                })
-            },
-            [invalidateUploadPolicy, policyVersion, token]
-        )
-
-        const handleAddFiles = useCallback(
-            async (files: File[]) => {
-                if (uploading) return
-                if (files.length === 0) return
-
-                const validationErrors = files
-                    .map((file) =>
-                        getAttachmentValidationError(
-                            {
-                                name: file.name,
-                                mimeType: file.type,
-                                size: file.size
-                            },
-                            {
-                                supportsVision: modelSupportsVision,
-                                supportsNativePdf: modelSupportsNativePdf
-                            },
-                            uploadPolicy
-                        )
-                    )
-                    .filter((error): error is string => Boolean(error))
-
-                if (validationErrors.length > 0) {
-                    toast.error(`File validation failed:\n${validationErrors.join("\n")}`)
-                    return
-                }
-
-                const pendingFiles = files.map<EditUploadingFile>((file) => {
-                    const { isImage } = getFileTypeInfo(file.name, file.type)
-                    return {
-                        id: crypto.randomUUID(),
-                        file,
-                        displayName: file.name,
-                        tileKind: isDocumentExtension(file.name) ? "large-paste" : "attachment",
-                        progress: 0,
-                        status: "uploading",
-                        previewUrl: isImage ? URL.createObjectURL(file) : undefined
-                    }
-                })
-
-                setUploading(true)
-                setUploadingFiles((current) => [...current, ...pendingFiles])
-                const abortController = new AbortController()
-                activeUploadControllersRef.current.add(abortController)
-                const uploaded: UploadedFile[] = []
-                const reservedKeys = new Set<string>()
-                let activeFileId: string | undefined
-                try {
-                    for (const pendingFile of pendingFiles) {
-                        abortController.signal.throwIfAborted()
-                        activeFileId = pendingFile.id
-                        const ingested = await ingestChatAttachment(pendingFile.file, {
-                            canReferenceLongTextAttachments:
-                                modelSupportsFunctionCalling && codeExecutionAvailable
-                        })
-                        abortController.signal.throwIfAborted()
-                        setUploadingFiles((current) =>
-                            current.map((file) =>
-                                file.id === pendingFile.id
-                                    ? { ...file, displayName: ingested.displayName }
-                                    : file
-                            )
-                        )
-                        if (ingested.decision) {
-                            const nextEnabledTools = getEnabledToolsForPastedText(
-                                ingested.decision,
-                                enabledTools
-                            )
-                            if (nextEnabledTools !== enabledTools) {
-                                setEnabledTools(nextEnabledTools)
-                            }
-                        }
-
-                        if (ingested.delivery === "inline") {
-                            uploaded.push(createInlineIngestedFile(ingested))
-                            setUploadingFiles((current) =>
-                                current.map((file) =>
-                                    file.id === pendingFile.id
-                                        ? { ...file, progress: 100, status: "success" }
-                                        : file
-                                )
-                            )
-                            continue
-                        }
-
-                        const uploadableFile = await prepareChatAttachmentForUpload(
-                            ingested.file,
-                            uploadPolicy
-                        )
-                        abortController.signal.throwIfAborted()
-                        uploaded.push(
-                            finalizeIngestedUpload(
-                                await uploadFile(
-                                    uploadableFile,
-                                    (progress) => {
-                                        setUploadingFiles((current) =>
-                                            current.map((file) =>
-                                                file.id === pendingFile.id
-                                                    ? { ...file, progress }
-                                                    : file
-                                            )
-                                        )
-                                    },
-                                    (key) => reservedKeys.add(key),
-                                    abortController.signal
-                                ),
-                                ingested
-                            )
-                        )
-                        abortController.signal.throwIfAborted()
-                        setUploadingFiles((current) =>
-                            current.map((file) =>
-                                file.id === pendingFile.id
-                                    ? { ...file, progress: 100, status: "success" }
-                                    : file
-                            )
-                        )
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 500))
-                    abortController.signal.throwIfAborted()
-                    setUploadingFiles((current) =>
-                        current.map((file) =>
-                            pendingFiles.some((pending) => pending.id === file.id)
-                                ? { ...file, status: "ready" }
-                                : file
-                        )
-                    )
-                    await new Promise((resolve) => setTimeout(resolve, 200))
-                    abortController.signal.throwIfAborted()
-                    setAddedFiles((current) => [...current, ...uploaded])
-                    setUploadingFiles((current) =>
-                        current.filter(
-                            (file) => !pendingFiles.some((pending) => pending.id === file.id)
-                        )
-                    )
-                    for (const file of pendingFiles) {
-                        if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
-                    }
-                } catch (error) {
-                    const storedKeys = new Set([
-                        ...reservedKeys,
-                        ...uploaded.filter((file) => !file.inlineDataUrl).map((file) => file.key)
-                    ])
-
-                    if (abortController.signal.aborted) {
-                        void Promise.allSettled(
-                            [...storedKeys].map((key) => deleteFileMutation({ key }))
-                        )
-                        setUploadingFiles((current) =>
-                            current.filter(
-                                (file) => !pendingFiles.some((pending) => pending.id === file.id)
-                            )
-                        )
-                        for (const file of pendingFiles) {
-                            if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
-                        }
-                        return
-                    }
-
-                    const errorMessage = error instanceof Error ? error.message : "Upload failed"
-                    setUploadingFiles((current) =>
-                        current.map((file) =>
-                            file.id === activeFileId
-                                ? { ...file, status: "error", error: errorMessage }
-                                : file
-                        )
-                    )
-                    await Promise.allSettled(
-                        [...storedKeys].map((key) => deleteFileMutation({ key }))
-                    )
-                    toast.error(errorMessage)
-                    setTimeout(() => {
-                        setUploadingFiles((current) =>
-                            current.filter(
-                                (file) => !pendingFiles.some((pending) => pending.id === file.id)
-                            )
-                        )
-                        for (const file of pendingFiles) {
-                            if (file.previewUrl) URL.revokeObjectURL(file.previewUrl)
-                        }
-                    }, 2000)
-                } finally {
-                    activeUploadControllersRef.current.delete(abortController)
-                    setUploading(false)
-                    if (fileInputRef.current) {
-                        fileInputRef.current.value = ""
-                    }
-                }
-            },
-            [
-                codeExecutionAvailable,
-                deleteFileMutation,
-                enabledTools,
-                modelSupportsFunctionCalling,
-                modelSupportsNativePdf,
-                modelSupportsVision,
-                setEnabledTools,
-                uploadFile,
-                uploadPolicy,
-                uploading
-            ]
-        )
-
-        const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-            if (event.target.files) {
-                void handleAddFiles(Array.from(event.target.files))
-            }
-        }
-
-        const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-            const files = Array.from(event.clipboardData.items)
-                .filter((item) => item.kind === "file")
-                .map((item) => item.getAsFile())
-                .filter((file): file is File => file !== null)
-
-            if (files.length === 0) return
-
-            event.preventDefault()
-            void handleAddFiles(files)
-        }
-
-        const removeAddedFile = (file: UploadedFile) => {
-            setAddedFiles((current) => current.filter((addedFile) => addedFile.key !== file.key))
-            if (file.inlineDataUrl) {
-                toast.success("Attachment deleted")
-                return
-            }
-
-            deleteFileMutation({ key: file.key })
-                .then((result) => {
-                    if (result.success) {
-                        toast.success("Attachment deleted")
-                    } else if (result.error === "File not found") {
-                        toast.info("Attachment was already deleted")
-                    } else {
-                        toast.error(result.error || "Failed to delete attachment")
-                    }
-                })
-                .catch((error) => {
-                    toast.error(
-                        error instanceof Error ? error.message : "Failed to delete attachment"
-                    )
-                })
-        }
-
-        const handleSave = () => {
-            const remainingFileParts = fileParts.filter((p) => !deletedUrls.includes(p.url))
-            const addedFileParts = addedFiles.map(
-                (file) =>
-                    ({
-                        type: "file",
-                        url: file.inlineDataUrl ?? getPublicR2AssetUrl(file.key),
-                        mediaType: getAttachmentTileMediaType(file.fileType, file.tileKind),
-                        filename: file.fileName
-                    }) satisfies FileUIPart
-            )
-            const nextFileParts = [...remainingFileParts, ...addedFileParts]
-            onSave(
-                editedContent,
-                nextFileParts.length > 0 ? nextFileParts : undefined,
-                deletedUrls.length > 0 ? deletedUrls : undefined
-            )
-        }
-
-        const discardAddedFiles = useCallback(() => {
-            const storedFiles = addedFiles.filter((file) => !file.inlineDataUrl)
-            if (storedFiles.length === 0) return
-
-            void Promise.allSettled(
-                storedFiles.map((file) => deleteFileMutation({ key: file.key }))
-            ).then((results) => {
-                let deletedCount = 0
-                let alreadyDeletedCount = 0
-                let failedCount = 0
-
-                for (const result of results) {
-                    if (result.status === "rejected") {
-                        failedCount += 1
-                    } else if (result.value?.success) {
-                        deletedCount += 1
-                    } else if (result.value?.error === "File not found") {
-                        alreadyDeletedCount += 1
-                    } else {
-                        failedCount += 1
-                    }
-                }
-
-                if (deletedCount > 0) {
-                    toast.success(
-                        deletedCount === 1
-                            ? "Attachment deleted"
-                            : `${deletedCount} attachments deleted`
-                    )
-                }
-                if (alreadyDeletedCount > 0) {
-                    toast.info(
-                        alreadyDeletedCount === 1
-                            ? "Attachment was already deleted"
-                            : `${alreadyDeletedCount} attachments were already deleted`
-                    )
-                }
-                if (failedCount > 0) {
-                    toast.error(
-                        failedCount === 1
-                            ? "Failed to delete attachment"
-                            : `Failed to delete ${failedCount} attachments`
-                    )
-                }
-            })
-        }, [addedFiles, deleteFileMutation])
-
-        const restoreInitialEditSettings = useCallback(() => {
-            const initialSettings = initialEditSettingsRef.current
-
-            setSelectedModel(initialSettings.selectedModel)
-            setEnabledTools(initialSettings.enabledTools)
-            setReasoningEffort(initialSettings.reasoningEffort)
-        }, [setEnabledTools, setReasoningEffort, setSelectedModel])
-
-        const cancelActiveUploads = useCallback(() => {
-            for (const controller of activeUploadControllersRef.current) {
-                controller.abort()
-            }
-        }, [])
-        const commitCancel = useCallback(() => {
-            cancelActiveUploads()
-            if (addedFiles.length > 0) {
-                discardAddedFiles()
-            }
-            restoreInitialEditSettings()
-            onCancel()
-        }, [
-            addedFiles.length,
-            cancelActiveUploads,
-            discardAddedFiles,
-            onCancel,
-            restoreInitialEditSettings
-        ])
-
-        const requestCancel = useCallback(() => {
-            if (!hasUnsavedChanges) {
-                commitCancel()
-                return
-            }
-
-            setShowCancelConfirmation(true)
-        }, [commitCancel, hasUnsavedChanges])
-
-        const navigationGuard = useEditNavigationGuard(hasUnsavedChanges, commitCancel)
-
-        const handleConfirmCancel = useCallback(() => {
-            setShowCancelConfirmation(false)
-            commitCancel()
-            navigationGuard.proceed?.()
-        }, [commitCancel, navigationGuard.proceed])
-
-        const handleCancelDialogOpenChange = useCallback(
-            (open: boolean) => {
-                setShowCancelConfirmation(open)
-                if (!open) navigationGuard.reset?.()
-            },
-            [navigationGuard.reset]
-        )
-
-        useEffect(() => {
-            if (!cancelRequestRef) return
-
-            cancelRequestRef.current = requestCancel
-            return () => {
-                cancelRequestRef.current = null
-            }
-        }, [cancelRequestRef, requestCancel])
-
-        useEffect(() => cancelActiveUploads, [cancelActiveUploads])
-
-        const handleKeyDown = (e: React.KeyboardEvent) => {
-            if (matchesSaveMessageEditShortcut(e)) {
-                e.preventDefault()
-                handleSave()
-            }
-            if (matchesCancelMessageEditShortcut(e)) {
-                e.preventDefault()
-                requestCancel()
-            }
-        }
-
-        const totalAttachmentCount = fileParts.length + addedFiles.length + uploadingFiles.length
-
-        return (
-            <>
-                <div className="@container">
-                    <Textarea
-                        value={editedContent}
-                        onChange={(e) => setEditedContent(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        onPaste={handlePaste}
-                        className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    />
-
-                    {totalAttachmentCount > 0 && (
-                        <div className="flex flex-wrap gap-2 pb-3">
-                            {fileParts.map((part, index) => {
-                                const { isImage } = getFileTypeInfo(
-                                    part.filename || extractFileName(part.url),
-                                    part.mediaType
-                                )
-                                const isRemoved = deletedUrls.includes(part.url)
-                                const isCompact = totalAttachmentCount > 1
-                                const filename = part.filename || extractFileName(part.url)
-                                const tileKind = getAttachmentTileKind(part.mediaType)
-                                const actionLabel = isRemoved
-                                    ? "Restore attachment"
-                                    : "Remove attachment from message"
-
-                                const handleToggleRemove = () => {
-                                    setDeletedUrls((prev) =>
-                                        prev.includes(part.url)
-                                            ? prev.filter((url) => url !== part.url)
-                                            : [...prev, part.url]
-                                    )
-                                }
-
-                                return (
-                                    <div
-                                        key={index}
-                                        className="group relative min-w-0 max-w-full shrink-0"
-                                    >
-                                        {isImage ? (
-                                            <div
-                                                className={cn(
-                                                    "flex items-center justify-center overflow-hidden border-2 border-border bg-secondary/50",
-                                                    isCompact
-                                                        ? "h-12 w-12"
-                                                        : "h-auto max-h-64 w-auto max-w-full",
-                                                    isRemoved && "opacity-50 grayscale-[50%]"
-                                                )}
-                                                style={{ borderRadius: "var(--radius)" }}
-                                            >
-                                                <img
-                                                    src={resolvePublicFileUrl(part.url)}
-                                                    alt={filename}
-                                                    className={cn(
-                                                        "object-cover",
-                                                        isCompact
-                                                            ? "h-full w-full"
-                                                            : "h-auto max-h-64 w-auto max-w-full"
-                                                    )}
-                                                    style={{
-                                                        borderRadius: "calc(var(--radius) - 2px)"
-                                                    }}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <AttachmentTile
-                                                fileName={filename}
-                                                kind={tileKind}
-                                                icon={getFileIcon(part)}
-                                                className={cn(
-                                                    "h-12",
-                                                    isRemoved && "opacity-50 grayscale-[50%]"
-                                                )}
-                                            />
-                                        )}
-
-                                        {isRemoved && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
-                                                <Trash2 className="size-5 text-destructive drop-shadow-md" />
-                                            </div>
-                                        )}
-
-                                        <Tooltip delayDuration={150}>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="icon"
-                                                    onClick={handleToggleRemove}
-                                                    aria-label={actionLabel}
-                                                    className={cn(
-                                                        "absolute -top-2 -right-2 h-8 w-8 opacity-100 shadow-sm transition-opacity md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100",
-                                                        isRemoved
-                                                            ? "bg-background/80 text-foreground"
-                                                            : "bg-background/50 text-foreground hover:bg-destructive hover:text-destructive-foreground"
-                                                    )}
-                                                    style={{ borderRadius: "var(--radius-xl)" }}
-                                                >
-                                                    {isRemoved ? (
-                                                        <RotateCcw className="size-4 md:size-3" />
-                                                    ) : (
-                                                        <X className="size-4 md:size-3" />
-                                                    )}
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">
-                                                <p>{actionLabel}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </div>
-                                )
-                            })}
-
-                            {uploadingFiles.map((file) => (
-                                <div key={file.id} className="relative shrink-0">
-                                    <AttachmentTile
-                                        fileName={file.displayName}
-                                        kind={file.tileKind}
-                                        icon={
-                                            file.tileKind === "large-paste" ? (
-                                                <FileText className="size-4 text-primary" />
-                                            ) : (
-                                                getFileIcon({
-                                                    url: "",
-                                                    filename: file.file.name,
-                                                    mediaType: file.file.type
-                                                })
-                                            )
-                                        }
-                                        status={file.status}
-                                        progress={file.progress}
-                                        error={file.error}
-                                        previewUrl={file.previewUrl}
-                                        className={cn(!file.previewUrl && "h-12")}
-                                    />
-                                </div>
-                            ))}
-
-                            {addedFiles.map((file) => {
-                                const isImage = isImageMimeType(file.fileType)
-                                const tileKind = file.tileKind ?? "attachment"
-                                const publicUrl = getPublicR2AssetUrl(file.key)
-
-                                return (
-                                    <div key={file.key} className="group relative shrink-0">
-                                        <AttachmentTile
-                                            fileName={file.displayName ?? file.fileName}
-                                            kind={tileKind}
-                                            icon={getFileIcon({
-                                                url: publicUrl,
-                                                filename: file.fileName,
-                                                mediaType: getAttachmentTileMediaType(
-                                                    file.fileType,
-                                                    tileKind
-                                                )
-                                            })}
-                                            previewUrl={isImage ? publicUrl : undefined}
-                                            className="h-12"
-                                        />
-
-                                        <Tooltip delayDuration={150}>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="icon"
-                                                    onClick={() => removeAddedFile(file)}
-                                                    aria-label="Remove attachment from message"
-                                                    className="absolute -top-2 -right-2 h-8 w-8 bg-background/50 text-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:-top-1 md:-right-1 md:h-5 md:w-5 md:opacity-0 md:group-hover:opacity-100"
-                                                    style={{ borderRadius: "var(--radius-xl)" }}
-                                                >
-                                                    <X className="size-4 md:size-3" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">
-                                                <p>Remove attachment from message</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-
-                    <div data-edit-controls>
-                        <div className="flex items-center gap-2 border-border/70 border-t pt-3">
-                            <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
-                                {selectedModel && (
-                                    <ModelSelector
-                                        selectedModel={selectedModel}
-                                        onModelChange={setSelectedModel}
-                                        telemetrySurface="message_edit"
-                                        side="top"
-                                        className="border-0 bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
-                                        requiresNativePdf={requiresNativePdfForModelSelection}
-                                    />
-                                )}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    accept={getFileAcceptAttribute(modelSupportsVision)}
-                                />
-                                <ComposerDesktopActions
-                                    state={composerToolbar}
-                                    threadId={threadId}
-                                    uploading={uploading}
-                                    onAttachClick={() => fileInputRef.current?.click()}
-                                />
-                            </div>
-
-                            <ComposerMobileMenu
-                                state={composerToolbar}
-                                onAttachClick={() => fileInputRef.current?.click()}
-                            />
-
-                            <Button
-                                size="icon"
-                                className="size-8 shrink-0"
-                                style={{ borderRadius: "var(--radius-md)" }}
-                                onClick={handleSave}
-                                disabled={uploading}
-                                title="Send"
-                            >
-                                <ArrowUp className="size-5" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <AlertDialog
-                    open={showCancelConfirmation || navigationGuard.status === "blocked"}
-                    onOpenChange={handleCancelDialogOpenChange}
-                >
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Discard edit?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Your message changes will be lost if you cancel now.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={handleConfirmCancel}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                                Discard changes
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </>
-        )
-    }
-)
-EditableMessage.displayName = "EditableMessage"
-
 const MESSAGE_EDIT_ANIMATION_OPTIONS = {
     duration: 240,
     easing: "cubic-bezier(0, 0, 0.58, 1)"
@@ -1245,6 +433,9 @@ const BOTTOM_SCROLL_THRESHOLD_PX = 4
 const SCROLL_IDLE_DELAY_MS = 2_000
 const ACCORDION_SCROLL_FOLLOW_PAUSE_MS = 200
 const STREAMING_ANCHOR_TOP_GAP_PX = 16
+// Keep loading and the first response content the same height, allowing longer
+// replies to grow naturally once they exceed the reserved space.
+const RESPONSE_SPACE_CLASS = "min-h-[min(24rem,50dvh)]"
 const REASONING_MARKDOWN_CLASS =
     "prose max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
 const QUOTE_TOOLTIP_SIZE_PX = 32
@@ -1274,6 +465,7 @@ const getMessagePartKey = (messageId: string, part: UIMessage["parts"][number], 
 
 type MessageRowProps = {
     message: UIMessage
+    initialConfig?: ReturnType<typeof getRetryTargetAssistantConfig>
     renderFingerprint: string
     liveRenderFingerprint?: string
     footerMetadataKey?: string
@@ -1289,19 +481,22 @@ type MessageRowProps = {
     onSaveEdit: (
         newContent: string,
         remainingFileParts?: FileUIPart[],
-        deletedUrls?: string[]
-    ) => void
+        deletedUrls?: string[],
+        config?: GenerationConfig
+    ) => Promise<boolean>
     onCancelEdit: () => void
     onFilePreview: (part: PreviewFile) => void
     requiresVisionForModelSelection: boolean
     requiresNativePdfForModelSelection: boolean
     threadId?: string
+    folderId?: string
     sharedThreadId?: string
     copyOnlyActions?: boolean
 }
 
 const MessageRowComponent = ({
     message,
+    initialConfig,
     isStreamingMessage,
     isEditing,
     isFirstMessage,
@@ -1317,6 +512,7 @@ const MessageRowComponent = ({
     requiresVisionForModelSelection,
     requiresNativePdfForModelSelection,
     threadId,
+    folderId,
     sharedThreadId,
     copyOnlyActions
 }: MessageRowProps) => {
@@ -1446,9 +642,14 @@ const MessageRowComponent = ({
     )
 
     const handleSaveEdit = useCallback(
-        (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
+        (
+            newContent: string,
+            remainingFileParts?: FileUIPart[],
+            deletedUrls?: string[],
+            config?: GenerationConfig
+        ) => {
             captureCurrentBubbleLayout()
-            onSaveEdit(newContent, remainingFileParts, deletedUrls)
+            return onSaveEdit(newContent, remainingFileParts, deletedUrls, config)
         },
         [captureCurrentBubbleLayout, onSaveEdit]
     )
@@ -1620,6 +821,9 @@ const MessageRowComponent = ({
                             editor={
                                 <EditableMessage
                                     message={message}
+                                    threadId={threadId}
+                                    folderId={folderId}
+                                    initialConfig={initialConfig}
                                     onSave={handleSaveEdit}
                                     onCancel={handleCancelEdit}
                                     cancelRequestRef={cancelEditRequestRef}
@@ -1629,130 +833,116 @@ const MessageRowComponent = ({
                                 />
                             }
                         >
-                            <>
-                                <div className="max-w-full overflow-hidden">
-                                    {reasoning && (
-                                        <Reasoning
-                                            className="mb-6"
-                                            isStreaming={
+                            <div className="max-w-full overflow-hidden">
+                                {reasoning && (
+                                    <Reasoning
+                                        className="mb-6"
+                                        isStreaming={isStreamingMessage && reasoning.isStreaming}
+                                    >
+                                        <ReasoningTrigger className="mb-4">
+                                            Reasoning
+                                        </ReasoningTrigger>
+                                        <ReasoningContent
+                                            markdown={message.role === "assistant"}
+                                            isAnimating={
                                                 isStreamingMessage && reasoning.isStreaming
                                             }
+                                            className="rounded-lg border bg-muted/50"
+                                            contentClassName={REASONING_MARKDOWN_CLASS}
                                         >
-                                            <ReasoningTrigger className="mb-4">
-                                                Reasoning
-                                            </ReasoningTrigger>
-                                            <ReasoningContent
-                                                markdown={message.role === "assistant"}
-                                                isAnimating={
-                                                    isStreamingMessage && reasoning.isStreaming
-                                                }
-                                                className="rounded-lg border bg-muted/50"
-                                                contentClassName={REASONING_MARKDOWN_CLASS}
-                                            >
-                                                {reasoning.text}
-                                            </ReasoningContent>
-                                        </Reasoning>
-                                    )}
+                                            {reasoning.text}
+                                        </ReasoningContent>
+                                    </Reasoning>
+                                )}
 
-                                    {groupedToolOrder.map((activity) =>
-                                        activity.type === "skill-load" ? (
-                                            <SkillLoaderRenderer
-                                                key={getMessagePartKey(
-                                                    message.id,
-                                                    activity.part,
-                                                    activity.firstPartIndex
-                                                )}
-                                                toolInvocation={
-                                                    activity.part as UIToolInvocation<Tool>
-                                                }
-                                            />
-                                        ) : activity.type === "blocked-tools" ? (
-                                            <BlockedToolCard
-                                                key={`${message.id}-blocked-tools`}
-                                                attempts={toolFailureAttempts}
-                                                retryMessage={retryMessage}
-                                                onRetry={onRetry}
-                                                requiresVision={requiresVisionForModelSelection}
-                                                requiresNativePdf={
-                                                    requiresNativePdfForModelSelection
-                                                }
-                                            />
-                                        ) : activity.type === "code-execution" ? (
-                                            <CodeExecutionGroupRenderer
-                                                key={`${message.id}-code-executions`}
-                                                executions={codeExecutions}
-                                                kind="code"
-                                            />
-                                        ) : activity.type === "math-kit" ? (
-                                            <CodeExecutionGroupRenderer
-                                                key={`${message.id}-math-executions`}
-                                                executions={mathExecutions}
-                                                kind="math"
-                                            />
-                                        ) : (
-                                            <WebSearchGroupRenderer
-                                                key={`${message.id}-web-searches`}
-                                                searches={webSearches}
-                                            />
-                                        )
-                                    )}
+                                {groupedToolOrder.map((activity) =>
+                                    activity.type === "skill-load" ? (
+                                        <SkillLoaderRenderer
+                                            key={getMessagePartKey(
+                                                message.id,
+                                                activity.part,
+                                                activity.firstPartIndex
+                                            )}
+                                            toolInvocation={activity.part as UIToolInvocation<Tool>}
+                                        />
+                                    ) : activity.type === "blocked-tools" ? (
+                                        <BlockedToolCard
+                                            key={`${message.id}-blocked-tools`}
+                                            attempts={toolFailureAttempts}
+                                            retryMessage={retryMessage}
+                                            onRetry={onRetry}
+                                            requiresVision={requiresVisionForModelSelection}
+                                            requiresNativePdf={requiresNativePdfForModelSelection}
+                                        />
+                                    ) : activity.type === "code-execution" ? (
+                                        <CodeExecutionGroupRenderer
+                                            key={`${message.id}-code-executions`}
+                                            executions={codeExecutions}
+                                            kind="code"
+                                        />
+                                    ) : activity.type === "math-kit" ? (
+                                        <CodeExecutionGroupRenderer
+                                            key={`${message.id}-math-executions`}
+                                            executions={mathExecutions}
+                                            kind="math"
+                                        />
+                                    ) : (
+                                        <WebSearchGroupRenderer
+                                            key={`${message.id}-web-searches`}
+                                            searches={webSearches}
+                                        />
+                                    )
+                                )}
 
-                                    {inlineParts.map((part, index) => (
-                                        <PartsRenderer
-                                            key={getMessagePartKey(message.id, part, index)}
-                                            part={part}
-                                            markdown={true}
-                                            id={getMessagePartKey(message.id, part, index)}
-                                            threadId={
-                                                ((
-                                                    message.metadata as
-                                                        | { threadId?: string }
-                                                        | undefined
-                                                )?.threadId as string | undefined) ?? threadId
-                                            }
-                                            messageId={message.id}
-                                            sharedThreadId={sharedThreadId}
-                                            onFilePreview={onFilePreview}
-                                            onSwitchModel={onSwitchModel}
-                                            isStreaming={isStreamingMessage}
-                                            readOnly={copyOnlyActions}
+                                {inlineParts.map((part, index) => (
+                                    <PartsRenderer
+                                        key={getMessagePartKey(message.id, part, index)}
+                                        part={part}
+                                        markdown={true}
+                                        id={getMessagePartKey(message.id, part, index)}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
+                                        sharedThreadId={sharedThreadId}
+                                        onFilePreview={onFilePreview}
+                                        onSwitchModel={onSwitchModel}
+                                        isStreaming={isStreamingMessage}
+                                        readOnly={copyOnlyActions}
+                                    />
+                                ))}
+                            </div>
+
+                            {fileParts.length > 1 ? (
+                                <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
+                                    {fileParts.map((part, index) => (
+                                        <CompactAttachment
+                                            key={`${message.id}-file-${index}`}
+                                            part={part as FileUIPart}
+                                            onPreview={() => onFilePreview(part as FileUIPart)}
                                         />
                                     ))}
                                 </div>
-
-                                {fileParts.length > 1 ? (
-                                    <div className="not-prose mt-3 flex flex-wrap justify-start gap-2">
-                                        {fileParts.map((part, index) => (
-                                            <CompactAttachment
-                                                key={`${message.id}-file-${index}`}
-                                                part={part as FileUIPart}
-                                                onPreview={() => onFilePreview(part as FileUIPart)}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : fileParts.length === 1 ? (
-                                    <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
-                                        <PartsRenderer
-                                            key={`${message.id}-file-0`}
-                                            part={fileParts[0]}
-                                            markdown={message.role === "assistant"}
-                                            id={`${message.id}-file-0`}
-                                            threadId={
-                                                ((
-                                                    message.metadata as
-                                                        | { threadId?: string }
-                                                        | undefined
-                                                )?.threadId as string | undefined) ?? threadId
-                                            }
-                                            messageId={message.id}
-                                            sharedThreadId={sharedThreadId}
-                                            onFilePreview={onFilePreview}
-                                            isStreaming={isStreamingMessage}
-                                            readOnly={copyOnlyActions}
-                                        />
-                                    </div>
-                                ) : null}
-                            </>
+                            ) : fileParts.length === 1 ? (
+                                <div className="not-prose mt-3 flex flex-col justify-start space-y-3">
+                                    <PartsRenderer
+                                        key={`${message.id}-file-0`}
+                                        part={fileParts[0]}
+                                        markdown={message.role === "assistant"}
+                                        id={`${message.id}-file-0`}
+                                        threadId={
+                                            ((message.metadata as { threadId?: string } | undefined)
+                                                ?.threadId as string | undefined) ?? threadId
+                                        }
+                                        messageId={message.id}
+                                        sharedThreadId={sharedThreadId}
+                                        onFilePreview={onFilePreview}
+                                        isStreaming={isStreamingMessage}
+                                        readOnly={copyOnlyActions}
+                                    />
+                                </div>
+                            ) : null}
                         </MessageEditContent>
                     </div>
                 </div>
@@ -1806,6 +996,8 @@ const areMessageRowPropsEqual = (previousProps: MessageRowProps, nextProps: Mess
     previousProps.requiresNativePdfForModelSelection ===
         nextProps.requiresNativePdfForModelSelection &&
     previousProps.sharedThreadId === nextProps.sharedThreadId &&
+    previousProps.threadId === nextProps.threadId &&
+    previousProps.folderId === nextProps.folderId &&
     previousProps.copyOnlyActions === nextProps.copyOnlyActions
 
 const MessageRow = memo(MessageRowComponent, areMessageRowPropsEqual)
@@ -1827,8 +1019,9 @@ export const Messages = forwardRef<
             messageId: string,
             newContent: string,
             remainingFileParts?: FileUIPart[],
-            deletedUrls?: string[]
-        ) => void
+            deletedUrls?: string[],
+            config?: GenerationConfig
+        ) => Promise<boolean>
         onQuoteSelection?: (selection: string) => void
         status: ReturnType<typeof useChatIntegration>["status"]
         error?: ReturnType<typeof useChatIntegration>["error"]
@@ -1836,6 +1029,7 @@ export const Messages = forwardRef<
         onScrollDirectionChange?: (direction: MessageScrollDirection) => void
         threadKey?: string
         threadId?: string
+        folderId?: string
         sharedThreadId?: string
         copyOnlyActions?: boolean
     }
@@ -1853,6 +1047,7 @@ export const Messages = forwardRef<
             onScrollDirectionChange,
             threadKey,
             threadId,
+            folderId,
             sharedThreadId,
             copyOnlyActions = false
         },
@@ -1909,19 +1104,24 @@ export const Messages = forwardRef<
         )
 
         const handleSaveEdit = useCallback(
-            (newContent: string, remainingFileParts?: FileUIPart[], deletedUrls?: string[]) => {
+            (
+                newContent: string,
+                remainingFileParts?: FileUIPart[],
+                deletedUrls?: string[],
+                config?: GenerationConfig
+            ) => {
                 if (targetFromMessageId && onEditAndRetryRef.current) {
-                    onEditAndRetryRef.current(
+                    return onEditAndRetryRef.current(
                         targetFromMessageId,
                         newContent,
                         remainingFileParts,
-                        deletedUrls
+                        deletedUrls,
+                        config
                     )
                 }
-                setTargetFromMessageId(undefined)
-                setTargetMode("normal")
+                return Promise.resolve(false)
             },
-            [setTargetFromMessageId, setTargetMode, targetFromMessageId]
+            [targetFromMessageId]
         )
 
         const handleCancelEdit = useCallback(() => {
@@ -2284,31 +1484,68 @@ export const Messages = forwardRef<
             return [...alwaysMountedIndexes].sort((a, b) => a - b)
         }, [messages, targetFromMessageId, virtualizedMessageCount])
 
+        const typingLoader = (
+            <div
+                className={cn(
+                    "flex h-7 items-center",
+                    (messages.length === 0 ||
+                        (messages.length === 1 && lastMessage?.role === "assistant")) &&
+                        "mt-12"
+                )}
+            >
+                <Loader variant="typing" size="md" />
+            </div>
+        )
         const renderedMessageRows = messageRows.map((row) => (
-            <MessageRow
+            <div
                 key={row.message.id}
-                message={row.message}
-                renderFingerprint={row.renderFingerprint}
-                liveRenderFingerprint={row.liveRenderFingerprint}
-                footerMetadataKey={row.footerMetadataKey}
-                isStreamingMessage={row.isStreamingMessage}
-                isEditing={row.isEditing}
-                isFirstMessage={row.isFirstMessage}
-                hasActiveTarget={row.hasActiveTarget}
-                retryMessage={row.retryMessage}
-                onRetry={onRetry ? stableOnRetry : undefined}
-                onSwitchModel={copyOnlyActions ? undefined : handleSwitchModel}
-                onBranch={onBranch ? stableOnBranch : undefined}
-                onEdit={copyOnlyActions ? undefined : handleEdit}
-                onSaveEdit={handleSaveEdit}
-                onCancelEdit={handleCancelEdit}
-                onFilePreview={handleFilePreview}
-                requiresVisionForModelSelection={threadHasVisionImageAttachments}
-                requiresNativePdfForModelSelection={threadHasPdfAttachments}
-                threadId={threadId}
-                sharedThreadId={sharedThreadId}
-                copyOnlyActions={copyOnlyActions}
-            />
+                className={
+                    row.message.role === "assistant" && row.message.id === lastMessage?.id
+                        ? RESPONSE_SPACE_CLASS
+                        : undefined
+                }
+            >
+                {showTypingLoader &&
+                row.message.role === "assistant" &&
+                row.message.id === lastMessage?.id ? (
+                    typingLoader
+                ) : (
+                    <MessageRow
+                        message={row.message}
+                        renderFingerprint={row.renderFingerprint}
+                        liveRenderFingerprint={row.liveRenderFingerprint}
+                        footerMetadataKey={row.footerMetadataKey}
+                        isStreamingMessage={row.isStreamingMessage}
+                        isEditing={row.isEditing}
+                        initialConfig={
+                            row.isEditing
+                                ? getRetryTargetAssistantConfig(
+                                      messages as Parameters<
+                                          typeof getRetryTargetAssistantConfig
+                                      >[0],
+                                      row.message.id
+                                  )
+                                : undefined
+                        }
+                        folderId={folderId}
+                        isFirstMessage={row.isFirstMessage}
+                        hasActiveTarget={row.hasActiveTarget}
+                        retryMessage={row.retryMessage}
+                        onRetry={onRetry ? stableOnRetry : undefined}
+                        onSwitchModel={copyOnlyActions ? undefined : handleSwitchModel}
+                        onBranch={onBranch ? stableOnBranch : undefined}
+                        onEdit={copyOnlyActions ? undefined : handleEdit}
+                        onSaveEdit={handleSaveEdit}
+                        onCancelEdit={handleCancelEdit}
+                        onFilePreview={handleFilePreview}
+                        requiresVisionForModelSelection={threadHasVisionImageAttachments}
+                        requiresNativePdfForModelSelection={threadHasPdfAttachments}
+                        threadId={threadId}
+                        sharedThreadId={sharedThreadId}
+                        copyOnlyActions={copyOnlyActions}
+                    />
+                )}
+            </div>
         ))
         const virtualizedMessageRows = renderedMessageRows.slice(0, virtualizedMessageCount)
         const directMessageRows = renderedMessageRows.slice(virtualizedMessageCount)
@@ -2529,6 +1766,10 @@ export const Messages = forwardRef<
                             ) : null}
                             {directMessageRows}
 
+                            {showTypingLoader && lastMessage?.role !== "assistant" && (
+                                <div className={RESPONSE_SPACE_CLASS}>{typingLoader}</div>
+                            )}
+
                             {status === "error" && (
                                 <ChatErrorNotice
                                     error={error}
@@ -2541,9 +1782,7 @@ export const Messages = forwardRef<
                                 />
                             )}
 
-                            <div className="flex min-h-[3rem] items-center gap-2 py-4">
-                                {showTypingLoader && <Loader variant="typing" size="md" />}
-                            </div>
+                            <div className="min-h-12" aria-hidden="true" />
                         </div>
                     </div>
                 </div>

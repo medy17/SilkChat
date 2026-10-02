@@ -1,5 +1,24 @@
 import { v } from "convex/values"
 import { MessagePart } from "./parts"
+import { ABILITIES } from "@/lib/tool-abilities"
+
+export const GenerationConfig = v.object({
+    modelId: v.string(),
+    reasoningEffort: v.union(
+        v.literal("off"),
+        v.literal("minimal"),
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("xhigh"),
+        v.literal("max")
+    ),
+    enabledTools: v.array(v.union(...ABILITIES.map((id) => v.literal(id)))),
+    autoSelectTools: v.boolean(),
+    toolCallLimitPerTurn: v.optional(v.number()),
+    resolvedToolCallLimitPerTurn: v.optional(v.number()),
+    resolvedTools: v.optional(v.array(v.union(...ABILITIES.map((id) => v.literal(id)))))
+})
 
 export const ImportedMessageMetadata = v.object({
     modelId: v.optional(v.string()),
@@ -43,6 +62,7 @@ export const ImportedMessageMetadata = v.object({
 
 export const MessageMetadata = v.object({
     ...ImportedMessageMetadata.fields,
+    generationConfig: v.optional(GenerationConfig),
     contextRouting: v.optional(
         v.object({
             mode: v.literal("byok_fallback"),

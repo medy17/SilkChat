@@ -16,11 +16,17 @@ export type PastedTextDecision = {
 
 export const classifyPastedText = (
     text: string,
-    { canReferenceLongTextAttachments }: { canReferenceLongTextAttachments: boolean }
+    {
+        canReferenceLongTextAttachments,
+        attachmentQueueBusy = false
+    }: {
+        canReferenceLongTextAttachments: boolean
+        attachmentQueueBusy?: boolean
+    }
 ): PastedTextDecision => {
     const estimatedTokens = estimateTokenCount(text)
 
-    if (estimatedTokens <= LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD) {
+    if (attachmentQueueBusy || estimatedTokens <= LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD) {
         return { disposition: "inline", estimatedTokens }
     }
 

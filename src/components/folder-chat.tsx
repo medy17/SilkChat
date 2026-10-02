@@ -1,3 +1,5 @@
+import { FullPageDropOverlay } from "@/components/full-page-drop-overlay"
+import { getThreadDraftKey } from "@/lib/thread-drafts"
 import { BranchIcon } from "@/components/brand-icons"
 import { FolderHero } from "@/components/folder-hero"
 import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
@@ -111,6 +113,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
+        isActive: isActiveRoute,
         threadId,
         folderId,
         sharedModels,
@@ -147,8 +150,9 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     useChatDataProcessor({ messages, status, clientId: chat.clientId, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
-        handleInputSubmit(inputValue, fileValues)
+        const result = handleInputSubmit(inputValue, fileValues)
         messagesRef.current?.scrollToBottom("smooth")
+        return result
     }
 
     const isEmpty = !threadId && messages.length === 0
@@ -296,6 +300,11 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                     : "h-[calc(100dvh-var(--app-header-height))]"
             )}
         >
+            <FullPageDropOverlay
+                enabled={isActiveRoute}
+                scopeKey={getThreadDraftKey({ threadId, folderId })}
+                onDrop={() => {}}
+            />
             <Messages
                 ref={messagesRef}
                 messages={deferredMessages}
@@ -308,6 +317,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 onScrollDirectionChange={setScrollDirection}
                 threadKey={threadId ?? folderId.toString()}
                 threadId={threadId}
+                folderId={folderId}
             />
 
             <AnimatePresence mode="sync">

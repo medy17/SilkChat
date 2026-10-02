@@ -3,6 +3,17 @@ import { resolveModelReplacement } from "@/convex/lib/models/lifecycle"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { getReasoningEffortForPlan } from "@/lib/models-providers-shared"
 import { MAX_TOOL_CALL_LIMIT_PER_TURN, MIN_TOOL_CALL_LIMIT_PER_TURN } from "@/lib/tool-call-limit"
+import type { AbilityId } from "@/lib/tool-abilities"
+
+export type GenerationConfig = {
+    modelId: string
+    reasoningEffort: ReasoningEffort
+    enabledTools: AbilityId[]
+    autoSelectTools: boolean
+    toolCallLimitPerTurn?: number
+    resolvedToolCallLimitPerTurn?: number
+    resolvedTools?: AbilityId[]
+}
 
 type AssistantConfigCarrier = {
     role: string
@@ -10,6 +21,7 @@ type AssistantConfigCarrier = {
     metadata?: {
         modelId?: string
         reasoningEffort?: ReasoningEffort
+        generationConfig?: GenerationConfig
     }
 }
 
@@ -17,13 +29,15 @@ export type AssistantConfigOverride = {
     modelIdOverride?: string
     reasoningEffortOverride?: ReasoningEffort
     toolCallLimitFloorOverride?: number
+    generationConfigOverride?: GenerationConfig
 }
 
 export const getAssistantConfigFromMessage = (message: AssistantConfigCarrier | undefined) => {
-    if (!message || message.role !== "assistant") return null
+    if (message?.role !== "assistant") return null
 
-    const modelId = message.metadata?.modelId
-    const reasoningEffort = message.metadata?.reasoningEffort
+    const generationConfig = message.metadata?.generationConfig
+    const modelId = generationConfig?.modelId ?? message.metadata?.modelId
+    const reasoningEffort = generationConfig?.reasoningEffort ?? message.metadata?.reasoningEffort
 
     if (!modelId && !reasoningEffort) {
         return null
@@ -31,7 +45,8 @@ export const getAssistantConfigFromMessage = (message: AssistantConfigCarrier | 
 
     return {
         modelId,
-        reasoningEffort
+        reasoningEffort,
+        generationConfig
     }
 }
 
@@ -50,12 +65,19 @@ export const getRetryTargetAssistantConfig = (
     )
     if (userMessageIndex === -1) return null
 
-    return (
-        messages
-            .slice(userMessageIndex + 1)
-            .map((message) => getAssistantConfigFromMessage(message))
-            .find((config) => config !== null) ?? null
-    )
+    for (const message of messages.slice(userMessageIndex + 1)) {
+        if (message.role === "user") break
+        const config = getAssistantConfigFromMessage(message)
+        if (config) return config
+    }
+    const generationConfig = messages[userMessageIndex].metadata?.generationConfig
+    return generationConfig
+        ? {
+              modelId: generationConfig.modelId,
+              reasoningEffort: generationConfig.reasoningEffort,
+              generationConfig
+          }
+        : null
 }
 
 export const resolveAssistantConfigOverride = ({

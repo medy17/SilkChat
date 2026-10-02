@@ -31,7 +31,12 @@ import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { getUserIdentity } from "./lib/identity"
 import type { Thread } from "./schema"
-import { HTTPAIMessage, ImportedMessageMetadata, type Message } from "./schema/message"
+import {
+    HTTPAIMessage,
+    ImportedMessageMetadata,
+    GenerationConfig,
+    type Message
+} from "./schema/message"
 import { MessagePart } from "./schema/parts"
 import { ThreadPersonaSnapshotInput } from "./schema/persona"
 
@@ -282,6 +287,7 @@ export const createThreadOrInsertMessages = internalMutation({
         threadId: v.optional(v.string()),
         authorId: v.string(),
         userMessage: v.optional(HTTPAIMessage),
+        generationConfig: v.optional(GenerationConfig),
         proposedNewAssistantId: v.string(),
         targetFromMessageId: v.optional(v.string()),
         targetMode: v.optional(v.union(v.literal("normal"), v.literal("edit"), v.literal("retry"))),
@@ -296,6 +302,7 @@ export const createThreadOrInsertMessages = internalMutation({
             threadId,
             authorId,
             userMessage,
+            generationConfig,
             proposedNewAssistantId,
             targetFromMessageId,
             targetMode,
@@ -381,7 +388,7 @@ export const createThreadOrInsertMessages = internalMutation({
                 messageId: userMessageId_new,
                 createdAt: now + (openingMessage ? 1 : 0),
                 updatedAt: now + (openingMessage ? 1 : 0),
-                metadata: {},
+                metadata: generationConfig ? { generationConfig } : {},
                 parts: userMessage.parts,
                 role: userMessage.role
             }
@@ -389,7 +396,7 @@ export const createThreadOrInsertMessages = internalMutation({
                 messageId: proposedNewAssistantId,
                 createdAt: now + (openingMessage ? 2 : 1),
                 updatedAt: now + (openingMessage ? 2 : 1),
-                metadata: {},
+                metadata: generationConfig ? { generationConfig } : {},
                 parts: [],
                 role: "assistant" as const
             }
@@ -502,6 +509,10 @@ export const createThreadOrInsertMessages = internalMutation({
                     if (editMessage) {
                         await ctx.db.patch(editMessage._id, {
                             parts: userMessage.parts,
+                            metadata: {
+                                ...editMessage.metadata,
+                                ...(generationConfig ? { generationConfig } : {})
+                            },
                             updatedAt: Date.now()
                         })
                     }
@@ -512,7 +523,7 @@ export const createThreadOrInsertMessages = internalMutation({
                 messageId: originalAssistantMessageId, // Reuse the original assistant message ID
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
-                metadata: {},
+                metadata: generationConfig ? { generationConfig } : {},
                 parts: [],
                 role: "assistant" as const
             }
@@ -537,7 +548,7 @@ export const createThreadOrInsertMessages = internalMutation({
             messageId: userMessageId_existing,
             createdAt: Date.now(),
             updatedAt: Date.now(),
-            metadata: {},
+            metadata: generationConfig ? { generationConfig } : {},
             parts: userMessage.parts,
             role: userMessage.role
         }
@@ -545,7 +556,7 @@ export const createThreadOrInsertMessages = internalMutation({
             messageId: proposedNewAssistantId,
             createdAt: Date.now(),
             updatedAt: Date.now(),
-            metadata: {},
+            metadata: generationConfig ? { generationConfig } : {},
             parts: [],
             role: "assistant" as const
         }
