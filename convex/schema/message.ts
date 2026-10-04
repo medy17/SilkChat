@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { MessagePart } from "./parts"
 import { ABILITIES } from "@/lib/tool-abilities"
+import { VisualSelection } from "./visuals"
 
 export const GenerationConfig = v.object({
     modelId: v.string(),
@@ -21,6 +22,10 @@ export const GenerationConfig = v.object({
 })
 
 export const ImportedMessageMetadata = v.object({
+    visualSelections: v.optional(v.array(VisualSelection)),
+    visualStatus: v.optional(
+        v.union(v.literal("pending"), v.literal("ready"), v.literal("failed"))
+    ),
     modelId: v.optional(v.string()),
     modelName: v.optional(v.string()),
     displayProvider: v.optional(v.string()),
@@ -62,10 +67,6 @@ export const ImportedMessageMetadata = v.object({
 
 export const MessageMetadata = v.object({
     ...ImportedMessageMetadata.fields,
-    // Older cloud-dev messages retain visual enrichment metadata. The current app
-    // does not consume it, but schema pushes must preserve those existing records.
-    visualSelections: v.optional(v.array(v.any())),
-    visualStatus: v.optional(v.string()),
     generationConfig: v.optional(GenerationConfig),
     contextRouting: v.optional(
         v.object({

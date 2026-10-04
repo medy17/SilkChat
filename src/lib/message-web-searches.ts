@@ -8,6 +8,7 @@ export type WebSearchResult = {
     title?: string
     description?: string
     snippet?: string
+    source?: string
 }
 
 export type MessageWebSearch = {
@@ -41,24 +42,25 @@ const getQueryLabel = (value: unknown) => {
     return `${queries.length} queries: ${queries.join(" · ")}`
 }
 
-const getResults = (value: unknown): WebSearchResult[] => {
+const getResults = (value: unknown, kind: "web" | "image"): WebSearchResult[] => {
     if (!isRecord(value) || !Array.isArray(value.results)) return []
 
     return value.results.filter(isRecord).map((result) => ({
-        url: asTrimmedString(result.url),
+        url: asTrimmedString(kind === "image" ? result.sourceUrl : result.url),
         title: asTrimmedString(result.title),
         description: asTrimmedString(result.description),
-        snippet: asTrimmedString(result.snippet)
+        snippet: asTrimmedString(result.snippet),
+        ...(kind === "image" ? { source: asTrimmedString(result.source) } : {})
     }))
 }
 
-export const getMessageWebSearches = (message: MessageWithParts) => {
+const getMessageSearches = (message: MessageWithParts, kind: "web" | "image") => {
     if (message.role !== "assistant") return []
 
     const searches: MessageWebSearch[] = []
 
     for (const part of message.parts) {
-        if (part.type !== "tool-web_search") continue
+        if (part.type !== `tool-${kind}_search`) continue
         if (getToolFailureAttempt(part)) continue
 
         const invocation = part as typeof part & {
@@ -76,14 +78,24 @@ export const getMessageWebSearches = (message: MessageWithParts) => {
         const running = state !== "output-available" && !failed
 
         searches.push({
-            toolCallId: invocation.toolCallId ?? `web-search-${searches.length}`,
+            toolCallId: invocation.toolCallId ?? `${kind}-search-${searches.length}`,
             query:
-                getQueryLabel(input?.query) ?? getQueryLabel(output?.query) ?? "Searching the web",
-            results: getResults(output),
-            error: asTrimmedString(invocation.errorText) ?? asTrimmedString(output?.error),
+                getQueryLabel(input?.query) ??
+                getQueryLabel(output?.query) ??
+                (kind === "image" ? "Searching images" : "Searching the web"),
+            results: getResults(output, kind),
+            error:
+                asTrimmedString(invocation.errorText) ??
+                asTrimmedString(output?.error) ??
+                (failed ? "Search unavailable. Try again." : undefined),
             status: failed ? "failed" : running ? "running" : "succeeded"
         })
     }
 
     return searches
 }
+
+export const getMessageWebSearches = (message: MessageWithParts) =>
+    getMessageSearches(message, "web")
+export const getMessageImageSearches = (message: MessageWithParts) =>
+    getMessageSearches(message, "image")

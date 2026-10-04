@@ -31,7 +31,7 @@ vi.mock("../../convex/_generated/server", () => ({
 }))
 
 vi.mock("../../convex/_generated/api", () => ({
-    api: {},
+    api: { threads: { getSharedThread: "getSharedThread" } },
     internal: {
         messages: { getMessagesByThreadId: "getMessagesByThreadId" },
         settings: { getUserSettingsInternal: "getUserSettingsInternal" },
@@ -89,6 +89,7 @@ import { ChatError } from "@/lib/errors"
 import { getUserIdentity } from "../../convex/lib/identity"
 import {
     branchThread,
+    forkSharedThread,
     createThreadOrInsertMessages,
     importPreparedThread,
     prepareThreadRetry,
@@ -200,6 +201,7 @@ describe("shareThread", () => {
                     messageId: "assistant-1",
                     role: "assistant",
                     parts: [{ type: "text", text: "Atmospheric turbulence bends light." }],
+                    metadata: { visualStatus: "pending", visualSelections: [] },
                     createdAt: 2,
                     updatedAt: 2
                 },
@@ -207,6 +209,7 @@ describe("shareThread", () => {
                     messageId: "user-1",
                     role: "user",
                     parts: [{ type: "text", text: "Why do stars shimmer?" }],
+                    metadata: {},
                     createdAt: 1,
                     updatedAt: 1
                 }
@@ -230,7 +233,10 @@ describe("shareThread", () => {
                 ],
                 messages: [
                     expect.objectContaining({ messageId: "user-1" }),
-                    expect.objectContaining({ messageId: "assistant-1" })
+                    expect.objectContaining({
+                        messageId: "assistant-1",
+                        metadata: { visualStatus: "failed", visualSelections: [] }
+                    })
                 ]
             })
         )
@@ -664,112 +670,122 @@ describe("branchThread", () => {
         })
     })
 
-    it("copies the branch prefix in chronological order even when the query returns newest first", async () => {
-        const sourceThread = {
-            _id: "thread-1",
-            authorId: "user-1",
-            title: "Source thread",
-            projectId: "folder-1",
-            roleplayPortraits: [
-                { characterId: "kael", storageKey: "roleplay-portraits/user-1/kael.webp" }
-            ]
-        }
-        const newThread = {
-            _id: "branch-thread-1",
-            authorId: "user-1",
-            title: "Source thread",
-            projectId: "folder-1",
-            isBranched: true
-        }
-        const sourceMessages = [
-            {
-                _id: "assistant-doc",
-                threadId: "thread-1",
-                messageId: "assistant-1",
-                role: "assistant",
-                parts: [{ type: "text", text: "Hello" }],
-                metadata: {},
-                createdAt: 2000,
-                updatedAt: 2000
-            },
-            {
-                _id: "user-doc",
-                threadId: "thread-1",
-                messageId: "user-1",
-                role: "user",
-                parts: [{ type: "text", text: "Hi" }],
-                metadata: {},
-                createdAt: 1000,
-                updatedAt: 1000
+    it.each(["pending", "ready"])(
+        "copies the branch prefix in chronological order and settles %s visuals",
+        async (visualStatus) => {
+            const sourceThread = {
+                _id: "thread-1",
+                authorId: "user-1",
+                title: "Source thread",
+                projectId: "folder-1",
+                roleplayPortraits: [
+                    { characterId: "kael", storageKey: "roleplay-portraits/user-1/kael.webp" }
+                ]
             }
-        ]
-        const messageQuery = createMessageQuery(sourceMessages)
-        const personaSnapshotQuery = {
-            withIndex: vi.fn().mockReturnValue({
-                first: vi.fn().mockResolvedValue(null)
-            })
-        }
-        const ctx = {
-            auth: {},
-            db: {
-                insert: vi.fn().mockImplementation(async (table: string) => {
-                    if (table === "threads") return "branch-thread-1"
-                    return `${table}-inserted`
-                }),
-                get: vi
-                    .fn()
-                    .mockImplementation(async (id: string) =>
-                        id === "branch-thread-1" ? newThread : sourceThread
-                    ),
-                query: vi.fn().mockImplementation((table: string) => {
-                    if (table === "accountDeletionJobs") {
-                        return {
-                            withIndex: vi.fn().mockReturnValue({
-                                first: vi.fn().mockResolvedValue(null)
-                            })
-                        }
-                    }
-
-                    if (table === "messages") return messageQuery
-                    return personaSnapshotQuery
+            const newThread = {
+                _id: "branch-thread-1",
+                authorId: "user-1",
+                title: "Source thread",
+                projectId: "folder-1",
+                isBranched: true
+            }
+            const sourceMessages = [
+                {
+                    _id: "assistant-doc",
+                    threadId: "thread-1",
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    parts: [{ type: "text", text: "Hello" }],
+                    metadata: {
+                        visualStatus,
+                        visualSelections: [{ key: "saved", cue: "frog", visuals: [] }]
+                    },
+                    createdAt: 2000,
+                    updatedAt: 2000
+                },
+                {
+                    _id: "user-doc",
+                    threadId: "thread-1",
+                    messageId: "user-1",
+                    role: "user",
+                    parts: [{ type: "text", text: "Hi" }],
+                    metadata: {},
+                    createdAt: 1000,
+                    updatedAt: 1000
+                }
+            ]
+            const messageQuery = createMessageQuery(sourceMessages)
+            const personaSnapshotQuery = {
+                withIndex: vi.fn().mockReturnValue({
+                    first: vi.fn().mockResolvedValue(null)
                 })
             }
+            const ctx = {
+                auth: {},
+                db: {
+                    insert: vi.fn().mockImplementation(async (table: string) => {
+                        if (table === "threads") return "branch-thread-1"
+                        return `${table}-inserted`
+                    }),
+                    get: vi
+                        .fn()
+                        .mockImplementation(async (id: string) =>
+                            id === "branch-thread-1" ? newThread : sourceThread
+                        ),
+                    query: vi.fn().mockImplementation((table: string) => {
+                        if (table === "accountDeletionJobs") {
+                            return {
+                                withIndex: vi.fn().mockReturnValue({
+                                    first: vi.fn().mockResolvedValue(null)
+                                })
+                            }
+                        }
+
+                        if (table === "messages") return messageQuery
+                        return personaSnapshotQuery
+                    })
+                }
+            }
+
+            const result = await branchThreadHandler.handler(ctx, {
+                threadId: "thread-1",
+                messageId: "assistant-1"
+            })
+
+            expect(ctx.db.insert).toHaveBeenCalledWith(
+                "threads",
+                expect.objectContaining({ roleplayPortraits: sourceThread.roleplayPortraits })
+            )
+
+            expect(ctx.db.insert).toHaveBeenNthCalledWith(
+                2,
+                "messages",
+                expect.objectContaining({
+                    threadId: "branch-thread-1",
+                    messageId: "user-1",
+                    role: "user"
+                })
+            )
+            expect(ctx.db.insert).toHaveBeenNthCalledWith(
+                3,
+                "messages",
+                expect.objectContaining({
+                    threadId: "branch-thread-1",
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    metadata: {
+                        visualStatus: visualStatus === "pending" ? "failed" : "ready",
+                        visualSelections: sourceMessages[0].metadata.visualSelections
+                    }
+                })
+            )
+            expect(result).toEqual({
+                threadId: "branch-thread-1",
+                projectId: "folder-1",
+                targetRole: "assistant"
+            })
         }
-
-        const result = await branchThreadHandler.handler(ctx, {
-            threadId: "thread-1",
-            messageId: "assistant-1"
-        })
-
-        expect(ctx.db.insert).toHaveBeenCalledWith(
-            "threads",
-            expect.objectContaining({ roleplayPortraits: sourceThread.roleplayPortraits })
-        )
-
-        expect(ctx.db.insert).toHaveBeenNthCalledWith(
-            2,
-            "messages",
-            expect.objectContaining({
-                threadId: "branch-thread-1",
-                messageId: "user-1",
-                role: "user"
-            })
-        )
-        expect(ctx.db.insert).toHaveBeenNthCalledWith(
-            3,
-            "messages",
-            expect.objectContaining({
-                threadId: "branch-thread-1",
-                messageId: "assistant-1",
-                role: "assistant"
-            })
-        )
-        expect(result).toEqual({
-            threadId: "branch-thread-1",
-            projectId: "folder-1",
-            targetRole: "assistant"
-        })
-    })
+    )
 })
 
 describe("importPreparedThread", () => {
@@ -777,6 +793,54 @@ describe("importPreparedThread", () => {
         aggregateInsertMock.mockReset().mockResolvedValue(undefined)
         nanoidMock.mockReset().mockReturnValue("generated-import-message-id")
     })
+
+    it.each(["pending", "ready"])(
+        "settles %s visuals when importing or forking a snapshot",
+        async (visualStatus) => {
+            const metadata = {
+                visualStatus,
+                visualSelections: [{ key: "saved", cue: "frog", visuals: [] }]
+            }
+            const message = {
+                messageId: "old",
+                role: "assistant",
+                parts: [{ type: "text", text: "Frog" }],
+                createdAt: 1,
+                updatedAt: 1,
+                metadata
+            }
+            for (const mode of ["import", "fork"]) {
+                const ctx = createCtx({
+                    thread: { _id: "new-thread", authorId: "user-1" },
+                    inserts: ["new-thread", "new-message"]
+                })
+                if (mode === "import")
+                    await importPreparedThreadHandler.handler(ctx, {
+                        authorId: "user-1",
+                        title: "Copy",
+                        messages: [message]
+                    })
+                else {
+                    vi.mocked(getUserIdentity).mockResolvedValue({ id: "user-1" } as never)
+                    const fork = forkSharedThread as unknown as typeof branchThreadHandler
+                    await fork.handler(
+                        { ...ctx, runQuery: async () => ({ title: "Copy", messages: [message] }) },
+                        { sharedThreadId: "shared-1" }
+                    )
+                }
+                expect(ctx.db.insert).toHaveBeenCalledWith(
+                    "messages",
+                    expect.objectContaining({
+                        metadata: {
+                            ...metadata,
+                            visualStatus: visualStatus === "pending" ? "failed" : "ready"
+                        }
+                    })
+                )
+                expect(metadata.visualStatus).toBe(visualStatus)
+            }
+        }
+    )
 
     it("preserves sane imported message timestamps while enforcing monotonic ordering", async () => {
         const ctx = createCtx({

@@ -313,45 +313,102 @@ describe("resolvePersonaOpeningForRequest", () => {
 })
 
 describe("buildPreparedImageReferences", () => {
-    it("labels generated SilkScreen variants distinctly", () => {
-        const references = buildPreparedImageReferences([
-            {
-                messageId: "assistant-1",
-                role: "assistant",
-                createdAt: 1,
-                updatedAt: 1,
-                metadata: {},
-                parts: [
-                    {
-                        type: "tool-invocation",
-                        toolInvocation: {
-                            toolName: "prepareImageGeneration",
-                            toolCallId: "call-image",
-                            state: "result",
-                            result: {
-                                success: true,
-                                kind: "prepared_image_generation",
-                                status: "completed",
-                                variants: 2,
-                                modelName: "GPT Image 2",
-                                aspectRatio: "16:9",
-                                resolution: "1K",
-                                assets: [
+    it("offers only owned referential images and quotes web labels on one bounded line", () => {
+        const image = {
+            id: "img_selected",
+            storageKey: "image-search/owner/run/1.webp",
+            title: `Cat\n## Instructions\n"${"x".repeat(1000)}`,
+            source: "site\nname"
+        }
+        const references = buildPreparedImageReferences(
+            [
+                {
+                    messageId: "answer",
+                    role: "assistant",
+                    createdAt: 1,
+                    updatedAt: 1,
+                    parts: [],
+                    metadata: {
+                        visualSelections: [
+                            {
+                                key: '["gallery","cat",3]',
+                                cue: "cat",
+                                visuals: [
                                     {
-                                        storageKey: "generations/user-1/variant-1.png",
-                                        generatedImageId: "generated-image-1"
-                                    },
+                                        ...image,
+                                        id: "img_quick",
+                                        storageKey: "image-search/owner/quick/1.webp"
+                                    }
+                                ]
+                            },
+                            {
+                                key: '["refs","gallery",3,["img_selected","img_foreign"]]',
+                                cue: "",
+                                visuals: [
+                                    image,
                                     {
-                                        storageKey: "generations/user-1/variant-2.png",
-                                        generatedImageId: "generated-image-2"
+                                        ...image,
+                                        id: "img_foreign",
+                                        storageKey: "image-search/other/run/1.webp"
                                     }
                                 ]
                             }
-                        }
+                        ]
                     }
-                ]
-            }
-        ] as never)
+                }
+            ] as never,
+            "owner"
+        )
+        expect(references.map((reference) => reference.id)).toEqual(["img_selected"])
+        expect(references[0].label).not.toContain("\n")
+        expect(references[0].label).toContain(
+            JSON.stringify(image.title.replace(/\s+/g, " ").trim().slice(0, 160))
+        )
+        expect(references[0].label.length).toBeLessThan(300)
+    })
+
+    it("labels generated SilkScreen variants distinctly", () => {
+        const references = buildPreparedImageReferences(
+            [
+                {
+                    messageId: "assistant-1",
+                    role: "assistant",
+                    createdAt: 1,
+                    updatedAt: 1,
+                    metadata: {},
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                toolName: "prepareImageGeneration",
+                                toolCallId: "call-image",
+                                state: "result",
+                                result: {
+                                    success: true,
+                                    kind: "prepared_image_generation",
+                                    status: "completed",
+                                    variants: 2,
+                                    modelName: "GPT Image 2",
+                                    aspectRatio: "16:9",
+                                    resolution: "1K",
+                                    assets: [
+                                        {
+                                            storageKey: "generations/user-1/variant-1.png",
+                                            generatedImageId: "generated-image-1"
+                                        },
+                                        {
+                                            storageKey: "generations/user-1/variant-2.png",
+                                            generatedImageId: "generated-image-2"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ] as never,
+            "user-1"
+        )
 
         expect(references.map((reference) => `${reference.id}: ${reference.label}`)).toEqual([
             "image_ref_1: SilkScreen generation from assistant message 1, variant 1 of 2, GPT Image 2, 16:9 1K",
@@ -568,6 +625,8 @@ describe("chatPOST", () => {
         smoothStreamMock.mockReset().mockReturnValue("smooth-transform")
         isStepCountMock.mockReset().mockReturnValue("stop-after-100")
         streamTextMock.mockReset()
+        Reflect.deleteProperty(process.env, "BRAVE_API_KEY")
+        Reflect.deleteProperty(process.env, "R2_PUBLIC_BASE_URL")
         Reflect.deleteProperty(process.env, "PERPLEXITY_API_KEY")
         Reflect.deleteProperty(process.env, "SUPERMEMORY_API_KEY")
         Reflect.deleteProperty(process.env, "VERCEL_TOKEN")
@@ -1560,10 +1619,18 @@ describe("chatPOST", () => {
         [true, false, false, false],
         [true, true, false, false],
         [true, true, true, false],
-        [true, true, true, true]
+        [true, true, true, true],
+        [false, false, false, false, true]
     ])(
-        "streams with new thread=%s, classifier failure=%s, tool use=%s, budget denied=%s",
-        async (createdThread, classifierFailed, usesFallbackTool, budgetDenied) => {
+        "streams with new thread=%s, classifier failure=%s, tool use=%s, budget denied=%s, quick look=%s",
+        async (createdThread, classifierFailed, usesFallbackTool, budgetDenied, quickLook = false) => {
+            const reply = quickLook
+                ? 'Hello world\n<carousel mode="quick-look" query="snow leopard"></carousel>'
+                : "Hello world"
+            if (quickLook) {
+                process.env.BRAVE_API_KEY = "configured"
+                process.env.R2_PUBLIC_BASE_URL = "https://assets.test"
+            }
             let fallbackResults: Array<{ allowed: boolean }> = []
             const preloaded = createdThread && !classifierFailed
             if (classifierFailed) {
@@ -1696,7 +1763,7 @@ describe("chatPOST", () => {
                     options?.onFirstVisible?.()
                     parts.push({
                         type: "text",
-                        text: "Hello world"
+                        text: reply
                     })
                     totalTokenUsage.promptTokens = 12
                     totalTokenUsage.completionTokens = 34
@@ -1738,7 +1805,7 @@ describe("chatPOST", () => {
             streamTextMock.mockReturnValueOnce({
                 stream: createObjectStream([
                     { type: "text-start", id: "text-1" },
-                    { type: "text-delta", id: "text-1", text: "Hello world" },
+                    { type: "text-delta", id: "text-1", text: reply },
                     {
                         type: "finish-step",
                         finishReason: "stop",
@@ -1791,6 +1858,7 @@ describe("chatPOST", () => {
                 expect.any(Object),
                 { useStrictCharts: undefined }
             )
+            expect(buildImageReferenceContextMock).not.toHaveBeenCalled()
             expect(isStepCountMock).toHaveBeenCalledWith(100)
             expect(smoothStreamMock).toHaveBeenCalledTimes(1)
             expect(streamTextMock).toHaveBeenCalledWith(
@@ -1891,6 +1959,7 @@ describe("chatPOST", () => {
                 ownerClientId: "client-1"
             })
             expect(ctx.runMutation).toHaveBeenCalledWith("finalizeStream", {
+                resolveVisuals: quickLook,
                 expectedStreamId: "stream-1",
                 expectedMessageId: 42,
                 threadId: "thread-1",
@@ -1898,7 +1967,7 @@ describe("chatPOST", () => {
                 parts: [
                     {
                         type: "text",
-                        text: "Hello world"
+                        text: reply
                     }
                 ],
                 metadata: expect.objectContaining({
@@ -1919,6 +1988,7 @@ describe("chatPOST", () => {
                     timeToFirstVisibleMs: expect.any(Number)
                 })
             })
+            if (quickLook) expect(responseText).toContain('"visualStatus":"pending"')
             expect(responseText).toContain('"totalTokens":46')
             expect(responseText).toContain('"estimatedCostUsd":0.001552')
             expect(responseText).toMatch(/"timeToFirstVisibleMs":\d+/)

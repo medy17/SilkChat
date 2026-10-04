@@ -62,6 +62,8 @@ export const getMessageRenderFingerprint = (message: UIMessage) =>
         message.role,
         message.id,
         getMessageFooterMetadataKey(message) ?? "",
+        serializeValue((message.metadata as Record<string, unknown> | undefined)?.visualSelections),
+        serializeValue((message.metadata as Record<string, unknown> | undefined)?.visualStatus),
         message.parts?.map(getPartRenderFingerprint).join("~") ?? ""
     ].join("::")
 

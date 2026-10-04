@@ -7,6 +7,8 @@ import {
 } from "@/components/markdown-table"
 import { MemoizedMarkdown, normalizeMarkdownMathDelimiters } from "@/components/memoized-markdown"
 import { advanceRecipeTimer } from "@/components/recipe-card"
+import { VisualSelectionContext } from "@/components/visual-references"
+import { visualRequestKey } from "@/lib/visual-selections"
 import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
 import { describe, expect, it, vi } from "vitest"
@@ -23,6 +25,81 @@ Object.defineProperty(globalThis, "ResizeObserver", {
 })
 
 describe("MemoizedMarkdown", () => {
+    it("shows the rest of a finished reply after an unclosed carousel", () => {
+        render(
+            React.createElement(MemoizedMarkdown, {
+                content:
+                    'Intro paragraph.\n\n<carousel mode="referential">\n<visual reference="img_a"></visual>\n\n## Details\nThe rest of the answer.',
+                isAnimating: false
+            })
+        )
+        expect(screen.getByRole("heading", { name: "Details" })).toBeTruthy()
+        expect(screen.getByText("The rest of the answer.")).toBeTruthy()
+    })
+
+    it("renders carousel groups from saved selections with attribution intact", () => {
+        const measure = vi
+            .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+            .mockReturnValue(new DOMRect(0, 0, 640, 480))
+        const content =
+            '<carousel mode="referential" title="Compare">\n<visual reference="img_b" title="Winter coat"></visual>\n<visual reference="img_a" title="Summer coat"></visual>\n</carousel>'
+        const visuals = ["img_b", "img_a"].map((id) => ({
+            id,
+            title: "Publisher title",
+            source: "example.org",
+            sourceUrl: `https://example.org/${id}`,
+            originalUrl: `https://example.org/${id}.jpg`,
+            storageKey: `image-search/owner/${id}.webp`,
+            thumbnailUrl: `https://assets.test/image-search/owner/${id}.webp`,
+            width: 800,
+            height: 600
+        }))
+        const rendered = render(
+            React.createElement(
+                VisualSelectionContext.Provider,
+                {
+                    value: {
+                        pending: false,
+                        selections: [
+                            {
+                                key: visualRequestKey({
+                                    cue: "",
+                                    refs: ["img_b", "img_a"],
+                                    variant: "gallery",
+                                    limit: 3
+                                }),
+                                cue: "",
+                                visuals
+                            }
+                        ]
+                    }
+                },
+                React.createElement(MemoizedMarkdown, { content })
+            )
+        )
+        try {
+            expect(rendered.getAllByRole("img").map((node) => node.getAttribute("src"))).toEqual(
+                visuals.map((image) => image.thumbnailUrl)
+            )
+            expect(rendered.getAllByRole("link").map((node) => node.getAttribute("href"))).toEqual(
+                visuals.map((image) => image.sourceUrl)
+            )
+            expect(rendered.getAllByText("example.org")).toHaveLength(2)
+            expect(rendered.getByText("Compare")).toBeTruthy()
+            expect(rendered.getByText("Winter coat")).toBeTruthy()
+            expect(rendered.getByText("Summer coat")).toBeTruthy()
+            // Child labels are captions only; the publisher title still names each image.
+            for (const image of rendered.getAllByRole("img")) {
+                const alt = image.getAttribute("alt") ?? ""
+                expect(alt.startsWith("Publisher title")).toBe(true)
+                expect(alt).not.toMatch(/Winter coat|Summer coat/)
+            }
+        } finally {
+            rendered.unmount()
+            measure.mockRestore()
+        }
+    })
+
     it("subtracts real elapsed time when a timer wakes after being idle", () => {
         const timer = {
             total: 480,

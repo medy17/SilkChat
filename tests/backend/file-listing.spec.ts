@@ -40,11 +40,13 @@ describe("file listing", () => {
             "generations/user-1/",
             "tts/user-1/",
             "code-artifacts/user-1/",
+            "image-search/user-1/",
             "persona-avatars/user-1/",
             "roleplay-portraits/user-1/",
             "persona-docs/user-1/"
         ])
         expect(getUserVisibleFilePrefixes("user-1")).not.toContain("imports/user-1/")
+        expect(getUserVisibleFilePrefixes("user-1")).not.toContain("tool-outputs/user-1/")
     })
 
     it("treats invalid cursors as the first page", () => {

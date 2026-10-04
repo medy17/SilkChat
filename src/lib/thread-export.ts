@@ -1,5 +1,6 @@
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { parseRoleplayPortraits, type RoleplayPortrait } from "@/lib/roleplay-portraits"
+import type { VisualSelection } from "@/lib/visual-selections"
 
 type ExportableRole = "user" | "assistant" | "system"
 
@@ -74,6 +75,7 @@ export interface ExportableMessage {
     metadata?: {
         modelId?: string
         modelName?: string
+        visualSelections?: VisualSelection[]
     }
 }
 
@@ -371,7 +373,14 @@ const buildMessageBlock = ({
         })
         .filter(Boolean)
 
-    if (!textContent && attachmentLines.length === 0) {
+    const visualLines = (message.metadata?.visualSelections ?? []).flatMap((selection) =>
+        selection.visuals.map(
+            (image) =>
+                `![${escapeMarkdownLabel(normalizeTitle(image.title))}](<${image.thumbnailUrl}>) — [${escapeMarkdownLabel(image.source)}](<${image.sourceUrl}>)`
+        )
+    )
+
+    if (!textContent && attachmentLines.length === 0 && visualLines.length === 0) {
         return null
     }
 
@@ -380,7 +389,9 @@ const buildMessageBlock = ({
             ? normalizeTitle(message.metadata?.modelName || message.metadata?.modelId || "")
             : undefined
 
-    const bodyLines = [textContent, attachmentLines.join("\n")].filter(Boolean)
+    const bodyLines = [textContent, attachmentLines.join("\n"), visualLines.join("\n\n")].filter(
+        Boolean
+    )
 
     return [buildMarkdownHeader({ role: message.role, modelLabel }), "", ...bodyLines].join("\n")
 }

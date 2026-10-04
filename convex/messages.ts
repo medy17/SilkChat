@@ -1,6 +1,8 @@
 import { v, type Infer } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { type MutationCtx, internalMutation, internalQuery, query } from "./_generated/server"
+import { internal } from "./_generated/api"
+import { collectVisualRequests } from "../src/lib/visual-selections"
 import { getUserIdentity } from "./lib/identity"
 import { MessageMetadata } from "./schema/message"
 import { MessagePart } from "./schema/parts"
@@ -697,13 +699,43 @@ export const patchMessage = internalMutation({
 export const finalizeStream = internalMutation({
     args: {
         ...patchMessageArgs,
+        resolveVisuals: v.optional(v.boolean()),
         expectedStreamId: v.id("streams"),
         expectedMessageId: v.id("messages")
     },
     handler: async (ctx, args) => {
         const stream = await ctx.db.get(args.expectedStreamId)
         if (!stream || stream.threadId !== args.threadId || stream.finalizedAt !== undefined) return
-        await patchMessageData(ctx, args)
+        const patched = await patchMessageData(ctx, args)
+        if (
+            patched &&
+            args.parts.some(
+                (part) => part.type === "text" && collectVisualRequests(part.text).length > 0
+            )
+        ) {
+            const message = await ctx.db.get(args.expectedMessageId)
+            if (message)
+                await ctx.db.patch(message._id, {
+                    metadata: {
+                        ...message.metadata,
+                        visualStatus: args.resolveVisuals ? "pending" : "failed"
+                    }
+                })
+            if (args.resolveVisuals) {
+                await ctx.scheduler.runAfter(0, internal.visuals_node.resolveMessage, {
+                    messageDocId: args.expectedMessageId,
+                    expectedStreamId: args.expectedStreamId
+                })
+                await ctx.scheduler.runAfter(
+                    10 * 60 * 1000,
+                    internal.visuals.failStalledSelection,
+                    {
+                        messageDocId: args.expectedMessageId,
+                        expectedStreamId: args.expectedStreamId
+                    }
+                )
+            }
+        }
         await ctx.db.patch(stream._id, { finalizedAt: Date.now() })
         const thread = await ctx.db.get(args.threadId)
         if (thread?.lastStreamId === args.expectedStreamId) {

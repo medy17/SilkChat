@@ -248,6 +248,7 @@ export const getReferenceSourceForKey = (key: string): ImageReferenceSource["sou
     if (key.startsWith("attachments/")) return "attachment"
     if (key.startsWith("generations/")) return "generation"
     if (key.startsWith("references/")) return "reference_upload"
+    if (key.startsWith("image-search/")) return "reference_upload"
     return null
 }
 

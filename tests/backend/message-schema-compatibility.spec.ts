@@ -3,7 +3,7 @@ import { expect, it } from "vitest"
 import schema from "../../convex/schema"
 const modules = import.meta.glob("../../convex/**/*.ts")
 
-it("preserves legacy visual metadata alongside current messages", async () => {
+it("preserves visual metadata alongside messages without it", async () => {
     const t = convexTest(schema, modules)
     const legacyMetadata = {
         visualStatus: "ready",
@@ -15,7 +15,11 @@ it("preserves legacy visual metadata alongside current messages", async () => {
                     {
                         id: "legacy-image",
                         title: "Giant frog",
-                        sourceUrl: "https://example.com/frog"
+                        thumbnailUrl: "https://example.com/frog-thumb.jpg",
+                        sourceUrl: "https://example.com/frog",
+                        source: "example.com",
+                        originalUrl: "https://example.com/frog.jpg",
+                        storageKey: "visuals/user/legacy-image"
                     }
                 ]
             }

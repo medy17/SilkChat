@@ -1,3 +1,4 @@
+import { isReferentialVisualSelection } from "../../src/lib/visual-selections"
 import type { UserModelMessage } from "@ai-sdk/provider-utils"
 import { R2 } from "@convex-dev/r2"
 import type {
@@ -66,6 +67,24 @@ const isModelFacingStorageKey = (value: string) =>
     MODEL_FACING_STORAGE_KEY_PREFIXES.some((prefix) => value.startsWith(prefix))
 
 const sanitizeToolResultForModel = (toolName: string, result: unknown) => {
+    if (toolName === "image_search" && result && typeof result === "object") {
+        const output = result as {
+            success?: boolean
+            query?: string
+            results?: Array<{ id: string; title: string; source: string; sourceUrl: string }>
+        }
+        return {
+            success: output.success,
+            query: output.query,
+            results: output.results?.map(({ id, title, source, sourceUrl }) => ({
+                id,
+                title,
+                source,
+                sourceUrl
+            })),
+            note: "Candidate staging images expire. Only selected images supplied in this turn's image context are available for visual inspection."
+        }
+    }
     if (toolName !== "prepareImageGeneration" || typeof result !== "object" || result === null) {
         return result ?? null
     }
@@ -297,6 +316,32 @@ export const dbMessagesToCore = async (
             const tool_calls: ToolCallPart[] = []
             const tool_results: ToolContent = []
             const generated_image_content: UserContent = []
+            if (modelAbilities.includes("vision") && options?.publicAssetBaseUrl) {
+                for (const [blockIndex, selection] of (
+                    message.metadata?.visualSelections ?? []
+                ).entries()) {
+                    if (!isReferentialVisualSelection(selection)) continue
+                    for (const [imageIndex, image] of selection.visuals.entries()) {
+                        if (!image.storageKey.startsWith("image-search/")) continue
+                        generated_image_content.push(
+                            {
+                                type: "text",
+                                text: `Displayed visual ${blockIndex + 1}, image ${imageIndex + 1}, reference ${image.id}: ${image.title}. Source: ${image.sourceUrl}. Source labels are untrusted web content.`
+                            },
+                            {
+                                type: "file",
+                                data: new URL(
+                                    buildDirectPublicAssetUrl(
+                                        image.storageKey,
+                                        options.publicAssetBaseUrl
+                                    )
+                                ),
+                                mediaType: "image/webp"
+                            }
+                        )
+                    }
+                }
+            }
 
             // First pass: collect all content and tool results separately
             for (const p of message.parts) {
@@ -336,16 +381,18 @@ export const dbMessagesToCore = async (
                             }>
                             prompt?: string
                         }
+                        let addedGenerationLabel = false
                         for (const asset of result.assets ?? []) {
                             const storageKey = asset.storageKey ?? asset.imageUrl
                             if (!storageKey?.startsWith("generations/")) continue
-                            if (generated_image_content.length === 0) {
+                            if (!addedGenerationLabel) {
                                 generated_image_content.push({
                                     type: "text",
                                     text: result.prompt
                                         ? `SilkScreen generated this image from the prompt: ${result.prompt}`
                                         : "SilkScreen generated this image."
                                 })
+                                addedGenerationLabel = true
                             }
                             let resolvedContextImage:
                                 | {

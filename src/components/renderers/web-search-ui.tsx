@@ -1,7 +1,7 @@
 import { AnimatedCollapsible } from "@/components/ui/animated-collapsible"
 import type { MessageWebSearch, WebSearchResult } from "@/lib/message-web-searches"
 import { cn } from "@/lib/utils"
-import { ChevronDown, CircleAlert, ExternalLink, Globe, Loader2 } from "lucide-react"
+import { ChevronDown, CircleAlert, ExternalLink, Globe, Image, Loader2 } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
 import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
 
@@ -107,120 +107,158 @@ const SearchResultCard = memo(({ result }: { result: WebSearchResult }) => {
 
 SearchResultCard.displayName = "SearchResultCard"
 
-const WebSearchStep = memo(({ search }: { search: MessageWebSearch }) => {
-    const [isOpen, setIsOpen] = useState(search.status === "running")
+const WebSearchStep = memo(
+    ({ search, kind }: { search: MessageWebSearch; kind: "web" | "image" }) => {
+        const [isOpen, setIsOpen] = useState(search.status === "running")
 
-    useEffect(() => {
-        if (search.status === "running") setIsOpen(true)
-    }, [search.status])
+        useEffect(() => {
+            if (search.status === "running") setIsOpen(true)
+        }, [search.status])
 
-    return (
-        <section className="border-border/70 border-t first:border-t-0">
-            <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
-                onClick={() => setIsOpen((open) => !open)}
-                aria-expanded={isOpen}
-            >
-                {search.status === "running" ? (
-                    <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-                ) : search.status === "failed" ? (
-                    <CircleAlert className="size-3.5 shrink-0 text-destructive" />
-                ) : null}
-                <span className="min-w-0 flex-1 truncate font-medium text-sm" title={search.query}>
-                    {search.query}
-                </span>
-                {search.status !== "running" && (
-                    <span className="shrink-0 text-muted-foreground text-xs">
-                        {search.results.length} {search.results.length === 1 ? "result" : "results"}
-                    </span>
-                )}
-                <ChevronDown
-                    className={cn(
-                        "size-4 shrink-0 text-muted-foreground transition-transform",
-                        isOpen && "rotate-180"
-                    )}
-                />
-            </button>
-
-            <AnimatedCollapsible open={isOpen}>
-                <div className="border-border/70 border-t bg-background/35">
+        return (
+            <section className="border-border/70 border-t first:border-t-0">
+                <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                    onClick={() => setIsOpen((open) => !open)}
+                    aria-expanded={isOpen}
+                >
                     {search.status === "running" ? (
-                        <p className="m-0 px-4 py-4 text-muted-foreground text-sm">Searching…</p>
-                    ) : search.error ? (
-                        <p className="m-4 rounded-[var(--radius-md)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
-                            {search.error}
-                        </p>
-                    ) : search.results.length > 0 ? (
-                        <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border flex gap-4 overflow-x-auto p-4">
-                            {search.results.map((result, index) => (
-                                <SearchResultCard
-                                    key={`${result.url ?? result.title ?? "result"}-${index}`}
-                                    result={result}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="m-0 px-4 py-4 text-muted-foreground text-sm">
-                            No results returned.
-                        </p>
+                        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                    ) : search.status === "failed" ? (
+                        <CircleAlert className="size-3.5 shrink-0 text-destructive" />
+                    ) : null}
+                    <span
+                        className="min-w-0 flex-1 truncate font-medium text-sm"
+                        title={search.query}
+                    >
+                        {search.query}
+                    </span>
+                    {search.status !== "running" && (
+                        <span className="shrink-0 text-muted-foreground text-xs">
+                            {search.results.length}{" "}
+                            {search.results.length === 1 ? "result" : "results"}
+                        </span>
                     )}
-                </div>
-            </AnimatedCollapsible>
-        </section>
-    )
-})
+                    <ChevronDown
+                        className={cn(
+                            "size-4 shrink-0 text-muted-foreground transition-transform",
+                            isOpen && "rotate-180"
+                        )}
+                    />
+                </button>
+
+                <AnimatedCollapsible open={isOpen}>
+                    <div className="border-border/70 border-t bg-background/35">
+                        {search.status === "running" ? (
+                            <p className="m-0 px-4 py-4 text-muted-foreground text-sm">
+                                Searching…
+                            </p>
+                        ) : search.error ? (
+                            <p className="m-4 rounded-[var(--radius-md)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                                {search.error}
+                            </p>
+                        ) : search.results.length > 0 && kind === "image" ? (
+                            <ul className="m-0 list-none divide-y divide-border/70 px-4">
+                                {search.results.map((result, index) => (
+                                    <li key={`${result.url}-${index}`} className="py-3">
+                                        <a
+                                            href={result.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center gap-2 text-sm hover:underline"
+                                        >
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate font-medium">
+                                                    {result.title ||
+                                                        result.source ||
+                                                        "Image source"}
+                                                </span>
+                                                <span className="block truncate text-muted-foreground text-xs">
+                                                    {result.source || result.url}
+                                                </span>
+                                            </span>
+                                            <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : search.results.length > 0 ? (
+                            <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border flex gap-4 overflow-x-auto p-4">
+                                {search.results.map((result, index) => (
+                                    <SearchResultCard
+                                        key={`${result.url ?? result.title ?? "result"}-${index}`}
+                                        result={result}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="m-0 px-4 py-4 text-muted-foreground text-sm">
+                                No results returned.
+                            </p>
+                        )}
+                    </div>
+                </AnimatedCollapsible>
+            </section>
+        )
+    }
+)
 
 WebSearchStep.displayName = "WebSearchStep"
 
-export const WebSearchGroupRenderer = memo(({ searches }: { searches: MessageWebSearch[] }) => {
-    const [isOpen, setIsOpen] = useState(false)
-    const summary = useMemo(() => {
-        const running = searches.filter((search) => search.status === "running").length
-        const failed = searches.filter((search) => search.status === "failed").length
-        const results = searches.reduce((total, search) => total + search.results.length, 0)
-        return { running, failed, results }
-    }, [searches])
+export const WebSearchGroupRenderer = memo(
+    ({ searches, kind = "web" }: { searches: MessageWebSearch[]; kind?: "web" | "image" }) => {
+        const [isOpen, setIsOpen] = useState(false)
+        const Icon = kind === "image" ? Image : Globe
+        const summary = useMemo(() => {
+            const running = searches.filter((search) => search.status === "running").length
+            const failed = searches.filter((search) => search.status === "failed").length
+            const results = searches.reduce((total, search) => total + search.results.length, 0)
+            return { running, failed, results }
+        }, [searches])
 
-    if (searches.length === 0) return null
+        if (searches.length === 0) return null
 
-    return (
-        <div className="not-prose mb-6 w-full">
-            <button
-                type="button"
-                className="flex w-full cursor-pointer items-center gap-2 text-left"
-                onClick={() => setIsOpen((open) => !open)}
-                aria-expanded={isOpen}
-            >
-                <Globe className="size-4 shrink-0 text-primary" />
-                <span className="font-medium text-primary">Web Search</span>
-                {summary.running > 0 && (
-                    <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-                )}
-                <span className="ml-auto text-muted-foreground text-xs">
-                    {searches.length} {searches.length === 1 ? "search" : "searches"}
-                    {summary.running === 0 && summary.results > 0
-                        ? ` · ${summary.results} results`
-                        : ""}
-                    {summary.failed > 0 ? ` · ${summary.failed} failed` : ""}
-                </span>
-                <ChevronDown
-                    className={cn(
-                        "size-4 shrink-0 text-foreground transition-transform",
-                        isOpen && "rotate-180"
+        return (
+            <div className="not-prose mb-6 w-full">
+                <button
+                    type="button"
+                    className="flex w-full cursor-pointer items-center gap-2 text-left"
+                    onClick={() => setIsOpen((open) => !open)}
+                    aria-expanded={isOpen}
+                >
+                    <Icon className="size-4 shrink-0 text-primary" />
+                    <span className="font-medium text-primary">
+                        {kind === "image" ? "Image Search" : "Web Search"}
+                    </span>
+                    {summary.running > 0 && (
+                        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                     )}
-                />
-            </button>
+                    <span className="ml-auto text-muted-foreground text-xs">
+                        {searches.length} {searches.length === 1 ? "search" : "searches"}
+                        {summary.running === 0 && summary.results > 0
+                            ? ` · ${summary.results} results`
+                            : ""}
+                        {summary.failed > 0 ? ` · ${summary.failed} failed` : ""}
+                    </span>
+                    <ChevronDown
+                        className={cn(
+                            "size-4 shrink-0 text-foreground transition-transform",
+                            isOpen && "rotate-180"
+                        )}
+                    />
+                </button>
 
-            <AnimatedCollapsible open={isOpen}>
-                <div className={cn("mt-4 overflow-hidden", SPOTLIGHT_CARD_CLASS)}>
-                    {searches.map((search) => (
-                        <WebSearchStep key={search.toolCallId} search={search} />
-                    ))}
-                </div>
-            </AnimatedCollapsible>
-        </div>
-    )
-})
+                <AnimatedCollapsible open={isOpen}>
+                    <div className={cn("mt-4 overflow-hidden", SPOTLIGHT_CARD_CLASS)}>
+                        {searches.map((search) => (
+                            <WebSearchStep key={search.toolCallId} search={search} kind={kind} />
+                        ))}
+                    </div>
+                </AnimatedCollapsible>
+            </div>
+        )
+    }
+)
 
 WebSearchGroupRenderer.displayName = "WebSearchGroupRenderer"

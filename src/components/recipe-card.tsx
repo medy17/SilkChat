@@ -831,7 +831,7 @@ export const RecipeCard = ({
 
                                             <div
                                                 className={
-                                                    step.visualCue
+                                                    step.visualCue || step.visualRefs !== undefined
                                                         ? "grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]"
                                                         : undefined
                                                 }
@@ -853,9 +853,11 @@ export const RecipeCard = ({
                                                         onResetTimer={resetTimer}
                                                     />
                                                 </div>
-                                                {step.visualCue && (
+                                                {(step.visualCue ||
+                                                    step.visualRefs !== undefined) && (
                                                     <VisualReferences
-                                                        cue={step.visualCue}
+                                                        cue={step.visualCue ?? ""}
+                                                        refs={step.visualRefs}
                                                         limit={1}
                                                         variant="step"
                                                     />
@@ -1027,10 +1029,12 @@ export const RecipeCard = ({
                                             )}
                                         </section>
 
-                                        {currentStep.visualCue && (
+                                        {(currentStep.visualCue ||
+                                            currentStep.visualRefs !== undefined) && (
                                             <div className="overflow-hidden rounded-[var(--radius-xl)]">
                                                 <VisualReferences
-                                                    cue={currentStep.visualCue}
+                                                    cue={currentStep.visualCue ?? ""}
+                                                    refs={currentStep.visualRefs}
                                                     limit={1}
                                                     variant="step"
                                                 />

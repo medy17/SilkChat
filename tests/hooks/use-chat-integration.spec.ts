@@ -1092,6 +1092,81 @@ describe("useChatIntegration", () => {
         expect(setMessages).toHaveBeenCalledWith(fullerBackendMessages)
     })
 
+    it.each([
+        ["pending", undefined],
+        ["ready", "pending"]
+    ])("does not replace %s visuals with a stale %s snapshot", (current, backend) => {
+        const message = {
+            id: "assistant-1",
+            role: "assistant",
+            parts: [{ type: "text", text: "<visual>snow leopard</visual>" }]
+        }
+        const localMessages = [
+            {
+                ...message,
+                parts: [{ type: "step-start" }, ...message.parts],
+                metadata: { visualStatus: current }
+            }
+        ]
+        const backendMessages = [{ ...message, metadata: { visualStatus: backend } }]
+        const setMessages = vi.fn()
+        backendToUiMessagesMock.mockReturnValue(backendMessages)
+        useConvexQueryMock.mockImplementation(
+            (query: string) =>
+                ({
+                    getThreadMessages: backendMessages,
+                    getThread: { _id: "thread-1", isLive: false }
+                })[query]
+        )
+        useChatMock.mockImplementation(() => ({
+            status: "ready",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+        renderHook(() => useChatIntegration({ threadId: "thread-1" }))
+        expect(setMessages).not.toHaveBeenCalled()
+    })
+
+    it("adopts saved visuals on an earlier message even when the reply text is unchanged", () => {
+        const localMessages = [
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "<visual>snow leopard</visual>" }],
+                metadata: { visualStatus: "pending" }
+            },
+            { id: "user-2", role: "user", parts: [{ type: "text", text: "Tell me more" }] }
+        ]
+        const backendMessages = [
+            {
+                ...localMessages[0],
+                metadata: {
+                    visualStatus: "ready",
+                    visualSelections: [{ key: "saved", cue: "snow leopard", visuals: [] }]
+                }
+            },
+            localMessages[1]
+        ]
+        const setMessages = vi.fn()
+        backendToUiMessagesMock.mockReturnValue(backendMessages)
+        useConvexQueryMock.mockImplementation(
+            (query: string) =>
+                ({
+                    getThreadMessages: localMessages,
+                    getThread: { _id: "thread-1", isLive: false }
+                })[query]
+        )
+        useChatMock.mockImplementation(() => ({
+            status: "ready",
+            messages: localMessages,
+            setMessages,
+            resumeStream: vi.fn()
+        }))
+        renderHook(() => useChatIntegration({ threadId: "thread-1" }))
+        expect(setMessages).toHaveBeenCalledWith(backendMessages)
+    })
+
     it("adopts backend snapshots when only footer metadata became richer", () => {
         const localMessages = [
             {
@@ -1595,6 +1670,108 @@ describe("useChatIntegration", () => {
         rerender()
 
         expect(setMessages).toHaveBeenCalledWith(staleBackendMessages)
+    })
+
+    it("adopts ready visual results after an SDK stream finishes without a refresh", async () => {
+        const { readUIMessageStream } = await vi.importActual<typeof import("ai")>("ai")
+        const { backendToUiMessages } = await vi.importActual<
+            typeof import("@/convex/lib/backend_to_ui_messages")
+        >("@/convex/lib/backend_to_ui_messages")
+        const text = '<carousel mode="quick-look" query="snow leopard"></carousel>'
+        const chunks: import("ai").UIMessageChunk[] = [
+            { type: "start", messageId: "assistant-1" },
+            { type: "start-step" },
+            { type: "text-start", id: "text-1" },
+            { type: "text-delta", id: "text-1", delta: text },
+            { type: "text-end", id: "text-1" },
+            { type: "finish-step" },
+            { type: "finish", messageMetadata: { visualStatus: "pending" } }
+        ]
+        let messages: import("ai").UIMessage[] = []
+        for await (const message of readUIMessageStream({
+            stream: new ReadableStream({
+                start(controller) {
+                    chunks.forEach((chunk) => controller.enqueue(chunk))
+                    controller.close()
+                }
+            })
+        })) {
+            messages = [message]
+        }
+        const savedMessage = {
+            messageId: "assistant-1",
+            role: "assistant" as const,
+            parts: [{ type: "text" as const, text }],
+            createdAt: 0,
+            updatedAt: 0,
+            metadata: {
+                visualStatus: "ready" as const,
+                visualSelections: [
+                    {
+                        key: "saved",
+                        cue: "snow leopard",
+                        visuals: [
+                            {
+                                id: "img_1",
+                                title: "Snow leopard",
+                                source: "example.com",
+                                sourceUrl: "https://example.com/leopard",
+                                originalUrl: "https://example.com/leopard.jpg",
+                                thumbnailUrl: "https://images.example.com/image-search/1.webp",
+                                storageKey: "image-search/1.webp"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+        const queryResults: Record<string, unknown> = {
+            getThreadMessages: [{ ...savedMessage, parts: [], metadata: {} }],
+            getThread: {
+                _id: "thread-1",
+                isLive: true,
+                currentStreamId: "stream-1",
+                currentStreamOwnerClientId: "client-1"
+            }
+        }
+        nanoidMock.mockReturnValue("client-1")
+        backendToUiMessagesMock.mockImplementation(backendToUiMessages)
+        useConvexQueryMock.mockImplementation((query: string) => queryResults[query])
+        let status = "streaming"
+        useChatMock.mockImplementation((options: UseChatOptions) => {
+            latestUseChatOptions = options
+            return {
+                status,
+                messages,
+                setMessages: (next: typeof messages) => {
+                    messages = next
+                },
+                resumeStream: vi.fn()
+            }
+        })
+        const { rerender, result } = renderHook(() => useChatIntegration({ threadId: "thread-1" }))
+        status = "ready"
+        queryResults.getThread = { _id: "thread-1", isLive: false }
+        act(() => {
+            latestUseChatOptions?.onFinish?.({
+                message: { ...messages[0] },
+                messages: messages.map((message) => ({ ...message })),
+                isAbort: false,
+                isDisconnect: false,
+                isError: false
+            })
+        })
+        rerender()
+        expect(result.current.messages[0].parts).toContainEqual({
+            type: "text",
+            text,
+            state: "done"
+        })
+
+        queryResults.getThreadMessages = [savedMessage]
+        rerender()
+        rerender()
+        expect(result.current.messages[0].metadata).toEqual(savedMessage.metadata)
     })
 
     it("adopts remote retry truncation when the backend thread diverges while idle", () => {

@@ -12,6 +12,7 @@ const USER_VISIBLE_FILE_ROOTS = [
     "generations",
     "tts",
     "code-artifacts",
+    "image-search",
     "persona-avatars",
     "roleplay-portraits",
     "persona-docs"

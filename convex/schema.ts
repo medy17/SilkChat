@@ -28,6 +28,7 @@ import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
 import { SharedThread, Thread } from "./schema/thread"
 import { UsageEvent } from "./schema/usage"
+import { VisualSearchRun } from "./schema/visuals"
 
 export {
     Thread,
@@ -187,6 +188,10 @@ export default defineSchema({
             filterFields: ["authorId"]
         }),
 
+    visualSearchRuns: defineTable(VisualSearchRun)
+        .index("byMessageRequest", ["messageDocId", "requestKey"])
+        .index("byExpiry", ["expiresAt"])
+        .index("byUser", ["userId"]),
     messages: defineTable(Message)
         .index("byThreadId", ["threadId"])
         .index("byMessageId", ["messageId"]),

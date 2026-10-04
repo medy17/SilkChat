@@ -2,8 +2,18 @@
 
 import { SPOTLIGHT_CARD_CLASS, SpotlightHeader } from "@/components/renderers/spotlight-frame"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type VisualReference, searchVisualReferences } from "@/lib/visual-references"
+import type { VisualReference } from "@/lib/visual-references"
+import {
+    visualRequestKey,
+    getVisualSearchQueries,
+    type VisualSelection
+} from "@/lib/visual-selections"
 import { cn } from "@/lib/utils"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { useMutation } from "convex/react"
+import { Image, Loader2 } from "lucide-react"
+import { Button } from "./ui/button"
 import {
     solveVisualLayout,
     VISUAL_LAYOUT_FALLBACK_RATIO,
@@ -12,15 +22,91 @@ import {
 import {
     type CSSProperties,
     type ReactNode,
-    useEffect,
+    createContext,
+    useContext,
     useLayoutEffect,
     useMemo,
     useRef,
     useState
 } from "react"
 
+export const VisualSelectionContext = createContext<{
+    selections: VisualSelection[]
+    pending: boolean
+    legacy?: { threadId: string; messageId: string }
+}>({ selections: [], pending: false })
+
+const LoadLegacyVisuals = ({
+    threadId,
+    messageId,
+    children
+}: {
+    threadId: string
+    messageId: string
+    children: ReactNode
+}) => {
+    const resolve = useMutation(api.visuals.resolveLegacy)
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string>()
+    return (
+        <div className="not-prose" data-recipe-print-hide>
+            <div className="relative" aria-busy={busy}>
+                {children}
+                <div className="absolute inset-0 flex items-center justify-center p-3">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="spotlight-glass w-[calc((100%_-_1rem)*1.4/3)] min-w-fit max-w-full rounded-[var(--radius-md)]"
+                        disabled={busy}
+                        onClick={async () => {
+                            setBusy(true)
+                            setError(undefined)
+                            try {
+                                const result = await resolve({
+                                    threadId: threadId as Id<"threads">,
+                                    messageId
+                                })
+                                if (result === "busy")
+                                    setError(
+                                        "Wait for the current reply to finish, then try again."
+                                    )
+                                else if (result === "unavailable")
+                                    setError("This message has no visuals available to load.")
+                            } catch {
+                                setError("Unable to load visuals. Try again.")
+                            } finally {
+                                setBusy(false)
+                            }
+                        }}
+                    >
+                        {busy ? (
+                            <Loader2
+                                className="size-4 animate-spin text-primary"
+                                aria-hidden="true"
+                            />
+                        ) : (
+                            <Image className="size-4 text-primary" aria-hidden="true" />
+                        )}
+                        {busy
+                            ? "Loading visuals…"
+                            : error
+                              ? "Retry loading visuals"
+                              : "Load visual references"}
+                    </Button>
+                </div>
+            </div>
+            {error && (
+                <p role="alert" className="mt-2 text-destructive text-sm">
+                    {error}
+                </p>
+            )}
+        </div>
+    )
+}
+
 const VisualTile = ({
     visual,
+    caption,
     cue,
     className,
     imgClassName,
@@ -29,6 +115,7 @@ const VisualTile = ({
     onError
 }: {
     visual: VisualReference
+    caption?: string
     cue: string
     className: string
     imgClassName: string
@@ -49,7 +136,7 @@ const VisualTile = ({
     >
         <img
             src={visual.thumbnailUrl}
-            alt={`${visual.title} — visual reference for ${cue}`}
+            alt={cue ? `${visual.title} — visual reference for ${cue}` : visual.title}
             className={cn("transition-transform duration-300", imgClassName)}
             loading="lazy"
             decoding="async"
@@ -57,6 +144,11 @@ const VisualTile = ({
             onLoad={(event) => onLoad?.(event.currentTarget)}
             onError={onError}
         />
+        {caption && (
+            <span className="pointer-events-none absolute top-1 left-1 max-w-[calc(100%_-_0.5rem)] truncate rounded-[var(--radius-sm)] bg-background/80 px-2 py-1 text-foreground text-xs backdrop-blur-md">
+                {caption}
+            </span>
+        )}
         <span
             data-visual-attribution
             className="pointer-events-none absolute right-1 bottom-1 z-20 flex max-w-[calc(100%_-_0.5rem)] truncate rounded-[var(--radius-sm)] bg-background/40 px-1.5 py-px text-[9px] text-foreground/65 leading-none shadow-sm backdrop-blur-md transition-colors group-hover:bg-background/55 group-hover:text-foreground/85"
@@ -70,10 +162,12 @@ const VisualTile = ({
 // shape and the rows adapt around them (see solveVisualLayout).
 const ReferenceGallery = ({
     visuals,
+    itemTitles,
     cue,
     onFailed
 }: {
     visuals: VisualReference[]
+    itemTitles?: Record<string, string>
     cue: string
     onFailed: (id: string) => void
 }) => {
@@ -119,6 +213,16 @@ const ReferenceGallery = ({
             className="flex flex-col"
             style={{ gap: VISUAL_LAYOUT_GAP }}
         >
+            {width <= 0 && (
+                <div aria-hidden="true" className="grid grid-cols-3 gap-2">
+                    {visuals.map((visual) => (
+                        <div
+                            key={visual.id}
+                            className="aspect-[4/3] animate-pulse rounded-[var(--radius-md)] bg-muted"
+                        />
+                    ))}
+                </div>
+            )}
             {rows.map((row) => (
                 <div
                     key={row.map((tile) => visuals[tile.index].id).join("\u0000")}
@@ -132,6 +236,11 @@ const ReferenceGallery = ({
                             <VisualTile
                                 key={visual.id}
                                 visual={visual}
+                                caption={
+                                    itemTitles && Object.hasOwn(itemTitles, visual.id)
+                                        ? itemTitles[visual.id]
+                                        : undefined
+                                }
                                 cue={cue}
                                 className={cn(
                                     "min-w-0 rounded-[var(--radius-md)] bg-muted",
@@ -158,6 +267,8 @@ export const VisualReferences = ({
     title,
     limit,
     variant,
+    refs,
+    itemTitles,
     framed = false
 }: {
     cue: string
@@ -166,29 +277,16 @@ export const VisualReferences = ({
     limit: number
     variant: "gallery" | "step"
     // Standalone galleries in chat get their own Spotlight card.
+    refs?: string[]
+    itemTitles?: Record<string, string>
     framed?: boolean
 }) => {
-    const [visuals, setVisuals] = useState<VisualReference[]>([])
+    const context = useContext(VisualSelectionContext)
+    const key = visualRequestKey({ cue, limit, variant, ...(refs !== undefined ? { refs } : {}) })
+    const selection = context.selections.find((selection) => selection.key === key)
+    const visuals = selection?.visuals ?? []
+    const status = !selection && context.pending ? "loading" : "ready"
     const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set())
-    const [status, setStatus] = useState<"loading" | "ready">("loading")
-
-    useEffect(() => {
-        const controller = new AbortController()
-        setVisuals([])
-        setFailedIds(new Set())
-        setStatus("loading")
-
-        searchVisualReferences(cue, limit, variant, controller.signal)
-            .then(setVisuals)
-            .catch((error: unknown) => {
-                if (!(error instanceof DOMException && error.name === "AbortError")) setVisuals([])
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setStatus("ready")
-            })
-
-        return () => controller.abort()
-    }, [cue, limit, variant])
 
     const visibleVisuals = useMemo(
         () => visuals.filter((visual) => !failedIds.has(visual.id)),
@@ -203,9 +301,11 @@ export const VisualReferences = ({
               ? "grid-cols-2"
               : "grid-cols-3"
 
-    // A friendlier title hides what was actually searched, so the cue stays one hover away.
+    const searchQueries = getVisualSearchQueries({ cue, refs }, visuals)
+    // A selected group can combine several searches. Keep their provenance visible
+    // even after its heading and per-image labels have been rewritten by the model.
     const heading =
-        title && title.toLocaleLowerCase() !== cue.toLocaleLowerCase() ? (
+        searchQueries.length > 0 ? (
             <Tooltip>
                 <TooltipTrigger asChild>
                     <span
@@ -213,13 +313,15 @@ export const VisualReferences = ({
                         tabIndex={0}
                         className="inline-block max-w-full truncate align-top focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                        {title}
+                        {title || cue || "Visual references"}
                     </span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Searched for “{cue}”</TooltipContent>
+                <TooltipContent side="bottom">
+                    Searched for {searchQueries.map((query) => `“${query}”`).join(", ")}
+                </TooltipContent>
             </Tooltip>
         ) : (
-            <span className="block truncate">{title ?? cue}</span>
+            <span className="block truncate">{title || cue || "Visual references"}</span>
         )
 
     const frame = (body: ReactNode) =>
@@ -235,37 +337,48 @@ export const VisualReferences = ({
             body
         )
 
-    if (status === "loading") {
-        return frame(
-            <div
-                // Recipe galleries sit inside printable recipe cards; chat cards never print.
-                data-recipe-print-hide={framed ? undefined : true}
-                aria-hidden="true"
-                className={
-                    framed
-                        ? "grid grid-cols-3 gap-2"
-                        : isGallery
-                          ? "grid grid-cols-3 gap-2 overflow-hidden rounded-[var(--radius-xl)]"
-                          : "overflow-hidden rounded-[var(--radius-lg)]"
-                }
-            >
-                {Array.from({ length: isGallery ? limit : 1 }, (_, index) => (
-                    <div
-                        key={index}
-                        className={cn(
-                            "aspect-[4/3] animate-pulse bg-muted",
-                            framed && "rounded-[var(--radius-md)]"
-                        )}
-                    />
-                ))}
-            </div>
-        )
-    }
+    const skeleton = (animate: boolean) => (
+        <div
+            // Recipe galleries sit inside printable recipe cards; chat cards never print.
+            data-recipe-print-hide={framed ? undefined : true}
+            aria-hidden="true"
+            className={
+                framed
+                    ? "grid grid-cols-3 gap-2"
+                    : isGallery
+                      ? "grid grid-cols-3 gap-2 overflow-hidden rounded-[var(--radius-xl)]"
+                      : "overflow-hidden rounded-[var(--radius-lg)]"
+            }
+        >
+            {Array.from({ length: isGallery ? limit : 1 }, (_, index) => (
+                <div
+                    key={index}
+                    className={cn(
+                        "aspect-[4/3] bg-muted",
+                        animate && "animate-pulse",
+                        framed && "rounded-[var(--radius-md)]"
+                    )}
+                />
+            ))}
+        </div>
+    )
 
-    if (visibleVisuals.length === 0) return null
+    if (status === "loading") return frame(skeleton(true))
+
+    if (visibleVisuals.length === 0)
+        return !selection && !context.pending && context.legacy
+            ? frame(<LoadLegacyVisuals {...context.legacy}>{skeleton(false)}</LoadLegacyVisuals>)
+            : null
 
     if (framed) {
-        return frame(<ReferenceGallery visuals={visibleVisuals} cue={cue} onFailed={markFailed} />)
+        return frame(
+            <ReferenceGallery
+                visuals={visibleVisuals}
+                itemTitles={itemTitles}
+                cue={cue || title || "selected images"}
+                onFailed={markFailed}
+            />
+        )
     }
 
     return (
@@ -281,6 +394,11 @@ export const VisualReferences = ({
                     <VisualTile
                         key={visual.id}
                         visual={visual}
+                        caption={
+                            itemTitles && Object.hasOwn(itemTitles, visual.id)
+                                ? itemTitles[visual.id]
+                                : undefined
+                        }
                         cue={cue}
                         className={isGallery ? "aspect-[5/4] bg-muted/60" : "bg-transparent"}
                         imgClassName={

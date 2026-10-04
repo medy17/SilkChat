@@ -2,6 +2,11 @@ import { cronJobs } from "convex/server"
 import { internal } from "./_generated/api"
 
 const crons = cronJobs()
+crons.interval(
+    "cleanup image search candidates",
+    { hours: 1 },
+    internal.visuals_node.cleanupExpired
+)
 
 crons.interval(
     "cleanup stale import jobs",

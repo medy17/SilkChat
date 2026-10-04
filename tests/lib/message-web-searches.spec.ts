@@ -1,4 +1,4 @@
-import { getMessageWebSearches } from "@/lib/message-web-searches"
+import { getMessageWebSearches, getMessageImageSearches } from "@/lib/message-web-searches"
 import { describe, expect, it } from "vitest"
 
 describe("getMessageWebSearches", () => {
@@ -118,5 +118,74 @@ describe("getMessageWebSearches", () => {
         } as never)
 
         expect(result).toEqual([])
+    })
+})
+
+describe("getMessageImageSearches", () => {
+    it("maps publisher attribution rather than the temporary candidate URL", () => {
+        const [search] = getMessageImageSearches({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-image_search",
+                    toolCallId: "search",
+                    state: "output-available",
+                    input: { query: "frog" },
+                    output: {
+                        success: true,
+                        results: [
+                            {
+                                title: " Fossil ",
+                                source: " Museum ",
+                                sourceUrl: " https://museum.test/fossil ",
+                                thumbnailUrl: "https://temp.test/expired.webp"
+                            }
+                        ]
+                    }
+                }
+            ]
+        })
+        expect(search.status).toBe("succeeded")
+        expect(search.results).toEqual([
+            expect.objectContaining({
+                title: "Fossil",
+                source: "Museum",
+                url: "https://museum.test/fossil"
+            })
+        ])
+    })
+
+    it.each([
+        {
+            name: "running",
+            part: { state: "input-available" },
+            status: "running",
+            error: undefined
+        },
+        {
+            name: "provider failure",
+            part: { state: "output-available", output: { success: false } },
+            status: "failed",
+            error: "Search unavailable. Try again."
+        },
+        {
+            name: "tool failure",
+            part: { state: "output-error", errorText: "Search timed out" },
+            status: "failed",
+            error: "Search timed out"
+        }
+    ])("maps $name to activity state", ({ part, status, error }) => {
+        const [search] = getMessageImageSearches({
+            role: "assistant",
+            parts: [
+                {
+                    type: "tool-image_search",
+                    toolCallId: "search",
+                    input: { query: "frog" },
+                    ...part
+                }
+            ]
+        } as never)
+        expect(search).toMatchObject({ status, error, query: "frog", results: [] })
     })
 })

@@ -1,5 +1,5 @@
 import { parseBraveImageResults } from "@/lib/brave-image-search"
-import { buildVisualSearchUrl, splitVisualContent } from "@/lib/visual-references"
+import { splitVisualContent } from "@/lib/visual-references"
 import { describe, expect, it } from "vitest"
 
 const result = (overrides: Record<string, unknown> = {}) => ({
@@ -12,19 +12,6 @@ const result = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("visual reference search", () => {
-    it("builds a bounded same-origin search URL", () => {
-        const url = new URL(
-            buildVisualSearchUrl("wrapping shuwa & leaves", 20, "step"),
-            "https://silkchat.com"
-        )
-
-        expect(url.origin).toBe("https://silkchat.com")
-        expect(url.pathname).toBe("/api/visual-references")
-        expect(url.searchParams.get("q")).toBe("wrapping shuwa & leaves")
-        expect(url.searchParams.get("limit")).toBe("3")
-        expect(url.searchParams.get("variant")).toBe("step")
-    })
-
     it("uses stricter confidence gating for step visuals", () => {
         const payload = {
             results: [
@@ -33,6 +20,10 @@ describe("visual reference search", () => {
                     title: "A loosely related dish",
                     confidence: "medium",
                     properties: { url: "https://cdn.example.com/medium.jpg" }
+                }),
+                result({
+                    confidence: "low",
+                    properties: { url: "https://cdn.example.com/low.jpg" }
                 })
             ],
             extra: { might_be_offensive: false }
@@ -40,6 +31,7 @@ describe("visual reference search", () => {
 
         expect(parseBraveImageResults(payload, "step", 3)).toHaveLength(1)
         expect(parseBraveImageResults(payload, "gallery", 3)).toHaveLength(2)
+        expect(parseBraveImageResults(payload, "inspect", 6)).toHaveLength(3)
     })
 
     it("rejects offensive results and unsafe asset or source links", () => {
@@ -100,6 +92,18 @@ describe("visual reference dimensions", () => {
 })
 
 describe("visual references in ordinary replies", () => {
+    it.each([
+        '<carousel mode="referential">\n<visual reference="img_a"></visual>\n\n## Details\nThe rest of the answer.',
+        "<carousel> is a common UI pattern.\n\nMore explanation.",
+        '<carousel mode="quick-look" query="unfinished'
+    ])("preserves unfinished carousel text after streaming ends: %s", (tail) => {
+        const content = `Intro paragraph.\n\n${tail}`
+        expect(splitVisualContent(content)).toEqual([{ type: "markdown", content }])
+        expect(splitVisualContent(content, true)).toEqual([
+            { type: "markdown", content: "Intro paragraph.\n\n" }
+        ])
+    })
+
     it("lifts standalone visual lines out of prose but leaves inline and fenced tags alone", () => {
         expect(
             splitVisualContent(

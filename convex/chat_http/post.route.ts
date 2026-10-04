@@ -1,5 +1,9 @@
 "use node"
 
+import {
+    collectVisualRequests,
+    isReferentialVisualSelection
+} from "../../src/lib/visual-selections"
 import { ChatError } from "@/lib/errors"
 import { ABILITIES } from "@/lib/tool-abilities"
 import type { ReasoningEffort } from "@/lib/model-store"
@@ -79,6 +83,8 @@ import {
     getPrepareImageGenerationTool
 } from "../lib/tools/image_generation"
 import { withStrictNativeNetworkTool } from "../lib/tools/native_chart"
+import { getVisualAvailability } from "../lib/visual_availability"
+import { getImageSearchTool } from "../lib/tools/image_search"
 import { getAssignRoleplayPortraitTool } from "../lib/tools/roleplay_portrait"
 import { getPortraitStyleSource } from "../lib/image_generation/portrait_reference"
 import {
@@ -502,7 +508,7 @@ const extractReferenceKey = (value: string): string | null => {
         if (queryKey && getReferenceSourceForKey(queryKey)) return queryKey
 
         const decodedPath = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""))
-        for (const prefix of ["attachments/", "generations/", "references/"]) {
+        for (const prefix of ["attachments/", "generations/", "references/", "image-search/"]) {
             const prefixIndex = decodedPath.indexOf(prefix)
             if (prefixIndex !== -1) return decodedPath.slice(prefixIndex)
         }
@@ -521,23 +527,45 @@ const getFileLabelFromKey = (key: string, fallback: string) => {
 }
 
 export const buildPreparedImageReferences = (
-    messages: StoredMessage[]
+    messages: StoredMessage[],
+    userId: string
 ): PreparedImageReference[] => {
     const references: PreparedImageReference[] = []
     const seenKeys = new Set<string>()
     let assistantMessageIndex = 0
 
-    const addReference = (reference: Omit<PreparedImageReference, "id">) => {
+    const addReference = (reference: Omit<PreparedImageReference, "id">, stableId?: string) => {
         if (seenKeys.has(reference.key)) return
         seenKeys.add(reference.key)
         references.push({
             ...reference,
-            id: `image_ref_${references.length + 1}`
+            id: stableId ?? `image_ref_${references.length + 1}`
         })
     }
 
     for (const message of sortMessagesChronologically(messages)) {
         if (message.role === "assistant") assistantMessageIndex++
+        for (const [blockIndex, selection] of (
+            message.metadata?.visualSelections ?? []
+        ).entries()) {
+            if (!isReferentialVisualSelection(selection)) continue
+            for (const [imageIndex, image] of selection.visuals.entries()) {
+                if (!image.storageKey.startsWith(`image-search/${userId}/`)) continue
+                const title = JSON.stringify(image.title.replace(/\s+/g, " ").trim().slice(0, 160))
+                const source = JSON.stringify(
+                    image.source.replace(/\s+/g, " ").trim().slice(0, 160)
+                )
+                addReference(
+                    {
+                        key: image.storageKey,
+                        source: "reference_upload",
+                        label: `Displayed in assistant message ${assistantMessageIndex}, visual ${blockIndex + 1}, image ${imageIndex + 1}: ${title} (${source})`,
+                        mimeType: "image/webp"
+                    },
+                    image.id
+                )
+            }
+        }
 
         for (const part of message.parts ?? []) {
             if (part.type === "file" && part.mimeType?.startsWith("image/")) {
@@ -1064,6 +1092,12 @@ async function handleChatPost(
         { isAnonymous: user.isAnonymous }
     )
     const modelSupportsFunctionCalling = modelData.abilities.includes("function_calling")
+    const visualAvailability = getVisualAvailability({
+        abilities: modelData.abilities,
+        isAnonymous: user.isAnonymous,
+        hasSearchKey: Boolean(process.env.BRAVE_API_KEY),
+        hasPublicDelivery: Boolean(process.env.R2_PUBLIC_BASE_URL)
+    })
     const callableEnabledTools = modelSupportsFunctionCalling ? resolvedEnabledTools : []
     let memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
         resolvedEnabledTools,
@@ -1095,7 +1129,8 @@ async function handleChatPost(
             buildToolBudgetContext(toolCallLimitPerTurn),
             skillIndexContext,
             memoryTurnContext,
-            availableImageReferenceLabels
+            modelData.abilities.includes("function_calling") &&
+            availableImageReferenceLabels?.length
                 ? buildImageReferenceContext(availableImageReferenceLabels)
                 : ""
         ]
@@ -1737,7 +1772,7 @@ async function handleChatPost(
             const persistedPersonaSnapshot = personaSnapshot ?? committedContext.personaSnapshot
             const dbMessages = committedContext.messages
             const normalizedDbMessages = Array.isArray(dbMessages) ? dbMessages : []
-            const imageReferences = buildPreparedImageReferences(normalizedDbMessages)
+            const imageReferences = buildPreparedImageReferences(normalizedDbMessages, user.id)
             const mapped_messages = await dbMessagesToCore(
                 normalizedDbMessages,
                 modelData.abilities,
@@ -2095,6 +2130,9 @@ async function handleChatPost(
                 const providerPaidTools =
                     displayProvider === "xai" ? withStrictNativeNetworkTool(paidTools) : paidTools
                 const internalTools = {
+                    ...(visualAvailability.imageSearch
+                        ? getImageSearchTool(ctx, user.id, mutationResult.assistantMessageConvexId)
+                        : {}),
                     ...getPrepareImageGenerationTool({
                         enabled: hasInternalImagePreparationTool,
                         references: imageReferences,
@@ -2266,11 +2304,9 @@ async function handleChatPost(
                             role: "system",
                             content: buildCurrentTurnContext(
                                 promptToolCallLimitPerTurn,
-                                hasInternalImagePreparationTool
-                                    ? imageReferences.map(
-                                          (reference) => `${reference.id}: ${reference.label}`
-                                      )
-                                    : undefined,
+                                imageReferences.map(
+                                    (reference) => `${reference.id}: ${reference.label}`
+                                ),
                                 modelSupportsFunctionCalling ? openingSkillContext : undefined
                             )
                         }
@@ -2356,31 +2392,14 @@ async function handleChatPost(
                     )
                 )
 
-                writer.write({
-                    type: "finish",
-                    finishReason,
-                    messageMetadata: {
-                        threadId: mutationResult.threadId,
-                        streamId,
-                        modelId: body.model,
-                        modelName,
-                        displayProvider,
-                        runtimeProvider: modelData.runtimeProvider,
-                        creditProviderSource: modelData.providerSource,
-                        reasoningEffort: effectiveReasoningEffort,
-                        generationConfig: getGenerationConfig(),
-                        promptTokens: totalTokenUsage.promptTokens,
-                        completionTokens: totalTokenUsage.completionTokens,
-                        reasoningTokens: totalTokenUsage.reasoningTokens,
-                        totalTokens: totalTokenUsage.totalTokens,
-                        estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
-                        estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
-                        estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
-                        serverDurationMs: Date.now() - streamStartTime,
-                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
-                        ...(contextRouting ? { contextRouting } : {})
-                    }
-                })
+                const { resolveVisuals } = visualAvailability
+                const visualStatus = parts.some(
+                    (part) => part.type === "text" && collectVisualRequests(part.text).length > 0
+                )
+                    ? resolveVisuals
+                        ? ("pending" as const)
+                        : ("failed" as const)
+                    : undefined
                 console.log()
 
                 if (livePersistTimeout) {
@@ -2390,6 +2409,7 @@ async function handleChatPost(
                 await persistLiveAssistantMessage(true)
 
                 await ctx.runMutation(internal.messages.finalizeStream, {
+                    resolveVisuals,
                     threadId: mutationResult.threadId,
                     expectedStreamId: streamId,
                     expectedMessageId: mutationResult.assistantMessageConvexId,
@@ -2426,6 +2446,33 @@ async function handleChatPost(
                         creditFeature: modelCreditCharge.feature,
                         creditUnits: 0,
                         creditCounted: modelCreditCharge.counted,
+                        serverDurationMs: Date.now() - streamStartTime,
+                        timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextRouting ? { contextRouting } : {})
+                    }
+                })
+
+                writer.write({
+                    type: "finish",
+                    finishReason,
+                    messageMetadata: {
+                        ...(visualStatus ? { visualStatus } : {}),
+                        threadId: mutationResult.threadId,
+                        streamId,
+                        modelId: body.model,
+                        modelName,
+                        displayProvider,
+                        runtimeProvider: modelData.runtimeProvider,
+                        creditProviderSource: modelData.providerSource,
+                        reasoningEffort: effectiveReasoningEffort,
+                        generationConfig: getGenerationConfig(),
+                        promptTokens: totalTokenUsage.promptTokens,
+                        completionTokens: totalTokenUsage.completionTokens,
+                        reasoningTokens: totalTokenUsage.reasoningTokens,
+                        totalTokens: totalTokenUsage.totalTokens,
+                        estimatedCostUsd: totalTokenUsage.estimatedCostUsd,
+                        estimatedPromptCostUsd: totalTokenUsage.estimatedPromptCostUsd,
+                        estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                         serverDurationMs: Date.now() - streamStartTime,
                         timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
                         ...(contextRouting ? { contextRouting } : {})

@@ -10,6 +10,45 @@ import { parseThreadImportContent } from "@/lib/thread-import-core"
 import { parseThreadImportContents as parseBackendThreadImportContents } from "../../convex/lib/thread_import_core"
 
 describe("thread-export", () => {
+    it("exports selected web images with durable URLs and attribution", () => {
+        const exported = serializeThreadToMarkdown({
+            thread: { _id: "visual-thread", title: "Leopards", createdAt: 1, updatedAt: 1 },
+            messages: [
+                {
+                    messageId: "a",
+                    role: "assistant",
+                    createdAt: 1,
+                    updatedAt: 1,
+                    parts: [{ type: "text", text: '<visual reference="img_run_2"></visual>' }],
+                    metadata: {
+                        visualSelections: [
+                            {
+                                key: "selected",
+                                cue: "",
+                                visuals: [
+                                    {
+                                        id: "img_run_2",
+                                        title: "Snow leopard",
+                                        source: "example.org",
+                                        sourceUrl: "https://example.org/leopard",
+                                        originalUrl: "https://example.org/original.jpg",
+                                        storageKey: "image-search/owner/run/2.webp",
+                                        thumbnailUrl:
+                                            "https://assets.test/image-search/owner/run/2.webp"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ],
+            convexApiUrl: "https://convex.test"
+        })
+        expect(exported.markdown).toContain(
+            "![Snow leopard](<https://assets.test/image-search/owner/run/2.webp>) — [example.org](<https://example.org/leopard>)"
+        )
+    })
+
     it("preserves supporting-character portraits through export and import", () => {
         const roleplayPortraits = [
             { characterId: "kael", storageKey: "roleplay-portraits/user-1/kael.webp" }

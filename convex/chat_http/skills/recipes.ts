@@ -26,7 +26,7 @@ Types:
 - 'timer.value' is one positive ISO 8601 duration such as PT45S, PT8M, or PT1H30M.
 - 'ingredients', 'steps', and 'notes' are attribute-free structural tags. Keep the visible Markdown heading inside each tag and localize that heading normally. Omit 'notes' when there are no notes.
 - 'step' has no attributes. Its contents are one complete cooking step and may contain qty and timer tags.
-- An optional attribute-free 'visual' tag inside a step contains only 2 to 5 concrete image-search keywords.
+- An optional <carousel mode="quick-look" query="2 to 5 concrete image-search keywords"></carousel> inside a step supplies one illustrative image. Legacy attribute-free visual tags remain readable.
 
 Rules:
 - Keep all user-visible wording between the tags. The attributes are canonical data; the enclosed text is the readable fallback.
@@ -38,8 +38,9 @@ Rules:
 - When a scalable amount is repeated in a step, wrap it there too so adjusted ingredients and instructions stay consistent.
 - Wrap only actionable clock durations in 'timer'. Keep doneness cues outside it. Pressure-cooker whistles, heat levels, "overnight", and "until golden" are ordinary prose.
 - Wrap every complete instruction in one attribute-free 'step' tag. Keep Markdown numbering outside the tag as a readable fallback; do not put several numbered instructions inside one step.
-- Visual cues are broad search queries, not captions. Keep only the recognizable subject, action, or vessel; drop incidental adjectives, adverbs, serving details, and recipe prose. Write <visual>foil covered lamb roasting pan</visual>, not <visual>lamb tightly sealed under two layers of foil in a deep roasting pan</visual>.
+- Visual cues are broad search queries, not captions. Keep only the recognizable subject, action, or vessel; drop incidental adjectives, adverbs, serving details, and recipe prose. Use query="foil covered lamb roasting pan", not a long sentence describing the whole step.
 - Add step visuals only where a picture would materially help. Use no more than three visual cues total per recipe, counting the recipe 'visual' attribute; when the finished dish has a visual, this leaves at most two step visuals. If a useful cue cannot fit in 2 to 5 keywords, omit it. Do not put instructions, URLs, or invented image references in visual cues.
+- If image_search was used to inspect a preparation detail, a step can instead use <visual reference="returned_image_id"></visual> for one selected image. Keep quick-look queries for ordinary illustrations.
 - Use ordinary Markdown headings and lists inside 'recipe'. Close every tag, but if a value cannot satisfy this contract, leave that phrase as ordinary readable text instead of inventing a unit or attribute.
 
 Compact example — localized text, scalable metric amounts, counts, a non-standard measure, a repeated step amount, timer, and visual. The ~~~ fences delimit the example only; omit them from the response:
@@ -57,7 +58,7 @@ Compact example — localized text, scalable metric amounts, counts, a non-stand
 </ingredients>
 <steps>
 ## 手順
-1. <step><qty value="400" unit="ml" scale>400 ml</qty>のスープストックを加え、<timer value="PT18M">18分</timer>煮ます。 <visual>lentil soup simmering pot</visual></step>
+1. <step><qty value="400" unit="ml" scale>400 ml</qty>のスープストックを加え、<timer value="PT18M">18分</timer>煮ます。 <carousel mode="quick-look" query="lentil soup simmering pot"></carousel></step>
 2. <step>塩で味を調え、温かいうちに出します。</step>
 </steps>
 </recipe>

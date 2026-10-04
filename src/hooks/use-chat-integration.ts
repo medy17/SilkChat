@@ -105,7 +105,15 @@ const getMessagesContentFingerprint = (messages: UIMessage[]) =>
     messages
         .map(
             (message) =>
-                `${message.role}:${message.id}:${message.parts?.map(getPartFingerprint).join("~") ?? ""}`
+                // The SDK adds step boundaries to streamed messages; Convex only
+                // persists content. Including those markers prevents the completed
+                // reply guard from ever accepting saved metadata (including visuals).
+                `${message.role}:${message.id}:${
+                    message.parts
+                        ?.filter((part) => part.type !== "step-start")
+                        .map(getPartFingerprint)
+                        .join("~") ?? ""
+                }`
         )
         .join("|")
 
@@ -185,6 +193,21 @@ const getMessageFooterMetadataScore = (message: UIMessage | undefined) =>
 const getLatestAssistantMessage = (messages: UIMessage[]) =>
     [...messages].reverse().find((message) => message.role === "assistant")
 
+const wouldLoseVisualState = (currentMessages: UIMessage[], backendMessages: UIMessage[]) =>
+    currentMessages.some((message, index) => {
+        const current = message.metadata as { visualStatus?: string; streamId?: string } | undefined
+        const backend = backendMessages[index]?.metadata as
+            | { visualStatus?: string; streamId?: string }
+            | undefined
+        if (current?.streamId && backend?.streamId && current.streamId !== backend.streamId)
+            return false
+        return (
+            current?.visualStatus &&
+            (!backend?.visualStatus ||
+                (current.visualStatus !== "pending" && backend.visualStatus === "pending"))
+        )
+    })
+
 const shouldAdoptBackendMessages = ({
     currentMessages,
     backendMessages,
@@ -213,6 +236,19 @@ const shouldAdoptBackendMessages = ({
     const backendContent = getMessagesContentFingerprint(backendMessages)
 
     if (currentContent === backendContent) {
+        // A cached snapshot may briefly precede finalization even though it has
+        // the full reply text. Do not erase the finish event's visual state.
+        if (wouldLoseVisualState(currentMessages, backendMessages)) return false
+        // Visual resolution completes asynchronously after the text stream.
+        // It may update an older message while the newest answer is unchanged.
+        const visuals = (messages: UIMessage[]) =>
+            JSON.stringify(
+                messages.map((message) => {
+                    const metadata = message.metadata as Record<string, unknown> | undefined
+                    return [message.id, metadata?.visualStatus, metadata?.visualSelections]
+                })
+            )
+        if (!isLocallyMutating && visuals(currentMessages) !== visuals(backendMessages)) return true
         const currentAssistant = getLatestAssistantMessage(currentMessages)
         const backendAssistant = getLatestAssistantMessage(backendMessages)
         const currentMetadataScore = getMessageFooterMetadataScore(currentAssistant)
@@ -641,7 +677,13 @@ export function useChatIntegration<IsShared extends boolean>({
             setHydratedMessagesThreadId(threadId)
 
             if (!hasActiveThreadStream) {
-                chatHelpers.setMessages(initialMessages)
+                const sameReply =
+                    getMessagesIdentityFingerprint(chatHelpers.messages) ===
+                        getMessagesIdentityFingerprint(initialMessages) &&
+                    getMessagesContentFingerprint(chatHelpers.messages) ===
+                        getMessagesContentFingerprint(initialMessages)
+                if (!sameReply || !wouldLoseVisualState(chatHelpers.messages, initialMessages))
+                    chatHelpers.setMessages(initialMessages)
                 return
             }
 

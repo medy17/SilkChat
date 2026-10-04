@@ -398,6 +398,8 @@ and which code may use it.
 | `attachments/<userId>/` | Message files and imported attachments |
 | `references/<userId>/` | Image-generation inputs and their normalized derivatives |
 | `generations/<userId>/` | Generated image originals only |
+| `tool-outputs/<userId>/image-search/` | Captured web-image candidates; public for inference, hidden from Files, expire after 24 hours |
+| `image-search/<userId>/` | Selected captured web images; durable, visible in Files and account exports, usable as model references |
 | `code-artifacts/<userId>/` | Outputs from code execution |
 | `persona-avatars/<userId>/` | Persona avatars |
 | `persona-docs/<userId>/` | Persona knowledge files |

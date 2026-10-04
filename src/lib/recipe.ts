@@ -1,6 +1,10 @@
 import { type UnitSystem, convertUnit } from "parse-ingredient"
 import { maskMarkdownFences, parseTagAttributes } from "./markdown-scan"
-import { MAX_VISUAL_SEARCHES } from "./visual-references"
+import {
+    MAX_VISUAL_SEARCHES,
+    parseCarouselContent,
+    parseVisualReferences
+} from "./visual-references"
 
 export const RECIPE_UNITS = [
     "mcg",
@@ -58,6 +62,7 @@ export type RecipeStep = {
     raw: string
     tokens: RecipeInlineToken[]
     visualCue?: string
+    visualRefs?: string[]
 }
 
 export type ParsedRecipe = {
@@ -77,7 +82,7 @@ export type RecipeContentSegment =
 
 const INLINE_TAG_PATTERN = /<(qty|timer)\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi
 const STEP_TAG_PATTERN = /<step\b[^>]*>([\s\S]*?)<\/step\s*>/gi
-const VISUAL_TAG_PATTERN = /<visual\b[^>]*>([\s\S]*?)<\/visual\s*>/gi
+const VISUAL_TAG_PATTERN = /<visual\b([^<>]*?)(?:\/>|>([^<]*)<\/visual\s*>)/gi
 const DESCRIPTION_TAG_PATTERN = /<description\b[^>]*>([\s\S]*?)<\/description\s*>/i
 const SECTION_TAG_PATTERN = /^<(\/)?(ingredients|steps|notes)\s*>$/i
 const NUMBER_TOKEN_PATTERN = /(?:\d+\s+)?\d+(?:[.,]\d+)?(?:\/\d+)?[¼½¾⅓⅔⅛⅜⅝⅞]?|[¼½¾⅓⅔⅛⅜⅝⅞]/u
@@ -238,15 +243,37 @@ const normalizeVisualCue = (value: unknown) => {
 
 const parseRecipeStep = (source: string): RecipeStep => {
     let visualCue: string | undefined
+    let visualRefs: string[] | undefined
     const raw = source
-        .replace(VISUAL_TAG_PATTERN, (_match, cue: string) => {
-            visualCue ??= normalizeVisualCue(cue)
+        .replace(
+            /<carousel\b([^<>]*?)(?:\/>|>([\s\S]*?)<\/carousel\s*>)/gi,
+            (_match, attributes: string, body: string) => {
+                const carousel = parseCarouselContent(attributes, body ?? "")
+                if (carousel && visualCue === undefined && visualRefs === undefined) {
+                    visualCue = carousel.cue || undefined
+                    visualRefs = carousel.refs?.slice(0, 1)
+                }
+                return ""
+            }
+        )
+        .replace(/<carousel\b[\s\S]*$/gi, "")
+        .replace(VISUAL_TAG_PATTERN, (_match, attributes: string, cue: string) => {
+            const refs = parseVisualReferences(parseTagAttributes(attributes))
+            if (visualCue === undefined && visualRefs === undefined) {
+                if (refs !== undefined) visualRefs = refs.slice(0, 1)
+                else visualCue = normalizeVisualCue(cue)
+            }
             return ""
         })
         .replace(/\s+/g, " ")
         .trim()
 
-    return { raw, tokens: parseRecipeInline(raw), visualCue }
+    return {
+        raw,
+        tokens: parseRecipeInline(raw),
+        visualCue,
+        ...(visualRefs !== undefined ? { visualRefs } : {})
+    }
 }
 
 const parseTaggedSteps = (source: string): RecipeStep[] =>
@@ -352,7 +379,8 @@ export const parseRecipeBlock = (body: string, openingAttributes = ""): ParsedRe
                 const continued = parseRecipeStep(stripStepMarkup(`${current.raw} ${line}`))
                 Object.assign(current, {
                     ...continued,
-                    visualCue: current.visualCue ?? continued.visualCue
+                    visualCue: current.visualCue ?? continued.visualCue,
+                    visualRefs: current.visualRefs ?? continued.visualRefs
                 })
             }
             continue
@@ -367,9 +395,11 @@ export const parseRecipeBlock = (body: string, openingAttributes = ""): ParsedRe
     const stepVisualLimit = Math.max(0, MAX_VISUAL_SEARCHES - (visualCue ? 1 : 0))
     let stepVisualCount = 0
     const limitedSteps = resolvedSteps.map((step) => {
-        if (!step.visualCue) return step
+        if (!step.visualCue && step.visualRefs === undefined) return step
         stepVisualCount += 1
-        return stepVisualCount <= stepVisualLimit ? step : { ...step, visualCue: undefined }
+        return stepVisualCount <= stepVisualLimit
+            ? step
+            : { ...step, visualCue: undefined, visualRefs: undefined }
     })
 
     if (ingredients.length === 0 && limitedSteps.length === 0) return null

@@ -19,6 +19,142 @@ vi.mock("../../convex/_generated/api", () => ({
 import { dbMessagesToCore, normalizeAttachmentReferer } from "../../convex/lib/db_to_core_messages"
 
 describe("dbMessagesToCore", () => {
+    it("retains each SilkScreen prompt alongside selected visual context", async () => {
+        const result = await dbMessagesToCore(
+            [
+                {
+                    messageId: "answer",
+                    role: "assistant",
+                    metadata: {
+                        visualSelections: [
+                            {
+                                key: '["refs","gallery",3,["img_1"]]',
+                                cue: "frog",
+                                visuals: [
+                                    {
+                                        id: "img_1",
+                                        title: "Frog",
+                                        source: "Museum",
+                                        sourceUrl: "https://example.com/frog",
+                                        originalUrl: "https://example.com/frog.webp",
+                                        storageKey: "image-search/owner/run/1.webp",
+                                        thumbnailUrl:
+                                            "https://assets.test/image-search/owner/run/1.webp"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    parts: ["First illustration", "Second illustration"].map((prompt, index) => ({
+                        type: "tool-invocation",
+                        toolInvocation: {
+                            state: "result",
+                            toolName: "prepareImageGeneration",
+                            toolCallId: `gen-${index}`,
+                            args: {},
+                            result: {
+                                prompt,
+                                assets: [
+                                    { storageKey: `generations/owner/${index}-a.webp` },
+                                    { storageKey: `generations/owner/${index}-b.webp` }
+                                ]
+                            }
+                        }
+                    }))
+                }
+            ] as never,
+            ["vision"],
+            { publicAssetBaseUrl: "https://assets.test" }
+        )
+        const serialized = JSON.stringify(result.filter((message) => message.role === "user"))
+        expect(serialized).toContain("image-search/owner/run/1.webp")
+        for (const prompt of ["First illustration", "Second illustration"])
+            expect(
+                serialized.split(`SilkScreen generated this image from the prompt: ${prompt}`)
+            ).toHaveLength(2)
+        expect(serialized.match(/generations\/owner\//g)).toHaveLength(4)
+    })
+
+    it.each(["owner", "other"])(
+        "feeds retained %s images into vision context without quick looks or expired candidates",
+        async (owner) => {
+            const selected = {
+                id: "img_run_2",
+                title: "A leopard",
+                source: "example.org",
+                sourceUrl: "https://example.org/leopard",
+                originalUrl: "https://example.org/photo.jpg",
+                storageKey: `image-search/${owner}/run/2.webp`,
+                thumbnailUrl: `https://assets.test/image-search/${owner}/run/2.webp`
+            }
+            const messages = [
+                {
+                    messageId: "answer",
+                    role: "assistant",
+                    metadata: {
+                        visualSelections: [
+                            {
+                                key: '["refs","gallery",3,["img_run_2"]]',
+                                cue: "",
+                                visuals: [selected]
+                            },
+                            {
+                                key: '["gallery","quick frog",3]',
+                                cue: "quick frog",
+                                visuals: [
+                                    {
+                                        ...selected,
+                                        id: "img_quick",
+                                        storageKey: "image-search/owner/quick/1.webp",
+                                        thumbnailUrl:
+                                            "https://assets.test/image-search/owner/quick/1.webp"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    parts: [
+                        {
+                            type: "tool-invocation",
+                            toolInvocation: {
+                                state: "result",
+                                toolCallId: "search",
+                                toolName: "image_search",
+                                args: { query: "leopard" },
+                                result: {
+                                    success: true,
+                                    query: "leopard",
+                                    results: [
+                                        {
+                                            ...selected,
+                                            thumbnailUrl:
+                                                "https://assets.test/tool-outputs/expired.webp",
+                                            storageKey: "tool-outputs/expired.webp"
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        { type: "text", text: '<visual reference="img_run_2"></visual>' }
+                    ]
+                }
+            ] as never
+            const result = await dbMessagesToCore(messages, ["vision"], {
+                publicAssetBaseUrl: "https://assets.test"
+            })
+            const serialized = JSON.stringify(result)
+            expect(serialized).toContain(selected.thumbnailUrl)
+            expect(serialized).toContain("Displayed visual 1, image 1, reference img_run_2")
+            expect(serialized).not.toContain("tool-outputs/")
+            expect(serialized).not.toContain("img_quick")
+            expect(serialized).not.toContain("image-search/owner/quick/")
+            const withoutVision = await dbMessagesToCore(messages, [], {
+                publicAssetBaseUrl: "https://assets.test"
+            })
+            expect(JSON.stringify(withoutVision)).not.toContain(selected.thumbnailUrl)
+        }
+    )
+
     it.each(["batch", "single"])(
         "validates paperclip PDF URLs by their stored key through %s admission",
         async (mode) => {

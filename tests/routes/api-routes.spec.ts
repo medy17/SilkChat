@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { fetchAuthQueryMock, fetchAuthMutationMock, getSessionMock, searchBraveImagesMock } =
-    vi.hoisted(() => {
-        return {
-            fetchAuthQueryMock: vi.fn(),
-            fetchAuthMutationMock: vi.fn(),
-            getSessionMock: vi.fn(),
-            searchBraveImagesMock: vi.fn()
-        }
-    })
+const { fetchAuthQueryMock, fetchAuthMutationMock, getSessionMock } = vi.hoisted(() => {
+    return {
+        fetchAuthQueryMock: vi.fn(),
+        fetchAuthMutationMock: vi.fn(),
+        getSessionMock: vi.fn()
+    }
+})
 
 vi.mock("@tanstack/react-router", () => ({
     createFileRoute: () => (config: unknown) => config
@@ -22,10 +20,6 @@ vi.mock("@/lib/auth-server", () => ({
         fetchAuthQuery: fetchAuthQueryMock,
         fetchAuthMutation: fetchAuthMutationMock
     }
-}))
-
-vi.mock("@/lib/brave-image-search", () => ({
-    searchBraveImages: searchBraveImagesMock
 }))
 
 import { Route as CreditSummaryRoute } from "@/routes/api/credit-summary"
@@ -50,7 +44,6 @@ describe("API routes", () => {
         fetchAuthQueryMock.mockReset()
         fetchAuthMutationMock.mockReset()
         getSessionMock.mockReset()
-        searchBraveImagesMock.mockReset()
         vi.spyOn(console, "error").mockImplementation(() => {})
         Reflect.deleteProperty(process.env, "NODE_ENV")
         Reflect.deleteProperty(process.env, "BRAVE_API_KEY")
@@ -100,68 +93,12 @@ describe("API routes", () => {
         expect(visualReferencesResponse.status).toBe(401)
     })
 
-    it("keeps Brave recipe image search server-side and configuration-gated", async () => {
+    it("returns 410 when an authenticated client requests the retired visuals route", async () => {
         fetchAuthQueryMock.mockResolvedValue({ id: "user-1" })
-
-        const unconfiguredResponse = await visualReferencesHandlers.GET!({
-            request: new Request("https://example.com/api/visual-references?q=shuwa")
-        })
-        expect(unconfiguredResponse.status).toBe(503)
-
-        process.env.BRAVE_API_KEY = "server-brave-key"
-        fetchAuthMutationMock.mockResolvedValueOnce({
-            allowed: true,
-            retryAfterSeconds: 0,
-            unauthorized: false
-        })
-        searchBraveImagesMock.mockResolvedValueOnce([
-            {
-                id: "visual-1",
-                title: "Shuwa",
-                thumbnailUrl: "https://cdn.example.com/shuwa.jpg",
-                sourceUrl: "https://example.com/shuwa",
-                source: "example.com"
-            }
-        ])
-        const response = await visualReferencesHandlers.GET!({
-            request: new Request(
-                "https://example.com/api/visual-references?q=wrapping%20shuwa&limit=99&variant=step"
-            )
-        })
-
-        expect(response.status).toBe(200)
-        expect(searchBraveImagesMock).toHaveBeenCalledWith({
-            cue: "wrapping shuwa",
-            limit: 3,
-            variant: "step",
-            apiKey: "server-brave-key"
-        })
-        await expect(response.json()).resolves.toMatchObject({
-            visuals: [
-                {
-                    id: "visual-1",
-                    thumbnailUrl: "https://cdn.example.com/shuwa.jpg"
-                }
-            ]
-        })
-    })
-
-    it("rate limits visual reference searches before calling Brave", async () => {
-        process.env.BRAVE_API_KEY = "server-brave-key"
-        fetchAuthQueryMock.mockResolvedValue({ id: "user-1" })
-        fetchAuthMutationMock.mockResolvedValueOnce({
-            allowed: false,
-            retryAfterSeconds: 120,
-            unauthorized: false
-        })
-
         const response = await visualReferencesHandlers.GET!({
             request: new Request("https://example.com/api/visual-references?q=shuwa")
         })
-
-        expect(response.status).toBe(429)
-        expect(response.headers.get("Retry-After")).toBe("120")
-        expect(searchBraveImagesMock).not.toHaveBeenCalled()
+        expect(response.status).toBe(410)
     })
 
     it("enforces auth and dev-only constraints on the credit-state route", async () => {

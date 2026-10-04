@@ -752,6 +752,18 @@ export const purgeAccountData = internalMutation({
             return await continuePurge(ctx, job._id, userId, authId, phase, deletedCount)
         }
 
+        const visualRuns = await deleteUserBatch(
+            "purging_visual_searches",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("visualSearchRuns")
+                    .withIndex("byUser", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (visualRuns) return visualRuns
+
         const sharedThreads = await deleteUserBatch(
             "purging_shared_threads",
             deleteBatch(

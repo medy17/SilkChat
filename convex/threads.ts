@@ -39,8 +39,19 @@ import {
 } from "./schema/message"
 import { MessagePart } from "./schema/parts"
 import { ThreadPersonaSnapshotInput } from "./schema/persona"
+import { sanitizeCopiedVisualSelections } from "./lib/visual_assets"
 
 type ThreadDoc = Infer<typeof Thread>
+
+// Snapshots have no resolver job of their own. Keep completed selections, but
+// never copy the original message's in-flight work as a permanent loading state.
+const snapshotMessageMetadata = (metadata: Infer<typeof Message>["metadata"]) => ({
+    ...metadata,
+    ...(metadata.visualStatus === "pending" ? { visualStatus: "failed" as const } : {}),
+    ...(metadata.visualSelections
+        ? { visualSelections: sanitizeCopiedVisualSelections(metadata.visualSelections) }
+        : {})
+})
 
 const normalizeThreadTitle = (title: string) =>
     title
@@ -257,7 +268,7 @@ const performThreadImport = async (
             parts: message.parts,
             createdAt: timestamp,
             updatedAt: timestamp,
-            metadata: message.metadata ?? {}
+            metadata: snapshotMessageMetadata(message.metadata ?? {})
         })
     }
 
@@ -944,7 +955,7 @@ export const shareThread = action({
             parts: msg.parts,
             createdAt: msg.createdAt,
             updatedAt: msg.updatedAt,
-            metadata: msg.metadata
+            metadata: snapshotMessageMetadata(msg.metadata)
         }))
 
         aiMessages.reverse()
@@ -1082,7 +1093,7 @@ export const forkSharedThread = mutation({
                 parts: message.parts,
                 createdAt: message.createdAt,
                 updatedAt: message.updatedAt,
-                metadata: message.metadata
+                metadata: snapshotMessageMetadata(message.metadata)
             })
         }
 
@@ -1148,7 +1159,7 @@ export const branchThread = mutation({
                 parts: message.parts,
                 createdAt: nextMessageCreatedAt,
                 updatedAt: nextMessageCreatedAt,
-                metadata: message.metadata
+                metadata: snapshotMessageMetadata(message.metadata)
             })
         }
 
