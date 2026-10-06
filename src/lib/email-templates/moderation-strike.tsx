@@ -1,4 +1,5 @@
 import { Body, Container, Head, Html, Img, Preview, Section, Text } from "@react-email/components"
+import { getRemainingStrikesCopy } from "../../../convex/lib/moderation"
 import {
     ModerationAppeal,
     ModerationCaseDetails,
@@ -23,13 +24,6 @@ export interface ModerationStrikeEmailTemplateProps extends ModerationEmailBaseP
     strikeLimit: number
     expiresAt?: string
     restrictions?: string[]
-}
-
-export const getRemainingStrikesCopy = (strikeNumber: number, strikeLimit: number) => {
-    const remaining = Math.max(strikeLimit - strikeNumber, 0)
-    if (remaining === 0) return "Your account has reached the strike limit."
-    if (remaining === 1) return "One more strike will result in your account being banned."
-    return `${remaining} more strikes will result in your account being banned.`
 }
 
 export const ModerationStrikeEmailTemplate = ({

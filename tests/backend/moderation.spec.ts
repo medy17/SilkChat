@@ -306,6 +306,61 @@ describe("strikes and appeals", () => {
     })
 })
 
+describe("moderation notices", () => {
+    it("lists unacknowledged warnings and strikes oldest first until each is acknowledged", async () => {
+        const { t, operator, customer, createUser } = await setup()
+        const issue = (action: "warning" | "strike") =>
+            operator.as.mutation(api.moderation.issueModerationAction, {
+                authUserId: customer.id,
+                action,
+                category: "other",
+                violation: "Spam."
+            })
+        await issue("warning")
+        await issue("strike")
+
+        const notices = (await customer.as.query(api.moderation.getMyModerationNotices, {}))!
+        expect(notices.cases.map((item) => item.action)).toEqual(["warning", "strike"])
+        expect(notices.standing.activeStrikes).toBe(1)
+
+        const impersonated = await t.mutation(components.betterAuth.adapter.create, {
+            input: {
+                model: "session",
+                data: {
+                    userId: customer.id,
+                    token: crypto.randomUUID(),
+                    impersonatedBy: operator.id,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    expiresAt: Date.now() + 3_600_000
+                }
+            }
+        })
+        await t
+            .withIdentity({ subject: customer.id, sessionId: impersonated._id })
+            .mutation(api.moderation.acknowledgeModerationCase, { caseId: notices.cases[0].id })
+        expect(
+            (await customer.as.query(api.moderation.getMyModerationNotices, {}))!.cases
+        ).toHaveLength(2)
+
+        const stranger = await createUser("stranger@example.com")
+        await expect(
+            stranger.as.mutation(api.moderation.acknowledgeModerationCase, {
+                caseId: notices.cases[0].id
+            })
+        ).rejects.toThrow("Case not found")
+
+        await customer.as.mutation(api.moderation.acknowledgeModerationCase, {
+            caseId: notices.cases[0].id
+        })
+        await customer.as.mutation(api.moderation.acknowledgeModerationCase, {
+            caseId: notices.cases[0].id
+        })
+        const after = (await customer.as.query(api.moderation.getMyModerationNotices, {}))!
+        expect(after.cases.map((item) => item.action)).toEqual(["strike"])
+    })
+})
+
 describe("moderation email delivery", () => {
     const deliver = async (t: Awaited<ReturnType<typeof setup>>["t"]) =>
         await t.finishAllScheduledFunctions(vi.runAllTimers)

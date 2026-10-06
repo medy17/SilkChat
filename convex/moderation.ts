@@ -42,7 +42,8 @@ import {
     getPolicyAnchor,
     getPolicyReference,
     isPermanentBan,
-    isRestrictionAction
+    isRestrictionAction,
+    needsAcknowledgement
 } from "./lib/moderation"
 import { ModerationActionValidator } from "./schema/moderation"
 
@@ -762,6 +763,36 @@ export const getMySafety = query({
     }
 })
 
+// Warnings and strikes the user hasn't acknowledged yet, oldest first.
+export const getMyModerationNotices = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in identity) return null
+        const now = Date.now()
+        const cases = await ctx.db
+            .query("moderationCases")
+            .withIndex("byUserCreatedAt", (q) => q.eq("userId", identity.id))
+            .collect()
+        const pending = cases.filter((moderationCase) => needsAcknowledgement(moderationCase, now))
+        const [appeals, updates] = await Promise.all([
+            getAppealsByCase(ctx, pending),
+            getUpdatesByCase(ctx, pending)
+        ])
+        return {
+            standing: getAccountStanding(cases, now),
+            cases: pending.map((moderationCase) =>
+                toUserCaseView(
+                    moderationCase,
+                    appeals.get(moderationCase._id),
+                    updates.get(moderationCase._id),
+                    now
+                )
+            )
+        }
+    }
+})
+
 const isImpersonatedSession = async (ctx: QueryCtx, sessionId: unknown) => {
     if (typeof sessionId !== "string" || !sessionId) return false
     const session = await ctx.runQuery(betterAuthComponent.adapter.findOne, {
@@ -800,6 +831,22 @@ export const submitModerationAppeal = mutation({
             status: "pending",
             createdAt: Date.now()
         })
+    }
+})
+
+export const acknowledgeModerationCase = mutation({
+    args: { caseId: v.id("moderationCases") },
+    handler: async (ctx, args) => {
+        const identity = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in identity) throw new ConvexError("Sign in to continue")
+        const moderationCase = await ctx.db.get(args.caseId)
+        if (!moderationCase || moderationCase.userId !== identity.id) {
+            throw new ConvexError("Case not found")
+        }
+        // An operator viewing as this user shouldn't use up the user's notice.
+        if (await isImpersonatedSession(ctx, identity.sessionId)) return
+        if (moderationCase.acknowledgedAt !== undefined) return
+        await ctx.db.patch(args.caseId, { acknowledgedAt: Date.now() })
     }
 })
 

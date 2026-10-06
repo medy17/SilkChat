@@ -1,6 +1,15 @@
 "use client"
 
+import {
+    type ModerationNotice,
+    ModerationNoticeDialog
+} from "@/components/moderation/moderation-notice-dialog"
 import { api } from "@/convex/_generated/api"
+import {
+    DEFAULT_STRIKE_EXPIRY_DAYS,
+    MODERATION_STRIKE_LIMIT,
+    addDays
+} from "@/convex/lib/moderation"
 import { useSession } from "@/hooks/auth-hooks"
 import { useOnboarding } from "@/hooks/use-onboarding"
 import { optionalBrowserEnv } from "@/lib/browser-env"
@@ -10,16 +19,48 @@ import {
     shouldShowPastDueRenewalNudge
 } from "@/lib/past-due-renewal"
 import { dismissProWelcome, shouldShowProWelcome } from "@/lib/pro-welcome"
-import { useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { useEffect, useState } from "react"
 import {
+    DEV_OPEN_MODERATION_NOTICE_EVENT,
     DEV_OPEN_ONBOARDING_EVENT,
     DEV_OPEN_PRO_WELCOME_EVENT,
-    DEV_OPEN_RENEWAL_NUDGE_EVENT
+    DEV_OPEN_RENEWAL_NUDGE_EVENT,
+    type DevModerationNoticeAction
 } from "./dev-onboarding"
 import { OnboardingDialog } from "./onboarding-dialog"
 import { PastDueRenewalDialog } from "./past-due-renewal-dialog"
 import { ProWelcomeDialog } from "./pro-welcome-dialog"
+
+const buildDevModerationNotice = (action: DevModerationNoticeAction): ModerationNotice => {
+    const now = Date.now()
+    const isStrike = action === "strike"
+    return {
+        moderationCase: {
+            caseId: "SC-DEV2K7QX",
+            action,
+            violation: isStrike
+                ? "Automated bulk extraction of model responses."
+                : "Repeated attempts to generate content that harasses a named person.",
+            policyReference: isStrike
+                ? "Terms of Service §5.1 Restrictions"
+                : "Terms of Service §5.2 Prohibited conduct",
+            policyAnchor: isStrike ? "section-5-1" : "section-5-2",
+            contentAction: isStrike ? null : "The affected messages were removed.",
+            strikeNumber: isStrike ? 2 : null,
+            strikeLimit: isStrike ? MODERATION_STRIKE_LIMIT : null,
+            expiresAt: isStrike ? addDays(now, DEFAULT_STRIKE_EXPIRY_DAYS) : null,
+            endsAt: null,
+            state: "active",
+            createdAt: now,
+            canAppeal: true,
+            appeal: null,
+            updates: []
+        },
+        activeStrikes: isStrike ? 2 : 0,
+        strikeLimit: MODERATION_STRIKE_LIMIT
+    }
+}
 
 interface OnboardingProviderProps {
     children: React.ReactNode
@@ -38,6 +79,29 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     const [isDevRenewalDialogOpen, setIsDevRenewalDialogOpen] = useState(false)
     const [isProWelcomeDialogOpen, setIsProWelcomeDialogOpen] = useState(false)
     const [isDevProWelcomeDialogOpen, setIsDevProWelcomeDialogOpen] = useState(false)
+    const moderationNotices = useQuery(
+        api.moderation.getMyModerationNotices,
+        session?.user?.id ? {} : "skip"
+    )
+    const acknowledgeModerationCase = useMutation(api.moderation.acknowledgeModerationCase)
+    // Hides a notice as soon as it's acknowledged, and for the rest of the session when the
+    // mutation is a no-op because an operator is viewing as this user.
+    const [acknowledgedCaseIds, setAcknowledgedCaseIds] = useState<string[]>([])
+    const [devModerationNotice, setDevModerationNotice] = useState<ModerationNotice | null>(null)
+
+    const pendingModerationCase = moderationNotices?.cases.find(
+        (moderationCase) => !acknowledgedCaseIds.includes(moderationCase.id)
+    )
+    const moderationNotice: ModerationNotice | null =
+        devModerationNotice ??
+        (pendingModerationCase && moderationNotices && !isStatusDialogOpen && !isDevDialogOpen
+            ? {
+                  moderationCase: pendingModerationCase,
+                  activeStrikes: moderationNotices.standing.activeStrikes,
+                  strikeLimit: moderationNotices.standing.strikeLimit
+              }
+            : null)
+    const isModerationNoticeOpen = moderationNotice !== null
 
     useEffect(() => {
         if (!isLoading && shouldShowOnboarding) {
@@ -67,10 +131,15 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         const openDevProWelcomeDialog = () => {
             setIsDevProWelcomeDialogOpen(true)
         }
+        const openDevModerationNotice = (event: Event) => {
+            const action = (event as CustomEvent<DevModerationNoticeAction>).detail
+            setDevModerationNotice(buildDevModerationNotice(action))
+        }
 
         document.addEventListener(DEV_OPEN_ONBOARDING_EVENT, openDevDialog)
         document.addEventListener(DEV_OPEN_RENEWAL_NUDGE_EVENT, openDevRenewalDialog)
         document.addEventListener(DEV_OPEN_PRO_WELCOME_EVENT, openDevProWelcomeDialog)
+        document.addEventListener(DEV_OPEN_MODERATION_NOTICE_EVENT, openDevModerationNotice)
 
         const searchParams = new URLSearchParams(window.location.search)
         if (searchParams.get("onboarding") === "1" || searchParams.has("showOnboarding")) {
@@ -81,6 +150,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             document.removeEventListener(DEV_OPEN_ONBOARDING_EVENT, openDevDialog)
             document.removeEventListener(DEV_OPEN_RENEWAL_NUDGE_EVENT, openDevRenewalDialog)
             document.removeEventListener(DEV_OPEN_PRO_WELCOME_EVENT, openDevProWelcomeDialog)
+            document.removeEventListener(DEV_OPEN_MODERATION_NOTICE_EVENT, openDevModerationNotice)
         }
     }, [])
 
@@ -95,7 +165,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             return
         }
 
-        if (isLoading || shouldShowOnboarding || isStatusDialogOpen || isDevDialogOpen) {
+        if (
+            isLoading ||
+            shouldShowOnboarding ||
+            isStatusDialogOpen ||
+            isDevDialogOpen ||
+            isModerationNoticeOpen
+        ) {
             setIsRenewalDialogOpen(false)
             return
         }
@@ -117,6 +193,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         billingSummary,
         isDevDialogOpen,
         isLoading,
+        isModerationNoticeOpen,
         isStatusDialogOpen,
         session?.user?.id,
         shouldShowOnboarding
@@ -133,7 +210,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             isStatusDialogOpen ||
             isDevDialogOpen ||
             isRenewalDialogOpen ||
-            isDevRenewalDialogOpen
+            isDevRenewalDialogOpen ||
+            isModerationNoticeOpen
         ) {
             setIsProWelcomeDialogOpen(false)
             return
@@ -159,6 +237,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         isDevDialogOpen,
         isDevRenewalDialogOpen,
         isLoading,
+        isModerationNoticeOpen,
         isRenewalDialogOpen,
         isStatusDialogOpen,
         session?.user?.id,
@@ -207,6 +286,20 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         setIsProWelcomeDialogOpen(false)
     }
 
+    const handleModerationNoticeAcknowledge = () => {
+        if (devModerationNotice) {
+            setDevModerationNotice(null)
+            return
+        }
+        if (!pendingModerationCase) return
+
+        const caseId = pendingModerationCase.id
+        setAcknowledgedCaseIds((ids) => [...ids, caseId])
+        void acknowledgeModerationCase({ caseId }).catch(() => {
+            // The notice comes back on the next visit, so there's nothing to surface here.
+        })
+    }
+
     return (
         <>
             {children}
@@ -222,6 +315,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             <ProWelcomeDialog
                 isOpen={isProWelcomeDialogOpen || isDevProWelcomeDialogOpen}
                 onDismiss={handleProWelcomeDismiss}
+            />
+            <ModerationNoticeDialog
+                notice={moderationNotice}
+                onAcknowledge={handleModerationNoticeAcknowledge}
             />
         </>
     )

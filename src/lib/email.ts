@@ -9,10 +9,8 @@ import {
 } from "./email-templates/account-export"
 import { InactiveAccountNoticeEmailTemplate } from "./email-templates/inactive-account-notice"
 import { ModerationBanEmailTemplate } from "./email-templates/moderation-ban"
-import {
-    ModerationStrikeEmailTemplate,
-    getRemainingStrikesCopy
-} from "./email-templates/moderation-strike"
+import { getRemainingStrikesCopy } from "../../convex/lib/moderation"
+import { ModerationStrikeEmailTemplate } from "./email-templates/moderation-strike"
 import {
     type ModerationUpdateContent,
     ModerationUpdateEmailTemplate,

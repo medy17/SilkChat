@@ -37,6 +37,8 @@ export const ModerationCase = v.object({
     subscriptionCancellation: v.optional(
         v.union(v.literal("pending"), v.literal("done"), v.literal("failed"))
     ),
+    // Warnings and strikes only: when the user dismissed the in-app notice.
+    acknowledgedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number()
 })

@@ -1,5 +1,6 @@
 import { CommandK } from "@/components/commandk"
 import {
+    openDevModerationNotice,
     openDevOnboarding,
     openDevProWelcome,
     openDevRenewalNudge
@@ -106,11 +107,15 @@ function EmptyState({ message }: { message: string }) {
 function DevToolsGroup({
     onShowOnboarding,
     onShowProWelcome,
-    onShowRenewalNudge
+    onShowRenewalNudge,
+    onShowWarningNotice,
+    onShowStrikeNotice
 }: {
     onShowOnboarding: () => void
     onShowProWelcome: () => void
     onShowRenewalNudge: () => void
+    onShowWarningNotice: () => void
+    onShowStrikeNotice: () => void
 }) {
     return (
         <SidebarGroup>
@@ -146,6 +151,26 @@ function DevToolsGroup({
                     >
                         <PlayCircle className="h-4 w-4" />
                         Show Pro welcome
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-full justify-start"
+                        onClick={onShowWarningNotice}
+                    >
+                        <PlayCircle className="h-4 w-4" />
+                        Show warning notice
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-full justify-start"
+                        onClick={onShowStrikeNotice}
+                    >
+                        <PlayCircle className="h-4 w-4" />
+                        Show strike notice
                     </Button>
                 </div>
             </SidebarGroupContent>
@@ -762,6 +787,16 @@ export function ThreadsSidebar() {
         openDevProWelcome()
     })
 
+    const handleShowWarningNoticeClick = useFunction(() => {
+        setOpenMobile(false)
+        openDevModerationNotice("warning")
+    })
+
+    const handleShowStrikeNoticeClick = useFunction(() => {
+        setOpenMobile(false)
+        openDevModerationNotice("strike")
+    })
+
     const renderContent = () => {
         if (isLoading) {
             return <LoadingSkeleton />
@@ -889,6 +924,8 @@ export function ThreadsSidebar() {
                                 onShowOnboarding={handleShowOnboardingClick}
                                 onShowProWelcome={handleShowProWelcomeClick}
                                 onShowRenewalNudge={handleShowRenewalNudgeClick}
+                                onShowWarningNotice={handleShowWarningNoticeClick}
+                                onShowStrikeNotice={handleShowStrikeNoticeClick}
                             />
                         )}
                         {renderContent()}

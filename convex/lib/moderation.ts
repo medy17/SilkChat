@@ -194,6 +194,23 @@ export const canAppealCase = (
     (moderationCase.action === "warning" || moderationCase.action === "strike") &&
     getCaseState(moderationCase, now) === "active"
 
+export const getRemainingStrikesCopy = (strikeNumber: number, strikeLimit: number) => {
+    const remaining = Math.max(strikeLimit - strikeNumber, 0)
+    if (remaining === 0) return "Your account has reached the strike limit."
+    if (remaining === 1) return "One more strike will result in your account being banned."
+    return `${remaining} more strikes will result in your account being banned.`
+}
+
+// Restricted users can't sign in, so only warnings and strikes get an in-app notice. Cases from
+// before acknowledgedAt existed fall under the same rule: they show only while still active.
+export const needsAcknowledgement = (
+    moderationCase: CaseTiming & { acknowledgedAt?: number },
+    now: number
+) =>
+    (moderationCase.action === "warning" || moderationCase.action === "strike") &&
+    moderationCase.acknowledgedAt === undefined &&
+    getCaseState(moderationCase, now) === "active"
+
 export const addDays = (from: number, days: number) => from + days * DAY_MS
 
 const CASE_ID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTVWXYZ"

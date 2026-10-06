@@ -8,6 +8,7 @@ import {
     generateCaseId,
     getAccountStanding,
     getActiveRestriction,
+    needsAcknowledgement,
     parseRestrictionNotice,
     readRestrictionRedirect
 } from "../../convex/lib/moderation"
@@ -22,6 +23,7 @@ const moderationCase = (
         expiresAt?: number
         endsAt?: number
         caseId?: string
+        acknowledgedAt?: number
     } = {}
 ) => ({ action, status: "active" as ModerationCaseStatus, caseId: "SC-AAAAAAAA", ...extra })
 
@@ -103,6 +105,30 @@ describe("appeal eligibility", () => {
                 now: NOW
             })
         ).toBe(false)
+    })
+})
+
+describe("in-app notice", () => {
+    it("shows unacknowledged warnings and strikes only while they're active", () => {
+        expect(needsAcknowledgement(moderationCase("warning"), NOW)).toBe(true)
+        expect(needsAcknowledgement(moderationCase("strike", { expiresAt: NOW + DAY }), NOW)).toBe(
+            true
+        )
+        expect(
+            needsAcknowledgement(moderationCase("warning", { acknowledgedAt: NOW - DAY }), NOW)
+        ).toBe(false)
+        expect(needsAcknowledgement(moderationCase("strike", { expiresAt: NOW - 1 }), NOW)).toBe(
+            false
+        )
+        expect(needsAcknowledgement(moderationCase("strike", { status: "overturned" }), NOW)).toBe(
+            false
+        )
+        expect(needsAcknowledgement(moderationCase("warning", { status: "lifted" }), NOW)).toBe(
+            false
+        )
+        expect(needsAcknowledgement(moderationCase("suspension", { endsAt: NOW + DAY }), NOW)).toBe(
+            false
+        )
     })
 })
 
