@@ -67,6 +67,26 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         }
     },
     {
+        id: "gemini-nano-banana-2.1",
+        name: "Nano Banana 2.1",
+        addedOn: "2026-10-07",
+        shortName: "Nano Banana 2.1",
+        releaseOrder: 20261007,
+        adapters: falImageAdapters("google/nano-banana-2.1"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 4,
+        supportsReferenceImages: true,
+        customIcon: "google",
+        supportedImageSizes: [...GEMINI_IMAGE_SIZES],
+        supportedImageResolutions: ["1K", "2K", "4K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: { "1K": 0.08, "2K": 0.12, "4K": 0.16 }
+        }
+    },
+    {
         id: "gemini-3.1-flash-lite-image",
         name: "Nano Banana 2 Lite",
         addedOn: "2026-07-01",
@@ -124,6 +144,17 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         appModelId: "gemini-3.1-flash-image-preview",
         endpoint: "fal-ai/nano-banana-2",
         editEndpoint: "fal-ai/nano-banana-2/edit",
+        supportsReferences: true,
+        usesAspectRatio: true,
+        resolutionMode: "uppercase",
+        safety: {
+            safetyTolerance: "1"
+        }
+    },
+    {
+        appModelId: "gemini-nano-banana-2.1",
+        endpoint: "google/nano-banana-2.1",
+        editEndpoint: "google/nano-banana-2.1/edit",
         supportsReferences: true,
         usesAspectRatio: true,
         resolutionMode: "uppercase",
