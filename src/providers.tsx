@@ -1,4 +1,5 @@
 import { DevRuntime } from "@/components/dev/dev-runtime"
+import { ImpersonationBoundary } from "@/components/auth/impersonation"
 import { SpeechPlaybackRuntime } from "@/components/message-speech"
 import { DevUtilityDock } from "@/components/dev/dev-utility-dock"
 import { CreditAccessRuntime } from "@/components/credits/credit-access-runtime"
@@ -67,16 +68,18 @@ export function Providers({ children }: { children: ReactNode }) {
                     replace={(href) => router.navigate({ href, replace: true })}
                     Link={({ href, ...props }) => <Link to={href} {...props} />}
                 >
-                    <TelemetryIdentity />
-                    <SpeechPlaybackRuntime />
-                    <CreditAccessRuntime />
-                    <StaleAssetRecovery />
+                    <ImpersonationBoundary>
+                        <TelemetryIdentity />
+                        <SpeechPlaybackRuntime />
+                        <CreditAccessRuntime />
+                        <StaleAssetRecovery />
 
-                    <DevMotionConfig>{children}</DevMotionConfig>
+                        <DevMotionConfig>{children}</DevMotionConfig>
 
-                    <DevRuntime />
-                    <DevUtilityDock />
-                    <Toaster />
+                        <DevRuntime />
+                        <DevUtilityDock />
+                        <Toaster />
+                    </ImpersonationBoundary>
                 </AuthUIProviderTanstack>
             </ThemeProvider>
         </AuthQueryProvider>

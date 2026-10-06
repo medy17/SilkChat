@@ -29,7 +29,7 @@
         "start": "bun .output/server/index.mjs",
         "lint": "biome check --write",
         "check-types": "tsc --noEmit",
-        "postinstall": "patch-package && bun scripts/fix-tanstack-start-plugin-core.mjs",
+        "postinstall": "patch-package --error-on-fail && bun scripts/fix-tanstack-start-plugin-core.mjs",
         "prepare": "husky"
     },
     "keywords": [
@@ -47,7 +47,7 @@
         "@aws-sdk/client-ses": "^3.1119.0",
         "@codesandbox/sandpack-react": "^2.20.0",
         "@convex-dev/aggregate": "^0.2.2",
-        "@convex-dev/better-auth": "^0.12.5",
+        "@convex-dev/better-auth": "0.12.5",
         "@convex-dev/migrations": "^0.3.6",
         "@convex-dev/r2": "0.10.2",
         "@convex-dev/react-query": "0.1.0",
@@ -107,7 +107,7 @@
         "@zip.js/zip.js": "^2.8.60",
         "ai": "^7.0.83",
         "babel-plugin-react-compiler": "^19.1.0-rc.1-rc-af1b7da-20250421",
-        "better-auth": "^1.6.25",
+        "better-auth": "1.6.25",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",

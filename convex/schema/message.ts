@@ -62,6 +62,10 @@ export const ImportedMessageMetadata = v.object({
 
 export const MessageMetadata = v.object({
     ...ImportedMessageMetadata.fields,
+    // Older cloud-dev messages retain visual enrichment metadata. The current app
+    // does not consume it, but schema pushes must preserve those existing records.
+    visualSelections: v.optional(v.array(v.any())),
+    visualStatus: v.optional(v.string()),
     generationConfig: v.optional(GenerationConfig),
     contextRouting: v.optional(
         v.object({

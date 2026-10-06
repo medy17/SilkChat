@@ -1,0 +1,1727 @@
+diff --git a/node_modules/@convex-dev/better-auth/dist/auth-options.js b/node_modules/@convex-dev/better-auth/dist/auth-options.js
+--- a/node_modules/@convex-dev/better-auth/dist/auth-options.js
++++ b/node_modules/@convex-dev/better-auth/dist/auth-options.js
+@@ -1,3 +1,4 @@
++import { admin } from "better-auth/plugins/admin";
+ import { anonymous } from "better-auth/plugins/anonymous";
+ import { bearer } from "better-auth/plugins/bearer";
+ import { emailOTP } from "better-auth/plugins/email-otp";
+@@ -18,6 +19,7 @@
+         storage: "database",
+     },
+     plugins: [
++    admin(),
+         twoFactor(),
+         anonymous(),
+         username(),
+diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts b/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
+--- a/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
++++ b/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
+@@ -32,6 +32,10 @@
+                     name: string;
+                     phoneNumber?: null | string;
+                     phoneNumberVerified?: null | boolean;
++                    role?: null | string;
++                    banned?: null | boolean;
++                    banReason?: null | string;
++                    banExpires?: null | number;
+                     twoFactorEnabled?: null | boolean;
+                     updatedAt: number;
+                     userId?: null | string;
+@@ -46,6 +50,7 @@
+                     token: string;
+                     updatedAt: number;
+                     userAgent?: null | string;
++                    impersonatedBy?: null | string;
+                     userId: string;
+                 };
+                 model: "session";
+@@ -144,7 +149,7 @@
+                 model: "user";
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "_id";
++                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -153,7 +158,7 @@
+                 model: "session";
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -246,7 +251,7 @@
+                 model: "user";
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "_id";
++                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -255,7 +260,7 @@
+                 model: "session";
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -386,6 +391,10 @@
+                     name?: string;
+                     phoneNumber?: null | string;
+                     phoneNumberVerified?: null | boolean;
++                    role?: null | string;
++                    banned?: null | boolean;
++                    banReason?: null | string;
++                    banExpires?: null | number;
+                     twoFactorEnabled?: null | boolean;
+                     updatedAt?: number;
+                     userId?: null | string;
+@@ -393,7 +402,7 @@
+                 };
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "_id";
++                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -407,11 +416,12 @@
+                     token?: string;
+                     updatedAt?: number;
+                     userAgent?: null | string;
++                    impersonatedBy?: null | string;
+                     userId?: string;
+                 };
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -582,6 +592,10 @@
+                     name?: string;
+                     phoneNumber?: null | string;
+                     phoneNumberVerified?: null | boolean;
++                    role?: null | string;
++                    banned?: null | boolean;
++                    banReason?: null | string;
++                    banExpires?: null | number;
+                     twoFactorEnabled?: null | boolean;
+                     updatedAt?: number;
+                     userId?: null | string;
+@@ -589,7 +603,7 @@
+                 };
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "_id";
++                    field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -603,11 +617,12 @@
+                     token?: string;
+                     updatedAt?: number;
+                     userAgent?: null | string;
++                    impersonatedBy?: null | string;
+                     userId?: string;
+                 };
+                 where?: Array<{
+                     connector?: "AND" | "OR";
+-                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                    field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                     mode?: "sensitive" | "insensitive";
+                     operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                     value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -776,6 +791,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -791,6 +810,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -889,7 +909,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
++                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -898,7 +918,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -991,7 +1011,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
++                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1000,7 +1020,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1135,6 +1155,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -1143,7 +1167,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
++                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1157,11 +1181,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1336,6 +1361,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -1344,7 +1373,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
++                        field: "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "customField" | "numericField" | "testField" | "cbDefaultValueField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1358,11 +1387,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1531,6 +1561,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -1546,6 +1580,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -1651,6 +1686,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -1674,6 +1713,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -1758,7 +1801,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1767,7 +1810,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1848,7 +1891,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1857,7 +1900,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1950,7 +1993,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -1959,7 +2002,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2040,7 +2083,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2049,7 +2092,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2185,6 +2228,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2193,7 +2240,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2207,11 +2254,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2375,6 +2423,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2383,7 +2435,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2405,6 +2457,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2413,7 +2469,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2571,6 +2627,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2579,7 +2639,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2593,11 +2653,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2761,6 +2822,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2769,7 +2834,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2791,6 +2856,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -2799,7 +2868,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -2950,6 +3019,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -2965,6 +3038,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -3070,6 +3144,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -3093,6 +3171,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -3177,7 +3259,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3186,7 +3268,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3267,7 +3349,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3276,7 +3358,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3369,7 +3451,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3378,7 +3460,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3459,7 +3541,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3468,7 +3550,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3604,6 +3686,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -3612,7 +3698,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3626,11 +3712,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3794,6 +3881,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -3802,7 +3893,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3824,6 +3915,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -3832,7 +3927,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -3990,6 +4085,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -3998,7 +4097,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4012,11 +4111,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4180,6 +4280,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -4188,7 +4292,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4210,6 +4314,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -4218,7 +4326,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4369,6 +4477,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -4384,6 +4496,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -4489,6 +4602,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -4512,6 +4629,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -4596,7 +4717,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4605,7 +4726,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4686,7 +4807,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4695,7 +4816,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4788,7 +4909,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4797,7 +4918,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4878,7 +4999,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -4887,7 +5008,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5023,6 +5144,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5031,7 +5156,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5045,11 +5170,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5213,6 +5339,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5221,7 +5351,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5243,6 +5373,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5251,7 +5385,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5409,6 +5543,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5417,7 +5555,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5431,11 +5569,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5599,6 +5738,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5607,7 +5750,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5629,6 +5772,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -5637,7 +5784,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -5788,6 +5935,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -5803,6 +5954,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -5908,6 +6060,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -5931,6 +6087,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -6015,7 +6175,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6024,7 +6184,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6105,7 +6265,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6114,7 +6274,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6207,7 +6367,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6216,7 +6376,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6297,7 +6457,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6306,7 +6466,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6442,6 +6602,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -6450,7 +6614,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6464,11 +6628,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6632,6 +6797,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -6640,7 +6809,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6662,6 +6831,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -6670,7 +6843,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6828,6 +7001,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -6836,7 +7013,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -6850,11 +7027,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7018,6 +7196,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -7026,7 +7208,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7048,6 +7230,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -7056,7 +7242,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7207,6 +7393,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -7222,6 +7412,7 @@
+                         token: string;
+                         updatedAt: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId: string;
+                     };
+                     model: "session";
+@@ -7327,6 +7518,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -7350,6 +7545,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt: number;
+@@ -7434,7 +7633,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7443,7 +7642,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7524,7 +7723,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7533,7 +7732,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7626,7 +7825,7 @@
+                     model: "user";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7635,7 +7834,7 @@
+                     model: "session";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7716,7 +7915,7 @@
+                     model: "user_custom";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7725,7 +7924,7 @@
+                     model: "user_table";
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7861,6 +8060,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -7869,7 +8072,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -7883,11 +8086,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8051,6 +8255,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -8059,7 +8267,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8081,6 +8289,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -8089,7 +8301,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8247,6 +8459,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -8255,7 +8471,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8269,11 +8485,12 @@
+                         token?: string;
+                         updatedAt?: number;
+                         userAgent?: null | string;
++                        impersonatedBy?: null | string;
+                         userId?: string;
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "userId" | "_id";
++                        field: "expiresAt" | "token" | "createdAt" | "updatedAt" | "ipAddress" | "userAgent" | "impersonatedBy" | "userId" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8437,6 +8654,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -8445,7 +8666,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+@@ -8467,6 +8688,10 @@
+                         numericField?: null | number;
+                         phoneNumber?: null | string;
+                         phoneNumberVerified?: null | boolean;
++                        role?: null | string;
++                        banned?: null | boolean;
++                        banReason?: null | string;
++                        banExpires?: null | number;
+                         testField?: null | string;
+                         twoFactorEnabled?: null | boolean;
+                         updatedAt?: number;
+@@ -8475,7 +8700,7 @@
+                     };
+                     where?: Array<{
+                         connector?: "AND" | "OR";
+-                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
++                        field: "name" | "email" | "email_address" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires" | "userId" | "testField" | "cbDefaultValueField" | "customField" | "numericField" | "dateField" | "_id";
+                         mode?: "sensitive" | "insensitive";
+                         operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
+                         value: string | number | boolean | Array<string> | Array<number> | null;
+diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
+--- a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
++++ b/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
+@@ -18,6 +18,10 @@
+         displayUsername?: string | null | undefined;
+         phoneNumber?: string | null | undefined;
+         phoneNumberVerified?: boolean | null | undefined;
++        role?: string | null | undefined;
++        banned?: boolean | null | undefined;
++        banReason?: string | null | undefined;
++        banExpires?: number | null | undefined;
+         createdAt: number;
+         updatedAt: number;
+         email: string;
+@@ -36,8 +40,12 @@
+         displayUsername: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         phoneNumber: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         phoneNumberVerified: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
+-        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
++        role: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        banned: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
++        banReason: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        banExpires: import("convex/values").VUnion<number | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VFloat64<number, "required">], "optional", never>;
++        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires">, {
+         email_name: ["email", "name", "_creationTime"];
+         name: ["name", "_creationTime"];
+         userId: ["userId", "_creationTime"];
+@@ -47,6 +55,7 @@
+     session: import("convex/server").TableDefinition<import("convex/values").VObject<{
+         ipAddress?: string | null | undefined;
+         userAgent?: string | null | undefined;
++        impersonatedBy?: string | null | undefined;
+         createdAt: number;
+         updatedAt: number;
+         userId: string;
+@@ -59,8 +68,9 @@
+         updatedAt: import("convex/values").VFloat64<number, "required">;
+         ipAddress: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         userAgent: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-        userId: import("convex/values").VString<string, "required">;
+-    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
++        impersonatedBy: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        userId: import("convex/values").VString<string, "required">;
++    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent" | "impersonatedBy">, {
+         expiresAt: ["expiresAt", "_creationTime"];
+         expiresAt_userId: ["expiresAt", "userId", "_creationTime"];
+         token: ["token", "_creationTime"];
+@@ -232,6 +242,10 @@
+         displayUsername?: string | null | undefined;
+         phoneNumber?: string | null | undefined;
+         phoneNumberVerified?: boolean | null | undefined;
++        role?: string | null | undefined;
++        banned?: boolean | null | undefined;
++        banReason?: string | null | undefined;
++        banExpires?: number | null | undefined;
+         createdAt: number;
+         updatedAt: number;
+         email: string;
+@@ -250,8 +264,12 @@
+         displayUsername: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         phoneNumber: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         phoneNumberVerified: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
+-        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
++        role: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        banned: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
++        banReason: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        banExpires: import("convex/values").VUnion<number | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VFloat64<number, "required">], "optional", never>;
++        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires">, {
+         email_name: ["email", "name", "_creationTime"];
+         name: ["name", "_creationTime"];
+         userId: ["userId", "_creationTime"];
+@@ -261,6 +279,7 @@
+     session: import("convex/server").TableDefinition<import("convex/values").VObject<{
+         ipAddress?: string | null | undefined;
+         userAgent?: string | null | undefined;
++        impersonatedBy?: string | null | undefined;
+         createdAt: number;
+         updatedAt: number;
+         userId: string;
+@@ -273,8 +292,9 @@
+         updatedAt: import("convex/values").VFloat64<number, "required">;
+         ipAddress: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         userAgent: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-        userId: import("convex/values").VString<string, "required">;
+-    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
++        impersonatedBy: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
++        userId: import("convex/values").VString<string, "required">;
++    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent" | "impersonatedBy">, {
+         expiresAt: ["expiresAt", "_creationTime"];
+         expiresAt_userId: ["expiresAt", "userId", "_creationTime"];
+         token: ["token", "_creationTime"];
+diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.js b/node_modules/@convex-dev/better-auth/dist/component/schema.js
+--- a/node_modules/@convex-dev/better-auth/dist/component/schema.js
++++ b/node_modules/@convex-dev/better-auth/dist/component/schema.js
+@@ -12,6 +12,11 @@
+ import { v } from "convex/values";
+ export const tables = {
+     user: defineTable({
++        role: v.optional(v.union(v.null(), v.string())),
++        banned: v.optional(v.union(v.null(), v.boolean())),
++        banReason: v.optional(v.union(v.null(), v.string())),
++        banExpires: v.optional(v.union(v.null(), v.number())),
++
+         name: v.string(),
+         email: v.string(),
+         emailVerified: v.boolean(),
+@@ -32,6 +37,7 @@
+         .index("username", ["username"])
+         .index("phoneNumber", ["phoneNumber"]),
+     session: defineTable({
++        impersonatedBy: v.optional(v.union(v.null(), v.string())),
+         expiresAt: v.number(),
+         token: v.string(),
+         createdAt: v.number(),
+diff --git a/node_modules/@convex-dev/better-auth/src/auth-options.ts b/node_modules/@convex-dev/better-auth/src/auth-options.ts
+--- a/node_modules/@convex-dev/better-auth/src/auth-options.ts
++++ b/node_modules/@convex-dev/better-auth/src/auth-options.ts
+@@ -1,3 +1,4 @@
++import { admin } from "better-auth/plugins/admin";
+ import type { BetterAuthOptions } from "better-auth/minimal";
+ import { anonymous } from "better-auth/plugins/anonymous";
+ import { bearer } from "better-auth/plugins/bearer";
+@@ -20,6 +21,7 @@
+     storage: "database",
+   },
+   plugins: [
++    admin(),
+     twoFactor(),
+     anonymous(),
+     username(),
+diff --git a/node_modules/@convex-dev/better-auth/src/component/schema.ts b/node_modules/@convex-dev/better-auth/src/component/schema.ts
+--- a/node_modules/@convex-dev/better-auth/src/component/schema.ts
++++ b/node_modules/@convex-dev/better-auth/src/component/schema.ts
+@@ -14,6 +14,11 @@
+ 
+ export const tables = {
+   user: defineTable({
++    role: v.optional(v.union(v.null(), v.string())),
++    banned: v.optional(v.union(v.null(), v.boolean())),
++    banReason: v.optional(v.union(v.null(), v.string())),
++    banExpires: v.optional(v.union(v.null(), v.number())),
++
+     name: v.string(),
+     email: v.string(),
+     emailVerified: v.boolean(),
+@@ -34,6 +39,7 @@
+     .index("username", ["username"])
+     .index("phoneNumber", ["phoneNumber"]),
+   session: defineTable({
++    impersonatedBy: v.optional(v.union(v.null(), v.string())),
+     expiresAt: v.number(),
+     token: v.string(),
+     createdAt: v.number(),
