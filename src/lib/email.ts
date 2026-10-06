@@ -2,11 +2,15 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses"
 import { render } from "@react-email/render"
 import { Resend } from "resend"
 import { resolveEmailIdempotencyKey } from "./email-idempotency"
+import { AccountExportEmailTemplate } from "./email-templates/account-export"
+import { InactiveAccountNoticeEmailTemplate } from "./email-templates/inactive-account-notice"
+import { ModerationBanEmailTemplate } from "./email-templates/moderation-ban"
 import {
-    AccountExportEmailTemplate,
-    InactiveAccountNoticeEmailTemplate,
-    WelcomeEmailTemplate
-} from "./email-templates"
+    ModerationStrikeEmailTemplate,
+    getRemainingStrikesCopy
+} from "./email-templates/moderation-strike"
+import { ModerationWarningEmailTemplate } from "./email-templates/moderation-warning"
+import { WelcomeEmailTemplate } from "./email-templates/welcome"
 import { loadServerEnv } from "./load-server-env"
 
 loadServerEnv()
@@ -32,6 +36,16 @@ interface SendEmailOptions {
     subject: string
     html: string
     text?: string
+    idempotencyKey?: string
+}
+
+interface ModerationEmailData {
+    email: string
+    name?: string
+    caseId: string
+    violation: string
+    policyReference?: string
+    contentAction?: string
     idempotencyKey?: string
 }
 
@@ -324,6 +338,110 @@ class EmailService {
             text: `Silky misses you\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nIt's been a while since you logged in. Your chats, generated images, and files remain available whenever you're ready.\n\nReturn to SilkChat: ${appUrl}\n\nIf you'd like to export your SilkChat data or delete your account instead, you can do that from your account settings: ${accountUrl}\n\nIf you need help, contact us at ${supportEmail}.\n\nThis is the only inactivity reminder we will send for this account.\n\nThe SilkChat Team`
         })
     }
+
+    private getTermsUrl() {
+        return `${this.getAppUrl().replace(/\/$/, "")}/terms-of-service`
+    }
+
+    private formatModerationTextDetails(data: ModerationEmailData, extraLines: string[] = []) {
+        return [
+            `What we found: ${data.violation}`,
+            ...(data.policyReference ? [`Policy: ${data.policyReference}`] : []),
+            ...(data.contentAction ? [`Action on content: ${data.contentAction}`] : []),
+            ...extraLines,
+            `Case ID: ${data.caseId}`
+        ].join("\n")
+    }
+
+    private formatModerationTextAppeal(caseId: string) {
+        return `If you think we got this wrong, email ${this.getSupportEmail()} with the subject "Appeal: case ${caseId}" and any context you'd like us to consider. A person will review every appeal.\n\nTerms of Service: ${this.getTermsUrl()}\n\nSilkChat Trust & Safety`
+    }
+
+    async sendModerationWarningEmail(data: ModerationEmailData) {
+        const html = await render(
+            ModerationWarningEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail: this.getSupportEmail()
+            })
+        )
+
+        await this.sendEmail({
+            to: data.email,
+            subject: "A warning about your SilkChat account",
+            html,
+            idempotencyKey: data.idempotencyKey,
+            text: `A warning about your account\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and found something that goes against our Terms of Service. This is a warning only. Your account is in good standing and nothing about your access has changed.\n\n${this.formatModerationTextDetails(data)}\n\nPlease don't repeat this. If it happens again, we may add a strike to your account, and repeated strikes lead to a ban.\n\n${this.formatModerationTextAppeal(data.caseId)}`
+        })
+    }
+
+    async sendModerationStrikeEmail(
+        data: ModerationEmailData & {
+            strikeNumber: number
+            strikeLimit: number
+            expiresAt?: string
+            restrictions?: string[]
+        }
+    ) {
+        const html = await render(
+            ModerationStrikeEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail: this.getSupportEmail()
+            })
+        )
+        const details = this.formatModerationTextDetails(data, [
+            `Strikes: ${data.strikeNumber} of ${data.strikeLimit}`,
+            ...(data.expiresAt ? [`Strike expires: ${data.expiresAt}`] : [])
+        ])
+        const restrictions = data.restrictions?.length
+            ? `\n\nWhile this strike is active, the following limits apply:\n${data.restrictions.map((restriction) => `- ${restriction}`).join("\n")}`
+            : ""
+        const expiry = data.expiresAt
+            ? " This strike will be removed on the date shown above if there are no further violations."
+            : ""
+
+        await this.sendEmail({
+            to: data.email,
+            subject: `Strike ${data.strikeNumber} of ${data.strikeLimit} on your SilkChat account`,
+            html,
+            idempotencyKey: data.idempotencyKey,
+            text: `Your account received a strike\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and confirmed a violation of our Terms of Service. We've added a strike to your account.\n\n${details}${restrictions}\n\n${getRemainingStrikesCopy(data.strikeNumber, data.strikeLimit)}\n\nYour chats, files, and generated images are not affected.${expiry}\n\n${this.formatModerationTextAppeal(data.caseId)}`
+        })
+    }
+
+    async sendModerationBanEmail(data: ModerationEmailData & { endsAt?: string }) {
+        const supportEmail = this.getSupportEmail()
+        const html = await render(
+            ModerationBanEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail
+            })
+        )
+        const heading = data.endsAt
+            ? "Your account has been suspended"
+            : "Your account has been banned"
+        const summary = data.endsAt
+            ? "Your access is suspended until the date below. You won't be able to sign in or use SilkChat until then."
+            : "Your account has been permanently banned. You can no longer sign in or use SilkChat, and you may not create a new account."
+        const details = this.formatModerationTextDetails(data, [
+            data.endsAt ? `Suspended until: ${data.endsAt}` : "Duration: Permanent"
+        ])
+
+        await this.sendEmail({
+            to: data.email,
+            subject: data.endsAt
+                ? "Your SilkChat account has been suspended"
+                : "Your SilkChat account has been banned",
+            html,
+            idempotencyKey: data.idempotencyKey,
+            text: `${heading}\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and confirmed a serious or repeated violation of our Terms of Service. ${summary}\n\n${details}\n\nAny active subscription has been cancelled. Under our Terms of Service, unused time on a paid plan is not refunded when access ends because of a violation.\n\nIf you need a copy of your data, email ${supportEmail} from this address and include your case ID.\n\n${this.formatModerationTextAppeal(data.caseId)}`
+        })
+    }
 }
 
 // Export singleton instance
@@ -335,4 +453,7 @@ export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
 export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
 export const sendInactiveAccountNoticeEmail =
     emailService.sendInactiveAccountNoticeEmail.bind(emailService)
+export const sendModerationWarningEmail = emailService.sendModerationWarningEmail.bind(emailService)
+export const sendModerationStrikeEmail = emailService.sendModerationStrikeEmail.bind(emailService)
+export const sendModerationBanEmail = emailService.sendModerationBanEmail.bind(emailService)
 export const isEmailConfigured = emailService.isConfigured.bind(emailService)

@@ -15,6 +15,9 @@ The mail setup is:
   - welcome after OAuth account creation
   - encrypted account export delivery
   - inactive-account reminder
+- Moderation templates (warning, strike, suspension/ban) and their `sendModeration*Email` helpers
+  exist but are not wired to any backend flow yet. Callers should pass a stable idempotency key
+  such as `moderation/<caseId>`.
 - Password, verification, and OTP emails are intentionally not implemented because authentication
   is OAuth-first.
 
@@ -119,7 +122,8 @@ The current send path is:
 
 - config load in [`src/lib/email.ts`](../src/lib/email.ts)
 - `sendWithResend()` in [`src/lib/email.ts`](../src/lib/email.ts)
-- templates in [`src/lib/email-templates.tsx`](../src/lib/email-templates.tsx)
+- templates in [`src/lib/email-templates/`](../src/lib/email-templates/), one file per email, with shared
+  styles in `styles.ts` and moderation building blocks in `moderation-shared.tsx`
 
 The Better Auth user-creation trigger schedules the welcome email as a background Convex Node
 action. Email-provider failures therefore do not block OAuth account creation.
