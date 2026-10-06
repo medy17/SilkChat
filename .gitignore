@@ -12,7 +12,6 @@ node_modules
 .nitro
 .vercel
 dist
-convex/_generated/
 app.config.timestamp_*
 
 # Environment Variables

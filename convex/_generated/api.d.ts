@@ -154,11 +154,15 @@ import type * as lib_tools_code_execution from "../lib/tools/code_execution.js";
 import type * as lib_tools_code_execution_artifacts from "../lib/tools/code_execution_artifacts.js";
 import type * as lib_tools_code_execution_node from "../lib/tools/code_execution_node.js";
 import type * as lib_tools_image_generation from "../lib/tools/image_generation.js";
+import type * as lib_tools_image_search from "../lib/tools/image_search.js";
 import type * as lib_tools_native_chart from "../lib/tools/native_chart.js";
 import type * as lib_tools_roleplay_portrait from "../lib/tools/roleplay_portrait.js";
 import type * as lib_tools_supermemory from "../lib/tools/supermemory.js";
 import type * as lib_tools_web_search from "../lib/tools/web_search.js";
 import type * as lib_usage_metering from "../lib/usage_metering.js";
+import type * as lib_visual_assets from "../lib/visual_assets.js";
+import type * as lib_visual_availability from "../lib/visual_availability.js";
+import type * as lib_visual_image_fetch_node from "../lib/visual_image_fetch_node.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as model_provider_metadata from "../model_provider_metadata.js";
@@ -198,6 +202,7 @@ import type * as schema_streams from "../schema/streams.js";
 import type * as schema_thread from "../schema/thread.js";
 import type * as schema_tool_selection from "../schema/tool_selection.js";
 import type * as schema_usage from "../schema/usage.js";
+import type * as schema_visuals from "../schema/visuals.js";
 import type * as settings from "../settings.js";
 import type * as speech_audio from "../speech_audio.js";
 import type * as speech_to_text from "../speech_to_text.js";
@@ -205,6 +210,8 @@ import type * as streams from "../streams.js";
 import type * as supermemory_node from "../supermemory_node.js";
 import type * as text_to_speech from "../text_to_speech.js";
 import type * as threads from "../threads.js";
+import type * as visuals from "../visuals.js";
+import type * as visuals_node from "../visuals_node.js";
 
 import type {
   ApiFromModules,
@@ -359,11 +366,15 @@ declare const fullApi: ApiFromModules<{
   "lib/tools/code_execution_artifacts": typeof lib_tools_code_execution_artifacts;
   "lib/tools/code_execution_node": typeof lib_tools_code_execution_node;
   "lib/tools/image_generation": typeof lib_tools_image_generation;
+  "lib/tools/image_search": typeof lib_tools_image_search;
   "lib/tools/native_chart": typeof lib_tools_native_chart;
   "lib/tools/roleplay_portrait": typeof lib_tools_roleplay_portrait;
   "lib/tools/supermemory": typeof lib_tools_supermemory;
   "lib/tools/web_search": typeof lib_tools_web_search;
   "lib/usage_metering": typeof lib_usage_metering;
+  "lib/visual_assets": typeof lib_visual_assets;
+  "lib/visual_availability": typeof lib_visual_availability;
+  "lib/visual_image_fetch_node": typeof lib_visual_image_fetch_node;
   messages: typeof messages;
   migrations: typeof migrations;
   model_provider_metadata: typeof model_provider_metadata;
@@ -403,6 +414,7 @@ declare const fullApi: ApiFromModules<{
   "schema/thread": typeof schema_thread;
   "schema/tool_selection": typeof schema_tool_selection;
   "schema/usage": typeof schema_usage;
+  "schema/visuals": typeof schema_visuals;
   settings: typeof settings;
   speech_audio: typeof speech_audio;
   speech_to_text: typeof speech_to_text;
@@ -410,6 +422,8 @@ declare const fullApi: ApiFromModules<{
   supermemory_node: typeof supermemory_node;
   text_to_speech: typeof text_to_speech;
   threads: typeof threads;
+  visuals: typeof visuals;
+  visuals_node: typeof visuals_node;
 }>;
 
 /**
