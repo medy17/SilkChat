@@ -38,7 +38,7 @@ type AccountDeletionPurgeResult = {
     phase: string
     deletedCount: number
 }
-import { selectEffectiveSubscription } from "./lib/lemon_squeezy"
+import { cancelLemonSqueezySubscription, selectEffectiveSubscription } from "./lib/lemon_squeezy"
 
 export const ACCOUNT_DELETION_CONFIRMATION_PHRASE = "Delete my account"
 
@@ -1106,40 +1106,6 @@ const deleteAuthUser = async <DataModel extends GenericDataModel>(
         deleteOptionalAuthModelRows("oauthConsent")
     ])
     await adapter.delete({ model: "user", where: [{ field: "id", value: authId }] })
-}
-
-const cancelLemonSqueezySubscription = async (subscriptionId: string | undefined) => {
-    if (!subscriptionId) return { skipped: true as const }
-
-    const apiKey = process.env.LEMONSQUEEZY_API_KEY?.trim()
-    if (!apiKey) return { skipped: true as const }
-
-    const response = await fetch(
-        `https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`,
-        {
-            method: "PATCH",
-            headers: {
-                Accept: "application/vnd.api+json",
-                "Content-Type": "application/vnd.api+json",
-                Authorization: `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                data: {
-                    type: "subscriptions",
-                    id: subscriptionId,
-                    attributes: {
-                        cancelled: true
-                    }
-                }
-            })
-        }
-    )
-
-    if (!response.ok) {
-        throw new Error(`Lemon Squeezy cancellation failed: ${response.status}`)
-    }
-
-    return { cancelled: true as const }
 }
 
 const deleteR2Key = async <DataModel extends GenericDataModel>(

@@ -3,10 +3,23 @@ import { render } from "@react-email/render"
 import { Resend } from "resend"
 import { resolveEmailIdempotencyKey } from "./email-idempotency"
 import {
+    ACCOUNT_EXPORT_PASSWORD_COPY,
     AccountExportEmailTemplate,
-    InactiveAccountNoticeEmailTemplate,
-    WelcomeEmailTemplate
-} from "./email-templates"
+    SUPPORT_ACCOUNT_EXPORT_PASSWORD_COPY
+} from "./email-templates/account-export"
+import { InactiveAccountNoticeEmailTemplate } from "./email-templates/inactive-account-notice"
+import { ModerationBanEmailTemplate } from "./email-templates/moderation-ban"
+import {
+    ModerationStrikeEmailTemplate,
+    getRemainingStrikesCopy
+} from "./email-templates/moderation-strike"
+import {
+    type ModerationUpdateContent,
+    ModerationUpdateEmailTemplate,
+    getModerationUpdateCopy
+} from "./email-templates/moderation-update"
+import { ModerationWarningEmailTemplate } from "./email-templates/moderation-warning"
+import { WelcomeEmailTemplate } from "./email-templates/welcome"
 import { loadServerEnv } from "./load-server-env"
 
 loadServerEnv()
@@ -33,6 +46,32 @@ interface SendEmailOptions {
     html: string
     text?: string
     idempotencyKey?: string
+}
+
+interface ModerationEmailContent {
+    name?: string
+    caseId: string
+    violation: string
+    policyReference?: string
+    contentAction?: string
+}
+
+interface ModerationEmailData extends ModerationEmailContent {
+    email: string
+    idempotencyKey?: string
+}
+
+interface ModerationStrikeDetails {
+    strikeNumber: number
+    strikeLimit: number
+    expiresAt?: string
+    restrictions?: string[]
+}
+
+export interface RenderedEmail {
+    subject: string
+    html: string
+    text: string
 }
 
 const DEFAULT_APP_URL = "https://silkchat.dev"
@@ -266,13 +305,15 @@ class EmailService {
         email: string
         downloadUrl: string
         idempotencyKey?: string
+        requestedBySupport?: boolean
     }) {
         const supportEmail = this.getSupportEmail()
         const html = await render(
             AccountExportEmailTemplate({
                 downloadUrl: data.downloadUrl,
                 logoUrl: this.getLogoUrl(),
-                supportEmail
+                supportEmail,
+                requestedBySupport: data.requestedBySupport
             })
         )
 
@@ -281,7 +322,7 @@ class EmailService {
             subject: "Your SilkChat account export is ready",
             html,
             idempotencyKey: data.idempotencyKey,
-            text: `Your AES-256 encrypted SilkChat account export is ready:\n\n${data.downloadUrl}\n\nOpen the ZIP with the one-time password shown when you requested the export. SilkChat does not retain that password.\n\nIf you did not request this export, you can ignore this email.`
+            text: `Your AES-256 encrypted SilkChat account export is ready:\n\n${data.downloadUrl}\n\n${data.requestedBySupport ? SUPPORT_ACCOUNT_EXPORT_PASSWORD_COPY : ACCOUNT_EXPORT_PASSWORD_COPY}\n\nIf you did not request this export, you can ignore this email.`
         })
 
         const providerMessageId =
@@ -324,6 +365,159 @@ class EmailService {
             text: `Silky misses you\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nIt's been a while since you logged in. Your chats, generated images, and files remain available whenever you're ready.\n\nReturn to SilkChat: ${appUrl}\n\nIf you'd like to export your SilkChat data or delete your account instead, you can do that from your account settings: ${accountUrl}\n\nIf you need help, contact us at ${supportEmail}.\n\nThis is the only inactivity reminder we will send for this account.\n\nThe SilkChat Team`
         })
     }
+
+    private getTermsUrl() {
+        return `${this.getAppUrl().replace(/\/$/, "")}/terms-of-service`
+    }
+
+    private formatModerationTextDetails(data: ModerationEmailContent, extraLines: string[] = []) {
+        return [
+            `What we found: ${data.violation}`,
+            ...(data.policyReference ? [`Policy: ${data.policyReference}`] : []),
+            ...(data.contentAction ? [`Action on content: ${data.contentAction}`] : []),
+            ...extraLines,
+            `Case ID: ${data.caseId}`
+        ].join("\n")
+    }
+
+    private getAppealUrl() {
+        return `${this.getAppUrl().replace(/\/$/, "")}/settings/safety`
+    }
+
+    private formatModerationTextAppeal(caseId: string, { inApp }: { inApp: boolean }) {
+        const route = inApp
+            ? `you can appeal from Settings > Safety (${this.getAppealUrl()}), or email ${this.getSupportEmail()}`
+            : `email ${this.getSupportEmail()}`
+        return `If you think we got this wrong, ${route} with the subject "Appeal: case ${caseId}" and any context you'd like us to consider. A person will review every appeal.\n\nTerms of Service: ${this.getTermsUrl()}\n\nSilkChat Trust & Safety`
+    }
+
+    async buildModerationWarningEmail(data: ModerationEmailContent): Promise<RenderedEmail> {
+        const html = await render(
+            ModerationWarningEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail: this.getSupportEmail(),
+                appealUrl: this.getAppealUrl()
+            })
+        )
+
+        return {
+            subject: "A warning about your SilkChat account",
+            html,
+            text: `A warning about your account\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and found something that goes against our Terms of Service. This is a warning only. Your account is in good standing and nothing about your access has changed.\n\n${this.formatModerationTextDetails(data)}\n\nPlease don't repeat this. If it happens again, we may add a strike to your account, and repeated strikes lead to a ban.\n\n${this.formatModerationTextAppeal(data.caseId, { inApp: true })}`
+        }
+    }
+
+    async buildModerationStrikeEmail(
+        data: ModerationEmailContent & ModerationStrikeDetails
+    ): Promise<RenderedEmail> {
+        const html = await render(
+            ModerationStrikeEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail: this.getSupportEmail(),
+                appealUrl: this.getAppealUrl()
+            })
+        )
+        const details = this.formatModerationTextDetails(data, [
+            `Strikes: ${data.strikeNumber} of ${data.strikeLimit}`,
+            ...(data.expiresAt ? [`Strike expires: ${data.expiresAt}`] : [])
+        ])
+        const restrictions = data.restrictions?.length
+            ? `\n\nWhile this strike is active, the following limits apply:\n${data.restrictions.map((restriction) => `- ${restriction}`).join("\n")}`
+            : ""
+        const expiry = data.expiresAt
+            ? " This strike will be removed on the date shown above if there are no further violations."
+            : ""
+
+        return {
+            subject: `Strike ${data.strikeNumber} of ${data.strikeLimit} on your SilkChat account`,
+            html,
+            text: `Your account received a strike\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and confirmed a violation of our Terms of Service. We've added a strike to your account.\n\n${details}${restrictions}\n\n${getRemainingStrikesCopy(data.strikeNumber, data.strikeLimit)}\n\nYour chats, files, and generated images are not affected.${expiry}\n\n${this.formatModerationTextAppeal(data.caseId, { inApp: true })}`
+        }
+    }
+
+    async buildModerationBanEmail(
+        data: ModerationEmailContent & { endsAt?: string }
+    ): Promise<RenderedEmail> {
+        const supportEmail = this.getSupportEmail()
+        const html = await render(
+            ModerationBanEmailTemplate({
+                ...data,
+                termsUrl: this.getTermsUrl(),
+                logoUrl: this.getLogoUrl(),
+                supportEmail
+            })
+        )
+        const heading = data.endsAt
+            ? "Your account has been suspended"
+            : "Your account has been banned"
+        const summary = data.endsAt
+            ? "Your access is suspended until the date below. You won't be able to sign in or use SilkChat until then."
+            : "Your account has been permanently banned. You can no longer sign in or use SilkChat, and you may not create a new account."
+        const details = this.formatModerationTextDetails(data, [
+            data.endsAt ? `Suspended until: ${data.endsAt}` : "Duration: Permanent"
+        ])
+
+        return {
+            subject: data.endsAt
+                ? "Your SilkChat account has been suspended"
+                : "Your SilkChat account has been banned",
+            html,
+            text: `${heading}\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\nWe reviewed activity on your SilkChat account and confirmed a serious or repeated violation of our Terms of Service. ${summary}\n\n${details}\n\nAny active subscription has been cancelled. Under our Terms of Service, unused time on a paid plan is not refunded when access ends because of a violation.\n\nIf you need a copy of your data, email ${supportEmail} from this address and include your case ID.\n\n${this.formatModerationTextAppeal(data.caseId, { inApp: false })}`
+        }
+    }
+
+    async buildModerationUpdateEmail(
+        data: ModerationUpdateContent & {
+            name?: string
+            caseId: string
+            violation: string
+            note?: string
+        }
+    ): Promise<RenderedEmail> {
+        const supportEmail = this.getSupportEmail()
+        const copy = getModerationUpdateCopy(data)
+        const html = await render(
+            ModerationUpdateEmailTemplate({ ...data, logoUrl: this.getLogoUrl(), supportEmail })
+        )
+        const details = [
+            ...(copy.warm ? [] : [`What we found: ${data.violation}`]),
+            ...(data.note ? [`Note: ${data.note}`] : []),
+            `Case ID: ${data.caseId}`
+        ].join("\n")
+
+        return {
+            subject: copy.subject,
+            html,
+            text: `${copy.heading}\n\n${data.name ? `Hi ${data.name},` : "Hi,"}\n\n${copy.paragraphs.join("\n\n")}\n\n${details}\n\nQuestions? Contact ${supportEmail} with your case ID.\n\n${copy.warm ? "The SilkChat Team" : "SilkChat Trust & Safety"}`
+        }
+    }
+
+    private async sendRenderedEmail(
+        data: { email: string; idempotencyKey?: string },
+        rendered: RenderedEmail
+    ) {
+        await this.sendEmail({
+            to: data.email,
+            ...rendered,
+            idempotencyKey: data.idempotencyKey
+        })
+    }
+
+    async sendModerationWarningEmail(data: ModerationEmailData) {
+        await this.sendRenderedEmail(data, await this.buildModerationWarningEmail(data))
+    }
+
+    async sendModerationStrikeEmail(data: ModerationEmailData & ModerationStrikeDetails) {
+        await this.sendRenderedEmail(data, await this.buildModerationStrikeEmail(data))
+    }
+
+    async sendModerationBanEmail(data: ModerationEmailData & { endsAt?: string }) {
+        await this.sendRenderedEmail(data, await this.buildModerationBanEmail(data))
+    }
 }
 
 // Export singleton instance
@@ -335,4 +529,12 @@ export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
 export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
 export const sendInactiveAccountNoticeEmail =
     emailService.sendInactiveAccountNoticeEmail.bind(emailService)
+export const sendModerationWarningEmail = emailService.sendModerationWarningEmail.bind(emailService)
+export const sendModerationStrikeEmail = emailService.sendModerationStrikeEmail.bind(emailService)
+export const sendModerationBanEmail = emailService.sendModerationBanEmail.bind(emailService)
+export const buildModerationWarningEmail =
+    emailService.buildModerationWarningEmail.bind(emailService)
+export const buildModerationStrikeEmail = emailService.buildModerationStrikeEmail.bind(emailService)
+export const buildModerationBanEmail = emailService.buildModerationBanEmail.bind(emailService)
+export const buildModerationUpdateEmail = emailService.buildModerationUpdateEmail.bind(emailService)
 export const isEmailConfigured = emailService.isConfigured.bind(emailService)

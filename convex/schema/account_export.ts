@@ -7,6 +7,8 @@ export const AccountExportJob = v.object({
     consentSensitiveDataLinksAccepted: v.optional(v.boolean()),
     consentOneTimePasswordAccepted: v.optional(v.boolean()),
     consentAcceptedAt: v.optional(v.number()),
+    // Prepared by an operator for a user who can't sign in. The operator relays the password.
+    requestedBySupport: v.optional(v.boolean()),
     status: v.union(
         v.literal("reserved"),
         v.literal("building"),

@@ -22,6 +22,13 @@ import { ImageGenerationJob } from "./schema/image_generation_job"
 import { ImportJob, ImportJobSource, ImportJobThread } from "./schema/import_job"
 import { Message } from "./schema/message"
 import { ModelProviderMetadata } from "./schema/model_provider_metadata"
+import {
+    ModerationAppeal,
+    ModerationCase,
+    ModerationCaseUpdate,
+    ModerationEscalation,
+    ModerationIdentityBlock
+} from "./schema/moderation"
 import { PersistentSandbox } from "./schema/persistent_sandbox"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
@@ -211,6 +218,24 @@ export default defineSchema({
     //     .index("byUserProvider", ["userId", "provider"]),
     settings: defineTable(UserSettings).index("byUser", ["userId"]),
     userAccess: defineTable(UserAccess).index("byUser", ["userId"]),
+    moderationCases: defineTable(ModerationCase)
+        .index("byCaseId", ["caseId"])
+        .index("byUserCreatedAt", ["userId", "createdAt"])
+        .index("byAuthUserCreatedAt", ["authUserId", "createdAt"]),
+    moderationCaseUpdates: defineTable(ModerationCaseUpdate).index("byCaseCreatedAt", [
+        "caseId",
+        "createdAt"
+    ]),
+    moderationAppeals: defineTable(ModerationAppeal)
+        .index("byCase", ["caseId"])
+        .index("byUser", ["userId"])
+        .index("byStatusCreatedAt", ["status", "createdAt"]),
+    moderationEscalations: defineTable(ModerationEscalation)
+        .index("byStatusCreatedAt", ["status", "createdAt"])
+        .index("byAuthUserStatus", ["authUserId", "status"]),
+    moderationIdentityBlocks: defineTable(ModerationIdentityBlock)
+        .index("byEmailHash", ["emailHash"])
+        .index("byCase", ["caseId"]),
 
     usageEvents: defineTable(UsageEvent).index("byUserDay", ["userId", "daysSinceEpoch"]),
     prototypeCreditAccounts: defineTable(PrototypeCreditAccount).index("byUser", ["userId"]),

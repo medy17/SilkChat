@@ -103,7 +103,8 @@ export const reserveAccountExport = internalMutation({
         keyHash: v.string(),
         encryptedPassword: v.string(),
         consentSensitiveDataLinksAccepted: v.boolean(),
-        consentOneTimePasswordAccepted: v.boolean()
+        consentOneTimePasswordAccepted: v.boolean(),
+        requestedBySupport: v.optional(v.boolean())
     },
     handler: async (ctx, args): Promise<AccountExportReservation> => {
         const { userId, email: rawEmail, keyHash } = args
@@ -136,6 +137,7 @@ export const reserveAccountExport = internalMutation({
             consentSensitiveDataLinksAccepted: true,
             consentOneTimePasswordAccepted: true,
             consentAcceptedAt: now,
+            ...(args.requestedBySupport ? { requestedBySupport: true } : {}),
             status: "reserved",
             createdAt: now,
             updatedAt: now

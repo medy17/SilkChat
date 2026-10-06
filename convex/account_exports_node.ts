@@ -2,7 +2,7 @@
 
 import { createHash, randomBytes } from "node:crypto"
 import type { BetterAuthOptions } from "better-auth"
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 import {
     type AccountExportFile,
     type AccountExportProfile,
@@ -24,6 +24,7 @@ import { authComponent } from "./auth"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserVisibleFilePrefixes } from "./lib/file_listing"
 import { getUserIdentity } from "./lib/identity"
+import { canImpersonate } from "./lib/impersonation"
 import { listAllSupermemoryMemories } from "./lib/supermemory_api"
 
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
@@ -205,6 +206,41 @@ export const requestAccountExport = action({
     }
 })
 
+// Support copy for a user who can't sign in (for example after a ban). The archive link is
+// emailed to the account address and the password is shown once to the operator.
+export const requestSupportAccountExport = action({
+    args: { authUserId: v.string() },
+    handler: async (ctx, { authUserId }): Promise<AccountExportRequestResult> => {
+        const operator = await ctx.auth.getUserIdentity()
+        if (!operator || !canImpersonate(operator.subject)) {
+            throw new ConvexError("Moderator access required")
+        }
+        if (!getAccountExportConfiguration().configured) {
+            throw new ConvexError("Account exports are not configured")
+        }
+        const target = await ctx.runQuery(internal.moderation.getModerationExportTargetInternal, {
+            authUserId
+        })
+        if (!target) throw new ConvexError("User not found")
+
+        const { password, keyHash } = generateExportPassword()
+        const reservation: AccountExportReservation = await ctx.runMutation(
+            internal.account_exports.reserveAccountExport,
+            {
+                userId: target.userId,
+                authId: authUserId,
+                email: target.email,
+                keyHash,
+                encryptedPassword: await encryptKey(password),
+                consentSensitiveDataLinksAccepted: true,
+                consentOneTimePasswordAccepted: true,
+                requestedBySupport: true
+            }
+        )
+        return reservation.accepted ? { ...reservation, password } : reservation
+    }
+})
+
 export const buildAccountExport = internalAction({
     args: {
         jobId: v.id("accountExportJobs"),
@@ -346,7 +382,8 @@ export const deliverAccountExportEmail = internalAction({
             const acknowledgement = await sendAccountExportEmail({
                 email: job.email,
                 downloadUrl: job.downloadUrl,
-                idempotencyKey: `account-export/${jobId}`
+                idempotencyKey: `account-export/${jobId}`,
+                requestedBySupport: job.requestedBySupport
             })
             await ctx.runMutation(internal.account_exports.markAccountExportDelivered, {
                 jobId,

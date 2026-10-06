@@ -15,6 +15,11 @@ The mail setup is:
   - welcome after OAuth account creation
   - encrypted account export delivery
   - inactive-account reminder
+- Moderation notices (warning, strike, suspension/ban) are sent by
+  `convex/moderation_node.ts` when an operator issues an action from Settings > Moderation. Each
+  uses the idempotency key `moderation/<caseId>`. Suspension and ban emails say the subscription
+  is cancelled, so they wait until Lemon Squeezy cancellation succeeds (`LEMONSQUEEZY_API_KEY`).
+  `buildModeration*Email` renders the same email for the panel's preview.
 - Password, verification, and OTP emails are intentionally not implemented because authentication
   is OAuth-first.
 
@@ -119,7 +124,8 @@ The current send path is:
 
 - config load in [`src/lib/email.ts`](../src/lib/email.ts)
 - `sendWithResend()` in [`src/lib/email.ts`](../src/lib/email.ts)
-- templates in [`src/lib/email-templates.tsx`](../src/lib/email-templates.tsx)
+- templates in [`src/lib/email-templates/`](../src/lib/email-templates/), one file per email, with shared
+  styles in `styles.ts` and moderation building blocks in `moderation-shared.tsx`
 
 The Better Auth user-creation trigger schedules the welcome email as a background Convex Node
 action. Email-provider failures therefore do not block OAuth account creation.

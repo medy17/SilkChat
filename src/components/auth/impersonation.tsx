@@ -91,7 +91,7 @@ export function ImpersonationBoundary({ children }: { children: ReactNode }) {
     return children
 }
 
-type UserResult = NonNullable<FunctionReturnType<typeof api.auth.lookupImpersonationUser>>
+export type UserResult = NonNullable<FunctionReturnType<typeof api.auth.lookupImpersonationUser>>
 
 const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
     ["year", 365 * 24 * 60 * 60 * 1000],
@@ -147,7 +147,7 @@ function UserAvatar({ user }: { user: UserResult }) {
 
 // Mirrors the personalization header: centered avatar over the name. Every line has a
 // fixed height shared with its skeleton so the card does not shift when data arrives.
-function UserPreview({ user }: { user: UserResult | null }) {
+export function UserPreview({ user }: { user: UserResult | null }) {
     if (!user) {
         return (
             <div role="status" aria-busy className="flex flex-col items-center gap-4 py-2">
