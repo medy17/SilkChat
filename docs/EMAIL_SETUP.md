@@ -15,9 +15,11 @@ The mail setup is:
   - welcome after OAuth account creation
   - encrypted account export delivery
   - inactive-account reminder
-- Moderation templates (warning, strike, suspension/ban) and their `sendModeration*Email` helpers
-  exist but are not wired to any backend flow yet. Callers should pass a stable idempotency key
-  such as `moderation/<caseId>`.
+- Moderation notices (warning, strike, suspension/ban) are sent by
+  `convex/moderation_node.ts` when an operator issues an action from Settings > Moderation. Each
+  uses the idempotency key `moderation/<caseId>`. Suspension and ban emails say the subscription
+  is cancelled, so they wait until Lemon Squeezy cancellation succeeds (`LEMONSQUEEZY_API_KEY`).
+  `buildModeration*Email` renders the same email for the panel's preview.
 - Password, verification, and OTP emails are intentionally not implemented because authentication
   is OAuth-first.
 

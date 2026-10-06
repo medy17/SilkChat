@@ -12,7 +12,7 @@ type RestoreDeletedAccountCreditsArgs = {
     googleSub?: string
 }
 
-const getFingerprintPepper = () =>
+export const getFingerprintPepper = () =>
     process.env.IDENTITY_FINGERPRINT_PEPPER?.trim() ||
     process.env.BETTER_AUTH_SECRET?.trim() ||
     "silkchat-local-account-deletion-pepper"

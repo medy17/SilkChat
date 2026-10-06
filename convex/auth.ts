@@ -6,7 +6,7 @@ import { admin } from "better-auth/plugins/admin"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "./_generated/api.js"
 import type { DataModel } from "./_generated/dataModel.js"
-import { internalAction, mutation, query } from "./_generated/server"
+import { type QueryCtx, internalAction, mutation, query } from "./_generated/server"
 import authConfig from "./auth.config"
 import { recordAuthenticatedActivity, removeAccountActivity } from "./lib/account_activity"
 import { restoreDeletedAccountCreditsForIdentity } from "./lib/account_deletion_restore"
@@ -14,11 +14,12 @@ import { buildAuthBaseURLConfig, hasLoopbackAuthHost } from "./lib/auth_origins"
 import { getUserIdentity } from "./lib/identity"
 import { canImpersonate, getImpersonationUserIds, impersonationHooks } from "./lib/impersonation"
 import { selectEffectiveSubscription } from "./lib/lemon_squeezy"
+import { moderationGate } from "./lib/moderation_gate"
 
 const VISUAL_SEARCH_RATE_LIMIT = 30
 const VISUAL_SEARCH_RATE_WINDOW_MS = 10 * 60 * 1000
 
-const betterAuthComponent = (
+export const betterAuthComponent = (
     components as typeof components & {
         betterAuth: BetterAuthComponentApi<"betterAuth">
     }
@@ -55,7 +56,7 @@ const isLocalAuthRuntime =
     convexSiteUrl?.includes("localhost") ||
     convexSiteUrl?.includes("127.0.0.1")
 
-const getAppUserId = (user: { _id: string; userId?: string | null }) =>
+export const getAppUserId = (user: { _id: string; userId?: string | null }) =>
     typeof user.userId === "string" && user.userId.trim().length > 0 ? user.userId : user._id
 
 type AuthUserLookup = {
@@ -204,6 +205,8 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
                   }
                 : {},
         plugins: [
+            // Must precede admin(): plugin hooks run in order and the first rejection wins.
+            moderationGate(ctx),
             admin({ adminUserIds: getImpersonationUserIds() }),
             convex({
                 authConfig,
@@ -214,6 +217,70 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
             })
         ]
     })
+
+type AuthUser = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>
+
+export const isOperatorAuthUser = (user: { _id: string; role?: string | null }) =>
+    canImpersonate(user._id) || Boolean(user.role?.split(",").includes("admin"))
+
+// Exact email uses email_name; legacy app IDs use userId. Auth IDs use db.get
+// inside the component adapter. Never load or filter the full user table.
+export const findAuthUserByIdentifier = async (
+    ctx: QueryCtx,
+    identifier: string
+): Promise<AuthUser | null> => {
+    const value = identifier.trim()
+    if (!value || value.length > 320) throw new ConvexError("Enter an email address or user ID")
+
+    let user: AuthUser | null = await ctx.runQuery(betterAuthComponent.adapter.findOne, {
+        model: "user",
+        where: [
+            {
+                field: value.includes("@") ? "email" : "userId",
+                value: value.includes("@") ? value.toLowerCase() : value
+            }
+        ]
+    })
+    if (!user && !value.includes("@")) {
+        try {
+            user = await ctx.runQuery(betterAuthComponent.adapter.findOne, {
+                model: "user",
+                where: [{ field: "_id", value }]
+            })
+        } catch {
+            throw new ConvexError("Could not look up that user ID. Check it and try again.")
+        }
+    }
+    return user
+}
+
+export const getAuthUserSummary = async (ctx: QueryCtx, user: AuthUser) => {
+    const appUserId = getAppUserId(user)
+    const [activity, account, subscriptions] = await Promise.all([
+        ctx.db
+            .query("accountActivities")
+            .withIndex("byAuthUserId", (q) => q.eq("authUserId", user._id))
+            .unique(),
+        ctx.db
+            .query("prototypeCreditAccounts")
+            .withIndex("byUser", (q) => q.eq("userId", appUserId))
+            .first(),
+        ctx.db
+            .query("lemonSqueezySubscriptions")
+            .withIndex("byUser", (q) => q.eq("userId", appUserId))
+            .collect()
+    ])
+    const subscription = selectEffectiveSubscription(subscriptions)
+    return {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        image: user.image ?? null,
+        lastActiveAt: activity?.lastActiveAt ?? null,
+        plan: account?.plan ?? "free",
+        subscriptionStatus: subscription?.status ?? null
+    }
+}
 
 export const getCurrentUser = query({
     args: {},
@@ -228,6 +295,7 @@ export const getCurrentUser = query({
         return {
             ...user,
             canImpersonate: canImpersonate(user._id),
+            canModerate: canImpersonate(user._id),
             id:
                 typeof user.userId === "string" && user.userId.trim().length > 0
                     ? user.userId
@@ -244,62 +312,12 @@ export const lookupImpersonationUser = query({
         if (!operator || !canImpersonate(operator._id)) {
             throw new ConvexError("Impersonation access required")
         }
-        const value = identifier.trim()
-        if (!value || value.length > 320) throw new ConvexError("Enter an email address or user ID")
-
-        // Exact email uses email_name; legacy app IDs use userId. Auth IDs use db.get
-        // inside the component adapter. Never load or filter the full user table.
-        let user: Awaited<ReturnType<typeof authComponent.safeGetAuthUser>> = await ctx.runQuery(
-            betterAuthComponent.adapter.findOne,
-            {
-                model: "user",
-                where: [
-                    {
-                        field: value.includes("@") ? "email" : "userId",
-                        value: value.includes("@") ? value.toLowerCase() : value
-                    }
-                ]
-            }
-        )
-        if (!user && !value.includes("@")) {
-            try {
-                user = await ctx.runQuery(betterAuthComponent.adapter.findOne, {
-                    model: "user",
-                    where: [{ field: "_id", value }]
-                })
-            } catch {
-                throw new ConvexError("Could not look up that user ID. Check it and try again.")
-            }
-        }
+        const user = await findAuthUserByIdentifier(ctx, identifier)
         if (!user) return null
-        if (canImpersonate(user._id) || user.role?.split(",").includes("admin")) {
+        if (isOperatorAuthUser(user)) {
             throw new ConvexError("Cannot impersonate an operator account")
         }
-        const appUserId = getAppUserId(user)
-        const [activity, account, subscriptions] = await Promise.all([
-            ctx.db
-                .query("accountActivities")
-                .withIndex("byAuthUserId", (q) => q.eq("authUserId", user._id))
-                .unique(),
-            ctx.db
-                .query("prototypeCreditAccounts")
-                .withIndex("byUser", (q) => q.eq("userId", appUserId))
-                .first(),
-            ctx.db
-                .query("lemonSqueezySubscriptions")
-                .withIndex("byUser", (q) => q.eq("userId", appUserId))
-                .collect()
-        ])
-        const subscription = selectEffectiveSubscription(subscriptions)
-        return {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            image: user.image ?? null,
-            lastActiveAt: activity?.lastActiveAt ?? null,
-            plan: account?.plan ?? "free",
-            subscriptionStatus: subscription?.status ?? null
-        }
+        return await getAuthUserSummary(ctx, user)
     }
 })
 

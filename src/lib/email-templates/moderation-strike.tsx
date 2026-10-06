@@ -44,7 +44,8 @@ export const ModerationStrikeEmailTemplate = ({
     restrictions = [],
     termsUrl,
     logoUrl,
-    supportEmail
+    supportEmail,
+    appealUrl
 }: ModerationStrikeEmailTemplateProps) => (
     <Html>
         <Head />
@@ -104,6 +105,7 @@ export const ModerationStrikeEmailTemplate = ({
                         caseId={caseId}
                         supportEmail={supportEmail}
                         termsUrl={termsUrl}
+                        appealUrl={appealUrl}
                     />
                 </Section>
                 <Text style={emailFooter}>

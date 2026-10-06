@@ -31,12 +31,20 @@ interface AccountExportEmailTemplateProps {
     downloadUrl: string
     logoUrl: string
     supportEmail: string
+    // Support prepared this export for someone who can't sign in, such as a banned user.
+    requestedBySupport?: boolean
 }
+
+export const ACCOUNT_EXPORT_PASSWORD_COPY =
+    "Open the ZIP with the one-time password shown when you requested the export. SilkChat does not retain that password and cannot recover it for you."
+export const SUPPORT_ACCOUNT_EXPORT_PASSWORD_COPY =
+    "SilkChat support prepared this export at your request. Open the ZIP with the one-time password support sends you in a separate reply. SilkChat does not retain that password and cannot recover it for you."
 
 export const AccountExportEmailTemplate = ({
     downloadUrl,
     logoUrl,
-    supportEmail
+    supportEmail,
+    requestedBySupport = false
 }: AccountExportEmailTemplateProps) => (
     <Html>
         <Head />
@@ -63,8 +71,9 @@ export const AccountExportEmailTemplate = ({
                         </Link>
                     </Section>
                     <Text style={emailText}>
-                        Open the ZIP with the one-time password shown when you requested the export.
-                        SilkChat does not retain that password and cannot recover it for you.
+                        {requestedBySupport
+                            ? SUPPORT_ACCOUNT_EXPORT_PASSWORD_COPY
+                            : ACCOUNT_EXPORT_PASSWORD_COPY}
                     </Text>
                     <Text style={emailText}>
                         If you did not request this export, you can ignore this email. The stored

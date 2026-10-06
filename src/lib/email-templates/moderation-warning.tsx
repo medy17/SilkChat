@@ -25,7 +25,8 @@ export const ModerationWarningEmailTemplate = ({
     contentAction,
     termsUrl,
     logoUrl,
-    supportEmail
+    supportEmail,
+    appealUrl
 }: ModerationWarningEmailTemplateProps) => (
     <Html>
         <Head />
@@ -63,6 +64,7 @@ export const ModerationWarningEmailTemplate = ({
                         caseId={caseId}
                         supportEmail={supportEmail}
                         termsUrl={termsUrl}
+                        appealUrl={appealUrl}
                     />
                 </Section>
                 <Text style={emailFooter}>

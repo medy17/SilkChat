@@ -7,6 +7,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select"
+import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
 import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
@@ -16,12 +17,15 @@ import {
     BrainCircuit,
     CreditCard,
     Fingerprint,
+    Gavel,
     PaintBucket,
     Paperclip,
+    Shield,
     ShieldCheck,
     User,
     Users
 } from "lucide-react"
+import { useQuery } from "convex/react"
 import { type ReactNode, useEffect } from "react"
 
 interface SettingsLayoutProps {
@@ -72,6 +76,11 @@ const settingsNavItems = [
         icon: ShieldCheck
     },
     {
+        title: "Safety",
+        href: "/settings/safety",
+        icon: Shield
+    },
+    {
         title: "Usage",
         href: "/settings/usage",
         icon: BarChart3
@@ -80,6 +89,12 @@ const settingsNavItems = [
         title: "Billing",
         href: "/settings/billing",
         icon: CreditCard
+    },
+    {
+        title: "Moderation",
+        href: "/settings/moderation",
+        icon: Gavel,
+        operatorOnly: true
     }
 ]
 
@@ -128,6 +143,11 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
     const location = useLocation()
     const navigate = useNavigate()
     const activeSettingsHref = getActiveSettingsHref(location.pathname)
+    const session = useSession()
+    const currentUser = useQuery(api.auth.getCurrentUser, session.user ? {} : "skip")
+    const navItems = settingsNavItems.filter(
+        (item) => !("operatorOnly" in item) || currentUser?.canModerate
+    )
 
     useEffect(() => {
         if (location.pathname === "/settings" || location.pathname === "/settings/") {
@@ -160,7 +180,7 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
                                 <SelectValue placeholder="Select a settings category" />
                             </SelectTrigger>
                             <SelectContent>
-                                {settingsNavItems.map((item) => (
+                                {navItems.map((item) => (
                                     <SelectItem key={item.href} value={item.href}>
                                         {item.title}
                                     </SelectItem>
@@ -181,7 +201,7 @@ function SettingsPage({ title, description }: SettingsLayoutProps) {
                     {/* Navigation */}
                     <div className="hidden w-full flex-shrink-0 lg:block lg:w-64 lg:pr-2">
                         <nav className="w-full space-y-1">
-                            {settingsNavItems.map((item) => {
+                            {navItems.map((item) => {
                                 const isActive = activeSettingsHref === item.href
                                 const Icon = item.icon
 

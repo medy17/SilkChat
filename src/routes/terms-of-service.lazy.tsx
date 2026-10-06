@@ -607,8 +607,9 @@ function TermsSection({
     title: string
     children: ReactNode
 }) {
+    // Moderation notices link to these anchors (see convex/lib/moderation.ts).
     return (
-        <section className="mb-8 space-y-4">
+        <section id={`section-${number}`} className="mb-8 scroll-mt-6 space-y-4">
             <h2 className="font-semibold text-xl">
                 {number}. {title}
             </h2>
@@ -617,15 +618,12 @@ function TermsSection({
     )
 }
 
-function TermsSubsection({
-    title,
-    children
-}: {
-    title: string
-    children: ReactNode
-}) {
+function TermsSubsection({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <div className="space-y-3">
+        <div
+            id={`section-${title.split(" ")[0].replaceAll(".", "-")}`}
+            className="scroll-mt-6 space-y-3"
+        >
             <h3 className="font-medium text-lg">{title}</h3>
             {children}
         </div>
@@ -640,13 +638,7 @@ function TermsItem({ children }: { children: ReactNode }) {
     return <li>{children}</li>
 }
 
-function ExternalLink({
-    href,
-    children
-}: {
-    href: string
-    children: ReactNode
-}) {
+function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
     return (
         <a
             href={href}

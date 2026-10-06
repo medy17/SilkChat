@@ -12,7 +12,7 @@ import {
 
 interface ModerationCaseDetailsProps {
     caseId: string
-    violation: string
+    violation?: string
     policyReference?: string
     contentAction?: string
     extraRows?: { label: string; value: string }[]
@@ -26,7 +26,7 @@ export const ModerationCaseDetails = ({
     extraRows = []
 }: ModerationCaseDetailsProps) => {
     const rows = [
-        { label: "What we found", value: violation },
+        ...(violation ? [{ label: "What we found", value: violation }] : []),
         ...(policyReference ? [{ label: "Policy", value: policyReference }] : []),
         ...(contentAction ? [{ label: "Action on content", value: contentAction }] : []),
         ...extraRows,
@@ -49,13 +49,31 @@ interface ModerationAppealProps {
     caseId: string
     supportEmail: string
     termsUrl: string
+    // Set for warnings and strikes, which can be appealed from Settings > Safety.
+    appealUrl?: string
 }
 
-export const ModerationAppeal = ({ caseId, supportEmail, termsUrl }: ModerationAppealProps) => (
+export const ModerationAppeal = ({
+    caseId,
+    supportEmail,
+    termsUrl,
+    appealUrl
+}: ModerationAppealProps) => (
     <>
         <Hr style={divider} />
         <Text style={supportText}>
-            If you think we got this wrong, email{" "}
+            If you think we got this wrong,{" "}
+            {appealUrl ? (
+                <>
+                    you can appeal from{" "}
+                    <Link href={appealUrl} style={inlineLink}>
+                        Settings &gt; Safety
+                    </Link>
+                    , or email{" "}
+                </>
+            ) : (
+                "email "
+            )}
             <Link
                 href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Appeal: case ${caseId}`)}`}
                 style={inlineLink}
@@ -85,6 +103,7 @@ export interface ModerationEmailBaseProps {
     termsUrl: string
     logoUrl: string
     supportEmail: string
+    appealUrl?: string
 }
 
 export type ModerationWarningEmailTemplateProps = ModerationEmailBaseProps

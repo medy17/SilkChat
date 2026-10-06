@@ -44,11 +44,13 @@ import { Route as SettingsCustomizationRouteImport } from './routes/settings/cus
 import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsMemoryRouteImport } from './routes/settings/memory'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
+import { Route as SettingsModerationRouteImport } from './routes/settings/moderation'
 import { Route as SettingsPersonalizationRouteImport } from './routes/settings/personalization'
 import { Route as SettingsPersonasRouteImport } from './routes/settings/personas'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
+import { Route as SettingsSafetyRouteImport } from './routes/settings/safety'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as ChatSSharedThreadIdRouteImport } from './routes/_chat.s.$sharedThreadId'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
@@ -246,6 +248,11 @@ const SettingsModelsRoute = SettingsModelsRouteImport.update({
   path: '/models',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsModerationRoute = SettingsModerationRouteImport.update({
+  id: '/moderation',
+  path: '/moderation',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsPersonalizationRoute = SettingsPersonalizationRouteImport.update({
   id: '/personalization',
   path: '/personalization',
@@ -269,6 +276,11 @@ const SettingsProfileRoute = SettingsProfileRouteImport.update({
 const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
   id: '/providers',
   path: '/providers',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsSafetyRoute = SettingsSafetyRouteImport.update({
+  id: '/safety',
+  path: '/safety',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
 const SettingsUsageRoute = SettingsUsageRouteImport.update({
@@ -346,11 +358,13 @@ export interface FileRoutesByFullPath {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/moderation': typeof SettingsModerationRoute
   '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
+  '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/personas/start': typeof PersonasStartLazyRoute
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdRoute
@@ -393,11 +407,13 @@ export interface FileRoutesByTo {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/moderation': typeof SettingsModerationRoute
   '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
+  '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/personas/start': typeof PersonasStartLazyRoute
   '/': typeof ChatIndexRoute
@@ -443,11 +459,13 @@ export interface FileRoutesById {
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
   '/settings/models': typeof SettingsModelsRoute
+  '/settings/moderation': typeof SettingsModerationRoute
   '/settings/personalization': typeof SettingsPersonalizationRoute
   '/settings/personas': typeof SettingsPersonasRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
+  '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/personas_/start': typeof PersonasStartLazyRoute
   '/_chat/': typeof ChatIndexRoute
@@ -494,11 +512,13 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/moderation'
     | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
+    | '/settings/safety'
     | '/settings/usage'
     | '/personas/start'
     | '/s/$sharedThreadId'
@@ -541,11 +561,13 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/moderation'
     | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
+    | '/settings/safety'
     | '/settings/usage'
     | '/personas/start'
     | '/'
@@ -590,11 +612,13 @@ export interface FileRouteTypes {
     | '/settings/files'
     | '/settings/memory'
     | '/settings/models'
+    | '/settings/moderation'
     | '/settings/personalization'
     | '/settings/personas'
     | '/settings/privacy'
     | '/settings/profile'
     | '/settings/providers'
+    | '/settings/safety'
     | '/settings/usage'
     | '/personas_/start'
     | '/_chat/'
@@ -880,6 +904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsModelsRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/moderation': {
+      id: '/settings/moderation'
+      path: '/moderation'
+      fullPath: '/settings/moderation'
+      preLoaderRoute: typeof SettingsModerationRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/personalization': {
       id: '/settings/personalization'
       path: '/personalization'
@@ -913,6 +944,13 @@ declare module '@tanstack/react-router' {
       path: '/providers'
       fullPath: '/settings/providers'
       preLoaderRoute: typeof SettingsProvidersRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/safety': {
+      id: '/settings/safety'
+      path: '/safety'
+      fullPath: '/settings/safety'
+      preLoaderRoute: typeof SettingsSafetyRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
     '/settings/usage': {
@@ -1012,11 +1050,13 @@ interface SettingsRouteLazyRouteChildren {
   SettingsFilesRoute: typeof SettingsFilesRoute
   SettingsMemoryRoute: typeof SettingsMemoryRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
+  SettingsModerationRoute: typeof SettingsModerationRoute
   SettingsPersonalizationRoute: typeof SettingsPersonalizationRoute
   SettingsPersonasRoute: typeof SettingsPersonasRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
+  SettingsSafetyRoute: typeof SettingsSafetyRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
 }
 
@@ -1032,11 +1072,13 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsFilesRoute: SettingsFilesRoute,
   SettingsMemoryRoute: SettingsMemoryRoute,
   SettingsModelsRoute: SettingsModelsRoute,
+  SettingsModerationRoute: SettingsModerationRoute,
   SettingsPersonalizationRoute: SettingsPersonalizationRoute,
   SettingsPersonasRoute: SettingsPersonasRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,
+  SettingsSafetyRoute: SettingsSafetyRoute,
   SettingsUsageRoute: SettingsUsageRoute,
 }
 
