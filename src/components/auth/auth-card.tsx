@@ -10,7 +10,7 @@ import { trackGoogleAdsSignupConversion } from "@/lib/google-ads"
 import type { AuthSearch } from "@/routes/auth/$pathname"
 import { useMutation } from "@tanstack/react-query"
 import { useRouter, useSearch } from "@tanstack/react-router"
-import { Loader2, ShieldAlert } from "lucide-react"
+import { ArrowLeft, Loader2, Mail, ShieldAlert } from "lucide-react"
 import { MotionConfig, motion } from "motion/react"
 import { useEffect } from "react"
 import { toast } from "sonner"
@@ -142,24 +142,22 @@ function RestrictedAccountCard({
                     <p className="text-muted-foreground">
                         {notice.endsAt
                             ? `This account is suspended until ${new Date(notice.endsAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" })} for violating our Terms of Service.`
-                            : "This account was banned for violating our Terms of Service, so it can't sign in or be used to create a new account."}{" "}
-                        We emailed the account address with the details.
+                            : "This account was banned for violating our Terms of Service, so it can't sign in or be used to create a new account."}
                     </p>
                     {notice.caseId && (
                         <p>
                             Case ID: <span className="font-mono">{notice.caseId}</span>
                         </p>
                     )}
-                    <p className="text-muted-foreground">
-                        If you think we got this wrong, email{" "}
-                        <a href={appealHref} className="text-primary underline underline-offset-2">
-                            {SUPPORT_EMAIL}
-                        </a>{" "}
-                        {notice.caseId ? "with your case ID" : "from the account's email address"}.
-                        A person will review every appeal.
-                    </p>
                     <Button variant="outline" className="w-full" onClick={onBack}>
+                        <ArrowLeft />
                         Back to sign in
+                    </Button>
+                    <Button asChild variant="outline" className="w-full">
+                        <a href={appealHref}>
+                            <Mail />
+                            Contact support
+                        </a>
                     </Button>
                 </CardContent>
             </Card>
