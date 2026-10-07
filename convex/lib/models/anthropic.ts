@@ -14,6 +14,30 @@ const anthropicTextAdapters = (modelId: string): RegistryKey[] => {
 
 export const ANTHROPIC_MODELS: SharedModel[] = [
     {
+        id: "claude-haiku-5.5",
+        name: "Claude Haiku 5.5",
+        addedOn: "2026-10-08",
+        shortName: "Haiku 5.5",
+        shortDescription: "Small, fast Claude for summarization, subagents, and browser use",
+        description:
+            "Claude Haiku 5.5 is Anthropic's small, fast model for high-volume work where cost and response time matter. It handles summarization, subagent tasks, and browser use, with image and document input and optional reasoning for deeper work.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm"
+        },
+        releaseOrder: 20261007,
+        adapters: anthropicTextAdapters("claude-haiku-5-5"),
+        explicitPromptCaching: true,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        inputUsdPer1MTokens: 0.1,
+        outputUsdPer1MTokens: 0.5,
+        supportsDisablingReasoning: true,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium"
+    },
+    {
         id: "claude-sonnet-5.5",
         name: "Claude Sonnet 5.5",
         addedOn: "2026-09-28",
@@ -249,9 +273,9 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         name: "Claude Haiku 4.5",
         addedOn: "2025-10-15",
         shortName: "Haiku 4.5",
-        shortDescription: "Fast Claude model for lightweight chat and drafting",
+        shortDescription: "Previous-generation Haiku for lightweight chat and drafting",
         description:
-            "Claude Haiku 4.5 is the faster, lighter Claude option for quick responses, drafting, and everyday assistant use. It trades some peak depth for speed and efficiency while keeping the core Claude workflow features intact.",
+            "Claude Haiku 4.5 is Anthropic's previous-generation lightweight model for quick responses, drafting, and everyday assistant use. It trades some peak depth for speed and efficiency while keeping the core Claude workflow features intact.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm"
