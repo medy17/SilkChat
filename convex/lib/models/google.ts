@@ -148,6 +148,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
+        preferredOpenRouterProviders: ["google-ai-studio"],
         ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {

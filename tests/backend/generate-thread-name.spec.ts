@@ -3,9 +3,91 @@ import {
     buildThreadTitlePrompt,
     fallbackShareQuestion,
     fallbackTitleFromMessages,
+    firstUsableGeneration,
     getTitlePromptMessages,
-    normalizeShareQuestion
+    normalizeShareQuestion,
+    orderTitleModelCandidates,
+    titleReasoningOptions
 } from "../../convex/chat_http/generate_thread_name"
+import type { SharedModel } from "../../convex/lib/models/types"
+import type { UserRegistry } from "../../convex/settings"
+
+describe("title model selection", () => {
+    const registryModels = (models: Record<string, { routingUnavailableReason?: string }>) =>
+        Object.fromEntries(
+            Object.entries(models).map(([id, extra]) => [
+                id,
+                { id, adapters: [`openrouter:vendor/${id}`], ...extra }
+            ])
+        ) as unknown as UserRegistry["models"]
+
+    it("tries the preferred model, then the user's saved title model, then fallbacks, once each", () => {
+        // The saved model is also a fallback, so it must appear once, in the saved position.
+        const candidates = orderTitleModelCandidates(
+            registryModels({
+                "gemini-3.1-flash-lite": {},
+                "gpt-6-luna": {},
+                "gpt-4.1-mini": {}
+            }),
+            "gpt-4.1-mini"
+        )
+
+        expect(candidates).toEqual(["gemini-3.1-flash-lite", "gpt-4.1-mini", "gpt-6-luna"])
+    })
+
+    it("skips models that can't be routed on the app's keys", () => {
+        const candidates = orderTitleModelCandidates(
+            registryModels({
+                "gemini-3.1-flash-lite": { routingUnavailableReason: "Blocked by routing mode" },
+                "gpt-6-luna": {}
+            }),
+            "gemini-3.1-flash-lite"
+        )
+
+        expect(candidates).toEqual(["gpt-6-luna"])
+    })
+
+    it("turns reasoning off where possible and otherwise uses the lowest effort", () => {
+        const model = (fields: Partial<SharedModel>) =>
+            ({ abilities: ["reasoning", "effort_control"], ...fields }) as SharedModel
+
+        expect(titleReasoningOptions(model({ supportsDisablingReasoning: true }))).toEqual({
+            enabled: false,
+            exclude: true,
+            effort: "none"
+        })
+        expect(
+            titleReasoningOptions(model({ reasoningEfforts: ["high", "minimal", "low"] }))
+        ).toEqual({ enabled: true, effort: "minimal" })
+        expect(titleReasoningOptions(model({ abilities: [] }))).toBeUndefined()
+    })
+})
+
+describe("firstUsableGeneration", () => {
+    it("moves to the next model when one fails or returns unusable text", async () => {
+        const failing = await firstUsableGeneration(["a", "b"], async (modelId) => {
+            if (modelId === "a") throw new Error("provider down")
+            return "Title From B"
+        })
+        const corrupted = await firstUsableGeneration(["a", "b"], async (modelId) =>
+            modelId === "a" ? null : "Title From B"
+        )
+
+        expect(failing).toBe("Title From B")
+        expect(corrupted).toBe("Title From B")
+    })
+
+    it("gives up after two attempts so the caller can use its local fallback", async () => {
+        const attempted: string[] = []
+        const result = await firstUsableGeneration(["a", "b", "c"], async (modelId) => {
+            attempted.push(modelId)
+            return null
+        })
+
+        expect(result).toBeNull()
+        expect(attempted).toEqual(["a", "b"])
+    })
+})
 
 describe("share questions", () => {
     it("keeps generated questions short, clean, and question-shaped", () => {
@@ -13,7 +95,13 @@ describe("share questions", () => {
             normalizeShareQuestion(
                 'Question: "How can a very long conversation become a warm specific invitation without overwhelming someone opening the link?"'
             )
-        ).toBe("How can a very long conversation become a warm specific?")
+        ).toBe("How can a very long conversation become a warm specific invitation?")
+    })
+
+    it("keeps a question that fits the character limit whole, however many words it has", () => {
+        expect(
+            normalizeShareQuestion("How can I cope with the end of a six-year relationship?")
+        ).toBe("How can I cope with the end of a six-year relationship?")
     })
 
     it("reuses an opening user question when generation is unavailable", () => {
