@@ -3,14 +3,13 @@
 import { useRef } from "react"
 
 import { ArtifactsSection } from "./landing-page/artifacts-section"
-import { CtaSection } from "./landing-page/cta-section"
+import { BentoSection } from "./landing-page/bento-section"
 import { FeaturesSection } from "./landing-page/features-section"
 import { FooterSection } from "./landing-page/footer-section"
 import { HeroSection } from "./landing-page/hero-section"
 import { ImageGallerySection } from "./landing-page/image-gallery-section"
-import { ModelSelectorSection } from "./landing-page/model-selector-section"
+import { ModelsSection } from "./landing-page/models-section"
 import { PricingSection } from "./landing-page/pricing-section"
-import { ProvidersSection } from "./landing-page/providers-section"
 import { SecuritySection } from "./landing-page/security-section"
 import { SilkBackdrop } from "./landing-page/shared"
 import { SocialProofSection } from "./landing-page/social-proof-section"
@@ -79,20 +78,19 @@ export function LandingPage() {
 
                 <main>
                     <HeroSection />
-                    <ProvidersSection />
-                    <ModelSelectorSection />
+                    <ModelsSection containerRef={containerRef} />
+                    <ArtifactsSection containerRef={containerRef} />
+                    <ImageGallerySection containerRef={containerRef} />
                     <FeaturesSection />
-                    <ArtifactsSection />
-                    <ImageGallerySection />
                     <UseCasesSection containerRef={containerRef} />
                     <SocialProofSection />
                     <PricingSection />
-                    <SecuritySection />
+                    <SecuritySection containerRef={containerRef} />
                 </main>
 
-                <div className="relative overflow-hidden">
+                <div className="relative flex min-h-svh flex-col overflow-hidden">
                     <SilkBackdrop silkClassName="opacity-45 dark:opacity-35" />
-                    <CtaSection />
+                    <BentoSection containerRef={containerRef} />
                     <FooterSection />
                 </div>
             </div>

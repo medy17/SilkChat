@@ -5,6 +5,7 @@ import type { RefObject } from "react"
 import { useEffect, useRef, useState } from "react"
 
 import { LogoMark, LogoSymbol } from "@/components/logo"
+import { scrollToSection } from "@/components/landing-page/shared"
 import { ThemeSwitcher } from "@/components/themes/theme-switcher"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -15,11 +16,10 @@ interface StickyNavProps {
 
 const navSections = [
     { id: "hero", label: "Hero" },
-    { id: "providers", label: "Models" },
-    { id: "model-selector", label: "Selector" },
-    { id: "features", label: "Features" },
+    { id: "models", label: "Models" },
     { id: "artifacts", label: "Artifacts" },
     { id: "gallery", label: "Gallery" },
+    { id: "features", label: "Features" },
     { id: "workflows", label: "Workflows" },
     { id: "testimonials", label: "Testimonials" },
     { id: "pricing", label: "Pricing" },
@@ -123,25 +123,12 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                 </div>
             </nav>
 
-            <div className="-translate-y-1/2 fixed top-1/2 right-6 z-50 hidden flex-col gap-4 md:flex">
+            <div className="fixed top-1/2 right-3 z-50 hidden -translate-y-1/2 flex-col gap-4 md:flex">
                 {navSections.map((section, index) => (
                     <button
                         key={section.id}
                         type="button"
-                        onClick={() => {
-                            const element = document.getElementById(section.id)
-                            const container = containerRef.current
-
-                            if (!element || !container) return
-
-                            container.scrollTo({
-                                top:
-                                    element.getBoundingClientRect().top -
-                                    container.getBoundingClientRect().top +
-                                    container.scrollTop,
-                                behavior: "smooth"
-                            })
-                        }}
+                        onClick={() => scrollToSection(containerRef.current, section.id)}
                         className="group relative flex items-center justify-end"
                         aria-label={`Go to ${section.label}`}
                     >

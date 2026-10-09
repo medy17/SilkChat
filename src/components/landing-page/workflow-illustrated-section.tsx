@@ -1,19 +1,18 @@
 "use client"
 
-import {
-    type MotionValue,
-    motion,
-    useMotionValue,
-    useReducedMotion,
-    useScroll,
-    useTransform
-} from "motion/react"
-import { createRef, type RefObject, useEffect, useState } from "react"
+import { motion, useReducedMotion, useTransform } from "motion/react"
+import { createRef, type RefObject, useRef, useState } from "react"
 
-import { type LandingIcon, type UseCase, useCases } from "@/components/landing-page/content"
+import { type UseCase, useCases } from "@/components/landing-page/content"
+import {
+    Capability,
+    RevealedText,
+    type SceneRefs,
+    useSceneProgress
+} from "@/components/landing-page/scroll-scene"
 import { SectionHead } from "@/components/landing-page/shared"
 import { cn } from "@/lib/utils"
-import { workflowObjectOpacity, workflowScenePhase } from "@/lib/workflow-scene"
+import { workflowObjectOpacity } from "@/lib/workflow-scene"
 
 const objects = [
     { src: "/images/workflows/cube.webp", alt: "An interlocking brushed silver cube", rotate: -7 },
@@ -51,33 +50,6 @@ const choreography = [
     }
 ]
 const sceneStops = [-0.2, 0.15, 0.5, 0.85, 1.2]
-
-type SceneRefs = {
-    containerRef: RefObject<HTMLDivElement | null>
-    sceneRef: RefObject<HTMLElement | null>
-}
-
-function useSceneProgress({ containerRef, sceneRef }: SceneRefs) {
-    const ratio = useMotionValue(1)
-    const { scrollYProgress } = useScroll({
-        container: containerRef,
-        target: sceneRef,
-        offset: ["start end", "end start"]
-    })
-    useEffect(() => {
-        const container = containerRef.current
-        const scene = sceneRef.current
-        if (!container || !scene) return
-        const measure = () => ratio.set(container.clientHeight / Math.max(1, scene.offsetHeight))
-        const observer = new ResizeObserver(measure)
-        observer.observe(container)
-        observer.observe(scene)
-        measure()
-        return () => observer.disconnect()
-    }, [containerRef, sceneRef, ratio])
-    // Function-derived values avoid native timeline offset restrictions.
-    return useTransform(() => workflowScenePhase(scrollYProgress.get(), ratio.get()))
-}
 
 function AnchoredObject({ index, ...refs }: SceneRefs & { index: number }) {
     const progress = useSceneProgress(refs)
@@ -128,52 +100,6 @@ function AnchoredObject({ index, ...refs }: SceneRefs & { index: number }) {
     )
 }
 
-function RevealedWord({
-    word,
-    index,
-    progress
-}: {
-    word: string
-    index: number
-    progress: MotionValue<number>
-}) {
-    const start = -0.18 + index * 0.012
-    const opacity = useTransform(progress, [start, start + 0.18], [0.3, 1])
-    return <motion.span style={{ opacity }}>{word} </motion.span>
-}
-
-function Capability({
-    label,
-    Icon,
-    index,
-    progress,
-    reduced
-}: {
-    label: string
-    Icon: LandingIcon
-    index: number
-    progress: MotionValue<number>
-    reduced: boolean
-}) {
-    const start = -0.15 + index * 0.08
-    const opacity = useTransform(progress, [start, start + 0.22], [0.25, 1])
-    const x = useTransform(progress, [start, start + 0.22], [18, 0])
-    return (
-        <motion.li
-            style={reduced ? undefined : { opacity, x }}
-            className="flex items-center gap-3 text-sm leading-6 [color:var(--landing-muted)]"
-        >
-            <span
-                aria-hidden="true"
-                className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-md)] [background:var(--landing-surface-strong)] [color:var(--landing-fg)]"
-            >
-                <Icon className="size-4" />
-            </span>
-            {label}
-        </motion.li>
-    )
-}
-
 function WorkflowScene({
     index,
     role,
@@ -214,18 +140,7 @@ function WorkflowScene({
                     {role.title}
                 </h3>
                 <p className="mb-8 max-w-md text-base leading-relaxed [color:var(--landing-muted)] md:text-lg">
-                    {reduced
-                        ? role.description
-                        : role.description
-                              .split(" ")
-                              .map((word, wordIndex) => (
-                                  <RevealedWord
-                                      key={`${wordIndex}-${word}`}
-                                      word={word}
-                                      index={wordIndex}
-                                      progress={progress}
-                                  />
-                              ))}
+                    <RevealedText text={role.description} progress={progress} reduced={reduced} />
                 </p>
                 <ul className="space-y-4">
                     {role.items.map(({ label, Icon }, itemIndex) => (
@@ -251,6 +166,7 @@ export function WorkflowIllustratedSection({
 }) {
     const reduced = useReducedMotion() === true
     const [sceneRefs] = useState(() => useCases.map(() => createRef<HTMLElement>()))
+    const stageRef = useRef<HTMLDivElement>(null)
     return (
         <section
             id="workflows"
@@ -269,13 +185,17 @@ export function WorkflowIllustratedSection({
                 >
                     {!reduced && (
                         <div aria-hidden="true" className="relative hidden md:block">
-                            <div className="sticky top-24 isolate h-[min(70svh,40rem)] overflow-clip">
+                            <div
+                                ref={stageRef}
+                                className="sticky top-24 isolate h-[min(70svh,40rem)] overflow-clip"
+                            >
                                 {objects.map(({ src }, index) => (
                                     <AnchoredObject
                                         key={src}
                                         index={index}
                                         containerRef={containerRef}
                                         sceneRef={sceneRefs[index]}
+                                        anchorRef={stageRef}
                                     />
                                 ))}
                                 <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_45%,var(--landing-bg)_95%)]" />
@@ -290,6 +210,7 @@ export function WorkflowIllustratedSection({
                                 index={index}
                                 containerRef={containerRef}
                                 sceneRef={sceneRefs[index]}
+                                anchorRef={stageRef}
                                 reduced={reduced}
                             />
                         ))}

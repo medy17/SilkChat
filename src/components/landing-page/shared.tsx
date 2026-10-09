@@ -150,3 +150,15 @@ export function Tile({ className, children, ...props }: ComponentPropsWithoutRef
         </div>
     )
 }
+
+export function scrollToSection(container: HTMLElement | null, id: string) {
+    const element = document.getElementById(id)
+    if (!element || !container) return
+    container.scrollTo({
+        top:
+            element.getBoundingClientRect().top -
+            container.getBoundingClientRect().top +
+            container.scrollTop,
+        behavior: "smooth"
+    })
+}
