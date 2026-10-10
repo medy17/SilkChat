@@ -7,7 +7,7 @@ export const Route = createLazyFileRoute("/privacy-policy")({
     component: PrivacyPolicyPage
 })
 
-const EFFECTIVE_DATE = "August 16, 2026"
+const EFFECTIVE_DATE = "October 10, 2026"
 const APP_NAME = "SilkChat"
 const COMPANY_NAME = "DropSilk"
 const APP_URL = "https://silkchat.dev"
@@ -216,6 +216,30 @@ function PrivacyPolicyPage() {
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
+
+                    <PolicySubsection title="2.9 Moderation and safety records">
+                        <PolicyList>
+                            <PolicyItem>
+                                If we take action on your account under our Terms of Service, we
+                                record the action (warning, strike, suspension, or ban), the
+                                category of violation, the policy it relates to, relevant dates, and
+                                internal notes made by our staff.
+                            </PolicyItem>
+                            <PolicyItem>
+                                Appeals you submit, our decisions on them, and any later changes to
+                                a case.
+                            </PolicyItem>
+                            <PolicyItem>
+                                The name and email address we send moderation notices to, and
+                                whether those notices were delivered.
+                            </PolicyItem>
+                            <PolicyItem>
+                                If an account is permanently banned, a hashed form of its email
+                                address so the same email cannot be used to sign up again. We do not
+                                store the email address itself for this purpose.
+                            </PolicyItem>
+                        </PolicyList>
+                    </PolicySubsection>
                 </PolicySection>
 
                 <PolicySection number="3" title="How We Use Your Data">
@@ -240,6 +264,12 @@ function PrivacyPolicyPage() {
                             <PolicyItem>
                                 To debug issues, monitor reliability, prevent abuse, and maintain
                                 platform integrity.
+                            </PolicyItem>
+                            <PolicyItem>
+                                To enforce our Terms of Service, including issuing warnings,
+                                strikes, suspensions, and bans, notifying you of those actions, and
+                                reviewing appeals. Moderation actions are decided by our staff, not
+                                automatically.
                             </PolicyItem>
                             <PolicyItem>
                                 To improve product usability and prioritize development work using
@@ -272,6 +302,26 @@ function PrivacyPolicyPage() {
                         </PolicyList>
                     </PolicySubsection>
 
+                    <PolicySubsection title="3.3 Staff access to your account">
+                        <PolicyList>
+                            <PolicyItem>
+                                A limited number of specifically authorized staff can access your
+                                account as you, which lets them see your account as it appears to
+                                you, including your chats, files, memories, and settings.
+                            </PolicyItem>
+                            <PolicyItem>
+                                We use this access only to provide support, troubleshoot problems
+                                with your account, investigate suspected violations of our Terms of
+                                Service, or protect the security of the Service.
+                            </PolicyItem>
+                            <PolicyItem>
+                                Access is time-limited and restricted to authorized staff accounts.
+                                Before starting access, authorized staff can see your name, email
+                                address, avatar, last activity, and subscription status.
+                            </PolicyItem>
+                        </PolicyList>
+                    </PolicySubsection>
+
                     <p className="text-muted-foreground">
                         We do not use your chat content, uploaded files, generated images, or other
                         user content to train our own AI models. Section 6 explains this in more
@@ -300,6 +350,14 @@ function PrivacyPolicyPage() {
                                 supported providers and models. Privacy policy:{" "}
                                 <ExternalLink href="https://openrouter.ai/privacy">
                                     openrouter.ai/privacy
+                                </ExternalLink>
+                            </PolicyItem>
+                            <PolicyItem>
+                                <strong>fal</strong>: Used for image generation. Image prompts and
+                                any reference images you provide are sent to fal to generate images.
+                                Privacy policy:{" "}
+                                <ExternalLink href="https://fal.ai/privacy">
+                                    fal.ai/privacy
                                 </ExternalLink>
                             </PolicyItem>
                             <PolicyItem>
@@ -345,6 +403,18 @@ function PrivacyPolicyPage() {
                                     www.cloudflare.com/privacypolicy/
                                 </ExternalLink>
                             </PolicyItem>
+                            <PolicyItem>
+                                <strong>Upstash</strong>: Used to temporarily hold AI responses
+                                while they are being generated, so a response can continue if you
+                                reload the page or open the chat on another device. Privacy policy:{" "}
+                                <ExternalLink href="https://upstash.com/trust/privacy.pdf">
+                                    upstash.com/trust/privacy.pdf
+                                </ExternalLink>
+                            </PolicyItem>
+                            <PolicyItem>
+                                <strong>Cloudflare Turnstile</strong>: Used to check that account
+                                export requests come from a person rather than an automated tool.
+                            </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
 
@@ -378,13 +448,44 @@ function PrivacyPolicyPage() {
                             </PolicyItem>
                             <PolicyItem>
                                 <strong>Email delivery provider</strong>: Marketing, OTP,
-                                verification, or reset emails are sent using Resend. For certain
-                                organization email aliases, we proxy via Cloudflare's email routing
-                                services.
+                                verification, reset, account export, inactive account, and
+                                moderation emails are sent using Resend. For certain organization
+                                email aliases, we proxy via Cloudflare's email routing services.
                             </PolicyItem>
                             <PolicyItem>
                                 <strong>Payment processor</strong>: <strong>LemonSqueezy</strong>,
-                                which also acts as our <strong>Merchant of Record</strong>.
+                                which also acts as our <strong>Merchant of Record</strong>. If your
+                                account is suspended or banned, we instruct LemonSqueezy to cancel
+                                your subscription.
+                            </PolicyItem>
+                        </PolicyList>
+                    </PolicySubsection>
+
+                    <PolicySubsection title="4.6 Search and code execution">
+                        <PolicyList>
+                            <PolicyItem>
+                                <strong>Perplexity</strong>: Used for web search. When a chat uses
+                                web search, search queries based on your conversation are sent to
+                                Perplexity. Privacy policy:{" "}
+                                <ExternalLink href="https://www.perplexity.ai/hub/legal/privacy-policy">
+                                    perplexity.ai/hub/legal/privacy-policy
+                                </ExternalLink>
+                            </PolicyItem>
+                            <PolicyItem>
+                                <strong>Brave Search</strong>: Used for image search. When a reply
+                                includes images from the web, search queries based on your
+                                conversation are sent to Brave. Matching images are downloaded by
+                                our servers rather than your browser, and the ones shown in your
+                                chat are stored with your account. Privacy policy:{" "}
+                                <ExternalLink href="https://search.brave.com/help/privacy-policy">
+                                    search.brave.com/help/privacy-policy
+                                </ExternalLink>
+                            </PolicyItem>
+                            <PolicyItem>
+                                <strong>Vercel Sandbox</strong>: Used to run code when a chat uses
+                                code execution. Code written for your request runs in an isolated
+                                environment operated by Vercel, and files it produces are stored
+                                with your account.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -448,7 +549,17 @@ function PrivacyPolicyPage() {
                             needed for fraud and abuse prevention, usage-limit enforcement,
                             subscription handling, and processing late billing events. This record
                             does not contain your messages, memories, files, settings, email
-                            address, or OAuth identifier.
+                            address, or OAuth identifier. Moderation records are handled separately,
+                            as described below.
+                        </PolicyItem>
+                        <PolicyItem>
+                            <strong>Moderation records</strong>: Retained for as long as reasonably
+                            necessary to enforce our Terms of Service, prevent repeat abuse, and
+                            handle appeals or disputes, including after an account is deleted. These
+                            records include the name and email address that moderation notices were
+                            sent to. For permanent bans, we keep a hashed form of the email address
+                            to block new sign-ups with it. If the ban is lifted, overturned, or
+                            changed to a temporary one, that hash is removed.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>Inactive accounts</strong>: We do not preemptively delete
@@ -573,6 +684,16 @@ function PrivacyPolicyPage() {
                                 You may request a self-service account archive from your account
                                 settings once every 24 hours. Generated binary assets may be
                                 represented by links rather than embedded copies.
+                            </PolicyItem>
+                            <PolicyItem>
+                                From Safety settings, you may view your account standing, any
+                                moderation actions taken on your account, and our decisions, and
+                                appeal eligible actions.
+                            </PolicyItem>
+                            <PolicyItem>
+                                If you cannot sign in because your account is suspended or banned,
+                                you may contact us to request a copy of your data or deletion of
+                                your account.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -708,13 +829,7 @@ function PolicySection({
     )
 }
 
-function PolicySubsection({
-    title,
-    children
-}: {
-    title: string
-    children: ReactNode
-}) {
+function PolicySubsection({ title, children }: { title: string; children: ReactNode }) {
     return (
         <div className="space-y-3">
             <h3 className="font-medium text-lg">{title}</h3>
@@ -731,13 +846,7 @@ function PolicyItem({ children }: { children: ReactNode }) {
     return <li>{children}</li>
 }
 
-function ExternalLink({
-    href,
-    children
-}: {
-    href: string
-    children: ReactNode
-}) {
+function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
     return (
         <a
             href={href}

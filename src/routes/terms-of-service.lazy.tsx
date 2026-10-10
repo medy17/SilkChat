@@ -7,7 +7,7 @@ export const Route = createLazyFileRoute("/terms-of-service")({
     component: TermsOfServicePage
 })
 
-const EFFECTIVE_DATE = "April 30, 2026"
+const EFFECTIVE_DATE = "October 10, 2026"
 const APP_NAME = "SilkChat"
 const COMPANY_NAME = "DropSilk"
 const APP_URL = "https://silkchat.dev"
@@ -91,7 +91,8 @@ function TermsOfServicePage() {
                         </TermsItem>
                         <TermsItem>
                             Your account is for your use only, and you may not share access in a
-                            manner inconsistent with these Terms or any applicable plan limits.
+                            manner inconsistent with these Terms or any applicable plan limits. You
+                            may not sell, resell, or transfer access to your account.
                         </TermsItem>
                         <TermsItem>
                             You are responsible for safeguarding your login credentials and for all
@@ -159,7 +160,89 @@ function TermsOfServicePage() {
                         </TermsList>
                     </TermsSubsection>
 
-                    <TermsSubsection title="3.3 Our content">
+                    <TermsSubsection title="3.3 How moderation decisions are made">
+                        <TermsList>
+                            <TermsItem>
+                                Moderation is <strong>manual</strong>. We do not use automated
+                                systems to detect violations or to take action on accounts. No
+                                action, including one following a third strike, is applied
+                                automatically.
+                            </TermsItem>
+                            <TermsItem>
+                                Each case is reviewed by a person and decided on its own facts.
+                                Similar conduct may lead to different outcomes depending on its
+                                severity and context.
+                            </TermsItem>
+                            <TermsItem>
+                                We review a case when conduct or content may expose us to legal
+                                risk, or may put our relationships or accounts with the third-party
+                                providers we rely on to operate the Services at risk, including AI
+                                model, infrastructure, and payment providers.
+                            </TermsItem>
+                            <TermsItem>
+                                We only open a case after we are notified of a concern, such as by
+                                one of these providers or through a copyright notice under Section
+                                16. Being notified does not mean we will act. This keeps moderation
+                                to what is necessary and avoids looking into your account without
+                                good reason.
+                            </TermsItem>
+                            <TermsItem>
+                                Our AI and infrastructure providers apply their own moderation and
+                                safety measures, which handle most content issues. We step in only
+                                when a matter is serious enough that we judge it should not be left
+                                to those measures alone. We do not take moderation lightly.
+                            </TermsItem>
+                            <TermsItem>
+                                As a result, we may take action on content or conduct that breaks a
+                                third-party provider's usage policies even if it is not unlawful.
+                            </TermsItem>
+                        </TermsList>
+                    </TermsSubsection>
+
+                    <TermsSubsection title="3.4 Moderation actions and appeals">
+                        <TermsList>
+                            <TermsItem>
+                                If we find that you have violated these Terms, we may issue a
+                                warning or a strike, or suspend or ban your account. We choose the
+                                action based on the severity of the violation, and may suspend or
+                                ban an account without first issuing a warning or strike.
+                            </TermsItem>
+                            <TermsItem>
+                                We notify you of each action by email, with a case ID, the reason
+                                for the action, and the section of these Terms it relates to. You
+                                can view your account standing and case history in Safety settings.
+                            </TermsItem>
+                            <TermsItem>
+                                Strikes expire after the period stated in the notice, normally 90
+                                days and never more than one year. If your account reaches three
+                                active strikes, we will review it and may suspend or ban it.
+                            </TermsItem>
+                            <TermsItem>
+                                Suspensions last for the period stated in the notice, up to one
+                                year. Bans are permanent unless we later lift or shorten them.
+                            </TermsItem>
+                            <TermsItem>
+                                While your account is suspended or banned, you are signed out and
+                                cannot sign in, and any paid subscription is cancelled. Under
+                                Section 7, you are not entitled to a refund for the unused period.
+                                If a permanent ban applies, the same email address cannot be used to
+                                create a new account.
+                            </TermsItem>
+                            <TermsItem>
+                                You may appeal an active warning or strike once from Safety
+                                settings. To appeal a suspension or ban, email{" "}
+                                <strong>support@silkchat.dev</strong> with your case ID. If we
+                                overturn an action, it no longer counts against your account.
+                            </TermsItem>
+                            <TermsItem>
+                                If you cannot sign in because of a suspension or ban, you may
+                                contact <strong>support@silkchat.dev</strong> to request a copy of
+                                your data or deletion of your account.
+                            </TermsItem>
+                        </TermsList>
+                    </TermsSubsection>
+
+                    <TermsSubsection title="3.5 Our content">
                         <p className="text-muted-foreground">
                             The Services may also contain information, software, models, branding,
                             UI, documentation, or other materials supplied by us or our suppliers ("
@@ -226,6 +309,10 @@ function TermsOfServicePage() {
                                 You may not use the Services to avoid fees, exceed permitted usage,
                                 or misuse shared infrastructure.
                             </TermsItem>
+                            <TermsItem>
+                                You may not create or use another account to get around a suspension
+                                or ban.
+                            </TermsItem>
                         </TermsList>
                     </TermsSubsection>
 
@@ -235,6 +322,10 @@ function TermsOfServicePage() {
                                 You may not use the Services to engage in unlawful, fraudulent,
                                 abusive, harassing, hateful, defamatory, obscene, or harmful
                                 conduct.
+                            </TermsItem>
+                            <TermsItem>
+                                You may not use the Services to create, request, upload, or share
+                                sexual content involving minors.
                             </TermsItem>
                             <TermsItem>
                                 You may not upload or transmit malware, phishing content, or other
@@ -370,8 +461,8 @@ function TermsOfServicePage() {
                         </TermsItem>
                         <TermsItem>
                             We do not offer refunds or money-back guarantees except where required
-                            by applicable law. Account suspension, appeal, and reinstatement
-                            requests are handled through <strong>support@silkchat.dev</strong>.
+                            by applicable law. Sections 3.3 and 3.4 explain how moderation actions
+                            and appeals work.
                         </TermsItem>
                         <TermsItem>
                             You are responsible for exporting your User Content before terminating
