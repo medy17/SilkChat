@@ -470,6 +470,31 @@ export const MultimodalInput = forwardRef<
         }
     }
 
+    const isVoiceActive = voiceInputEnabled && (voiceState.isRecording || voiceState.isTranscribing)
+    const showsVoiceStart = voiceInputEnabled && isInputEmpty && uploadedFiles.length === 0
+    const primaryActionLabel = voiceState.isTranscribing
+        ? "Transcribing"
+        : voiceState.isRecording
+          ? "Stop recording"
+          : isImageGenerationPending && !isLoading
+            ? "Wait for image generation to finish"
+            : showsVoiceStart && !isLoading
+              ? "Voice input"
+              : isLoading
+                ? "Stop generation"
+                : "Send message"
+    const primaryActionIcon =
+        voiceState.isTranscribing || status === "submitted" ? (
+            <Loader2 className="size-5 animate-spin" />
+        ) : voiceState.isRecording || isLoading ? (
+            <Square className="size-5 fill-current" />
+        ) : showsVoiceStart ? (
+            <Mic className="size-5" />
+        ) : (
+            <ArrowUp className="size-5" />
+        )
+    const primaryActionDisabled = status === "submitted" || uploading || voiceState.isTranscribing
+
     useImperativeHandle(
         ref,
         () => ({
@@ -685,19 +710,6 @@ export const MultimodalInput = forwardRef<
 
     return (
         <>
-            {voiceInputEnabled && (voiceState.isRecording || voiceState.isTranscribing) && (
-                <div className="@container w-full px-1">
-                    <VoiceRecorder
-                        state={voiceState}
-                        onStop={stopRecording}
-                        className={cn(
-                            "pointer-events-auto mx-auto w-full",
-                            getChatWidthClass(chatWidthState.chatWidth)
-                        )}
-                    />
-                </div>
-            )}
-
             <div
                 ref={composerViewportRef}
                 onFocusCapture={activateDropTarget}
@@ -717,10 +729,7 @@ export const MultimodalInput = forwardRef<
 
                     setIsInputFocused(false)
                 }}
-                className={cn(
-                    "@container w-full px-1",
-                    (voiceState.isRecording || voiceState.isTranscribing) && "hidden"
-                )}
+                className="@container w-full px-1"
             >
                 <PromptInput
                     ref={promptInputRef}
@@ -811,7 +820,7 @@ export const MultimodalInput = forwardRef<
                         <motion.div
                             layout
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                            className="min-w-0 flex-1"
+                            className="relative min-w-0 flex-1"
                         >
                             <PromptInputTextarea
                                 value={inputValue}
@@ -824,9 +833,20 @@ export const MultimodalInput = forwardRef<
                                 onFocus={() => setIsInputFocused(true)}
                                 className={cn(
                                     isCompactTouchComposer &&
-                                        "!h-11 !min-h-11 overflow-hidden whitespace-nowrap"
+                                        "!h-11 !min-h-11 overflow-hidden whitespace-nowrap",
+                                    isVoiceActive && "invisible"
                                 )}
                             />
+                            {isVoiceActive && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                    className="absolute inset-0"
+                                >
+                                    <VoiceRecorder state={voiceState} className="h-full" />
+                                </motion.div>
+                            )}
                         </motion.div>
 
                         <AnimatePresence initial={false} mode="popLayout">
@@ -849,34 +869,14 @@ export const MultimodalInput = forwardRef<
                                         <Button
                                             variant="default"
                                             size="icon"
-                                            aria-label={
-                                                isImageGenerationPending && !isLoading
-                                                    ? "Wait for image generation to finish"
-                                                    : voiceInputEnabled &&
-                                                        isInputEmpty &&
-                                                        !isLoading
-                                                      ? "Voice input"
-                                                      : isLoading
-                                                        ? "Stop generation"
-                                                        : "Send message"
-                                            }
+                                            aria-label={primaryActionLabel}
                                             className="size-11"
                                             style={{ borderRadius: "var(--radius-md)" }}
-                                            disabled={status === "submitted" || uploading}
+                                            disabled={primaryActionDisabled}
                                             onClick={handleVoiceButtonClick}
                                             type="submit"
                                         >
-                                            {isLoading ? (
-                                                <Square className="size-5 fill-current" />
-                                            ) : status === "submitted" ? (
-                                                <Loader2 className="size-5 animate-spin" />
-                                            ) : voiceInputEnabled &&
-                                              isInputEmpty &&
-                                              uploadedFiles.length === 0 ? (
-                                                <Mic className="size-5" />
-                                            ) : (
-                                                <ArrowUp className="size-5" />
-                                            )}
+                                            {primaryActionIcon}
                                         </Button>
                                     </motion.div>
                                 </motion.div>
@@ -995,17 +995,7 @@ export const MultimodalInput = forwardRef<
                                         </PromptInputAction>
                                     )}
 
-                                    <PromptInputAction
-                                        tooltip={
-                                            isImageGenerationPending && !isLoading
-                                                ? "Wait for image generation to finish"
-                                                : voiceInputEnabled && isInputEmpty && !isLoading
-                                                  ? "Voice input"
-                                                  : isLoading
-                                                    ? "Stop generation"
-                                                    : "Send message"
-                                        }
-                                    >
+                                    <PromptInputAction tooltip={primaryActionLabel}>
                                         <motion.div
                                             layoutId="composer-primary-action"
                                             transition={{
@@ -1019,21 +1009,14 @@ export const MultimodalInput = forwardRef<
                                             <Button
                                                 variant="default"
                                                 size="icon"
+                                                aria-label={primaryActionLabel}
                                                 className="size-8"
                                                 style={{ borderRadius: "var(--radius-md)" }}
-                                                disabled={status === "submitted" || uploading}
+                                                disabled={primaryActionDisabled}
                                                 onClick={handleVoiceButtonClick}
                                                 type="submit"
                                             >
-                                                {isLoading ? (
-                                                    <Square className="size-5 fill-current" />
-                                                ) : status === "submitted" ? (
-                                                    <Loader2 className="size-5 animate-spin" />
-                                                ) : voiceInputEnabled && isInputEmpty ? (
-                                                    <Mic className="size-5" />
-                                                ) : (
-                                                    <ArrowUp className="size-5" />
-                                                )}
+                                                {primaryActionIcon}
                                             </Button>
                                         </motion.div>
                                     </PromptInputAction>

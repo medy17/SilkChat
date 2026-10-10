@@ -521,6 +521,16 @@ html {
     }
 }
 
+/* The skeleton shimmer as a mask, for sweeping across groups of child elements. */
+@keyframes mask-shimmer {
+    0% {
+        mask-position: 200% 50%;
+    }
+    100% {
+        mask-position: -200% 50%;
+    }
+}
+
 @keyframes spinner-fade {
     0% {
         opacity: 0;

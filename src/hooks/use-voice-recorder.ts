@@ -17,8 +17,11 @@ export interface VoiceRecorderState {
     isTranscribing: boolean
     recordingDuration: number
     audioLevel: number
-    waveformData: number[]
+    // Recent input levels (0-1), oldest first, sampled every 100ms while recording.
+    levelHistory: number[]
 }
+
+export const VOICE_LEVEL_HISTORY_SIZE = 96
 
 const TRANSCRIPTION_AUDIO_BITRATE = 32_000
 const TRANSCRIPTION_CONFIG: TranscriptionConfig = COMPOSER_TRANSCRIPTION_MODEL.transcription
@@ -118,7 +121,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
         isTranscribing: false,
         recordingDuration: 0,
         audioLevel: 0,
-        waveformData: []
+        levelHistory: []
     })
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -142,28 +145,17 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
         if (!analyserRef.current || !dataArrayRef.current) return
 
         try {
-            // Get frequency data for overall audio level
             analyserRef.current.getByteFrequencyData(dataArrayRef.current)
             const average =
                 dataArrayRef.current.reduce((a, b) => a + b) / dataArrayRef.current.length
             const normalizedLevel = average / 255
 
-            // Get time domain data for waveform
-            const waveformArray = new Uint8Array(new ArrayBuffer(analyserRef.current.fftSize))
-            analyserRef.current.getByteTimeDomainData(waveformArray)
-
-            // Convert to normalized values and downsample
-            const downsampleFactor = 4
-            const waveformData: number[] = []
-            for (let i = 0; i < waveformArray.length; i += downsampleFactor) {
-                const sample = (waveformArray[i] - 128) / 128
-                waveformData.push(sample)
-            }
-
             setState((prev) => ({
                 ...prev,
                 audioLevel: normalizedLevel,
-                waveformData
+                levelHistory: [...prev.levelHistory, normalizedLevel].slice(
+                    -VOICE_LEVEL_HISTORY_SIZE
+                )
             }))
         } catch (error) {
             console.warn("Audio level analysis failed:", error)
@@ -360,7 +352,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 isRecording: true,
                 recordingDuration: 0,
                 audioLevel: 0,
-                waveformData: []
+                levelHistory: []
             }))
 
             // Start duration counter
@@ -410,8 +402,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 ...prev,
                 isRecording: false,
                 isTranscribing: true,
-                audioLevel: 0,
-                waveformData: []
+                audioLevel: 0
             }))
         }
     }, [stopRecordingMonitoring])
@@ -479,7 +470,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                     ...prev,
                     isTranscribing: false,
                     recordingDuration: 0,
-                    waveformData: []
+                    levelHistory: []
                 }))
             }
         },
@@ -502,7 +493,7 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
                 isTranscribing: false,
                 recordingDuration: 0,
                 audioLevel: 0,
-                waveformData: []
+                levelHistory: []
             }))
         }
     }, [cleanupRecording])

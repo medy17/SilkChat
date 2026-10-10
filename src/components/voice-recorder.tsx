@@ -1,14 +1,16 @@
-import { Button } from "@/components/ui/button"
-import type { VoiceRecorderState } from "@/hooks/use-voice-recorder"
+import { VOICE_LEVEL_HISTORY_SIZE, type VoiceRecorderState } from "@/hooks/use-voice-recorder"
 import { cn } from "@/lib/utils"
-import { Loader2, Square } from "lucide-react"
 import { memo } from "react"
 
 interface VoiceRecorderProps {
     state: VoiceRecorderState
-    onStop: () => void
     className?: string
 }
+
+const MIN_BAR_HEIGHT = 2
+const MAX_BAR_HEIGHT = 24
+// Speech rarely pushes the averaged spectrum past ~0.3, so stretch it to fill the row.
+const LEVEL_GAIN = 3.5
 
 const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60)
@@ -16,96 +18,68 @@ const formatDuration = (seconds: number): string => {
     return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
-const Waveform = memo(
-    ({ audioLevel, isRecording }: { audioLevel: number; isRecording: boolean }) => {
-        const bars = 12
-        const maxHeight = 24
-
-        return (
-            <div className="flex items-center justify-center gap-1">
-                {Array.from({ length: bars }).map((_, i) => {
-                    // Create a wave effect by varying heights based on position and audio level
-                    const baseHeight = 4
-                    const waveOffset = Math.sin((i / bars) * Math.PI * 2) * 0.3
-                    const randomVariation = Math.sin(Date.now() * 0.01 + i) * 0.2
-                    const height = isRecording
-                        ? Math.max(
-                              baseHeight,
-                              (audioLevel + waveOffset + randomVariation) * maxHeight
-                          )
-                        : baseHeight
-
-                    return (
-                        <div
-                            key={i}
-                            className={cn(
-                                "w-1 rounded-full bg-primary transition-all duration-150",
-                                isRecording ? "animate-pulse" : ""
-                            )}
-                            style={{
-                                height: `${Math.min(height, maxHeight)}px`,
-                                opacity: isRecording ? 0.7 + audioLevel * 0.3 : 0.5
-                            }}
-                        />
-                    )
-                })}
-            </div>
-        )
-    }
-)
-
-Waveform.displayName = "Waveform"
-
-export const VoiceRecorder = memo(({ state, onStop, className }: VoiceRecorderProps) => {
-    const { isRecording, isTranscribing, recordingDuration, audioLevel } = state
+// Scrolling level history, newest on the right. Older bars clip off the left
+// edge on narrow composers; silence draws as a dotted baseline. Once frozen, the
+// skeleton shimmer sweeps across the captured waveform as a mask.
+const Waveform = memo(({ levels, isFrozen }: { levels: number[]; isFrozen: boolean }) => {
+    const padding = Math.max(0, VOICE_LEVEL_HISTORY_SIZE - levels.length)
+    const bars = [...Array<number>(padding).fill(0), ...levels]
 
     return (
         <div
+            aria-hidden="true"
             className={cn(
-                "relative flex items-center justify-between gap-3 border border-input bg-background/80 p-2 shadow-xs backdrop-blur-lg dark:border-transparent dark:bg-sidebar",
-                className
+                "flex h-6 min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden",
+                isFrozen &&
+                    "animate-[mask-shimmer_1.15s_infinite_linear] [mask-image:linear-gradient(to_right,rgb(0_0_0/0.35)_25%,black_50%,rgb(0_0_0/0.35)_75%)] [mask-size:200%_100%] motion-reduce:animate-none"
             )}
-            style={{ borderRadius: "var(--radius-lg)" }}
         >
-            {/* Left side - Recording indicator and waveform */}
-            <div className="flex flex-1 items-center gap-4">
-                {isRecording && (
-                    <div className="flex items-center gap-2">
-                        <div className="size-3 animate-pulse rounded-full bg-red-500" />
-                        <span className="font-medium text-red-500 text-sm">Recording</span>
-                    </div>
-                )}
+            {bars.map((level, index) => (
+                <span
+                    key={index}
+                    className={cn(
+                        "w-0.5 shrink-0 rounded-full transition-[height,background-color] duration-100",
+                        isFrozen ? "bg-muted-foreground" : "bg-foreground/70"
+                    )}
+                    style={{
+                        height: `${MIN_BAR_HEIGHT + Math.min(1, level * LEVEL_GAIN) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)}px`
+                    }}
+                />
+            ))}
+        </div>
+    )
+})
 
-                {isTranscribing && (
-                    <div className="flex items-center gap-2">
-                        <Loader2 className="size-3 animate-spin text-primary" />
-                        <span className="font-medium text-primary text-sm">Transcribing...</span>
-                    </div>
-                )}
+Waveform.displayName = "Waveform"
 
-                <Waveform audioLevel={audioLevel} isRecording={isRecording} />
+// Fills the composer's textarea slot while dictating; the composer's own primary
+// action doubles as the stop button, so the shell never changes size. Stopping
+// freezes the dot and timer in place rather than swapping in a label.
+export const VoiceRecorder = memo(({ state, className }: VoiceRecorderProps) => {
+    const { isTranscribing, recordingDuration, levelHistory } = state
+
+    return (
+        <div
+            role="status"
+            aria-live="polite"
+            className={cn("flex items-center gap-3 px-3", className)}
+        >
+            <div className="flex shrink-0 items-center gap-2">
+                <span
+                    className={cn(
+                        "size-2 rounded-full transition-colors duration-200",
+                        isTranscribing ? "bg-muted-foreground/50" : "animate-pulse bg-destructive"
+                    )}
+                />
+                <span className="font-mono text-muted-foreground text-sm tabular-nums">
+                    <span className="sr-only">
+                        {isTranscribing ? "Transcribing " : "Recording "}
+                    </span>
+                    {formatDuration(recordingDuration)}
+                </span>
             </div>
 
-            {/* Center - Timer */}
-            <div className="font-mono text-foreground text-lg">
-                {formatDuration(recordingDuration)}
-            </div>
-
-            {/* Right side - Stop button */}
-            <Button
-                variant="default"
-                size="icon"
-                className="size-11 shrink-0"
-                style={{ borderRadius: "var(--radius-md)" }}
-                onClick={onStop}
-                disabled={isTranscribing}
-            >
-                {isTranscribing ? (
-                    <Loader2 className="size-5 animate-spin" />
-                ) : (
-                    <Square className="size-5 fill-current" />
-                )}
-            </Button>
+            <Waveform levels={levelHistory} isFrozen={isTranscribing} />
         </div>
     )
 })
