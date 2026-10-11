@@ -2,8 +2,9 @@
 // bun scripts/evals/opening-skills.ts [--filter=polar] [--repeat=7] [--output=/tmp/jev-eval.json]
 import { writeFile } from "node:fs/promises"
 import { config } from "dotenv"
-import { classifierResponseSchema } from "../../convex/lib/classifiers"
-import { selectOpeningSkills } from "../../convex/chat_http/select_opening_skills"
+import { decisionResponseSchema } from "../../convex/lib/decisions"
+import { runOpeningDecisions } from "../../convex/chat_http/decisions/engine"
+import { createOpeningToolsCaller } from "../../convex/chat_http/decisions/tools"
 import { APP_SKILL_IDS } from "../../convex/chat_http/skills"
 import { selectionCases } from "./opening-skills-cases"
 config({ path: ["envs/.env.convex", "envs/.env.local"], quiet: true })
@@ -24,7 +25,7 @@ let answers: unknown = null
 globalThis.fetch = async (...args: Parameters<typeof fetch>) => {
     const response = await fetchOriginal(...args)
     if (String(args[0]).includes("/decisions")) {
-        const parsed = classifierResponseSchema.safeParse(await response.clone().json())
+        const parsed = decisionResponseSchema.safeParse(await response.clone().json())
         answers = parsed.success ? parsed.data.answers : null
     }
     return response
@@ -33,15 +34,19 @@ const results = []
 for (const c of cases)
     for (let run = 1; run <= repeat; run++) {
         answers = null
-        const selected = await selectOpeningSkills({
+        const decisions = await runOpeningDecisions({
+            callers: {
+                tools: createOpeningToolsCaller({
+                    availableSkillIds: [...APP_SKILL_IDS],
+                    chatModel: { id: "eval-model", knowledgeCutoff: "2026-02-16" }
+                })
+            },
             createdThread: true,
-            availableSkillIds: [...APP_SKILL_IDS],
-            enabledTools: [],
             parts: [{ type: "text", text: c.text }, ...(c.attachments ?? [])],
-            chatModel: { id: "eval-model", knowledgeCutoff: "2026-02-16" },
             routing: "silkchat",
             signal: new AbortController().signal
         })
+        const selected = decisions.tools?.skillIds ?? []
         const missing = (c.required ?? []).filter((id) => !selected.includes(id))
         const unwanted = (c.forbidden ?? []).filter((id) => selected.includes(id))
         const result = {

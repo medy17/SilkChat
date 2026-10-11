@@ -18,7 +18,7 @@ const {
     smoothStreamMock,
     isStepCountMock,
     streamTextMock,
-    selectOpeningSkillsMock,
+    runOpeningDecisionsMock,
     getSupermemoryTurnContextMock
 } = vi.hoisted(() => ({
     buildPromptMock: vi.fn(),
@@ -39,7 +39,7 @@ const {
     isStepCountMock: vi.fn(),
     streamTextMock: vi.fn(),
     getSupermemoryTurnContextMock: vi.fn(),
-    selectOpeningSkillsMock: vi.fn()
+    runOpeningDecisionsMock: vi.fn()
 }))
 
 vi.mock("../../convex/lib/supermemory_chat", async (importOriginal) => ({
@@ -111,7 +111,7 @@ vi.mock("../../convex/_generated/api", () => ({
         },
         threads: {
             createThreadOrInsertMessages: "createThreadOrInsertMessages",
-            completeOpeningToolSelection: "completeOpeningToolSelection",
+            completeOpeningDecisions: "completeOpeningDecisions",
             rollbackRejectedOpening: "rollbackRejectedOpening",
             updateThreadStreamingState: "updateThreadStreamingState"
         }
@@ -132,8 +132,9 @@ vi.mock("../../convex/lib/account_deletion_gate", () => ({
     getAccountDeletionBlockerForAction: vi.fn().mockResolvedValue(null)
 }))
 
-vi.mock("../../convex/chat_http/select_opening_skills", () => ({
-    selectOpeningSkills: selectOpeningSkillsMock
+vi.mock("../../convex/chat_http/decisions/engine", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../convex/chat_http/decisions/engine")>()),
+    runOpeningDecisions: runOpeningDecisionsMock
 }))
 
 vi.mock("../../convex/chat_http/get_model", () => ({
@@ -538,7 +539,7 @@ describe("chatPOST", () => {
         generateThreadNameMock.mockReset().mockResolvedValue("hello thread")
         getUserIdentityMock.mockReset()
         getSupermemoryTurnContextMock.mockReset().mockResolvedValue(null)
-        selectOpeningSkillsMock.mockReset().mockResolvedValue([])
+        runOpeningDecisionsMock.mockReset().mockResolvedValue({})
         getModelMock.mockReset()
         getResumableStreamContextMock.mockReset().mockReturnValue(null)
         getToolkitMock.mockReset().mockResolvedValue({
@@ -1313,9 +1314,14 @@ describe("chatPOST", () => {
         })
     })
 
-    it.each([false, true])(
-        "releases the model reservation on budget denial with Magic=%s",
-        async (magic) => {
+    // Magic and Auto verbosity both decide on the opening, so either commits it early.
+    it.each([
+        [false, false],
+        [true, false],
+        [false, true]
+    ])(
+        "releases the model reservation on budget denial with Magic=%s, Auto verbosity=%s",
+        async (magic, autoVerbosity) => {
             process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
             getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
             getModelMock.mockResolvedValueOnce({
@@ -1343,7 +1349,7 @@ describe("chatPOST", () => {
                             assistantMessageConvexId: "db-assistant",
                             createdMessageIds: ["db-user", "db-assistant"]
                         }
-                    case "completeOpeningToolSelection":
+                    case "completeOpeningDecisions":
                     case "rollbackRejectedOpening":
                         return null
                     case "reserveCreditForMessage":
@@ -1375,7 +1381,10 @@ describe("chatPOST", () => {
                                 searchProvider: "firecrawl",
                                 searchIncludeSourcesByDefault: false,
                                 toolCallLimitPerTurn: 3,
-                                generalProviders: {}
+                                generalProviders: {},
+                                ...(autoVerbosity
+                                    ? {}
+                                    : { responseStyle: { verbosity: "default" } })
                             }
                         default:
                             throw new Error(`Unexpected query: ${name}`)
@@ -1403,7 +1412,7 @@ describe("chatPOST", () => {
                 userId: "user-1",
                 messageKey: "assistant-1:model"
             })
-            if (magic)
+            if (magic || autoVerbosity)
                 expect(ctx.runMutation).toHaveBeenCalledWith(
                     "rollbackRejectedOpening",
                     expect.objectContaining({
@@ -1419,9 +1428,14 @@ describe("chatPOST", () => {
         }
     )
 
-    it.each([false, true])(
-        "releases the model reservation on budget error with Magic=%s",
-        async (magic) => {
+    // Magic and Auto verbosity both decide on the opening, so either commits it early.
+    it.each([
+        [false, false],
+        [true, false],
+        [false, true]
+    ])(
+        "releases the model reservation on budget error with Magic=%s, Auto verbosity=%s",
+        async (magic, autoVerbosity) => {
             process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
             getUserIdentityMock.mockResolvedValueOnce({ id: "user-1" })
             getModelMock.mockResolvedValueOnce({
@@ -1449,7 +1463,7 @@ describe("chatPOST", () => {
                             assistantMessageConvexId: "db-assistant",
                             createdMessageIds: ["db-user", "db-assistant"]
                         }
-                    case "completeOpeningToolSelection":
+                    case "completeOpeningDecisions":
                     case "rollbackRejectedOpening":
                         return null
                     case "reserveCreditForMessage":
@@ -1476,7 +1490,10 @@ describe("chatPOST", () => {
                                 searchProvider: "firecrawl",
                                 searchIncludeSourcesByDefault: false,
                                 toolCallLimitPerTurn: 3,
-                                generalProviders: {}
+                                generalProviders: {},
+                                ...(autoVerbosity
+                                    ? {}
+                                    : { responseStyle: { verbosity: "default" } })
                             }
                         default:
                             throw new Error(`Unexpected query: ${name}`)
@@ -1507,7 +1524,7 @@ describe("chatPOST", () => {
                 userId: "user-1",
                 messageKey: "assistant-1:model"
             })
-            if (magic)
+            if (magic || autoVerbosity)
                 expect(ctx.runMutation).toHaveBeenCalledWith(
                     "rollbackRejectedOpening",
                     expect.objectContaining({
@@ -1644,12 +1661,14 @@ describe("chatPOST", () => {
                 })
             }
 
-            selectOpeningSkillsMock.mockImplementation(async (options) =>
-                classifierFailed
-                    ? (options.onFailure(), [])
-                    : options.createdThread
-                      ? ["web_search"]
-                      : []
+            runOpeningDecisionsMock.mockImplementation(async (options) =>
+                !options.callers.tools
+                    ? {}
+                    : classifierFailed
+                      ? { tools: { skillIds: [], failed: true } }
+                      : options.createdThread
+                        ? { tools: { skillIds: ["web_search"], failed: false } }
+                        : {}
             )
             process.env.PERPLEXITY_API_KEY = "server-perplexity-key"
             const ctx = createCtx()
@@ -1662,7 +1681,7 @@ describe("chatPOST", () => {
                             assistantMessageId: "assistant-1",
                             assistantMessageConvexId: 42
                         }
-                    case "completeOpeningToolSelection":
+                    case "completeOpeningDecisions":
                         return null
                     case "appendStreamId":
                         return "stream-1"
@@ -1899,20 +1918,23 @@ describe("chatPOST", () => {
             const streamOptions = streamTextMock.mock.calls[0][0]
             if (createdThread) {
                 expect(responseText).toContain("data-auto-selected-tools")
-                expect(selectOpeningSkillsMock).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        availableSkillIds: expect.arrayContaining(["web_search"]),
-                        enabledTools: [],
-                        chatModel: expect.objectContaining({ knowledgeCutoff: "2026-02-16" })
-                    })
+                const toolsCaller = runOpeningDecisionsMock.mock.calls[0][0].callers.tools
+                expect(toolsCaller.state.chatModel.knowledgeCutoff).toBe("2026-02-16")
+                expect(toolsCaller.state.skills).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            id: "web_search",
+                            availability: "available_to_enable"
+                        })
+                    ])
                 )
                 if (preloaded)
                     expect(streamOptions.messages.at(-1).content).toContain("## Web Search Tool")
                 if (classifierFailed) {
                     expect(ctx.runMutation).toHaveBeenCalledWith(
-                        "completeOpeningToolSelection",
+                        "completeOpeningDecisions",
                         expect.objectContaining({
-                            selection: expect.objectContaining({
+                            toolSelection: expect.objectContaining({
                                 status: "failed",
                                 skillIds: [],
                                 enabledTools: expect.arrayContaining(["web_search"])
@@ -2021,9 +2043,9 @@ describe("chatPOST", () => {
                 expect(ctx.scheduler.runAfter).not.toHaveBeenCalled()
                 expect(getToolkitMock.mock.calls[0][1]).not.toContain("supermemory")
                 expect(ctx.runMutation).toHaveBeenCalledWith(
-                    "completeOpeningToolSelection",
+                    "completeOpeningDecisions",
                     expect.objectContaining({
-                        selection: expect.objectContaining({
+                        toolSelection: expect.objectContaining({
                             enabledTools: ["web_search", "code_execution"],
                             status: "failed"
                         })
@@ -2967,6 +2989,107 @@ describe("chatPOST", () => {
             })
         )
     })
+
+    it.each([true, false])(
+        "applies an Auto verbosity decision to the prompt and native verbosity=%s",
+        async (supportsVerbosity) => {
+            const ctx = createCtx()
+            ctx.runMutation.mockImplementation(async (name: string) => {
+                switch (name) {
+                    case "createThreadOrInsertMessages":
+                        return {
+                            createdThread: true,
+                            threadId: "thread-1",
+                            assistantMessageId: "assistant-1",
+                            assistantMessageConvexId: 42
+                        }
+                    case "appendStreamId":
+                        return "stream-1"
+                    case "reserveCreditForMessage":
+                        return {
+                            allowed: true,
+                            bypassed: false,
+                            existing: false,
+                            committed: false
+                        }
+                    case "completeOpeningDecisions":
+                    case "updateThreadStreamingState":
+                    case "finalizeStream":
+                    case "patchMessage":
+                    case "reserveToolCallBudget":
+                    case "finalizeToolCallBudget":
+                    case "releaseReservedCreditForMessage":
+                        return null
+                    default:
+                        throw new Error(`Unexpected mutation: ${name}`)
+                }
+            })
+            ctx.runQuery.mockImplementation(
+                withReadinessQueries(async (name: string) => {
+                    switch (name) {
+                        case "getMessagesByThreadId":
+                            return [{ _id: "db-message-1" }]
+                        case "getUserSettingsInternal":
+                            return {}
+                        case "getUserCreditPlanInternal":
+                            return "pro"
+                        case "getThreadPersonaSnapshotInternal":
+                            return null
+                        default:
+                            throw new Error(`Unexpected query: ${name}`)
+                    }
+                })
+            )
+            runOpeningDecisionsMock.mockResolvedValueOnce({
+                verbosity: { level: "more", status: "complete" }
+            })
+
+            getUserIdentityMock.mockResolvedValueOnce({ id: "user-1", creditPlan: "pro" })
+            getModelMock.mockResolvedValueOnce({
+                model: { provider: "runtime-openrouter", modelType: "text" },
+                modelId: "test-model",
+                modelName: "Test Model",
+                runtimeProvider: "openrouter",
+                providerSource: "openrouter",
+                abilities: [],
+                registry: { models: { "test-model": { abilities: [], supportsVerbosity } } }
+            })
+            manualStreamTransformMock.mockImplementationOnce(() => new TransformStream())
+            streamTextMock.mockReturnValueOnce({
+                stream: createObjectStream([]),
+                finishReason: Promise.resolve("stop")
+            })
+
+            const response = await chatPOSTHandler(
+                ctx,
+                createRequest({
+                    model: "test-model",
+                    proposedNewAssistantId: "assistant-1",
+                    message: {
+                        role: "user",
+                        parts: [{ type: "text", text: "Explain TCP congestion control in depth" }]
+                    },
+                    enabledTools: []
+                })
+            )
+
+            expect(response.status).toBe(200)
+            await response.text()
+
+            expect(runOpeningDecisionsMock.mock.calls[0][0].callers.tools).toBeUndefined()
+            expect(ctx.runMutation).toHaveBeenCalledWith("completeOpeningDecisions", {
+                threadId: "thread-1",
+                authorId: "user-1",
+                verbosity: { level: "more", status: "complete" }
+            })
+            expect(buildPromptMock).toHaveBeenLastCalledWith(
+                expect.objectContaining({ verbosity: "more" })
+            )
+            expect(streamTextMock.mock.calls[0][0].providerOptions.openrouter.verbosity).toBe(
+                supportsVerbosity ? "high" : undefined
+            )
+        }
+    )
 
     it("uses OpenRouter native PDF parsing for Gemini models", async () => {
         const ctx = createCtx()

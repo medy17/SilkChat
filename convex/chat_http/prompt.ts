@@ -18,6 +18,8 @@ type BuildPromptOptions = {
         availableImageSelectionSummary: string
     }
     useSkillLoader?: boolean
+    // Resolved from the setting and any Auto decision; never read from userSettings.
+    verbosity?: "less" | "more"
 }
 
 type TemporalContextOptions = Pick<BuildPromptOptions, "userTimezone" | "clientTimestampMs">
@@ -167,7 +169,8 @@ export const buildPrompt = ({
     personaName,
     includeTemporalContext = true,
     imageGenerationTool,
-    useSkillLoader = false
+    useSkillLoader = false,
+    verbosity
 }: BuildPromptOptions) => {
     const hasWebSearch = enabledTools.includes("web_search")
     const hasCodeExecution = enabledTools.includes("code_execution")
@@ -222,8 +225,8 @@ When seeing a real, recognizable subject would materially help, such as identify
     }
 
     // Add personalization if user customization or response-style preferences exist
-    if (userSettings?.customization || userSettings?.responseStyle) {
-        const customization = userSettings.customization
+    if (userSettings?.customization || userSettings?.responseStyle || verbosity) {
+        const customization = userSettings?.customization
         const personalizationParts: string[] = []
 
         if (customization?.name) {
@@ -239,6 +242,12 @@ When seeing a real, recognizable subject would materially help, such as identify
                 `- Additional context about the user: ${customization.additionalContext}`
             )
         }
+
+        const verbosityInstructions = {
+            less: "Keep replies somewhat shorter and more concise than you otherwise would. Still give more detail when the user asks for it.",
+            more: "Give somewhat longer, more thorough replies than you otherwise would. Still keep it brief when the user asks for brevity."
+        } as const
+        if (verbosity) personalizationParts.push(`- ${verbosityInstructions[verbosity]}`)
 
         const responseStyleInstructions = {
             warmth: {
@@ -264,7 +273,7 @@ When seeing a real, recognizable subject would materially help, such as identify
         } as const
 
         for (const field of ["warmth", "enthusiasm", "structure", "emoji", "profanity"] as const) {
-            const level = userSettings.responseStyle?.[field]
+            const level = userSettings?.responseStyle?.[field]
             if (level) personalizationParts.push(`- ${responseStyleInstructions[field][level]}`)
         }
 

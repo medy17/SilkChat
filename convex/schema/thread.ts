@@ -1,6 +1,13 @@
 import { OpeningToolSelection } from "./tool_selection"
 import { v } from "convex/values"
 import { AIMessage } from "./message"
+import { VerbosityLevel } from "./settings"
+
+// Auto verbosity is decided once from the opening request and reused for the thread.
+export const OpeningVerbosity = v.object({
+    level: VerbosityLevel,
+    status: v.union(v.literal("complete"), v.literal("failed"))
+})
 
 export const RoleplayPortraits = v.array(
     v.object({
@@ -14,6 +21,7 @@ export const Thread = v.object({
     authorId: v.string(),
     title: v.string(),
     openingToolSelection: v.optional(OpeningToolSelection),
+    openingVerbosity: v.optional(OpeningVerbosity),
     createdAt: v.number(),
     updatedAt: v.number(),
     streamStartedAt: v.optional(v.number()),

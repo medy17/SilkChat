@@ -32,6 +32,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         developer: "OpenAI",
         releaseOrder: 20261030,
         adapters: openAiTextAdapters("gpt-6.1-sol"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
     },
     {
@@ -46,6 +47,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         developer: "OpenAI",
         releaseOrder: 20261029,
         adapters: openAiTextAdapters("gpt-6-sol"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true
     },
@@ -61,6 +63,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         developer: "OpenAI",
         releaseOrder: 20261028,
         adapters: openAiTextAdapters("gpt-6-luna"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS
@@ -76,6 +79,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         developer: "OpenAI",
         releaseOrder: 20261027,
         adapters: openAiTextAdapters("gpt-6-astra"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
     },
     {
@@ -93,6 +97,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261026,
         adapters: openAiTextAdapters("gpt-5.6-sol"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true
     },
@@ -111,6 +116,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261025,
         adapters: openAiTextAdapters("gpt-5.6-terra"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS
@@ -130,6 +136,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261024,
         adapters: openAiTextAdapters("gpt-5.6-luna"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS
@@ -149,6 +156,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261023,
         adapters: openAiTextAdapters("gpt-5.5"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS
@@ -167,6 +175,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261022,
         adapters: openAiTextAdapters("gpt-5.4-nano"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
@@ -186,6 +195,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261021,
         adapters: openAiTextAdapters("gpt-5.4-mini"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
@@ -205,6 +215,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         },
         releaseOrder: 20261020,
         adapters: openAiTextAdapters("gpt-5.4"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
@@ -237,6 +248,7 @@ export const OPENAI_MODELS: SharedModel[] = [
             "GPT 5.2 is built for work with a finish line: complex code, long documents, spreadsheets, presentations, and agents that must carry a project end to end. It combines strong long-context reasoning, vision, and tool calling with a knack for producing deliverables that look ready for the meeting.",
         releaseOrder: 20261018,
         adapters: openAiTextAdapters("gpt-5.2"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
@@ -251,6 +263,7 @@ export const OPENAI_MODELS: SharedModel[] = [
             "GPT 5.1 made the GPT-5 family more conversational without sanding away its intelligence. Adaptive reasoning lets it stay brisk on simple questions and dig in on difficult ones, while stronger instruction-following keeps the result closer to the tone and shape you asked for.",
         releaseOrder: 20261017,
         adapters: openAiTextAdapters("gpt-5.1"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
@@ -266,6 +279,7 @@ export const OPENAI_MODELS: SharedModel[] = [
             "GPT 5 brought OpenAI's fast responses and deeper reasoning into one versatile model family. It is a confident generalist for coding, multimodal analysis, and tool-rich workflows, with controls that let the task—not the model picker—decide how much thought to spend.",
         releaseOrder: 20261014,
         adapters: openAiTextAdapters("gpt-5"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         ...FREE_WITHOUT_REASONING_ACCESS,
         legacy: true,
@@ -281,6 +295,7 @@ export const OPENAI_MODELS: SharedModel[] = [
             "GPT 5 mini packages the family's reasoning, vision, and tool skills into a quicker, more economical model. It is the sensible daily driver for coding assistants, support flows, and busy automations that need good judgment more often than maximum horsepower.",
         releaseOrder: 20261013,
         adapters: openAiTextAdapters("gpt-5-mini"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         ...FREE_WITHOUT_REASONING_ACCESS,
         legacy: true,
@@ -297,6 +312,7 @@ export const OPENAI_MODELS: SharedModel[] = [
             "GPT 5 nano is the smallest and fastest GPT-5 variant, made for high-volume work where latency and cost dominate the brief. Give it classification, extraction, routing, concise summaries, or lightweight tool calls and let the larger models keep sleeping.",
         releaseOrder: 20261012,
         adapters: openAiTextAdapters("gpt-5-nano"),
+        supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         ...FREE_WITHOUT_REASONING_ACCESS,
         legacy: true,

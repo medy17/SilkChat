@@ -33,7 +33,8 @@ import {
     NonSensitiveUserSettings,
     ReasoningEffortTierSchema,
     ResponseStyleLevel,
-    StoredModelAbilitySchema
+    StoredModelAbilitySchema,
+    VerbosityLevel
 } from "./schema/settings"
 
 type CoreProviderUsageMode = "priority" | "fallback"
@@ -631,6 +632,7 @@ export const updateUserSettingsPartial = mutation({
         ),
         responseStyle: v.optional(
             v.object({
+                verbosity: v.optional(v.union(VerbosityLevel, v.null())),
                 warmth: v.optional(v.union(ResponseStyleLevel, v.null())),
                 enthusiasm: v.optional(v.union(ResponseStyleLevel, v.null())),
                 structure: v.optional(v.union(ResponseStyleLevel, v.null())),
@@ -734,6 +736,7 @@ export const updateUserSettingsPartial = mutation({
             const responseStyle = { ...newSettings.responseStyle }
 
             for (const field of [
+                "verbosity",
                 "warmth",
                 "enthusiasm",
                 "structure",
@@ -744,7 +747,7 @@ export const updateUserSettingsPartial = mutation({
                 if (value === null) {
                     delete responseStyle[field]
                 } else if (value !== undefined) {
-                    responseStyle[field] = value
+                    Object.assign(responseStyle, { [field]: value })
                 }
             }
 

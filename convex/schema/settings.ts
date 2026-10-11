@@ -34,7 +34,12 @@ export const UserCustomization = v.object({
 
 export const ResponseStyleLevel = v.union(v.literal("less"), v.literal("more"))
 
+// Unlike other response-style fields, unset means Auto, so "default" is stored explicitly.
+export const VerbosityLevel = v.union(v.literal("less"), v.literal("default"), v.literal("more"))
+export type Verbosity = Infer<typeof VerbosityLevel>
+
 export const ResponseStyle = v.object({
+    verbosity: v.optional(VerbosityLevel),
     warmth: v.optional(ResponseStyleLevel),
     enthusiasm: v.optional(ResponseStyleLevel),
     structure: v.optional(ResponseStyleLevel),

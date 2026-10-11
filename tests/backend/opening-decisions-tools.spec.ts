@@ -1,9 +1,13 @@
-import { TOOL_SELECTION_MODEL } from "../../convex/lib/models/typesafe"
+import { DECISION_MODEL } from "../../convex/lib/models/typesafe"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
-    OPENING_SKILL_SELECTION_TIMEOUT_MS,
-    selectOpeningSkills
-} from "../../convex/chat_http/select_opening_skills"
+    OPENING_DECISION_TIMEOUT_MS,
+    runOpeningDecisions
+} from "../../convex/chat_http/decisions/engine"
+import {
+    consumeOpeningTools,
+    createOpeningToolsCaller
+} from "../../convex/chat_http/decisions/tools"
 
 const fetchMock = vi.fn<typeof fetch>()
 const options = () => ({
@@ -16,6 +20,30 @@ const options = () => ({
     signal: new AbortController().signal
 })
 const answer = (answers: unknown) => Response.json({ model: "typesafe/jev-1.13", answers })
+const selectOpeningSkills = async ({
+    classifierModel,
+    availableSkillIds,
+    enabledTools,
+    chatModel,
+    ...opening
+}: Omit<Parameters<typeof runOpeningDecisions>[0], "callers"> &
+    Parameters<typeof createOpeningToolsCaller>[0] & {
+        classifierModel?: Parameters<typeof createOpeningToolsCaller>[0]["model"]
+    }) => {
+    const decisions = await runOpeningDecisions({
+        ...opening,
+        model: classifierModel,
+        callers: {
+            tools: createOpeningToolsCaller({
+                model: classifierModel,
+                availableSkillIds,
+                enabledTools,
+                chatModel
+            })
+        }
+    })
+    return decisions.tools?.skillIds ?? []
+}
 
 beforeEach(() => {
     vi.stubEnv("OPENROUTER_API_KEY", "test-key")
@@ -29,7 +57,7 @@ afterEach(() => {
     vi.useRealTimers()
 })
 
-describe("opening skill selection", () => {
+describe("opening tool decisions", () => {
     it.each([
         [0.5, ["web_search", "code_execution", "math"]],
         [0.3, ["math"]]
@@ -47,12 +75,12 @@ describe("opening skill selection", () => {
                 })
             )
             const classifierModel = {
-                ...TOOL_SELECTION_MODEL,
+                ...DECISION_MODEL,
                 id: "alternate-classifier",
                 adapters: ["openrouter:test/alternate-classifier" as const],
                 skillSelection: {
                     thresholds: {
-                        ...TOOL_SELECTION_MODEL.skillSelection.thresholds,
+                        ...DECISION_MODEL.skillSelection.thresholds,
                         web_search: 0.7,
                         code_execution: 0.7,
                         math: 0.7,
@@ -111,7 +139,6 @@ describe("opening skill selection", () => {
     })
 
     it.each([
-        { enabled: false },
         { createdThread: false },
         { createdThread: true, targetMode: "retry" as const },
         { createdThread: true, targetMode: "edit" as const },
@@ -298,7 +325,7 @@ describe("opening skill selection", () => {
                 })
         )
         const selection = selectOpeningSkills(options())
-        await vi.advanceTimersByTimeAsync(OPENING_SKILL_SELECTION_TIMEOUT_MS)
+        await vi.advanceTimersByTimeAsync(OPENING_DECISION_TIMEOUT_MS)
         expect(await selection).toEqual([])
         expect(fetchMock).toHaveBeenCalledTimes(1)
     })
@@ -324,5 +351,49 @@ describe("opening skill selection", () => {
             { type: "file", filename: "report.csv", mimeType: "text/csv" }
         ])
         expect(JSON.stringify(request)).not.toContain("secret-url")
+    })
+})
+
+describe("consuming opening tool decisions", () => {
+    const base = {
+        enabledTools: ["web_search"] as Array<"web_search" | "code_execution" | "supermemory">,
+        eligibleTools: ["web_search", "code_execution", "supermemory"] as Array<
+            "web_search" | "code_execution" | "supermemory"
+        >,
+        candidateSkillIds: ["web_search", "code_execution", "diagrams"] as Array<
+            "web_search" | "code_execution" | "diagrams"
+        >
+    }
+
+    it("enables tools for selected candidate skills and reports only the added ones", () => {
+        const result = consumeOpeningTools({
+            ...base,
+            decision: { skillIds: ["web_search", "code_execution", "diagrams"], failed: false }
+        })
+        expect(result.enabledTools).toEqual(["web_search", "code_execution"])
+        expect(result.autoSelectedTools).toEqual(["code_execution"])
+        expect(result.selection).toMatchObject({ status: "complete", mode: "magic" })
+        expect(result.deferToolBudgetReservation).toBe(false)
+    })
+
+    it("makes eligible tools loadable without opting into memory when decisions fail", () => {
+        const result = consumeOpeningTools({
+            ...base,
+            decision: { skillIds: [], failed: true }
+        })
+        expect(result.enabledTools).toEqual(["web_search", "code_execution"])
+        expect(result.selection.status).toBe("failed")
+        expect(result.deferToolBudgetReservation).toBe(true)
+    })
+
+    it("reuses a saved selection instead of a new decision", () => {
+        const result = consumeOpeningTools({
+            ...base,
+            decision: { skillIds: [], failed: true },
+            saved: { enabledTools: [], skillIds: ["code_execution"], status: "failed" }
+        })
+        expect(result.enabledTools).toEqual(["code_execution"])
+        expect(result.skillIds).toEqual(["code_execution"])
+        expect(result.deferToolBudgetReservation).toBe(true)
     })
 })

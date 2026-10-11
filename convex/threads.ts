@@ -1,5 +1,5 @@
 import { OpeningToolSelection } from "./schema/tool_selection"
-import { RoleplayPortraits } from "./schema/thread"
+import { OpeningVerbosity, RoleplayPortraits } from "./schema/thread"
 import { parseRoleplayPortraits, type RoleplayPortrait } from "@/lib/roleplay-portraits"
 import { ChatError } from "@/lib/errors"
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
@@ -14,7 +14,7 @@ import {
 import { type Infer, v } from "convex/values"
 import { nanoid } from "nanoid"
 import { api, internal } from "./_generated/api"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import {
     type MutationCtx,
     action,
@@ -377,10 +377,11 @@ export const createThreadOrInsertMessages = internalMutation({
             )
 
             if (existingAssistantMessage) {
+                const existingThread = await ctx.db.get(existingAssistantMessage.threadId)
                 return {
                     threadId: existingAssistantMessage.threadId,
-                    openingToolSelection: (await ctx.db.get(existingAssistantMessage.threadId))
-                        ?.openingToolSelection,
+                    openingToolSelection: existingThread?.openingToolSelection,
+                    openingVerbosity: existingThread?.openingVerbosity,
                     userMessageId:
                         existingUserMessage?.messageId ??
                         userMessage.messageId ??
@@ -1144,7 +1145,8 @@ export const branchThread = mutation({
             personaAvatarKind: thread.personaAvatarKind,
             personaAvatarValue: thread.personaAvatarValue,
             personaAvatarMimeType: thread.personaAvatarMimeType,
-            roleplayPortraits: thread.roleplayPortraits
+            roleplayPortraits: thread.roleplayPortraits,
+            openingVerbosity: thread.openingVerbosity
         })
         const newThread = await ctx.db.get(newThreadId)
         await aggregrateThreadsByFolder.insert(ctx, newThread!)
@@ -1536,17 +1538,23 @@ export const getUserThreadsPaginatedByProject = query({
     }
 })
 
-// The creation mutation claims selection once. Replays and retries read the saved
-// result; a late/duplicate completion cannot replace a completed selection.
-export const completeOpeningToolSelection = internalMutation({
-    args: { threadId: v.id("threads"), authorId: v.string(), selection: OpeningToolSelection },
-    handler: async (ctx, { threadId, authorId, selection }) => {
+// The creation mutation claims each opening decision once. Replays and retries read
+// the saved result; a late/duplicate completion cannot replace a completed decision.
+export const completeOpeningDecisions = internalMutation({
+    args: {
+        threadId: v.id("threads"),
+        authorId: v.string(),
+        toolSelection: v.optional(OpeningToolSelection),
+        verbosity: v.optional(OpeningVerbosity)
+    },
+    handler: async (ctx, { threadId, authorId, toolSelection, verbosity }) => {
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== authorId) throw new Error("Thread unavailable")
-        if (thread.openingToolSelection && thread.openingToolSelection.status !== "pending")
-            return thread.openingToolSelection
-        await ctx.db.patch(threadId, { openingToolSelection: selection })
-        return selection
+        const patch: Partial<Pick<Doc<"threads">, "openingToolSelection" | "openingVerbosity">> = {}
+        if (toolSelection && (thread.openingToolSelection?.status ?? "pending") === "pending")
+            patch.openingToolSelection = toolSelection
+        if (verbosity && !thread.openingVerbosity) patch.openingVerbosity = verbosity
+        if (Object.keys(patch).length) await ctx.db.patch(threadId, patch)
     }
 })
 

@@ -165,6 +165,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     useStrictCharts?: boolean
     /** Provider caches only at explicit cache_control breakpoints (Anthropic). */
     explicitPromptCaching?: boolean
+    /** Provider honors OpenRouter's native `verbosity` parameter (OpenAI GPT-5 family). */
+    supportsVerbosity?: boolean
     reasoningEfforts?: ReasoningEffortTier[]
     defaultReasoningEffort?: ReasoningEffortTier
     reasoningProfiles?: ModelReasoningProfiles
@@ -201,10 +203,16 @@ export type SkillSelectionCalibration = {
     prohibitionThresholds: Record<"web_search" | "code_execution", number>
 }
 
+// Minimum choice probability before Auto moves a conversation off the usual length.
+export type VerbositySelectionCalibration = {
+    thresholds: Record<"less" | "more", number>
+}
+
 type ModelModeFields =
     | {
           mode: "decision"
           skillSelection?: SkillSelectionCalibration
+          verbositySelection?: VerbositySelectionCalibration
           transcription?: never
           speech?: never
           imagePricing?: never

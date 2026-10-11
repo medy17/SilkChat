@@ -110,7 +110,8 @@ vi.mock("../../convex/schema/settings", () => ({
     NonSensitiveUserSettings: {},
     ReasoningEffortTierSchema: {},
     ResponseStyleLevel: {},
-    StoredModelAbilitySchema: {}
+    StoredModelAbilitySchema: {},
+    VerbosityLevel: {}
 }))
 
 import { ChatError } from "@/lib/errors"
@@ -756,6 +757,32 @@ describe("settings", () => {
             })
         )
     })
+
+    it.each([
+        ["default", { verbosity: "default", warmth: "more" }],
+        [null, { warmth: "more" }]
+    ] as const)(
+        "saves verbosity=%s so Default and Auto stay distinct",
+        async (verbosity, responseStyle) => {
+            const ctx = createCtx({
+                _id: "settings-id",
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                titleGenerationModel: "shared-text",
+                generalProviders: {},
+                responseStyle: { verbosity: "less", warmth: "more" }
+            })
+
+            await updateUserSettingsPartialHandler.handler(ctx, { responseStyle: { verbosity } })
+
+            expect(ctx.db.patch).toHaveBeenCalledWith(
+                "settings-id",
+                expect.objectContaining({ responseStyle })
+            )
+        }
+    )
 
     it("persists tool call limits through partial settings updates", async () => {
         const ctx = createCtx({

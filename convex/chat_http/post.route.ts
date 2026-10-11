@@ -23,7 +23,7 @@ import {
     streamText
 } from "ai"
 import type { Infer } from "convex/values"
-import type { FunctionReturnType } from "convex/server"
+import type { FunctionArgs, FunctionReturnType } from "convex/server"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { type ActionCtx, httpAction } from "../_generated/server"
@@ -98,7 +98,9 @@ import type { ErrorUIPart } from "../schema/parts"
 import { generateThreadName } from "./generate_thread_name"
 import { getModel } from "./get_model"
 import { manualStreamTransform } from "./manual_stream_transform"
-import { selectOpeningSkills } from "./select_opening_skills"
+import { runOpeningDecisions } from "./decisions/engine"
+import { consumeOpeningTools, createOpeningToolsCaller } from "./decisions/tools"
+import { createVerbosityCaller, resolveVerbosity } from "./decisions/verbosity"
 import { shouldPreloadRoleplay } from "./skills/roleplay"
 import {
     buildCapabilityContext,
@@ -124,6 +126,7 @@ type OpenRouterRequestProviderOptions = OpenRouterProviderOptions & {
         require_parameters: boolean
     }
     session_id?: string
+    verbosity?: "low" | "medium" | "high"
     plugins?: Array<{
         id: string
         pdf?: {
@@ -1081,6 +1084,17 @@ async function handleChatPost(
     }
 
     const settings = readiness.registry.settings
+    let openingVerbosity = readiness.context?.openingVerbosity
+    let verbosity = resolveVerbosity(settings.responseStyle?.verbosity, openingVerbosity)
+    const sendsNativeVerbosity = () =>
+        modelData.runtimeProvider === "openrouter" &&
+        Boolean(verbosity && selectedRegistryModel?.supportsVerbosity)
+    // Lets output tokens and cost be compared per resolved length.
+    const getVerbosityTelemetry = () => ({
+        verbosity: verbosity ?? "default",
+        verbosity_source: settings.responseStyle?.verbosity === undefined ? "auto" : "setting",
+        native_verbosity: sendsNativeVerbosity()
+    })
     const telemetryEnabled = settings.telemetryEnabled !== false
     const telemetryTargetMode = body.targetMode ?? "normal"
     const toolAvailability = resolveToolAvailability(settings)
@@ -1283,7 +1297,8 @@ async function handleChatPost(
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
                         personaName: persistedPersonaSnapshot?.name,
                         includeTemporalContext: false,
-                        useSkillLoader: modelSupportsFunctionCalling
+                        useSkillLoader: modelSupportsFunctionCalling,
+                        verbosity
                     })
                 },
                 ...prospectiveMappedMessages,
@@ -1390,12 +1405,16 @@ async function handleChatPost(
     ).filter((id) => availableSkillIdsForTurn.includes(id))
     let deferToolBudgetReservation = readiness.context?.openingToolSelection?.status === "failed"
     const autoSelectedTools: AbilityId[] = []
-    if (
+    // Magic decides tools; Auto verbosity (an unset setting) decides reply length.
+    // They are independent but share one opening decisions request.
+    const decidesTools =
         !contextViolation &&
         !body.id &&
         body.autoSelectTools !== false &&
         modelSupportsFunctionCalling
-    ) {
+    const decidesVerbosity =
+        !contextViolation && !body.id && settings.responseStyle?.verbosity === undefined
+    if (decidesTools || decidesVerbosity) {
         const openingMutation = await createMutationResult()
         if (openingMutation instanceof ChatError || !openingMutation) {
             await releaseModelCreditReservation()
@@ -1405,105 +1424,109 @@ async function handleChatPost(
                     : new ChatError("bad_request:chat")
             ).toResponse()
         }
+        const isOpening =
+            "createdThread" in openingMutation && openingMutation.createdThread === true
+        const savedToolSelection =
+            "openingToolSelection" in openingMutation
+                ? openingMutation.openingToolSelection
+                : undefined
+        const savedVerbosity =
+            "openingVerbosity" in openingMutation ? openingMutation.openingVerbosity : undefined
         // Off is the default, not a prohibition. Candidate eligibility comes from
         // deployment credentials and identity policy, independently of the toggles.
-        const eligibleTools = enforceToolIdentityPolicy(
-            sanitizeEnabledTools([...ABILITIES], toolAvailability),
-            { isAnonymous: user.isAnonymous }
-        )
+        const eligibleTools = decidesTools
+            ? enforceToolIdentityPolicy(sanitizeEnabledTools([...ABILITIES], toolAvailability), {
+                  isAnonymous: user.isAnonymous
+              })
+            : []
         const candidateSkillIds = resolveAvailableSkillIds({
             enabledTools: eligibleTools,
             imageGenerationEnabled: hasInternalImagePreparationTool
         })
-        let selectionFailed = false
-        const isOpening =
-            "createdThread" in openingMutation && openingMutation.createdThread === true
-        const savedSelection =
-            "openingToolSelection" in openingMutation
-                ? openingMutation.openingToolSelection
-                : undefined
-        openingSkillIds =
-            savedSelection?.skillIds ??
-            (await selectOpeningSkills({
-                onFailure: () => {
-                    selectionFailed = true
+        const decisions = await runOpeningDecisions({
+            callers: {
+                ...(decidesTools && !savedToolSelection && candidateSkillIds.length
+                    ? {
+                          tools: createOpeningToolsCaller({
+                              availableSkillIds: candidateSkillIds,
+                              enabledTools: [...callableEnabledTools],
+                              chatModel: selectedRegistryModel ?? { id: body.model }
+                          })
+                      }
+                    : {}),
+                ...(decidesVerbosity && !savedVerbosity
+                    ? { verbosity: createVerbosityCaller() }
+                    : {})
+            },
+            createdThread: isOpening,
+            targetMode: body.targetMode,
+            parts: body.message.parts,
+            openingText: personaOpening
+                ? extractVisibleMessageText(personaOpening.parts)
+                : undefined,
+            routing: settings.modelRouting ?? "silkchat",
+            sessionId: String(openingMutation.threadId),
+            signal: generationAbort.signal
+        })
+
+        // Every result is saved in one write before the first token.
+        const completed: FunctionArgs<typeof internal.threads.completeOpeningDecisions> = {
+            threadId: openingMutation.threadId,
+            authorId: user.id
+        }
+        if (decidesVerbosity) {
+            openingVerbosity = savedVerbosity ?? decisions.verbosity
+            verbosity = resolveVerbosity(settings.responseStyle?.verbosity, openingVerbosity)
+            if (isOpening && decisions.verbosity) completed.verbosity = decisions.verbosity
+        }
+
+        if (decidesTools) {
+            const opening = consumeOpeningTools({
+                decision: decisions.tools,
+                saved: savedToolSelection && {
+                    ...savedToolSelection,
+                    enabledTools: enforceToolIdentityPolicy(
+                        sanitizeEnabledTools(savedToolSelection.enabledTools, toolAvailability),
+                        { isAnonymous: user.isAnonymous }
+                    )
                 },
-                createdThread:
-                    "createdThread" in openingMutation && openingMutation.createdThread === true,
-                targetMode: body.targetMode,
-                availableSkillIds: candidateSkillIds,
-                enabledTools: [...callableEnabledTools],
-                parts: body.message.parts,
-                chatModel: selectedRegistryModel ?? { id: body.model },
-                openingText: personaOpening
-                    ? extractVisibleMessageText(personaOpening.parts)
-                    : undefined,
-                routing: settings.modelRouting ?? "silkchat",
-                signal: generationAbort.signal
-            }))
-        if (savedSelection) {
-            callableEnabledTools.splice(
-                0,
-                callableEnabledTools.length,
-                ...enforceToolIdentityPolicy(
-                    sanitizeEnabledTools(savedSelection.enabledTools, toolAvailability),
-                    { isAnonymous: user.isAnonymous }
-                )
+                enabledTools: callableEnabledTools,
+                eligibleTools,
+                candidateSkillIds
+            })
+            const previousSkillIndex = buildSkillIndexContext(availableSkillIdsForTurn)
+            callableEnabledTools.splice(0, callableEnabledTools.length, ...opening.enabledTools)
+            autoSelectedTools.push(...opening.autoSelectedTools)
+            openingSkillIds = opening.skillIds
+            deferToolBudgetReservation = opening.deferToolBudgetReservation
+            if (isOpening) completed.toolSelection = opening.selection
+            hasPaidCallableTools = callableEnabledTools.length > 0
+            canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
+            memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
+                callableEnabledTools,
+                modelSupportsFunctionCalling
             )
-        }
-        deferToolBudgetReservation = selectionFailed || savedSelection?.status === "failed"
-        // Memory also retrieves and ingests in the background, so a classifier
-        // failure must never opt the user in. Other skills remain loadable.
-        if (selectionFailed) {
-            for (const ability of eligibleTools) {
-                if (ability !== "supermemory" && !callableEnabledTools.includes(ability))
-                    callableEnabledTools.push(ability)
-            }
-        }
-        const previousSkillIndex = buildSkillIndexContext(availableSkillIdsForTurn)
-        for (const skillId of openingSkillIds) {
-            if (!candidateSkillIds.includes(skillId)) continue
-            const ability = APP_SKILLS[skillId].ability
-            if (ability && !callableEnabledTools.includes(ability)) {
-                callableEnabledTools.push(ability)
-                autoSelectedTools.push(ability)
-            }
-        }
-        if (isOpening) {
-            await ctx.runMutation(internal.threads.completeOpeningToolSelection, {
-                threadId: openingMutation.threadId,
-                authorId: user.id,
-                selection: {
-                    enabledTools: callableEnabledTools,
-                    skillIds: openingSkillIds,
-                    mode: "magic",
-                    status: selectionFailed ? "failed" : "complete"
-                }
+            availableSkillIdsForTurn = resolveAvailableSkillIds({
+                enabledTools: callableEnabledTools,
+                imageGenerationEnabled: hasInternalImagePreparationTool
+            })
+            ;({ effectiveToolCallLimitPerTurn, reservedToolMicrousd } = resolveTurnToolBudget())
+            estimatedPromptTokens += Math.max(
+                0,
+                estimateModelMessagesTokens([
+                    { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
+                ]) - estimateModelMessagesTokens([{ role: "system", content: previousSkillIndex }])
+            )
+            contextViolation = getContextLimitViolation({
+                estimatedTokens: estimatedPromptTokens,
+                limits: contextLimits,
+                providerSource: modelData.providerSource,
+                modelId: body.model
             })
         }
-        hasPaidCallableTools = callableEnabledTools.length > 0
-        canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
-        memoryEnabledForTurn = isHostedMemoryEnabledForTurn(
-            callableEnabledTools,
-            modelSupportsFunctionCalling
-        )
-        availableSkillIdsForTurn = resolveAvailableSkillIds({
-            enabledTools: callableEnabledTools,
-            imageGenerationEnabled: hasInternalImagePreparationTool
-        })
-        ;({ effectiveToolCallLimitPerTurn, reservedToolMicrousd } = resolveTurnToolBudget())
-        estimatedPromptTokens += Math.max(
-            0,
-            estimateModelMessagesTokens([
-                { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
-            ]) - estimateModelMessagesTokens([{ role: "system", content: previousSkillIndex }])
-        )
-        contextViolation = getContextLimitViolation({
-            estimatedTokens: estimatedPromptTokens,
-            limits: contextLimits,
-            providerSource: modelData.providerSource,
-            modelId: body.model
-        })
+        if (completed.toolSelection || completed.verbosity) {
+            await ctx.runMutation(internal.threads.completeOpeningDecisions, completed)
+        }
     }
 
     if (memoryEnabledForTurn && contextViolation?.limitType !== "model") {
@@ -2243,6 +2266,7 @@ async function handleChatPost(
                     personaName: persistedPersonaSnapshot?.name,
                     includeTemporalContext: false,
                     useSkillLoader: modelSupportsFunctionCalling,
+                    verbosity,
                     imageGenerationTool: hasInternalImagePreparationTool
                         ? {
                               enabled: true,
@@ -2263,7 +2287,8 @@ async function handleChatPost(
                             target_mode: telemetryTargetMode,
                             enabled_tool_count: callableEnabledTools.length,
                             enabled_tool_ids: callableEnabledTools,
-                            available_tool_names: Object.keys(tools)
+                            available_tool_names: Object.keys(tools),
+                            ...getVerbosityTelemetry()
                         }
                     })
                 }
@@ -2326,6 +2351,11 @@ async function handleChatPost(
                                       supportsReasoning,
                                       String(mutationResult.threadId)
                                   ),
+                                  // Claude maps this to output_config.effort, which the
+                                  // reasoning setting already owns, so only flagged models get it.
+                                  ...(sendsNativeVerbosity()
+                                      ? { verbosity: verbosity === "less" ? "low" : "high" }
+                                      : {}),
                                   // Automatic breakpoint on the last block reuses earlier
                                   // steps within this turn's tool loop.
                                   ...(usesExplicitPromptCaching
@@ -2528,7 +2558,8 @@ async function handleChatPost(
                                 reasoning_tokens: totalTokenUsage.reasoningTokens,
                                 tool_call_count: completedToolCallIds.size,
                                 used_tool_names: usedToolNames,
-                                estimated_cost_usd: totalTokenUsage.estimatedCostUsd ?? null
+                                estimated_cost_usd: totalTokenUsage.estimatedCostUsd ?? null,
+                                ...getVerbosityTelemetry()
                             }
                         }),
                         captureServerAiGeneration({

@@ -19,14 +19,21 @@ import {
     type LucideIcon,
     Megaphone,
     MessageSquareQuote,
+    ScrollText,
     Smile
 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-type ResponseStyleLevel = "less" | "default" | "more"
-type ResponseStyleField = "warmth" | "enthusiasm" | "structure" | "emoji" | "profanity"
-type ResponseStyleSelection = Record<ResponseStyleField, ResponseStyleLevel>
+type ResponseStyleLevel = "auto" | "less" | "default" | "more"
+type ResponseStyleField =
+    | "verbosity"
+    | "warmth"
+    | "enthusiasm"
+    | "structure"
+    | "emoji"
+    | "profanity"
+type ResponseStyleSelection = Record<ResponseStyleField, Exclude<ResponseStyleLevel, "auto">>
 
 type TextField = "name" | "additionalContext" | "aiPersonality"
 type TextDraft = Record<TextField, string>
@@ -49,7 +56,31 @@ type SavedPersonalization = {
 
 const RESPONSE_STYLE_LEVELS = ["less", "default", "more"] as const
 
-const RESPONSE_STYLE_PREFERENCES = [
+// An unset length means Auto: SilkChat picks it from how each conversation starts.
+const getUnsetLevel = (field: ResponseStyleField): ResponseStyleLevel =>
+    field === "verbosity" ? "auto" : "default"
+
+type ResponseStylePreference = {
+    field: ResponseStyleField
+    label: string
+    icon: LucideIcon
+    levels?: readonly ResponseStyleLevel[]
+    previews?: Partial<Record<ResponseStyleLevel, string>>
+}
+
+const RESPONSE_STYLE_PREFERENCES: ResponseStylePreference[] = [
+    {
+        field: "verbosity",
+        label: "Length",
+        icon: ScrollText,
+        levels: ["auto", ...RESPONSE_STYLE_LEVELS],
+        previews: {
+            auto: "We dynamically adjust response length based on the conversation.",
+            less: "An endofunctor monoid.",
+            default: "Just a monoid in the category of endofunctors.",
+            more: "Just a monoid in the category of endofunctors, what's the problem?"
+        }
+    },
     {
         field: "warmth",
         label: "Warmth",
@@ -90,7 +121,7 @@ const RESPONSE_STYLE_PREFERENCES = [
         label: "Emojis",
         icon: Smile
     }
-] as const
+]
 
 export const Route = createFileRoute("/settings/personalization")({
     component: PersonalizationSettingsRoute
@@ -221,7 +252,9 @@ function PersonalizationForm({
     const handleStyleChange = async (field: ResponseStyleField, level: ResponseStyleLevel) => {
         setUpdatingStyleField(field)
         try {
-            await updateSettings({ responseStyle: { [field]: level === "default" ? null : level } })
+            await updateSettings({
+                responseStyle: { [field]: level === getUnsetLevel(field) ? null : level }
+            })
             toast.success("Response style updated")
         } catch (error) {
             console.error("Failed to update response style:", error)
@@ -306,7 +339,9 @@ function PersonalizationForm({
                 <div className="space-y-6">
                     {RESPONSE_STYLE_PREFERENCES.map((preference) => {
                         const selectedLevel =
-                            userSettings.responseStyle?.[preference.field] ?? "default"
+                            userSettings.responseStyle?.[preference.field] ??
+                            getUnsetLevel(preference.field)
+                        const levels = preference.levels ?? RESPONSE_STYLE_LEVELS
                         const isUpdating = updatingStyleField === preference.field
 
                         return (
@@ -319,12 +354,17 @@ function PersonalizationForm({
                                 </FieldLabel>
 
                                 <div
-                                    className="grid max-w-3xl grid-cols-3 gap-2 sm:gap-3"
+                                    className={cn(
+                                        "grid max-w-3xl gap-2 sm:gap-3",
+                                        levels.length > 3
+                                            ? "grid-cols-2 sm:grid-cols-4"
+                                            : "grid-cols-3"
+                                    )}
                                     role="radiogroup"
                                     aria-labelledby={`response-style-${preference.field}-label`}
                                     aria-busy={isUpdating}
                                 >
-                                    {RESPONSE_STYLE_LEVELS.map((level) => (
+                                    {levels.map((level) => (
                                         <ResponseStyleOption
                                             key={level}
                                             field={preference.field}
@@ -439,11 +479,11 @@ function ResponseStylePreview({
     }
 
     if (field === "emoji") {
-        const previews = {
+        const previews: Partial<Record<ResponseStyleLevel, string>> = {
             less: "—",
             default: "🙂",
             more: "🙂 ✨ 🎉"
-        } as const
+        }
 
         return (
             <div className="flex min-h-10 items-center text-base" aria-hidden="true">
@@ -452,8 +492,8 @@ function ResponseStylePreview({
         )
     }
 
-    const preference = RESPONSE_STYLE_PREFERENCES.find((item) => item.field === field)
-    const preview = preference && "previews" in preference ? preference.previews[level] : ""
+    const preview =
+        RESPONSE_STYLE_PREFERENCES.find((item) => item.field === field)?.previews?.[level] ?? ""
 
     return <p className="min-h-10 text-muted-foreground text-xs leading-5">{preview}</p>
 }

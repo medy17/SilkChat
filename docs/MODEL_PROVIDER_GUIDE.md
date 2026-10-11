@@ -31,6 +31,11 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
   that omit required chart arrays with the normal optional display fields. Enabled
   on Grok chat entries; omit or set `false` to use the standard chart schema.
   This does not enable the provider's `strict` decoding flag or change saved charts.
+- optional `supportsVerbosity`: the model honors OpenRouter's native `verbosity`
+  parameter. Set it only on models whose OpenRouter catalog entry lists `verbosity` in
+  `supported_parameters` and where it means reply length (currently OpenAI GPT-5 and
+  later). Claude also lists it, but OpenRouter maps it to `output_config.effort`, which
+  the reasoning setting already controls, so Anthropic entries stay unflagged.
 
 ### Text model short names
 
@@ -187,16 +192,39 @@ Built-in image models are defined under `convex/lib/models/fal` and use `fal:*` 
 ### OpenRouter decision models
 
 Decision models use `mode: "decision"` and stay out of chat, retry, and persona model pickers.
-`convex/lib/models/typesafe.ts` registers Jev and selects the opening-skill classifier.
-`convex/lib/classifiers.ts` defines typed questions and answers and calls OpenRouter's
-`/api/alpha/decisions` endpoint with the hosted `OPENROUTER_API_KEY`, app attribution,
-and the user's routing policy. No TypeSafe key or chat-completion adapter is needed.
+`convex/lib/models/typesafe.ts` registers Jev as `DECISION_MODEL` with per-task calibration.
+`convex/lib/decisions.ts` is the typed client: question definitions (`noul`, `choice`,
+`score`) determine answer types, answers that do not match their question are dropped, and
+optional answer fields (`probabilities`, `confidence`, `legend`, `usage`) stay optional as in
+OpenRouter's contract. It calls `/api/alpha/decisions` with the hosted `OPENROUTER_API_KEY`,
+app attribution, the user's routing policy, and the thread as `session_id`. No TypeSafe key or
+chat-completion adapter is needed.
+
+Opening decisions are split into an engine and callers under `convex/chat_http/decisions/`.
+`engine.ts` owns eligibility, shared state (request text, persona opening, attachment labels),
+the single request and its timeout, and failure handling. Each caller supplies its own
+questions, the state only those questions read, and `interpret`, which receives `null` when
+decisions are unavailable. Question and state names must be unique across callers. Callers
+also own how their result is applied: `tools.ts` (Magic) and `verbosity.ts` (Auto length).
+The route only decides which callers are active and runs them in one request.
+
+Auto verbosity is the unset `responseStyle.verbosity` setting; Less, Default, and More are
+stored explicitly and skip the classifier. It asks one `choice` question with a "usual"
+no-change option, and only moves off the usual length when Jev's probability meets
+`verbositySelection.thresholds`. Greetings and bare openers stay usual because one decision
+covers the conversation. Results from both callers are saved in one `completeOpeningDecisions` write. The verbosity result is saved once on `threads.openingVerbosity`, reused by
+replays, retries and later turns, and copied to branches. It applies to every model through a
+User Personalization line and to `supportsVerbosity` models as `verbosity: low|high`. Auto
+runs with Magic off too, so it commits the opening early like Magic does. Run
+`bun scripts/evals/opening-verbosity.ts --with-tools` to re-check calibration in the
+production batch.
 
 Opening skill selection runs only when the message mutation reports actual thread creation
 and the composer's Magic toggle is enabled. Magic defaults on and persists in the browser. New Magic conversations start with individual tools off; with Magic off they restore saved manual preferences. Automatic choices live separately in conversation state and never update the manual preset. The opening selection, including completion/failure status, is saved on the thread and reused by retries and reconnects. Browser conversation overrides preserve later manual edits; background streams cannot replace the active conversation's tools.
 Creation is never inferred from message count or an absent request thread ID alone. It does not run on retries,
-edits, replayed requests, or subsequent turns. One batched request has a 5-second timeout
-to allow connection setup on the opening request.
+edits, replayed requests, or subsequent turns. One batched request has a 2.5-second timeout.
+Batched decisions measured about 450–800 ms including fresh connections, so the window covers
+connection setup while failing over quickly on upstream errors.
 Opening-skill calibration lives in each decision model's `skillSelection` registry field: per-skill `thresholds` and `prohibitionThresholds` for browsing and execution. A classifier used for opening selection must supply its own complete calibration; there is no fallback to Jev values. Tool-need criteria and the maximum-of-independent-needs rule remain application logic. Jev executable skills currently require Noul scores of at least 0.85. Presentation-only diagrams, recipes, and canvas instructions use 0.75 to accommodate implicit output requests. These scores are classifier outputs, not calibrated guarantees.
 Selection receives the current UTC date, the chat model's known cutoff, and each skill's availability category.
 Selection considers all tools allowed by deployment credentials, identity policy, and model capabilities, including tools that are off by default. It enables confident selections while preserving manually enabled tools. The stream returns added abilities to the composer so later turns and retries retain them without reclassifying. Explicit requests not to use a tool still prevent its automatic selection.

@@ -197,7 +197,7 @@ describe("chat turn lifecycle", () => {
         })
         expect(retry).not.toHaveProperty("createdThread", true)
     })
-    it("saves the opening tool selection once and makes it available to replays and reconnects", async () => {
+    it("saves opening decisions once and makes them available to replays and reconnects", async () => {
         const t = convexTest(schema, modules)
         aggregate.register(t, "aggregateFolderThreads")
         const args = {
@@ -223,31 +223,34 @@ describe("chat turn lifecycle", () => {
             mode: "magic" as const,
             status: "complete" as const
         }
-        await t.mutation(internal.threads.completeOpeningToolSelection, {
+        const verbosity = { level: "more" as const, status: "complete" as const }
+        await t.mutation(internal.threads.completeOpeningDecisions, {
             threadId: created.threadId,
             authorId: "user",
-            selection
+            toolSelection: selection,
+            verbosity
         })
-        // A delayed duplicate must not replace the saved result.
-        await t.mutation(internal.threads.completeOpeningToolSelection, {
+        // A delayed duplicate must not replace the saved results.
+        await t.mutation(internal.threads.completeOpeningDecisions, {
             threadId: created.threadId,
             authorId: "user",
-            selection: { ...selection, enabledTools: [], skillIds: [] }
+            toolSelection: { ...selection, enabledTools: [], skillIds: [] },
+            verbosity: { level: "less", status: "complete" }
         })
         expect(await t.mutation(internal.threads.createThreadOrInsertMessages, args)).toMatchObject(
-            { openingToolSelection: selection }
+            { openingToolSelection: selection, openingVerbosity: verbosity }
         )
         expect(
             await t.query(internal.chat_readiness.getThreadContext, {
                 threadId: created.threadId,
                 userId: "user"
             })
-        ).toMatchObject({ openingToolSelection: selection })
+        ).toMatchObject({ openingToolSelection: selection, openingVerbosity: verbosity })
         await expect(
-            t.mutation(internal.threads.completeOpeningToolSelection, {
+            t.mutation(internal.threads.completeOpeningDecisions, {
                 threadId: created.threadId,
                 authorId: "other-user",
-                selection
+                toolSelection: selection
             })
         ).rejects.toThrow("Thread unavailable")
     })

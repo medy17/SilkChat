@@ -163,6 +163,26 @@ describe("buildPrompt", () => {
         expect(prompt).not.toContain("than you otherwise would")
     })
 
+    it("follows the resolved verbosity rather than the stored setting", () => {
+        const userSettings = {
+            userId: "user-1",
+            coreAIProviders: {},
+            customAIProviders: {},
+            customModels: {},
+            titleGenerationModel: "gemini-3.1-flash-lite",
+            generalProviders: {},
+            responseStyle: { verbosity: "more" as const }
+        }
+
+        expect(buildPrompt({ enabledTools: [], verbosity: "less" })).toContain(
+            "Keep replies somewhat shorter and more concise than you otherwise would."
+        )
+        // Resolution happens before prompt building; the raw setting adds nothing.
+        expect(buildPrompt({ enabledTools: [], userSettings })).not.toContain(
+            "## User Personalization"
+        )
+    })
+
     it("keeps the per-turn tool budget out of the stable prompt", () => {
         const prompt = buildPrompt({
             enabledTools: ["web_search", "supermemory"]
