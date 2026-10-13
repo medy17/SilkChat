@@ -202,13 +202,15 @@ const RetryModelRowContent = ({
                 {getProviderSectionIcon(getModelSectionId(model), [model], "size-4")}
             </span>
         )}
-        <span className="min-w-0 flex-1 font-medium text-muted-foreground">
+        <span className="min-w-0 flex-1 font-medium">
             <span className="w-fit whitespace-nowrap max-sm:whitespace-normal max-sm:break-words">
                 {model.name}
             </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-            {!("isCustom" in model) && <ModelCostIndicator model={model} />}
+            {!("isCustom" in model) && (
+                <ModelCostIndicator model={model} tooltipClassName="z-[71]" />
+            )}
             <RetryModelAbilityIcons model={model} />
             {isModelLocked && (
                 <Badge

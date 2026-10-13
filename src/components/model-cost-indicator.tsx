@@ -14,7 +14,13 @@ const formatPrice = (price: number) =>
         maximumFractionDigits: price < 1 ? 3 : 2
     }).format(price)
 
-export function ModelCostIndicator({ model }: { model: SharedModel }) {
+export function ModelCostIndicator({
+    model,
+    tooltipClassName
+}: {
+    model: SharedModel
+    tooltipClassName?: string
+}) {
     const footerMode = useMessageFooterStore((state) => state.footerMode)
     const level = getModelCostLevel(model)
     if (level === null) return null
@@ -53,7 +59,7 @@ export function ModelCostIndicator({ model }: { model: SharedModel }) {
                     {isExcessive && <span className="text-model-cost-expensive">+</span>}
                 </span>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className={tooltipClassName}>
                 <div className="space-y-0.5">
                     <p>{COST_LABELS[level]} estimated model cost</p>
                     {showDetailedPricing && (
