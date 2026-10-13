@@ -22,6 +22,26 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-4-argon",
+        name: "Gemini 4 Argon",
+        addedOn: "2026-10-14",
+        shortName: "4 Argon",
+        shortDescription:
+            "Google's Gemini 4 flagship for hard engineering, deep math and science, and dense documents",
+        description:
+            "Google's flagship reasoning model and the first of the Gemini 4 generation. It holds context through long, multi-step work and folds documents mixing text, tables, charts, and images into one grounded answer. Strongest on hard software engineering, deep math and science problems, and analysis across million-token sources.",
+        developer: "Google",
+        releaseOrder: 20261013,
+        adapters: googleTextAdapters("gemini-4-argon"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 2,
+        outputUsdPer1MTokens: 10,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium"
+    },
+    {
         id: "gemma-4-31b-it",
         name: "Gemma 4 31B",
         addedOn: "2026-10-13",
@@ -209,9 +229,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         name: "Gemini 3.1 Pro",
         addedOn: "2026-02-19",
         shortName: "3.1 Pro",
-        shortDescription: "Google flagship with advanced reasoning and multimodal depth",
+        shortDescription: "Previous Google flagship with advanced reasoning and multimodal depth",
         description:
-            "Gemini 3.1 Pro Preview is Google's higher-end general model for more complex reasoning, larger multimodal contexts, and harder analysis tasks. It is the stronger choice when response quality matters more than pure speed.",
+            "Gemini 3.1 Pro Preview is Google's previous-generation flagship for complex reasoning, larger multimodal contexts, and harder analysis tasks. It is a strong choice when response quality matters more than pure speed.",
         developer: "Google",
         artificialAnalysis: {
             type: "llm",
