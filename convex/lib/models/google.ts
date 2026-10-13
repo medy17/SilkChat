@@ -22,6 +22,41 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemma-4-31b-it",
+        name: "Gemma 4 31B",
+        addedOn: "2026-10-13",
+        shortName: "Gemma 4 31B",
+        shortDescription: "Open-weight Google DeepMind model with image and video input",
+        description:
+            "Google DeepMind's instruction-tuned open-weight Gemma 4 model with 31B parameters. It accepts text, images, and video within a 262K-token context, with optional reasoning and tool calling. A capable choice for multimodal chat, extraction, and everyday coding at modest cost.",
+        developer: "Google",
+        releaseOrder: 20260402,
+        adapters: googleTextAdapters("gemma-4-31b-it"),
+        abilities: ["reasoning", "vision", "function_calling"],
+        contextLength: 262_144,
+        inputUsdPer1MTokens: 0.75,
+        outputUsdPer1MTokens: 1,
+        preferredOpenRouterProviders: ["modelrun"]
+    },
+    {
+        id: "gemma-4-26b-a4b-it",
+        name: "Gemma 4 26B A4B",
+        addedOn: "2026-10-13",
+        shortName: "Gemma 4 26B",
+        shortDescription:
+            "Open-weight mixture-of-experts Gemma that activates only 3.8B parameters",
+        description:
+            "Google DeepMind's instruction-tuned open-weight mixture-of-experts model, routing each token through 3.8B of its 25.2B parameters. It accepts text, images, and video up to 60 seconds at 1 fps within a 262K-token context, with optional reasoning and tool calling. Quick and inexpensive for multimodal chat and high-volume work.",
+        developer: "Google",
+        releaseOrder: 20260403,
+        adapters: googleTextAdapters("gemma-4-26b-a4b-it"),
+        abilities: ["reasoning", "vision", "function_calling"],
+        contextLength: 262_144,
+        inputUsdPer1MTokens: 0.1,
+        outputUsdPer1MTokens: 0.28,
+        preferredOpenRouterProviders: ["makora"]
+    },
+    {
         id: "gemini-3.8-flash",
         name: "Gemini 3.8 Flash",
         addedOn: "2026-09-02",
