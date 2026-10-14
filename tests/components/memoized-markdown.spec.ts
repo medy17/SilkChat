@@ -24,6 +24,16 @@ Object.defineProperty(globalThis, "ResizeObserver", {
     value: ResizeObserverStub
 })
 
+Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener() {},
+        removeEventListener() {}
+    })
+})
+
 describe("MemoizedMarkdown", () => {
     it("shows the rest of a finished reply after an unclosed carousel", () => {
         render(
@@ -177,6 +187,66 @@ describe("MemoizedMarkdown", () => {
         )
         expect(normalizeMarkdownMathDelimiters("Before\n$\nL(t)=L_{0}e^{-kt}\nAfter")).toBe(
             "Before\n$\nL(t)=L_{0}e^{-kt}\nAfter"
+        )
+    })
+
+    it("keeps a running app mounted when the reply finishes or stops", () => {
+        const content =
+            "Try it:\n\n```silk-app\nexport default () => <p>hi</p>\n```\n\nDrag the slider."
+        const { container, rerender } = render(
+            React.createElement(MemoizedMarkdown, { content, isAnimating: true })
+        )
+        const app = container.querySelector("[data-silk-app]")
+        const frame = container.querySelector("iframe")
+
+        rerender(React.createElement(MemoizedMarkdown, { content, isAnimating: false }))
+
+        expect(app).not.toBeNull()
+        expect(frame).not.toBeNull()
+        expect(container.querySelector("[data-silk-app]")).toBe(app)
+        expect(container.querySelector("iframe")).toBe(frame)
+    })
+
+    it("shows an app's source without the artifact preview, which can't run it", () => {
+        const app = "export default () => <p>hi</p>"
+        const { getByRole, queryByRole, getByText } = render(
+            React.createElement(MemoizedMarkdown, { content: `\`\`\`silk-app\n${app}\n\`\`\`` })
+        )
+
+        fireEvent.click(getByRole("button", { name: "Show code" }))
+
+        expect(getByText(/export default/)).toBeTruthy()
+        expect(queryByRole("tab", { name: "Preview" })).toBeNull()
+    })
+
+    it("doesn't run an app the reply stopped writing", () => {
+        const { container, getByText } = render(
+            React.createElement(MemoizedMarkdown, {
+                content: "```silk-app\nexport default () => <p>",
+                isAnimating: false
+            })
+        )
+
+        expect(getByText("The reply stopped before this app was finished.")).toBeTruthy()
+        expect(container.querySelector("iframe")).toBeNull()
+    })
+
+    it("never treats dollar signs in code as math", () => {
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: markdown containing a JS template literal
+        const code = "```tsx\nconst range = `${min} to ${max}`\n```"
+        expect(normalizeMarkdownMathDelimiters(`Try it:\n\n${code}\n\nThen $x^2$.`)).toBe(
+            `Try it:\n\n${code}\n\nThen $$x^2$$.`
+        )
+
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: a fence still streaming
+        const streaming = "```silk-app\nconst label = `${dose} mL ($${cost})`"
+        expect(normalizeMarkdownMathDelimiters(streaming)).toBe(streaming)
+
+        expect(normalizeMarkdownMathDelimiters("Run `echo $HOME $PATH` where $y_1$ is set.")).toBe(
+            "Run `echo $HOME $PATH` where $$y_1$$ is set."
+        )
+        expect(normalizeMarkdownMathDelimiters("```js``` is inline.\n\nThen $x^2$.")).toBe(
+            "```js``` is inline.\n\nThen $$x^2$$."
         )
     })
 

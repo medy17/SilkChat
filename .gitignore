@@ -56,3 +56,6 @@ test-*.tsx
 .agents/
 .claude/
 .codex
+
+# Generated SilkChat app runtime (scripts/build-silk-app-runtime.mjs)
+public/silk-app/

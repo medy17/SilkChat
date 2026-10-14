@@ -67,15 +67,20 @@ export function SpotlightChips({
     chips,
     hiddenKeys,
     onToggle,
-    onFocusChange
+    onFocusChange,
+    className
 }: {
     chips: SpotlightChip[]
     hiddenKeys: ReadonlySet<string>
     onToggle: (key: string) => void
     onFocusChange: (key: string | null) => void
+    className?: string
 }) {
     return (
-        <div className="flex flex-wrap gap-1.5 px-5 pt-3" onMouseLeave={() => onFocusChange(null)}>
+        <div
+            className={cn("flex flex-wrap gap-1.5 px-5 pt-3", className)}
+            onMouseLeave={() => onFocusChange(null)}
+        >
             {chips.map((chip) => {
                 const hidden = hiddenKeys.has(chip.key)
                 return (

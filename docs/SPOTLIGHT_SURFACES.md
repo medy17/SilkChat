@@ -87,8 +87,16 @@ on the main thread, and a runaway line from a degenerate model can lock the tab.
    styles.
 5. Check the default theme in light and dark, plus one imported theme.
 
+## Apps
+
+Model-written apps (` ```silk-app ` fences) run in a sandboxed frame with a Tailwind theme that
+mirrors the host's, and build from `@silk/ui`, whose cards, charts, and controls are the Spotlight
+pieces above. Keep them in step: a change to a Spotlight surface should reach the kit too. See
+[SilkChat Apps](./SILK_APPS.md).
+
 ## Related guides
 
+- [SilkChat Apps](./SILK_APPS.md)
 - [Abstractions & Conventions](./ABSTRACTIONS_&_CONVENTIONS.md)
 - [Math Kit](./MATH_KIT.md)
 - [Roleplay Markup](./ROLEPLAY_MARKUP.md)

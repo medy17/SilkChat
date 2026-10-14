@@ -14,6 +14,7 @@ import {
     LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT,
     LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX
 } from "./src/lib/local-image-optimizer.ts"
+import { silkAppRuntime } from "./scripts/silk-app-runtime-plugin.ts"
 
 const projectRoot = import.meta.dirname
 const sandpackSsrStub = path.resolve(projectRoot, "./src/lib/sandpack-react-ssr-stub.tsx")
@@ -203,6 +204,7 @@ export default defineConfig(({ mode }) => {
             proxy: Object.keys(proxy).length > 0 ? proxy : undefined
         },
         plugins: [
+            silkAppRuntime(),
             anydocWasmDevPlugin,
             localImageOptimizerPlugin,
             posthogSourceMapPlugin,

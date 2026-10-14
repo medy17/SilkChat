@@ -26,7 +26,7 @@ const SKILL_SELECTION_RULES: Record<AppSkillId, string> = {
         "Does the user request a complete cooking recipe with ingredients, quantities, and preparation steps? This skill formats complete recipes as scalable recipe blocks. Exclude food trivia, nutrition questions, ingredient substitutions, partial meal suggestions, and discussion of recipes without a request for a usable recipe.",
     roleplay:
         "Does the user ask to enact or continue an in-character roleplay or multi-character fictional scene? Include collaborative storytelling with character dialogue, actions, and thoughts. Exclude discussing roleplay formats, literary analysis, summarizing fiction, and ordinary assistant conversation.",
-    canvas: "Does the user request an interactive webpage, React/HTML UI, simulation, custom visual layout, or a complex visual explanation that needs web rendering? Canvas presents web content in the conversation. Exclude ordinary text answers, code snippets meant only to be read, simple Mermaid diagrams, and ordinary numeric charts supported by Math Kit."
+    canvas: "Would the user be better served by operating something than by reading an answer: changing inputs and watching what follows, exploring a range of cases, or carrying out a task with a tool? Requests to build something interactive, or a web page or custom visual layout, count. Canvas runs live interactive apps in the conversation. Exclude requests that a sentence, list, table, formula, Mermaid diagram, or single numeric chart fully answers, and code meant only to be read."
 }
 
 const SKILL_REQUEST_RULES = `${OPENING_REQUEST_RULES} Respect explicit requests not to use the tool.`

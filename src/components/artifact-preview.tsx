@@ -294,6 +294,53 @@ const readHtmlPreviewTheme = () => {
     }).join("\n                ")
 }
 
+// Previews run at an opaque origin (see the sandbox below), where storage and cookies
+// throw. Demos lean on them, so they get an in-memory stand-in for as long as the
+// preview stays loaded.
+const HTML_PREVIEW_STORAGE_SHIM = `<script>
+(function () {
+    function memoryStorage() {
+        var items = new Map()
+        return {
+            get length() { return items.size },
+            key: function (index) { var keys = Array.from(items.keys()); return index < keys.length ? keys[index] : null },
+            getItem: function (key) { key = String(key); return items.has(key) ? items.get(key) : null },
+            setItem: function (key, value) { items.set(String(key), String(value)) },
+            removeItem: function (key) { items.delete(String(key)) },
+            clear: function () { items.clear() }
+        }
+    }
+    ["localStorage", "sessionStorage"].forEach(function (name) {
+        try { window[name] } catch (error) {
+            Object.defineProperty(window, name, { configurable: true, value: memoryStorage() })
+        }
+    })
+    try { document.cookie } catch (error) {
+        var jar = new Map()
+        Object.defineProperty(document, "cookie", {
+            configurable: true,
+            get: function () {
+                return Array.from(jar, function (entry) { return entry[0] + "=" + entry[1] }).join("; ")
+            },
+            set: function (value) {
+                var parts = String(value).split(";")
+                var pair = parts[0]
+                var split = pair.indexOf("=")
+                if (split < 1) return
+                var expired = parts.slice(1).some(function (part) {
+                    var attribute = part.trim().toLowerCase()
+                    return attribute === "max-age=0" || attribute.indexOf("max-age=-") === 0 ||
+                        (attribute.indexOf("expires=") === 0 && Date.parse(attribute.slice(8)) < Date.now())
+                })
+                var name = pair.slice(0, split).trim()
+                if (expired) jar.delete(name)
+                else jar.set(name, pair.slice(split + 1).trim())
+            }
+        })
+    }
+})()
+</script>`
+
 const HTMLRenderer = memo(({ code }: { code: string }) => {
     const [themeVars, setThemeVars] = useState("")
 
@@ -309,7 +356,7 @@ const HTMLRenderer = memo(({ code }: { code: string }) => {
         return () => observer.disconnect()
     }, [])
 
-    const themeCSS = `
+    const headContent = `${HTML_PREVIEW_STORAGE_SHIM}
         <style>
             :root {
                 ${themeVars}
@@ -325,18 +372,21 @@ const HTMLRenderer = memo(({ code }: { code: string }) => {
         </style>
     `
 
-    // Inject the CSS into the HTML document
+    // Inject the shim and theme ahead of the document's own head content. A replacer
+    // function, so `$` sequences in the injected text stay literal.
     const enhancedCode = code.includes("<head>")
-        ? code.replace("<head>", `<head>${themeCSS}`)
+        ? code.replace("<head>", () => `<head>${headContent}`)
         : code.includes("<html>")
-          ? code.replace("<html>", `<html><head>${themeCSS}</head>`)
-          : `<html><head>${themeCSS}</head><body>${code}</body></html>`
+          ? code.replace("<html>", () => `<html><head>${headContent}</head>`)
+          : `<html><head>${headContent}</head><body>${code}</body></html>`
 
     return (
         <iframe
             srcDoc={enhancedCode}
             className="h-96 w-full border-0"
-            sandbox="allow-scripts allow-same-origin"
+            // No allow-same-origin: a srcdoc frame would otherwise share this page's
+            // origin, letting model-written scripts reach the signed-in session.
+            sandbox="allow-scripts allow-forms"
             title="HTML Preview"
         />
     )

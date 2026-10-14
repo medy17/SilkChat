@@ -20,7 +20,10 @@ export const DECISION_MODEL = {
             diagrams: 0.75,
             recipes: 0.75,
             roleplay: 0.75,
-            canvas: 0.75
+            // Live evals: requests for something to operate score 0.72-0.95, and
+            // questions a text answer serves score at most 0.55. A miss still leaves the
+            // chat model's own load_skill.
+            canvas: 0.65
         },
         prohibitionThresholds: {
             web_search: 0.5,

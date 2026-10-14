@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { SILK_APP_LANGUAGE } from "@/lib/silk-app/protocol"
 import { copyToClipboard } from "@/lib/utils"
 import {
     AlignLeft,
@@ -28,11 +29,28 @@ import {
     Image,
     WrapText
 } from "lucide-react"
-import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState } from "react"
+import {
+    Suspense,
+    createContext,
+    lazy,
+    memo,
+    use,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react"
 import { toast } from "sonner"
 import { CodeBlock as StreamdownCodeBlock, useIsCodeFenceIncomplete } from "streamdown"
 import { type ArtifactLanguage, isArtifactSupported } from "./artifact-preview-shared"
 import { downloadBlob, mermaidSvgBlob, mermaidSvgToPng } from "./mermaid-export"
+import { SilkAppBlock, type SilkAppSourceProps } from "./silk-app/silk-app-block"
+
+/**
+ * Whether code blocks offer a Preview tab. An app's source view turns it off: the app
+ * block is that code's preview, and the artifact preview can't run SilkChat apps.
+ */
+export const CodePreviewContext = createContext(true)
 
 const ArtifactPreview = lazy(async () => {
     const mod = await import("./artifact-preview")
@@ -193,6 +211,15 @@ const MermaidActions = ({ code, svg }: { code: string; svg: string | null }) => 
     )
 }
 
+// The source of an app fence that stayed in Markdown (one inside a list item, say).
+const SilkAppSource = ({ code }: SilkAppSourceProps) => (
+    <CodePreviewContext value={false}>
+        <Codeblock className="language-tsx" data-block="">
+            {code}
+        </Codeblock>
+    </CodePreviewContext>
+)
+
 export const Codeblock = memo(
     ({
         inline,
@@ -217,7 +244,7 @@ export const Codeblock = memo(
         }
         "data-block"?: string
     }) => {
-        const match = /language-(\w+)/.exec(className || "")
+        const match = /language-(silk-app(?![\w-])|\w+)/.exec(className || "")
         const language = match ? match[1] : "plaintext"
 
         const [isMultiLine, lineNumber] = useMemo(() => {
@@ -256,9 +283,10 @@ export const Codeblock = memo(
                 .join("")
         }, [children])
 
+        const previewAllowed = use(CodePreviewContext)
         const supportsArtifact = useMemo(() => {
-            return isArtifactSupported(language)
-        }, [language])
+            return previewAllowed && isArtifactSupported(language)
+        }, [language, previewAllowed])
         const isBlockCode = dataBlock !== undefined || (!inline && (Boolean(match) || isMultiLine))
         const codeRendererClassName = cn(
             "[&_[data-streamdown=code-block]]:my-0 [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-none [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block]]:p-0",
@@ -277,6 +305,16 @@ export const Codeblock = memo(
         )
 
         if (!children) return null
+
+        if (language === SILK_APP_LANGUAGE && isBlockCode) {
+            return (
+                <SilkAppBlock
+                    code={codeString}
+                    isStreaming={isCodeFenceIncomplete}
+                    source={SilkAppSource}
+                />
+            )
+        }
 
         return isBlockCode ? (
             <div

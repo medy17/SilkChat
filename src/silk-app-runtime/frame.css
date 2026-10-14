@@ -1,0 +1,150 @@
+/* Tailwind source for SilkChat app frames, compiled in the frame by @tailwindcss/browser.
+   Mirrors the host @theme in src/styles/globals.css so utilities resolve to the theme the
+   host sends over postMessage. tw-animate-css is appended by the runtime build. */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+    /* Fallbacks until the host theme arrives. */
+    --background: oklch(0.99 0 0);
+    --foreground: oklch(0 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0 0 0);
+    --popover: oklch(0.99 0 0);
+    --popover-foreground: oklch(0 0 0);
+    --primary: oklch(0 0 0);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.94 0 0);
+    --secondary-foreground: oklch(0 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.44 0 0);
+    --accent: oklch(0.94 0 0);
+    --accent-foreground: oklch(0 0 0);
+    --destructive: oklch(0.63 0.19 23.03);
+    --destructive-foreground: oklch(1 0 0);
+    --border: oklch(0.92 0 0);
+    --input: oklch(0.94 0 0);
+    --ring: oklch(0 0 0);
+    --chart-1: oklch(0.81 0.17 75.35);
+    --chart-2: oklch(0.55 0.22 264.53);
+    --chart-3: oklch(0.72 0 0);
+    --chart-4: oklch(0.92 0 0);
+    --chart-5: oklch(0.56 0 0);
+    --warning: hsl(26 90% 37%);
+    --warning-foreground: hsl(0 0% 100%);
+    --success: oklch(0.52 0.15 160);
+    --info: var(--chart-2);
+    --radius: 0.5rem;
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-success: var(--success);
+    --color-info: var(--info);
+
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+    --font-serif: var(--font-serif);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --shadow-2xs: var(--shadow-2xs);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow: var(--shadow);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-2xl: var(--shadow-2xl);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    html,
+    body {
+        background: transparent;
+    }
+
+    body {
+        @apply font-sans text-foreground antialiased;
+        margin: 0;
+        /* Room for focus rings and shadows at the frame edge; the host offsets it. */
+        padding: 0.25rem;
+    }
+
+    #root {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+
+@utility spotlight-surface {
+    background-color: var(--card);
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--chart-1) 7%, var(--card)) 0,
+        var(--card) 16rem
+    );
+}
+
+@utility spotlight-glass {
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    background-color: color-mix(in oklab, var(--popover) 80%, transparent);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(12px);
+}
+
+/* Inline frames size to their content, so viewport-height utilities would feed the frame
+   height back into itself and grow without end. Unlayered, so these beat the utilities. */
+html[data-mode="inline"] {
+    overflow: hidden;
+}
+
+/* Content past the tallest an inline frame may grow scrolls (see measure() in entry.tsx). */
+html[data-mode="inline"][data-capped] {
+    overflow-y: auto;
+}
+
+html[data-mode="inline"] :is(.h-screen, .h-dvh, .h-svh, .h-lvh) {
+    height: auto;
+}
+
+html[data-mode="inline"] :is(.min-h-screen, .min-h-dvh, .min-h-svh, .min-h-lvh) {
+    min-height: 0;
+}

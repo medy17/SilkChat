@@ -5,6 +5,7 @@ import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
 import { collectLinkDefinitions } from "@/lib/markdown-scan"
 import { parseRecipeBlock, splitRecipeContent, type RecipeContentSegment } from "@/lib/recipe"
+import { fenceCode, type SilkAppContentSegment, splitSilkAppContent } from "@/lib/silk-app/segments"
 import {
     MAX_VISUAL_SEARCHES,
     splitVisualContent,
@@ -12,7 +13,9 @@ import {
 } from "@/lib/visual-references"
 import { memo } from "react"
 import { Streamdown } from "streamdown"
+import { CodePreviewContext } from "./codeblock"
 import { RecipeCard } from "./recipe-card"
+import { SilkAppBlock, type SilkAppSourceProps } from "./silk-app/silk-app-block"
 import { VisualReferences } from "./visual-references"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
@@ -37,21 +40,50 @@ const looksLikeMath = (value: string) => {
     )
 }
 
-export const normalizeMarkdownMathDelimiters = (content: string) =>
-    content
+// Fenced blocks, closed or still streaming, and single-line inline code spans. A backtick
+// fence's info string can't hold a backtick, so "```js``` is…" stays inline code.
+const FENCED_CODE_PATTERN =
+    /(^|\n)( {0,3})(`{3,}|~{3,})(?:(?<=`)[^`\n]*|(?<=~)[^\n]*)(?:\n[\s\S]*?)?(?:\n {0,3}\3[`~]*[ \t]*(?=\n|$)|$)/g
+const INLINE_CODE_PATTERN = /(`+)[^`\n](?:[^\n]*?[^`\n])?\1(?!`)/g
+const CODE_PLACEHOLDER_PATTERN = /(\d+)/g
+
+// Dollar signs in code are code: a template literal such as `${a} to ${b}` would
+// otherwise read as inline math and come out as `$${a} to $${b}`.
+const protectCode = (content: string) => {
+    const held: string[] = []
+    const hold = (code: string) => `${held.push(code) - 1}`
+    const text = content
         .replace(
-            STANDALONE_DOUBLE_DOLLAR_PATTERN,
-            (_match, prefix: string, indent: string, expression: string) =>
-                `${prefix}${indent}$$\n${expression}\n${indent}$$`
+            FENCED_CODE_PATTERN,
+            (match, prefix: string) => `${prefix}${hold(match.slice(prefix.length))}`
         )
-        .replace(
-            SINGLE_DOLLAR_BLOCK_PATTERN,
-            (_match, prefix: string, indent: string, expression: string, suffix: string) =>
-                `${prefix}${indent}$$\n${expression}\n${indent}$$${suffix}`
-        )
-        .replace(SINGLE_DOLLAR_INLINE_PATTERN, (_match, prefix: string, expression: string) =>
-            looksLikeMath(expression) ? `${prefix}$$${expression}$$` : `${prefix}$${expression}$`
-        )
+        .replace(INLINE_CODE_PATTERN, (match) => hold(match))
+    const restore = (value: string) =>
+        value.replace(CODE_PLACEHOLDER_PATTERN, (_match, index: string) => held[Number(index)])
+    return { text, restore }
+}
+
+export const normalizeMarkdownMathDelimiters = (content: string) => {
+    const { text, restore } = protectCode(content)
+    return restore(
+        text
+            .replace(
+                STANDALONE_DOUBLE_DOLLAR_PATTERN,
+                (_match, prefix: string, indent: string, expression: string) =>
+                    `${prefix}${indent}$$\n${expression}\n${indent}$$`
+            )
+            .replace(
+                SINGLE_DOLLAR_BLOCK_PATTERN,
+                (_match, prefix: string, indent: string, expression: string, suffix: string) =>
+                    `${prefix}${indent}$$\n${expression}\n${indent}$$${suffix}`
+            )
+            .replace(SINGLE_DOLLAR_INLINE_PATTERN, (_match, prefix: string, expression: string) =>
+                looksLikeMath(expression)
+                    ? `${prefix}$$${expression}$$`
+                    : `${prefix}$${expression}$`
+            )
+    )
+}
 
 // Memoized so settled roleplay beats skip re-parsing while a later beat streams.
 const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimating: boolean }) => (
@@ -67,6 +99,12 @@ const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimat
     >
         {normalizeMarkdownMathDelimiters(content)}
     </Streamdown>
+))
+
+const SilkAppSource = memo(({ code, isStreaming }: SilkAppSourceProps) => (
+    <CodePreviewContext value={false}>
+        <MarkdownBody content={fenceCode(code, "tsx")} isAnimating={isStreaming} />
+    </CodePreviewContext>
 ))
 
 export const MemoizedMarkdown = memo(
@@ -97,7 +135,15 @@ export const MemoizedMarkdown = memo(
             .flatMap<RoleplaySegment | RecipeContentSegment>((segment) =>
                 segment.type === "roleplay" ? [segment] : splitRecipeContent(segment.content)
             )
-            .flatMap<RoleplaySegment | RecipeContentSegment | VisualContentSegment>((segment) =>
+            .flatMap<RoleplaySegment | RecipeContentSegment | SilkAppContentSegment>((segment) =>
+                segment.type === "markdown" ? splitSilkAppContent(segment.content) : [segment]
+            )
+            .flatMap<
+                | RoleplaySegment
+                | RecipeContentSegment
+                | SilkAppContentSegment
+                | VisualContentSegment
+            >((segment) =>
                 segment.type === "markdown"
                     ? splitVisualContent(segment.content, isAnimating)
                     : [segment]
@@ -112,9 +158,24 @@ export const MemoizedMarkdown = memo(
             return missing.length > 0 ? `${text}\n\n${missing.join("\n")}` : text
         }
 
+        // Apps are keyed by their order among the message's apps, which holds when a
+        // reply finishes or stops, so a running app is never remounted.
+        let appCount = 0
+
         return (
             <>
                 {segments.map((segment, index) => {
+                    if (segment.type === "silk-app") {
+                        return (
+                            <SilkAppBlock
+                                key={`silk-app-${appCount++}`}
+                                code={segment.code}
+                                isStreaming={!segment.complete && isAnimating}
+                                cutOff={!segment.complete && !isAnimating}
+                                source={SilkAppSource}
+                            />
+                        )
+                    }
                     if (segment.type === "roleplay") {
                         return (
                             <RoleplayScene

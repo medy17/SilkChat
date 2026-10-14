@@ -1,5 +1,6 @@
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart"
-import { type NativeChart, getBoundedNumericDomain } from "@/lib/native-chart"
+import { getBoundedNumericDomain } from "@/lib/chart-domain"
+import type { NativeChart } from "@/lib/native-chart"
 import { cn } from "@/lib/utils"
 import { type ReactElement, type ReactNode, useId, useLayoutEffect, useMemo, useState } from "react"
 import {
@@ -10,6 +11,7 @@ import {
     ComposedChart,
     LabelList,
     Line,
+    ReferenceLine,
     Scatter,
     ScatterChart,
     Tooltip,
@@ -280,6 +282,15 @@ export type ChartPlotStyle = {
     surface?: string
 }
 
+export type ChartAxisDomain = [number | "auto", number | "auto"]
+
+export type ChartReferenceLine = {
+    y: number
+    label?: string
+    axis?: "left" | "right"
+    color?: string
+}
+
 type ChartPlotProps = {
     chart: NativeChart
     plotStyle: ChartPlotStyle
@@ -288,7 +299,15 @@ type ChartPlotProps = {
     hiddenKeys?: ReadonlySet<string>
     focusKey?: string | null
     onActiveRowChange?: (row: ChartRow | null) => void
+    /** Series plotted against a second y axis on the right (line, area, and bar charts). */
+    rightAxisKeys?: ReadonlySet<string>
+    rightAxisLabel?: string
+    /** Minimum y ranges; data outside them still extends the axis. */
+    yDomains?: { left?: ChartAxisDomain; right?: ChartAxisDomain }
+    referenceLines?: readonly ChartReferenceLine[]
 }
+
+const RIGHT_AXIS_ID = "right"
 
 const tickStyle = (mono?: boolean) => ({
     fontSize: 11,
@@ -303,7 +322,11 @@ export function ChartPlot({
     className,
     hiddenKeys,
     focusKey,
-    onActiveRowChange
+    onActiveRowChange,
+    rightAxisKeys,
+    rightAxisLabel,
+    yDomains,
+    referenceLines
 }: ChartPlotProps) {
     const gradientPrefix = useId().replace(/:/g, "")
     const surface = plotStyle.surface ?? "var(--card)"
@@ -433,9 +456,68 @@ export function ChartPlot({
                 tick={tickStyle(plotStyle.mono)}
                 tickFormatter={formatValue}
                 label={yAxisLabel}
-                domain={chart.type === "scatter" ? ["auto", "auto"] : undefined}
+                domain={yDomains?.left ?? (chart.type === "scatter" ? ["auto", "auto"] : undefined)}
             />
         )
+
+    const hasRightAxis =
+        chart.type !== "scatter" &&
+        visibleSeries.some((series) => rightAxisKeys?.has(series.key)) &&
+        plotStyle.yAxis !== "right"
+    const axisFor = (key: string) =>
+        hasRightAxis && rightAxisKeys?.has(key) ? { yAxisId: RIGHT_AXIS_ID } : {}
+
+    const rightYAxis = hasRightAxis ? (
+        <YAxis
+            yAxisId={RIGHT_AXIS_ID}
+            type="number"
+            orientation="right"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={6}
+            width={rightAxisLabel ? 62 : 44}
+            tickCount={5}
+            tick={tickStyle(plotStyle.mono)}
+            tickFormatter={formatValue}
+            label={
+                rightAxisLabel
+                    ? {
+                          value: rightAxisLabel,
+                          angle: 90,
+                          position: "insideRight" as const,
+                          style: { ...tickStyle(plotStyle.mono), textAnchor: "middle" as const }
+                      }
+                    : undefined
+            }
+            domain={yDomains?.right}
+        />
+    ) : null
+
+    const references = referenceLines?.map((line) => {
+        const color = line.color ?? "var(--destructive)"
+        return (
+            <ReferenceLine
+                key={`${line.axis ?? "left"}-${line.y}-${line.label ?? ""}`}
+                y={line.y}
+                {...(line.axis === "right" && hasRightAxis ? { yAxisId: RIGHT_AXIS_ID } : {})}
+                stroke={color}
+                strokeOpacity={0.7}
+                strokeDasharray="4 4"
+                ifOverflow="extendDomain"
+                label={
+                    line.label
+                        ? {
+                              value: line.label,
+                              position: "insideTopRight",
+                              fill: color,
+                              fontSize: 11,
+                              fontWeight: 500
+                          }
+                        : undefined
+                }
+            />
+        )
+    })
 
     const cursor =
         plotStyle.cursor === "band"
@@ -506,6 +588,7 @@ export function ChartPlot({
                 {grid}
                 {xAxis}
                 {yAxis}
+                {references}
                 {tooltip}
                 {visibleSeries.map((series) => (
                     <Scatter
@@ -606,12 +689,15 @@ export function ChartPlot({
                         {grid}
                         {xAxis}
                         {yAxis}
+                        {rightYAxis}
+                        {references}
                     </>
                 )}
                 {tooltip}
                 {visibleSeries.map((series) => (
                     <Bar
                         key={series.key}
+                        {...(horizontal ? {} : axisFor(series.key))}
                         dataKey={series.key}
                         name={series.label}
                         fill={
@@ -656,6 +742,8 @@ export function ChartPlot({
                 {grid}
                 {xAxis}
                 {yAxis}
+                {rightYAxis}
+                {references}
                 {tooltip}
                 {visibleSeries.map((series) => {
                     const color = seriesColor(series.key)
@@ -666,6 +754,7 @@ export function ChartPlot({
                         return (
                             <Area
                                 key={series.key}
+                                {...axisFor(series.key)}
                                 type="monotone"
                                 dataKey={series.key}
                                 name={series.label}
@@ -698,6 +787,7 @@ export function ChartPlot({
                         plotStyle.lineShade ? (
                             <Area
                                 key={`${series.key}-shade`}
+                                {...axisFor(series.key)}
                                 type="monotone"
                                 dataKey={series.key}
                                 tooltipType="none"
@@ -711,6 +801,7 @@ export function ChartPlot({
                         ) : null,
                         <Line
                             key={series.key}
+                            {...axisFor(series.key)}
                             type="monotone"
                             dataKey={series.key}
                             name={series.label}

@@ -1,5 +1,5 @@
+import { getBoundedNumericDomain } from "@/lib/chart-domain"
 import {
-    getBoundedNumericDomain,
     getNativeChartFromToolOutput,
     nativeChartInputSchema,
     nativeChartSchema
