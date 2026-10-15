@@ -75,15 +75,20 @@ function ComparisonPage() {
     if (isLoading || (isAuthenticated && a && b && images === undefined)) {
         return (
             <main
-                className="flex h-dvh flex-col gap-6 bg-background p-5 sm:p-8"
+                className="flex h-dvh flex-col gap-3 bg-background p-3 sm:gap-4 sm:p-6 lg:p-4"
                 aria-label="Loading comparison"
                 aria-busy="true"
             >
-                <Skeleton className="h-10 w-52 rounded-[var(--radius-lg)]" />
-                <div className="grid min-h-0 flex-1 grid-cols-2 gap-5">
+                {/* Mirrors the workspace: tabs + details, stacked panes on mobile, toolbar pill. */}
+                <div className="flex shrink-0 items-center justify-between gap-3">
+                    <Skeleton className="h-9 w-44 rounded-[var(--radius-md)]" />
+                    <Skeleton className="h-9 w-9 rounded-[var(--radius-md)] sm:w-24" />
+                </div>
+                <div className="grid min-h-0 flex-1 grid-rows-2 gap-3 md:grid-cols-2 md:grid-rows-1 md:gap-5">
                     <Skeleton className="rounded-[var(--radius-xl)]" />
                     <Skeleton className="rounded-[var(--radius-xl)]" />
                 </div>
+                <Skeleton className="h-12 w-28 shrink-0 self-center rounded-[var(--radius-xl)]" />
             </main>
         )
     }
