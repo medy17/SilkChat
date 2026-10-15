@@ -46,5 +46,5 @@ export const playResponseCompleteHaptic = () => {
 }
 
 export const playExpandedImageDismissHaptic = () => {
-    playHapticPattern("light")
+    playHapticPattern("rigid")
 }

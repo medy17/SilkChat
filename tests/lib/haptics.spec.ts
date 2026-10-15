@@ -40,7 +40,7 @@ describe("haptics", () => {
             ["trigger", RESPONSE_START_PATTERN],
             ["cancel"],
             ["trigger", RESPONSE_COMPLETE_PATTERN],
-            ["trigger", "light"]
+            ["trigger", "rigid"]
         ])
     })
 

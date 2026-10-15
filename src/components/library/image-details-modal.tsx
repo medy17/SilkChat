@@ -66,6 +66,7 @@ import {
     X
 } from "lucide-react"
 import {
+    type CSSProperties,
     type TouchEvent as ReactTouchEvent,
     memo,
     useEffect,
@@ -73,6 +74,7 @@ import {
     useRef,
     useState
 } from "react"
+import { flushSync } from "react-dom"
 
 interface ImageDetailsModalProps {
     image: Doc<"generatedImages"> | null
@@ -100,16 +102,25 @@ const DESKTOP_INFO_PANEL_MIN_HEIGHT = 480
 const DESKTOP_MAX_IMAGE_HEIGHT = 920
 const MOBILE_HORIZONTAL_CHROME = 32
 const MOBILE_FULLSCREEN_IMAGE_CHROME = 136
-const MOBILE_PREVIEW_TOP_OFFSET = 88
+const MOBILE_PREVIEW_TOP_GAP = 8
 const MOBILE_PREVIEW_GAP_ABOVE_DRAWER = 24
 const MOBILE_PREVIEW_MIN_HEIGHT = 180
-const MOBILE_BOTTOM_ACTION_SAFE_SPACE = 16
 const MOBILE_DRAWER_HANDLE_HEIGHT = 24
 const MOBILE_DETAILS_DRAWER_MAX_HEIGHT = 420
-const MOBILE_DETAILS_TRANSITION_MS = 280
-const MOBILE_SWIPE_CLOSE_THRESHOLD = 110
+// Vaul's drawer transition, so the image and the details drawer move as one.
+const MOBILE_DRAWER_DURATION_MS = 500
+const MOBILE_DRAWER_EASING = `${MOBILE_DRAWER_DURATION_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
+const MOBILE_IMAGE_TRANSITION = `transform ${MOBILE_DRAWER_EASING}, border-radius ${MOBILE_DRAWER_EASING}`
+// Vaul's release rules: close past a quarter of the dragged element's height,
+// or when the whole gesture averaged faster than 0.4px/ms.
+const MOBILE_SWIPE_CLOSE_THRESHOLD_RATIO = 0.25
+const MOBILE_SWIPE_VELOCITY_THRESHOLD = 0.4
 const MOBILE_SWIPE_TAP_SLOP = 10
-const MOBILE_SWIPE_MAX_OFFSET = 220
+
+// Vaul's rubber band for dragging against the dismiss direction.
+function dampenSwipeDistance(distance: number) {
+    return 8 * (Math.log(distance + 1) - 2)
+}
 const DESKTOP_NAV_BUTTON_SPACE = 176
 const loadedDetailImageUrls = new Set<string>()
 
@@ -181,7 +192,6 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-    const [isDetailsPreviewVisible, setIsDetailsPreviewVisible] = useState(false)
     const [imageRecoveryPhase, setImageRecoveryPhase] = useState<"primary" | "fallback">("primary")
     const [viewportSize, setViewportSize] = useState(() =>
         typeof window === "undefined"
@@ -192,12 +202,22 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     // the layout math below (768–1099px used to render desktop chrome with
     // mobile sizing).
     const isMobile = viewportSize.width < DESKTOP_BREAKPOINT
-    const [mobileDrawerTop, setMobileDrawerTop] = useState<number | null>(null)
     const [mobileDismissOffset, setMobileDismissOffset] = useState(0)
-    const mobileDrawerRef = useRef<HTMLDivElement | null>(null)
+    const [isSwipeDragging, setIsSwipeDragging] = useState(false)
+    const [isSwipeDismissing, setIsSwipeDismissing] = useState(false)
+    const swipeCloseTimeoutRef = useRef<number | null>(null)
+    const mobileSwipeStartTimeRef = useRef(0)
+    // Callback-ref elements: both live in portals that mount after this component commits.
+    const [mobileStageElement, setMobileStageElement] = useState<HTMLDivElement | null>(null)
+    const [mobileDrawerElement, setMobileDrawerElement] = useState<HTMLDivElement | null>(null)
+    const [mobileStageRect, setMobileStageRect] = useState<{ top: number; height: number } | null>(
+        null
+    )
+    const [mobileDrawerHeight, setMobileDrawerHeight] = useState<number | null>(null)
+    const mobileImageRef = useRef<HTMLButtonElement | null>(null)
     const mobileSwipeStartYRef = useRef<number | null>(null)
     const mobileSwipeTrackingRef = useRef(false)
-    const mobileSwipeBottomHapticPlayedRef = useRef(false)
+    const mobileSwipeUnlockHapticPlayedRef = useRef(false)
     const suppressImageClickRef = useRef(false)
 
     useEffect(() => {
@@ -324,7 +344,6 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 imageHeight,
                 infoHeight,
                 mobileFullscreenImage: { width: imageWidth, height: imageHeight },
-                mobilePreviewImage: { width: imageWidth, height: imageHeight },
                 mobileDetailsMaxHeight: 0,
                 infoWidth: DESKTOP_INFO_PANEL_WIDTH,
                 shellWidth: imageWidth + DESKTOP_GAP + DESKTOP_INFO_PANEL_WIDTH
@@ -340,24 +359,6 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             MOBILE_DETAILS_DRAWER_MAX_HEIGHT,
             viewportSize.height * 0.54
         )
-        const fallbackDrawerTop =
-            viewportSize.height - mobileDetailsMaxHeight - MOBILE_DRAWER_HANDLE_HEIGHT
-        const resolvedDrawerTop =
-            mobileDrawerTop === null
-                ? fallbackDrawerTop
-                : Math.min(mobileDrawerTop, fallbackDrawerTop)
-        const mobilePreviewMaxHeight = Math.max(
-            MOBILE_PREVIEW_MIN_HEIGHT,
-            resolvedDrawerTop -
-                MOBILE_PREVIEW_TOP_OFFSET -
-                MOBILE_PREVIEW_GAP_ABOVE_DRAWER -
-                MOBILE_BOTTOM_ACTION_SAFE_SPACE
-        )
-        const previewImage = fitImageAspectRatioBox({
-            aspectRatioValue,
-            maxWidth: Math.max(220, viewportSize.width - MOBILE_HORIZONTAL_CHROME),
-            maxHeight: mobilePreviewMaxHeight
-        })
 
         return {
             isDesktop: false,
@@ -365,13 +366,74 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             imageHeight: fullscreenImage.height,
             infoHeight: fullscreenImage.height,
             mobileFullscreenImage: fullscreenImage,
-            mobilePreviewImage: previewImage,
             mobileDetailsMaxHeight,
-            mobileDrawerTop: resolvedDrawerTop,
             infoWidth: fullscreenImage.width,
             shellWidth: fullscreenImage.width
         }
-    }, [aspectRatioValue, mobileDrawerTop, viewportSize.height, viewportSize.width])
+    }, [aspectRatioValue, viewportSize.height, viewportSize.width])
+
+    // With details open, the image shrinks into the space between the close
+    // button and the drawer. It is expressed as a transform from the fullscreen
+    // pose so it can ride the drawer's own easing instead of re-laying out.
+    const mobileDetailsPose = useMemo(() => {
+        if (!mobileStageRect) return { scale: 1, translateY: 0 }
+
+        const drawerHeight =
+            mobileDrawerHeight ?? layout.mobileDetailsMaxHeight + MOBILE_DRAWER_HANDLE_HEIGHT
+        const regionTop = mobileStageRect.top + MOBILE_PREVIEW_TOP_GAP
+        const regionBottom = viewportSize.height - drawerHeight - MOBILE_PREVIEW_GAP_ABOVE_DRAWER
+        const previewImage = fitImageAspectRatioBox({
+            aspectRatioValue,
+            maxWidth: Math.max(220, viewportSize.width - MOBILE_HORIZONTAL_CHROME),
+            maxHeight: Math.max(MOBILE_PREVIEW_MIN_HEIGHT, regionBottom - regionTop)
+        })
+
+        return {
+            scale: Math.min(1, previewImage.width / layout.mobileFullscreenImage.width),
+            translateY:
+                (regionTop + regionBottom) / 2 - (mobileStageRect.top + mobileStageRect.height / 2)
+        }
+    }, [
+        aspectRatioValue,
+        layout.mobileDetailsMaxHeight,
+        layout.mobileFullscreenImage.width,
+        mobileDrawerHeight,
+        mobileStageRect,
+        viewportSize.height,
+        viewportSize.width
+    ])
+
+    // progress: 0 = fullscreen, 1 = resting above the open drawer.
+    const getMobileImagePose = (progress: number, dismissOffset = 0) => {
+        const scale = 1 + (mobileDetailsPose.scale - 1) * progress
+        return {
+            transform: `translate3d(0, ${mobileDetailsPose.translateY * progress + dismissOffset}px, 0) scale(${scale})`,
+            // Counter-scaled so the corners stay at the theme radius while shrunk.
+            borderRadius: `calc(var(--radius-xl) / ${scale})`
+        }
+    }
+
+    // Vaul drives its drag imperatively, so mirror it on the DOM node rather
+    // than re-rendering the whole viewer on every pointer move.
+    const handleDetailsDrawerDrag = (_event: unknown, percentageDragged: number) => {
+        const element = mobileImageRef.current
+        if (!element) return
+
+        const pose = getMobileImagePose(1 - Math.min(1, Math.max(0, percentageDragged)))
+        element.style.transition = "none"
+        element.style.transform = pose.transform
+        element.style.borderRadius = pose.borderRadius
+    }
+
+    const handleDetailsDrawerRelease = (_event: unknown, open: boolean) => {
+        const element = mobileImageRef.current
+        if (!element) return
+
+        const pose = getMobileImagePose(open ? 1 : 0)
+        element.style.transition = MOBILE_IMAGE_TRANSITION
+        element.style.transform = pose.transform
+        element.style.borderRadius = pose.borderRadius
+    }
 
     const showDesktopNavButtons =
         layout.isDesktop &&
@@ -413,25 +475,24 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         onClose()
     }
 
-    const openDetailsDrawer = () => {
-        setIsDetailsPreviewVisible(true)
-        setMobileDrawerTop(layout.mobileDrawerTop ?? null)
-        window.requestAnimationFrame(() => {
-            setIsDetailsOpen(true)
-        })
-    }
+    // Swipe-to-dismiss mirrors vaul's drawer gesture: 1:1 tracking downward,
+    // a log rubber band upward, and on release close if the whole gesture was
+    // fast enough or dragged past a quarter of the image's height.
+    const mobileSwipeCloseThreshold =
+        layout.mobileFullscreenImage.height * MOBILE_SWIPE_CLOSE_THRESHOLD_RATIO
 
     const handleMobileImageTouchStart = (event: ReactTouchEvent<HTMLButtonElement>) => {
-        if (isDetailsOpen || isDetailsPreviewVisible || event.touches.length !== 1) {
+        if (isDetailsOpen || isSwipeDismissing || event.touches.length !== 1) {
             mobileSwipeStartYRef.current = null
             mobileSwipeTrackingRef.current = false
-            mobileSwipeBottomHapticPlayedRef.current = false
+            mobileSwipeUnlockHapticPlayedRef.current = false
             return
         }
 
         mobileSwipeStartYRef.current = event.touches[0]?.clientY ?? null
+        mobileSwipeStartTimeRef.current = performance.now()
         mobileSwipeTrackingRef.current = true
-        mobileSwipeBottomHapticPlayedRef.current = false
+        mobileSwipeUnlockHapticPlayedRef.current = false
         suppressImageClickRef.current = false
     }
 
@@ -445,31 +506,49 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             return
         }
 
-        const offset = Math.max(
-            0,
-            Math.min(MOBILE_SWIPE_MAX_OFFSET, currentY - mobileSwipeStartYRef.current)
-        )
+        const draggedDistance = currentY - mobileSwipeStartYRef.current
+        const offset =
+            draggedDistance >= 0
+                ? draggedDistance
+                : Math.min(dampenSwipeDistance(-draggedDistance) * -1, 0)
+        setIsSwipeDragging(true)
         setMobileDismissOffset(offset)
 
-        if (offset === MOBILE_SWIPE_MAX_OFFSET && !mobileSwipeBottomHapticPlayedRef.current) {
-            mobileSwipeBottomHapticPlayedRef.current = true
+        // "Unlock" tick the moment letting go would close; re-arms if the
+        // finger backs off above the threshold.
+        const isPastCloseThreshold = offset >= mobileSwipeCloseThreshold
+        if (isPastCloseThreshold && !mobileSwipeUnlockHapticPlayedRef.current) {
             playExpandedImageDismissHaptic()
         }
+        mobileSwipeUnlockHapticPlayedRef.current = isPastCloseThreshold
 
-        if (offset > MOBILE_SWIPE_TAP_SLOP) {
+        if (Math.abs(draggedDistance) > MOBILE_SWIPE_TAP_SLOP) {
             suppressImageClickRef.current = true
         }
     }
 
     const handleMobileImageTouchEnd = () => {
+        if (!mobileSwipeTrackingRef.current) return
+
+        const elapsed = performance.now() - mobileSwipeStartTimeRef.current
         mobileSwipeTrackingRef.current = false
         mobileSwipeStartYRef.current = null
-        mobileSwipeBottomHapticPlayedRef.current = false
+        mobileSwipeUnlockHapticPlayedRef.current = false
+        setIsSwipeDragging(false)
 
-        if (mobileDismissOffset >= MOBILE_SWIPE_CLOSE_THRESHOLD) {
-            setMobileDismissOffset(0)
-            playExpandedImageDismissHaptic()
-            onClose()
+        const offset = mobileDismissOffset
+        const velocity = offset / Math.max(1, elapsed)
+        // The tap slop keeps a jittery tap (which toggles private viewing) from
+        // reading as a fast flick.
+        if (
+            offset > MOBILE_SWIPE_TAP_SLOP &&
+            (velocity > MOBILE_SWIPE_VELOCITY_THRESHOLD || offset >= mobileSwipeCloseThreshold)
+        ) {
+            // Slide out and fade the backdrop together on the drawer easing,
+            // then close once the motion has finished.
+            setIsSwipeDismissing(true)
+            setMobileDismissOffset(viewportSize.height)
+            swipeCloseTimeoutRef.current = window.setTimeout(onClose, MOBILE_DRAWER_DURATION_MS)
             return
         }
 
@@ -485,61 +564,66 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     useEffect(() => {
         if (!isOpen) {
             setIsDetailsOpen(false)
-            setIsDetailsPreviewVisible(false)
-            setMobileDrawerTop(null)
-            setMobileDismissOffset(0)
+            return
         }
+
+        // Reset on open rather than close, so a swipe exit isn't yanked back mid-motion.
+        setIsSwipeDismissing(false)
+        setIsSwipeDragging(false)
+        setMobileDismissOffset(0)
     }, [isOpen])
+
+    useEffect(
+        () => () => {
+            if (swipeCloseTimeoutRef.current !== null) {
+                window.clearTimeout(swipeCloseTimeoutRef.current)
+            }
+        },
+        []
+    )
 
     useEffect(() => {
         setIsDetailsOpen(false)
-        setIsDetailsPreviewVisible(false)
-        setMobileDrawerTop(null)
         setMobileDismissOffset(0)
     }, [localImage?._id])
 
     useEffect(() => {
-        if (isDetailsPreviewVisible || isDetailsOpen) {
+        if (isDetailsOpen) {
             setMobileDismissOffset(0)
         }
-    }, [isDetailsOpen, isDetailsPreviewVisible])
+    }, [isDetailsOpen])
 
+    // offsetTop/offsetHeight ignore the dialog's zoom-in transform, unlike getBoundingClientRect.
     useEffect(() => {
-        if (isDetailsOpen || !isDetailsPreviewVisible) return
+        if (!mobileStageElement) return
 
-        const timeoutId = window.setTimeout(() => {
-            setIsDetailsPreviewVisible(false)
-            setMobileDrawerTop(null)
-        }, MOBILE_DETAILS_TRANSITION_MS)
+        const update = () => {
+            const top = mobileStageElement.offsetTop
+            const height = mobileStageElement.offsetHeight
+            setMobileStageRect((current) =>
+                current?.top === top && current.height === height ? current : { top, height }
+            )
+        }
 
-        return () => window.clearTimeout(timeoutId)
-    }, [isDetailsOpen, isDetailsPreviewVisible])
+        update()
+        const observer = new ResizeObserver(update)
+        observer.observe(mobileStageElement)
+        return () => observer.disconnect()
+    }, [mobileStageElement])
 
+    // The drawer's real height decides where the image settles. Flushed
+    // synchronously so the image's target is corrected before the first frame
+    // paints, rather than retargeting mid-animation.
     useEffect(() => {
-        if (!isMobile || !isOpen || !isDetailsOpen || typeof window === "undefined") {
-            setMobileDrawerTop(null)
-            return
-        }
+        if (!mobileDrawerElement) return
 
-        let frameId = 0
-        let previousTop = -1
-
-        const updateDrawerTop = () => {
-            const nextTop = mobileDrawerRef.current?.getBoundingClientRect().top ?? null
-            if (nextTop !== null && Math.abs(nextTop - previousTop) > 0.5) {
-                previousTop = nextTop
-                setMobileDrawerTop(nextTop)
-            }
-
-            frameId = window.requestAnimationFrame(updateDrawerTop)
-        }
-
-        frameId = window.requestAnimationFrame(updateDrawerTop)
-
-        return () => {
-            window.cancelAnimationFrame(frameId)
-        }
-    }, [isDetailsOpen, isMobile, isOpen])
+        const observer = new ResizeObserver(() => {
+            const height = mobileDrawerElement.offsetHeight
+            if (height > 0) flushSync(() => setMobileDrawerHeight(height))
+        })
+        observer.observe(mobileDrawerElement)
+        return () => observer.disconnect()
+    }, [mobileDrawerElement])
 
     useEffect(() => {
         if (!isOpen || isMobile) return
@@ -640,14 +724,39 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     )
 
     if (isMobile) {
-        const isDetailsExpanded = isDetailsPreviewVisible || isDetailsOpen
+        const mobileImagePose = getMobileImagePose(isDetailsOpen ? 1 : 0, mobileDismissOffset)
+        // Everything riding the swipe tracks the finger 1:1 while dragging, then
+        // settles (back or out) on the drawer easing, like vaul.
+        const swipeTransformTransition = isSwipeDragging
+            ? "transform 0s"
+            : `transform ${MOBILE_DRAWER_EASING}`
+        // Backdrop fades with drag progress, as vaul's overlay does.
+        const swipeBackdropOpacity = isSwipeDismissing
+            ? 0
+            : 1 -
+              Math.min(1, Math.max(0, mobileDismissOffset / layout.mobileFullscreenImage.height))
+        const swipeBackdropStyle: CSSProperties = {
+            opacity: swipeBackdropOpacity,
+            transition: isSwipeDragging ? "none" : `opacity ${MOBILE_DRAWER_EASING}`
+        }
 
         return (
             <Dialog open={isOpen} onOpenChange={(open) => !open && closeMobileDetailsOrViewer()}>
                 <DialogContent
                     showCloseButton={false}
-                    overlayClassName="bg-black/92 backdrop-blur-md"
-                    className="pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+                    // A swipe close has already animated everything out by the time
+                    // the dialog closes, so skip the dialog's own exit.
+                    overlayClassName={cn(
+                        "bg-black/92 backdrop-blur-md",
+                        isSwipeDismissing && "data-[state=closed]:animate-none"
+                    )}
+                    overlayStyle={swipeBackdropStyle}
+                    className={cn(
+                        "pointer-events-none inset-0 z-[70] h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none",
+                        isSwipeDismissing
+                            ? "data-[state=closed]:animate-none"
+                            : "data-[state=closed]:duration-100"
+                    )}
                     onInteractOutside={(event) => {
                         event.preventDefault()
                         closeMobileDetailsOrViewer()
@@ -659,13 +768,11 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         }
                     }}
                 >
-                    <div
-                        className="pointer-events-none relative h-full w-full transition-opacity duration-200 ease-out"
-                        style={{
-                            opacity: Math.max(0.6, 1 - mobileDismissOffset / 260)
-                        }}
-                    >
-                        <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4 left-4 z-20 flex items-center justify-end">
+                    <div className="pointer-events-none relative h-full w-full">
+                        <div
+                            className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4 left-4 z-20 flex items-center justify-end"
+                            style={swipeBackdropStyle}
+                        >
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -679,33 +786,24 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         </div>
 
                         <div
-                            className={cn(
-                                "absolute inset-x-0 transition-[top,bottom] duration-300 ease-out",
-                                isDetailsExpanded
-                                    ? "top-[calc(env(safe-area-inset-top)+4.5rem)]"
-                                    : "top-[calc(env(safe-area-inset-top)+4rem)] bottom-[calc(env(safe-area-inset-bottom)+4.5rem)]"
-                            )}
+                            ref={setMobileStageElement}
+                            className="absolute inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] bottom-[calc(env(safe-area-inset-bottom)+4.5rem)]"
                         >
-                            <div
-                                className={cn(
-                                    "flex h-full w-full justify-center px-4 transition-[align-items] duration-300 ease-out",
-                                    isDetailsExpanded ? "items-start" : "items-center"
-                                )}
-                            >
+                            <div className="flex h-full w-full items-center justify-center px-4">
                                 <button
+                                    ref={mobileImageRef}
                                     type="button"
-                                    className="pointer-events-auto relative flex items-center justify-center overflow-hidden rounded-[var(--radius-xl)] outline-none transition-[width,height,transform] duration-300 ease-out focus-visible:ring-2 focus-visible:ring-primary"
+                                    className="pointer-events-auto relative flex items-center justify-center overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                     style={{
-                                        width: isDetailsExpanded
-                                            ? layout.mobilePreviewImage.width
-                                            : layout.mobileFullscreenImage.width,
-                                        height: isDetailsExpanded
-                                            ? layout.mobilePreviewImage.height
-                                            : layout.mobileFullscreenImage.height,
+                                        width: layout.mobileFullscreenImage.width,
+                                        height: layout.mobileFullscreenImage.height,
                                         maxWidth: "100%",
                                         maxHeight: "100%",
-                                        willChange: "width, height, transform",
-                                        transform: `translateY(${mobileDismissOffset}px)`
+                                        willChange: "transform",
+                                        // Follow the finger directly during swipe-to-dismiss.
+                                        transition: `${swipeTransformTransition}, border-radius ${MOBILE_DRAWER_EASING}`,
+                                        transform: mobileImagePose.transform,
+                                        borderRadius: mobileImagePose.borderRadius
                                     }}
                                     onClick={handleToggleImageVisibility}
                                     onTouchStart={handleMobileImageTouchStart}
@@ -727,7 +825,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                         src={renderedImageUrl}
                                         alt={localImage.prompt || "Generated Image"}
                                         className={cn(
-                                            "h-full w-full rounded-[var(--radius-xl)] object-contain shadow-2xl transition-all duration-500",
+                                            "h-full w-full rounded-[inherit] object-contain shadow-2xl transition-all duration-500",
                                             getTransparentBackdropClassName(
                                                 localImage,
                                                 transparentBackdrop
@@ -745,7 +843,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                     />
                                     {isImageHidden && (
                                         <>
-                                            <div className="pointer-events-none absolute inset-0 z-20 rounded-[var(--radius-xl)] bg-black/20 backdrop-blur-xl" />
+                                            <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-black/20 backdrop-blur-xl" />
                                             <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-foreground text-sm shadow-lg backdrop-blur-md">
                                                 Private viewing enabled
                                             </div>
@@ -755,27 +853,39 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                             </div>
                         </div>
 
-                        {!isDetailsExpanded && (
-                            <div className="pointer-events-none absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-20 flex justify-center">
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    className="pointer-events-auto h-9 rounded-[var(--radius-xl)] border border-border/70 bg-background/80 px-4 text-foreground text-sm shadow-lg backdrop-blur-md transition-all hover:bg-background"
-                                    onClick={openDetailsDrawer}
-                                >
-                                    View Details
-                                </Button>
-                            </div>
-                        )}
+                        <div
+                            className="pointer-events-none absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-20 flex justify-center"
+                            style={{
+                                opacity: isDetailsOpen ? 0 : 1,
+                                transform: `translate3d(0, ${mobileDismissOffset}px, 0)`,
+                                transition: `opacity 200ms ease, ${swipeTransformTransition}`
+                            }}
+                        >
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className={cn(
+                                    "h-9 rounded-[var(--radius-xl)] border border-border/70 bg-background/80 px-4 text-foreground text-sm shadow-lg backdrop-blur-md transition-all hover:bg-background",
+                                    !isDetailsOpen && "pointer-events-auto"
+                                )}
+                                tabIndex={isDetailsOpen ? -1 : undefined}
+                                aria-hidden={isDetailsOpen || undefined}
+                                onClick={() => setIsDetailsOpen(true)}
+                            >
+                                View Details
+                            </Button>
+                        </div>
 
                         <Drawer
                             open={isDetailsOpen}
                             onOpenChange={setIsDetailsOpen}
+                            onDrag={handleDetailsDrawerDrag}
+                            onRelease={handleDetailsDrawerRelease}
                             nested
                             modal={false}
                         >
                             <DrawerContent
-                                ref={mobileDrawerRef}
+                                ref={setMobileDrawerElement}
                                 className="z-[80] max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background/98 backdrop-blur-xl"
                                 overlayClassName="z-[79] bg-transparent"
                                 onInteractOutside={(event) => {
@@ -915,7 +1025,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             <DialogContent
                 showCloseButton={false}
                 overlayClassName="backdrop-blur-md"
-                className="w-fit max-w-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+                className="w-fit max-w-none border-0 bg-transparent p-0 shadow-none data-[state=closed]:duration-100 sm:max-w-none"
             >
                 <DialogHeader className="sr-only">
                     <DialogTitle>Image Details</DialogTitle>
