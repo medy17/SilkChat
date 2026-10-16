@@ -1329,12 +1329,12 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                             </button>
 
                                             {isSelected && (
-                                                <div className="mt-2 space-y-1">
-                                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                <div className="mt-1 border-primary/10 border-t pt-1">
+                                                    <div className="flex items-center justify-between gap-2 px-1 py-2">
                                                         <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                             Variants
                                                         </span>
-                                                        <div className="flex items-center gap-1">
+                                                        <div className="inline-flex h-7 items-center rounded-[var(--radius-md)] bg-black/5 p-[3px] dark:bg-black/20">
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
@@ -1347,11 +1347,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                     modelPlanLocked ||
                                                                     modelCount <= 1
                                                                 }
-                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="flex h-full w-6 items-center justify-center rounded-[var(--radius-sm)] text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-input/30"
                                                             >
                                                                 <Minus className="h-3 w-3" />
                                                             </button>
-                                                            <span className="min-w-8 text-center font-medium text-foreground text-xs">
+                                                            <span className="min-w-7 text-center font-medium text-foreground text-xs tabular-nums">
                                                                 {modelCount}
                                                             </span>
                                                             <button
@@ -1365,7 +1365,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                 disabled={
                                                                     modelPlanLocked || !canIncrement
                                                                 }
-                                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="flex h-full w-6 items-center justify-center rounded-[var(--radius-sm)] text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-input/30"
                                                             >
                                                                 <Plus className="h-3 w-3" />
                                                             </button>
@@ -1375,7 +1375,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                         Boolean(
                                                             model.supportedImageQualities?.length
                                                         ) && (
-                                                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                            <div className="flex flex-col gap-2 px-1 py-2">
                                                                 <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                                     Quality
                                                                 </span>
@@ -1398,7 +1398,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                     }}
                                                                 >
                                                                     <TabsList
-                                                                        className="h-7"
+                                                                        className="h-7 w-full"
                                                                         aria-label={`${model.name} quality`}
                                                                     >
                                                                         {model.supportedImageQualities?.map(
@@ -1417,7 +1417,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                             </div>
                                                         )}
                                                     {model.supportsTransparentBackground && (
-                                                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/10 bg-background/40 px-2 py-1.5">
+                                                        <div className="flex flex-col gap-2 px-1 py-2">
                                                             <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
                                                                 Background
                                                             </span>
@@ -1437,7 +1437,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                 }
                                                             >
                                                                 <TabsList
-                                                                    className="h-7"
+                                                                    className="h-7 w-full"
                                                                     aria-label={`${model.name} background`}
                                                                 >
                                                                     <TabsTrigger
