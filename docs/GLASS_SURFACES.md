@@ -71,6 +71,10 @@ a code block.
   `bg-popover`, which paints a solid block over the glass.
 - Recipes tint from `--background` (`--popover` for `glass-popover`). Add `glass-sidebar` when the
   chrome floats over the sidebar.
+- A page that needs desktop toolbar controls portals them into the header bar's slot
+  (`useHeaderToolbarSlotStore`) instead of adding a second bar. The bar is a size container
+  (`@container/app-header-bar`), so labels drop by its width rather than the viewport. See the
+  library page.
 - Overlays that should not dim or blur, such as a drawer stacked inside a viewer, pass
   `bg-transparent backdrop-filter-none`. Media viewers that need a dark stage override the scrim
   background only.

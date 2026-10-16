@@ -4,12 +4,6 @@ import { useGenerationStore } from "@/components/library/generation-store"
 import { getImageComparisonUrl } from "@/lib/image-comparison-search"
 import { ImageDetailsModal } from "@/components/library/image-details-modal"
 import { usePrivateViewingStore } from "@/components/library/private-viewing-store"
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger
-} from "@/components/ui/accordion"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
     AlertDialog,
@@ -23,6 +17,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList
+} from "@/components/ui/command"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -41,6 +43,7 @@ import {
 } from "@/components/ui/drawer"
 import { ImageSkeleton } from "@/components/ui/image-skeleton"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     Select,
@@ -49,14 +52,15 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select"
-import { useSidebar } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { useHeaderToolbarSlotStore } from "@/lib/header-toolbar-slot"
 import {
     type GeneratedImageFilters,
     type GeneratedImageOrientation,
@@ -100,6 +104,7 @@ import {
     ArrowRight,
     Check,
     CheckSquare2,
+    ChevronsUpDown,
     Clipboard,
     Copy,
     Download,
@@ -111,14 +116,18 @@ import {
     ImageOff,
     Images,
     LoaderCircle,
+    RectangleHorizontal,
+    RectangleVertical,
     RotateCcw,
     Search,
+    Square,
     SquareMinus,
     Trash2,
     X
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/_chat/library")({
@@ -327,67 +336,144 @@ const MobileCheckboxFilter = ({
     </MobileFilterSection>
 )
 
-const DesktopCheckboxFilter = ({
-    value,
-    title,
+const DesktopFilterField = ({ label, children }: { label: string; children: ReactNode }) => (
+    <div className="space-y-2">
+        <div className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+            {label}
+        </div>
+        {children}
+    </div>
+)
+
+// Multi-select segmented track for short option sets. Wraps into rows past six.
+const DesktopFilterSegments = ({
+    label,
+    selectedValues,
+    options,
+    onToggleValue
+}: {
+    label: string
+    selectedValues: string[]
+    options: Array<{ value: string; label: string; icon?: ReactNode }>
+    onToggleValue: (value: string) => void
+}) => (
+    <DesktopFilterField label={label}>
+        {options.length > 0 ? (
+            <div
+                role="group"
+                aria-label={label}
+                className="grid gap-[3px] rounded-[var(--radius-md)] bg-black/5 p-[3px] dark:bg-black/20"
+                style={{
+                    gridTemplateColumns: `repeat(${Math.min(options.length, 6)}, minmax(0, 1fr))`
+                }}
+            >
+                {options.map((option) => {
+                    const isSelected = selectedValues.includes(option.value)
+                    return (
+                        <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => onToggleValue(option.value)}
+                            className={cn(
+                                "flex h-7 min-w-0 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] border px-2 text-xs transition-colors [&_svg]:size-3.5 [&_svg]:shrink-0",
+                                isSelected
+                                    ? "border-transparent bg-background text-foreground shadow-xs dark:border-input/50 dark:bg-input/30"
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            {option.icon}
+                            <span className="truncate">{option.label}</span>
+                        </button>
+                    )
+                })}
+            </div>
+        ) : (
+            <p className="text-muted-foreground text-xs">None yet</p>
+        )}
+    </DesktopFilterField>
+)
+
+// Searchable multi-select for the one long option set.
+const DesktopModelFilter = ({
     selectedValues,
     options,
     onToggleValue,
     onClear
 }: {
-    value: string
-    title: string
     selectedValues: string[]
     options: Array<{ value: string; label: string }>
     onToggleValue: (value: string) => void
     onClear: () => void
-}) => (
-    <AccordionItem value={value} className="relative border-border/60">
-        <AccordionTrigger className="pr-20 text-sm hover:text-foreground hover:no-underline [&>svg]:absolute [&>svg]:top-4 [&>svg]:right-0">
-            <span className="flex items-center gap-2">
-                <span>{title}</span>
-                {selectedValues.length > 0 && (
-                    <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
-                        {selectedValues.length}
-                    </span>
-                )}
-            </span>
-        </AccordionTrigger>
-        {selectedValues.length > 0 && (
-            <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute top-2.5 right-7 z-10 h-8 px-2 text-muted-foreground"
-                onClick={onClear}
-            >
-                Clear
-            </Button>
-        )}
-        <AccordionContent>
-            {options.length > 0 ? (
-                <div className="grid max-h-64 gap-1 overflow-y-auto pr-1">
-                    {options.map((option) => (
-                        <label
-                            key={option.value}
-                            htmlFor={`desktop-${value}-${option.value}`}
-                            className="flex min-h-10 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 text-sm transition-colors hover:bg-muted/60 has-[[data-state=checked]]:bg-muted/60"
-                        >
-                            <Checkbox
-                                id={`desktop-${value}-${option.value}`}
-                                checked={selectedValues.includes(option.value)}
-                                onCheckedChange={() => onToggleValue(option.value)}
-                            />
-                            <span className="min-w-0 break-words">{option.label}</span>
-                        </label>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-muted-foreground text-sm">No options available.</p>
-            )}
-        </AccordionContent>
-    </AccordionItem>
-)
+}) => {
+    const selectedLabels = selectedValues.map(
+        (value) => options.find((option) => option.value === value)?.label ?? value
+    )
+    const summary =
+        selectedLabels.length === 0
+            ? "Any model"
+            : selectedLabels.length === 1
+              ? selectedLabels[0]
+              : `${selectedLabels[0]} +${selectedLabels.length - 1}`
+
+    return (
+        <DesktopFilterField label="Model">
+            <Popover>
+                <PopoverTrigger asChild>
+                    <button
+                        type="button"
+                        className={cn(
+                            "flex h-8 w-full items-center justify-between gap-2 rounded-[var(--radius-md)] border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-accent/50 dark:bg-input/30 dark:hover:bg-input/50",
+                            selectedLabels.length === 0 && "text-muted-foreground"
+                        )}
+                    >
+                        <span className="truncate">{summary}</span>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </button>
+                </PopoverTrigger>
+                <PopoverContent
+                    align="start"
+                    sideOffset={6}
+                    className="w-(--radix-popover-trigger-width) p-0"
+                >
+                    <Command className="bg-transparent">
+                        <CommandInput placeholder="Search models" />
+                        <CommandList className="max-h-64">
+                            <CommandEmpty>No models found</CommandEmpty>
+                            <CommandGroup>
+                                <CommandItem value="Any model" onSelect={onClear}>
+                                    <Check
+                                        className={cn(
+                                            "h-4 w-4",
+                                            selectedValues.length > 0 && "opacity-0"
+                                        )}
+                                    />
+                                    Any model
+                                </CommandItem>
+                                {options.map((option) => (
+                                    <CommandItem
+                                        key={option.value}
+                                        value={option.label}
+                                        onSelect={() => onToggleValue(option.value)}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "h-4 w-4",
+                                                !selectedValues.includes(option.value) &&
+                                                    "opacity-0"
+                                            )}
+                                        />
+                                        {option.label}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </DesktopFilterField>
+    )
+}
 
 const GalleryImageSkeleton = memo(() => (
     <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40">
@@ -1114,51 +1200,25 @@ function LibraryRouteComponent() {
 
 export function LibraryView({
     search,
-    deferHeavyContent = false
+    deferHeavyContent = false,
+    isActive = true
 }: {
     search: LibrarySearchState
     deferHeavyContent?: boolean
+    // False while the pane stays mounted behind a chat; it must not claim the header.
+    isActive?: boolean
 }) {
     const navigate = useNavigate({ from: "/library" })
     const session = useSession()
     const isMobile = useIsMobile()
-    const { state: sidebarState } = useSidebar()
+    const toolbarSlot = useHeaderToolbarSlotStore((state) => state.element)
+    const setHeaderToolbarHidden = useHeaderToolbarSlotStore((state) => state.setHidden)
     const { models: sharedModels } = useSharedModels()
     const migrateImages = useAction(api.images_node.migrateUserImages)
     const galleryRef = useRef<HTMLDivElement>(null)
     const libraryHeaderRef = useRef<HTMLDivElement>(null)
     const lastHeaderScrollTopRef = useRef(0)
     const [isLibraryHeaderHidden, setIsLibraryHeaderHidden] = useState(false)
-    const [toolbarClearance, setToolbarClearance] = useState({ top: 64, left: 0, right: 0 })
-
-    useEffect(() => {
-        const gallery = galleryRef.current
-        const controls = document.querySelector<HTMLElement>("[data-app-header-controls]")
-        if (!gallery || !controls) return
-
-        const updateClearance = () => {
-            const width = gallery.clientWidth
-            if (!width) return
-            const right = controls.getBoundingClientRect().width + 16
-            const left = sidebarState === "collapsed" ? 88 : 0
-            // Keep a usable search field and compact buttons beside the app
-            // controls; use a separate row when the sidebar leaves less room.
-            const sharesRow = !isMobile && width - left - right - 48 >= 384
-            const next = sharesRow ? { top: 16, left, right } : { top: 64, left: 0, right: 0 }
-            setToolbarClearance((previous) =>
-                previous.top === next.top &&
-                previous.left === next.left &&
-                previous.right === next.right
-                    ? previous
-                    : next
-            )
-        }
-        updateClearance()
-        const observer = new ResizeObserver(updateClearance)
-        observer.observe(gallery)
-        observer.observe(controls)
-        return () => observer.disconnect()
-    }, [isMobile, sidebarState, session.user?.id])
     const previousDraftQueryRef = useRef(search.query)
     const previousDraftQueryChangeAtRef = useRef<number | null>(null)
     const searchQuery = search.query
@@ -1188,6 +1248,17 @@ export function LibraryView({
     const currentCursor = getPageCursor(cursorHistory, cursorScope, pageNumber)
     const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false)
     const [isDesktopFiltersOpen, setIsDesktopFiltersOpen] = useState(false)
+
+    // Desktop: the header bar (with these controls) slides away while scrolling down.
+    const shouldHideHeaderToolbar =
+        isActive && !isMobile && isLibraryHeaderHidden && !isDesktopFiltersOpen
+    useEffect(() => {
+        setHeaderToolbarHidden(shouldHideHeaderToolbar)
+    }, [setHeaderToolbarHidden, shouldHideHeaderToolbar])
+    useEffect(() => () => setHeaderToolbarHidden(false), [setHeaderToolbarHidden])
+    useEffect(() => {
+        if (isActive) setIsLibraryHeaderHidden(false)
+    }, [isActive])
     const [draftQuery, setDraftQuery] = useState(searchQuery)
     const [draftSortBy, setDraftSortBy] = useState<ImageSortOption>(sortBy)
     const [draftPageSize, setDraftPageSize] = useState<LibraryPageSize>(pageSize)
@@ -1542,10 +1613,13 @@ export function LibraryView({
         setIsFiltersDrawerOpen(true)
     }, [syncDraftFilters])
 
-    const handleDesktopFiltersToggle = useCallback(() => {
-        if (!isDesktopFiltersOpen) syncDraftFilters()
-        setIsDesktopFiltersOpen((isOpen) => !isOpen)
-    }, [isDesktopFiltersOpen, syncDraftFilters])
+    const handleDesktopFiltersOpenChange = useCallback(
+        (open: boolean) => {
+            if (open) syncDraftFilters()
+            setIsDesktopFiltersOpen(open)
+        },
+        [syncDraftFilters]
+    )
 
     const handleDraftFilterChange = useCallback(
         <K extends keyof LibraryFiltersState>(key: K, value: string) => {
@@ -1607,6 +1681,56 @@ export function LibraryView({
         setIsFiltersDrawerOpen(false)
         setIsDesktopFiltersOpen(false)
     }, [draftFilters, draftPageSize, draftSortBy, filters, navigate, pageSize, sortBy])
+
+    const appliedFilterChips = useMemo(() => {
+        const groups: Array<{
+            key: keyof LibraryFiltersState
+            options: Array<{ value: string; label: string }>
+        }> = [
+            { key: "modelIds", options: modelFilterOptions },
+            { key: "resolutions", options: resolutionFilterOptions },
+            { key: "aspectRatios", options: aspectRatioFilterOptions },
+            { key: "orientations", options: orientationFilterOptions }
+        ]
+        return groups.flatMap(({ key, options }) =>
+            filters[key].map((value) => ({
+                key,
+                value,
+                label: options.find((option) => option.value === value)?.label ?? value
+            }))
+        )
+    }, [
+        filters,
+        modelFilterOptions,
+        resolutionFilterOptions,
+        aspectRatioFilterOptions,
+        orientationFilterOptions
+    ])
+
+    const handleRemoveAppliedFilter = useCallback(
+        (key: keyof LibraryFiltersState, value: string) => {
+            navigate({
+                replace: true,
+                search: (prev) => ({
+                    ...prev,
+                    [key]: (prev[key] as string[]).filter((item) => item !== value),
+                    page: DEFAULT_LIBRARY_SEARCH.page
+                })
+            })
+        },
+        [navigate]
+    )
+
+    const handleClearAppliedFilters = useCallback(() => {
+        navigate({
+            replace: true,
+            search: (prev) => ({
+                ...prev,
+                ...cloneLibraryFilters(DEFAULT_LIBRARY_FILTERS),
+                page: DEFAULT_LIBRARY_SEARCH.page
+            })
+        })
+    }, [navigate])
 
     const handleNextPage = useCallback(() => {
         if (!resolvedImagePage || resolvedImagePage.isDone || isNextPagePending) return
@@ -1923,17 +2047,17 @@ export function LibraryView({
     )
 
     const desktopFilterControls = (
-        <>
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
-                <div className="flex flex-col gap-3">
-                    <label className="font-medium text-sm" htmlFor="desktop-library-sort">
-                        Sort by
-                    </label>
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+                <DesktopFilterField label="Sort">
                     <Select
                         value={draftSortBy}
                         onValueChange={(value) => setDraftSortBy(value as ImageSortOption)}
                     >
-                        <SelectTrigger id="desktop-library-sort" className="w-full bg-background">
+                        <SelectTrigger
+                            aria-label="Sort"
+                            className="h-8 w-full rounded-[var(--radius-md)]"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1944,11 +2068,8 @@ export function LibraryView({
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
-                <div className="flex flex-col gap-3">
-                    <label className="font-medium text-sm" htmlFor="desktop-library-page-size">
-                        Results per page
-                    </label>
+                </DesktopFilterField>
+                <DesktopFilterField label="Per page">
                     <Select
                         value={String(draftPageSize)}
                         onValueChange={(value) =>
@@ -1956,70 +2077,203 @@ export function LibraryView({
                         }
                     >
                         <SelectTrigger
-                            id="desktop-library-page-size"
-                            className="w-full bg-background"
+                            aria-label="Per page"
+                            className="h-8 w-full rounded-[var(--radius-md)]"
                         >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
                                 <SelectItem key={option} value={String(option)}>
-                                    {option} per page
+                                    {option}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    className="shrink-0 text-muted-foreground"
-                    onClick={handleResetFilters}
-                >
-                    Reset all
-                </Button>
+                </DesktopFilterField>
             </div>
-            <Accordion type="multiple" className="mt-4 grid items-start gap-x-8 md:grid-cols-2">
-                <DesktopCheckboxFilter
-                    value="models"
-                    title="Model"
-                    selectedValues={draftFilters.modelIds}
-                    options={modelFilterOptions}
-                    onToggleValue={(value) => handleDraftFilterChange("modelIds", value)}
-                    onClear={() => handleClearDraftFilterGroup("modelIds")}
-                />
-                <DesktopCheckboxFilter
-                    value="resolutions"
-                    title="Resolution"
-                    selectedValues={draftFilters.resolutions}
-                    options={resolutionFilterOptions}
-                    onToggleValue={(value) => handleDraftFilterChange("resolutions", value)}
-                    onClear={() => handleClearDraftFilterGroup("resolutions")}
-                />
-                <DesktopCheckboxFilter
-                    value="aspect-ratios"
-                    title="Aspect Ratio"
-                    selectedValues={draftFilters.aspectRatios}
-                    options={aspectRatioFilterOptions}
-                    onToggleValue={(value) => handleDraftFilterChange("aspectRatios", value)}
-                    onClear={() => handleClearDraftFilterGroup("aspectRatios")}
-                />
-                <DesktopCheckboxFilter
-                    value="orientations"
-                    title="Orientation"
-                    selectedValues={draftFilters.orientations}
-                    options={orientationFilterOptions}
-                    onToggleValue={(value) => handleDraftFilterChange("orientations", value)}
-                    onClear={() => handleClearDraftFilterGroup("orientations")}
-                />
-            </Accordion>
-        </>
+            <DesktopModelFilter
+                selectedValues={draftFilters.modelIds}
+                options={modelFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("modelIds", value)}
+                onClear={() => handleClearDraftFilterGroup("modelIds")}
+            />
+            <DesktopFilterSegments
+                label="Orientation"
+                selectedValues={draftFilters.orientations}
+                options={orientationFilterOptions.map((option) => ({
+                    ...option,
+                    icon:
+                        option.value === "landscape" ? (
+                            <RectangleHorizontal />
+                        ) : option.value === "portrait" ? (
+                            <RectangleVertical />
+                        ) : (
+                            <Square />
+                        )
+                }))}
+                onToggleValue={(value) => handleDraftFilterChange("orientations", value)}
+            />
+            <DesktopFilterSegments
+                label="Aspect ratio"
+                selectedValues={draftFilters.aspectRatios}
+                options={aspectRatioFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("aspectRatios", value)}
+            />
+            <DesktopFilterSegments
+                label="Resolution"
+                selectedValues={draftFilters.resolutions}
+                options={resolutionFilterOptions}
+                onToggleValue={(value) => handleDraftFilterChange("resolutions", value)}
+            />
+        </div>
     )
 
     const hasCustomizedFilters =
         hasActiveFilters ||
         pageSize !== DEFAULT_LIBRARY_SEARCH.pageSize ||
         sortBy !== (hasSearchQuery ? "relevance" : DEFAULT_LIBRARY_SEARCH.sort)
+
+    // Desktop controls live in the app header's glass bar. Labels drop by the bar's
+    // width (@container/app-header-bar) instead of the layout switching rows.
+    const desktopToolbar =
+        isActive && !isMobile && toolbarSlot && session.user?.id
+            ? createPortal(
+                  <div className="contents" onFocusCapture={() => setIsLibraryHeaderHidden(false)}>
+                      <div className="relative min-w-24 flex-1">
+                          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                              type="search"
+                              value={draftQuery}
+                              onChange={(event) => setDraftQuery(event.target.value)}
+                              placeholder="Search images"
+                              className="h-8 rounded-[var(--radius-md)] border-0 bg-glass-control pr-8 pl-8 shadow-none placeholder:text-muted-foreground md:text-sm dark:bg-glass-control"
+                              aria-label="Search library"
+                          />
+                          {draftQuery.length > 0 && (
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Clear search"
+                                  className="absolute top-1/2 right-1 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
+                                  onClick={() => setDraftQuery("")}
+                              >
+                                  <X className="h-3.5 w-3.5" />
+                              </Button>
+                          )}
+                      </div>
+                      <Popover
+                          open={isDesktopFiltersOpen}
+                          onOpenChange={handleDesktopFiltersOpenChange}
+                      >
+                          <PopoverTrigger asChild>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className={cn(
+                                      "h-8 shrink-0 gap-1.5 rounded-[var(--radius-md)] bg-glass-control px-2.5 text-sm hover:bg-glass-control-hover",
+                                      (hasCustomizedFilters || isDesktopFiltersOpen) &&
+                                          "bg-glass-control-hover"
+                                  )}
+                              >
+                                  <Filter className="h-4 w-4" />
+                                  <span className="sr-only @5xl/app-header-bar:not-sr-only">
+                                      Filters
+                                  </span>
+                                  {activeFilterCount > 0 && (
+                                      <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
+                                          {activeFilterCount}
+                                      </span>
+                                  )}
+                              </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                              align="end"
+                              sideOffset={16}
+                              collisionPadding={16}
+                              className="flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col p-0"
+                              style={{
+                                  maxHeight:
+                                      "min(36rem, var(--radix-popover-content-available-height))"
+                              }}
+                              aria-label="Library filters"
+                          >
+                              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+                                  {desktopFilterControls}
+                              </div>
+                              <div className="flex shrink-0 items-center justify-between gap-2 border-t p-3">
+                                  <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-muted-foreground"
+                                      onClick={handleResetFilters}
+                                  >
+                                      Reset all
+                                  </Button>
+                                  <Button type="button" size="sm" onClick={handleApplyFilters}>
+                                      Apply
+                                  </Button>
+                              </div>
+                          </PopoverContent>
+                      </Popover>
+                      <div className="h-4 w-px shrink-0 bg-border" />
+                      <Tabs
+                          value={view}
+                          onValueChange={(value) => handleViewChange(value as LibraryViewMode)}
+                      >
+                          <TabsList className="h-8">
+                              <TabsTrigger
+                                  value="active"
+                                  className="@3xl/app-header-bar:px-4 px-2.5 text-xs"
+                              >
+                                  <ImageIcon className="h-3.5 w-3.5" />
+                                  <span className="sr-only @3xl/app-header-bar:not-sr-only">
+                                      Library
+                                  </span>
+                              </TabsTrigger>
+                              <TabsTrigger
+                                  value="archived"
+                                  className="@3xl/app-header-bar:px-4 px-2.5 text-xs"
+                              >
+                                  <Archive className="h-3.5 w-3.5" />
+                                  <span className="sr-only @3xl/app-header-bar:not-sr-only">
+                                      Archive
+                                  </span>
+                              </TabsTrigger>
+                          </TabsList>
+                      </Tabs>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                      "size-8 shrink-0 rounded-[var(--radius-md)]",
+                                      privateViewingEnabled &&
+                                          "bg-glass-control-hover text-foreground"
+                                  )}
+                                  onClick={togglePrivateViewingEnabled}
+                                  aria-pressed={privateViewingEnabled}
+                                  aria-label="Private Viewing"
+                              >
+                                  {privateViewingEnabled ? (
+                                      <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                      <Eye className="h-4 w-4" />
+                                  )}
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={8}>
+                              Private Viewing
+                          </TooltipContent>
+                      </Tooltip>
+                  </div>,
+                  toolbarSlot
+              )
+            : null
 
     if (!session.user?.id) {
         return (
@@ -2067,30 +2321,27 @@ export function LibraryView({
                     }
                     if (Math.abs(delta) < 8) return
                     lastHeaderScrollTopRef.current = top
-                    const isHeaderFocused = libraryHeaderRef.current?.contains(
-                        document.activeElement
-                    )
+                    const isHeaderFocused =
+                        libraryHeaderRef.current?.contains(document.activeElement) ||
+                        toolbarSlot?.contains(document.activeElement)
                     setIsLibraryHeaderHidden(delta > 0 && !isHeaderFocused)
                 }}
                 layoutScroll
             >
-                <div
-                    ref={libraryHeaderRef}
-                    onFocusCapture={() => setIsLibraryHeaderHidden(false)}
-                    style={{ paddingTop: toolbarClearance.top }}
-                    className={cn(
-                        "glass-header sticky top-0 z-40 flex shrink-0 flex-col transition-[padding,translate] duration-300 ease-out motion-reduce:transition-none",
-                        isLibraryHeaderHidden && !isDesktopFiltersOpen && !isFiltersDrawerOpen
-                            ? "-translate-y-full"
-                            : "translate-y-0",
-                        isMobile
-                            ? "gap-3 px-3 pb-3"
-                            : cn("px-6 pb-4", isDesktopFiltersOpen && "relative")
-                    )}
-                >
-                    <h1 className="sr-only">{libraryTitle}</h1>
+                <h1 className="sr-only">{libraryTitle}</h1>
+                {desktopToolbar}
 
-                    {isMobile && (
+                {isMobile ? (
+                    <div
+                        ref={libraryHeaderRef}
+                        onFocusCapture={() => setIsLibraryHeaderHidden(false)}
+                        className={cn(
+                            "glass-header sticky top-0 z-40 flex shrink-0 flex-col gap-3 px-3 pt-16 pb-3 transition-[translate] duration-300 ease-out motion-reduce:transition-none",
+                            isLibraryHeaderHidden && !isFiltersDrawerOpen
+                                ? "-translate-y-full"
+                                : "translate-y-0"
+                        )}
+                    >
                         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                             <div className="flex items-center gap-2">
                                 <Tabs
@@ -2125,41 +2376,33 @@ export function LibraryView({
                                 </Button>
                             </div>
                         </div>
-                    )}
 
-                    <div
-                        className="@container/library-toolbar flex min-w-0 items-center gap-2"
-                        style={{
-                            marginLeft: toolbarClearance.left,
-                            marginRight: toolbarClearance.right
-                        }}
-                    >
-                        <div className="relative min-w-0 flex-1">
-                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                type="search"
-                                value={draftQuery}
-                                onChange={(event) => setDraftQuery(event.target.value)}
-                                placeholder="Search images"
-                                className="h-10 rounded-[var(--radius-lg)] border-border/60 bg-muted/35 pr-10 pl-9 shadow-none transition-colors placeholder:text-muted-foreground focus-visible:bg-background"
-                                aria-label="Search library"
-                            />
-                            {draftQuery.length > 0 && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Clear search"
-                                    className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
-                                    onClick={() => setDraftQuery("")}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div className="relative min-w-0 flex-1">
+                                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    type="search"
+                                    value={draftQuery}
+                                    onChange={(event) => setDraftQuery(event.target.value)}
+                                    placeholder="Search images"
+                                    className="h-10 rounded-[var(--radius-lg)] border-border/60 bg-muted/35 pr-10 pl-9 shadow-none transition-colors placeholder:text-muted-foreground focus-visible:bg-background"
+                                    aria-label="Search library"
+                                />
+                                {draftQuery.length > 0 && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Clear search"
+                                        className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
+                                        onClick={() => setDraftQuery("")}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
 
-                        <div className="flex shrink-0 items-center gap-2">
-                            {isMobile ? (
+                            <div className="flex shrink-0 items-center gap-2">
                                 <Button
                                     type="button"
                                     variant={
@@ -2180,75 +2423,38 @@ export function LibraryView({
                                         </span>
                                     )}
                                 </Button>
-                            ) : (
-                                <>
-                                    <Button
-                                        type="button"
-                                        variant={privateViewingEnabled ? "secondary" : "outline"}
-                                        className="h-10 gap-2"
-                                        onClick={togglePrivateViewingEnabled}
-                                        aria-label="Toggle Private Viewing"
-                                    >
-                                        {privateViewingEnabled ? (
-                                            <EyeOff className="h-4 w-4" />
-                                        ) : (
-                                            <Eye className="h-4 w-4" />
-                                        )}
-                                        <span className="@xl/library-toolbar:inline hidden">
-                                            Private Viewing
-                                        </span>
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={hasCustomizedFilters ? "secondary" : "outline"}
-                                        className="h-10 gap-2 rounded-[var(--radius-lg)] border-border/60 px-3 shadow-none"
-                                        onClick={handleDesktopFiltersToggle}
-                                        aria-expanded={isDesktopFiltersOpen}
-                                        aria-controls="desktop-library-filters"
-                                    >
-                                        <Filter className="h-4 w-4" />
-                                        Filters
-                                        {activeFilterCount > 0 && (
-                                            <span className="rounded-[var(--radius-sm)] bg-primary/15 px-1.5 py-0.5 text-[0.625rem] text-primary leading-none">
-                                                {activeFilterCount}
-                                            </span>
-                                        )}
-                                    </Button>
-                                </>
-                            )}
+                            </div>
                         </div>
                     </div>
-
-                    <AnimatePresence initial={false}>
-                        {!isMobile && isDesktopFiltersOpen && (
-                            <motion.section
-                                id="desktop-library-filters"
-                                className="overflow-hidden"
-                                aria-label="Library filters"
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            >
-                                <div className="mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-muted/20 p-4 lg:p-5">
-                                    {desktopFilterControls}
-                                    <div className="mt-4 flex justify-end gap-2 border-border/60 border-t pt-4">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setIsDesktopFiltersOpen(false)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button type="button" onClick={handleApplyFilters}>
-                                            Apply
-                                        </Button>
-                                    </div>
-                                </div>
-                            </motion.section>
+                ) : (
+                    <div className="px-6 pt-[4.5rem]">
+                        {appliedFilterChips.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                                {appliedFilterChips.map((chip) => (
+                                    <button
+                                        key={`${chip.key}:${chip.value}`}
+                                        type="button"
+                                        onClick={() =>
+                                            handleRemoveAppliedFilter(chip.key, chip.value)
+                                        }
+                                        aria-label={`Remove ${chip.label}`}
+                                        className="inline-flex h-7 items-center gap-1 rounded-[var(--radius-md)] border border-border/70 bg-muted/40 px-2.5 text-xs transition-colors hover:bg-muted"
+                                    >
+                                        {chip.label}
+                                        <X className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={handleClearAppliedFilters}
+                                    className="h-7 px-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         )}
-                    </AnimatePresence>
-                </div>
+                    </div>
+                )}
 
                 {/* Mobile Filters Drawer */}
                 {isMobile && (

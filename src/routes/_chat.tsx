@@ -841,6 +841,7 @@ function ChatLayout() {
                                     <LibraryView
                                         search={activeLibrarySearch ?? cachedLibrarySearch}
                                         deferHeavyContent={deferLibraryHeavyContent}
+                                        isActive={isLibraryRoute}
                                     />
                                 </motion.div>
                             ) : null}
