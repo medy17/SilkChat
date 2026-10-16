@@ -58,9 +58,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { useMasonryLayout } from "@/hooks/use-masonry-layout"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useHeaderToolbarSlotStore } from "@/lib/header-toolbar-slot"
+import { getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import {
     type GeneratedImageFilters,
     type GeneratedImageOrientation,
@@ -1585,6 +1587,23 @@ export function LibraryView({
     const showPendingGenerations =
         !isArchivedView && pageNumber === 1 && !hasActiveFilters && !hasSearchQuery
     const scrollResetKey = JSON.stringify(search)
+    const masonryItems = useMemo(
+        () => [
+            ...(showPendingGenerations
+                ? displayedPendingGenerations.map((pending) => ({
+                      id: pending.id,
+                      aspectRatio: getImageAspectRatioValue(pending.aspectRatio || "1:1")
+                  }))
+                : []),
+            ...images.map((image) => ({
+                id: image._id,
+                aspectRatio: getImageAspectRatioValue(image.aspectRatio || "1:1")
+            }))
+        ],
+        [displayedPendingGenerations, images, showPendingGenerations]
+    )
+    const { containerRef: masonryContainerRef, getItemRef: getMasonryItemRef } =
+        useMasonryLayout(masonryItems)
 
     const handleViewChange = useCallback(
         (nextView: LibraryViewMode) => {
@@ -2568,13 +2587,18 @@ export function LibraryView({
                                 key={libraryPageCacheKey}
                                 storageKeys={images.map((img) => img.storageKey)}
                             >
-                                <div className="@2xl:columns-3 @4xl:columns-4 @6xl:columns-5 columns-2 gap-3 sm:gap-4">
+                                {/* Masonry positions come from useMasonryLayout; data-reflowing
+                                    is set while the column count or item list changes. */}
+                                <div
+                                    ref={masonryContainerRef}
+                                    className="relative gap-3 data-[reflowing=true]:transition-[height] data-[reflowing=true]:duration-500 data-[reflowing=true]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[reflowing=true]:*:transition-[left,top,width] data-[reflowing=true]:*:duration-500 data-[reflowing=true]:*:ease-[cubic-bezier(0.16,1,0.3,1)] sm:gap-4"
+                                >
                                     <AnimatePresence>
                                         {showPendingGenerations &&
                                             displayedPendingGenerations.map((pending) => (
                                                 <motion.div
                                                     key={pending.id}
-                                                    layout
+                                                    ref={getMasonryItemRef(pending.id)}
                                                     initial={{ opacity: 0, scale: 0.95 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{
@@ -2586,7 +2610,7 @@ export function LibraryView({
                                                         duration: 0.3,
                                                         ease: [0.16, 1, 0.3, 1]
                                                     }}
-                                                    className="mb-3 break-inside-avoid sm:mb-4"
+                                                    className="absolute top-0 left-0"
                                                 >
                                                     <PendingImageItem
                                                         aspectRatio={pending.aspectRatio}
@@ -2611,7 +2635,7 @@ export function LibraryView({
                                             return (
                                                 <motion.div
                                                     key={image._id}
-                                                    layout
+                                                    ref={getMasonryItemRef(image._id)}
                                                     initial={{ opacity: 0, scale: 0.95 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{
@@ -2623,7 +2647,7 @@ export function LibraryView({
                                                         duration: 0.3,
                                                         ease: [0.16, 1, 0.3, 1]
                                                     }}
-                                                    className="mb-3 break-inside-avoid sm:mb-4"
+                                                    className="absolute top-0 left-0"
                                                 >
                                                     <GeneratedImageItem
                                                         image={image}
