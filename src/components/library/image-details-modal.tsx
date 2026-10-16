@@ -775,9 +775,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         >
                             <Button
                                 type="button"
-                                variant="secondary"
+                                variant="ghost"
                                 size="icon"
-                                className="pointer-events-auto h-8 w-8 border border-border/70 bg-background/80 text-foreground shadow-lg backdrop-blur-md transition-all hover:bg-background"
+                                className="glass-raised pointer-events-auto h-8 w-8 border text-foreground transition-all hover:bg-background"
                                 onClick={onClose}
                             >
                                 <span className="sr-only">Close</span>
@@ -844,7 +844,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                     {isImageHidden && (
                                         <>
                                             <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-black/20 backdrop-blur-xl" />
-                                            <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-foreground text-sm shadow-lg backdrop-blur-md">
+                                            <div className="glass-raised pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border px-4 py-2 text-center text-foreground text-sm">
                                                 Private viewing enabled
                                             </div>
                                         </>
@@ -863,9 +863,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         >
                             <Button
                                 type="button"
-                                variant="secondary"
+                                variant="ghost"
                                 className={cn(
-                                    "h-9 rounded-[var(--radius-xl)] border border-border/70 bg-background/80 px-4 text-foreground text-sm shadow-lg backdrop-blur-md transition-all hover:bg-background",
+                                    "glass-raised h-9 rounded-[var(--radius-xl)] border px-4 text-foreground text-sm transition-all hover:bg-background",
                                     !isDetailsOpen && "pointer-events-auto"
                                 )}
                                 tabIndex={isDetailsOpen ? -1 : undefined}
@@ -886,8 +886,8 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         >
                             <DrawerContent
                                 ref={setMobileDrawerElement}
-                                className="z-[80] max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background/98 backdrop-blur-xl"
-                                overlayClassName="z-[79] bg-transparent"
+                                className="z-[80] max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background"
+                                overlayClassName="z-[79] bg-transparent backdrop-filter-none"
                                 onInteractOutside={(event) => {
                                     event.preventDefault()
                                     setIsDetailsOpen(false)
@@ -1024,7 +1024,6 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
                 showCloseButton={false}
-                overlayClassName="backdrop-blur-md"
                 className="w-fit max-w-none border-0 bg-transparent p-0 shadow-none data-[state=closed]:duration-100 sm:max-w-none"
             >
                 <DialogHeader className="sr-only">
@@ -1042,9 +1041,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         <>
                             <Button
                                 type="button"
-                                variant="outline"
+                                variant="ghost"
                                 size="icon"
-                                className="absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="glass-raised absolute top-1/2 -left-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-[var(--radius-lg)] border text-foreground hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onPrevious}
                                 disabled={!canNavigatePrevious}
                             >
@@ -1053,9 +1052,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                             </Button>
                             <Button
                                 type="button"
-                                variant="outline"
+                                variant="ghost"
                                 size="icon"
-                                className="absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-lg border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-md hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
+                                className="glass-raised absolute top-1/2 -right-[4.5rem] z-20 h-11 w-11 -translate-y-1/2 rounded-[var(--radius-lg)] border text-foreground hover:bg-accent/80 disabled:pointer-events-none disabled:opacity-35"
                                 onClick={onNext}
                                 disabled={!canNavigateNext}
                             >
@@ -1068,7 +1067,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute -top-14 right-0 z-20 h-11 w-11 rounded-lg border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm hover:bg-accent lg:top-0 lg:-right-[4.5rem]"
+                        className="glass-raised absolute -top-14 right-0 z-20 h-11 w-11 rounded-[var(--radius-lg)] border text-foreground hover:bg-accent lg:top-0 lg:-right-[4.5rem]"
                         onClick={onClose}
                     >
                         <span className="sr-only">Close</span>
@@ -1125,7 +1124,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                         {isImageHidden && (
                             <>
                                 <div className="pointer-events-none absolute inset-0 z-20 bg-black/20 backdrop-blur-xl" />
-                                <div className="pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border border-white/15 bg-background/80 px-4 py-2 text-center text-sm shadow-lg backdrop-blur-md">
+                                <div className="glass-raised pointer-events-none absolute inset-x-6 bottom-6 z-30 rounded-[var(--radius)] border px-4 py-2 text-center text-sm">
                                     Private viewing enabled
                                 </div>
                             </>

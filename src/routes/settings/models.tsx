@@ -238,7 +238,7 @@ function OpenRouterModelPicker({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
-                <Command>
+                <Command className="bg-transparent">
                     <CommandInput autoFocus placeholder="Model name or ID" />
                     <CommandList>
                         <CommandEmpty>

@@ -72,7 +72,7 @@ export function Header() {
                         className={cn(
                             "pointer-events-auto fixed z-[5] flex items-center gap-1",
                             isSidebarCollapsed
-                                ? "top-2 left-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm md:top-4 md:left-4"
+                                ? "glass-surface top-2 left-2 rounded-[var(--radius-xl)] border p-2 md:top-4 md:left-4"
                                 : "top-4 left-4 md:top-6 md:left-6"
                         )}
                     >
@@ -105,7 +105,7 @@ export function Header() {
                 <div className="flex w-full items-center justify-end p-2">
                     <div
                         data-app-header-controls
-                        className="pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] bg-background/10 p-2 backdrop-blur-sm"
+                        className="glass-surface pointer-events-auto flex items-center gap-2 rounded-[var(--radius-xl)] border p-2"
                     >
                         {showDesktopLibraryControls && (
                             <>

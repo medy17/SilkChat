@@ -1595,7 +1595,7 @@ export function ModelSelector({
                 }
             }}
             className={cn(
-                "h-8 bg-secondary/70 font-normal text-xs backdrop-blur-lg sm:text-sm md:rounded-md",
+                "h-8 bg-glass-control font-normal text-xs sm:text-sm md:rounded-md",
                 className,
                 "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
             )}
@@ -1690,7 +1690,7 @@ export function ModelSelector({
                     </div>
                 </div>
             ) : (
-                <div className="shrink-0 bg-popover p-3 pb-2">
+                <div className="shrink-0 p-3 pb-2">
                     <div className="mb-3 px-1">
                         <h2 className="font-semibold text-lg sm:hidden">Select Model</h2>
                         <p className="text-muted-foreground text-sm sm:hidden">
@@ -1818,12 +1818,7 @@ export function ModelSelector({
                     </div>
                 </div>
 
-                <div
-                    className={cn(
-                        "flex min-h-0 flex-col p-3",
-                        isMobile ? "bg-background" : "bg-popover"
-                    )}
-                >
+                <div className={cn("flex min-h-0 flex-col p-3", isMobile && "bg-background")}>
                     {isMobile ? (
                         <div
                             className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"

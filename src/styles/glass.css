@@ -1,0 +1,297 @@
+/* Glass is the material for everything that floats: chrome, menus, popovers,
+ * and overlays on generated content. Content and modal panels stay solid.
+ * See docs/SURFACES.md. Colors derive from the active theme.
+ *
+ * The root carries the per-device setting (src/lib/glass-settings-store.ts):
+ * data-glass="off" renders every recipe solid with no backdrop filter, and
+ * --glass-intensity scales transparency for every role at once. */
+:root {
+    --glass-intensity: 1;
+
+    /* Fill opacity per role at intensity 1. Menus stay denser for text. */
+    --glass-opacity-base: 0.6;
+    --glass-raised-opacity-base: 0.68;
+    --glass-popover-opacity-base: 0.74;
+    --glass-header-opacity-base: 0.7;
+    --glass-composer-opacity-base: 0.66;
+
+    /* Intensity never pushes a role below its floor, so text stays legible at
+     * the most transparent setting. */
+    --glass-floor: 0.4;
+    --glass-raised-floor: 0.45;
+    --glass-popover-floor: 0.65;
+    --glass-header-floor: 0.5;
+    --glass-composer-floor: 0.4;
+
+    --glass-opacity: max(
+        var(--glass-floor),
+        1 -
+        (1 - var(--glass-opacity-base)) *
+        var(--glass-intensity)
+    );
+    --glass-raised-opacity: max(
+        var(--glass-raised-floor),
+        1 -
+        (1 - var(--glass-raised-opacity-base)) *
+        var(--glass-intensity)
+    );
+    --glass-popover-opacity: max(
+        var(--glass-popover-floor),
+        1 -
+        (1 - var(--glass-popover-opacity-base)) *
+        var(--glass-intensity)
+    );
+    --glass-header-opacity: max(
+        var(--glass-header-floor),
+        1 -
+        (1 - var(--glass-header-opacity-base)) *
+        var(--glass-intensity)
+    );
+    --glass-composer-opacity: max(
+        var(--glass-composer-floor),
+        1 -
+        (1 - var(--glass-composer-opacity-base)) *
+        var(--glass-intensity)
+    );
+
+    --glass-blur: 20px;
+    --glass-popover-blur: 28px;
+    --glass-saturation: 1.8;
+
+    /* Edge lighting: a hairline border, a lit top rim, a soft lower rim, and a
+     * sheen that fades down the surface. These make glass read even when the
+     * content behind it is flat. */
+    --glass-edge: color-mix(in oklab, var(--foreground) 12%, transparent);
+    --glass-rim: color-mix(in oklab, white 75%, transparent);
+    --glass-rim-low: color-mix(in oklab, white 25%, transparent);
+    --glass-sheen: color-mix(in oklab, white 22%, transparent);
+    --glass-composer-edge: var(--glass-edge);
+
+    --glass-shadow-ink: black;
+    --glass-shadow-surface:
+        0 4px 14px -6px color-mix(in oklab, var(--glass-shadow-ink) 22%, transparent),
+        0 1px 3px -1px color-mix(in oklab, var(--glass-shadow-ink) 10%, transparent);
+    --glass-shadow-raised:
+        0 12px 32px -12px color-mix(in oklab, var(--glass-shadow-ink) 32%, transparent),
+        0 2px 8px -2px color-mix(in oklab, var(--glass-shadow-ink) 12%, transparent);
+
+    /* Tint for controls inside a glass surface (bg-glass-control). The parent
+     * already blurs, so controls never add their own backdrop filter. */
+    --glass-control: color-mix(in oklab, var(--secondary) 55%, transparent);
+    --glass-control-hover: color-mix(in oklab, var(--secondary) 85%, transparent);
+
+    --glass-scrim: color-mix(in oklab, black 40%, transparent);
+    --glass-scrim-blur: 6px;
+}
+
+.dark {
+    --glass-opacity-base: 0.55;
+    --glass-raised-opacity-base: 0.62;
+    --glass-popover-opacity-base: 0.7;
+    --glass-header-opacity-base: 0.65;
+    --glass-composer-opacity-base: 0.62;
+
+    --glass-blur: 24px;
+    --glass-popover-blur: 32px;
+    --glass-saturation: 1.5;
+
+    --glass-edge: color-mix(in oklab, var(--foreground) 10%, transparent);
+    --glass-rim: color-mix(in oklab, white 14%, transparent);
+    --glass-rim-low: color-mix(in oklab, black 30%, transparent);
+    --glass-sheen: color-mix(in oklab, white 5%, transparent);
+    /* The dark composer is tinted from the sidebar, which already separates it. */
+    --glass-composer-edge: transparent;
+
+    --glass-shadow-surface:
+        0 4px 14px -6px color-mix(in oklab, var(--glass-shadow-ink) 50%, transparent),
+        0 1px 3px -1px color-mix(in oklab, var(--glass-shadow-ink) 30%, transparent);
+    --glass-shadow-raised:
+        0 14px 36px -12px color-mix(in oklab, var(--glass-shadow-ink) 65%, transparent),
+        0 2px 8px -2px color-mix(in oklab, var(--glass-shadow-ink) 35%, transparent);
+
+    --glass-scrim: color-mix(in oklab, black 55%, transparent);
+}
+
+/* Increased contrast keeps the material but lifts every fill well above its
+ * floor and strengthens the edge. */
+@media (prefers-contrast: more) {
+    :root,
+    .dark {
+        --glass-floor: 0.86;
+        --glass-raised-floor: 0.88;
+        --glass-popover-floor: 0.94;
+        --glass-header-floor: 0.9;
+        --glass-composer-floor: 0.88;
+        --glass-edge: color-mix(in oklab, var(--foreground) 32%, transparent);
+        --glass-composer-edge: var(--glass-edge);
+    }
+}
+
+/* Off: solid surfaces, no rims or sheen. */
+:root[data-glass="off"] {
+    --glass-rim: transparent;
+    --glass-rim-low: transparent;
+    --glass-sheen: transparent;
+}
+
+@layer components {
+    .glass-surface,
+    .glass-raised,
+    .glass-popover,
+    .glass-composer {
+        --glass-base: var(--background);
+        --glass-alpha: var(--glass-opacity);
+        --glass-filter-blur: var(--glass-blur);
+        --glass-elevation: var(--glass-shadow-surface);
+        --glass-fill: color-mix(
+            in oklab,
+            var(--glass-base) calc(var(--glass-alpha) * 100%),
+            transparent
+        );
+        border-color: var(--glass-edge);
+        background:
+            linear-gradient(to bottom, var(--glass-sheen), transparent 55%), var(--glass-fill);
+        -webkit-backdrop-filter: blur(var(--glass-filter-blur)) saturate(var(--glass-saturation));
+        backdrop-filter: blur(var(--glass-filter-blur)) saturate(var(--glass-saturation));
+        box-shadow:
+            inset 0 1px 0 0 var(--glass-rim),
+            inset 0 -1px 0 0 var(--glass-rim-low),
+            var(--glass-elevation);
+    }
+
+    /* Floating bars and controls that sit over media: toolbars, viewer controls. */
+    .glass-raised {
+        --glass-alpha: var(--glass-raised-opacity);
+        --glass-elevation: var(--glass-shadow-raised);
+    }
+
+    /* Menus, popovers, selects, hover cards. Denser fill and blur for text. */
+    .glass-popover {
+        --glass-base: var(--popover);
+        --glass-alpha: var(--glass-popover-opacity);
+        --glass-filter-blur: var(--glass-popover-blur);
+        --glass-elevation: var(--glass-shadow-raised);
+    }
+
+    .glass-composer {
+        --glass-base: var(--composer);
+        --glass-alpha: var(--glass-composer-opacity);
+        /* Older browsers retain the supplied composer color. Relative color
+         * caps alpha instead of multiplying an already translucent theme color. */
+        --glass-fill: var(--composer);
+        border-color: var(--glass-composer-edge);
+    }
+
+    @supports (color: oklch(from red l c h / min(alpha, 0.8))) {
+        .glass-composer {
+            --glass-fill: oklch(from var(--composer) l c h / min(alpha, var(--glass-alpha)));
+        }
+    }
+
+    /* Edge-to-edge sticky header over a scrolling page. A hairline, no rim or shadow. */
+    .glass-header {
+        --glass-base: var(--background);
+        --glass-fill: color-mix(
+            in oklab,
+            var(--glass-base) calc(var(--glass-header-opacity) * 100%),
+            transparent
+        );
+        background: var(--glass-fill);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+        box-shadow: inset 0 -1px 0 0 var(--glass-edge);
+    }
+
+    /* Fade behind the composer that frosts messages scrolling under it. */
+    .glass-fade {
+        --glass-base: var(--sidebar);
+        background: color-mix(in oklab, var(--sidebar) 45%, transparent);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
+        mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
+    }
+
+    /* Tints any recipe from the sidebar instead of the page background. */
+    .glass-sidebar {
+        --glass-base: var(--sidebar);
+    }
+
+    /* Backdrop behind modal dialogs, sheets, and drawers. The panel stays solid. */
+    .glass-scrim {
+        background: var(--glass-scrim);
+        -webkit-backdrop-filter: blur(var(--glass-scrim-blur));
+        backdrop-filter: blur(var(--glass-scrim-blur));
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .glass-surface,
+        .glass-raised,
+        .glass-popover,
+        .glass-header,
+        .glass-composer,
+        .spotlight-glass {
+            background:
+                linear-gradient(var(--glass-base), var(--glass-base)), var(--background) !important;
+        }
+    }
+}
+
+/* Overlays on generated content (Spotlight). Same material as glass-popover. */
+@utility spotlight-glass {
+    --glass-base: var(--popover);
+    border: 1px solid var(--glass-edge);
+    background: color-mix(
+        in oklab,
+        var(--glass-base) calc(var(--glass-popover-opacity) * 100%),
+        transparent
+    );
+    color: var(--popover-foreground);
+    box-shadow:
+        inset 0 1px 0 0 var(--glass-rim),
+        var(--glass-shadow-raised);
+    -webkit-backdrop-filter: blur(var(--glass-popover-blur)) saturate(var(--glass-saturation));
+    backdrop-filter: blur(var(--glass-popover-blur)) saturate(var(--glass-saturation));
+}
+
+/* Off, or the system asks for reduced transparency: solid base color and no
+ * backdrop filter anywhere glass is used. Callers' translucent utilities lose. */
+:root[data-glass="off"]
+:is(
+    .glass-surface,
+    .glass-raised,
+    .glass-popover,
+    .glass-header,
+    .glass-composer,
+    .spotlight-glass
+) {
+    background: linear-gradient(var(--glass-base), var(--glass-base)), var(--background) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+:root[data-glass="off"] :is(.glass-scrim, .glass-fade) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    :is(
+        .glass-surface,
+        .glass-raised,
+        .glass-popover,
+        .glass-header,
+        .glass-composer,
+        .spotlight-glass
+    ) {
+        background:
+            linear-gradient(var(--glass-base), var(--glass-base)), var(--background) !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    :is(.glass-scrim, .glass-fade) {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+}

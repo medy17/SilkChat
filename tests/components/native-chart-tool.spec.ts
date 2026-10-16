@@ -114,7 +114,7 @@ describe("NativeChartRenderer", () => {
         expect(
             document
                 .querySelector('[data-slot="dialog-overlay"]')
-                ?.classList.contains("backdrop-blur-md")
+                ?.classList.contains("glass-scrim")
         ).toBe(true)
         expect(dialog.style.width).toBe("92vw")
         expect(dialog.style.height).toBe("85vh")

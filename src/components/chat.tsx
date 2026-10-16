@@ -642,7 +642,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                         <button
                                             key={reply}
                                             type="button"
-                                            className="rounded-[var(--radius-xl)] border border-border bg-background/70 px-3 py-1.5 text-left text-sm backdrop-blur transition-colors hover:bg-accent"
+                                            className="glass-surface rounded-[var(--radius-xl)] border px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
                                             onClick={() => handleInputSubmitWithScroll(reply, [])}
                                         >
                                             {reply}
@@ -680,7 +680,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                 {!isEmpty && (
                     <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]"
+                        className="glass-fade pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0"
                     />
                 )}
             </motion.div>

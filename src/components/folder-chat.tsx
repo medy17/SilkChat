@@ -399,7 +399,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         </div>
                         <div
                             aria-hidden="true"
-                            className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]"
+                            className="glass-fade pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0"
                         />
                     </motion.div>
                 )}

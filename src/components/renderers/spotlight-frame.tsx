@@ -224,7 +224,6 @@ export function SpotlightFrame({
 
             <DialogContent
                 showCloseButton={false}
-                overlayClassName="backdrop-blur-md"
                 className="spotlight-surface flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-card p-0 text-card-foreground"
                 style={{
                     width: "92vw",

@@ -258,7 +258,7 @@ function ComparisonImage({
                 stays on its own side and the divider covers it while scrubbing. */}
             <span
                 className={cn(
-                    "pointer-events-none absolute bottom-2 z-20 truncate rounded-[var(--radius-sm)] bg-background/80 px-2 py-1 text-foreground text-xs backdrop-blur-md",
+                    "glass-surface pointer-events-none absolute bottom-2 z-20 truncate rounded-[var(--radius-sm)] border px-2 py-1 text-foreground text-xs",
                     sharedFrame
                         ? cn("max-w-[calc(50%_-_0.75rem)]", label === "A" ? "left-2" : "right-2")
                         : "left-2 max-w-[calc(100%_-_1rem)]"
@@ -1013,7 +1013,7 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                     layout
                     initial={{ opacity: 0, y: reducedMotion ? 0 : 14 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex shrink-0 items-center gap-1 self-center border border-border/70 bg-background/90 p-1.5 shadow-2xl backdrop-blur-xl"
+                    className="glass-raised flex shrink-0 items-center gap-1 self-center border p-1.5"
                     style={{ borderRadius: "var(--radius-xl)" }}
                 >
                     <Tooltip>
@@ -1102,7 +1102,7 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
             <Drawer open={!isDesktop && showDetails} onOpenChange={setShowDetails}>
                 <DrawerContent
                     id="comparison-details"
-                    className="max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background/98 backdrop-blur-xl"
+                    className="max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background"
                 >
                     <DrawerHeader className="shrink-0 text-left">
                         <DrawerTitle>Image details</DrawerTitle>

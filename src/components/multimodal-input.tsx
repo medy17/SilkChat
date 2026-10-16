@@ -804,7 +804,7 @@ export const MultimodalInput = forwardRef<
                                         aria-label="Attach files"
                                         onClick={() => uploadInputRef.current?.click()}
                                         disabled={uploading}
-                                        className="size-11 bg-secondary/70 text-foreground backdrop-blur-lg hover:bg-secondary/80"
+                                        className="size-11 bg-glass-control text-foreground hover:bg-glass-control-hover"
                                         style={{ borderRadius: "var(--radius-md)" }}
                                     >
                                         {uploading ? (

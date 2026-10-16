@@ -2,6 +2,7 @@
 @import "tailwindcss-safe-area";
 @import "tw-animate-css";
 @import "./custom.css";
+@import "./glass.css";
 
 @source "../../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/@streamdown/code/dist/*.js";
@@ -166,6 +167,8 @@ html {
     --color-user-message: var(--user-message);
     --color-user-message-foreground: var(--user-message-foreground);
     --color-composer: var(--composer);
+    --color-glass-control: var(--glass-control);
+    --color-glass-control-hover: var(--glass-control-hover);
     --color-code-background: var(--code-background);
     --color-code-foreground: var(--code-foreground);
     --color-muted: var(--muted);
@@ -601,15 +604,6 @@ html {
         color-mix(in oklab, var(--chart-1) 7%, var(--card)) 0,
         var(--card) 16rem
     );
-}
-
-/* Frosted overlay for tooltips and floating controls on Spotlight surfaces. */
-@utility spotlight-glass {
-    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
-    background-color: color-mix(in oklab, var(--popover) 80%, transparent);
-    color: var(--popover-foreground);
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(12px);
 }
 
 /* Backdrops behind generated images with alpha. */

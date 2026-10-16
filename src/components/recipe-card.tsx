@@ -624,7 +624,7 @@ export const RecipeCard = ({
                                 </PopoverTrigger>
                                 <PopoverContent
                                     align="start"
-                                    className="w-60 rounded-[var(--radius-lg)] border-border/70 p-2 shadow-lg"
+                                    className="w-60 rounded-[var(--radius-lg)] p-2"
                                 >
                                     <div className="px-2 pt-1 pb-2">
                                         <p className="font-semibold text-sm">Measurement units</p>

@@ -197,7 +197,6 @@ export const SilkAppBlock = memo(function SilkAppBlock({
             <Dialog open={expanded} onOpenChange={setExpanded}>
                 <DialogContent
                     showCloseButton={false}
-                    overlayClassName="backdrop-blur-md"
                     className="flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-background p-0"
                     style={{
                         width: "92vw",

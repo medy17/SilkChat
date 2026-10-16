@@ -222,7 +222,7 @@ const MermaidRenderer = memo(
 
                 <DialogContent
                     showCloseButton={false}
-                    overlayClassName="backdrop-blur-md data-[state=open]:animate-none data-[state=closed]:animate-none"
+                    overlayClassName="data-[state=open]:animate-none data-[state=closed]:animate-none"
                     className="spotlight-surface flex max-w-none flex-col gap-0 overflow-hidden rounded-[var(--radius-lg)] bg-card p-0 text-card-foreground data-[state=closed]:animate-none data-[state=open]:animate-none"
                     style={{
                         width: "92vw",

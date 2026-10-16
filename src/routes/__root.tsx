@@ -4,7 +4,7 @@ import { createRootRouteWithContext } from "@tanstack/react-router"
 import { HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { ThemeScript } from "@/components/theme-script"
+import { GlassScript, ThemeScript } from "@/components/theme-script"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import { OG_DEMOS } from "@/lib/og-content"
 import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
@@ -154,6 +154,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             <head>
                 <ThemeFontStyles />
                 <ThemeScript />
+                <GlassScript />
                 <GoogleAdsTag />
                 <HeadContent />
             </head>

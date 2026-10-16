@@ -479,7 +479,7 @@ export const ToolSelectorPopover = memo(
             }
 
             if (!isActive) {
-                return "bg-secondary/70 backdrop-blur-lg hover:bg-secondary/80"
+                return "bg-glass-control hover:bg-glass-control-hover"
             }
 
             return ""
@@ -649,7 +649,10 @@ export const ToolSelectorPopover = memo(
                     title="Tool Settings"
                     description="Configure available tools for your conversation"
                 >
-                    <Command shouldFilter={false} className="rounded-none md:rounded-md">
+                    <Command
+                        shouldFilter={false}
+                        className="rounded-none bg-transparent md:rounded-md"
+                    >
                         <label
                             htmlFor={magicSwitchId}
                             className="flex cursor-pointer items-center justify-between gap-4 border-border border-b px-4 py-3"

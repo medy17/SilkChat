@@ -13,7 +13,7 @@
 
 - Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
 
-- Follow [SPOTLIGHT_SURFACES.md](./docs/SPOTLIGHT_SURFACES.md) when building or restyling UI for anything the model generates (charts, tool cards, recipes, tables, roleplay markup).
+- Follow [SURFACES.md](./docs/SURFACES.md) when building or restyling any surface. It routes generated content to Spotlight and floating UI to Glass.
 
 - Local development uses cloud Convex plus the local image optimizer. The user normally runs:
   ```

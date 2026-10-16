@@ -1,5 +1,7 @@
 # Spotlight Surfaces
 
+Start at [Surfaces](./SURFACES.md) to decide whether a surface belongs here.
+
 Spotlight is the shared visual language for anything the model produces inside a message:
 native charts and networks, recipes, tables, image generation, tool approvals, tool run panels,
 and roleplay markup. One card, one header, one set of controls, so generated artifacts read as a
@@ -9,7 +11,8 @@ family regardless of which tool made them.
 
 | Piece | Owner |
 | --- | --- |
-| `spotlight-surface`, `spotlight-glass` utilities | `src/styles/globals.css` |
+| `spotlight-surface` utility | `src/styles/globals.css` |
+| `spotlight-glass` utility (the glass material) | `src/styles/glass.css` |
 | `SPOTLIGHT_CARD_CLASS`, `SpotlightHeader`, `SpotlightChips`, `useSpotlightFilter`, `SpotlightFrame` | `src/components/renderers/spotlight-frame.tsx` |
 | Chart plotting, formatting, fill gradients, ticks | `src/components/renderers/chart-plot.tsx` |
 | Chart data table | `src/components/renderers/chart-data-table.tsx` |
@@ -38,7 +41,9 @@ focus. Chips double as the legend, so they are omitted for a single series or wh
 `showLegend: false`.
 
 **Glass.** `spotlight-glass` is the frosted overlay for tooltips and controls floating over
-content: chart tooltips, Mermaid zoom controls, and image generation pills and arrows.
+content: chart tooltips, Mermaid zoom controls, and image generation pills and arrows. It is the
+app's glass material at menu density, so it follows the Glass setting; see
+[Glass Surfaces](./GLASS_SURFACES.md).
 
 **Loading.** A single row: a spinning `Loader2` in `text-primary` and a muted label. When the
 card must reserve space, the row sits inside a Spotlight card.
@@ -96,6 +101,8 @@ pieces above. Keep them in step: a change to a Spotlight surface should reach th
 
 ## Related guides
 
+- [Surfaces](./SURFACES.md)
+- [Glass Surfaces](./GLASS_SURFACES.md)
 - [SilkChat Apps](./SILK_APPS.md)
 - [Abstractions & Conventions](./ABSTRACTIONS_&_CONVENTIONS.md)
 - [Math Kit](./MATH_KIT.md)

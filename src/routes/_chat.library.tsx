@@ -949,10 +949,10 @@ const GeneratedImageItem = memo(
                         {onToggleImageHidden && (
                             <Button
                                 type="button"
-                                variant="secondary"
+                                variant="ghost"
                                 size="icon"
                                 className={cn(
-                                    "absolute top-2 right-2 z-30 h-8 w-8 rounded-[var(--radius-md)] border border-border/60 bg-background/90 text-foreground backdrop-blur-md transition-opacity hover:bg-background",
+                                    "glass-raised absolute top-2 right-2 z-30 h-8 w-8 rounded-[var(--radius-md)] border text-foreground transition-opacity hover:bg-background",
                                     isImageHidden
                                         ? "opacity-100"
                                         : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
@@ -2079,7 +2079,7 @@ export function LibraryView({
                     onFocusCapture={() => setIsLibraryHeaderHidden(false)}
                     style={{ paddingTop: toolbarClearance.top }}
                     className={cn(
-                        "sticky top-0 z-40 flex shrink-0 flex-col bg-background/95 backdrop-blur-xl transition-[padding,translate] duration-300 ease-out motion-reduce:transition-none",
+                        "glass-header sticky top-0 z-40 flex shrink-0 flex-col transition-[padding,translate] duration-300 ease-out motion-reduce:transition-none",
                         isLibraryHeaderHidden && !isDesktopFiltersOpen && !isFiltersDrawerOpen
                             ? "-translate-y-full"
                             : "translate-y-0",
@@ -2522,7 +2522,7 @@ export function LibraryView({
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 16, scale: 0.97 }}
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border border-border/70 bg-background/90 p-1.5 shadow-2xl backdrop-blur-xl sm:gap-1.5"
+                            className="glass-raised fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-w-fit items-center gap-1 border p-1.5 sm:gap-1.5"
                             style={{ borderRadius: "var(--radius-xl)" }}
                         >
                             <Button

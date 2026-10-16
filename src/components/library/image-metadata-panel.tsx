@@ -75,7 +75,7 @@ export function ImageMetadataPanel({
     return (
         <div
             className={cn(
-                "flex shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-md",
+                "flex shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/60 bg-background shadow-2xl",
                 className
             )}
             style={style}

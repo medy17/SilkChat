@@ -674,7 +674,7 @@ function PersonaPicker({
                 sideOffset={6}
                 alignOffset={desktopAlignOffset}
                 collisionPadding={8}
-                className="z-[80] flex h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-border/70 bg-popover p-0 shadow-lg"
+                className="z-[80] flex h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(92vw,42.5rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] p-0"
                 style={{
                     ...(desktopPopoverWidth
                         ? {
@@ -1150,7 +1150,7 @@ export function PersonaSelector({
                                 <span ref={pickerTriggerRef} className="inline-flex">
                                     <button
                                         type="button"
-                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-secondary/70 px-1.5 @3xl:text-sm text-xs backdrop-blur-lg transition-colors hover:bg-secondary/80 min-[390px]:gap-2 min-[390px]:px-2"
+                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-glass-control px-1.5 @3xl:text-sm text-xs transition-colors hover:bg-glass-control-hover min-[390px]:gap-2 min-[390px]:px-2"
                                         aria-label="Select persona"
                                         title="Select persona"
                                         onClick={() => {
@@ -1177,8 +1177,8 @@ export function PersonaSelector({
                                 </span>
                             }
                         >
-                            <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-popover">
-                                <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-popover sm:p-3 sm:pb-2">
+                            <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-transparent">
+                                <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-transparent sm:p-3 sm:pb-2">
                                     <div className="flex items-center gap-2">
                                         <div className="relative min-w-0 flex-1">
                                             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1271,7 +1271,7 @@ export function PersonaSelector({
                                     <div
                                         className={cn(
                                             "flex min-h-0 flex-col p-3",
-                                            isMobile ? "bg-background" : "bg-popover"
+                                            isMobile && "bg-background"
                                         )}
                                     >
                                         {isMobile ? (
@@ -1306,7 +1306,7 @@ export function PersonaSelector({
                     >
                         <Badge
                             variant="secondary"
-                            className="flex h-8 items-center gap-2 rounded-[var(--radius-md)] bg-secondary/70 px-2"
+                            className="flex h-8 items-center gap-2 rounded-[var(--radius-md)] bg-glass-control px-2"
                             title="Thread persona"
                         >
                             {lockedAvatarKind && lockedAvatarValue ? (

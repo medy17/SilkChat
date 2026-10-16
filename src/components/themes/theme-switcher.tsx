@@ -229,10 +229,10 @@ export function ThemeSwitcher({
                             className={cn("px-4 pt-3 pb-3 md:p-2", !isMobile && "hidden md:block")}
                         >
                             <div className="relative">
-                                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                                 <Input
                                     placeholder="Search themes..."
-                                    className="h-9 rounded-none border-none bg-popover pl-10 shadow-none dark:bg-popover"
+                                    className="h-9 rounded-none border-none bg-transparent pl-10 shadow-none dark:bg-transparent"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />

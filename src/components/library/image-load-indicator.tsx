@@ -7,10 +7,10 @@ export const ImageLoadIndicator = memo(({ complete }: { complete: boolean }) => 
 
     return (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-            <div className="relative flex size-12 items-center justify-center rounded-full border border-background/70 bg-background/70 shadow-sm backdrop-blur-sm">
+            <div className="glass-surface relative flex size-12 items-center justify-center rounded-full border">
                 <svg
                     viewBox="0 0 40 40"
-                    className={cn("-rotate-90 size-10", !complete && "animate-spin")}
+                    className={cn("size-10 -rotate-90", !complete && "animate-spin")}
                     aria-hidden="true"
                 >
                     <circle

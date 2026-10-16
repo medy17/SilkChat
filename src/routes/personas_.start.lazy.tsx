@@ -699,7 +699,7 @@ function PersonaOnboarding() {
                                     )}
                                 </AnimatePresence>
 
-                                <div className="fixed inset-x-0 bottom-0 z-30 border-border border-t bg-background/95 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur sm:px-8 lg:static lg:z-auto lg:mt-auto lg:border-0 lg:bg-transparent lg:px-0 lg:pt-8 lg:pb-0 lg:backdrop-blur-none">
+                                <div className="glass-header fixed inset-x-0 bottom-0 z-30 border-border border-t px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-8 lg:static lg:z-auto lg:mt-auto lg:border-0 lg:bg-transparent lg:px-0 lg:pt-8 lg:pb-0 lg:backdrop-filter-none">
                                     <Button
                                         className="mx-auto h-11 w-full max-w-md gap-2 lg:max-w-none"
                                         disabled={isSaving || (isCreating && !canCreate)}

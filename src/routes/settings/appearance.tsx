@@ -1,3 +1,4 @@
+import { GlassSettings } from "@/components/settings/glass-settings"
 import { InteractionSettings } from "@/components/settings/interaction-settings"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { ThemeGridSkeleton } from "@/components/settings/settings-skeletons"
@@ -464,6 +465,8 @@ function AppearanceSettings() {
                         </Card>
                     </div>
                 </div>
+
+                <GlassSettings />
 
                 <InteractionSettings />
 

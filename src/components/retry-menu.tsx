@@ -305,7 +305,7 @@ export function RetryMenu({
                 className={
                     triggerLabel
                         ? "text-foreground"
-                        : "h-7 w-7 border bg-background/80 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent hover:text-primary"
+                        : "glass-surface h-7 w-7 border text-foreground hover:bg-accent hover:text-primary"
                 }
             >
                 <RotateCcw className={triggerLabel ? "size-4" : "h-3.5 w-3.5"} />
@@ -337,11 +337,10 @@ export function RetryMenu({
                     <span>Retry same</span>
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator className="mx-2 my-5 opacity-50" />
-                <div className="absolute z-10 -mt-8 flex w-full items-center justify-center">
-                    <span className="bg-popover px-2 text-muted-foreground/80 text-sm">
-                        OR SWITCH MODEL
-                    </span>
+                <div className="mx-2 my-3 flex items-center gap-2">
+                    <DropdownMenuSeparator className="mx-0 my-0 flex-1 opacity-50" />
+                    <span className="text-muted-foreground/80 text-sm">OR SWITCH MODEL</span>
+                    <DropdownMenuSeparator className="mx-0 my-0 flex-1 opacity-50" />
                 </div>
 
                 {providerSections.map((section) => {

@@ -1879,8 +1879,8 @@ export const Messages = forwardRef<
                         <Button
                             type="button"
                             size="icon"
-                            variant="secondary"
-                            className="pointer-events-auto size-8 rounded-md border border-border/70 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-accent"
+                            variant="ghost"
+                            className="glass-surface pointer-events-auto size-8 rounded-md border text-foreground hover:bg-accent"
                             aria-label="Quote selection"
                             title="Quote selection"
                             onMouseDown={(event) => event.preventDefault()}

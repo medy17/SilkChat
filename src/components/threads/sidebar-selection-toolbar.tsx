@@ -110,7 +110,7 @@ export function SelectionToolbar({
     if (selectedCount === 0) return null
 
     return (
-        <div className="absolute right-2 bottom-2 left-2 z-20 rounded-lg border bg-sidebar/95 p-2 shadow-lg backdrop-blur">
+        <div className="glass-raised glass-sidebar absolute right-2 bottom-2 left-2 z-20 rounded-[var(--radius-lg)] border p-2">
             <div ref={layoutRef} className="flex items-center gap-2">
                 <div ref={labelRef} className="font-medium text-sm">
                     {selectedCount} selected

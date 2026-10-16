@@ -4,6 +4,7 @@ import {
     LOCAL_THEME_FONT_FAMILY_NAMES,
     WEB_SAFE_FONT_FAMILY_NAMES
 } from "@/lib/theme-font-config"
+import { GLASS_BOOT_SCRIPT } from "@/lib/glass-settings-store"
 import { DEFAULT_THEME_PRESET, LEGACY_GREEN_THEME_PRESET } from "@/lib/theme-store"
 
 export function ThemeScript() {
@@ -215,6 +216,16 @@ export function ThemeScript() {
         <script
             // biome-ignore lint/security/noDangerouslySetInnerHtml: this script needs to execute immediately
             dangerouslySetInnerHTML={{ __html: scriptContent }}
+            suppressHydrationWarning
+        />
+    )
+}
+
+export function GlassScript() {
+    return (
+        <script
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: this script needs to execute immediately
+            dangerouslySetInnerHTML={{ __html: GLASS_BOOT_SCRIPT }}
             suppressHydrationWarning
         />
     )

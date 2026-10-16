@@ -312,7 +312,7 @@ function ChatComposerSkeleton({
         return (
             <div
                 className={cn(
-                    "flex items-center gap-1 rounded-[var(--radius-lg)] border border-border/70 bg-composer p-2 shadow-xs",
+                    "glass-composer flex items-center gap-1 rounded-[var(--radius-lg)] border p-2",
                     className
                 )}
             >
@@ -324,12 +324,7 @@ function ChatComposerSkeleton({
     }
 
     return (
-        <div
-            className={cn(
-                "rounded-[var(--radius-lg)] border border-border/70 bg-composer p-3 shadow-xs",
-                className
-            )}
-        >
+        <div className={cn("glass-composer rounded-[var(--radius-lg)] border p-3", className)}>
             <div className="flex w-full items-start">
                 <ComposerTextareaSkeleton />
             </div>
@@ -447,7 +442,7 @@ function ThreadSkeletonBody() {
                 </div>
                 {/* Same backdrop chat.tsx draws behind the thread composer, so it
                     doesn't pop in when the real one takes over. */}
-                <div className="pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0 bg-sidebar/45 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_100%)]" />
+                <div className="glass-fade pointer-events-none absolute inset-x-0 top-1/2 bottom-0 z-0" />
             </div>
         </div>
     )
