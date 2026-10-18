@@ -21,6 +21,7 @@ const MAX_RECENT_JOB_MESSAGE_LENGTH = 220
 const STALE_ACTIVE_IMPORT_JOB_MS = 2 * 60 * 60 * 1000
 const FAILED_IMPORT_JOB_THREAD_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const CLEANUP_BATCH_SIZE = 100
+const IMPORT_JOB_FAILURE_LIST_LIMIT = 25
 
 const ImportJobSourceInput = v.object({
     clientSourceId: v.string(),
@@ -315,18 +316,27 @@ export const getImportJob = query({
             .withIndex("byJobId", (q) => q.eq("jobId", jobId))
             .collect()
 
-        const recentFailures = await ctx.db
+        // Imported rows are deleted as they finish; failed rows stay so the dialog can name them.
+        const failures = await ctx.db
             .query("importJobThreads")
-            .withIndex("byJobId", (q) => q.eq("jobId", jobId))
-            .order("desc")
-            .take(8)
+            .withIndex("byJobIdAndStatus", (q) => q.eq("jobId", jobId).eq("status", "failed"))
+            .take(IMPORT_JOB_FAILURE_LIST_LIMIT)
 
         return {
             ...job,
             sources,
-            recentFailures: recentFailures.filter((thread) =>
-                Boolean(thread.error || thread.warning)
-            )
+            failures: failures.map((thread) => ({
+                _id: thread._id,
+                sourceId: thread.sourceId,
+                title: thread.title,
+                messageCount: thread.messages.length,
+                attachmentCount: thread.messages.reduce(
+                    (sum, message) => sum + message.attachments.length,
+                    0
+                ),
+                error: thread.error,
+                warning: thread.warning
+            }))
         }
     }
 })
