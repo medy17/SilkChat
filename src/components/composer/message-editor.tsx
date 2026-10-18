@@ -39,6 +39,7 @@ import {
     matchesSaveMessageEditShortcut
 } from "@/lib/keyboard-shortcuts"
 import { getEnabledToolsForPastedText } from "@/lib/pasted-text"
+import { useModelStore } from "@/lib/model-store"
 import type { FileUIPart, UIMessage } from "ai"
 import { useMutation } from "convex/react"
 import { ArrowUp } from "lucide-react"
@@ -86,6 +87,7 @@ const MessageEditor = memo(
         requiresNativePdfForModelSelection?: boolean
     }) => {
         const deleteFileMutation = useMutation(api.attachments.deleteFile)
+        const updateUserSettings = useMutation(api.settings.updateUserSettingsPartial)
         const fileInputRef = useRef<HTMLInputElement>(null)
         const [recovery] = useState(() => peekMessageEditRecovery(message.id))
         const [editSession] = useState(() => recovery?.session ?? createComposerSession())
@@ -101,7 +103,8 @@ const MessageEditor = memo(
             setEnabledTools,
             reasoningEffort,
             autoSelectTools,
-            toolCallLimitPerTurn
+            toolCallLimitPerTurn,
+            initialEditSettings
         } = useComposerModelStore()
         const composerToolbar = useComposerToolbarState()
         const modelApi = useComposerModelApi()
@@ -221,7 +224,28 @@ const MessageEditor = memo(
                 config
             })
             try {
-                await onSave(text, nextFileParts, deletedUrls, config)
+                const accepted = await onSave(text, nextFileParts, deletedUrls, config)
+                if (accepted) {
+                    useModelStore.getState().adoptThreadSettings(threadId, {
+                        selectedModel: config.modelId,
+                        reasoningEffort: config.reasoningEffort,
+                        enabledTools: config.enabledTools,
+                        autoSelectTools: config.autoSelectTools
+                    })
+                    // The main composer's limit is an account setting; the editor starts from
+                    // the old message's, so only a limit changed here carries over.
+                    if (
+                        config.toolCallLimitPerTurn !== undefined &&
+                        config.toolCallLimitPerTurn !== initialEditSettings?.toolCallLimitPerTurn
+                    ) {
+                        void updateUserSettings({
+                            toolCallLimitPerTurn: config.toolCallLimitPerTurn
+                        }).catch((error) => {
+                            toast.error("Failed to update tool call limit")
+                            console.error(error)
+                        })
+                    }
+                }
             } finally {
                 // Still mounted means the save was refused before the editor closed.
                 if (mountedRef.current) {

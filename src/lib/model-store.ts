@@ -12,6 +12,13 @@ import { persist } from "zustand/middleware"
 
 export type ReasoningEffort = ReasoningEffortTier
 
+export type ThreadSettings = {
+    selectedModel: string
+    reasoningEffort: ReasoningEffort
+    enabledTools: AbilityId[]
+    autoSelectTools: boolean
+}
+
 export type ModelStore = {
     selectedModel: string | null
     setSelectedModel: (model: string | null) => void
@@ -33,6 +40,7 @@ export type ModelStore = {
         draftGeneration?: number
     ) => void
     setConversationTools: (tools: AbilityId[]) => void
+    adoptThreadSettings: (threadId: string | undefined, settings: ThreadSettings) => void
     setEnabledTools: (tools: AbilityId[]) => void
     autoSelectTools: boolean
     setAutoSelectTools: (enabled: boolean) => void
@@ -158,6 +166,31 @@ export const useModelStore = create<ModelStore>()(
                           }
                         : {})
                 })),
+            // A saved edit continues its thread with the settings it was sent with, so the
+            // composer adopts them as if they had been picked there. The thread's tools count
+            // as a manual choice, so a late auto-selection can't replace them.
+            adoptThreadSettings: (threadId, settings) => {
+                get().setSelectedModel(settings.selectedModel)
+                get().setReasoningEffort(settings.reasoningEffort)
+                set((state) => ({
+                    autoSelectTools: settings.autoSelectTools,
+                    ...(threadId
+                        ? {
+                              conversationTools: {
+                                  ...state.conversationTools,
+                                  [threadId]: [...settings.enabledTools]
+                              },
+                              manuallyEditedThreads: {
+                                  ...state.manuallyEditedThreads,
+                                  [threadId]: true
+                              },
+                              ...(state.toolThreadId === threadId
+                                  ? { enabledTools: [...settings.enabledTools] }
+                                  : {})
+                          }
+                        : {})
+                }))
+            },
             autoSelectTools: true,
             setAutoSelectTools: (enabled) =>
                 set((state) => ({

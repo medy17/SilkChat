@@ -77,6 +77,32 @@ describe("model-store", () => {
         expect(store().enabledTools).toEqual(["web_search", "code_execution"])
     })
 
+    it("continues a thread with the settings a saved edit was sent with", async () => {
+        const store = () => useModelStore.getState()
+        store().setSelectedModel("current")
+        store().activateToolThread("first")
+        store().restoreConversationTools("first", ["web_search"])
+
+        store().adoptThreadSettings("first", {
+            selectedModel: "edited",
+            reasoningEffort: "high",
+            enabledTools: ["code_execution"],
+            autoSelectTools: false
+        })
+        store().restoreConversationTools("first", ["web_search"])
+
+        expect(store()).toMatchObject({
+            selectedModel: "edited",
+            reasoningEffort: "high",
+            enabledTools: ["code_execution"],
+            autoSelectTools: false
+        })
+        await useModelStore.persist.rehydrate()
+        store().activateToolThread("first")
+        expect(store().enabledTools).toEqual(["code_execution"])
+        expect(store().selectedModel).toBe("edited")
+    })
+
     it("preserves manual draft changes made while Magic is selecting", () => {
         const store = () => useModelStore.getState()
         const revision = store().toolRevision
