@@ -61,7 +61,7 @@ export const buildSkillIndexContext = (
         .join("\n")
 
     return `${loadedContext}## Available Skills
-The skills below are available but not loaded. Availability is not a suggestion to use them. Loading a skill is itself a tool call, so answer directly whenever the request does not match a listed positive trigger. Uncertainty, unfamiliarity, or a desire to produce a more authoritative answer does not by itself justify loading a skill. When the current request clearly needs one, call \`load_skill\` before following its instructions or using its associated tools. Loading returns complete, turn-scoped instructions as a tool result. Do not load skills for simple adjacent tasks, and do not claim to have loaded one without calling the tool. You may load another skill later in the same turn if necessary.
+The skills below are available but not loaded. Availability is not a suggestion to use them. Loading a skill is itself a tool call, so answer directly whenever the request does not match a listed positive trigger. Uncertainty, unfamiliarity, or a desire to produce a more authoritative answer does not by itself justify loading a skill. When the current request clearly needs one, call \`load_skill\` first and wait for its result before following its instructions or using its associated tools. A skill's tools become callable only in the step after its load returns, so never call them in the same step as \`load_skill\`, including tools you used in earlier turns: skills load per turn. If a tool call fails because the tool is unavailable or its skill is not loaded, load the skill, or call the tool again once the load has returned, instead of telling the user the tool is unavailable. Loading returns complete, turn-scoped instructions as a tool result. Do not load skills for simple adjacent tasks, and do not claim to have loaded one without calling the tool. You may load another skill later in the same turn if necessary.
 ${entries}`
 }
 
@@ -105,7 +105,7 @@ export const getLoadSkillTool = ({
     return {
         load_skill: tool({
             description:
-                "Load one skill only when the request matches that skill's positive trigger in the Available Skills index. Skill availability, uncertainty, unfamiliarity, or a desire for extra authority is not enough. Call this before using a genuinely needed skill or its associated tools.",
+                "Load one skill only when the request matches that skill's positive trigger in the Available Skills index. Skill availability, uncertainty, unfamiliarity, or a desire for extra authority is not enough. Call this before using a genuinely needed skill or its associated tools, and wait for the result: its tools become callable only after it returns, never in the same step.",
             inputSchema: z.object({
                 skill: skillIdSchema.describe("The exact skill id from the Available Skills index")
             }),
@@ -117,6 +117,13 @@ export const getLoadSkillTool = ({
                     skill,
                     label: definition.label,
                     message: `Loaded ${definition.label} skill for this turn.`,
+                    // Model-only; the public result drops it.
+                    ...(definition.toolNames.length > 0
+                        ? {
+                              nextStep:
+                                  "This skill's tools are callable from your next step. Use them; do not tell the user they are unavailable."
+                          }
+                        : {}),
                     instructions: definition.buildInstructions(context)
                 }
             }
