@@ -18,7 +18,7 @@ import { type ReactNode, type RefObject, useEffect, useState } from "react"
 import { FolderItem } from "./folder-item"
 import { NewFolderButton } from "./new-folder-button"
 import { ThreadItem } from "./thread-item"
-import type { SidebarProject, Thread } from "./types"
+import type { SidebarProject, Thread, ThreadSelectionToggle } from "./types"
 
 const getThreadActivityTime = (thread: Thread) => thread.updatedAt ?? thread.createdAt
 
@@ -110,7 +110,7 @@ function ThreadsGroup({
     onOpenMoveDialog?: (thread: Thread) => void
     onOpenDeleteDialog?: (thread: Thread) => void
     onExportThread?: (thread: Thread) => Promise<void> | void
-    onToggleSelection?: (thread: Thread) => void
+    onToggleSelection?: ThreadSelectionToggle
     onStartSelection?: (thread: Thread) => void
     onBulkTogglePin?: () => Promise<void> | void
     onOpenBulkMoveDialog?: () => void
@@ -196,7 +196,7 @@ export type FolderGroupActions = {
     onOpenDeleteThreadDialog?: (thread: Thread) => void
     onExportThread?: (thread: Thread) => Promise<void> | void
     onExportSelected?: () => Promise<void> | void
-    onToggleThreadSelection?: (thread: Thread) => void
+    onToggleThreadSelection?: ThreadSelectionToggle
     onStartThreadSelection?: (thread: Thread) => void
     onBulkTogglePin?: () => Promise<void> | void
     onOpenBulkMoveDialog?: () => void
@@ -313,7 +313,7 @@ export type ThreadGroupActions = {
     onOpenDeleteDialog?: (thread: Thread) => void
     onExportThread?: (thread: Thread) => Promise<void> | void
     onExportSelected?: () => Promise<void> | void
-    onToggleSelection?: (thread: Thread) => void
+    onToggleSelection?: ThreadSelectionToggle
     onStartSelection?: (thread: Thread) => void
     onBulkTogglePin?: () => Promise<void> | void
     onOpenBulkMoveDialog?: () => void

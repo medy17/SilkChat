@@ -30,3 +30,7 @@ export interface Project {
 export interface SidebarProject extends Project {
     threadCount: number
 }
+
+export type ThreadSelectionOptions = { extendRange?: boolean }
+
+export type ThreadSelectionToggle = (thread: Thread, options?: ThreadSelectionOptions) => void

@@ -162,6 +162,26 @@ export const SHORTCUTS = {
             default: ["Alt", "Hover sidebar"]
         }
     }),
+    selectSidebarThreadRange: defineShortcut({
+        id: "select-sidebar-thread-range",
+        title: "Select a range of threads",
+        category: "Sidebar",
+        context: "Chat sidebar",
+        display: {
+            mac: ["Shift", "Click"],
+            default: ["Shift", "Click"]
+        }
+    }),
+    clearSidebarSelection: defineShortcut({
+        id: "clear-sidebar-selection",
+        title: "Clear thread selection",
+        category: "Sidebar",
+        context: "Chat sidebar",
+        display: {
+            mac: ["Esc"],
+            default: ["Esc"]
+        }
+    }),
     deleteCurrentThread: defineShortcut({
         id: "delete-current-thread",
         title: "Delete current thread",
@@ -224,7 +244,12 @@ export const getShortcutHelpSections = (invertSendNewlineBehavior = false) =>
         },
         {
             title: "Sidebar",
-            shortcuts: [SHORTCUTS.previewSidebarSelection, SHORTCUTS.deleteCurrentThread]
+            shortcuts: [
+                SHORTCUTS.previewSidebarSelection,
+                SHORTCUTS.selectSidebarThreadRange,
+                SHORTCUTS.clearSidebarSelection,
+                SHORTCUTS.deleteCurrentThread
+            ]
         },
         {
             title: "Library",
@@ -319,6 +344,9 @@ export const matchesSaveMessageEditShortcut = (event: ShortcutKeyEvent) =>
 
 export const matchesCancelMessageEditShortcut = (event: Pick<KeyboardEvent, "key">) =>
     event.key === "Escape"
+
+export const matchesClearSidebarSelectionShortcut = (event: ShortcutKeyEvent) =>
+    event.key === "Escape" && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
 
 export const matchesPreviousImageShortcut = (
     event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey">

@@ -28,6 +28,7 @@ import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-ca
 import { useShowContextualDevTools } from "@/lib/dev-tools"
 import {
     isEditableShortcutTarget,
+    matchesClearSidebarSelectionShortcut,
     matchesDeleteCurrentThreadShortcut,
     matchesNewChatShortcut
 } from "@/lib/keyboard-shortcuts"
@@ -56,8 +57,9 @@ import {
     ThreadSections,
     groupThreadsByTime
 } from "./threads/sidebar-sections"
+import { applyThreadRangeSelection } from "./threads/selection-range"
 import { SelectionToolbar } from "./threads/sidebar-selection-toolbar"
-import type { SidebarProject, Thread } from "./threads/types"
+import type { SidebarProject, Thread, ThreadSelectionOptions } from "./threads/types"
 
 function ThreadItemSkeleton() {
     return (
@@ -196,6 +198,7 @@ export function ThreadsSidebar() {
     const [isAltPressed, setIsAltPressed] = useState(false)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const selectionAnchorIdRef = useRef<string | null>(null)
     const importJobStatusRef = useRef<Record<string, string>>({})
     const dialogsRef = useRef<SidebarDialogsHandle>(null)
     const { data: session } = useSession()
@@ -346,6 +349,7 @@ export function ThreadsSidebar() {
         if (isSelectionMode && selectedThreadIds.length === 0) {
             setIsSelectionMode(false)
             setSelectionScope(null)
+            selectionAnchorIdRef.current = null
         }
     }, [isSelectionMode, selectedThreadIds.length])
 
@@ -498,32 +502,81 @@ export function ThreadsSidebar() {
         setSelectionScope("thread")
         setIsSelectionMode(true)
         setSelectedThreadIds([thread._id])
+        selectionAnchorIdRef.current = thread._id
     })
 
-    const handleToggleSelection = useFunction((thread: Thread) => {
-        if (!isSelectionMode) {
-            setIsSelectionMode(true)
-        }
+    const handleToggleSelection = useFunction(
+        (thread: Thread, options?: ThreadSelectionOptions) => {
+            if (!isSelectionMode) {
+                setIsSelectionMode(true)
+            }
 
-        if (selectionScope !== "thread") {
-            setSelectionScope("thread")
-        }
+            if (selectionScope !== "thread") {
+                setSelectionScope("thread")
+            }
 
-        setSelectedThreadIds((previous) =>
-            previous.includes(thread._id)
-                ? previous.filter((threadId) => threadId !== thread._id)
-                : [...previous, thread._id]
-        )
-    })
+            const anchorId = selectionAnchorIdRef.current
+            selectionAnchorIdRef.current = thread._id
+
+            // Folder threads load per folder, so the rendered rows are the only
+            // place the full visible order exists.
+            const orderedThreadIds =
+                options?.extendRange && anchorId
+                    ? Array.from(
+                          scrollContainerRef.current?.querySelectorAll<HTMLElement>(
+                              "[data-sidebar-thread-id]"
+                          ) ?? [],
+                          (element) => element.dataset.sidebarThreadId ?? ""
+                      )
+                    : null
+
+            setSelectedThreadIds((previous) => {
+                if (orderedThreadIds && anchorId) {
+                    const ranged = applyThreadRangeSelection({
+                        orderedThreadIds,
+                        selectedThreadIds: previous,
+                        anchorId,
+                        targetId: thread._id
+                    })
+                    if (ranged) return ranged
+                }
+
+                return previous.includes(thread._id)
+                    ? previous.filter((threadId) => threadId !== thread._id)
+                    : [...previous, thread._id]
+            })
+        }
+    )
 
     const handleExitSelectionMode = useFunction(() => {
         setIsSelectionMode(false)
         setSelectionScope(null)
         setSelectedThreadIds([])
+        selectionAnchorIdRef.current = null
         setShowBulkDeleteDialog(false)
         setShowBulkMoveDialog(false)
         setBulkMoveProjectId("no-folder")
     })
+
+    useEffect(() => {
+        if (!isSelectionMode) return
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Radix prevents the Escape it uses to dismiss a dialog or menu, so
+            // closing one of those leaves the selection intact.
+            if (event.defaultPrevented || isEditableShortcutTarget(event.target)) {
+                return
+            }
+
+            if (!matchesClearSidebarSelectionShortcut(event)) return
+
+            event.preventDefault()
+            handleExitSelectionMode()
+        }
+
+        document.addEventListener("keydown", handleKeyDown)
+        return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [isSelectionMode, handleExitSelectionMode])
 
     const handleOpenImportJob = useFunction((jobId: Id<"importJobs">) => {
         setImportDialogJobId(jobId)

@@ -30,7 +30,7 @@ import {
 import { memo, useState } from "react"
 import { toast } from "sonner"
 import { ShareButton } from "../share-button"
-import type { Thread } from "./types"
+import type { Thread, ThreadSelectionToggle } from "./types"
 
 const THREAD_HINT_DELAY_MS = 1000
 
@@ -53,7 +53,7 @@ interface ThreadItemProps {
     onBulkTogglePin?: () => Promise<void> | void
     onOpenBulkMoveDialog?: () => void
     onOpenBulkDeleteDialog?: () => void
-    onToggleSelection?: (thread: Thread) => void
+    onToggleSelection?: ThreadSelectionToggle
     onStartSelection?: (thread: Thread) => void
 }
 
@@ -179,7 +179,8 @@ export const ThreadItem = memo(
         const handleMove = () => onOpenMoveDialog?.(thread)
         const handleDelete = () => onOpenDeleteDialog?.(thread)
         const handleStartSelection = () => onStartSelection?.(thread)
-        const handleToggleSelection = () => onToggleSelection?.(thread)
+        const handleToggleSelection = (event: React.MouseEvent) =>
+            onToggleSelection?.(thread, { extendRange: event.shiftKey })
         const shouldUseBulkActions = isSelectionMode && selectedThreadCount > 1
         const shouldExportSelection = shouldUseBulkActions
         const handleExport = async () => {
@@ -227,7 +228,7 @@ export const ThreadItem = memo(
             if (isSelectionMode) {
                 event.preventDefault()
                 event.stopPropagation()
-                handleToggleSelection()
+                handleToggleSelection(event)
                 return
             }
             if (!isMobile) {
@@ -336,6 +337,7 @@ export const ThreadItem = memo(
         const threadContent = (
             <SidebarMenuItem className={isInFolder ? "pl-6" : ""}>
                 <div
+                    data-sidebar-thread-id={thread._id}
                     className={cn(
                         "group/item relative flex h-9 w-full items-center overflow-hidden rounded-lg outline-hidden",
                         "transition-colors duration-200 ease-in-out",
@@ -355,6 +357,10 @@ export const ThreadItem = memo(
                             <button
                                 type="button"
                                 className="flex h-full w-full min-w-0 items-center justify-start gap-2 text-left"
+                                onMouseDown={(event) => {
+                                    // Keep Shift-click from extending the page's text selection.
+                                    if (event.shiftKey) event.preventDefault()
+                                }}
                                 onClick={handleToggleSelection}
                             >
                                 <div className="flex min-w-0 flex-1 items-center justify-start gap-2 text-left">

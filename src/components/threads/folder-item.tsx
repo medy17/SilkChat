@@ -63,7 +63,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ThreadItem } from "./thread-item"
-import type { SidebarProject, Thread } from "./types"
+import type { SidebarProject, Thread, ThreadSelectionToggle } from "./types"
 
 type FolderSelectionState = "none" | "some" | "all"
 
@@ -86,7 +86,7 @@ interface FolderItemProps {
     onOpenDeleteThreadDialog?: (thread: Thread) => void
     onExportThread?: (thread: Thread) => Promise<void> | void
     onExportSelected?: () => Promise<void> | void
-    onToggleThreadSelection?: (thread: Thread) => void
+    onToggleThreadSelection?: ThreadSelectionToggle
     onStartThreadSelection?: (thread: Thread) => void
     onBulkTogglePin?: () => Promise<void> | void
     onOpenBulkMoveDialog?: () => void
