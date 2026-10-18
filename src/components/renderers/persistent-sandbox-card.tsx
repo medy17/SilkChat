@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { getPersistentSandboxTitle } from "@/lib/persistent-sandbox-title"
 import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useMutation, useQuery } from "convex/react"
-import { Box, CircleAlert, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
-import { memo, useEffect, useState } from "react"
+import { CircleAlert, Clock3, Loader2, Play, Square, X } from "lucide-react"
+import { type CSSProperties, memo, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
+import { SPOTLIGHT_CARD_CLASS, SpotlightHeader } from "./spotlight-frame"
+import { formatTimerClock } from "./spotlight-timer"
 
 type PersistentSandboxInvocation = UIToolInvocation<{
     input: unknown
@@ -28,6 +30,7 @@ type PersistentSandboxOutput = {
         | "denied"
     cardId?: string
     sandboxId?: Id<"persistentSandboxes">
+    title?: string
     purpose?: string
     runtime?: "node" | "python"
     runtimeVersion?: string
@@ -37,16 +40,33 @@ type PersistentSandboxOutput = {
     error?: string
 }
 
+/** Stored statuses, plus "allowing" while the user's Allow is in flight. */
+export type PersistentSandboxCardStatus =
+    | NonNullable<PersistentSandboxOutput["status"]>
+    | "allowing"
+
+export type PersistentSandboxCardModel = {
+    status: PersistentSandboxCardStatus
+    title?: string
+    purpose?: string
+    runtime?: "node" | "python"
+    runtimeVersion?: string
+    ttlMinutes: number
+    /** Time left while active. */
+    remainingMs?: number
+    error?: string
+}
+
+export type PersistentSandboxCardHandlers = {
+    onAllow?: () => void
+    onDeny?: () => void
+    onStop?: () => void
+}
+
+const ENDING_SOON_MS = 60_000
+
 const getErrorMessage = (error: unknown, fallback: string) =>
     error instanceof Error ? error.message : fallback
-
-const formatRemaining = (expiresAt: number | undefined, now: number) => {
-    if (!expiresAt) return undefined
-    const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000))
-    const minutes = Math.floor(seconds / 60)
-    const remainder = seconds % 60
-    return `${minutes}:${remainder.toString().padStart(2, "0")}`
-}
 
 // A request ends without a card when the call errors, the tool refuses it, or the reply
 // stops before a result arrives; each is final, so none of them may keep spinning.
@@ -68,6 +88,272 @@ const getRequestFailure = (
     return undefined
 }
 
+const isPending = (status: PersistentSandboxCardStatus) =>
+    status === "pending_confirmation" || status === "allowing"
+
+const isRunning = (status: PersistentSandboxCardStatus) =>
+    status === "active" || status === "stopping"
+
+/** Finished for good: nothing left to decide, start, or stop. */
+const isSettled = (status: PersistentSandboxCardStatus) =>
+    status === "stopped" || status === "expired" || status === "denied" || status === "failed"
+
+const isEndingSoon = (model: PersistentSandboxCardModel) =>
+    model.status === "active" &&
+    model.remainingMs !== undefined &&
+    model.remainingMs <= ENDING_SOON_MS
+
+const remainingSeconds = (model: PersistentSandboxCardModel) =>
+    Math.max(0, Math.ceil((model.remainingMs ?? 0) / 1000))
+
+/** Share of the budget still ahead: full until it starts, draining while it runs. */
+const remainingFraction = (model: PersistentSandboxCardModel) =>
+    isPending(model.status) || model.status === "provisioning"
+        ? 1
+        : isRunning(model.status) && model.remainingMs !== undefined
+          ? Math.min(1, model.remainingMs / (model.ttlMinutes * 60_000))
+          : 0
+
+const coverPattern = (settled: boolean): CSSProperties => ({
+    backgroundImage: [
+        "radial-gradient(color-mix(in oklab, var(--chart-1) 45%, transparent) 1px, transparent 1.5px)",
+        "linear-gradient(135deg, color-mix(in oklab, var(--chart-1) 24%, var(--card)), color-mix(in oklab, var(--chart-1) 4%, var(--card)))"
+    ].join(", "),
+    backgroundSize: "14px 14px, 100% 100%",
+    filter: settled ? "grayscale(1)" : undefined,
+    opacity: settled ? 0.6 : undefined
+})
+
+/**
+ * The one pill on the cover. It holds the budget before approval, the live countdown while
+ * running, and the outcome after, so time and status never compete for the corner.
+ */
+function CoverPill({ model }: { model: PersistentSandboxCardModel }) {
+    const { status } = model
+    const content =
+        status === "pending_confirmation"
+            ? { icon: Clock3, label: `${model.ttlMinutes} min`, tone: "" }
+            : status === "allowing" || status === "provisioning"
+              ? { icon: Loader2, label: "Starting", tone: "text-primary", spin: true }
+              : status === "active"
+                ? {
+                      icon: Clock3,
+                      label: formatTimerClock(remainingSeconds(model)),
+                      tone: isEndingSoon(model) ? "text-warning" : "text-primary",
+                      clock: true
+                  }
+                : status === "stopping"
+                  ? { icon: Loader2, label: "Stopping", tone: "text-primary", spin: true }
+                  : status === "failed"
+                    ? { icon: CircleAlert, label: "Failed", tone: "text-destructive" }
+                    : status === "denied"
+                      ? { icon: X, label: "Denied", tone: "text-muted-foreground" }
+                      : status === "expired"
+                        ? { icon: Clock3, label: "Expired", tone: "text-muted-foreground" }
+                        : { icon: Square, label: "Stopped", tone: "text-muted-foreground" }
+    const Icon = content.icon
+
+    return (
+        <span
+            className={cn(
+                "spotlight-glass absolute top-3 right-3 inline-flex h-7 items-center gap-1.5 rounded-[var(--radius-md)] px-2 font-medium text-xs",
+                content.tone
+            )}
+            aria-label={"clock" in content ? `${content.label} remaining` : undefined}
+        >
+            <Icon
+                className={cn("size-3.5", "spin" in content && "animate-spin")}
+                aria-hidden="true"
+            />
+            <span className={cn("clock" in content && "font-mono tabular-nums")}>
+                {content.label}
+            </span>
+        </span>
+    )
+}
+
+function CardActions({
+    model,
+    handlers,
+    disabled
+}: {
+    model: PersistentSandboxCardModel
+    handlers?: PersistentSandboxCardHandlers
+    disabled?: boolean
+}) {
+    // Every state between a click and its outcome keeps the row it started from, so the
+    // card never loses its buttons mid-transition: Allow spins until the workspace runs.
+    if (isPending(model.status) || model.status === "provisioning") {
+        const allowing = model.status !== "pending_confirmation"
+        return (
+            <div className="flex items-center justify-end gap-2 px-5 pt-4 pb-5">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-[var(--radius-md)]"
+                    disabled={allowing || disabled}
+                    onClick={handlers?.onDeny}
+                >
+                    Deny
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    className="rounded-[var(--radius-md)] px-5"
+                    disabled={allowing || disabled}
+                    onClick={handlers?.onAllow}
+                >
+                    {allowing ? (
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                    ) : (
+                        <Play className="mr-1.5 size-3.5" aria-hidden="true" />
+                    )}
+                    Allow
+                </Button>
+            </div>
+        )
+    }
+    if (isRunning(model.status)) {
+        const stopping = model.status === "stopping"
+        return (
+            <div className="flex items-center justify-end gap-2 px-5 pt-4 pb-5">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-[var(--radius-md)] px-5"
+                    disabled={stopping || disabled}
+                    onClick={handlers?.onStop}
+                >
+                    {stopping ? (
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                    ) : (
+                        <Square className="mr-1.5 size-3 fill-current" aria-hidden="true" />
+                    )}
+                    Stop
+                </Button>
+            </div>
+        )
+    }
+    return <div className="pb-5" />
+}
+
+/**
+ * The workspace card. A recipe-style cover anchors it: the runtime version set large on a
+ * chart-1 field, one glass pill for time and status, and the budget draining along its edge.
+ */
+export function PersistentSandboxCardView({
+    model,
+    handlers,
+    disabled,
+    className
+}: {
+    model: PersistentSandboxCardModel
+    handlers?: PersistentSandboxCardHandlers
+    /** Blocks Allow, Deny, and Stop, e.g. while another action is in flight. */
+    disabled?: boolean
+    className?: string
+}) {
+    const settled = isSettled(model.status)
+    const title = getPersistentSandboxTitle(model.title, model.runtime)
+
+    return (
+        <section
+            className={cn(
+                "not-prose w-full max-w-md overflow-hidden",
+                SPOTLIGHT_CARD_CLASS,
+                className
+            )}
+            aria-label={title}
+        >
+            <div className="relative h-36 overflow-hidden border-border border-b">
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-0 transition-[filter,opacity] duration-500"
+                    style={coverPattern(settled)}
+                />
+                <div
+                    className={cn(
+                        "absolute bottom-5 left-5 transition-colors",
+                        settled ? "text-muted-foreground" : "text-foreground"
+                    )}
+                >
+                    <div className="font-medium text-xs opacity-70">
+                        {model.runtime === "node" ? "Node.js" : "Python"}
+                    </div>
+                    <div className="font-mono font-semibold text-5xl leading-none tracking-tighter">
+                        {model.runtimeVersion ?? (model.runtime === "node" ? "js" : "py")}
+                    </div>
+                </div>
+                <CoverPill model={model} />
+                <div
+                    aria-hidden="true"
+                    className={cn(
+                        "absolute bottom-0 left-0 h-1 w-full origin-left transition-[transform,background-color] duration-1000 ease-linear",
+                        isEndingSoon(model)
+                            ? "bg-warning"
+                            : model.status === "provisioning" || model.status === "allowing"
+                              ? "bg-primary/40"
+                              : "bg-primary"
+                    )}
+                    style={{ transform: `scaleX(${remainingFraction(model)})` }}
+                />
+            </div>
+            <SpotlightHeader
+                className="pt-4"
+                title={
+                    <span className="block truncate" title={title}>
+                        {title}
+                    </span>
+                }
+                description={model.purpose}
+            />
+            {model.error && (
+                <p className="mx-5 mt-3 rounded-[var(--radius-md)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                    {model.error}
+                </p>
+            )}
+            <CardActions model={model} handlers={handlers} disabled={disabled} />
+        </section>
+    )
+}
+
+/** The Spotlight loading row, before the request's result arrives. */
+export function PersistentSandboxCardPreparing({ className }: { className?: string }) {
+    return (
+        <div
+            className={cn(
+                "not-prose flex w-full max-w-md items-center gap-2 px-5 py-4 text-muted-foreground text-sm",
+                SPOTLIGHT_CARD_CLASS,
+                className
+            )}
+        >
+            <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
+            Preparing workspace
+        </div>
+    )
+}
+
+/** A request that never produced a card. */
+export function PersistentSandboxRequestFailure({
+    label,
+    className
+}: {
+    label: string
+    className?: string
+}) {
+    return (
+        <div
+            className={cn("not-prose flex items-center gap-2 text-destructive text-sm", className)}
+            role="status"
+        >
+            <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+            <span className="font-medium">{label}</span>
+        </div>
+    )
+}
+
 export const PersistentSandboxCard = memo(
     ({
         toolInvocation,
@@ -83,7 +369,7 @@ export const PersistentSandboxCard = memo(
         const confirm = useAction(api.persistent_sandboxes_node.confirmPersistentSandboxRequest)
         const kill = useAction(api.persistent_sandboxes_node.killMyPersistentSandbox)
         const deny = useMutation(api.persistent_sandboxes.denyPersistentSandboxRequest)
-        const [isActing, setIsActing] = useState(false)
+        const [acting, setActing] = useState<"allow" | "deny" | "stop">()
         const [now, setNow] = useState(Date.now())
         const localOutput =
             toolInvocation.state === "output-available" &&
@@ -123,184 +409,85 @@ export const PersistentSandboxCard = memo(
         }, [output?.confirmationExpiresAt, output?.expiresAt, rawStatus])
 
         const failure = getRequestFailure(toolInvocation, isStreaming, Boolean(localOutput))
-        if (failure) {
-            return (
-                <div
-                    className="not-prose my-3 flex items-center gap-2 text-destructive text-sm"
-                    role="status"
-                >
-                    <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-                    <span className="font-medium">{failure}</span>
-                </div>
-            )
-        }
+        if (failure) return <PersistentSandboxRequestFailure label={failure} className="my-3" />
+        if (!output) return <PersistentSandboxCardPreparing className="my-3" />
 
-        if (!output) {
-            return (
-                <div
-                    className={cn(
-                        "not-prose my-3 flex w-full max-w-md items-center gap-2 p-3 text-muted-foreground text-sm",
-                        SPOTLIGHT_CARD_CLASS
-                    )}
-                >
-                    <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
-                    Preparing persistent workspace request
-                </div>
-            )
-        }
-
-        const canDecide =
-            status === "pending_confirmation" &&
-            Boolean(output.cardId && threadId && messageId) &&
-            !isActing
-        const activeRemaining = formatRemaining(output.expiresAt, now)
+        const canAct = Boolean(output.cardId && threadId && messageId) && !acting
+        const cardIdentifiers = () => ({
+            threadId: threadId as Id<"threads">,
+            messageId: messageId as string,
+            toolCallId: toolInvocation.toolCallId,
+            cardId: output.cardId as string
+        })
 
         const handleConfirm = async () => {
-            if (!output.cardId || !threadId || !messageId) return
-            setIsActing(true)
+            if (!canAct) return
+            setActing("allow")
             try {
-                await confirm({
-                    threadId: threadId as Id<"threads">,
-                    messageId,
-                    toolCallId: toolInvocation.toolCallId,
-                    cardId: output.cardId
-                })
-                toast.success("Persistent sandbox started")
+                await confirm(cardIdentifiers())
+                toast.success("Workspace started")
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to start persistent sandbox"))
+                toast.error(getErrorMessage(error, "Couldn't start the workspace"))
             } finally {
-                setIsActing(false)
+                setActing(undefined)
             }
         }
 
         const handleDeny = async () => {
-            if (!output.cardId || !threadId || !messageId) return
-            setIsActing(true)
+            if (!canAct) return
+            setActing("deny")
             try {
-                await deny({
-                    threadId: threadId as Id<"threads">,
-                    messageId,
-                    toolCallId: toolInvocation.toolCallId,
-                    cardId: output.cardId
-                })
+                await deny(cardIdentifiers())
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to deny persistent sandbox"))
+                toast.error(getErrorMessage(error, "Couldn't deny the workspace"))
             } finally {
-                setIsActing(false)
+                setActing(undefined)
             }
         }
 
-        const handleKill = async () => {
-            if (!output.sandboxId) return
-            setIsActing(true)
+        const handleStop = async () => {
+            if (!output.sandboxId || acting) return
+            setActing("stop")
             try {
                 await kill({ sandboxId: output.sandboxId })
-                toast.success("Persistent sandbox killed")
+                toast.success("Workspace stopped")
             } catch (error) {
-                toast.error(getErrorMessage(error, "Failed to kill persistent sandbox"))
+                toast.error(getErrorMessage(error, "Couldn't stop the workspace"))
             } finally {
-                setIsActing(false)
+                setActing(undefined)
             }
         }
 
-        return (
-            <section
-                className={cn(
-                    "not-prose my-3 w-full max-w-md overflow-hidden",
-                    SPOTLIGHT_CARD_CLASS
-                )}
-                aria-label="Persistent sandbox request"
-            >
-                <div className="flex items-start gap-3 p-4">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-primary/10 text-primary">
-                        <Box className="size-4" aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-sm tracking-tight">
-                                Persistent workspace
-                            </h3>
-                            <span className="rounded-[var(--radius-md)] border border-border bg-background/70 px-2 py-0.5 font-medium text-muted-foreground text-xs shadow-xs">
-                                {output.runtime === "python" ? "Python" : "Node.js"}
-                                {output.runtimeVersion ? ` ${output.runtimeVersion}` : ""}
-                            </span>
-                        </div>
-                        <p className="mt-1 text-muted-foreground text-sm">{output.purpose}</p>
-                        <div className="mt-2 flex items-center gap-1.5 text-muted-foreground text-xs">
-                            <Clock3 className="size-3.5" aria-hidden="true" />
-                            {status === "active" && activeRemaining
-                                ? `${activeRemaining} remaining`
-                                : `${output.ttlMinutes ?? 3} minute TTL`}
-                        </div>
-                        {output.error && (
-                            <p className="mt-2 text-destructive text-xs">{output.error}</p>
-                        )}
-                    </div>
-                </div>
+        const viewStatus: PersistentSandboxCardStatus =
+            status === "pending_confirmation" && acting === "allow"
+                ? "allowing"
+                : status === "active" && acting === "stop"
+                  ? "stopping"
+                  : status
 
-                <div className="border-border/70 border-t p-3">
-                    {status === "pending_confirmation" ? (
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                disabled={!canDecide}
-                                onClick={() => void handleDeny()}
-                            >
-                                <X className="size-4" aria-hidden="true" />
-                                Deny
-                            </Button>
-                            <Button
-                                type="button"
-                                disabled={!canDecide}
-                                onClick={() => void handleConfirm()}
-                            >
-                                {isActing ? (
-                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                                ) : (
-                                    <ShieldCheck className="size-4" aria-hidden="true" />
-                                )}
-                                Allow
-                            </Button>
-                        </div>
-                    ) : status === "provisioning" ? (
-                        <Button type="button" className="w-full" disabled>
-                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            Starting workspace
-                        </Button>
-                    ) : status === "active" ? (
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            className="w-full"
-                            disabled={isActing}
-                            onClick={() => void handleKill()}
-                        >
-                            {isActing ? (
-                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            ) : (
-                                <OctagonX className="size-4" aria-hidden="true" />
-                            )}
-                            Kill sandbox
-                        </Button>
-                    ) : status === "stopping" ? (
-                        <Button type="button" className="w-full" disabled>
-                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            Killing sandbox
-                        </Button>
-                    ) : (
-                        <output className="flex h-9 items-center justify-center rounded-[var(--radius-md)] bg-muted px-3 text-muted-foreground text-sm">
-                            {status === "denied"
-                                ? "Denied"
-                                : status === "expired"
-                                  ? "Expired"
-                                  : status === "failed"
-                                    ? "Failed"
-                                    : "Stopped"}
-                        </output>
-                    )}
-                </div>
-            </section>
+        return (
+            <PersistentSandboxCardView
+                className="my-3"
+                model={{
+                    status: viewStatus,
+                    title: output.title,
+                    purpose: output.purpose,
+                    runtime: output.runtime,
+                    runtimeVersion: output.runtimeVersion,
+                    ttlMinutes: output.ttlMinutes ?? 3,
+                    remainingMs:
+                        status === "active" && output.expiresAt
+                            ? output.expiresAt - now
+                            : undefined,
+                    error: output.error
+                }}
+                handlers={{
+                    onAllow: () => void handleConfirm(),
+                    onDeny: () => void handleDeny(),
+                    onStop: () => void handleStop()
+                }}
+                disabled={isPending(viewStatus) ? !canAct : !output.sandboxId || Boolean(acting)}
+            />
         )
     }
 )

@@ -62,7 +62,7 @@ describe("PersistentSandboxCard", () => {
         )
 
         expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy()
-        expect(screen.getByText("30 minute TTL")).toBeTruthy()
+        expect(screen.getByText("30 min")).toBeTruthy()
 
         convexMocks.queryResult = {
             ...invocation.output,
@@ -79,8 +79,8 @@ describe("PersistentSandboxCard", () => {
         )
 
         expect(screen.queryByRole("button", { name: "Allow" })).toBeNull()
-        expect(screen.getByRole("button", { name: "Kill sandbox" })).toBeTruthy()
-        expect(screen.getByText("2:00 remaining")).toBeTruthy()
+        expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy()
+        expect(screen.getByLabelText("2:00 remaining")).toBeTruthy()
     })
 
     it("shows a failed or interrupted request as final instead of preparing forever", () => {
@@ -106,6 +106,6 @@ describe("PersistentSandboxCard", () => {
         expect(screen.getByText("Workspace request stopped")).toBeTruthy()
 
         rerender(renderCard({ state: "input-available", input: invocation.input }, true))
-        expect(screen.getByText("Preparing persistent workspace request")).toBeTruthy()
+        expect(screen.getByText("Preparing workspace")).toBeTruthy()
     })
 })

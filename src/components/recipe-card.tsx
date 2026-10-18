@@ -12,6 +12,11 @@ import {
 } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SPOTLIGHT_CARD_CLASS } from "@/components/renderers/spotlight-frame"
+import {
+    TIMER_CHIP_CLASS,
+    TimerReadout,
+    formatTimerClock
+} from "@/components/renderers/spotlight-timer"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     type ParsedRecipe,
@@ -80,16 +85,6 @@ export const advanceRecipeTimer = (timer: TimerState, now = Date.now()): TimerSt
 
 const cleanInlineText = (value: string) => value.replace(/\*\*|__/g, "")
 
-const formatClock = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const remainder = seconds % 60
-    if (hours > 0) {
-        return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
-    }
-    return `${minutes}:${String(remainder).padStart(2, "0")}`
-}
-
 const TimerChip = ({
     id,
     token,
@@ -103,14 +98,17 @@ const TimerChip = ({
     onToggle: (id: string, duration: number) => void
     onReset: (id: string) => void
 }) => {
-    const label = state ? formatClock(state.remaining) : token.display
+    const label = state ? formatTimerClock(state.remaining) : token.display
 
     return (
         <span className="not-prose mx-1 inline-flex items-center align-baseline">
             <button
                 type="button"
                 data-recipe-print-timer-control
-                className="inline-flex h-6.5 items-center gap-1.5 rounded-[var(--radius-md)] bg-primary/10 px-2.5 font-medium text-primary text-xs transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                    TIMER_CHIP_CLASS,
+                    "transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                )}
                 aria-label={`${state?.running ? "Pause" : "Start"} ${token.display} timer`}
                 onClick={() => onToggle(id, token.durationSeconds)}
             >
@@ -236,12 +234,7 @@ const CookModeTimer = ({
 
     return (
         <div className="flex min-w-48 flex-col items-center gap-3 px-8 py-2">
-            <div className="text-center">
-                <div className="font-semibold text-4xl text-primary tabular-nums tracking-tight sm:text-5xl">
-                    {formatClock(remaining)}
-                </div>
-                <div className="mt-1 text-muted-foreground text-xs">{token.display}</div>
-            </div>
+            <TimerReadout seconds={remaining} label={token.display} />
             <div className="flex items-center gap-2">
                 <Button
                     type="button"

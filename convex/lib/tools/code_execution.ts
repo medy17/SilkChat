@@ -76,6 +76,15 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                 "This tool only prepares an Allow/Deny card; it does not create a sandbox. After a successful call, stop the turn."
             ].join("\n"),
             inputSchema: z.object({
+                // The card ellipsizes long titles; the max only stops a runaway one.
+                title: z
+                    .string()
+                    .trim()
+                    .min(1)
+                    .max(60)
+                    .describe(
+                        'A short, human-friendly title for the work this workspace is for (2-5 words), shown as the card heading. Name the task or data, not the tool. E.g. "Drug deaths by year", "Changelog diff", "Crop yield model".'
+                    ),
                 purpose: z
                     .string()
                     .trim()
@@ -95,7 +104,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                     ])
                     .describe("Requested lifetime in minutes. Choose the shortest sufficient TTL.")
             }),
-            execute: async ({ purpose, runtime, ttlMinutes }) => {
+            execute: async ({ title, purpose, runtime, ttlMinutes }) => {
                 const active = await params.ctx.runQuery(
                     internal.persistent_sandboxes.getActivePersistentSandboxForUser,
                     { userId: params.userSettings.userId }
@@ -114,6 +123,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
                     kind: "persistent_sandbox_request",
                     status: "pending_confirmation",
                     cardId: crypto.randomUUID(),
+                    title: title.trim(),
                     purpose: purpose.trim(),
                     runtime,
                     runtimeVersion,
