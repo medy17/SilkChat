@@ -4,7 +4,7 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import type { UIToolInvocation } from "ai"
 import { useAction, useMutation, useQuery } from "convex/react"
-import { Box, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
+import { Box, CircleAlert, Clock3, Loader2, OctagonX, ShieldCheck, X } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { SPOTLIGHT_CARD_CLASS } from "./spotlight-frame"
@@ -48,15 +48,37 @@ const formatRemaining = (expiresAt: number | undefined, now: number) => {
     return `${minutes}:${remainder.toString().padStart(2, "0")}`
 }
 
+// A request ends without a card when the call errors, the tool refuses it, or the reply
+// stops before a result arrives; each is final, so none of them may keep spinning.
+const getRequestFailure = (
+    toolInvocation: Pick<PersistentSandboxInvocation, "state"> & { output?: unknown },
+    isStreaming: boolean,
+    hasRequest: boolean
+) => {
+    const { state } = toolInvocation
+    if (state === "output-error" || state === "output-denied") return "Couldn't request a workspace"
+    if (state === "output-available" && !hasRequest) {
+        const output = toolInvocation.output as { code?: unknown } | null | undefined
+        return output?.code === "persistent_sandbox_already_active"
+            ? "A workspace is already running"
+            : "Couldn't request a workspace"
+    }
+    if (!isStreaming && (state === "input-streaming" || state === "input-available"))
+        return "Workspace request stopped"
+    return undefined
+}
+
 export const PersistentSandboxCard = memo(
     ({
         toolInvocation,
         threadId,
-        messageId
+        messageId,
+        isStreaming = false
     }: {
         toolInvocation: PersistentSandboxInvocation
         threadId?: string
         messageId?: string
+        isStreaming?: boolean
     }) => {
         const confirm = useAction(api.persistent_sandboxes_node.confirmPersistentSandboxRequest)
         const kill = useAction(api.persistent_sandboxes_node.killMyPersistentSandbox)
@@ -99,6 +121,19 @@ export const PersistentSandboxCard = memo(
             const interval = window.setInterval(() => setNow(Date.now()), 1_000)
             return () => window.clearInterval(interval)
         }, [output?.confirmationExpiresAt, output?.expiresAt, rawStatus])
+
+        const failure = getRequestFailure(toolInvocation, isStreaming, Boolean(localOutput))
+        if (failure) {
+            return (
+                <div
+                    className="not-prose my-3 flex items-center gap-2 text-destructive text-sm"
+                    role="status"
+                >
+                    <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="font-medium">{failure}</span>
+                </div>
+            )
+        }
 
         if (!output) {
             return (

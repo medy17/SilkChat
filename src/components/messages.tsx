@@ -374,6 +374,7 @@ const PartsRenderer = memo(
                         toolInvocation={part as UIToolInvocation<Tool>}
                         threadId={threadId}
                         messageId={messageId}
+                        isStreaming={isStreaming}
                     />
                 )
             case "tool-load_skill":

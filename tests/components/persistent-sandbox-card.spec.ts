@@ -82,4 +82,30 @@ describe("PersistentSandboxCard", () => {
         expect(screen.getByRole("button", { name: "Kill sandbox" })).toBeTruthy()
         expect(screen.getByText("2:00 remaining")).toBeTruthy()
     })
+
+    it("shows a failed or interrupted request as final instead of preparing forever", () => {
+        const renderCard = (toolInvocation: object, isStreaming = false) =>
+            React.createElement(PersistentSandboxCard, {
+                toolInvocation: { toolCallId: "sandbox-tool-1", ...toolInvocation } as never,
+                threadId: "thread-1",
+                messageId: "assistant-1",
+                isStreaming
+            })
+        const { rerender } = render(renderCard({ state: "output-error", errorText: "failed" }))
+        expect(screen.getByText("Couldn't request a workspace")).toBeTruthy()
+
+        rerender(
+            renderCard({
+                state: "output-available",
+                output: { success: false, code: "persistent_sandbox_already_active" }
+            })
+        )
+        expect(screen.getByText("A workspace is already running")).toBeTruthy()
+
+        rerender(renderCard({ state: "input-available", input: invocation.input }))
+        expect(screen.getByText("Workspace request stopped")).toBeTruthy()
+
+        rerender(renderCard({ state: "input-available", input: invocation.input }, true))
+        expect(screen.getByText("Preparing persistent workspace request")).toBeTruthy()
+    })
 })
