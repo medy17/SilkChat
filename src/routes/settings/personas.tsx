@@ -13,6 +13,16 @@ import { PersonaAvatar } from "@/components/persona-avatar"
 import { RoleplayPersonaProvider } from "@/components/roleplay-persona-context"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { PersonasSettingsSkeleton } from "@/components/settings/settings-skeletons"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -26,7 +36,6 @@ import {
 } from "@/components/ui/dialog"
 import {
     Drawer,
-    DrawerClose,
     DrawerContent,
     DrawerDescription,
     DrawerFooter,
@@ -219,6 +228,16 @@ const buildFormFromPersona = (persona: UserPersonaRecord, duplicate = false): Pe
         tokenCount: doc.tokenCount
     }))
 })
+
+// Blank starter and opening slots are dropped on save, so they don't count as changes.
+const serializeFormForComparison = (form: PersonaFormState) =>
+    JSON.stringify({
+        ...form,
+        conversationStarters: normalizeStarterList(form.conversationStarters),
+        openings: normalizeStarterList(form.openings),
+        avatar: form.avatar?.key ?? null,
+        knowledgeDocs: form.knowledgeDocs.map((doc) => doc.key)
+    })
 
 type PersonaSaveTone = "ready" | "warning" | "danger"
 // Only a problem is worth a message; a savable persona is the quiet default. The
@@ -987,6 +1006,7 @@ function PersonaEditorForm({
 function PersonaEditor({
     open,
     onOpenChange,
+    hasUnsavedChanges,
     form,
     setForm,
     personaPromptUsage,
@@ -1005,6 +1025,7 @@ function PersonaEditor({
 }: {
     open: boolean
     onOpenChange: (open: boolean) => void
+    hasUnsavedChanges: boolean
     form: PersonaFormState
     setForm: Dispatch<SetStateAction<PersonaFormState>>
     personaPromptUsage: number
@@ -1031,9 +1052,27 @@ function PersonaEditor({
         const timeoutId = window.setTimeout(() => setConfirmingDelete(false), 4000)
         return () => window.clearTimeout(timeoutId)
     }, [confirmingDelete])
+    const [confirmingDiscard, setConfirmingDiscard] = useState(false)
     useEffect(() => {
-        if (!open) setConfirmingDelete(false)
+        if (!open) {
+            setConfirmingDelete(false)
+            setConfirmingDiscard(false)
+        }
     }, [open])
+    // Every user-initiated close (Escape, outside click, Cancel, swipe, back) lands
+    // here, so a changed draft is never dropped without asking.
+    const requestClose = () => {
+        if (isSaving) return
+        if (hasUnsavedChanges) {
+            setConfirmingDiscard(true)
+            return
+        }
+        onOpenChange(false)
+    }
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (nextOpen) onOpenChange(true)
+        else requestClose()
+    }
     const title = form.personaId ? "Edit Persona" : "Create Persona"
     const description = form.personaId
         ? "Update this persona. Existing threads are not affected."
@@ -1055,19 +1094,12 @@ function PersonaEditor({
                     {confirmingDelete ? "Confirm Delete" : "Delete"}
                 </Button>
             ) : (
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                <Button variant="outline" onClick={requestClose} disabled={isSaving}>
                     Cancel
                 </Button>
             )}
-            {isMobile && form.personaId && (
-                <DrawerClose asChild>
-                    <Button variant="outline" disabled={isSaving || isDeleting}>
-                        Cancel
-                    </Button>
-                </DrawerClose>
-            )}
-            {!isMobile && form.personaId && (
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            {form.personaId && (
+                <Button variant="outline" onClick={requestClose} disabled={isSaving || isDeleting}>
                     Cancel
                 </Button>
             )}
@@ -1113,18 +1145,91 @@ function PersonaEditor({
         </div>
     )
 
+    const discardDialog = (
+        <AlertDialog open={confirmingDiscard} onOpenChange={setConfirmingDiscard}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Your persona changes will be lost if you close now.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => onOpenChange(false)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                        Discard changes
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
+
     if (isMobile) {
         return (
-            <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-                <DrawerContent
-                    className="z-[70] flex h-[92dvh] max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0"
-                    overlayClassName="z-[70]"
+            <>
+                <Drawer
+                    open={open}
+                    onOpenChange={handleOpenChange}
+                    // A swipe can't be paused for a confirmation, so a changed draft holds
+                    // still and outside taps and Escape ask instead.
+                    dismissible={!hasUnsavedChanges}
+                    repositionInputs={false}
                 >
-                    <DrawerHeader className="shrink-0 text-left">
-                        <DrawerTitle>{title}</DrawerTitle>
-                        <DrawerDescription>{description}</DrawerDescription>
-                    </DrawerHeader>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+                    <DrawerContent
+                        onPointerDownOutside={(event) => {
+                            if (hasUnsavedChanges) {
+                                event.preventDefault()
+                                requestClose()
+                            }
+                        }}
+                        onEscapeKeyDown={(event) => {
+                            if (hasUnsavedChanges) {
+                                event.preventDefault()
+                                requestClose()
+                            }
+                        }}
+                        className="z-[70] flex h-[92dvh] max-h-[92dvh] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0"
+                        overlayClassName="z-[70]"
+                    >
+                        <DrawerHeader className="shrink-0 text-left">
+                            <DrawerTitle>{title}</DrawerTitle>
+                            <DrawerDescription>{description}</DrawerDescription>
+                        </DrawerHeader>
+                        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+                            <PersonaEditorForm
+                                form={form}
+                                setForm={setForm}
+                                hasPersonaModels={hasPersonaModels}
+                                avatarInputRef={avatarInputRef}
+                                docsInputRef={docsInputRef}
+                                pendingDocs={pendingDocs}
+                                onCancelPendingDoc={onCancelPendingDoc}
+                                onAvatarUpload={onAvatarUpload}
+                                onKnowledgeDocsUpload={onKnowledgeDocsUpload}
+                            />
+                        </div>
+                        <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                            {footer}
+                        </DrawerFooter>
+                    </DrawerContent>
+                </Drawer>
+                {discardDialog}
+            </>
+        )
+    }
+
+    return (
+        <>
+            <Dialog open={open} onOpenChange={handleOpenChange}>
+                <DialogContent className="flex max-h-[90dvh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+                    <DialogHeader className="border-b px-6 pt-6 pb-4">
+                        <DialogTitle>{title}</DialogTitle>
+                        <DialogDescription>{description}</DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
                         <PersonaEditorForm
                             form={form}
                             setForm={setForm}
@@ -1137,37 +1242,11 @@ function PersonaEditor({
                             onKnowledgeDocsUpload={onKnowledgeDocsUpload}
                         />
                     </div>
-                    <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-                        {footer}
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
-        )
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[90dvh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-                <DialogHeader className="border-b px-6 pt-6 pb-4">
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>{description}</DialogDescription>
-                </DialogHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                    <PersonaEditorForm
-                        form={form}
-                        setForm={setForm}
-                        hasPersonaModels={hasPersonaModels}
-                        avatarInputRef={avatarInputRef}
-                        docsInputRef={docsInputRef}
-                        pendingDocs={pendingDocs}
-                        onCancelPendingDoc={onCancelPendingDoc}
-                        onAvatarUpload={onAvatarUpload}
-                        onKnowledgeDocsUpload={onKnowledgeDocsUpload}
-                    />
-                </div>
-                <DialogFooter className="border-t px-6 py-4">{footer}</DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <DialogFooter className="border-t px-6 py-4">{footer}</DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {discardDialog}
+        </>
     )
 }
 
@@ -1205,6 +1284,8 @@ function PersonasSettings() {
     }, [sharedModels, availableModels])
 
     const [form, setForm] = useState<PersonaFormState>(EMPTY_FORM)
+    // The form as it was opened; the editor only asks before closing once it differs.
+    const [savedForm, setSavedForm] = useState<PersonaFormState>(EMPTY_FORM)
     const [isEditorOpen, setIsEditorOpen] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
@@ -1214,18 +1295,25 @@ function PersonasSettings() {
     const avatarInputRef = useRef<HTMLInputElement>(null)
     const docsInputRef = useRef<HTMLInputElement>(null)
 
+    const loadForm = (next: PersonaFormState) => {
+        setForm(next)
+        setSavedForm(next)
+    }
+
     const resetForm = () =>
-        setForm({
+        loadForm({
             ...EMPTY_FORM,
             defaultModelId: personaModels[0]?.id || ""
         })
 
     useEffect(() => {
         if (!form.defaultModelId && personaModels.length > 0) {
-            setForm((current) => ({
-                ...current,
-                defaultModelId: personaModels[0].id
-            }))
+            const defaultModelId = personaModels[0].id
+            setForm((current) => ({ ...current, defaultModelId }))
+            // Filled in for the user, so it isn't an edit of theirs.
+            setSavedForm((current) =>
+                current.defaultModelId ? current : { ...current, defaultModelId }
+            )
         }
     }, [form.defaultModelId, personaModels])
 
@@ -1251,6 +1339,11 @@ function PersonasSettings() {
                       ...current,
                       defaultModelId: replacement.replacementId!
                   }
+                : current
+        )
+        setSavedForm((current) =>
+            current.defaultModelId === form.defaultModelId
+                ? { ...current, defaultModelId: replacement.replacementId! }
                 : current
         )
 
@@ -1282,6 +1375,12 @@ function PersonasSettings() {
         uploadingDocs: pendingDocs.filter((doc) => doc.status !== "error").length
     })
     const canSave = !saveIssue
+    const hasUnsavedChanges = useMemo(
+        () =>
+            pendingDocs.length > 0 ||
+            serializeFormForComparison(form) !== serializeFormForComparison(savedForm),
+        [form, savedForm, pendingDocs.length]
+    )
 
     const handleEditorOpenChange = (open: boolean) => {
         setIsEditorOpen(open)
@@ -1300,12 +1399,12 @@ function PersonasSettings() {
     }
 
     const openEditPersona = (persona: UserPersonaRecord) => {
-        setForm(buildFormFromPersona(persona))
+        loadForm(buildFormFromPersona(persona))
         setIsEditorOpen(true)
     }
 
     const openDuplicatePersona = (persona: UserPersonaRecord) => {
-        setForm(buildFormFromPersona(persona, true))
+        loadForm(buildFormFromPersona(persona, true))
         setIsEditorOpen(true)
     }
 
@@ -1682,6 +1781,7 @@ function PersonasSettings() {
             <PersonaEditor
                 open={isEditorOpen}
                 onOpenChange={handleEditorOpenChange}
+                hasUnsavedChanges={hasUnsavedChanges}
                 form={form}
                 setForm={setForm}
                 personaPromptUsage={debouncedPersonaPromptUsage}
