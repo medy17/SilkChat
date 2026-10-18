@@ -160,6 +160,9 @@ const MermaidRenderer = memo(
                         suppressErrorRendering: true,
                         htmlLabels: false,
                         flowchart: { htmlLabels: false },
+                        // Mermaid 12 defaults to ELK and the neo look; keep the v11 rendering.
+                        layout: "dagre",
+                        look: "classic",
                         theme: isDark ? "dark" : "default"
                     })
                     const { svg } = await mermaid.render(
