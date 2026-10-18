@@ -12,7 +12,7 @@ import {
     type VisualContentSegment
 } from "@/lib/visual-references"
 import { memo } from "react"
-import { Streamdown } from "streamdown"
+import { parseMarkdownIntoBlocks, Streamdown } from "streamdown"
 import { CodePreviewContext } from "./codeblock"
 import { RecipeCard } from "./recipe-card"
 import { SilkAppBlock, type SilkAppSourceProps } from "./silk-app/silk-app-block"
@@ -85,7 +85,30 @@ export const normalizeMarkdownMathDelimiters = (content: string) => {
     )
 }
 
-// Memoized so settled roleplay beats skip re-parsing while a later beat streams.
+const MAYBE_LINK_DEFINITION_PATTERN = /^ {0,3}\[(?!\^)[^\]\n]+\]:/m
+const CODE_FENCE_BLOCK_PATTERN = /^ {0,3}(`{3,}|~{3,})/
+
+// Streaming mode renders each block as its own Markdown document, so a [ref] would not
+// resolve against a definition in another block. Carry the definitions into every
+// non-code block; definitions render nothing.
+const parseBlocksWithLinkDefinitions = (markdown: string) => {
+    const blocks = parseMarkdownIntoBlocks(markdown)
+    if (blocks.length < 2 || !MAYBE_LINK_DEFINITION_PATTERN.test(markdown)) return blocks
+
+    const definitions = collectLinkDefinitions(markdown)
+    if (definitions.length === 0) return blocks
+
+    return blocks.map((block) => {
+        if (CODE_FENCE_BLOCK_PATTERN.test(block)) return block
+        const missing = definitions.filter((definition) => !block.includes(definition))
+        return missing.length > 0 ? `${block}\n\n${missing.join("\n")}` : block
+    })
+}
+
+// Always streaming mode: Streamdown renders static mode as a different tree, so switching
+// when a reply settles remounts the whole message (code re-highlights, Mermaid re-renders,
+// code block state resets). With isAnimating off, settling only re-renders an unfinished
+// last block. Memoized so settled roleplay beats skip re-parsing while a later beat streams.
 const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimating: boolean }) => (
     <Streamdown
         animated={false}
@@ -94,7 +117,9 @@ const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimat
         controls={false}
         isAnimating={isAnimating}
         linkSafety={{ enabled: false }}
-        mode={isAnimating ? "streaming" : "static"}
+        mode="streaming"
+        parseIncompleteMarkdown={isAnimating}
+        parseMarkdownIntoBlocksFn={parseBlocksWithLinkDefinitions}
         plugins={streamdownPlugins}
     >
         {normalizeMarkdownMathDelimiters(content)}

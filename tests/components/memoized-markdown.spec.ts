@@ -207,6 +207,37 @@ describe("MemoizedMarkdown", () => {
         expect(container.querySelector("iframe")).toBe(frame)
     })
 
+    it("keeps rendered markdown mounted when the reply finishes", () => {
+        const content =
+            "Intro paragraph.\n\n```ts\nconst answer = 42\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\nDone."
+        const { container, rerender } = render(
+            React.createElement(MemoizedMarkdown, { content, isAnimating: true })
+        )
+        const selectors = ["p", "pre", "table"]
+        const before = selectors.map((selector) => container.querySelector(selector))
+
+        rerender(React.createElement(MemoizedMarkdown, { content, isAnimating: false }))
+
+        selectors.forEach((selector, index) => {
+            expect(before[index]).not.toBeNull()
+            expect(container.querySelector(selector)).toBe(before[index])
+        })
+    })
+
+    it("resolves reference-style links defined in a later block", () => {
+        render(
+            React.createElement(MemoizedMarkdown, {
+                content:
+                    "Read [the guide][ref] first.\n\n## Next\n\n```sh\necho [ref]\n```\n\n[ref]: https://example.com/guide"
+            })
+        )
+
+        expect(screen.getByRole("link", { name: "the guide" }).getAttribute("href")).toBe(
+            "https://example.com/guide"
+        )
+        expect(screen.getByText("echo [ref]")).toBeTruthy()
+    })
+
     it("shows an app's source without the artifact preview, which can't run it", () => {
         const app = "export default () => <p>hi</p>"
         const { getByRole, queryByRole, getByText } = render(

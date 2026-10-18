@@ -8,10 +8,9 @@ export type SilkAppContentSegment =
 const FENCE_OPEN = /^( {0,3})(?:(`{3,})(?!.*`)|(~{3,}))[ \t]*([^\s`]*)/
 
 /**
- * Lifts top-level `silk-app` fences out of a message so they render outside Streamdown.
- * Streamdown builds a different tree for streaming and static mode, so anything inside
- * it remounts when a reply finishes or stops; a running app would restart. Fences nested
- * in another fence stay code.
+ * Lifts top-level `silk-app` fences out of a message so they render outside Streamdown,
+ * keeping a running app's lifetime independent of how Streamdown splits and keys its
+ * blocks; a remount would restart the app. Fences nested in another fence stay code.
  */
 export const splitSilkAppContent = (content: string): SilkAppContentSegment[] => {
     if (!content.includes(SILK_APP_LANGUAGE)) return [{ type: "markdown", content }]
