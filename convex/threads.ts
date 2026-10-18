@@ -30,6 +30,7 @@ import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { getUserIdentity } from "./lib/identity"
+import { stopPersistentSandboxForRemovedHistory } from "./persistent_sandboxes"
 import type { Thread } from "./schema"
 import {
     HTTPAIMessage,
@@ -514,6 +515,11 @@ export const createThreadOrInsertMessages = internalMutation({
                 for (const msg of messagesAfterTarget) {
                     await ctx.db.delete(msg._id)
                 }
+                await stopPersistentSandboxForRemovedHistory(ctx, {
+                    userId: thread.authorId,
+                    threadId: thread._id,
+                    removedMessageIds: new Set(messagesAfterTarget.map((msg) => msg.messageId))
+                })
 
                 if (targetMode === "edit") {
                     // Update the edited message with new content
@@ -652,6 +658,11 @@ export const prepareThreadRetry = mutation({
         for (const message of messagesAfterTarget) {
             await ctx.db.delete(message._id)
         }
+        await stopPersistentSandboxForRemovedHistory(ctx, {
+            userId: user.id,
+            threadId,
+            removedMessageIds: new Set(messagesAfterTarget.map((message) => message.messageId))
+        })
 
         const now = Date.now()
         await ctx.db.insert("messages", {
@@ -1237,6 +1248,7 @@ export const deleteThread = mutation({
         // Thread count will be automatically updated by aggregate triggers
 
         await ctx.db.delete(threadId)
+        await stopPersistentSandboxForRemovedHistory(ctx, { userId: user.id, threadId })
         await aggregrateThreadsByFolder.delete(ctx, thread)
     }
 })

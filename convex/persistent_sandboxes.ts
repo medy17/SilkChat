@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values"
+import { internal } from "./_generated/api"
 import type { Doc, Id } from "./_generated/dataModel"
 import {
     type MutationCtx,
@@ -155,6 +156,48 @@ const getLatestActiveSandbox = async (ctx: Pick<QueryCtx, "db">, userId: string)
         .order("desc")
         .take(20)
     return records.find((record) => ACTIVE_STATUSES.has(record.status))
+}
+
+/**
+ * Stops the account's workspace once the history that requested it is gone: an edit or retry
+ * deleted its requesting message, or its thread was deleted. It runs in the same mutation, so
+ * the turn that follows can never execute in it.
+ *
+ * A running workspace is claimed for stopping and cleaned up now. One still starting is closed
+ * outright: every start-up step requires "provisioning", so start-up releases its billing or
+ * deletes the sandbox it just created, and settles actual usage itself.
+ */
+export const stopPersistentSandboxForRemovedHistory = async (
+    ctx: Pick<MutationCtx, "db" | "scheduler">,
+    args: {
+        userId: string
+        threadId: Id<"threads">
+        /** Omit when the whole thread is gone. */
+        removedMessageIds?: ReadonlySet<string>
+    }
+) => {
+    const record = await getLatestActiveSandbox(ctx, args.userId)
+    if (!record || record.status === "stopping" || record.sourceThreadId !== args.threadId) return
+    if (args.removedMessageIds && !args.removedMessageIds.has(record.sourceMessageId)) return
+
+    const now = Date.now()
+    if (record.status === "provisioning") {
+        await ctx.db.patch(record._id, {
+            status: "stopped",
+            terminationReason: "user",
+            completedAt: now,
+            updatedAt: now
+        })
+        return
+    }
+    await ctx.db.patch(record._id, {
+        status: "stopping",
+        terminationReason: "user",
+        updatedAt: now
+    })
+    await ctx.scheduler.runAfter(0, internal.persistent_sandboxes_node.expirePersistentSandbox, {
+        sandboxId: record._id
+    })
 }
 
 export const getMyActivePersistentSandbox = query({
