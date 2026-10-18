@@ -18,6 +18,7 @@ import { getMessageCodeExecutions } from "@/lib/message-code-executions"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getVirtualizedMessageCount, shouldVirtualizeMessageList } from "@/lib/message-list-mode"
+import { getInlinePartKeys, getMessagePartKey } from "@/lib/message-part-keys"
 import { getMessageReasoningDetails } from "@/lib/message-reasoning"
 import {
     getMessageFooterMetadataKey,
@@ -460,14 +461,6 @@ type QuoteSelectionState = {
     placement: "above" | "below"
 }
 
-const getMessagePartKey = (messageId: string, part: UIMessage["parts"][number], index: number) => {
-    if ("toolCallId" in part && typeof part.toolCallId === "string" && part.toolCallId.length > 0) {
-        return `${messageId}-tool-${part.toolCallId}`
-    }
-
-    return `${messageId}-${part.type}-${index}`
-}
-
 type MessageRowProps = {
     message: UIMessage
     initialConfig?: ReturnType<typeof getRetryTargetAssistantConfig>
@@ -615,6 +608,7 @@ const MessageRowComponent = ({
     const inlineParts = message.parts.filter((part) => {
         if (getToolFailureAttempt(part)) return false
         return (
+            part.type !== "step-start" &&
             part.type !== "file" &&
             part.type !== "reasoning" &&
             part.type !== "tool-execute_code" &&
@@ -624,6 +618,7 @@ const MessageRowComponent = ({
             part.type !== "tool-load_skill"
         )
     })
+    const inlinePartKeys = getInlinePartKeys(message.id, inlineParts)
     const fileParts = message.parts.filter((part) => part.type === "file")
     const cancelEditRequestRef = useRef<(() => void) | null>(null)
     const bubbleRef = useRef<HTMLDivElement>(null)
@@ -958,10 +953,10 @@ const MessageRowComponent = ({
 
                                     {inlineParts.map((part, index) => (
                                         <PartsRenderer
-                                            key={getMessagePartKey(message.id, part, index)}
+                                            key={inlinePartKeys[index]}
                                             part={part}
                                             markdown={true}
-                                            id={getMessagePartKey(message.id, part, index)}
+                                            id={inlinePartKeys[index]}
                                             threadId={
                                                 ((
                                                     message.metadata as
