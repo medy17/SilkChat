@@ -6,7 +6,7 @@ import {
     parseRecipeInline,
     splitRecipeContent
 } from "@/lib/recipe"
-import { convertUnit, identifyUnit } from "parse-ingredient"
+import { convertUnit } from "parse-ingredient"
 import { describe, expect, it } from "vitest"
 
 describe("native recipe parsing", () => {
@@ -245,9 +245,13 @@ Then reduce the heat for <timer value="PT8M">8 minutes</timer>.</step>
     })
 
     it("gets special culinary units from the patched conversion library", () => {
-        expect(identifyUnit("tbsp-au")).toBe("australian tablespoon")
-        expect(identifyUnit("cup-imperial")).toBe("cup")
-        expect(identifyUnit("fl-oz-us")).toBe("fluid ounce")
+        expect(convertUnit(1, "tbsp-au", "milliliter")).toBe(20)
+        expect(convertUnit(1, "cup-imperial", "milliliter")).toBe(
+            convertUnit(1, "cup", "milliliter")
+        )
+        expect(convertUnit(1, "fl-oz-us", "milliliter")).toBe(
+            convertUnit(1, "fluid ounce", "milliliter")
+        )
         expect(convertUnit(1, "australian tablespoon", "milliliter")).toBe(20)
         expect(convertUnit(1, "japanese cup", "milliliter")).toBe(200)
         expect(convertUnit(1, "stone", "kilogram")).toBeCloseTo(6.35029318)
