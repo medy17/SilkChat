@@ -33,6 +33,28 @@ describe("resolveDeferredChatMessages", () => {
         expect(resolveDeferredChatMessages(truncatedMessages, oldMessages)).toBe(truncatedMessages)
     })
 
+    it("never shows older text for a reply that just finished streaming", () => {
+        const prompt: UIMessage = {
+            id: "user-1",
+            role: "user",
+            parts: [{ type: "text", text: "Prompt" }]
+        }
+        const lagging: UIMessage[] = [
+            prompt,
+            { id: "assistant-1", role: "assistant", parts: [{ type: "text", text: "The ans" }] }
+        ]
+        const finished: UIMessage[] = [
+            prompt,
+            {
+                id: "assistant-1",
+                role: "assistant",
+                parts: [{ type: "text", text: "The answer." }]
+            }
+        ]
+
+        expect(resolveDeferredChatMessages(finished, lagging)).toBe(finished)
+    })
+
     it("keeps ordinary non-destructive updates deferred", () => {
         const deferredMessages: UIMessage[] = [
             { id: "user-1", role: "user", parts: [{ type: "text", text: "Prompt" }] }
