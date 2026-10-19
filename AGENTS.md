@@ -13,6 +13,8 @@
 
 - Follow [TEST_WRITING_GUIDE.md](./docs/TEST_WRITING_GUIDE.md) when adding, removing, or refactoring tests.
 
+- Follow [COMMIT_CONVENTIONS.md](./docs/COMMIT_CONVENTIONS.md) when writing any commit message. No type prefixes (`feat:`, `fix:`).
+
 - Follow [SURFACES.md](./docs/SURFACES.md) when building or restyling any surface. It routes generated content to Spotlight and floating UI to Glass.
 
 - Local development uses cloud Convex plus the local image optimizer. The user normally runs:
