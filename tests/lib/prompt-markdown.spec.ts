@@ -1,9 +1,13 @@
 import {
+    applyPromptLink,
     continuePromptMarkup,
     diffPromptText,
     getActivePromptFormats,
     getDisabledPromptFormats,
+    getPromptLinkDraft,
+    normalizePromptLinkUrl,
     promptMarkdownLanguage,
+    removePromptLink,
     togglePromptFormat,
     type PromptFormat
 } from "@/lib/prompt-markdown"
@@ -28,7 +32,7 @@ const show = (state: EditorState) => {
     return `${doc.slice(0, from)}«${doc.slice(from, to)}»${doc.slice(to)}`
 }
 
-const toggle = (marked: string, format: PromptFormat) => {
+const toggle = (marked: string, format: Exclude<PromptFormat, "link">) => {
     const state = stateOf(marked)
     const spec = togglePromptFormat(state, format)
     return spec ? show(state.update(spec).state) : null
@@ -62,12 +66,6 @@ describe("togglePromptFormat", () => {
         expect(toggle("```\n«a = 1»\n```", "code")).toBe("«a = 1»")
     })
 
-    it("leaves the caret where the link URL goes", () => {
-        expect(toggle("see «docs» here", "link")).toBe("see [docs](|) here")
-        expect(toggle("«https://example.com»", "link")).toBe("[|](https://example.com)")
-        expect(toggle("see «[docs](https://x.dev)»", "link")).toBe("see «docs»")
-    })
-
     it("quotes and unquotes every touched line", () => {
         expect(toggle("«one\n\ntwo»", "quote")).toBe("> «one\n>\n> two»")
         expect(toggle("> «one\n> two»", "quote")).toBe("«one\ntwo»")
@@ -75,7 +73,75 @@ describe("togglePromptFormat", () => {
 
     it("refuses emphasis inside code, where it would be literal", () => {
         expect(toggle("`a «b» c`", "bold")).toBeNull()
-        expect(toggle("```\n«x»\n```", "link")).toBeNull()
+        expect(getPromptLinkDraft(stateOf("```\n«x»\n```"))).toBeNull()
+    })
+})
+
+describe("link editing", () => {
+    const link = (marked: string, fields: { text: string; url: string }) => {
+        const state = stateOf(marked)
+        const draft = getPromptLinkDraft(state)
+        return draft ? show(state.update(applyPromptLink(draft, fields)).state) : null
+    }
+
+    it("opens with the selected text, or a selected URL in the URL field", () => {
+        expect(getPromptLinkDraft(stateOf("see «docs» here"))).toMatchObject({
+            text: "docs",
+            url: "",
+            existing: false
+        })
+        expect(getPromptLinkDraft(stateOf("«https://x.dev/a»"))).toMatchObject({
+            text: "",
+            url: "https://x.dev/a"
+        })
+    })
+
+    it("opens an existing link for editing from anywhere inside it", () => {
+        expect(getPromptLinkDraft(stateOf("see [do«c»s](https://x.dev) here"))).toMatchObject({
+            from: 4,
+            to: 25,
+            text: "docs",
+            url: "https://x.dev",
+            existing: true
+        })
+    })
+
+    it("writes the link and leaves the caret after it", () => {
+        expect(link("see «docs» here", { text: "docs", url: "x.dev" })).toBe(
+            "see [docs](https://x.dev)| here"
+        )
+        expect(link("see [«docs»](https://old.dev)", { text: "new", url: "https://new.dev" })).toBe(
+            "see [new](https://new.dev)|"
+        )
+    })
+
+    it("keeps the markdown intact for awkward text and URLs", () => {
+        expect(link("«a»", { text: "[draft]", url: "https://x.dev/a b" })).toBe(
+            "[\\[draft\\]](<https://x.dev/a b>)|"
+        )
+        expect(link("«https://x.dev»", { text: "", url: "https://x.dev" })).toBe(
+            "[https://x.dev](https://x.dev)|"
+        )
+    })
+
+    it("removes a link, keeping its text", () => {
+        const state = stateOf("see [«docs»](https://x.dev) here")
+        const draft = getPromptLinkDraft(state)
+        expect(draft && show(state.update(removePromptLink(draft)).state)).toBe("see docs| here")
+    })
+
+    it("can't link across lines", () => {
+        expect(getDisabledPromptFormats(stateOf("«one\ntwo»")).has("link")).toBe(true)
+    })
+})
+
+describe("normalizePromptLinkUrl", () => {
+    it("adds a scheme only where one is missing", () => {
+        expect(normalizePromptLinkUrl(" example.com/a ")).toBe("https://example.com/a")
+        expect(normalizePromptLinkUrl("localhost:3000")).toBe("https://localhost:3000")
+        expect(normalizePromptLinkUrl("me@example.com")).toBe("mailto:me@example.com")
+        expect(normalizePromptLinkUrl("http://x.dev")).toBe("http://x.dev")
+        expect(normalizePromptLinkUrl("/docs#intro")).toBe("/docs#intro")
     })
 })
 

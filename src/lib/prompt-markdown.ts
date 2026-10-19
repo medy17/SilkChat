@@ -111,12 +111,15 @@ export const getActivePromptFormats = (state: EditorState): Set<PromptFormat> =>
     return active
 }
 
-// Emphasis and links inside code would be literal characters, so they are unavailable there.
+// Emphasis and links inside code would be literal characters, so they are unavailable
+// there; a link also can't cross lines unless the selection is already inside one.
 export const getDisabledPromptFormats = (state: EditorState): Set<PromptFormat> => {
     const { from, to } = state.selection.main
-    return insideCode(state, from, to)
-        ? new Set<PromptFormat>(["bold", "italic", "strikethrough", "link"])
-        : new Set<PromptFormat>()
+    if (insideCode(state, from, to))
+        return new Set<PromptFormat>(["bold", "italic", "strikethrough", "link"])
+    if (spansLines(state, from, to) && !enclosing(state, from, to, "Link"))
+        return new Set<PromptFormat>(["link"])
+    return new Set<PromptFormat>()
 }
 
 type Change = { from: number; to?: number; insert?: string }
@@ -194,41 +197,81 @@ const toggleCodeBlock = (state: EditorState): TransactionSpec | null => {
     ])
 }
 
-const toggleLink = (state: EditorState): TransactionSpec | null => {
+export type PromptLinkDraft = {
+    from: number
+    to: number
+    text: string
+    url: string
+    existing: boolean
+}
+
+const URL_LIKE_PATTERN = /^(?:[a-z][a-z\d+.-]*:\/\/|www\.)\S+$/i
+
+// What the link editor opens with: the link under the selection, or the selected text
+// (a selected URL goes in the URL field instead).
+export const getPromptLinkDraft = (state: EditorState): PromptLinkDraft | null => {
+    if (getDisabledPromptFormats(state).has("link")) return null
     const { from, to } = state.selection.main
     const link = enclosing(state, from, to, "Link")
     if (link) {
-        const marks = link.getChildren("LinkMark")
-        const open = marks[0]
-        const close = marks[1]
+        const [open, close] = link.getChildren("LinkMark")
         if (!open || !close) return null
-        return finish(state, [
-            { from: link.from, to: open.to },
-            { from: close.from, to: link.to }
-        ])
+        const url = link.getChild("URL")
+        return {
+            from: link.from,
+            to: link.to,
+            text: state.sliceDoc(open.to, close.from),
+            url: url ? state.sliceDoc(url.from, url.to) : "",
+            existing: true
+        }
     }
     const [segment] = selectedSegments(state, from, to)
     if (!segment) return null
     const text = state.sliceDoc(segment.from, segment.to)
-    if (/^https?:\/\/\S+$/.test(text)) {
-        return finish(
-            state,
-            [
-                { from: segment.from, insert: "[](" },
-                { from: segment.to, insert: ")" }
-            ],
-            () => EditorSelection.cursor(segment.from + 1)
-        )
+    const isUrl = URL_LIKE_PATTERN.test(text)
+    return {
+        from: segment.from,
+        to: segment.to,
+        text: isUrl ? "" : text,
+        url: isUrl ? text : "",
+        existing: false
     }
-    return finish(
-        state,
-        [
-            { from: segment.from, insert: "[" },
-            { from: segment.to, insert: "]()" }
-        ],
-        (map) => EditorSelection.cursor(map(segment.to, 1) - 1)
-    )
 }
+
+// Bare domains get https://, bare addresses mailto:; anything with a scheme or a
+// relative path is kept.
+export const normalizePromptLinkUrl = (url: string) => {
+    const trimmed = url.trim()
+    if (!trimmed || /^(?:[a-z][a-z\d+.-]*:\/\/|mailto:|tel:|[/#?])/i.test(trimmed)) return trimmed
+    if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(trimmed)) return `mailto:${trimmed}`
+    return `https://${trimmed}`
+}
+
+const formatLinkDestination = (url: string) => {
+    const safe = url.replace(/</g, "%3C").replace(/>/g, "%3E")
+    return /[\s()]/.test(safe) ? `<${safe}>` : safe
+}
+
+export const applyPromptLink = (
+    draft: Pick<PromptLinkDraft, "from" | "to">,
+    { text, url }: { text: string; url: string }
+): TransactionSpec => {
+    const href = normalizePromptLinkUrl(url)
+    const label = (text.trim() || href).replace(/[\\[\]]/g, "\\$&")
+    const insert = `[${label}](${formatLinkDestination(href)})`
+    return {
+        changes: { from: draft.from, to: draft.to, insert },
+        selection: EditorSelection.cursor(draft.from + insert.length),
+        userEvent: "input.format",
+        scrollIntoView: true
+    }
+}
+
+export const removePromptLink = (draft: PromptLinkDraft): TransactionSpec => ({
+    changes: { from: draft.from, to: draft.to, insert: draft.text },
+    selection: EditorSelection.cursor(draft.from + draft.text.length),
+    userEvent: "input.format"
+})
 
 const toggleQuote = (state: EditorState): TransactionSpec => {
     const { from, to } = state.selection.main
@@ -251,9 +294,10 @@ const toggleQuote = (state: EditorState): TransactionSpec => {
     )
 }
 
+// Links go through the link editor (getPromptLinkDraft / applyPromptLink) instead.
 export const togglePromptFormat = (
     state: EditorState,
-    format: PromptFormat
+    format: Exclude<PromptFormat, "link">
 ): TransactionSpec | null => {
     // Formatting applies to selected text; the toolbar and shortcuts need a selection.
     if (state.selection.main.empty || getDisabledPromptFormats(state).has(format)) return null
@@ -261,8 +305,6 @@ export const togglePromptFormat = (
     switch (format) {
         case "quote":
             return toggleQuote(state)
-        case "link":
-            return toggleLink(state)
         case "code":
             return enclosing(state, from, to, "FencedCode") || spansLines(state, from, to)
                 ? toggleCodeBlock(state)

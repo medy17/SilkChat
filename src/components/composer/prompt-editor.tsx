@@ -1,4 +1,5 @@
 import { FloatingSelectionToolbar } from "@/components/selection-toolbar"
+import { type LinkEditorAnchor, LinkEditorPopover } from "./link-editor-popover"
 import { Button } from "@/components/ui/button"
 import {
     matchesFormatBoldShortcut,
@@ -8,11 +9,15 @@ import {
 import {
     PROMPT_FORMATS,
     type PromptFormat,
+    type PromptLinkDraft,
+    applyPromptLink,
     continuePromptMarkup,
     diffPromptText,
     getActivePromptFormats,
     getDisabledPromptFormats,
+    getPromptLinkDraft,
     promptMarkdownLanguage,
+    removePromptLink,
     togglePromptFormat
 } from "@/lib/prompt-markdown"
 import {
@@ -29,6 +34,8 @@ import {
     EditorSelection,
     EditorState,
     type Extension,
+    type Text,
+    type TransactionSpec,
     Prec,
     type Range
 } from "@codemirror/state"
@@ -94,8 +101,17 @@ const FORMAT_CONTROLS: Record<PromptFormat, { label: string; icon: LucideIcon }>
 const FORMAT_TOOLBAR_WIDTH_PX = PROMPT_FORMATS.length * 26 + (PROMPT_FORMATS.length - 1) * 2 + 6
 
 type FormatToolbarState = SelectionToolbarPosition & {
+    selection: LinkEditorAnchor
     active: Set<PromptFormat>
     disabled: Set<PromptFormat>
+}
+
+type LinkEditorState = {
+    draft: PromptLinkDraft
+    // The document the draft's positions belong to.
+    doc: Text
+    anchor: LinkEditorAnchor
+    side: "top" | "bottom"
 }
 
 const externalChange = Annotation.define<boolean>()
@@ -256,6 +272,7 @@ const readToolbarState = (view: EditorView): FormatToolbarState | null => {
             FORMAT_TOOLBAR_WIDTH_PX,
             { width: window.innerWidth, height: window.innerHeight }
         ),
+        selection: { top, left, width: right - left, height: bottom - top },
         active: getActivePromptFormats(view.state),
         disabled: getDisabledPromptFormats(view.state)
     }
@@ -266,7 +283,7 @@ const requestToolbarMeasure = (
     write: (toolbar: FormatToolbarState | null) => void
 ) => view.requestMeasure({ key: "prompt-format-toolbar", read: readToolbarState, write })
 
-const applyFormat = (view: EditorView, format: PromptFormat) => {
+const applyFormat = (view: EditorView, format: Exclude<PromptFormat, "link">) => {
     if (view.state.readOnly) return
     const spec = togglePromptFormat(view.state, format)
     if (spec) view.dispatch(spec)
@@ -295,6 +312,18 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
         const [placeholderCompartment] = useState(() => new Compartment())
         const [editableCompartment] = useState(() => new Compartment())
         const [toolbar, setToolbar] = useState<FormatToolbarState | null>(null)
+        const [linkEditor, setLinkEditor] = useState<LinkEditorState | null>(null)
+        const closeLinkEditor = (refocus: boolean) => {
+            setLinkEditor(null)
+            if (refocus) viewRef.current?.focus()
+        }
+        // Applies a link edit only to the document it was opened on.
+        const commitLink = (spec: () => TransactionSpec) => {
+            const view = viewRef.current
+            if (view && linkEditor && view.state.doc === linkEditor.doc && !view.state.readOnly)
+                view.dispatch(spec())
+            closeLinkEditor(true)
+        }
 
         useLayoutEffect(() => {
             const host = hostRef.current
@@ -517,7 +546,7 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
                         } as CSSProperties
                     }
                 />
-                {toolbar && (
+                {toolbar && !linkEditor && (
                     <FloatingSelectionToolbar position={toolbar}>
                         <div
                             role="toolbar"
@@ -540,7 +569,22 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
                                         onMouseDown={(event) => event.preventDefault()}
                                         onClick={() => {
                                             const view = viewRef.current
-                                            if (view) applyFormat(view, format)
+                                            if (!view) return
+                                            if (format !== "link") {
+                                                applyFormat(view, format)
+                                                return
+                                            }
+                                            const draft = getPromptLinkDraft(view.state)
+                                            if (draft)
+                                                setLinkEditor({
+                                                    draft,
+                                                    doc: view.state.doc,
+                                                    anchor: toolbar.selection,
+                                                    side:
+                                                        toolbar.placement === "above"
+                                                            ? "top"
+                                                            : "bottom"
+                                                })
                                         }}
                                     >
                                         <Icon className="size-4" />
@@ -549,6 +593,16 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
                             })}
                         </div>
                     </FloatingSelectionToolbar>
+                )}
+                {linkEditor && (
+                    <LinkEditorPopover
+                        anchor={linkEditor.anchor}
+                        side={linkEditor.side}
+                        draft={linkEditor.draft}
+                        onSave={(link) => commitLink(() => applyPromptLink(linkEditor.draft, link))}
+                        onRemove={() => commitLink(() => removePromptLink(linkEditor.draft))}
+                        onDismiss={closeLinkEditor}
+                    />
                 )}
             </>
         )
