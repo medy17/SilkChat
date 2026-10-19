@@ -52,7 +52,7 @@ const Waveform = memo(({ levels, isFrozen }: { levels: number[]; isFrozen: boole
 
 Waveform.displayName = "Waveform"
 
-// Fills the composer's textarea slot while dictating; the composer's own primary
+// Fills the composer's editor slot while dictating; the composer's own primary
 // action doubles as the stop button, so the shell never changes size. Stopping
 // freezes the dot and timer in place rather than swapping in a label.
 export const VoiceRecorder = memo(({ state, className }: VoiceRecorderProps) => {

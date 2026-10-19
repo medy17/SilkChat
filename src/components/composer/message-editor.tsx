@@ -61,7 +61,7 @@ import {
     AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { PromptEditor } from "./prompt-editor"
 
 const MessageEditor = memo(
     ({
@@ -178,7 +178,7 @@ const MessageEditor = memo(
                 setEditedContent((current) => mergePastedTextIntoDraft(current, text)),
             isLocked: () => savingRef.current
         })
-        const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const handlePaste = (event: ClipboardEvent) => {
             if (pastedText.paste(readComposerClipboard(event.clipboardData))) event.preventDefault()
         }
         const removeAddedFile = (file: UploadedFile) => {
@@ -351,7 +351,7 @@ const MessageEditor = memo(
             }
         }, [editSession, message.id])
 
-        const handleKeyDown = (e: React.KeyboardEvent) => {
+        const handleKeyDown = (e: KeyboardEvent) => {
             if (matchesSaveMessageEditShortcut(e)) {
                 e.preventDefault()
                 handleSave()
@@ -371,13 +371,14 @@ const MessageEditor = memo(
                     onFocusCapture={activateDropTarget}
                     onPointerDownCapture={activateDropTarget}
                 >
-                    <Textarea
+                    <PromptEditor
                         value={editedContent}
                         disabled={saving}
-                        onChange={(e) => setEditedContent(e.target.value)}
+                        maxHeight="none"
+                        onChange={setEditedContent}
                         onKeyDown={handleKeyDown}
                         onPaste={handlePaste}
-                        className="min-h-24 w-full resize-none border-none bg-transparent p-0 pb-3 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="[--prompt-editor-min-height:6rem] [--prompt-editor-padding:0_0_0.75rem] md:[--prompt-editor-min-height:6rem]"
                     />
 
                     {totalAttachmentCount > 0 && (

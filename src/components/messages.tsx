@@ -26,6 +26,12 @@ import {
 } from "@/lib/message-render-fingerprint"
 import { getMessageWebSearches, getMessageImageSearches } from "@/lib/message-web-searches"
 import { formatQuotedSelection } from "@/lib/quote-selection"
+import {
+    SELECTION_TOOLBAR_HEIGHT_PX,
+    type SelectionToolbarPosition,
+    getSelectionToolbarPosition
+} from "@/lib/selection-toolbar-position"
+import { FloatingSelectionToolbar } from "./selection-toolbar"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
 import { isTabularTextFile } from "@/lib/tabular-file-preview"
 import { cn, downloadUrl } from "@/lib/utils"
@@ -445,9 +451,6 @@ const STREAMING_ANCHOR_TOP_GAP_PX = 16
 const RESPONSE_SPACE_CLASS = "min-h-[min(24rem,50dvh)]"
 const REASONING_MARKDOWN_CLASS =
     "prose max-w-none prose-pre:bg-transparent p-4 prose-pre:p-0 [font-weight:450] prose-headings:font-semibold prose-strong:font-medium prose-pre:text-foreground leading-7 [&_.ignore-pre-bg>div]:bg-transparent [&_pre>div]:border-0.5 [&_pre>div]:border-border [&_pre>div]:bg-background"
-const QUOTE_TOOLTIP_SIZE_PX = 32
-const QUOTE_TOOLTIP_MARGIN_PX = 8
-const QUOTE_TOOLTIP_GAP_PX = 12
 
 type PreviewFile = {
     url: string
@@ -455,11 +458,8 @@ type PreviewFile = {
     mediaType?: string
 }
 
-type QuoteSelectionState = {
+type QuoteSelectionState = SelectionToolbarPosition & {
     selection: string
-    x: number
-    y: number
-    placement: "above" | "below"
 }
 
 type MessageRowProps = {
@@ -790,10 +790,11 @@ const MessageRowComponent = ({
         let cancelled = false
         const focusEditor = () => {
             if (cancelled) return
-            const textarea = contentRef.current?.querySelector("textarea")
-            if (!textarea) return
-            textarea.focus()
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+            // The editor opens with its caret at the end of the message.
+            const editor = contentRef.current?.querySelector<HTMLElement>(
+                '[data-slot="prompt-editor"] [contenteditable="true"]'
+            )
+            editor?.focus()
         }
         // Let native focus scrolling reveal the editor, then repeat once its
         // shell has settled. Exiting does not reposition the page.
@@ -1719,14 +1720,17 @@ export const Messages = forwardRef<
 
             const scroller = scrollerRef.current
 
+            // The edit composer sits in the thread but has its own formatting toolbar.
             const isNodeWithinThread = (node: Node | null) => {
                 const container = contentContainerRef.current
-                if (!container || !node) {
+                const element =
+                    node?.nodeType === Node.ELEMENT_NODE ? (node as Element) : node?.parentElement
+                if (!container || !element) {
                     return false
                 }
 
-                return container.contains(
-                    node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode
+                return (
+                    container.contains(element) && !element.closest('[data-slot="prompt-editor"]')
                 )
             }
 
@@ -1760,31 +1764,13 @@ export const Messages = forwardRef<
                     return
                 }
 
-                const viewportWidth = window.innerWidth
-                const viewportHeight = window.innerHeight
-                const centeredX = targetRect.left + targetRect.width / 2
-                const clampedX = Math.min(
-                    Math.max(centeredX, QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_SIZE_PX / 2),
-                    viewportWidth - QUOTE_TOOLTIP_MARGIN_PX - QUOTE_TOOLTIP_SIZE_PX / 2
-                )
-                const hasRoomAbove =
-                    targetRect.top >=
-                    QUOTE_TOOLTIP_SIZE_PX + QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_GAP_PX
-                const hasRoomBelow =
-                    viewportHeight - targetRect.bottom >=
-                    QUOTE_TOOLTIP_SIZE_PX + QUOTE_TOOLTIP_MARGIN_PX + QUOTE_TOOLTIP_GAP_PX
-                const placement =
-                    hasRoomAbove || !hasRoomBelow ? ("above" as const) : ("below" as const)
-                const tooltipY =
-                    placement === "above"
-                        ? targetRect.top - QUOTE_TOOLTIP_GAP_PX
-                        : targetRect.bottom + QUOTE_TOOLTIP_GAP_PX
-
                 setQuoteSelection({
                     selection: selection.toString(),
-                    x: clampedX,
-                    y: tooltipY,
-                    placement
+                    // The quote control is a square button.
+                    ...getSelectionToolbarPosition(targetRect, SELECTION_TOOLBAR_HEIGHT_PX, {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    })
                 })
             }
 
@@ -1861,17 +1847,7 @@ export const Messages = forwardRef<
                 </div>
 
                 {quoteSelection && onQuoteSelection && (
-                    <div
-                        className="pointer-events-none fixed z-[60]"
-                        style={{
-                            left: quoteSelection.x,
-                            top: quoteSelection.y,
-                            transform:
-                                quoteSelection.placement === "above"
-                                    ? "translate(-50%, -100%)"
-                                    : "translate(-50%, 0)"
-                        }}
-                    >
+                    <FloatingSelectionToolbar position={quoteSelection}>
                         <Button
                             type="button"
                             size="icon"
@@ -1888,7 +1864,7 @@ export const Messages = forwardRef<
                         >
                             <Quote className="size-4" />
                         </Button>
-                    </div>
+                    </FloatingSelectionToolbar>
                 )}
 
                 <Dialog

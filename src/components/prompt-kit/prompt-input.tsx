@@ -1,42 +1,12 @@
-import { Textarea } from "@/components/ui/textarea"
+import {
+    PromptEditor,
+    type PromptEditorHandle,
+    type PromptEditorProps
+} from "@/components/composer/prompt-editor"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { matchesSubmitPromptShortcut } from "@/lib/keyboard-shortcuts"
 import { cn } from "@/lib/utils"
 import type React from "react"
-import {
-    createContext,
-    forwardRef,
-    useCallback,
-    useContext,
-    useEffect,
-    useImperativeHandle,
-    useRef
-} from "react"
-
-export function applyPromptTextareaSize(
-    textarea: HTMLTextAreaElement,
-    maxHeight: number | string,
-    value?: string
-) {
-    textarea.style.height = "auto"
-
-    const nextValue = value ?? textarea.value
-    if (!nextValue.trim()) {
-        textarea.style.height = ""
-        textarea.style.overflowY = ""
-        return
-    }
-
-    if (typeof maxHeight === "number") {
-        const nextHeight = Math.min(textarea.scrollHeight, maxHeight)
-        textarea.style.height = `${nextHeight}px`
-        textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden"
-        return
-    }
-
-    textarea.style.height = `min(${textarea.scrollHeight}px, ${maxHeight})`
-    textarea.style.overflowY = "auto"
-}
+import { createContext, forwardRef, useContext } from "react"
 
 type PromptInputContextType = {
     isLoading: boolean
@@ -45,7 +15,6 @@ type PromptInputContextType = {
     disabled?: boolean
     disableKeyboardSubmit: boolean
     invertSendNewlineBehavior: boolean
-    textareaRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
 const PromptInputContext = createContext<PromptInputContextType>({
@@ -54,8 +23,7 @@ const PromptInputContext = createContext<PromptInputContextType>({
     onSubmit: undefined,
     disabled: false,
     disableKeyboardSubmit: false,
-    invertSendNewlineBehavior: false,
-    textareaRef: { current: null }
+    invertSendNewlineBehavior: false
 })
 
 function usePromptInput() {
@@ -66,15 +34,6 @@ function usePromptInput() {
     return context
 }
 
-export type PromptInputRef = {
-    getValue: () => string
-    getElement: () => HTMLTextAreaElement | null
-    setValue: (value: string) => void
-    clear: () => void
-    focus: () => void
-    resize: () => void
-}
-
 type PromptInputProps = {
     isLoading?: boolean
     maxHeight?: number | string
@@ -83,204 +42,71 @@ type PromptInputProps = {
     invertSendNewlineBehavior?: boolean
     children: React.ReactNode
     className?: string
+    style?: React.CSSProperties
 }
 
-const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(
-    (
-        {
-            className,
-            isLoading = false,
-            maxHeight = 240,
-            onSubmit,
-            disableKeyboardSubmit = false,
-            invertSendNewlineBehavior = false,
-            children
-        },
-        ref
-    ) => {
-        const textareaRef = useRef<HTMLTextAreaElement>(null)
-        const resizeFrameRef = useRef<number | null>(null)
-        const resizeTextarea = useCallback(
-            (value?: string) => {
-                const textarea = textareaRef.current
-                if (!textarea) return
-                applyPromptTextareaSize(textarea, maxHeight, value)
-            },
-            [maxHeight]
-        )
-        const scheduleResize = useCallback(
-            (value?: string) => {
-                if (typeof window === "undefined") return
-
-                if (resizeFrameRef.current !== null) {
-                    window.cancelAnimationFrame(resizeFrameRef.current)
-                }
-
-                resizeFrameRef.current = window.requestAnimationFrame(() => {
-                    resizeFrameRef.current = window.requestAnimationFrame(() => {
-                        resizeFrameRef.current = null
-                        resizeTextarea(value)
-                    })
-                })
-            },
-            [resizeTextarea]
-        )
-
-        useImperativeHandle(
-            ref,
-            () => ({
-                getValue: () => textareaRef.current?.value || "",
-                getElement: () => textareaRef.current,
-                setValue: (value: string) => {
-                    if (textareaRef.current) {
-                        textareaRef.current.value = value
-                        resizeTextarea(value)
-                        scheduleResize(value)
-                    }
-                },
-                clear: () => {
-                    if (textareaRef.current) {
-                        textareaRef.current.value = ""
-                        resizeTextarea("")
-                        scheduleResize("")
-                    }
-                },
-                focus: () => {
-                    textareaRef.current?.focus()
-                },
-                resize: () => {
-                    resizeTextarea()
-                    scheduleResize()
-                }
-            }),
-            [resizeTextarea, scheduleResize]
-        )
-
-        useEffect(() => {
-            resizeTextarea()
-        }, [resizeTextarea])
-
-        useEffect(() => {
-            return () => {
-                if (resizeFrameRef.current !== null) {
-                    window.cancelAnimationFrame(resizeFrameRef.current)
-                }
-            }
-        }, [])
-
-        return (
-            <TooltipProvider>
-                <PromptInputContext.Provider
-                    value={{
-                        isLoading,
-                        maxHeight,
-                        onSubmit,
-                        disableKeyboardSubmit,
-                        invertSendNewlineBehavior,
-                        textareaRef
-                    }}
+const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function PromptInput(
+    {
+        className,
+        style,
+        isLoading = false,
+        maxHeight = 240,
+        onSubmit,
+        disableKeyboardSubmit = false,
+        invertSendNewlineBehavior = false,
+        children
+    },
+    ref
+) {
+    return (
+        <TooltipProvider>
+            <PromptInputContext.Provider
+                value={{
+                    isLoading,
+                    maxHeight,
+                    onSubmit,
+                    disableKeyboardSubmit,
+                    invertSendNewlineBehavior
+                }}
+            >
+                <div
+                    ref={ref}
+                    data-slot="prompt-input-root"
+                    className={cn(
+                        "glass-composer rounded-[var(--radius-lg)] border p-3",
+                        className
+                    )}
+                    style={style}
                 >
-                    <div
-                        data-slot="prompt-input-root"
-                        className={cn(
-                            "glass-composer rounded-[var(--radius-lg)] border p-3",
-                            className
-                        )}
-                    >
-                        {children}
-                    </div>
-                </PromptInputContext.Provider>
-            </TooltipProvider>
+                    {children}
+                </div>
+            </PromptInputContext.Provider>
+        </TooltipProvider>
+    )
+})
+
+export type PromptInputEditorProps = Omit<
+    PromptEditorProps,
+    "onSubmit" | "disableKeyboardSubmit" | "invertSendNewlineBehavior" | "maxHeight"
+>
+
+const PromptInputEditor = forwardRef<PromptEditorHandle, PromptInputEditorProps>(
+    function PromptInputEditor(props, ref) {
+        const { maxHeight, onSubmit, disabled, disableKeyboardSubmit, invertSendNewlineBehavior } =
+            usePromptInput()
+        return (
+            <PromptEditor
+                ref={ref}
+                maxHeight={maxHeight}
+                onSubmit={onSubmit}
+                disableKeyboardSubmit={disableKeyboardSubmit}
+                invertSendNewlineBehavior={invertSendNewlineBehavior}
+                {...props}
+                disabled={props.disabled ?? disabled}
+            />
         )
     }
 )
-
-PromptInput.displayName = "PromptInput"
-
-// Shared with the chat transition skeleton, which renders an invisible textarea
-// with these classes so its height always matches the real composer's.
-export const PROMPT_TEXTAREA_CLASS =
-    "field-sizing-fixed min-h-[3.5rem] w-full resize-none overflow-y-auto border-none bg-transparent text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:min-h-[4rem]"
-
-export type PromptInputTextareaProps = {
-    disableAutosize?: boolean
-} & React.ComponentProps<typeof Textarea>
-
-function PromptInputTextarea({
-    className,
-    onKeyDown,
-    disableAutosize = false,
-    ...props
-}: PromptInputTextareaProps) {
-    const {
-        maxHeight,
-        onSubmit,
-        disabled,
-        disableKeyboardSubmit,
-        invertSendNewlineBehavior,
-        textareaRef
-    } = usePromptInput()
-
-    const resizeTextarea = useCallback(
-        (target: HTMLTextAreaElement) => {
-            applyPromptTextareaSize(target, maxHeight)
-        },
-        [maxHeight]
-    )
-
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            if (
-                !disableKeyboardSubmit &&
-                matchesSubmitPromptShortcut(e, invertSendNewlineBehavior)
-            ) {
-                e.preventDefault()
-                onSubmit?.()
-            }
-            onKeyDown?.(e)
-        },
-        [disableKeyboardSubmit, invertSendNewlineBehavior, onSubmit, onKeyDown]
-    )
-
-    const handleInput = useCallback(
-        (e: React.FormEvent<HTMLTextAreaElement>) => {
-            if (disableAutosize) return
-
-            const target = e.target as HTMLTextAreaElement
-            resizeTextarea(target)
-        },
-        [disableAutosize, resizeTextarea]
-    )
-
-    useEffect(() => {
-        if (disableAutosize || !textareaRef.current) return
-
-        const textarea = textareaRef.current
-        let width = -1
-        resizeTextarea(textarea)
-        if (typeof ResizeObserver === "undefined") return
-
-        const observer = new ResizeObserver(() => {
-            if (textarea.clientWidth === width) return
-            width = textarea.clientWidth
-            resizeTextarea(textarea)
-        })
-        observer.observe(textarea)
-        return () => observer.disconnect()
-    }, [disableAutosize, resizeTextarea, textareaRef])
-
-    return (
-        <Textarea
-            ref={textareaRef}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            className={cn(PROMPT_TEXTAREA_CLASS, className)}
-            rows={1}
-            disabled={disabled}
-            {...props}
-        />
-    )
-}
 
 type PromptInputActionsProps = React.HTMLAttributes<HTMLDivElement>
 
@@ -320,4 +146,4 @@ function PromptInputAction({
     )
 }
 
-export { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction }
+export { PromptInput, PromptInputEditor, PromptInputActions, PromptInputAction }

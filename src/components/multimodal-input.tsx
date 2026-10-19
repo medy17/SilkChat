@@ -27,12 +27,12 @@ import {
 import { IntentGuide } from "@/components/intent-guide"
 import { ModelSelector } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
+import type { PromptEditorHandle } from "@/components/composer/prompt-editor"
 import {
     PromptInput,
     PromptInputAction,
     PromptInputActions,
-    type PromptInputRef,
-    PromptInputTextarea
+    PromptInputEditor
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -40,9 +40,16 @@ import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import { hasPdfAttachmentInUploadedFiles } from "@/lib/attachment-support"
+import {
+    COMPOSER_EXPAND_MIN_LINES,
+    type ComposerExpandAnchor,
+    getExpandedComposerHeight,
+    readRootLengthPx
+} from "@/lib/composer-expand"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import type { UploadedFile } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
@@ -51,7 +58,6 @@ import {
     type ComposerIntentId,
     resolveIntentGuideStage
 } from "@/lib/composer-intents"
-import { isComposerPasteTarget } from "@/lib/composer-paste"
 import { estimateTokenCount, getFileAcceptAttribute, getFileTypeInfo } from "@/lib/file_constants"
 import { getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import {
@@ -73,7 +79,17 @@ import { predictComposerContextRouting, resolveByokContextHint } from "@/lib/com
 import type { useChat } from "@ai-sdk/react"
 import type { UIMessage } from "ai"
 import { useAction, useConvexAuth, usePaginatedQuery, useQuery } from "convex/react"
-import { ArrowUp, Loader2, Mic, OctagonX, Paperclip, Square, X } from "lucide-react"
+import {
+    ArrowUp,
+    Loader2,
+    Maximize2,
+    Mic,
+    Minimize2,
+    OctagonX,
+    Paperclip,
+    Square,
+    X
+} from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import {
     forwardRef,
@@ -121,6 +137,9 @@ export const MultimodalInput = forwardRef<
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
         onInputActivityChange?: (isActive: boolean) => void
+        onExpandedChange?: (isExpanded: boolean) => void
+        // Defaults to centered for an empty chat and docked otherwise.
+        expandAnchor?: ComposerExpandAnchor
     }
 >(function MultimodalInput(
     {
@@ -132,7 +151,9 @@ export const MultimodalInput = forwardRef<
         showIntentShortcuts = false,
         threadHasPdfAttachments = false,
         messages = [],
-        onInputActivityChange
+        onInputActivityChange,
+        onExpandedChange,
+        expandAnchor
     },
     ref
 ) {
@@ -144,6 +165,7 @@ export const MultimodalInput = forwardRef<
         session.user?.id && !auth.isLoading ? {} : "skip"
     )
     const isTouchDevice = useIsTouchDevice()
+    const isMobile = useIsMobile()
     const composerToolbar = useComposerToolbarState()
     const {
         userSettings,
@@ -165,8 +187,9 @@ export const MultimodalInput = forwardRef<
     // submit so a generation stuck in a non-terminal status can never lock the thread.
     const imageGenerationGateBypassRef = useRef(false)
     const uploadInputRef = useRef<HTMLInputElement>(null)
-    const promptInputRef = useRef<PromptInputRef>(null)
+    const promptInputRef = useRef<PromptEditorHandle>(null)
     const composerViewportRef = useRef<HTMLDivElement>(null)
+    const promptRootRef = useRef<HTMLDivElement>(null)
 
     const draftScope = useMemo(() => ({ threadId, folderId }), [folderId, threadId])
     const draftKey = getThreadDraftKey(draftScope)
@@ -176,10 +199,6 @@ export const MultimodalInput = forwardRef<
         [draftScope, session.user?.id]
     )
     const draftState = useStore(draftSession)
-    useEffect(() => {
-        if (!draftState.submitting && !draftSession.getState().disposed)
-            promptInputRef.current?.resize()
-    }, [draftSession, draftState.submitting])
     const activeSessionRef = useRef(draftSession)
     activeSessionRef.current = draftSession
     const activeRef = useRef(isActive)
@@ -348,7 +367,7 @@ export const MultimodalInput = forwardRef<
         }
 
         if (isTouchDevice) {
-            promptInputRef.current?.getElement()?.blur()
+            promptInputRef.current?.blur()
             setIsInputFocused(false)
         }
 
@@ -373,7 +392,10 @@ export const MultimodalInput = forwardRef<
                 return onSubmit(text, files)
             }
         )
-        if (outcome.accepted) setActiveIntent(null)
+        if (outcome.accepted) {
+            setActiveIntent(null)
+            setExpandedHeight(null)
+        }
     }
 
     const [isInputFocused, setIsInputFocused] = useState(false)
@@ -442,9 +464,10 @@ export const MultimodalInput = forwardRef<
         ]
     )
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Intent selection belongs to the active draft session.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Intent and expansion belong to the active draft session.
     useEffect(() => {
         setActiveIntent(null)
+        setExpandedHeight(null)
     }, [draftSession])
 
     useEffect(() => {
@@ -569,6 +592,53 @@ export const MultimodalInput = forwardRef<
         uploadedFiles.length === 0 &&
         localUploadingFiles.length === 0
 
+    // Expanding is a desktop affordance for long drafts; phones keep the compact composer.
+    const canExpand = !isTouchDevice && !isMobile
+    const [lineCount, setLineCount] = useState(0)
+    const [expandedHeight, setExpandedHeight] = useState<number | null>(null)
+    const isExpanded = canExpand && expandedHeight !== null
+    const showExpandControl =
+        canExpand && !isVoiceActive && (isExpanded || lineCount >= COMPOSER_EXPAND_MIN_LINES)
+    const anchor = expandAnchor ?? (isNewChatComposer ? "center" : "bottom")
+    const measureExpandedHeight = useCallback(() => {
+        const root = promptRootRef.current
+        if (!root) return null
+        const { top, bottom } = root.getBoundingClientRect()
+        return getExpandedComposerHeight({
+            anchor,
+            top,
+            bottom,
+            viewportHeight: window.innerHeight,
+            headerHeight: readRootLengthPx("--app-header-height")
+        })
+    }, [anchor])
+    const toggleExpanded = () => {
+        setExpandedHeight(isExpanded ? null : measureExpandedHeight())
+        promptInputRef.current?.focus()
+    }
+
+    useEffect(() => {
+        if (!canExpand) setExpandedHeight(null)
+    }, [canExpand])
+
+    useEffect(() => {
+        if (!isExpanded) return
+        const handleResize = () => setExpandedHeight(measureExpandedHeight())
+        window.addEventListener("resize", handleResize)
+        return () => window.removeEventListener("resize", handleResize)
+    }, [isExpanded, measureExpandedHeight])
+
+    useEffect(() => {
+        onExpandedChange?.(isExpanded)
+    }, [isExpanded, onExpandedChange])
+
+    useEffect(
+        () => () => {
+            onExpandedChange?.(false)
+        },
+        [onExpandedChange]
+    )
+
     const loadWebTrends = useCallback(async () => {
         if (webTrendsLoaded || webTrendsLoading) return
         setWebTrendsLoading(true)
@@ -685,27 +755,6 @@ export const MultimodalInput = forwardRef<
         setIsClient(true)
     }, [])
 
-    useEffect(() => {
-        if (!isActive) {
-            return
-        }
-
-        const handleGlobalPaste = (e: ClipboardEvent) => {
-            if (
-                !isComposerPasteTarget(
-                    document.activeElement,
-                    promptInputRef.current?.getElement() ?? null
-                )
-            ) {
-                return
-            }
-            handlePaste(e)
-        }
-
-        document.addEventListener("paste", handleGlobalPaste)
-        return () => document.removeEventListener("paste", handleGlobalPaste)
-    }, [handlePaste, isActive])
-
     if (!isClient) return null
 
     return (
@@ -732,20 +781,42 @@ export const MultimodalInput = forwardRef<
                 className="@container w-full px-1"
             >
                 <PromptInput
-                    ref={promptInputRef}
+                    ref={promptRootRef}
                     onSubmit={handleSubmit}
                     disableKeyboardSubmit={isTouchDevice}
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
-                    maxHeight={240}
+                    maxHeight={isExpanded ? "none" : 240}
                     className={cn(
-                        "pointer-events-auto mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        "pointer-events-auto relative mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                         isCompactTouchComposer && "p-2",
                         isNewChatComposer && "rounded-[var(--radius-lg)]",
+                        isExpanded && "flex flex-col",
                         getChatWidthClass(chatWidthState.chatWidth)
                     )}
+                    style={isExpanded ? { height: expandedHeight ?? undefined } : undefined}
                 >
+                    {showExpandControl && (
+                        <PromptInputAction tooltip={isExpanded ? "Collapse" : "Expand"}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={isExpanded ? "Collapse composer" : "Expand composer"}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={toggleExpanded}
+                                className="absolute top-3 right-6 z-10 size-8 text-muted-foreground hover:bg-glass-control-hover hover:text-foreground"
+                                style={{ borderRadius: "var(--radius-md)" }}
+                            >
+                                {isExpanded ? (
+                                    <Minimize2 className="size-4" />
+                                ) : (
+                                    <Maximize2 className="size-4" />
+                                )}
+                            </Button>
+                        </PromptInputAction>
+                    )}
                     {(extendedFiles.length > 0 || localUploadingFiles.length > 0) && (
-                        <div className="flex flex-wrap gap-2 pb-3">
+                        <div className="flex shrink-0 flex-wrap gap-2 pb-3">
                             {extendedFiles.map((file) => (
                                 <DraftAttachmentTile
                                     key={file.key}
@@ -779,10 +850,16 @@ export const MultimodalInput = forwardRef<
                         accept={getFileAcceptAttribute(modelSupportsVision)}
                     />
 
+                    {/* Layout animation serves the touch-only compact mode; on desktop it would
+                        stretch the text while the composer expands. */}
                     <motion.div
-                        layout
+                        layout={!canExpand}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className={cn("flex w-full items-start", isCompactTouchComposer && "gap-1")}
+                        className={cn(
+                            "flex w-full items-start",
+                            isCompactTouchComposer && "gap-1",
+                            isExpanded && "min-h-0 flex-1 items-stretch"
+                        )}
                     >
                         <AnimatePresence initial={false}>
                             {isCompactTouchComposer && !isImageModel && (
@@ -818,22 +895,37 @@ export const MultimodalInput = forwardRef<
                         </AnimatePresence>
 
                         <motion.div
-                            layout
+                            layout={!canExpand}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="relative min-w-0 flex-1"
                         >
-                            <PromptInputTextarea
+                            <PromptInputEditor
+                                ref={promptInputRef}
                                 value={inputValue}
+                                resetKey={draftKey}
                                 placeholder={
                                     isImageModel
                                         ? "Describe the image you want to generate..."
                                         : "Ask me anything..."
                                 }
-                                onChange={(event) => setInputValue(event.currentTarget.value)}
+                                onChange={setInputValue}
+                                onPaste={isActive ? handlePaste : undefined}
                                 onFocus={() => setIsInputFocused(true)}
+                                onLineCountChange={setLineCount}
+                                onKeyDown={(event) => {
+                                    if (isExpanded && event.key === "Escape") {
+                                        event.preventDefault()
+                                        setExpandedHeight(null)
+                                    }
+                                }}
                                 className={cn(
                                     isCompactTouchComposer &&
-                                        "!h-11 !min-h-11 overflow-hidden whitespace-nowrap",
+                                        "h-11 overflow-hidden [--prompt-editor-min-height:2.75rem] md:[--prompt-editor-min-height:2.75rem] [&_.cm-line]:truncate",
+                                    // Room for the expand control, which sits clear of the scrollbar; reserved so
+                                    // text never reflows under it.
+                                    canExpand &&
+                                        "[--prompt-editor-padding:0.5rem_3.25rem_0.5rem_0.75rem]",
+                                    isExpanded && "h-full [--prompt-editor-height:100%]",
                                     isVoiceActive && "invisible"
                                 )}
                             />
@@ -895,7 +987,7 @@ export const MultimodalInput = forwardRef<
                                     duration: 0.26,
                                     ease: [0.16, 1, 0.3, 1]
                                 }}
-                                className="overflow-hidden"
+                                className="shrink-0 overflow-hidden"
                             >
                                 <PromptInputActions className="flex items-center gap-2 pt-2">
                                     <motion.div
@@ -1028,6 +1120,7 @@ export const MultimodalInput = forwardRef<
 
                 {showIntentShortcuts &&
                     isNewChatComposer &&
+                    !isExpanded &&
                     !isImageModel &&
                     (activeIntent !== null || isInputEmpty) && (
                         <div

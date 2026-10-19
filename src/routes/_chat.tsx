@@ -14,7 +14,7 @@ import { LandingPage } from "@/components/landing-page"
 import { LogoSymbol } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
-import { PROMPT_TEXTAREA_CLASS } from "@/components/prompt-kit/prompt-input"
+import { PROMPT_EDITOR_MIN_HEIGHT_CLASS } from "@/lib/prompt-editor-layout"
 import { SharedChat } from "@/components/shared-chat"
 import {
     SPLASH_EXIT_DURATION_MS,
@@ -24,7 +24,6 @@ import {
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -279,18 +278,18 @@ function ChatInitialSkeleton({
     )
 }
 
-// A real (invisible, inert) textarea with the composer's classes, so the browser
-// sizes it exactly like PromptInputTextarea instead of us hand-matching its box.
+// An empty prompt editor is exactly its min-height, so the skeleton shares that class.
 // The placeholder bar sits on its first line, where the real placeholder draws.
 function ComposerTextareaSkeleton({ className }: { className?: string }) {
     return (
         <div className="relative min-w-0 flex-1">
-            <Textarea
+            <div
                 aria-hidden="true"
-                tabIndex={-1}
-                readOnly
-                rows={1}
-                className={cn(PROMPT_TEXTAREA_CLASS, "pointer-events-none invisible", className)}
+                className={cn(
+                    PROMPT_EDITOR_MIN_HEIGHT_CLASS,
+                    "min-h-[var(--prompt-editor-min-height)]",
+                    className
+                )}
             />
             <div className="absolute top-2 left-3 flex h-6 items-center md:h-5">
                 <ChatSkeletonBlock className="h-4 w-28 rounded-[var(--radius-sm)]" />
@@ -317,7 +316,7 @@ function ChatComposerSkeleton({
                 )}
             >
                 <ChatSkeletonBlock className="size-11 shrink-0 rounded-[var(--radius-md)]" />
-                <ComposerTextareaSkeleton className="!h-11 !min-h-11 overflow-hidden whitespace-nowrap" />
+                <ComposerTextareaSkeleton className="h-11 [--prompt-editor-min-height:2.75rem] md:[--prompt-editor-min-height:2.75rem]" />
                 <ChatSkeletonBlock className="size-11 shrink-0 rounded-[var(--radius-md)]" />
             </div>
         )

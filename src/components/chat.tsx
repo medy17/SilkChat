@@ -81,6 +81,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { models: sharedModels } = useSharedModels()
     const multimodalInputRef = useRef<MultimodalInputRef>(null)
     const [isComposerActive, setIsComposerActive] = useState(false)
+    const [isComposerExpanded, setIsComposerExpanded] = useState(false)
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
 
@@ -551,82 +552,86 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             >
                 <AnimatePresence initial={false} mode="sync">
                     {isEmpty ? (
-                        <motion.div
-                            key="composer-hero"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="flex flex-col items-center"
-                        >
-                            {hasSelectedPersonaAvatar && selectedPersonaOption ? (
-                                <PersonaAvatar
-                                    name={selectedPersonaOption.name}
-                                    avatarKind={selectedPersonaOption.avatarKind}
-                                    avatarValue={selectedPersonaOption.avatarValue}
-                                    className="mb-6 size-16 border-2 border-border shadow-sm"
-                                    rounded="full"
-                                />
-                            ) : (
-                                <>
-                                    <ChatMascot
-                                        isCurious={isComposerActive}
-                                        className="mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32"
-                                    />
-                                    <ChatMascot
-                                        variant="face"
-                                        isCurious={isComposerActive}
-                                        className="mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block"
-                                    />
-                                </>
-                            )}
+                        // An expanded composer takes the whole column, so the hero steps aside.
+                        isComposerExpanded ? null : (
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                key="composer-hero"
+                                initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="text-center [@media(max-height:480px)]:hidden"
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.2, ease: "easeInOut" }}
+                                className="flex flex-col items-center"
                             >
-                                {!selectedPersonaOption && (
-                                    <h1 className="px-4 font-medium text-3xl text-foreground">
-                                        {userName
-                                            ? `What's up, ${userName?.split(" ")[0]}?`
-                                            : "What do you want to explore?"}
-                                    </h1>
+                                {hasSelectedPersonaAvatar && selectedPersonaOption ? (
+                                    <PersonaAvatar
+                                        name={selectedPersonaOption.name}
+                                        avatarKind={selectedPersonaOption.avatarKind}
+                                        avatarValue={selectedPersonaOption.avatarValue}
+                                        className="mb-6 size-16 border-2 border-border shadow-sm"
+                                        rounded="full"
+                                    />
+                                ) : (
+                                    <>
+                                        <ChatMascot
+                                            isCurious={isComposerActive}
+                                            className="mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32"
+                                        />
+                                        <ChatMascot
+                                            variant="face"
+                                            isCurious={isComposerActive}
+                                            className="mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block"
+                                        />
+                                    </>
                                 )}
-                                {selectedPersonaOption && (
-                                    <div className="mt-4 space-y-4 px-4">
-                                        <div className="mx-auto max-w-2xl space-y-1">
-                                            <p className="font-medium text-lg">
-                                                {selectedPersonaOption.name}
-                                            </p>
-                                            <p className="text-muted-foreground text-sm">
-                                                {selectedPersonaOption.description}
-                                            </p>
-                                        </div>
-                                        {selectedPersonaOption.conversationStarters.length > 0 && (
-                                            <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
-                                                {selectedPersonaOption.conversationStarters.map(
-                                                    (starter) => (
-                                                        <button
-                                                            key={starter}
-                                                            type="button"
-                                                            className="rounded-full border border-border bg-background/70 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-                                                            onClick={() => {
-                                                                multimodalInputRef.current?.setValue(
-                                                                    starter
-                                                                )
-                                                            }}
-                                                        >
-                                                            {starter}
-                                                        </button>
-                                                    )
-                                                )}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="text-center [@media(max-height:480px)]:hidden"
+                                >
+                                    {!selectedPersonaOption && (
+                                        <h1 className="px-4 font-medium text-3xl text-foreground">
+                                            {userName
+                                                ? `What's up, ${userName?.split(" ")[0]}?`
+                                                : "What do you want to explore?"}
+                                        </h1>
+                                    )}
+                                    {selectedPersonaOption && (
+                                        <div className="mt-4 space-y-4 px-4">
+                                            <div className="mx-auto max-w-2xl space-y-1">
+                                                <p className="font-medium text-lg">
+                                                    {selectedPersonaOption.name}
+                                                </p>
+                                                <p className="text-muted-foreground text-sm">
+                                                    {selectedPersonaOption.description}
+                                                </p>
                                             </div>
-                                        )}
-                                    </div>
-                                )}
+                                            {selectedPersonaOption.conversationStarters.length >
+                                                0 && (
+                                                <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
+                                                    {selectedPersonaOption.conversationStarters.map(
+                                                        (starter) => (
+                                                            <button
+                                                                key={starter}
+                                                                type="button"
+                                                                className="rounded-full border border-border bg-background/70 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                                                                onClick={() => {
+                                                                    multimodalInputRef.current?.setValue(
+                                                                        starter
+                                                                    )
+                                                                }}
+                                                            >
+                                                                {starter}
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
+                        )
                     ) : (
                         <motion.div
                             key="bottom-controls"
@@ -675,6 +680,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}
                         onInputActivityChange={setIsComposerActive}
+                        onExpandedChange={setIsComposerExpanded}
                     />
                 </div>
                 {!isEmpty && (

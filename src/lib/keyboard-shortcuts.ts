@@ -131,6 +131,26 @@ export const SHORTCUTS = {
         context: "Composer",
         display: getInsertPromptNewlineShortcutDisplay(false)
     }),
+    formatBold: defineShortcut({
+        id: "format-bold",
+        title: "Bold",
+        category: "Composer",
+        context: "Selected composer text",
+        display: {
+            mac: ["⌘", "B"],
+            default: ["Ctrl", "B"]
+        }
+    }),
+    formatItalic: defineShortcut({
+        id: "format-italic",
+        title: "Italic",
+        category: "Composer",
+        context: "Selected composer text",
+        display: {
+            mac: ["⌘", "I"],
+            default: ["Ctrl", "I"]
+        }
+    }),
     saveMessageEdit: defineShortcut({
         id: "save-message-edit",
         title: "Save edited message",
@@ -238,6 +258,8 @@ export const getShortcutHelpSections = (invertSendNewlineBehavior = false) =>
                 SHORTCUTS.openModelPicker,
                 getSubmitPromptShortcut(invertSendNewlineBehavior),
                 getInsertPromptNewlineShortcut(invertSendNewlineBehavior),
+                SHORTCUTS.formatBold,
+                SHORTCUTS.formatItalic,
                 SHORTCUTS.saveMessageEdit,
                 SHORTCUTS.cancelMessageEdit
             ]
@@ -338,6 +360,12 @@ export const matchesInsertPromptNewlineShortcut = (
 
     return event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
 }
+
+export const matchesFormatBoldShortcut = (event: ShortcutKeyEvent) =>
+    event.key.toLowerCase() === "b" && hasPrimaryModifier(event)
+
+export const matchesFormatItalicShortcut = (event: ShortcutKeyEvent) =>
+    event.key.toLowerCase() === "i" && hasPrimaryModifier(event)
 
 export const matchesSaveMessageEditShortcut = (event: ShortcutKeyEvent) =>
     !event.isComposing && event.key === "Enter" && hasPrimaryModifier(event)

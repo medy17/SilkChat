@@ -1,91 +1,103 @@
 // @vitest-environment jsdom
 
-import {
-    PromptInput,
-    PromptInputTextarea,
-    applyPromptTextareaSize
-} from "@/components/prompt-kit/prompt-input"
+import type { PromptEditorHandle } from "@/components/composer/prompt-editor"
+import { PromptInput, PromptInputEditor } from "@/components/prompt-kit/prompt-input"
 import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 
-const defineScrollHeight = (element: HTMLTextAreaElement, value: number) => {
-    Object.defineProperty(element, "scrollHeight", {
-        configurable: true,
-        value
-    })
-}
-
-describe("applyPromptTextareaSize", () => {
-    it("switches to internal scrolling after reaching the numeric max height", () => {
-        const textarea = document.createElement("textarea")
-        textarea.value = "wrapped content"
-        defineScrollHeight(textarea, 320)
-
-        applyPromptTextareaSize(textarea, 240)
-
-        expect(textarea.style.height).toBe("240px")
-        expect(textarea.style.overflowY).toBe("auto")
-    })
-
-    it("keeps scrolling hidden while content stays below the numeric max height", () => {
-        const textarea = document.createElement("textarea")
-        textarea.value = "short content"
-        defineScrollHeight(textarea, 120)
-
-        applyPromptTextareaSize(textarea, 240)
-
-        expect(textarea.style.height).toBe("120px")
-        expect(textarea.style.overflowY).toBe("hidden")
-    })
-
-    it("clears sizing when the value is empty", () => {
-        const textarea = document.createElement("textarea")
-        textarea.value = "   "
-        textarea.style.height = "120px"
-        textarea.style.overflowY = "auto"
-
-        applyPromptTextareaSize(textarea, 240)
-
-        expect(textarea.style.height).toBe("")
-        expect(textarea.style.overflowY).toBe("")
-    })
+beforeAll(() => {
+    // jsdom has no layout; CodeMirror only needs these to exist.
+    Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+    Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
-describe("PromptInputTextarea submit behavior", () => {
-    const promptInputWithTextarea = (
-        props: Omit<React.ComponentProps<typeof PromptInput>, "children">
-    ): React.ComponentProps<typeof PromptInput> => ({
-        ...props,
-        children: React.createElement(PromptInputTextarea)
+const renderEditor = (
+    props: Omit<React.ComponentProps<typeof PromptInput>, "children">,
+    value = "hello",
+    disabled = false
+) => {
+    const ref = React.createRef<PromptEditorHandle>()
+    const onChange = vi.fn()
+    render(
+        React.createElement(PromptInput, {
+            ...props,
+            children: React.createElement(PromptInputEditor, { ref, value, onChange, disabled })
+        })
+    )
+    return { ref, onChange, textbox: screen.getByRole("textbox") }
+}
+
+describe("PromptInputEditor keyboard behavior", () => {
+    it("submits on enter by default", () => {
+        const onSubmit = vi.fn()
+        const { textbox, ref } = renderEditor({ onSubmit })
+
+        fireEvent.keyDown(textbox, { key: "Enter" })
+
+        expect(onSubmit).toHaveBeenCalledTimes(1)
+        expect(ref.current?.getValue()).toBe("hello")
     })
 
-    it("submits on desktop enter by default", () => {
+    it("inserts a newline instead of submitting when keyboard submit is disabled", () => {
         const onSubmit = vi.fn()
+        const { textbox, onChange } = renderEditor({ onSubmit, disableKeyboardSubmit: true })
 
-        render(React.createElement(PromptInput, promptInputWithTextarea({ onSubmit })))
+        fireEvent.keyDown(textbox, { key: "Enter" })
 
-        fireEvent.keyDown(screen.getByRole("textbox"), {
-            key: "Enter"
-        })
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(onChange).toHaveBeenLastCalledWith("hello\n")
+    })
 
+    it("swaps enter and modifier-enter when send behavior is inverted", () => {
+        const onSubmit = vi.fn()
+        const { textbox, onChange } = renderEditor({ onSubmit, invertSendNewlineBehavior: true })
+
+        fireEvent.keyDown(textbox, { key: "Enter" })
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(onChange).toHaveBeenLastCalledWith("hello\n")
+
+        fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true })
         expect(onSubmit).toHaveBeenCalledTimes(1)
     })
 
-    it("does not submit on enter when keyboard submit is disabled", () => {
-        const onSubmit = vi.fn()
+    it("ignores enter while disabled", () => {
+        const { textbox, onChange } = renderEditor({ disableKeyboardSubmit: true }, "- item", true)
 
-        render(
-            React.createElement(
-                PromptInput,
-                promptInputWithTextarea({ onSubmit, disableKeyboardSubmit: true })
-            )
-        )
+        fireEvent.keyDown(textbox, { key: "Enter" })
 
-        fireEvent.keyDown(screen.getByRole("textbox"), {
-            key: "Enter"
-        })
+        expect(onChange).not.toHaveBeenCalled()
+    })
 
-        expect(onSubmit).not.toHaveBeenCalled()
+    it("continues a list on shift-enter", () => {
+        const { textbox, onChange } = renderEditor({ onSubmit: vi.fn() }, "1. first")
+
+        fireEvent.keyDown(textbox, { key: "Enter", shiftKey: true })
+
+        expect(onChange).toHaveBeenLastCalledWith("1. first\n2. ")
+    })
+
+    it("clears without leaving the cleared text in undo history", () => {
+        const { ref, textbox, onChange } = renderEditor({}, "")
+
+        const now = Date.now()
+        const clock = vi.spyOn(Date, "now").mockReturnValue(now)
+        ref.current?.setValue("sent prompt")
+        // Past CodeMirror's 500ms window for merging edits into one undo step.
+        clock.mockReturnValue(now + 1000)
+        ref.current?.clear()
+        fireEvent.keyDown(textbox, { key: "z", ctrlKey: true })
+
+        expect(ref.current?.getValue()).toBe("")
+        expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it("sets text without reporting it as an edit, like assigning a textarea value", () => {
+        const { ref, onChange } = renderEditor({})
+
+        ref.current?.setValue("> quoted\n\n")
+
+        expect(ref.current?.getValue()).toBe("> quoted\n\n")
+        expect(onChange).not.toHaveBeenCalled()
     })
 })
