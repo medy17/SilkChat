@@ -91,7 +91,7 @@ import {
     Square,
     X
 } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, type Variants, motion } from "motion/react"
 import {
     forwardRef,
     useCallback,
@@ -124,6 +124,22 @@ export interface MultimodalInputRef {
     handleFileUpload: (files: File[]) => Promise<void>
     setValue: (value: string) => void
     insertQuote: (selection: string) => void
+}
+
+// The touch composer collapses to [attach] [text] [send] and expands to a toolbar row. The
+// attach/model pill and the send button persist across both; the rest of the toolbar unfolds
+// from behind them.
+const toolbarVariants: Variants = {
+    collapsed: { height: 0 },
+    expanded: { height: "auto" }
+}
+const unfoldFromStartVariants: Variants = {
+    collapsed: { opacity: 0, x: -12 },
+    expanded: { opacity: 1, x: 0 }
+}
+const unfoldFromEndVariants: Variants = {
+    collapsed: { opacity: 0, x: 12 },
+    expanded: { opacity: 1, x: 0 }
 }
 
 export const MultimodalInput = forwardRef<
@@ -599,6 +615,22 @@ export const MultimodalInput = forwardRef<
     // Expanding is a desktop affordance for long drafts; phones keep the compact composer.
     const canExpand = !isTouchDevice && !isMobile
     const [lineCount, setLineCount] = useState(0)
+    const [modelChipWidth, setModelChipWidth] = useState<number | null>(null)
+    const measureModelChip = useCallback((node: HTMLDivElement | null) => {
+        if (!node) return
+        setModelChipWidth(node.offsetWidth)
+        const observer = new ResizeObserver(() => setModelChipWidth(node.offsetWidth))
+        observer.observe(node)
+        return () => observer.disconnect()
+    }, [])
+    // Unset until measured, which lets the pill size itself to the chip.
+    const modelPillWidth = isCompactTouchComposer
+        ? isImageModel
+            ? 0
+            : 44
+        : selectedModel
+          ? (modelChipWidth ?? undefined)
+          : 0
     const [expandedHeight, setExpandedHeight] = useState<number | null>(null)
     const isExpanded = canExpand && expandedHeight !== null
     const showExpandControl =
@@ -868,33 +900,14 @@ export const MultimodalInput = forwardRef<
                         <AnimatePresence initial={false}>
                             {isCompactTouchComposer && !isImageModel && (
                                 <motion.div
-                                    key="compact-attach"
-                                    initial={{ opacity: 0, scale: 0.9, width: 0 }}
-                                    animate={{ opacity: 1, scale: 1, width: 44 }}
-                                    exit={{ opacity: 0, scale: 0.94, width: 0 }}
-                                    transition={{
-                                        duration: 0.18,
-                                        ease: [0.16, 1, 0.3, 1]
-                                    }}
-                                    className="shrink-0 overflow-hidden"
-                                >
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label="Attach files"
-                                        onClick={() => uploadInputRef.current?.click()}
-                                        disabled={uploading}
-                                        className="size-11 bg-glass-control text-foreground hover:bg-glass-control-hover"
-                                        style={{ borderRadius: "var(--radius-md)" }}
-                                    >
-                                        {uploading ? (
-                                            <Loader2 className="size-4 animate-spin" />
-                                        ) : (
-                                            <Paperclip className="size-4 -rotate-45" />
-                                        )}
-                                    </Button>
-                                </motion.div>
+                                    key="compact-attach-slot"
+                                    aria-hidden="true"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: 44 }}
+                                    exit={{ width: 0 }}
+                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    className="h-11 shrink-0"
+                                />
                             )}
                         </AnimatePresence>
 
@@ -964,14 +977,13 @@ export const MultimodalInput = forwardRef<
                         {!isCompactTouchComposer && (
                             <motion.div
                                 key="expanded-toolbar"
-                                initial={{ height: 0, opacity: 0, y: 6 }}
-                                animate={{ height: "auto", opacity: 1, y: 0 }}
-                                exit={{ height: 0, opacity: 0, y: 4 }}
-                                transition={{
-                                    duration: 0.26,
-                                    ease: [0.16, 1, 0.3, 1]
-                                }}
-                                className="shrink-0 overflow-hidden"
+                                variants={toolbarVariants}
+                                initial="collapsed"
+                                animate="expanded"
+                                exit="collapsed"
+                                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                // Bottom-aligned so the row stays put while the toolbar opens above it.
+                                className="flex shrink-0 flex-col justify-end overflow-hidden"
                             >
                                 <PromptInputActions className="flex items-center gap-2 pt-2">
                                     <motion.div
@@ -980,102 +992,168 @@ export const MultimodalInput = forwardRef<
                                         className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible"
                                     >
                                         {selectedModel && (
-                                            <motion.div
-                                                layout
-                                                transition={{
-                                                    duration: 0.2,
-                                                    ease: [0.16, 1, 0.3, 1]
-                                                }}
-                                                className="shrink-0"
-                                            >
-                                                <ModelSelector
-                                                    selectedModel={selectedModel}
-                                                    onModelChange={setSelectedModel}
-                                                    open={activeComposerOverlay === "model"}
-                                                    onOpenChange={(open) =>
-                                                        handleComposerOverlayOpenChange(
-                                                            "model",
-                                                            open
-                                                        )
-                                                    }
-                                                    shortcutTarget="composer"
-                                                    telemetrySurface="composer"
-                                                    tooltip="Select model"
-                                                    suppressTooltip={activeComposerOverlay !== null}
-                                                    requiresNativePdf={
-                                                        requiresNativePdfForModelSelection
-                                                    }
-                                                    byokContextHint={resolveByokContextHint(
-                                                        predictedByokContextRouting
-                                                    )}
-                                                />
-                                            </motion.div>
+                                            <div
+                                                aria-hidden="true"
+                                                className="h-8 shrink-0"
+                                                style={{ width: modelChipWidth ?? undefined }}
+                                            />
                                         )}
-                                        <PersonaSelector
-                                            threadId={threadId}
-                                            open={activeComposerOverlay === "persona"}
+                                        <motion.div
+                                            variants={unfoldFromStartVariants}
+                                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                            className="flex min-w-0 items-center @3xl:gap-2 gap-1.5"
+                                        >
+                                            <PersonaSelector
+                                                threadId={threadId}
+                                                open={activeComposerOverlay === "persona"}
+                                                onOpenChange={(open) =>
+                                                    handleComposerOverlayOpenChange("persona", open)
+                                                }
+                                            />
+
+                                            <ComposerDesktopActions
+                                                state={composerToolbar}
+                                                threadId={threadId}
+                                                uploading={uploading}
+                                                onAttachClick={() =>
+                                                    uploadInputRef.current?.click()
+                                                }
+                                                activeOverlay={activeComposerOverlay}
+                                                onOverlayOpenChange={
+                                                    handleComposerOverlayOpenChange
+                                                }
+                                            />
+                                        </motion.div>
+                                    </motion.div>
+
+                                    <motion.div
+                                        variants={unfoldFromEndVariants}
+                                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                        className="flex shrink-0 items-center gap-2"
+                                    >
+                                        <ComposerMobileMenu
+                                            state={composerToolbar}
+                                            onAttachClick={() => uploadInputRef.current?.click()}
+                                            open={activeComposerOverlay === "mobile-menu"}
                                             onOpenChange={(open) =>
-                                                handleComposerOverlayOpenChange("persona", open)
+                                                handleComposerOverlayOpenChange("mobile-menu", open)
                                             }
                                         />
 
-                                        <ComposerDesktopActions
-                                            state={composerToolbar}
-                                            threadId={threadId}
-                                            uploading={uploading}
-                                            onAttachClick={() => uploadInputRef.current?.click()}
-                                            activeOverlay={activeComposerOverlay}
-                                            onOverlayOpenChange={handleComposerOverlayOpenChange}
-                                        />
+                                        {activePersistentSandbox && (
+                                            <PromptInputAction tooltip="Kill persistent sandbox">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
+                                                    style={{ borderRadius: "var(--radius-md)" }}
+                                                    disabled={
+                                                        isKillingPersistentSandbox ||
+                                                        activePersistentSandbox.status ===
+                                                            "stopping"
+                                                    }
+                                                    onClick={() =>
+                                                        void handleKillPersistentSandbox()
+                                                    }
+                                                    type="button"
+                                                >
+                                                    {isKillingPersistentSandbox ||
+                                                    activePersistentSandbox.status ===
+                                                        "stopping" ? (
+                                                        <Loader2
+                                                            className="size-4 animate-spin"
+                                                            aria-hidden="true"
+                                                        />
+                                                    ) : (
+                                                        <OctagonX
+                                                            className="size-4"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    <span className="@4xl:inline hidden">
+                                                        Kill sandbox
+                                                    </span>
+                                                </Button>
+                                            </PromptInputAction>
+                                        )}
+
+                                        {/* The send button's place; it is pinned below. */}
+                                        <div aria-hidden="true" className="size-8 shrink-0" />
                                     </motion.div>
-
-                                    <ComposerMobileMenu
-                                        state={composerToolbar}
-                                        onAttachClick={() => uploadInputRef.current?.click()}
-                                        open={activeComposerOverlay === "mobile-menu"}
-                                        onOpenChange={(open) =>
-                                            handleComposerOverlayOpenChange("mobile-menu", open)
-                                        }
-                                    />
-
-                                    {activePersistentSandbox && (
-                                        <PromptInputAction tooltip="Kill persistent sandbox">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
-                                                style={{ borderRadius: "var(--radius-md)" }}
-                                                disabled={
-                                                    isKillingPersistentSandbox ||
-                                                    activePersistentSandbox.status === "stopping"
-                                                }
-                                                onClick={() => void handleKillPersistentSandbox()}
-                                                type="button"
-                                            >
-                                                {isKillingPersistentSandbox ||
-                                                activePersistentSandbox.status === "stopping" ? (
-                                                    <Loader2
-                                                        className="size-4 animate-spin"
-                                                        aria-hidden="true"
-                                                    />
-                                                ) : (
-                                                    <OctagonX
-                                                        className="size-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
-                                                <span className="@4xl:inline hidden">
-                                                    Kill sandbox
-                                                </span>
-                                            </Button>
-                                        </PromptInputAction>
-                                    )}
-
-                                    <div aria-hidden="true" className="size-8 shrink-0" />
                                 </PromptInputActions>
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* One pill for the compact attach button and the toolbar's model chip, pinned
+                        to the corner both use. It reshapes between them while their contents
+                        crossfade, so neither appears from nowhere. */}
+                    <div
+                        className={cn(
+                            "absolute flex items-center overflow-hidden rounded-[var(--radius-md)] bg-glass-control transition-[width,height,left,bottom,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            isCompactTouchComposer ? "bottom-2 left-2 h-11" : "bottom-3 left-3 h-8",
+                            modelPillWidth === 0 && "pointer-events-none opacity-0"
+                        )}
+                        style={{ width: modelPillWidth }}
+                    >
+                        {selectedModel && (
+                            <div
+                                ref={measureModelChip}
+                                inert={isCompactTouchComposer}
+                                className={cn(
+                                    "w-max shrink-0 transition-opacity ease-out",
+                                    isCompactTouchComposer
+                                        ? "opacity-0 duration-150"
+                                        : "opacity-100 delay-100 duration-200"
+                                )}
+                            >
+                                <ModelSelector
+                                    className="bg-transparent"
+                                    selectedModel={selectedModel}
+                                    onModelChange={setSelectedModel}
+                                    open={activeComposerOverlay === "model"}
+                                    onOpenChange={(open) =>
+                                        handleComposerOverlayOpenChange("model", open)
+                                    }
+                                    shortcutTarget="composer"
+                                    telemetrySurface="composer"
+                                    tooltip="Select model"
+                                    suppressTooltip={activeComposerOverlay !== null}
+                                    requiresNativePdf={requiresNativePdfForModelSelection}
+                                    byokContextHint={resolveByokContextHint(
+                                        predictedByokContextRouting
+                                    )}
+                                />
+                            </div>
+                        )}
+                        {/* Fades on a wrapper: the button's own disabled opacity would override it. */}
+                        <div
+                            inert={!isCompactTouchComposer}
+                            className={cn(
+                                "absolute inset-y-0 left-0 w-11 transition-opacity ease-out",
+                                isCompactTouchComposer
+                                    ? "opacity-100 delay-100 duration-200"
+                                    : "opacity-0 duration-150"
+                            )}
+                        >
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Attach files"
+                                onClick={() => uploadInputRef.current?.click()}
+                                disabled={uploading}
+                                className="size-full text-foreground hover:bg-glass-control-hover"
+                                style={{ borderRadius: "var(--radius-md)" }}
+                            >
+                                {uploading ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <Paperclip className="size-4 -rotate-45" />
+                                )}
+                            </Button>
+                        </div>
+                    </div>
 
                     {/* One button for both layouts, pinned to the corner the compact row and the
                         toolbar share. It only resizes, so it can't drift or leave a copy behind
