@@ -285,6 +285,35 @@ describe("useVoiceRecorder", () => {
         expect(mediaTrack.stop).toHaveBeenCalledTimes(1)
     })
 
+    it("delivers the transcript to the latest callback, not the one from when recording started", async () => {
+        installRecorderEnvironment()
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue({ ok: true, json: async () => ({ text: "spoken" }) })
+        )
+        const initialCallback = vi.fn()
+        const latestCallback = vi.fn()
+
+        const { result, rerender } = renderHook(
+            ({ onTranscript }) => useVoiceRecorder({ onTranscript }),
+            { initialProps: { onTranscript: initialCallback } }
+        )
+
+        await act(async () => {
+            await result.current.startRecording()
+        })
+        rerender({ onTranscript: latestCallback })
+        act(() => {
+            result.current.stopRecording()
+        })
+        await act(async () => {
+            await flushAsyncWork()
+        })
+
+        expect(initialCallback).not.toHaveBeenCalled()
+        expect(latestCallback).toHaveBeenCalledWith("spoken")
+    })
+
     it("freezes the recording timer while transcription is pending", async () => {
         installRecorderEnvironment()
         let resolveFetch:

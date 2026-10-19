@@ -141,6 +141,13 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
         tokenRef.current = token
     }, [token])
 
+    // The recorder's stop handler is bound once per recording, so it reads the latest
+    // callback here rather than the one from the render that started recording.
+    const onTranscriptRef = useRef(onTranscript)
+    useEffect(() => {
+        onTranscriptRef.current = onTranscript
+    }, [onTranscript])
+
     const updateAudioLevel = useCallback(() => {
         if (!analyserRef.current || !dataArrayRef.current) return
 
@@ -407,75 +414,72 @@ export const useVoiceRecorder = ({ onTranscript }: UseVoiceRecorderOptions) => {
         }
     }, [stopRecordingMonitoring])
 
-    const transcribeAudio = useCallback(
-        async (audioBlob: Blob) => {
-            try {
-                if (audioBlob.size === 0) {
-                    throw new Error(
-                        "No audio data recorded. Please try speaking closer to the microphone."
-                    )
-                }
-
-                console.log(
-                    "Transcribing audio blob:",
-                    audioBlob.size,
-                    "bytes",
-                    "type:",
-                    audioBlob.type
+    const transcribeAudio = useCallback(async (audioBlob: Blob) => {
+        try {
+            if (audioBlob.size === 0) {
+                throw new Error(
+                    "No audio data recorded. Please try speaking closer to the microphone."
                 )
-
-                if (!audioContextRef.current) {
-                    throw new Error("Audio processing is unavailable. Please try recording again.")
-                }
-
-                const uploadBlob = await prepareAudioForTranscription(
-                    audioBlob,
-                    audioContextRef.current,
-                    TRANSCRIPTION_CONFIG
-                )
-                const formData = new FormData()
-                formData.append("audio", uploadBlob, getAudioFilename(uploadBlob.type))
-
-                const jwt = await resolveJwtToken(tokenRef.current)
-                if (!jwt) {
-                    throw new Error("Authentication token unavailable")
-                }
-
-                const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/transcribe`, {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${jwt}`
-                    },
-                    body: formData
-                })
-
-                if (!response.ok) {
-                    const errorData = await response.json()
-                    throw new Error(errorData.error || "Transcription failed")
-                }
-
-                const { text } = await response.json()
-
-                if (text?.trim()) {
-                    console.log("Transcription successful:", text)
-                    onTranscript(text.trim())
-                } else {
-                    toast.error("No speech detected. Please try again and speak clearly.")
-                }
-            } catch (error) {
-                console.error("Transcription error:", error)
-                toast.error(error instanceof Error ? error.message : "Failed to transcribe audio")
-            } finally {
-                setState((prev) => ({
-                    ...prev,
-                    isTranscribing: false,
-                    recordingDuration: 0,
-                    levelHistory: []
-                }))
             }
-        },
-        [onTranscript]
-    )
+
+            console.log(
+                "Transcribing audio blob:",
+                audioBlob.size,
+                "bytes",
+                "type:",
+                audioBlob.type
+            )
+
+            if (!audioContextRef.current) {
+                throw new Error("Audio processing is unavailable. Please try recording again.")
+            }
+
+            const uploadBlob = await prepareAudioForTranscription(
+                audioBlob,
+                audioContextRef.current,
+                TRANSCRIPTION_CONFIG
+            )
+            const formData = new FormData()
+            formData.append("audio", uploadBlob, getAudioFilename(uploadBlob.type))
+
+            const jwt = await resolveJwtToken(tokenRef.current)
+            if (!jwt) {
+                throw new Error("Authentication token unavailable")
+            }
+
+            const response = await fetch(`${browserEnv("VITE_CONVEX_API_URL")}/transcribe`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${jwt}`
+                },
+                body: formData
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || "Transcription failed")
+            }
+
+            const { text } = await response.json()
+
+            if (text?.trim()) {
+                console.log("Transcription successful:", text)
+                onTranscriptRef.current(text.trim())
+            } else {
+                toast.error("No speech detected. Please try again and speak clearly.")
+            }
+        } catch (error) {
+            console.error("Transcription error:", error)
+            toast.error(error instanceof Error ? error.message : "Failed to transcribe audio")
+        } finally {
+            setState((prev) => ({
+                ...prev,
+                isTranscribing: false,
+                recordingDuration: 0,
+                levelHistory: []
+            }))
+        }
+    }, [])
 
     const cancelRecording = useCallback(() => {
         if (mediaRecorderRef.current && isRecordingRef.current) {
