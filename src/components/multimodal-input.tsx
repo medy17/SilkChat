@@ -41,6 +41,7 @@ import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useKeyboardSettledValue } from "@/hooks/use-keyboard-settled-value"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import { hasPdfAttachmentInUploadedFiles } from "@/lib/attachment-support"
@@ -583,10 +584,13 @@ export const MultimodalInput = forwardRef<
     )
 
     const isNewChatComposer = !threadId && messages.length === 0
+    // Focusing opens the keyboard, which shifts the composer up; switching layouts before
+    // that settles throws off the composer's layout animations.
+    const isInputFocusSettled = useKeyboardSettledValue(isInputFocused, isTouchDevice)
     const isCompactTouchComposer =
         isTouchDevice &&
         !isNewChatComposer &&
-        !isInputFocused &&
+        !isInputFocusSettled &&
         !isModelSelectorOpen &&
         !inputValue.trim() &&
         uploadedFiles.length === 0 &&
@@ -941,37 +945,17 @@ export const MultimodalInput = forwardRef<
                             )}
                         </motion.div>
 
-                        <AnimatePresence initial={false} mode="popLayout">
+                        <AnimatePresence initial={false}>
                             {isCompactTouchComposer && (
                                 <motion.div
-                                    key="compact-submit"
-                                    layout
+                                    key="compact-primary-action-slot"
+                                    aria-hidden="true"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: 44 }}
+                                    exit={{ width: 0 }}
                                     transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                                    className="shrink-0"
-                                >
-                                    <motion.div
-                                        layoutId="composer-primary-action"
-                                        transition={{
-                                            layout: {
-                                                duration: 0.3,
-                                                ease: [0.16, 1, 0.3, 1]
-                                            }
-                                        }}
-                                    >
-                                        <Button
-                                            variant="default"
-                                            size="icon"
-                                            aria-label={primaryActionLabel}
-                                            className="size-11"
-                                            style={{ borderRadius: "var(--radius-md)" }}
-                                            disabled={primaryActionDisabled}
-                                            onClick={handleVoiceButtonClick}
-                                            type="submit"
-                                        >
-                                            {primaryActionIcon}
-                                        </Button>
-                                    </motion.div>
-                                </motion.div>
+                                    className="h-11 shrink-0"
+                                />
                             )}
                         </AnimatePresence>
                     </motion.div>
@@ -1087,35 +1071,34 @@ export const MultimodalInput = forwardRef<
                                         </PromptInputAction>
                                     )}
 
-                                    <PromptInputAction tooltip={primaryActionLabel}>
-                                        <motion.div
-                                            layoutId="composer-primary-action"
-                                            transition={{
-                                                layout: {
-                                                    duration: 0.3,
-                                                    ease: [0.16, 1, 0.3, 1]
-                                                }
-                                            }}
-                                            className="shrink-0"
-                                        >
-                                            <Button
-                                                variant="default"
-                                                size="icon"
-                                                aria-label={primaryActionLabel}
-                                                className="size-8"
-                                                style={{ borderRadius: "var(--radius-md)" }}
-                                                disabled={primaryActionDisabled}
-                                                onClick={handleVoiceButtonClick}
-                                                type="submit"
-                                            >
-                                                {primaryActionIcon}
-                                            </Button>
-                                        </motion.div>
-                                    </PromptInputAction>
+                                    <div aria-hidden="true" className="size-8 shrink-0" />
                                 </PromptInputActions>
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* One button for both layouts, pinned to the corner the compact row and the
+                        toolbar share. It only resizes, so it can't drift or leave a copy behind
+                        while the composer reshapes around it. */}
+                    <PromptInputAction tooltip={primaryActionLabel}>
+                        <Button
+                            variant="default"
+                            size="icon"
+                            aria-label={primaryActionLabel}
+                            className={cn(
+                                "absolute transition-[width,height,right,bottom] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                isCompactTouchComposer
+                                    ? "right-2 bottom-2 size-11"
+                                    : "right-3 bottom-3 size-8"
+                            )}
+                            style={{ borderRadius: "var(--radius-md)" }}
+                            disabled={primaryActionDisabled}
+                            onClick={handleVoiceButtonClick}
+                            type="submit"
+                        >
+                            {primaryActionIcon}
+                        </Button>
+                    </PromptInputAction>
                 </PromptInput>
 
                 {showIntentShortcuts &&
