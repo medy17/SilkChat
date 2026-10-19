@@ -92,6 +92,17 @@ describe("PromptInputEditor keyboard behavior", () => {
         expect(onChange).not.toHaveBeenCalled()
     })
 
+    it("keeps undo working for the next prompt after a clear", () => {
+        const { ref, textbox, onChange } = renderEditor({ disableKeyboardSubmit: true }, "sent")
+
+        ref.current?.clear()
+        fireEvent.keyDown(textbox, { key: "Enter" })
+        expect(onChange).toHaveBeenLastCalledWith("\n")
+
+        fireEvent.keyDown(textbox, { key: "z", ctrlKey: true })
+        expect(onChange).toHaveBeenLastCalledWith("")
+    })
+
     it("sets text without reporting it as an edit, like assigning a textarea value", () => {
         const { ref, onChange } = renderEditor({})
 

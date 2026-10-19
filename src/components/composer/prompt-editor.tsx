@@ -311,6 +311,7 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
         const resetKeyRef = useRef(resetKey)
         const [placeholderCompartment] = useState(() => new Compartment())
         const [editableCompartment] = useState(() => new Compartment())
+        const [historyCompartment] = useState(() => new Compartment())
         const [toolbar, setToolbar] = useState<FormatToolbarState | null>(null)
         const [linkEditor, setLinkEditor] = useState<LinkEditorState | null>(null)
         const closeLinkEditor = (refocus: boolean) => {
@@ -386,7 +387,7 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
 
             const extensions: Extension[] = [
                 Prec.highest(keymap.of([{ any: (view, event) => handleKeyDown(event, view) }])),
-                history(),
+                historyCompartment.of(history()),
                 keymap.of([...historyKeymap, ...standardKeymap]),
                 promptMarkdownLanguage,
                 syntaxHighlighting(promptHighlightStyle),
@@ -426,32 +427,33 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
                 })
             ]
 
-            const createState = (doc: string) => {
-                const current = latestProps.current
-                return EditorState.create({
-                    doc,
-                    selection: EditorSelection.cursor(doc.length),
-                    extensions: [
-                        ...extensions,
-                        placeholderCompartment.of(placeholderConfig(current.placeholder)),
-                        editableCompartment.of(editableConfig(current.disabled))
-                    ]
-                })
-            }
-
+            const initial = latestProps.current
             const view = new EditorView({
                 parent: host,
-                state: createState(latestProps.current.value)
+                state: EditorState.create({
+                    doc: initial.value,
+                    selection: EditorSelection.cursor(initial.value.length),
+                    extensions: [
+                        ...extensions,
+                        placeholderCompartment.of(placeholderConfig(initial.placeholder)),
+                        editableCompartment.of(editableConfig(initial.disabled))
+                    ]
+                })
             })
             viewRef.current = view
             measureLineCount(view)
 
-            // A fresh state with its own undo history. setState bypasses update listeners,
-            // so the line count and toolbar are refreshed here.
+            // Replaces the document and starts a fresh undo history. This must stay a
+            // transaction: setState skips the Android keyboard's EditContext sync, which
+            // leaves it holding the old text and drops what is typed next.
             resetDocumentRef.current = (doc) => {
-                view.setState(createState(doc))
-                setToolbar(null)
-                measureLineCount(view)
+                view.dispatch({
+                    changes: { from: 0, to: view.state.doc.length, insert: doc },
+                    selection: EditorSelection.cursor(doc.length),
+                    effects: historyCompartment.reconfigure([]),
+                    annotations: externalChange.of(true)
+                })
+                view.dispatch({ effects: historyCompartment.reconfigure(history()) })
             }
             return () => {
                 resetDocumentRef.current = null
@@ -459,7 +461,7 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
                 viewRef.current = null
                 setToolbar(null)
             }
-        }, [placeholderCompartment, editableCompartment])
+        }, [placeholderCompartment, editableCompartment, historyCompartment])
 
         useEffect(() => {
             const view = viewRef.current
