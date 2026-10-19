@@ -10,7 +10,9 @@ export default defineConfig({
     resolve: {
         alias: {
             "@/convex": path.resolve(__dirname, "./convex"),
-            "@": path.resolve(__dirname, "./src")
+            "@": path.resolve(__dirname, "./src"),
+            // Matches vite.config.ts so math renders as it does in the app.
+            "micromark-extension-math": "micromark-extension-llm-math"
         }
     },
     test: {
@@ -18,6 +20,7 @@ export default defineConfig({
         include: ["tests/**/*.spec.ts"],
         setupFiles: ["./tests/setup.ts"],
         reporters,
+        server: { deps: { inline: ["remark-math", "@streamdown/math"] } },
         restoreMocks: true,
         clearMocks: true
     }

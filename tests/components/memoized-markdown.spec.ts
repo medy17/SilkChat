@@ -5,7 +5,7 @@ import {
     tableRowsToMarkdown,
     tableRowsToPlainText
 } from "@/components/markdown-table"
-import { MemoizedMarkdown, normalizeMarkdownMathDelimiters } from "@/components/memoized-markdown"
+import { MemoizedMarkdown } from "@/components/memoized-markdown"
 import { advanceRecipeTimer } from "@/components/recipe-card"
 import { VisualSelectionContext } from "@/components/visual-references"
 import { visualRequestKey } from "@/lib/visual-selections"
@@ -146,50 +146,6 @@ describe("MemoizedMarkdown", () => {
         )
     })
 
-    it("normalizes likely single-dollar math without touching currency", () => {
-        expect(normalizeMarkdownMathDelimiters("Where $L_{0}$ and $k$ matter.")).toBe(
-            "Where $$L_{0}$$ and $$k$$ matter."
-        )
-        expect(normalizeMarkdownMathDelimiters("Use $(a,b)$ as the interval.")).toBe(
-            "Use $$(a,b)$$ as the interval."
-        )
-        expect(normalizeMarkdownMathDelimiters("Use $3$ as the exponent.")).toBe(
-            "Use $$3$$ as the exponent."
-        )
-        expect(normalizeMarkdownMathDelimiters("It costs $3 and then $30.")).toBe(
-            "It costs $3 and then $30."
-        )
-        expect(normalizeMarkdownMathDelimiters("It costs $20 and then $30.")).toBe(
-            "It costs $20 and then $30."
-        )
-    })
-
-    it("normalizes single-dollar display math fences", () => {
-        expect(normalizeMarkdownMathDelimiters("Before\n$\nL(t)=L_{0}e^{-kt}\n$\nAfter")).toBe(
-            "Before\n$$\nL(t)=L_{0}e^{-kt}\n$$\nAfter"
-        )
-    })
-
-    it("normalizes standalone double-dollar equations into display fences", () => {
-        expect(
-            normalizeMarkdownMathDelimiters(
-                "Before\n\n$$ \\frac{x^{2}}{y^{3}} + \\sqrt{2} $$\n\nAfter"
-            )
-        ).toBe("Before\n\n$$\n\\frac{x^{2}}{y^{3}} + \\sqrt{2}\n$$\n\nAfter")
-        expect(normalizeMarkdownMathDelimiters("Keep $$x^2$$ inline here.")).toBe(
-            "Keep $$x^2$$ inline here."
-        )
-    })
-
-    it("leaves incomplete single-dollar math delimiters untouched while streaming", () => {
-        expect(normalizeMarkdownMathDelimiters("Where $L_{0} is still streaming")).toBe(
-            "Where $L_{0} is still streaming"
-        )
-        expect(normalizeMarkdownMathDelimiters("Before\n$\nL(t)=L_{0}e^{-kt}\nAfter")).toBe(
-            "Before\n$\nL(t)=L_{0}e^{-kt}\nAfter"
-        )
-    })
-
     it("keeps a running app mounted when the reply finishes or stops", () => {
         const content =
             "Try it:\n\n```silk-app\nexport default () => <p>hi</p>\n```\n\nDrag the slider."
@@ -262,25 +218,6 @@ describe("MemoizedMarkdown", () => {
         expect(container.querySelector("iframe")).toBeNull()
     })
 
-    it("never treats dollar signs in code as math", () => {
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: markdown containing a JS template literal
-        const code = "```tsx\nconst range = `${min} to ${max}`\n```"
-        expect(normalizeMarkdownMathDelimiters(`Try it:\n\n${code}\n\nThen $x^2$.`)).toBe(
-            `Try it:\n\n${code}\n\nThen $$x^2$$.`
-        )
-
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: a fence still streaming
-        const streaming = "```silk-app\nconst label = `${dose} mL ($${cost})`"
-        expect(normalizeMarkdownMathDelimiters(streaming)).toBe(streaming)
-
-        expect(normalizeMarkdownMathDelimiters("Run `echo $HOME $PATH` where $y_1$ is set.")).toBe(
-            "Run `echo $HOME $PATH` where $$y_1$$ is set."
-        )
-        expect(normalizeMarkdownMathDelimiters("```js``` is inline.\n\nThen $x^2$.")).toBe(
-            "```js``` is inline.\n\nThen $$x^2$$."
-        )
-    })
-
     it("renders standalone double-dollar equations as display math", () => {
         const { container } = render(
             React.createElement(MemoizedMarkdown, {
@@ -290,6 +227,23 @@ describe("MemoizedMarkdown", () => {
 
         expect(container.querySelector(".katex-display")).toBeTruthy()
         expect(container.querySelector(".math-inline")).toBeNull()
+    })
+
+    it("keeps TeX display math whole when a line starts like a list item", () => {
+        const { container } = render(
+            React.createElement(MemoizedMarkdown, {
+                content:
+                    "You multiply each digit:\n\n\\[\n472.256 =\n4\\times10^2 + 7\\times10^1 + 2\\times10^0\n+ 2\\times10^{-1} + 5\\times10^{-2} + 6\\times10^{-3}\n\\]\n\nStart with power \\(0\\).",
+                isAnimating: true
+            })
+        )
+
+        expect(container.querySelectorAll(".katex-display")).toHaveLength(1)
+        expect(container.querySelector(".katex-display annotation")?.textContent).toContain(
+            "6\\times10^{-3}"
+        )
+        expect(container.querySelector("ul")).toBeNull()
+        expect(container.textContent).toContain("Start with power")
     })
 
     it("resolves reference-style links across visual reference galleries", () => {

@@ -3,6 +3,7 @@ import { RoleplayScene } from "./roleplay-scene"
 import "katex/dist/katex.min.css"
 import "streamdown/styles.css"
 import { useDevRawMarkdown } from "@/lib/dev-overrides"
+import { normalizeMarkdownMathDelimiters } from "@/lib/markdown-math"
 import { collectLinkDefinitions } from "@/lib/markdown-scan"
 import { parseRecipeBlock, splitRecipeContent, type RecipeContentSegment } from "@/lib/recipe"
 import { fenceCode, type SilkAppContentSegment, splitSilkAppContent } from "@/lib/silk-app/segments"
@@ -18,72 +19,6 @@ import { RecipeCard } from "./recipe-card"
 import { SilkAppBlock, type SilkAppSourceProps } from "./silk-app/silk-app-block"
 import { VisualReferences } from "./visual-references"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
-
-const SINGLE_DOLLAR_BLOCK_PATTERN = /(^|\n)([ \t]*)\$[ \t]*\n([\s\S]*?)\n[ \t]*\$([ \t]*(?=\n|$))/g
-const SINGLE_DOLLAR_INLINE_PATTERN = /(^|[^$\\])\$([^$\n]+?)\$(?!\$)/g
-const STANDALONE_DOUBLE_DOLLAR_PATTERN =
-    /(^|\n)([ \t]*)\$\$[ \t]*([^\n]*?\S)[ \t]*\$\$[ \t]*(?=\n|$)/g
-
-const looksLikeMath = (value: string) => {
-    const expression = value.trim()
-
-    if (!expression) return false
-
-    return (
-        /^\d+(?:[.,]\d+)?$/.test(expression) ||
-        /\\[A-Za-z]+/.test(expression) ||
-        /[_^{}]/.test(expression) ||
-        /[=<>±≤≥≈≠∞∑∏√∫]/.test(expression) ||
-        /^\([A-Za-z0-9_,\s+\-*/^{}\\]+\)$/.test(expression) ||
-        /[A-Za-z0-9)]\s*[+\-*/]\s*[A-Za-z0-9(\\]/.test(expression) ||
-        /^[A-Za-z](?:\s*[+\-*/=]\s*[A-Za-z0-9\\{(]|[_^])?/.test(expression)
-    )
-}
-
-// Fenced blocks, closed or still streaming, and single-line inline code spans. A backtick
-// fence's info string can't hold a backtick, so "```js``` is…" stays inline code.
-const FENCED_CODE_PATTERN =
-    /(^|\n)( {0,3})(`{3,}|~{3,})(?:(?<=`)[^`\n]*|(?<=~)[^\n]*)(?:\n[\s\S]*?)?(?:\n {0,3}\3[`~]*[ \t]*(?=\n|$)|$)/g
-const INLINE_CODE_PATTERN = /(`+)[^`\n](?:[^\n]*?[^`\n])?\1(?!`)/g
-const CODE_PLACEHOLDER_PATTERN = /(\d+)/g
-
-// Dollar signs in code are code: a template literal such as `${a} to ${b}` would
-// otherwise read as inline math and come out as `$${a} to $${b}`.
-const protectCode = (content: string) => {
-    const held: string[] = []
-    const hold = (code: string) => `${held.push(code) - 1}`
-    const text = content
-        .replace(
-            FENCED_CODE_PATTERN,
-            (match, prefix: string) => `${prefix}${hold(match.slice(prefix.length))}`
-        )
-        .replace(INLINE_CODE_PATTERN, (match) => hold(match))
-    const restore = (value: string) =>
-        value.replace(CODE_PLACEHOLDER_PATTERN, (_match, index: string) => held[Number(index)])
-    return { text, restore }
-}
-
-export const normalizeMarkdownMathDelimiters = (content: string) => {
-    const { text, restore } = protectCode(content)
-    return restore(
-        text
-            .replace(
-                STANDALONE_DOUBLE_DOLLAR_PATTERN,
-                (_match, prefix: string, indent: string, expression: string) =>
-                    `${prefix}${indent}$$\n${expression}\n${indent}$$`
-            )
-            .replace(
-                SINGLE_DOLLAR_BLOCK_PATTERN,
-                (_match, prefix: string, indent: string, expression: string, suffix: string) =>
-                    `${prefix}${indent}$$\n${expression}\n${indent}$$${suffix}`
-            )
-            .replace(SINGLE_DOLLAR_INLINE_PATTERN, (_match, prefix: string, expression: string) =>
-                looksLikeMath(expression)
-                    ? `${prefix}$$${expression}$$`
-                    : `${prefix}$${expression}$`
-            )
-    )
-}
 
 const MAYBE_LINK_DEFINITION_PATTERN = /^ {0,3}\[(?!\^)[^\]\n]+\]:/m
 const CODE_FENCE_BLOCK_PATTERN = /^ {0,3}(`{3,}|~{3,})/
@@ -122,7 +57,7 @@ const MarkdownBody = memo(({ content, isAnimating }: { content: string; isAnimat
         parseMarkdownIntoBlocksFn={parseBlocksWithLinkDefinitions}
         plugins={streamdownPlugins}
     >
-        {normalizeMarkdownMathDelimiters(content)}
+        {normalizeMarkdownMathDelimiters(content, { streaming: isAnimating })}
     </Streamdown>
 ))
 
