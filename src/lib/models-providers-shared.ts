@@ -2,7 +2,6 @@ import {
     ClaudeIcon,
     FalAIIcon,
     GeminiIcon,
-    GroqIcon,
     OpenAIIcon,
     OpenRouterIcon,
     ReasoningHighIcon,
@@ -190,14 +189,6 @@ export const CORE_PROVIDERS: CoreProviderInfo[] = [
         icon: XAIIcon
     },
     {
-        id: "groq",
-        name: "Groq",
-        description: "Access Llama, Speech-to-text, and other models with ultra-fast inference",
-        placeholder: "gsk_...",
-        icon: GroqIcon,
-        hidden: true
-    },
-    {
         id: "fal",
         name: "Fal AI",
         description: "Access open-souce image generation models",
@@ -212,7 +203,6 @@ const LEGACY_DIRECT_INFERENCE_PROVIDER_IDS = new Set<CoreProvider>([
     "anthropic",
     "google",
     "xai",
-    "groq",
     "fal"
 ])
 
@@ -225,7 +215,7 @@ export const isLegacyDirectInferenceProvider = (providerId: string) =>
 export const shouldShowCoreInferenceProvider = (provider: CoreProviderInfo) =>
     provider.id === "openrouter" || (legacyDirectInferenceProvidersEnabled && !provider.hidden)
 
-const HIDDEN_PROVIDER_IDS = new Set(["groq", "fal", "i3-groq", "i3-fal"])
+const HIDDEN_PROVIDER_IDS = new Set(["fal", "i3-fal"])
 const enabledProviderEntries = new Set(
     (optionalBrowserEnv("VITE_ENABLED_INTERNAL_PROVIDERS") || "openrouter")
         .split(",")
@@ -235,7 +225,7 @@ const enabledProviderEntries = new Set(
 )
 const enabledInternalProviders = new Set<CoreProvider>(
     [...enabledProviderEntries].filter((provider) =>
-        ["openai", "anthropic", "google", "xai", "groq", "fal", "gateway"].includes(provider)
+        ["openai", "anthropic", "google", "xai", "fal", "gateway"].includes(provider)
     ) as CoreProvider[]
 )
 

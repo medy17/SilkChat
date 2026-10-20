@@ -6,7 +6,7 @@ import {
 } from "@/lib/models-providers-shared"
 import { FAVORITES_SECTION_ID, getFavoriteModelIdsByRecentlyAdded } from "@/lib/model-favorites"
 
-const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "groq", "fal", "openrouter"]
+const PROVIDER_ORDER = ["openai", "anthropic", "google", "xai", "fal", "openrouter"]
 const getModelReleaseOrder = (model: DisplayModel) =>
     "isCustom" in model && model.isCustom ? 0 : ((model as SharedModel).releaseOrder ?? 0)
 export const isLegacyModel = (model: DisplayModel) => "legacy" in model && model.legacy === true

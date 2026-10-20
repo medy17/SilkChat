@@ -145,7 +145,6 @@ const normalizeDisplayProvider = (providerId: string | undefined) => {
         case "openai":
         case "anthropic":
         case "xai":
-        case "groq":
         case "fal":
         case "openrouter":
             return providerId

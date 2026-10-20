@@ -5,7 +5,6 @@ import {
     FalAIIcon,
     GeminiIcon,
     GrokIcon,
-    GroqIcon,
     MetaIcon,
     MiniMaxIcon,
     MoonshotLogo,
@@ -66,9 +65,6 @@ export const getProviderIcon = (model: DisplayModel, isCustom: boolean) => {
             case "i3-xai":
             case "xai":
                 return <GrokIcon className="size-4" />
-            case "i3-groq":
-            case "groq":
-                return <GroqIcon className="size-4" />
             case "i3-fal":
             case "fal":
                 return <FalAIIcon className="size-4" />
@@ -119,8 +115,6 @@ export const getProviderSectionIcon = (
             return <GeminiIcon className={className} />
         case "xai":
             return <GrokIcon className={className} />
-        case "groq":
-            return <GroqIcon className={className} />
         case "fal":
             return <FalAIIcon className={className} />
         case "openrouter":

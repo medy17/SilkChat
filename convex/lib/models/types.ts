@@ -2,15 +2,7 @@ import type { AppSkillId } from "../../chat_http/skills/types"
 import type { ModelAbility } from "../../schema/settings"
 import type { ModelRoutingMetadata, ModelRoutingMode } from "../../schema/model_routing"
 
-export const CoreProviders = [
-    "openai",
-    "anthropic",
-    "google",
-    "xai",
-    "groq",
-    "fal",
-    "gateway"
-] as const
+export const CoreProviders = ["openai", "anthropic", "google", "xai", "fal", "gateway"] as const
 export type CoreProvider = (typeof CoreProviders)[number]
 export type ModelDefinitionProviders =
     | CoreProvider // user BYOK key

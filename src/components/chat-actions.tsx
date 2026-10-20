@@ -4,7 +4,6 @@ import {
     ClaudeIcon,
     FalAIIcon,
     GeminiIcon,
-    GroqIcon,
     OpenAIIcon,
     OpenRouterIcon,
     XAIIcon
@@ -215,8 +214,6 @@ export const ChatActions = memo(
                     return GeminiIcon
                 case "xai":
                     return XAIIcon
-                case "groq":
-                    return GroqIcon
                 case "fal":
                     return FalAIIcon
                 case "openrouter":

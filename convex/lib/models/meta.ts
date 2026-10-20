@@ -1,10 +1,5 @@
 import type { RegistryKey, SharedModel } from "./types"
 
-const groqTextAdapters = (modelId: string): RegistryKey[] => [
-    `i3-groq:${modelId}`,
-    `groq:${modelId}`
-]
-
 const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:${modelId}`]
 
 export const META_MODELS: SharedModel[] = [
@@ -94,19 +89,6 @@ export const META_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("meta-llama/llama-4-maverick"),
         abilities: ["vision"],
         developer: "Meta",
-        customIcon: "meta"
-    },
-    {
-        id: "llama-3-1-8b-instant",
-        name: "Llama 3.1 8B Instant",
-        addedOn: "2024-07-23",
-        shortName: "Llama 3.1 8B",
-        shortDescription: "Small, speedy open model for straightforward chat and text work",
-        description:
-            "Llama 3.1 8B Instant is a compact open model that favors responsiveness over theatrics. It is a dependable fit for summaries, extraction, classification, drafting, and conversational jobs that do not need a frontier model warming up in the wings.",
-        releaseOrder: 20240723,
-        adapters: groqTextAdapters("llama-3.1-8b-instant"),
-        abilities: [],
         customIcon: "meta"
     }
 ]
