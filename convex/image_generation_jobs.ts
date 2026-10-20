@@ -9,6 +9,7 @@ import { getVariantIndexFromClientRequestId } from "./lib/image_generation/share
 import { ImageGenerationJobAsset, ImageGenerationJobStatus } from "./schema/image_generation_job"
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "partial", "refunded", "failed", "unknown"])
+const ACTIVE_JOB_STATUSES = ["submitting", "submitted", "processing", "storing_failed"] as const
 const WEBHOOK_PROCESSING_LEASE_MS = 2 * 60 * 1000
 
 // User-requested asset refetches are rate limited per job so a struggling
@@ -36,19 +37,24 @@ export const listActiveImageGenerationJobs = query({
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) return []
 
-        const jobs = await ctx.db
-            .query("imageGenerationJobs")
-            .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
-            .order("desc")
-            .take(50)
-
-        return jobs.filter(
-            (job) =>
-                job.status === "submitted" ||
-                job.status === "submitting" ||
-                job.status === "processing" ||
-                job.status === "storing_failed"
+        // Read only active rows so terminal jobs never count toward this
+        // subscription's reads or invalidate it.
+        const jobsByStatus = await Promise.all(
+            ACTIVE_JOB_STATUSES.map((status) =>
+                ctx.db
+                    .query("imageGenerationJobs")
+                    .withIndex("byUserIdStatusAndCreatedAt", (q) =>
+                        q.eq("userId", user.id).eq("status", status)
+                    )
+                    .order("desc")
+                    .take(50)
+            )
         )
+
+        return jobsByStatus
+            .flat()
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 50)
     }
 })
 

@@ -187,6 +187,7 @@ export default defineSchema({
     threads: defineTable(Thread)
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"])
+        .index("byAuthorPinnedUpdatedAt", ["authorId", "pinned", "updatedAt"])
         .index("byProject", ["projectId"])
         .index("byAuthorAndProject", ["authorId", "projectId"])
         .index("byAuthorAndProjectUpdatedAt", ["authorId", "projectId", "updatedAt"])
@@ -302,6 +303,7 @@ export default defineSchema({
 
     imageGenerationJobs: defineTable(ImageGenerationJob)
         .index("byUserIdAndCreatedAt", ["userId", "createdAt"])
+        .index("byUserIdStatusAndCreatedAt", ["userId", "status", "createdAt"])
         .index("byFalRequestId", ["falRequestId"]),
 
     persistentSandboxes: defineTable(PersistentSandbox)
