@@ -1,7 +1,6 @@
 import {
     type GeneratedImageFilterOptionCounts,
     type GeneratedImageFilters,
-    filterAndSortGeneratedImages,
     getGeneratedImageFilterOptionsFromCounts,
     getGeneratedImageOrientation,
     matchesGeneratedImageFilters,
@@ -364,54 +363,6 @@ export const paginateGeneratedImages = query({
                     )
             )
         }
-    }
-})
-
-export const getGeneratedImagesCount = query({
-    args: {
-        query: v.optional(v.string()),
-        filters: generatedImageFiltersValidator,
-        view: generatedImageViewValidator
-    },
-    handler: async (ctx, { query, filters, view }) => {
-        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
-        if ("error" in user) return 0
-
-        const trimmedQuery = query?.trim()
-        const effectiveQuery =
-            trimmedQuery && trimmedQuery.length >= MIN_GENERATED_IMAGE_SEARCH_QUERY_LENGTH
-                ? trimmedQuery
-                : undefined
-
-        if (effectiveQuery) {
-            const images = await ctx.db
-                .query("generatedImages")
-                .withSearchIndex("search_text", (q) =>
-                    q.search("searchText", effectiveQuery).eq("userId", user.id)
-                )
-                .collect()
-
-            return images.filter(
-                (image) =>
-                    isImageVisibleInView(image, view) &&
-                    matchesGeneratedImageFilters(
-                        image,
-                        filters as GeneratedImageFilters | undefined
-                    )
-            ).length
-        }
-
-        const images = await ctx.db
-            .query("generatedImages")
-            .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
-            .collect()
-
-        return filterAndSortGeneratedImages(
-            images.filter((image) => isImageVisibleInView(image, view)),
-            {
-                filters: filters as GeneratedImageFilters | undefined
-            }
-        ).length
     }
 })
 
