@@ -4,14 +4,39 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const DEEPSEEK_MODELS: SharedModel[] = [
     {
+        id: "deepseek-v4.1-flash-1017",
+        name: "DeepSeek V4.1 Flash 1017",
+        addedOn: "2026-10-17",
+        shortName: "V4.1 Flash 1017",
+        shortDescription:
+            "October V4.1 Flash refresh that finishes coding and agent tasks with shorter outputs",
+        description:
+            "DeepSeek V4.1 Flash 1017 is an October post-training refresh of DeepSeek's sparse Causal Encoder-Decoder model. It reaches answers with shorter outputs and less runtime, and was tuned against agent harnesses for steadier multi-step tool use. Vision, a million-token context, and optional reasoning suit fast iterative coding and long tool-driven sessions on a tight budget.",
+        releaseOrder: 20261017,
+        artificialAnalysis: {
+            type: "llm",
+            slug: "deepseek-v4-1-flash-1017"
+        },
+        adapters: openRouterTextAdapters("deepseek/deepseek-v4.1-flash-1017"),
+        preferredOpenRouterProviders: ["deepseek"],
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 393_216,
+        inputUsdPer1MTokens: 0.3,
+        outputUsdPer1MTokens: 1.2,
+        supportsDisablingReasoning: true,
+        reasoningEfforts: ["off", "low", "high"],
+        defaultReasoningEffort: "high",
+        developer: "DeepSeek"
+    },
+    {
         id: "deepseek-v4.1-flash",
         name: "DeepSeek V4.1 Flash",
         addedOn: "2026-09-10",
         shortName: "V4.1 Flash",
-        shortDescription:
-            "DeepSeek's sparse Causal Encoder-Decoder model with vision and optional reasoning",
+        shortDescription: "Original V4.1 Flash checkpoint with vision and optional reasoning",
         description:
-            "DeepSeek V4.1 Flash introduces DeepSeek's Causal Encoder-Decoder architecture in a sparse mixture-of-experts model. It accepts text and images within a million-token context, with tool calling and optional reasoning for working through large documents and visual inputs.",
+            "DeepSeek V4.1 Flash was the first release of DeepSeek's Causal Encoder-Decoder architecture in a sparse mixture-of-experts model, accepting text and images within a million-token context with tool calling and optional reasoning. It remains available for workflows tied to the original checkpoint.",
         releaseOrder: 20260910,
         adapters: openRouterTextAdapters("deepseek/deepseek-v4.1-flash"),
         preferredOpenRouterProviders: ["deepseek"],
