@@ -1,9 +1,8 @@
 import type { RegistryKey, SharedModel } from "./types"
 
-const groqTextAdapters = (modelId: string, openRouterModelId?: string): RegistryKey[] => [
+const groqTextAdapters = (modelId: string): RegistryKey[] => [
     `i3-groq:${modelId}`,
-    `groq:${modelId}`,
-    ...(openRouterModelId ? ([`openrouter:${openRouterModelId}`] as RegistryKey[]) : [])
+    `groq:${modelId}`
 ]
 
 const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:${modelId}`]
@@ -77,11 +76,9 @@ export const META_MODELS: SharedModel[] = [
         description:
             "Llama 4 Scout is Meta's efficient, open-weight multimodal explorer: 17B active parameters, 16 experts, and exceptional long-context reach. It is well suited to combing through document collections, large codebases, and image-rich prompts without bringing heavyweight serving demands.",
         releaseOrder: 20250404,
-        adapters: groqTextAdapters(
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "meta-llama/llama-4-scout"
-        ),
+        adapters: openRouterTextAdapters("meta-llama/llama-4-scout"),
         abilities: ["vision"],
+        developer: "Meta",
         customIcon: "meta"
     },
     {
@@ -94,11 +91,9 @@ export const META_MODELS: SharedModel[] = [
         description:
             "Llama 4 Maverick is Meta's open-weight generalist for high-quality chat, creative writing, coding, and precise image understanding. Its 128-expert mixture gives it more range than Scout while keeping only 17B parameters active at a time.",
         releaseOrder: 20250405,
-        adapters: groqTextAdapters(
-            "meta-llama/llama-4-maverick-17b-128e-instruct",
-            "meta-llama/llama-4-maverick"
-        ),
+        adapters: openRouterTextAdapters("meta-llama/llama-4-maverick"),
         abilities: ["vision"],
+        developer: "Meta",
         customIcon: "meta"
     },
     {
