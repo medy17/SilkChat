@@ -4,6 +4,7 @@ import {
     type SharedModel
 } from "@/convex/lib/models"
 import { loadServerEnv } from "@/lib/load-server-env"
+import { findEntryByOpenRouterSlug } from "@/lib/model-benchmark-matching"
 import type { ModelBenchmarkCard, ModelBenchmarkPayload } from "@/lib/model-benchmarks"
 import { createFileRoute } from "@tanstack/react-router"
 
@@ -196,6 +197,9 @@ const getCachedDataset = async (
     }
 }
 
+const getOpenRouterSlug = (model: SharedModel) =>
+    model.adapters.find((adapter) => adapter.startsWith("openrouter:"))?.slice("openrouter:".length)
+
 const findDatasetEntry = (model: SharedModel, dataset: DatasetEntry[]) => {
     const artificialAnalysis = model.artificialAnalysis
 
@@ -215,14 +219,57 @@ const findDatasetEntry = (model: SharedModel, dataset: DatasetEntry[]) => {
             .filter(Boolean)
     )
 
-    return (
-        dataset.find((entry) => {
-            const normalizedName = normalizeMatchValue(entry.name)
-            const normalizedSlug = normalizeMatchValue(entry.slug)
+    const matchedByName = dataset.find((entry) => {
+        const normalizedName = normalizeMatchValue(entry.name)
+        const normalizedSlug = normalizeMatchValue(entry.slug)
 
-            return candidates.has(normalizedName) || candidates.has(normalizedSlug)
-        }) ?? null
+        return candidates.has(normalizedName) || candidates.has(normalizedSlug)
+    })
+    if (matchedByName) return matchedByName
+
+    const openRouterSlug = getOpenRouterSlug(model)
+    return openRouterSlug
+        ? findEntryByOpenRouterSlug(openRouterSlug, dataset, {
+              reasoning: model.abilities.includes("reasoning")
+          })
+        : null
+}
+
+const OPENROUTER_SLUG_PATTERN = /^[a-z0-9][\w.-]*\/[a-z0-9][\w.:-]*$/i
+
+type BenchmarkTarget =
+    | { kind: "model"; model: SharedModel }
+    | { kind: "openrouter"; slug: string; reasoning: boolean }
+
+// Custom OpenRouter models reuse a built-in model's curated reference when one runs the
+// same slug, and otherwise fall back to slug matching.
+const resolveBenchmarkTarget = (url: URL): BenchmarkTarget | Response => {
+    const modelId = url.searchParams.get("modelId")?.trim()
+    if (modelId) {
+        const model = MODELS_SHARED.find((candidate) => candidate.id === modelId)
+        return model
+            ? { kind: "model", model }
+            : Response.json({ error: "Unknown model" }, { status: 404 })
+    }
+
+    const openRouterSlug = url.searchParams.get("openRouterSlug")?.trim()
+    if (!openRouterSlug) {
+        return Response.json({ error: "Missing modelId or openRouterSlug" }, { status: 400 })
+    }
+    if (openRouterSlug.length > 200 || !OPENROUTER_SLUG_PATTERN.test(openRouterSlug)) {
+        return Response.json({ error: "Invalid openRouterSlug" }, { status: 400 })
+    }
+
+    const builtInModel = MODELS_SHARED.find(
+        (candidate) => getOpenRouterSlug(candidate) === openRouterSlug
     )
+    return builtInModel
+        ? { kind: "model", model: builtInModel }
+        : {
+              kind: "openrouter",
+              slug: openRouterSlug,
+              reasoning: url.searchParams.get("reasoning") === "1"
+          }
 }
 
 const buildLlmCards = (entry: DatasetEntry): ModelBenchmarkCard[] => {
@@ -380,26 +427,25 @@ export const Route = createFileRoute("/api/model-benchmarks")({
         handlers: {
             GET: async ({ request }) => {
                 const url = new URL(request.url)
-                const modelId = url.searchParams.get("modelId")?.trim()
                 const refresh = url.searchParams.get("refresh") === "1"
                 const debug = url.searchParams.get("debug") === "1"
 
-                if (!modelId) {
-                    return Response.json({ error: "Missing modelId" }, { status: 400 })
+                const target = resolveBenchmarkTarget(url)
+                if (target instanceof Response) {
+                    return target
                 }
 
-                const model = MODELS_SHARED.find((candidate) => candidate.id === modelId)
-                if (!model) {
-                    return Response.json({ error: "Unknown model" }, { status: 404 })
-                }
-
-                const type = getBenchmarkType(model)
+                const type = target.kind === "model" ? getBenchmarkType(target.model) : "llm"
                 const datasetResult = await getCachedDataset(type, {
                     bypassCache: refresh
                 })
-                const entry = datasetResult.data
-                    ? findDatasetEntry(model, datasetResult.data)
-                    : null
+                const entry = !datasetResult.data
+                    ? null
+                    : target.kind === "model"
+                      ? findDatasetEntry(target.model, datasetResult.data)
+                      : findEntryByOpenRouterSlug(target.slug, datasetResult.data, {
+                            reasoning: target.reasoning
+                        })
                 const payload = buildPayload(entry, type, {
                     retryable:
                         !entry &&
@@ -410,7 +456,8 @@ export const Route = createFileRoute("/api/model-benchmarks")({
                     errorCode: !entry ? datasetResult.error : undefined
                 })
                 const diagnostic = {
-                    modelId,
+                    modelId: target.kind === "model" ? target.model.id : null,
+                    openRouterSlug: target.kind === "openrouter" ? target.slug : null,
                     benchmarkType: type,
                     available: payload.available,
                     retryable: payload.retryable ?? false,
@@ -418,7 +465,8 @@ export const Route = createFileRoute("/api/model-benchmarks")({
                     fromCache: datasetResult.fromCache,
                     hasApiKey: datasetResult.hasApiKey,
                     datasetSize: datasetResult.data?.length ?? 0,
-                    configuredRef: model.artificialAnalysis ?? null,
+                    configuredRef:
+                        target.kind === "model" ? (target.model.artificialAnalysis ?? null) : null,
                     matchedEntry: entry
                         ? {
                               id: entry.id ?? null,

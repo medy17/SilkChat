@@ -271,17 +271,44 @@ const unavailableBenchmarkPayload = (): ModelBenchmarkPayload => ({
 const benchmarkStateCache = new Map<string, BenchmarkState>()
 const benchmarkRequestCache = new Map<string, Promise<BenchmarkState>>()
 const BENCHMARK_UI_VERSION = "3"
-const getBenchmarkCacheKey = (modelId: string) => `${BENCHMARK_UI_VERSION}:${modelId}`
 const shouldPersistBenchmarkState = (state: BenchmarkState) =>
     state.status === "ready" ? !state.payload.retryable : true
 
-const loadBenchmarkState = async (modelId: string): Promise<BenchmarkState> => {
-    const response = await fetch(
-        `/api/model-benchmarks?modelId=${encodeURIComponent(modelId)}&v=${BENCHMARK_UI_VERSION}`,
-        {
-            cache: "no-store"
+type BenchmarkSource = {
+    cacheKey: string
+    query: URLSearchParams
+}
+
+// Built-in models are looked up by id. Custom OpenRouter models are matched by their
+// OpenRouter slug; other custom models have nothing to match, so they skip benchmarks.
+const getBenchmarkSource = (model: DisplayModel): BenchmarkSource | null => {
+    if (!("isCustom" in model && model.isCustom)) {
+        return {
+            cacheKey: `${BENCHMARK_UI_VERSION}:${model.id}`,
+            query: new URLSearchParams({ modelId: model.id, v: BENCHMARK_UI_VERSION })
         }
-    )
+    }
+
+    if (model.providerId !== "openrouter" || !model.modelId || model.mode === "image") {
+        return null
+    }
+
+    const reasoning = model.abilities.includes("reasoning")
+    const query = new URLSearchParams({ openRouterSlug: model.modelId, v: BENCHMARK_UI_VERSION })
+    if (reasoning) {
+        query.set("reasoning", "1")
+    }
+
+    return {
+        cacheKey: `${BENCHMARK_UI_VERSION}:openrouter:${model.modelId}:${reasoning ? 1 : 0}`,
+        query
+    }
+}
+
+const loadBenchmarkState = async (source: BenchmarkSource): Promise<BenchmarkState> => {
+    const response = await fetch(`/api/model-benchmarks?${source.query}`, {
+        cache: "no-store"
+    })
 
     if (!response.ok) {
         return {
@@ -297,8 +324,8 @@ const loadBenchmarkState = async (modelId: string): Promise<BenchmarkState> => {
     }
 }
 
-const ensureBenchmarkState = (modelId: string): Promise<BenchmarkState> => {
-    const cacheKey = getBenchmarkCacheKey(modelId)
+const ensureBenchmarkState = (source: BenchmarkSource): Promise<BenchmarkState> => {
+    const { cacheKey } = source
     const cachedState = benchmarkStateCache.get(cacheKey)
     if (cachedState?.status === "ready") {
         return Promise.resolve(cachedState)
@@ -314,7 +341,7 @@ const ensureBenchmarkState = (modelId: string): Promise<BenchmarkState> => {
     }
     benchmarkStateCache.set(cacheKey, loadingState)
 
-    const request = loadBenchmarkState(modelId)
+    const request = loadBenchmarkState(source)
         .catch(
             () =>
                 ({
@@ -616,10 +643,12 @@ const BenchmarkSection = ({ benchmarkState }: { benchmarkState?: BenchmarkState 
 const ModelDetailPanel = ({
     model,
     currentProviders,
+    showBenchmarks,
     benchmarkState
 }: {
     model: DisplayModel
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
+    showBenchmarks: boolean
     benchmarkState?: BenchmarkState
 }) => {
     const isMobile = useIsMobile()
@@ -702,26 +731,28 @@ const ModelDetailPanel = ({
                         </div>
                     </section>
 
-                    <section>
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                            <h4 className="font-semibold text-base">Benchmark Performance</h4>
-                            {benchmarkState?.status === "ready" &&
-                                benchmarkState.payload.available && (
-                                    <a
-                                        href={benchmarkState.payload.sourceUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
-                                    >
-                                        via {benchmarkState.payload.sourceLabel}
-                                        <ExternalLink className="size-3" />
-                                    </a>
-                                )}
-                        </div>
-                        <div className="mt-3">
-                            <BenchmarkSection benchmarkState={benchmarkState} />
-                        </div>
-                    </section>
+                    {showBenchmarks && (
+                        <section>
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                <h4 className="font-semibold text-base">Benchmark Performance</h4>
+                                {benchmarkState?.status === "ready" &&
+                                    benchmarkState.payload.available && (
+                                        <a
+                                            href={benchmarkState.payload.sourceUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                                        >
+                                            via {benchmarkState.payload.sourceLabel}
+                                            <ExternalLink className="size-3" />
+                                        </a>
+                                    )}
+                            </div>
+                            <div className="mt-3">
+                                <BenchmarkSection benchmarkState={benchmarkState} />
+                            </div>
+                        </section>
+                    )}
                 </div>
             </ScrollArea>
         </div>
@@ -739,8 +770,9 @@ const ModelInfoFlyout = ({
     const [open, setOpen] = React.useState(false)
     const triggerRef = React.useRef<HTMLButtonElement>(null)
     const wasOpenRef = React.useRef(false)
+    const benchmarkSource = React.useMemo(() => getBenchmarkSource(model), [model])
     const [benchmarkState, setBenchmarkState] = React.useState<BenchmarkState | undefined>(() =>
-        benchmarkStateCache.get(getBenchmarkCacheKey(model.id))
+        benchmarkSource ? benchmarkStateCache.get(benchmarkSource.cacheKey) : undefined
     )
     const isMountedRef = React.useRef(true)
 
@@ -752,11 +784,11 @@ const ModelInfoFlyout = ({
     }, [])
 
     const primeBenchmarks = React.useCallback(() => {
-        if ("isCustom" in model && model.isCustom) {
+        if (!benchmarkSource) {
             return
         }
 
-        const cachedState = benchmarkStateCache.get(getBenchmarkCacheKey(model.id))
+        const cachedState = benchmarkStateCache.get(benchmarkSource.cacheKey)
         if (cachedState) {
             setBenchmarkState(cachedState)
             if (cachedState.status === "ready") {
@@ -768,12 +800,12 @@ const ModelInfoFlyout = ({
             })
         }
 
-        void ensureBenchmarkState(model.id).then((state) => {
+        void ensureBenchmarkState(benchmarkSource).then((state) => {
             if (isMountedRef.current) {
                 setBenchmarkState(state)
             }
         })
-    }, [model])
+    }, [benchmarkSource])
 
     React.useEffect(() => {
         if (!open) {
@@ -841,6 +873,7 @@ const ModelInfoFlyout = ({
                         <ModelDetailPanel
                             model={model}
                             currentProviders={currentProviders}
+                            showBenchmarks={benchmarkSource !== null}
                             benchmarkState={benchmarkState}
                         />
                     </div>
@@ -862,6 +895,7 @@ const ModelInfoFlyout = ({
                     <ModelDetailPanel
                         model={model}
                         currentProviders={currentProviders}
+                        showBenchmarks={benchmarkSource !== null}
                         benchmarkState={benchmarkState}
                     />
                 </div>
