@@ -48,6 +48,8 @@ type DatasetResult = {
 }
 
 const datasetCache = new Map<ArtificialAnalysisModelType, DatasetCacheEntry>()
+// Artificial Analysis rate limits aggressively, so concurrent cache misses share one request.
+const datasetRequests = new Map<ArtificialAnalysisModelType, Promise<DatasetResult>>()
 
 const toUnavailablePayload = (options?: {
     retryable?: boolean
@@ -89,9 +91,8 @@ const getCachedDataset = async (
         bypassCache?: boolean
     }
 ): Promise<DatasetResult> => {
-    const now = Date.now()
     const cached = datasetCache.get(type)
-    if (!options?.bypassCache && cached && cached.expiresAt > now) {
+    if (!options?.bypassCache && cached && cached.expiresAt > Date.now()) {
         return {
             data: cached.data,
             hasApiKey: true,
@@ -100,6 +101,23 @@ const getCachedDataset = async (
         }
     }
 
+    const inflight = datasetRequests.get(type)
+    if (inflight) {
+        return inflight
+    }
+
+    const request = fetchDataset(type, cached).finally(() => {
+        datasetRequests.delete(type)
+    })
+    datasetRequests.set(type, request)
+    return request
+}
+
+const fetchDataset = async (
+    type: ArtificialAnalysisModelType,
+    cached: DatasetCacheEntry | undefined
+): Promise<DatasetResult> => {
+    const now = Date.now()
     const apiKey = process.env.ARTIFICIAL_ANALYSIS_API_KEY?.trim()
     if (!apiKey) {
         if (cached?.data) {
@@ -147,6 +165,14 @@ const getCachedDataset = async (
                     error: `stale_${error}`
                 }
             }
+
+            // Hold off for the same backoff even with nothing to serve, so a rate limit
+            // isn't extended by every request that follows.
+            datasetCache.set(type, {
+                expiresAt: now + backoffMs,
+                data: null,
+                error
+            })
 
             return {
                 data: null,
