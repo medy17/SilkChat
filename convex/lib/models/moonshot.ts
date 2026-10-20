@@ -13,6 +13,7 @@ export const MOONSHOT_MODELS: SharedModel[] = [
             "Kimi K3 is Moonshot's 2.8-trillion-parameter frontier model, natively multimodal and built around a million-token context. It is made for long-horizon coding, knowledge work, and deep reasoning where the trail is too long for a lightweight model.",
         releaseOrder: 20260716,
         adapters: openRouterTextAdapters("moonshotai/kimi-k3"),
+        preferredOpenRouterProviders: ["relace"],
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         supportsDisablingReasoning: true,
         reasoningEfforts: ["off", "low", "high"],
