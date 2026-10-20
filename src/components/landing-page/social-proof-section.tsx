@@ -2,11 +2,24 @@
 
 import { testimonials } from "@/components/landing-page/content"
 import { SectionHead } from "@/components/landing-page/shared"
-import { cn } from "@/lib/utils"
+
+// One looping set must be wider than the widest viewport, or the track runs out
+// before it wraps. 12 cards at 20rem + gap is ~4000px, enough for 4K.
+const MIN_CARDS_PER_SET = 12
+const SECONDS_PER_CARD = [18, 21]
+
+function buildSet<T>(row: T[]) {
+    const repeats = Math.ceil(MIN_CARDS_PER_SET / row.length)
+    return Array.from({ length: repeats }, (_, repeatIndex) =>
+        row.map((item, itemIndex) => ({ item, repeatIndex, itemIndex }))
+    ).flat()
+}
 
 export function SocialProofSection() {
-    const firstRow = testimonials.filter((_, index) => index % 2 === 0)
-    const secondRow = testimonials.filter((_, index) => index % 2 === 1)
+    const rows = [
+        buildSet(testimonials.filter((_, index) => index % 2 === 0)),
+        buildSet(testimonials.filter((_, index) => index % 2 === 1))
+    ]
 
     return (
         <section
@@ -30,25 +43,22 @@ export function SocialProofSection() {
             </div>
 
             <div className="relative flex flex-col gap-3 [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]">
-                {[firstRow, secondRow].map((row, rowIndex) => (
+                {rows.map((set, rowIndex) => (
                     <div key={rowIndex === 0 ? "first" : "second"} className="overflow-hidden">
                         <div
-                            className={cn(
-                                "flex w-max gap-3 pr-3 [animation:landing-marquee_54s_linear_infinite] hover:[animation-play-state:paused]",
-                                rowIndex === 1 &&
-                                    "[animation-direction:reverse] [animation-duration:62s]"
-                            )}
+                            className="flex w-max [animation:landing-marquee_linear_infinite] hover:[animation-play-state:paused] motion-reduce:[animation:none]"
+                            style={{
+                                animationDuration: `${set.length * SECONDS_PER_CARD[rowIndex]}s`,
+                                animationDirection: rowIndex === 1 ? "reverse" : "normal"
+                            }}
                         >
                             {[0, 1].map((groupIndex) => (
-                                <div
-                                    key={`${rowIndex}-${groupIndex}`}
-                                    className="flex gap-3 pr-3"
-                                    aria-hidden={groupIndex === 1}
-                                >
-                                    {row.map((testimonial) => (
+                                <div key={`${rowIndex}-${groupIndex}`} className="flex gap-3 pr-3">
+                                    {set.map(({ item: testimonial, repeatIndex, itemIndex }) => (
                                         <article
-                                            key={`${testimonial.name}-${groupIndex}`}
-                                            className="flex h-36 w-[min(20rem,82vw)] flex-col justify-between rounded-[var(--radius-lg)] border p-4 transition-colors [background:var(--landing-surface)] [border-color:var(--landing-border)] hover:[background:var(--landing-surface-strong)]"
+                                            key={`${repeatIndex}-${itemIndex}`}
+                                            aria-hidden={groupIndex > 0 || repeatIndex > 0}
+                                            className="flex h-36 w-[min(20rem,82vw)] shrink-0 flex-col justify-between rounded-[var(--radius-lg)] border p-4 transition-colors [background:var(--landing-surface)] [border-color:var(--landing-border)] hover:[background:var(--landing-surface-strong)]"
                                         >
                                             <p className="line-clamp-3 text-sm leading-6 [color:var(--landing-muted-soft)]">
                                                 "{testimonial.quote}"
