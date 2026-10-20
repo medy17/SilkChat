@@ -89,6 +89,8 @@ Family conventions:
 - **MiMo:** retain `MiMo` because bare `V` labels would collide conceptually with other
   families (`MiMo V2.5 Pro`, `MiMo V2 Omni`).
 - **MiniMax:** remove `MiniMax`; retain its recognizable `M` series token (`M3`, `M2.7`).
+- **Mistral:** retain `Mistral`, because bare tiers like `Large 4` and `Small 4` don't
+  identify a family (`Mistral Large 4`, `Mistral Medium 3.5`).
 
 ### Adapter prefixes
 

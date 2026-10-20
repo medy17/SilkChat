@@ -7,6 +7,7 @@ import {
     GrokIcon,
     MetaIcon,
     MiniMaxIcon,
+    MistralIcon,
     MoonshotLogo,
     OpenAIIcon,
     OpenRouterIcon,
@@ -37,6 +38,8 @@ const getDeveloperBrandIcon = (developer?: string, className = "size-4") => {
             return <MiniMaxIcon className={className} />
         case "Meta":
             return <MetaIcon className={className} />
+        case "Mistral AI":
+            return <MistralIcon className={className} />
         default:
             return null
     }

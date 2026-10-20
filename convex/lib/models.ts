@@ -11,6 +11,7 @@ import { GOOGLE_MODELS } from "./models/google"
 import { META_MODELS } from "./models/meta"
 import { MICROSOFT_MODELS } from "./models/microsoft"
 import { MINIMAX_MODELS } from "./models/minimax"
+import { MISTRAL_MODELS } from "./models/mistral"
 import { MOONSHOT_MODELS } from "./models/moonshot"
 import { OPENAI_MODELS } from "./models/openai"
 import { QWEN_MODELS } from "./models/qwen"
@@ -33,6 +34,7 @@ export const MODELS_SHARED: SharedModel[] = [
     ...QWEN_MODELS,
     ...XIAOMI_MODELS,
     ...MINIMAX_MODELS,
+    ...MISTRAL_MODELS,
     ...ANTHROPIC_MODELS,
     ...GOOGLE_MODELS,
     ...META_MODELS,

@@ -488,6 +488,23 @@ export function XiaomiIcon(props: SVGProps<SVGSVGElement>) {
     )
 }
 
+export function MistralIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            fill="currentColor"
+            height="1em"
+            style={{ flex: "none", lineHeight: 1 }}
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+            {...props}
+        >
+            <title>Mistral AI</title>
+            <path d="M3.429 3.429h3.428v13.714H3.43zM17.143 3.429h3.428v13.714h-3.428zM6.857 6.857h3.429v6.857H6.857zM13.714 6.857h3.429v6.857h-3.429zM10.286 10.286h3.428v6.857h-3.428zM0 17.143h10.286v3.428H0zM13.714 17.143H24v3.428H13.714z" />
+        </svg>
+    )
+}
+
 export function OpenAIIcon(props: SVGProps<SVGSVGElement>) {
     return (
         <svg
